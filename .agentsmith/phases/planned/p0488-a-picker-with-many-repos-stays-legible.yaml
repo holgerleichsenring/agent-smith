@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0488
+goal: "The connection repo picker filters, caps what it renders, and shows a wildcard as the rule it is rather than as one more chip."
+
+applies_to: "dashboard"
+
+decisions:
+  - key: |
+      THE CHIP WALL IS THE DEFECT, THE FILTER IS ONLY HALF THE CURE. RepoPicker renders
+      EVERY discovered repo as a wrapping .pick chip. A connection with three hundred repos
+      is a wall; filtering makes the wall smaller, not orderly. So the multi-select becomes
+      a scrollable ROW list (checkbox + name + default branch), and chips are kept for the
+      few things that are actually selected.
+  - key: |
+      NO PAGING, NO INFINITE SCROLL — A CAP AND A COUNT. The discovery snapshot arrives in
+      one response and already lives client-side, so paging would invent round-trips that
+      buy nothing, and infinite scroll inside a form field steals the scroll the form needs.
+      The list renders the first N matches with "showing N of M" and a "show more" control.
+      Silent truncation is the one thing forbidden — the operator must always read how many
+      matched [[feedback_no_heuristic_for_missing_data]].
+  - key: |
+      A WILDCARD IS A RULE, AN EXACT NAME IS A PICK — AND THE UI MUST NOT BLUR THEM. Both
+      land in the same project.repos array today, which is why the form reads untidy. An
+      exact ref names one repo forever; conn/Sample.* keeps matching repos discovered NEXT
+      week. The picker therefore states a wildcard chip's LIVE match count, and renders a
+      row already covered by a rule as covered — not as a free checkbox that would add a
+      redundant exact ref shadowing the rule.
+  - key: |
+      THE FILTER BOX AND THE WILDCARD FIELD ARE ONE FIELD. Today there is a second input
+      ("name or wildcard") below the chips; two inputs for one thought is the visible
+      untidiness the operator named. Typing filters the list; when what was typed contains
+      a *, the same box offers "add rule conn/<pattern>" with the count it currently
+      matches. The wildcard becomes visible BEFORE it is saved.
+  - key: |
+      SELECT-ALL-FILTERED OFFERS THE RULE FIRST. Filtering to a common prefix and taking all
+      of them is the frequent move. When the filter is a pattern, one rule chip is offered
+      ahead of N exact chips — the whole point of the split above.
+  - key: |
+      refMatches IS REUSED, NOT RE-WRITTEN. RepoInventory already owns the glob semantics for
+      "does conn/Pre* cover this repo". It moves to lib/ and both call it, so inventory and
+      picker can never disagree about what a rule covers [[feedback_no_wrapper_shims]].
+  - key: |
+      THE HONEST EMPTY STATES SURVIVE. p0345c's four states (loading / discovery error / not
+      discovered yet / discovered-but-empty) are load-bearing and stay exactly as they read.
+      A fifth is added for "filter matches nothing", which is not the same claim.
+
+steps:
+  - id: the-glob-rule-has-one-home
+    action: "Move refMatches out of RepoInventory into lib/ and have both the inventory and the picker call it."
+  - id: the-list-filters-and-says-how-many
+    action: "Add a filter box above the discovered repos that narrows the list and always states matched-of-total."
+  - id: the-list-renders-a-capped-window
+    action: "Render at most N matches as rows (checkbox, name, default branch) in a fixed-height scroll container, with a show-more control and no silent truncation."
+  - id: a-rule-shows-what-it-covers
+    action: "Render a wildcard ref as a chip carrying its live match count, and mark each discovered row that a rule already covers as covered rather than selectable."
+  - id: the-filter-box-offers-the-rule
+    action: "When the filter text contains a wildcard, offer adding it as conn/<pattern> from the same box, and retire the separate name-or-wildcard field."
+  - id: taking-all-matches-prefers-the-rule
+    action: "Offer select-all-filtered, proposing the single rule ahead of N exact refs when the filter is a pattern."
+
+tests:
+  - "RepoPicker_Filter_NarrowsTheList_AndStatesMatchedOfTotal"
+  - "RepoPicker_ManyRepos_RendersACappedWindow_AndSaysHowManyAreHidden"
+  - "RepoPicker_ShowMore_RevealsTheNextWindow"
+  - "RepoPicker_FilterMatchesNothing_SaysSo_WithoutLosingSelection"
+  - "RepoPicker_WildcardChip_CarriesItsLiveMatchCount"
+  - "RepoPicker_RepoCoveredByARule_RendersAsCovered_NotAsAFreeCheckbox"
+  - "RepoPicker_FilterContainingAStar_OffersTheRule_FromTheSameBox"
+  - "RepoPicker_SelectAllFiltered_PrefersTheRule_OverNExactRefs"
+  - "RepoPicker_TheFourDiscoveryStates_ReadUnchanged"
+  - "RefMatches_HasOneImplementation_SharedByInventoryAndPicker"
+
+done:
+  - "a filter box narrows the discovered repos and the count of matched-of-total is always visible"
+  - "the discovered repos render as rows in a capped, scrollable window; nothing is truncated silently"
+  - "a wildcard ref reads as a rule with its live match count, and covered repos say they are covered"
+  - "the separate name-or-wildcard input is gone; the filter box offers the rule"
+  - "select-all-filtered proposes one rule instead of N exact refs when the filter is a pattern"
+  - "refMatches lives in one place and the inventory reads identically to before"
+  - "p0345c's discovery states are unchanged"

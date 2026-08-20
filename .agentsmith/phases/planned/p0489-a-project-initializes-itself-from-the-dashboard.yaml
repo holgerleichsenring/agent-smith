@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0489
+goal: "A configured project is initialized from a button in the dashboard, with no ticket written anywhere, and what came of it is one click away."
+
+applies_to: "backend + dashboard"
+
+decisions:
+  - key: |
+      NO TICKET IS NEEDED, AND NONE IS WRITTEN. The operator's worry was whether the token
+      may CREATE tickets. It never has to: init-project's own preset carries FetchTicket with
+      the note that it no-ops on ticketless runs, the CLI's init builds a PipelineRequest with
+      no TicketId, and ExecutePipelineUseCase already stamps such a run trigger="manual".
+      The ticketless run is not a new mode — it is the mode init was written for.
+  - key: |
+      THE LAUNCH IS ResumeRunLauncher'S SHAPE: DIRECT ENQUEUE, NO CLAIM. TicketClaimService
+      takes a lease keyed on a ticket and transitions the ticket's lifecycle through the
+      tracker — both meaningless without a ticket. p0327 already needed a launch that skips
+      exactly those two things and got one. The manual launcher is its twin: reserve, write
+      the row, enqueue a PipelineRequest, done. PipelineQueueConsumer then runs it like every
+      polled run, so the run row, ledger, cancel, delete and cost accounting come for free.
+  - key: |
+      NOT THE SPAWNER PATH. The alternative was the CLI in a spawned container (the Slack
+      route via IJobSpawner). Its pod spec forwards secrets and Redis only — no database
+      binding, no config mount — and it bypasses capacity admission entirely. The in-process
+      enqueue is the production path and needs none of that argued.
+  - key: |
+      TicketId STAYS NULL — NO SYNTHETIC ID. A synthetic ticket id would buy the ActiveRun
+      lease (whose whole lifecycle is keyed on TicketId) and with it heartbeat + reaper, at
+      the price of a fabricated identity leaking into the run row, the poller's lease check
+      and the tracker finalize. Fake data to satisfy a shape is the thing we do not do
+      [[feedback_no_heuristic_for_missing_data]]. There is no ticket; the request says so.
+  - key: |
+      THE DOUBLE-START GUARD IS A QUESTION, NOT A LOCK. Without a lease, twice-clicking must
+      still not start two inits. The guard is the run rows themselves: a non-terminal run of
+      this project's init-project pipeline means the answer is "already running", with its run
+      id — which is also what the button should say. Honest, queryable, no second lock to keep
+      in sync with the first.
+  - key: |
+      NO CAPACITY IS A REFUSAL WITH A REASON, NOT A QUEUE ENTRY. The capacity queue re-validates
+      a TICKET's native status every tick and dequeues through the claim service; a ticketless
+      entry has nothing to re-validate. So admission is synchronous — footprint, corpse reap,
+      quota probe, reserve, exactly as SpawnPipelineRunsUseCase does it — and a run that does
+      not fit is refused with the reason the budget gave. The re-run is the same button. That
+      is the operator's answer to "wie mache ich einen re-run": press it again.
+  - key: |
+      RE-RUNNING IS SAFE BECAUSE INIT IS. InitCommitHandler skips a repo with no staged changes,
+      so a second init on an initialized repo opens no PR and changes nothing. The button needs
+      no "are you sure".
+  - key: |
+      THE ERRORS ARE WHERE ERRORS ALREADY LIVE. Two failures, two places, and the UI must not
+      invent a third: a REFUSED launch (no capacity, already running, project unknown) answers
+      inline at the button and stays pressable; a STARTED run that then fails is the ordinary
+      run detail, so the button hands back the run id and links straight to it.
+  - key: |
+      INIT ONLY — THE ENDPOINT DOES NOT TAKE A PIPELINE. A generic start-any-pipeline surface
+      was offered and declined: init is the only thing an operator wants to trigger by hand
+      here, and a pipeline parameter would be an untested launch path for six presets nobody
+      asked for.
+  - key: |
+      AUTO-ACCEPTING THE PR IS p0490, NAMED HERE. It needs a merge capability ISourceProvider
+      does not have, across four implementations. It is not folded into this phase and it is
+      not dropped [[feedback_no_silent_defer]].
+
+steps:
+  - id: a-project-can-be-asked-to-initialize
+    action: "Add a launcher that admits against the capacity budget, records the queued/running run row and enqueues a ticketless init-project PipelineRequest — no claim, no tracker call."
+  - id: the-launcher-refuses-with-a-reason
+    action: "Answer a launch that cannot start with the reason: already running (with the live run id), no capacity, or project not configured."
+  - id: the-dashboard-can-reach-it
+    action: "Expose the launcher as POST /api/projects/{name}/init returning the run id on success and the reason on refusal."
+  - id: the-button-sits-where-the-project-is
+    action: "Add an Initialize action to the project card and the project detail panel, linking to the run it started."
+  - id: the-button-tells-the-truth-while-it-waits
+    action: "Render the refusal inline and keep the action pressable; while an init is live, show it as running and link to that run."
+
+tests:
+  - "InitLauncher_TicketlessRequest_IsEnqueued_AndNoTrackerCallIsMade"
+  - "InitLauncher_TheRunRow_CarriesTriggerManual_AndNoTicketId"
+  - "InitLauncher_SecondLaunchWhileOneRuns_IsRefused_WithTheLiveRunId"
+  - "InitLauncher_BudgetDoesNotFit_IsRefused_WithTheBudgetsReason_AndNothingIsEnqueued"
+  - "InitLauncher_UnknownProject_IsRefused"
+  - "InitLauncher_RefusedLaunch_ReservesNothing"
+  - "InitEndpoint_Success_AnswersTheRunId"
+  - "InitEndpoint_AlreadyRunning_Answers409_WithTheRunId"
+  - "InitEndpoint_NoCapacity_Answers503_WithTheReason"
+  - "ProjectCard_InitializeAction_PostsAndLinksToTheRun"
+  - "ProjectCard_Refusal_RendersInline_AndTheActionStaysPressable"
+  - "ProjectCard_WhileAnInitRuns_ShowsItRunning_AndLinksToIt"
+
+done:
+  - "an operator starts init-project for a configured project from the dashboard"
+  - "no ticket is created, read or transitioned on that path"
+  - "the run appears in the run list like any polled run, stamped manual, and cancel/delete work on it"
+  - "a launch that cannot start says why, at the button, and can be retried by pressing it again"
+  - "a started run that fails is one click away on its own run page"
+  - "a second click while an init is live opens the live run instead of starting another"
+  - "the PR auto-accept is p0490 and this phase does not claim it"
