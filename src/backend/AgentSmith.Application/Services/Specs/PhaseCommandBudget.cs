@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
@@ -15,7 +13,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// Hence: the budget is characters, not entries; an entry's OUTPUT gives way before the
 /// entry does, oldest output first; a whole entry is dropped only when nothing is left to
-/// shorten; and whenever anything gave way, the list says so at its head.
+/// shorten; and whenever anything gave way, the list says so — leading the log's own lines,
+/// which PhaseEvidence appends after the verification outcomes.
 /// </para>
 /// </summary>
 internal static class PhaseCommandBudget
@@ -43,9 +42,10 @@ internal static class PhaseCommandBudget
     // so what the account is handed never weighs more than the budget allows.
     private const int LineOverhead = 80;
 
-    /// <summary>The command as stored: enough to recognise what ran, never a whole patch.</summary>
+    /// <summary>The command as stored: enough to recognise what ran, never a whole patch.
+    /// p0481: shortened in the MIDDLE, because the end is where a search's paths are.</summary>
     internal static string Capped(string command) =>
-        command.Length <= CommandChars ? command : command[..CommandChars] + "…";
+        CommandElision.Shorten(command, CommandChars);
 
     /// <summary>Shrinks what is already stored until it fits — the oldest output first, and a
     /// whole entry only once no output is left to give.</summary>
@@ -88,22 +88,11 @@ internal static class PhaseCommandBudget
     {
         if (string.IsNullOrWhiteSpace(output)) return string.Empty;
         var text = output.Trim();
-        return text.Length <= TailChars ? Collapse(text) : "…" + Collapse(text[^TailChars..]);
+        return text.Length <= TailChars
+            ? CommandElision.Collapse(text)
+            : "…" + CommandElision.Collapse(text[^TailChars..]);
     }
 
-    private static string Collapse(string text)
-    {
-        var sb = new StringBuilder(text.Length);
-        var space = false;
-        foreach (var c in text)
-        {
-            var blank = char.IsWhiteSpace(c);
-            if (blank && space) continue;
-            sb.Append(blank ? ' ' : c);
-            space = blank;
-        }
-        return sb.ToString().Trim();
-    }
 
     private static int Cost(PhaseCommandEntry entry) =>
         entry.Repo.Length + entry.Command.Length + entry.Tail.Length + LineOverhead;
