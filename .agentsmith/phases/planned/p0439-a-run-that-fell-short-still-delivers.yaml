@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0439
-goal: "A run that did the work and fell short of part of its contract DELIVERS what it built and says what is missing, under a state of its own — instead of failing and leaving the work where nobody is pointed at it."
+goal: "A run that did the work and fell short of part of its contract DELIVERS what it built, says what is missing, and counts as DONE — instead of failing and leaving the work where nobody is pointed at it."
 
 applies_to: "backend + dashboard"
 
@@ -25,8 +25,38 @@ decisions:
       A NEW STATE GETS A NEW NAME — OPERATOR RULING. "Einen vorhandenen mitzubenutzen ist
       meist keine gute idee." SHORTFALL is the name: the run completed, it delivered, and
       it falls short of the ratified contract. It is not `failed` (nothing broke), not
-      `success` (the contract is unmet), and not `cancelled` (nobody stopped it). The word
-      says which of the three it is without a legend.
+      `cancelled` (nobody stopped it). The word says which it is without a legend.
+  - key: |
+      AND IT IS A DONE, NOT A THIRD THING — SECOND OPERATOR RULING, 2026-08-20. "Die
+      Einschätzung muss stimmen. Done + double check oder Done + no questions sind beides
+      done und nicht failed." This spec first said SHORTFALL was expressly not success; the
+      operator has now ruled that a delivered run with open questions is a DONE that reads as
+      one. Amended in place rather than superseded, because this spec has only ever lived in
+      planned/ and was never executed [[feedback_phase_versioning]].
+  - key: |
+      MEASURED, AND THE OPERATOR CAUGHT IT BY HAND. Run 2026-08-20T13-38-47-d8d1 migrated two
+      repositories off MediatR and MassTransit, built both, passed Server 226 and worker 2,009
+      tests, and opened its pull requests. The operator then started both hosts: the API comes
+      up and serves, the worker comes up, and the one remaining error is a pre-existing queue.
+      The gate recorded FAILED and tagged the ticket agent-smith:failed. FAILED has to keep
+      meaning "this did not deliver" — an operator who has seen a working branch tagged failed
+      stops reading the tag, and then the tag protects nothing.
+  - key: |
+      THE VERDICT COMES FROM THE PHASE, NOT FROM THE DELIVERY GATE. PhaseVerdict.From returns
+      CommandResult.Fail("N criterion(s) of the ratified phase are not satisfied by the
+      branch"), VerifyPhaseHandler returns it, and PipelineExecutor ends the run there — one
+      step BEFORE the delivery gate this spec was about. A version of this phase that taught
+      only the gate would change nothing, which a review caught before any code was written.
+      VerifyPhaseHandler.cs stands at 335 lines against a baseline of exactly 335, so the
+      change there is net-zero or it is an extraction.
+  - key: |
+      THE TRIGGER IS MECHANICAL, NOT A JUDGEMENT ABOUT THE CRITERION. A first draft split
+      criteria into "about the software" and "about a record", so that only the first kind
+      could fail a run. A review showed the split is a laundering channel: the deriver is an
+      LLM, "about a document" is a property of WORDING, and a criterion reworded as "the
+      inventory documents that no MediatR remains" would pass with MediatR still in the code.
+      The condition stays what it already was here — the phases are accounted for and the tree
+      is GREEN — which no model gets to phrase.
   - key: |
       MECHANICAL FAILURE IS STILL FAILURE. A red build, an unaccounted phase (p0420: an
       account taken over a tree that does not compile is an opinion about unshippable work),
@@ -53,7 +83,9 @@ decisions:
 
 steps:
   - id: shortfall-is-a-state
-    action: "The run vocabulary gains a terminal state for a run that delivered and did not satisfy every ratified criterion, distinct from success, failed and cancelled."
+    action: "The run vocabulary gains a terminal state for a run that delivered and did not satisfy every ratified criterion, distinct from failed and cancelled, and counted among the dones."
+  - id: the-phase-verdict-stops-ending-the-run
+    action: "Let an outstanding criterion over a green, accounted tree carry the run forward to delivery instead of failing the step, without growing VerifyPhaseHandler."
 
   - id: only-an-unmet-contract-reaches-it
     action: "A run reaches that state only when its phases are accounted for and the tree is green; every mechanical failure keeps the state it has today."
@@ -72,6 +104,9 @@ steps:
 
 tests:
   - "ARunWithUnmetCriteriaOverAGreenTree_EndsInShortfall"
+  - "ARunWithUnmetCriteriaOverAGreenTree_IsCountedAsDone_NotFailed"
+  - "PhaseVerdict_OutstandingCriteriaOverAGreenTree_DoesNotEndTheRun"
+  - "PhaseVerdict_OutstandingCriteriaOverARedTree_StillEndsTheRun"
   - "ARedBuild_IsStillAFailure_NotAShortfall"
   - "AnUnaccountedPhase_IsStillAFailure_NotAShortfall"
   - "AShortfallRun_OpensItsPullRequest"
@@ -86,3 +121,4 @@ done:
   - "The ticket carries a lifecycle label for the state, and the tracker status it maps to is operator-configurable."
   - "The dashboard shows the state as itself in the run list and on the run."
   - "A run that satisfies every criterion is byte-for-byte unchanged."
+  - "The state is counted as a done wherever runs are counted, and never as a failure."
