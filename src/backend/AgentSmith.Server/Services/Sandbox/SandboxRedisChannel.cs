@@ -7,8 +7,8 @@ namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
 /// Server-side pipeline-scoped channel onto the Redis bus shared with the Agent.
-/// One instance per pipeline run; persistent _lastSeenXid prevents replaying earlier
-/// events through IProgress on subsequent steps.
+/// One instance per pipeline run; the drain's persistent cursor prevents replaying
+/// earlier events through IProgress on subsequent steps.
 /// </summary>
 public sealed class SandboxRedisChannel : IAsyncDisposable
 {
@@ -18,13 +18,14 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
     private readonly IDatabase _database;
     private readonly string _jobId;
     private readonly ILogger _logger;
-    private string _lastSeenXid = "0-0";
+    private readonly SandboxEventDrain _drain;
 
     public SandboxRedisChannel(IConnectionMultiplexer multiplexer, string jobId, ILogger logger)
     {
         _database = multiplexer.GetDatabase();
         _jobId = jobId;
         _logger = logger;
+        _drain = new SandboxEventDrain(_database, RedisKeys.EventsKey(jobId), logger);
     }
 
     public async Task PushStepAsync(Step step, CancellationToken cancellationToken)
@@ -44,9 +45,16 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         while (DateTimeOffset.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await DrainEventsAsync(stepId, progress);
+            await _drain.DrainAsync(stepId, progress);
             var result = await TryPopResultAsync(stepId, cancellationToken);
-            if (result is not null) return result;
+            if (result is not null)
+            {
+                // p0491: the agent writes its last output lines just before pushing the
+                // result, so returning here without a second drain leaves them for a later
+                // step to discard — which is how a command's whole output disappeared.
+                await _drain.DrainAsync(stepId, progress);
+                return result;
+            }
             await Task.Delay(ResultPollTick, cancellationToken);
         }
         throw new TimeoutException(
@@ -66,35 +74,6 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to clean up Redis keys for job {JobId}", _jobId);
-        }
-    }
-
-    private async Task DrainEventsAsync(Guid stepId, IProgress<StepEvent>? progress)
-    {
-        var streamKey = RedisKeys.EventsKey(_jobId);
-        var entries = await _database.StreamReadAsync(streamKey, _lastSeenXid, count: 100);
-        if (entries.Length == 0) return;
-
-        foreach (var entry in entries)
-        {
-            _lastSeenXid = entry.Id!;
-            if (progress is null) continue;
-            ForwardMatchingEvent(entry, stepId, progress);
-        }
-    }
-
-    private void ForwardMatchingEvent(StreamEntry entry, Guid stepId, IProgress<StepEvent> progress)
-    {
-        try
-        {
-            var raw = entry["data"];
-            if (raw.IsNullOrEmpty) return;
-            var ev = JsonSerializer.Deserialize<StepEvent>((string)raw!, WireFormat.Json);
-            if (ev is not null && ev.StepId == stepId) progress.Report(ev);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning(ex, "Failed to deserialize StepEvent {Id}", entry.Id);
         }
     }
 

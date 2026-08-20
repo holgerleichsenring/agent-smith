@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0491
+goal: "A shell command's output reaches the model from the result it produced, not from a live feed that can fall behind."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      MEASURED, NOT SUSPECTED, AND NOT WHAT THE FIRST DIAGNOSIS SAID. A run parked asking the
+      operator to provision a checkout that was there all along: its sandbox "returned no
+      output for pwd, ls, project discovery and mediator inventory". The record shows those
+      commands exiting 0 with 27,355 / 2,591 / 28,888 characters in their result bodies and
+      ZERO characters streamed. The model was handed an empty stdout and reported exactly
+      that.
+  - key: |
+      CONTEXT COMPACTION WAS NOT THE MECHANISM, SO NOTHING HERE TOUCHES IT. The first reading
+      blamed a compaction fold eating the evidence. No fold happened in that run: the fold log
+      line never appears, the summarizer never ran (every cheap-model call belongs to the
+      project analyzer and predates the master pass), and the context grew monotonically to
+      ~82k input tokens with the provider prefix cache holding. The two "Summarization client
+      resolved" lines are the master chain being BUILT — the summarizer is constructed eagerly
+      — not a fold. Verified before building [[feedback_challenge_premises]].
+  - key: |
+      THE RESULT BODY IS THE ANSWER; THE EVENT STREAM IS THE DRAWER. The agent captures a run
+      step's stdout into StepResult.OutputContent (p0258) AND streams it line by line for the
+      live sandbox drawer. The model-facing text was assembled from the stream, so the answer a
+      tool call returns depended on a best-effort feed keeping up. It is now assembled from the
+      body, which the agent bounds at capture and which arrives with the result or not at all.
+  - key: |
+      STDERR STAYS ON THE STREAM, AND THE TEXT SAYS SO. The agent captures only stdout into the
+      body, so stderr has no authoritative copy to switch to. Rather than invent one here, the
+      renderer keeps taking stderr from the stream; the exit code and the result's own error
+      message already carry a failure the stderr lines would have explained.
+  - key: |
+      THE STREAM REMAINS THE FALLBACK FOR AN OLDER AGENT IMAGE. The sandbox agent ships as its
+      own image on its own cadence, and an image predating p0258 leaves OutputContent null on
+      run steps. Body when present, streamed text otherwise — a fallback for a real deployment
+      skew, not a shim around a new interface [[feedback_no_wrapper_shims]].
+  - key: |
+      THE DRAIN CATCHES UP INSTEAD OF READING ONE PAGE. WaitForResultAsync read at most 100
+      stream entries per 250ms tick and returned the moment the result popped, leaving the rest
+      unread; the next step's drain then discarded them for belonging to another step, and a
+      channel that fell behind on one chatty command stayed deaf until a long command gave it
+      time to catch up. That is why the loss alternated between repositories and why looking
+      again sometimes worked. The drain now reads until the stream is exhausted.
+  - key: |
+      DRAINING TO EXHAUSTION IS BOUNDED, BECAUSE THE STREAM IS. The agent writes into a Redis
+      stream trimmed at StreamLimits.EventStreamMaxLength, so a catch-up capped at that many
+      entries per drain cannot loop on a producer that keeps writing: it returns to the poll
+      loop, which still owns the step deadline and the cancellation token. Unbounded catch-up
+      would have traded a silent loss for a possible hang [[feedback_safety_in_api_not_process]].
+  - key: |
+      THE GUARD RIDES ON NUMBERS THE RESULT ALREADY CARRIES. p0423 already publishes what a
+      command printed and how much of it survived. A run step whose streamed count is short of
+      its body is this defect's signature, so the projector says so at warning level instead of
+      a new field, a new event or a new probe.
+  - key: |
+      THE COMPANION SKILLS RULE IS REFUSED, NOT DEFERRED — DO NOT RE-PROPOSE IT. The draft
+      paired this with a coding-master rule: "if you cannot see the result of a command you
+      ran, run it again; never report a repository missing from your own memory". That master
+      DID run it again, twice, and was handed a truthful empty stdout each time; parking to ask
+      the operator was the honest move. The rule would teach masters to distrust an accurate
+      signal and would leave the transport defect in place. There is no follow-up phase for it
+      [[feedback_no_silent_defer]].
+
+steps:
+  - id: the-model-reads-the-result-body
+    action: "Render run_command's model-facing text from StepResult.OutputContent, keeping the existing bound and reporting truncation for what is actually cut."
+  - id: the-drain-catches-up-before-the-result-returns
+    action: "Drain the sandbox event stream until it is exhausted, bounded by the stream's own cap, so no entry is left for a later step to discard."
+  - id: a-stream-that-falls-behind-says-so
+    action: "Warn when a run step streamed fewer characters than its result body carried."
+  - id: the-loss-is-pinned-at-its-real-size
+    action: "Reproduce the live failure — a directory inventory of ~27,000 characters delivered with no progress events — and pin that it reaches the model."
+
+tests:
+  - "RunAsync_BodyArrivesWithNoProgressEvents_TheInventoryStillReachesTheModel"
+  - "RunAsync_StreamAndBodyBothPresent_TheBodyIsWhatTheModelReads"
+  - "RunAsync_BodyIsNull_FallsBackToTheStreamedOutput"
+  - "RunAsync_BodyExceedsTheBuffer_IsCutAndSaysTruncated"
+  - "RunAsync_StderrLines_StillComeFromTheStream"
+  - "WaitForResultAsync_BurstLargerThanOneReadWindow_ForwardsEveryEvent"
+  - "WaitForResultAsync_ResultAlreadyWaiting_StillForwardsTheEventsBehindIt"
+  - "WaitForResultAsync_StreamThatKeepsGrowing_StopsAtTheBoundInsteadOfSpinning"
+  - "RunStepAsync_StreamedLessThanTheBody_WarnsAboutTheLag"
+  - "RunStepAsync_StreamKeptUp_SaysNothing"
+
+done:
+  - "run_command's text is built from the result body, with the stream as the fallback"
+  - "the truncated header describes what this renderer actually cut"
+  - "the event drain empties the stream before a result returns, under a bound that cannot spin"
+  - "a run step that streamed less than its body produced is warned about"
+  - "a ~27,000-character body delivered with no progress events reaches the model in a test"
+  - "no compaction code is touched, and no skills rule ships"
+  - "build green, full suite green"
