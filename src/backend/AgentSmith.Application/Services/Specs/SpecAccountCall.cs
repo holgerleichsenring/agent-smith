@@ -22,9 +22,13 @@ public sealed class SpecAccountCall(
 
     public async Task<IReadOnlyList<AccountRow>?> AskAsync(
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria, string diff,
-        IReadOnlyList<string> commandResults, PipelineCostTracker costTracker, CancellationToken ct)
+        IReadOnlyList<string> commandResults, PipelineCostTracker costTracker, CancellationToken ct,
+        string? correction = null)
     {
-        var prompt = SpecAccountPrompt.For(criteria, diff, commandResults);
+        // p0474: a correction is appended, never substituted — the second answer is judged
+        // against the same evidence as the first, so it needs the same prompt behind it.
+        var prompt = SpecAccountPrompt.For(criteria, diff, commandResults)
+            + (correction is null ? string.Empty : "\n\n" + correction);
         try
         {
             // The account is a model call like any other: it belongs in the cost ledger
