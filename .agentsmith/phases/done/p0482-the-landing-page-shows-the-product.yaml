@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
-phase: p0478
+phase: p0482
 goal: "A first-time visitor sees the product on the landing page, and the reference diagrams live where someone has already decided to read them."
 
 applies_to: "backend"
