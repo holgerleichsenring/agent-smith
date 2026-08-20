@@ -44,7 +44,6 @@ public sealed class SpecAccountant(
         if (criteria.Count == 0)
             return new SpecAccount(repoKey, [], "the phase states no completion criteria");
 
-        var resolver = new CitationResolver(CitedFileIndex.FromDiff(diff), commandResults);
         // p0483: the account settles an absence by searching the branch itself, so the call
         // carries a tool and an iteration cap. Without a sandbox it falls back to the cited
         // evidence, which is what every account did before this.
@@ -68,30 +67,26 @@ public sealed class SpecAccountant(
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
+        // p0484: built AFTER the call. The account's own searches happen DURING it, so a
+        // resolver made ahead of time can never see them — which is why the first live run
+        // was refused for a criterion it had settled by looking.
         var reader = new AccountRowResolution(logger);
-        var rows = reader.Resolve(repoKey, criteria, answer, resolver);
+        var rows = reader.Resolve(repoKey, criteria, answer,
+            AccountTools.ResolverOver(diff, commandResults, branchSearch));
 
-        // p0474: a citation that resolves against nothing is a FORMAT failure far more often
-        // than a false claim — three live runs died on it with the work finished. The deriver
-        // has been given its objection and a second attempt since p0422; the account gets one
-        // too, and the resolver judges the second answer exactly as it judged the first.
         var unresolved = AccountReAsk.Unresolved(rows);
         if (unresolved.Count == 0) return new SpecAccount(repoKey, rows);
-
         logger.LogInformation(
             "{Repo}: {Count} criterion(s) cited something that resolves against nothing — asking once more",
             repoKey, unresolved.Count);
         var second = await call.AskAsync(
-            chat, repoKey, [.. unresolved.Select(u => u.Criterion)], windows.Count > 0 ? windows[0] : string.Empty,
+            chat, repoKey, [.. unresolved.Select(u => u.Criterion)],
+            windows.Count > 0 ? windows[0] : string.Empty,
             searchable, commandResults, costTracker, cancellationToken,
             AccountReAsk.Message(unresolved), tools);
-        if (second is null) return new SpecAccount(repoKey, rows);
-
-        var corrected = reader.Resolve(repoKey, [.. unresolved.Select(u => u.Criterion)], second, resolver);
-        return new SpecAccount(repoKey, [.. rows.Select(r =>
-            corrected.FirstOrDefault(c =>
-                string.Equals(c.Criterion, r.Criterion, StringComparison.OrdinalIgnoreCase)) is { Satisfied: true } fixedRow
-                ? fixedRow : r)]);
+        return new SpecAccount(repoKey, AccountSecondPass.Merge(
+            rows, unresolved, second, repoKey, reader,
+            AccountTools.ResolverOver(diff, commandResults, branchSearch)));
     }
 
     private const string RoleName = "spec-accountant";

@@ -40,7 +40,8 @@ internal static class AccountReAsk
         sb.AppendLine("prints it, or one command copied character for character from between the");
         sb.AppendLine("quotes on its line under COMMANDS — a shortened one carries a … for the part");
         sb.AppendLine("left out and that is copied too. Two commands are two elements; never join");
-        sb.AppendLine("them and never cut one apart.");
+        sb.AppendLine("them and never cut one apart. A criterion you settled with search_branch is");
+        sb.AppendLine("cited by the PATTERN you searched for, copied exactly as you wrote it.");
         sb.AppendLine();
         sb.AppendLine("Answer again with ONLY the JSON array, for these criteria alone. If you cannot");
         sb.AppendLine("name a file or a command that covers one, report it as not satisfied.");
