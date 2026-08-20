@@ -18,6 +18,15 @@ internal static class AccountTools
     /// turn that answers.</summary>
     internal const int MaxIterations = BranchSearch.MaxSearches + 2;
 
+    /// <summary>What a citation may name: a path the diff covers, a command that was listed,
+    /// or a search the account ran itself. p0484: the third was missing, so a criterion the
+    /// account had settled by LOOKING could not be reported — it was allowed to look and not
+    /// allowed to say so.</summary>
+    internal static CitationResolver ResolverOver(
+        string diff, IReadOnlyList<string> commandResults, BranchSearch? search) =>
+        new(CitedFileIndex.FromDiff(diff),
+            search is null ? commandResults : [.. commandResults, .. search.Evidence]);
+
     /// <summary>Null rather than an empty list when there is no sandbox: an empty Tools
     /// collection and no Tools collection are the same call, and null is what says the
     /// account fell back to the cited evidence.</summary>
