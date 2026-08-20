@@ -42,6 +42,11 @@ function respond(status: number, body: unknown) {
   } as unknown as Response);
 }
 
+function bodyOf(fetchMock: ReturnType<typeof vi.fn>): unknown {
+  const init = fetchMock.mock.calls[0][1] as RequestInit;
+  return JSON.parse(init.body as string);
+}
+
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
@@ -59,6 +64,34 @@ describe("ProjectCard init action", () => {
       "/api/projects/sample/init",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("InitializeAction_AutoAcceptCheckbox_DefaultsToOn_AndTravelsWithTheLaunch", async () => {
+    const fetchMock = respond(200, { runId: "2026-08-20T09-00-00-abcd", reason: null });
+    vi.stubGlobal("fetch", fetchMock);
+    renderCard();
+
+    const checkbox = screen.getByTestId("project-init-auto-accept-sample");
+    // Nobody reviews an init PR, so the honest default is the tick already set.
+    expect(checkbox).toBeChecked();
+
+    fireEvent.click(screen.getByTestId("project-init-sample"));
+
+    await screen.findByTestId("project-init-running-sample");
+    expect(bodyOf(fetchMock)).toEqual({ autoCompletePullRequests: true });
+  });
+
+  it("InitializeAction_AutoAcceptUnticked_LaunchesWithoutIt", async () => {
+    const fetchMock = respond(200, { runId: "2026-08-20T09-00-00-abcd", reason: null });
+    vi.stubGlobal("fetch", fetchMock);
+    renderCard();
+
+    fireEvent.click(screen.getByTestId("project-init-auto-accept-sample"));
+    fireEvent.click(screen.getByTestId("project-init-sample"));
+
+    await screen.findByTestId("project-init-running-sample");
+    // The consent is per launch — untick it and this run merges nothing.
+    expect(bodyOf(fetchMock)).toEqual({ autoCompletePullRequests: false });
   });
 
   it("ProjectCard_Refusal_RendersInline_AndTheActionStaysPressable", async () => {

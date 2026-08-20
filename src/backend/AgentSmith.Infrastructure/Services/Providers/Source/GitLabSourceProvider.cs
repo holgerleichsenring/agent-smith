@@ -24,6 +24,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly string? _configuredDefaultBranch;
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitLabSourceProvider> _logger;
+    private readonly GitLabMergeRequestUpdater _mergeRequests;
     private string? _cachedDefaultBranch;
 
     public string ProviderType => "GitLab";
@@ -40,6 +41,8 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         _configuredDefaultBranch = connection.DefaultBranch;
         _httpClient = httpClient;
         _logger = logger;
+        _mergeRequests = new GitLabMergeRequestUpdater(
+            _baseUrl, _projectPath, _privateToken, httpClient, logger);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -282,58 +285,18 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         await response.EnsureSuccessWithBodyAsync(cancellationToken);
     }
 
-    public async Task<bool> UpdatePullRequestBodyAsync(
-        string prUrl, string newBody, CancellationToken cancellationToken)
-    {
-        if (!TryParseMergeRequestIid(prUrl, out var iid)) return false;
-        try
-        {
-            var encodedProject = _projectPath;
-            var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/merge_requests/{iid}";
-            using var request = new HttpRequestMessage(HttpMethod.Put, url);
-            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
-            request.Content = JsonContent.Create(new { description = newBody });
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            _logger.LogInformation("Updated MR body for !{Iid}", iid);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to update MR body for !{Iid}", iid);
-            return false;
-        }
-    }
+    public Task<bool> UpdatePullRequestBodyAsync(
+        string prUrl, string newBody, CancellationToken cancellationToken) =>
+        _mergeRequests.UpdateBodyAsync(prUrl, newBody, cancellationToken);
 
-    // p0393a: GitLab has no draft FLAG — a merge request is a draft while its title
-    // starts with "Draft:". Taking it out of draft is therefore a title edit.
-    public async Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken)
-    {
-        if (!TryParseMergeRequestIid(prUrl, out var iid)) return false;
-        try
-        {
-            var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests/{iid}";
-            using var request = new HttpRequestMessage(HttpMethod.Put, url);
-            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
-            request.Content = JsonContent.Create(new { remove_source_branch = false, draft = false });
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            _logger.LogInformation("MR !{Iid} is out of draft — the sequence completed", iid);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to mark MR !{Iid} ready for review", iid);
-            return false;
-        }
-    }
+    public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
+        _mergeRequests.MarkReadyAsync(prUrl, cancellationToken);
 
-    private static bool TryParseMergeRequestIid(string mrUrl, out int iid)
-    {
-        iid = 0;
-        var match = System.Text.RegularExpressions.Regex.Match(mrUrl, @"/merge_requests/(\d+)");
-        return match.Success && int.TryParse(match.Groups[1].Value, out iid);
-    }
+    // p0490: the branch is what a LOCAL repository needs to finish a "pull request";
+    // GitLab recovers everything it needs from the URL.
+    public Task<PullRequestCompletion> CompletePullRequestAsync(
+        string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
+        _mergeRequests.CompleteAsync(prUrl, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
