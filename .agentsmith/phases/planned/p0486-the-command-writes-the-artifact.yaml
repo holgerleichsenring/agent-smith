@@ -5,7 +5,7 @@ goal: "An artifact that captures command output is written by the command, and a
 applies_to: "skills"
 
 requires:
-  - p0439a
+  - p0484
 
 decisions:
   - key: |
@@ -36,26 +36,52 @@ decisions:
       same thought applied to how the artifact gets its content, so it belongs in that
       paragraph rather than in a list of prohibitions [[feedback_describe_capabilities_not_prohibitions]].
   - key: |
-      SKILLS SHIP FROM THEIR OWN REPOSITORY. The change is in agent-smith-skills; the spec
-      and the decision record stay here. The release is conventional-commit titled, and the
-      embedded pin moves only after it is cut [[reference_skills_repo_releases]].
+      SKILLS SHIP FROM THEIR OWN REPOSITORY. The change is in agent-smith-skills; the spec and
+      the decision record stay here. The release is conventional-commit titled, the master's
+      own version: is bumped or CI refuses the change, and the embedded pin moves only after
+      the release is cut [[reference_skills_repo_releases]].
+  - key: |
+      THE GUARD IS A PIN-GATED ASSERTION, NOT A GOLDEN. A first draft said "goldens"; there
+      are none for master skills — the skills repository has no test suite, only a frontmatter
+      validator. The mechanism that exists is PackagedMaster plus the pattern
+      CodingMasterToolFirstPromptTests established for p0412: assert against the PACKAGED
+      master and gate on SkillsCatalogVersion, so the test states the gap out loud below the
+      arming release and goes live by itself at or above it, with no second commit.
+  - key: |
+      A TEXT ASSERTION PINS THE RULE, NOT THE BEHAVIOUR. It proves the master is TOLD; whether
+      a run then redirects rather than retypes is only visible in a live run or an eval. Said
+      plainly here so the coverage is not mistaken for more than it is.
+  - key: |
+      THE REDIRECT TARGET IS REPO-RELATIVE. run_command takes the repository as its own
+      argument and the shell runs INSIDE that repository's sandbox, while write_file takes a
+      repo-prefixed path. A rule that just says "redirect it" produces <repo>/<repo>/... on
+      the first attempt, so the master text says which rooting applies.
+  - key: |
+      THE PIN BUMP IS p0487, NAMED HERE. Not "a follow-up" — a phase id the operator can see
+      [[feedback_no_silent_defer]].
 
 steps:
   - id: an-artifact-that-captures-output-is-written-by-the-command
     action: "State in the coding master that captured command output is redirected into the artifact rather than retyped, beside the existing tooling-first rule."
   - id: a-count-comes-from-the-list-it-counts
     action: "State that a number in an artifact is admissible only where the entries it counts stand beneath it."
-  - id: the-goldens-pin-both
-    action: "Extend the master's goldens so a summarised capture and a bare count are caught where the skill is tested."
+  - id: the-master-declares-its-own-new-version
+    action: "Bump the coding master's version so the skills repository's validator accepts the change."
+  - id: the-rules-are-pinned-against-the-packaged-master
+    action: "Assert both rules against the packaged master, gated on the skills pin, in the pattern p0412 established."
 
 tests:
-  - "CodingMaster_ArtifactCapture_SaysTheCommandWritesIt"
-  - "CodingMaster_ACountInAnArtifact_MustStandOnItsList"
-  - "CodingMaster_TheToolingFirstRule_IsUnchanged"
-  - "CodingMaster_TheArtifactPhaseParagraph_StillSaysWhenSuchAPhaseIsFinished"
+  - "PackagedCodingMaster_CapturedOutput_IsRedirectedNotRetyped"
+  - "PackagedCodingMaster_ACountInAnArtifact_StandsOnItsList"
+  - "PackagedCodingMaster_TheRedirectTarget_IsRepoRelative"
+  - "PackagedCodingMaster_TheToolingFirstRule_IsUnchanged"
+  - "PackagedCodingMaster_TheArtifactPhaseParagraph_IsUnchanged"
 
 done:
   - "the coding master says captured output is redirected into the artifact, not retyped"
   - "the coding master says a count stands on the list beneath it"
+  - "the master text says the redirect target is repo-relative"
   - "the existing tooling-first and artifact-phase rules read unchanged"
-  - "the skills release is cut and the embedded pin is moved in a named follow-up"
+  - "the coding master carries a new version so the skills validator accepts it"
+  - "both rules are asserted against the packaged master and arm themselves at the pinned release"
+  - "the pin bump is p0487, and this phase does not claim it"
