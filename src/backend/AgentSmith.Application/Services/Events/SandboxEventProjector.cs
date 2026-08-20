@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Events;
 
@@ -17,7 +18,8 @@ public sealed class SandboxEventProjector(
     ISandbox inner,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
-    string repo) : ISandbox, ISandboxLivenessProbeTarget
+    string repo,
+    ILogger? logger = null) : ISandbox, ISandboxLivenessProbeTarget
 {
     // p0357: flags tree-mutating commands so the dashboard's write counter is honest
     // about script edits. Pure classifier; one instance per projector.
@@ -93,29 +95,29 @@ public sealed class SandboxEventProjector(
                 CancellationToken.None);
         }
         catch { /* publisher failure must not mask the inner exception */ }
+        WarnIfStreamFellBehind(step, result, tail, summary);
     }
+
+    /// <summary>
+    /// p0491: a run step whose stream carried less than its result body is this defect's
+    /// signature — the drawer is showing an output the command did not stop at. The model
+    /// reads the body now, so this costs a run nothing; a persistent gap means the event
+    /// drain is losing entries again.
+    /// </summary>
+    private void WarnIfStreamFellBehind(
+        Step step, StepResult? result, OutputTailBuffer tail, string? summary)
+    {
+        if (step.Kind != StepKind.Run) return;
+        var body = result?.OutputContent?.Length ?? 0;
+        if (body <= tail.TotalChars) return;
+        logger?.LogWarning(
+            "Sandbox output stream fell behind for {Repo}: streamed {Streamed} of {Body} "
+            + "characters for `{Command}` — the drawer is missing lines the command printed",
+            repo, tail.TotalChars, body, Shorten(summary));
+    }
+
+    private static string Shorten(string? summary) =>
+        summary is { Length: > 80 } text ? text[..80] + "…" : summary ?? string.Empty;
 
     public ValueTask DisposeAsync() => inner.DisposeAsync();
-
-    private sealed class ProjectingProgress(
-        IProgress<StepEvent>? upstream,
-        IEventPublisher eventPublisher,
-        string runId,
-        string repo,
-        Func<long> nextSeq,
-        OutputTailBuffer tail) : IProgress<StepEvent>
-    {
-        public void Report(StepEvent value)
-        {
-            upstream?.Report(value);
-            var seq = nextSeq();
-            var outputEvent = StepEventToRunEventMapper.AsOutput(value, runId, repo, seq);
-            if (outputEvent is null) return;
-            // p0367: retain the line in the bounded tail for a possible failure capture.
-            tail.Add(outputEvent.Line);
-            // Fire-and-forget: IProgress.Report is synchronous; we mustn't block
-            // the sandbox thread. Errors are swallowed (publisher logs them).
-            _ = eventPublisher.PublishAsync(outputEvent, CancellationToken.None);
-        }
-    }
 }
