@@ -35,7 +35,10 @@ public static class SpecAccountPrompt
               + "output means the branch does not contain it, and that is the proof. The\n"
               + $"repositories you can search are: {string.Join(", ", searchable)}. Do not close\n"
               + "an absence criterion on a listed command when you could look instead, and do\n"
-              + "not report one as unsatisfied without having searched for it."
+              + "not report one as unsatisfied without having searched for it. A criterion you\n"
+              + "settled this way is CITED BY THE PATTERN you searched for, copied exactly as\n"
+              + "you wrote it — that search is evidence like any command, and a criterion you\n"
+              + "searched and then cite nothing for is refused."
             : "A criterion about something being ABSENT is answered by the commands listed\n"
               + "under COMMANDS: no diff shows what a repository does NOT contain.";
         var ran = commandResults.Count == 0

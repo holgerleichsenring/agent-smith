@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0484
+goal: "A criterion the delivery account settled with its own search can be cited by that search."
+
+applies_to: "backend"
+
+requires:
+  - p0483
+
+decisions:
+  - key: |
+      p0483 GAVE THE ACCOUNT A NEW KIND OF EVIDENCE AND FORGOT TO LET IT SAY SO. It may now
+      settle an absence by SEARCHING the branch, and the very first live run did exactly that
+      — fifteen searches across two repositories. Then the criterion was refused with "claimed
+      satisfied but cited nothing", because CitationResolver still accepts only a path from
+      the diff or a command from the COMMANDS list, and a search the ACCOUNT ran is neither.
+      It was allowed to look and not allowed to report that it had looked.
+  - key: |
+      A SEARCH IS EVIDENCE IN THE SAME GRAMMAR AS A COMMAND. Each one becomes an evidence line
+      of the shape the reader already knows — "repo: the account searched 'pattern' exited N"
+      — so nothing in the resolver learns a new form, and exit 1 keeps meaning the absence is
+      proven. The pattern is what is cited, because the account wrote it and can reproduce it
+      exactly.
+  - key: |
+      THE RESOLVER IS BUILT AFTER THE CALL, NOT BEFORE IT. Searches happen DURING the model
+      call, so a resolver constructed ahead of it can never see them. Moving construction to
+      where the answer is judged is the whole mechanism.
+  - key: |
+      THE STANDARD DOES NOT MOVE. A search that could not run still proves nothing, a citation
+      naming no search still fails, and a criterion reported NOT satisfied is still an answer
+      rather than a formatting failure. What changes is that a true report of work the account
+      really did is now expressible.
+
+steps:
+  - id: a-search-leaves-an-evidence-line
+    action: "Record every search the account runs as an evidence line in the command grammar, carrying its repository, pattern and exit status."
+  - id: the-resolver-sees-what-the-account-searched
+    action: "Build the citation resolver after the call, over the listed commands plus the searches the account ran, for the first answer and the re-ask alike."
+  - id: the-account-is-told-how-to-cite-a-search
+    action: "State in the prompt and in the re-ask that a criterion settled by search_branch is cited by the pattern that was searched."
+
+tests:
+  - "BranchSearch_EverySearch_LeavesAnEvidenceLine"
+  - "BranchSearch_AnAbsenceProvingSearch_RecordsExitOne"
+  - "BranchSearch_ASearchThatCouldNotRun_IsStillRecorded"
+  - "BranchSearch_AnUnknownRepositoryOrBlankPattern_LeavesNoEvidenceLine"
+  - "Citation_ThePatternOfASearchTheAccountRan_Resolves"
+  - "Citation_APatternNobodySearchedFor_DoesNotResolve"
+  - "SpecAccountant_ACriterionSettledByItsOwnSearch_IsSatisfied"
+  - "SpecAccountant_TheReAsk_AlsoSeesTheSearches"
+  - "SpecAccountPrompt_WithSearchableRepositories_SaysHowToCiteASearch"
+  - "AccountReAsk_Message_NamesTheSearchCitationForm"
+
+done:
+  - "a criterion the account settled with its own search resolves when it cites the pattern"
+  - "the live refusal 'claimed satisfied but cited nothing' cannot recur for a searched absence"
+  - "a citation naming a search nobody ran still fails"
+  - "the re-ask judges against the same searches as the first answer"
+  - "build green, full suite green"
