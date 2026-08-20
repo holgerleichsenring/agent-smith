@@ -328,7 +328,7 @@ public sealed class SpecAccountingTests
     }
 
     /// <summary>
-    /// p0482: the account is handed the branch-search tool, and the prompt it gets says so.
+    /// p0483: the account is handed the branch-search tool, and the prompt it gets says so.
     /// Asserted on ChatOptions rather than on the prompt alone, because a tool that never
     /// reaches the call is a phase that changed nothing.
     /// </summary>
@@ -372,7 +372,7 @@ public sealed class SpecAccountingTests
 
         public List<string> Prompts { get; } = [];
 
-        /// <summary>p0482: what the model was OFFERED. A phase that hands the account a tool
+        /// <summary>p0483: what the model was OFFERED. A phase that hands the account a tool
         /// and never reaches ChatOptions is inert, and no assertion on the prompt would say so.
         /// </summary>
         public List<AITool> ToolsOffered { get; } = [];

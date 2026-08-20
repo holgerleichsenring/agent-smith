@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0482: the delivery account settles an absence by LOOKING at the branch, instead of being
+/// p0483: the delivery account settles an absence by LOOKING at the branch, instead of being
 /// shown a command that looked. Five phases fixed the form of a fact copied into a budgeted
 /// list and copied back out; this removes the copying for the criterion class that has cost
 /// the most runs.

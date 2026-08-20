@@ -76,7 +76,7 @@ public sealed class PhaseAccounting(
         SpecAccount account;
         try
         {
-            // p0482: the sandboxes are still standing here, so the account can look at the
+            // p0483: the sandboxes are still standing here, so the account can look at the
             // branch instead of being told about it.
             account = await accountant.AccountAsync(
                 string.Join(", ", sandboxes.Keys), criteria, combined.ToString(),
