@@ -1,3 +1,4 @@
+using System.ClientModel;
 using AgentSmith.Contracts.Models.Configuration;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -73,9 +74,22 @@ internal sealed class TransientRetryChatClient(
                 return true;
             }
             if (e is IOException) return true;
+            // p0477: the Azure and OpenAI SDKs report a status refusal as
+            // ClientResultException, not HttpRequestException, so the walk above never saw
+            // one — and the comment's assumption that "a status error is left to the SDK's
+            // own 429/5xx retry" holds for Anthropic and not for these. A live run died on
+            // HTTP 429 sixty-two minutes in with both pull requests already open. The rule
+            // is the same whichever type carries the status: a 429 says the call arrived too
+            // soon and will pass later, and every other 4xx says it can never pass.
+            if (e is ClientResultException client) return IsRetryableStatus(client.Status);
         }
         return false;
     }
+
+    /// <summary>A status worth waiting for: too-many-requests, request-timeout, or anything
+    /// the server admits is its own.</summary>
+    internal static bool IsRetryableStatus(int status) =>
+        status is 408 or 429 || status >= 500;
 
     private static TimeSpan BackoffDelay(RetryConfig retry, int attempt)
     {
