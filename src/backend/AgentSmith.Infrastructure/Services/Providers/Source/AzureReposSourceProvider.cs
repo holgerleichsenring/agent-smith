@@ -26,6 +26,9 @@ public sealed class AzureReposSourceProvider(
     private readonly string _personalAccessToken = connection.PersonalAccessToken;
     private readonly string _cloneUrl = $"{connection.OrganizationUrl.TrimEnd('/')}/{connection.Project}/_git/{connection.RepoName}";
     private readonly string? _configuredDefaultBranch = connection.DefaultBranch;
+    private readonly AzureReposPullRequestUpdater _pullRequests = new(
+        connection.Project, connection.RepoName, clientFactory,
+        connection.OrganizationUrl.TrimEnd('/'), connection.PersonalAccessToken, logger);
     private string? _cachedDefaultBranch;
 
     public string ProviderType => "AzureRepos";
@@ -299,53 +302,18 @@ public sealed class AzureReposSourceProvider(
     private Task<GitHttpClient> CreateConnectionAsync(CancellationToken cancellationToken) =>
         clientFactory.CreateGitClientAsync(_organizationUrl, _personalAccessToken, cancellationToken);
 
-    public async Task<bool> UpdatePullRequestBodyAsync(
-        string prUrl, string newBody, CancellationToken cancellationToken)
-    {
-        if (!TryParsePullRequestId(prUrl, out var prId)) return false;
-        try
-        {
-            var client = CreateGitClient();
-            await client.UpdatePullRequestAsync(
-                new GitPullRequest { Description = TruncateDescription(newBody) },
-                _project, _repoName, prId, cancellationToken: cancellationToken);
-            logger.LogInformation("Updated PR body for !{PrId}", prId);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to update PR body for !{PrId} ({Length} chars, limit {Limit})", prId, newBody?.Length ?? 0, MaxDescriptionChars);
-            return false;
-        }
-    }
+    public Task<bool> UpdatePullRequestBodyAsync(
+        string prUrl, string newBody, CancellationToken cancellationToken) =>
+        _pullRequests.UpdateBodyAsync(prUrl, newBody, cancellationToken);
 
-    // p0393a: Azure DevOps takes a pull request out of draft with the same update call
-    // that sets the description.
-    public async Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken)
-    {
-        if (!TryParsePullRequestId(prUrl, out var prId)) return false;
-        try
-        {
-            var client = CreateGitClient();
-            await client.UpdatePullRequestAsync(
-                new GitPullRequest { IsDraft = false },
-                _project, _repoName, prId, cancellationToken: cancellationToken);
-            logger.LogInformation("PR !{PrId} is out of draft — the sequence completed", prId);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to mark PR !{PrId} ready for review", prId);
-            return false;
-        }
-    }
+    public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
+        _pullRequests.MarkReadyAsync(prUrl, cancellationToken);
 
-    private static bool TryParsePullRequestId(string prUrl, out int prId)
-    {
-        prId = 0;
-        var match = System.Text.RegularExpressions.Regex.Match(prUrl, @"/pullrequest/(\d+)");
-        return match.Success && int.TryParse(match.Groups[1].Value, out prId);
-    }
+    // p0490: the branch is what a LOCAL repository needs to finish a "pull request";
+    // Azure Repos recovers everything it needs from the URL.
+    public Task<PullRequestCompletion> CompletePullRequestAsync(
+        string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
+        _pullRequests.CompleteAsync(prUrl, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {

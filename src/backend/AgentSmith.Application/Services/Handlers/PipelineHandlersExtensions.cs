@@ -122,8 +122,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
-        services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
-        services.AddTransient<ICommandHandler<PrCrossLinkContext>, PrCrossLinkHandler>();
+        services.AddInitProjectHandlers(); // p0490: init commit + cross-link + complete
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
         services.AddTransient<ICommandHandler<PersistWorkBranchContext>, PersistWorkBranchHandler>();
         services.AddTransient<ICommandHandler<GenerateTestsContext>, GenerateTestsHandler>();

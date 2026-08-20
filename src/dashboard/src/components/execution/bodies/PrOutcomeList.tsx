@@ -42,6 +42,25 @@ function Outcome({ event }: { event: PullRequestOutcomeEvent }) {
   if (event.status === "no_changes") {
     return <span className="text-stone-500">no changes — no PR needed</span>;
   }
+  // p0490: an init run may finish what it opened. Merged is a good outcome, and a
+  // refused completion is a NORMAL one — the pull request is simply still open, with
+  // the policy that declined it named. Neither is a failure, so neither renders red.
+  if (event.status === "completed" && event.url) {
+    return (
+      <span className="inline-flex items-center gap-2 text-emerald-700">
+        <span>merged</span>
+        <PrButton url={event.url} testId={`pr-outcome-${event.repo}-link`} />
+      </span>
+    );
+  }
+  if (event.status === "completion_refused") {
+    return (
+      <span className="inline-flex items-center gap-2 text-amber-700">
+        <span>still open{event.reason ? ` — ${stripUrls(event.reason)}` : ""}</span>
+        {event.url && <PrButton url={event.url} testId={`pr-outcome-${event.repo}-link`} />}
+      </span>
+    );
+  }
   // p0372: every PR reference renders as the ONE PrButton (same component as
   // the list rows and the Outcome beat).
   if (event.status === "opened" && event.url) {

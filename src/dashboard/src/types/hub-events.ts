@@ -292,7 +292,7 @@ export interface CatalogIssueEvent extends RunEventBase {
 export interface PullRequestOutcomeEvent extends RunEventBase {
   type: EventType.PullRequestOutcome;
   repo: string;
-  status: "opened" | "no_changes" | "failed";
+  status: PullRequestStatus;
   url: string | null;
   reason: string | null;
 }
@@ -707,9 +707,17 @@ export interface RunPullRequest {
 
 /** p0347: the status of one per-repo pull-request attempt the agent recorded at
  *  open time. "opened" = a PR exists (url set); "no_changes" = the run produced
- *  nothing to open; "failed" = the open itself failed (reason set). Mirrors the
- *  C# PullRequestOutcomeEvent.status. */
-export type PullRequestStatus = "opened" | "no_changes" | "failed";
+ *  nothing to open; "failed" = the open itself failed (reason set).
+ *  p0490 adds the two outcomes of finishing one: "completed" = the run merged the PR
+ *  it opened; "completion_refused" = the platform declined (branch policy, required
+ *  reviewer, required build) and the PR is STILL OPEN, with the reason set. Mirrors
+ *  the C# PullRequestStatuses vocabulary. */
+export type PullRequestStatus =
+  | "opened"
+  | "no_changes"
+  | "failed"
+  | "completed"
+  | "completion_refused";
 
 /** p0347: one row of GET /api/pull-requests — a per-repo PR outcome flattened
  *  across runs and joined with its run/ticket facts, newest-first. */
