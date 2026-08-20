@@ -4,7 +4,7 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0482: what the account is told when it can look for itself, and what it is told when it
+/// p0483: what the account is told when it can look for itself, and what it is told when it
 /// cannot. Both wordings have to stand on their own — a run without a sandbox still takes an
 /// account, and it must not be instructed to call a tool it was not given.
 /// </summary>

@@ -3,7 +3,7 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0482: what the delivery account is handed to answer with, and how many turns it gets.
+/// p0483: what the delivery account is handed to answer with, and how many turns it gets.
 /// <para>
 /// Separated from <see cref="SpecAccountant"/> because deciding what a reader may DO is not
 /// the same question as what its answer is worth, and the accountant was at the file-length

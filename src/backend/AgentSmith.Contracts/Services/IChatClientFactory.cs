@@ -24,7 +24,7 @@ public interface IChatClientFactory
     /// <summary>
     /// Returns the IChatClient configured for the given agent + task type.
     /// Tool-bearing tasks (Primary, Scout, Planning, Reasoning) are wrapped with
-    /// FunctionInvokingChatClient. p0482 added Reasoning so the delivery account can be handed
+    /// FunctionInvokingChatClient. p0483 added Reasoning so the delivery account can be handed
     /// a tool: the wrapper is inert without one, since FunctionInvokingChatClient over empty
     /// ChatOptions.Tools makes the same single call, so the other Reasoning callers are
     /// unaffected.

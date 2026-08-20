@@ -28,7 +28,7 @@ public static class SpecAccountPrompt
             : string.Join("\n", files.Paths.OrderBy(p => p, StringComparer.Ordinal).Select(p => "- " + p));
         var body = diff ?? string.Empty;
         var list = string.Join("\n", criteria.Select(c => "- " + c));
-        // p0482: an absence is settled by LOOKING, not by being shown a command that looked.
+        // p0483: an absence is settled by LOOKING, not by being shown a command that looked.
         var absence = searchable is { Count: > 0 }
             ? "A criterion about something being ABSENT you settle YOURSELF: call search_branch\n"
               + "against each repository the criterion covers and read what comes back. No\n"

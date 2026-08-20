@@ -45,7 +45,7 @@ public sealed class SpecAccountant(
             return new SpecAccount(repoKey, [], "the phase states no completion criteria");
 
         var resolver = new CitationResolver(CitedFileIndex.FromDiff(diff), commandResults);
-        // p0482: the account settles an absence by searching the branch itself, so the call
+        // p0483: the account settles an absence by searching the branch itself, so the call
         // carries a tool and an iteration cap. Without a sandbox it falls back to the cited
         // evidence, which is what every account did before this.
         var searchable = branchSearch?.Repositories;

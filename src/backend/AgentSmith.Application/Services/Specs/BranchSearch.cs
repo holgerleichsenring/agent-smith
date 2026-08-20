@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0482: a read-only search of the branch, for the delivery account to run ITSELF.
+/// p0483: a read-only search of the branch, for the delivery account to run ITSELF.
 /// <para>
 /// Five phases fixed the FORM of a fact copied into a budgeted list and copied back out
 /// again — p0469 got the agent's commands to the account, p0470 stopped the list dropping
@@ -35,7 +35,7 @@ public sealed class BranchSearch(
     /// <summary>The repositories a search may name, for the prompt to list.</summary>
     public IReadOnlyList<string> Repositories => [.. sandboxes.Keys];
 
-    /// <summary>p0482: how many searches one account may run. An account that cannot settle a
+    /// <summary>p0483: how many searches one account may run. An account that cannot settle a
     /// criterion in this many looks is not going to, and every search is a sandbox
     /// round-trip inside a model call at the end of a run.</summary>
     public const int MaxSearches = 12;
