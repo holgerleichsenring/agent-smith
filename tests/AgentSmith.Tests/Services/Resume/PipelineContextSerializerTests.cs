@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgentSmith.Application.Services.Resume;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
@@ -21,6 +22,83 @@ public sealed class PipelineContextSerializerTests
 {
     private readonly PipelineContextSerializer _sut = new(
         NullLogger<PipelineContextSerializer>.Instance);
+
+    // p0478: a collection expression with EXACTLY one element compiles to an internal
+    // <>z__ReadOnlySingleElementList<T>. It serialises as an array and cannot be
+    // deserialised. A live run parked at phase c, the operator answered, and the resume threw
+    // NotSupportedException on the way back in — thirty-seven of fifty-five steps done.
+    [Fact]
+    public void Checkpoint_SingleElementCollectionExpression_RoundTrips()
+    {
+        var context = new PipelineContext();
+        IReadOnlyList<string> one = ["only"];
+        one.GetType().Name.Should().Contain("<>", "the premise: Roslyn optimised this away");
+        context.Set("accounts", one);
+
+        var restored = new PipelineContext();
+        _sut.Restore(_sut.Serialize(context), restored);
+
+        restored.TryGet<List<string>>("accounts", out var back).Should().BeTrue();
+        back!.Should().ContainSingle().Which.Should().Be("only");
+    }
+
+    [Fact]
+    public void Checkpoint_EmptyAndMultiElementCollections_StillRoundTrip()
+    {
+        var context = new PipelineContext();
+        IReadOnlyList<string> none = [];
+        IReadOnlyList<string> two = ["a", "b"];
+        context.Set("none", none);
+        context.Set("two", two);
+
+        var restored = new PipelineContext();
+        _sut.Restore(_sut.Serialize(context), restored);
+
+        restored.TryGet<List<string>>("two", out var back).Should().BeTrue();
+        back!.Should().HaveCount(2);
+    }
+
+    // p0478: TrySerializeEntry has always caught NotSupportedException and carried on; the
+    // read path caught only JsonException while its own message said "skipped". One entry
+    // took the whole resume with it.
+    [Fact]
+    public void Checkpoint_EntryThatCannotBeRestored_IsSkippedAndTheRestContinues()
+    {
+        // A type that RESOLVES and that System.Text.Json refuses to construct: several
+        // parameterised constructors and no parameterless one. That is the shape the live
+        // checkpoint hit — NotSupportedException, not JsonException, which is the one the
+        // read path did not catch. (The compiler-generated type itself cannot serve here:
+        // Type.GetType never resolves it, so the entry is skipped one branch earlier.)
+        var unreadable = typeof(NoConstructorJsonCanUse).AssemblyQualifiedName;
+        var poisoned = JsonSerializer.Serialize(new[]
+        {
+            new { K = "bad", T = unreadable, V = """{"A":1}""" },
+            new { K = "good", T = typeof(string).AssemblyQualifiedName, V = "\"kept\"" },
+        });
+        var restored = new PipelineContext();
+
+        var act = () => _sut.Restore(poisoned, restored);
+
+        act.Should().NotThrow("one unreadable entry must not end a resume");
+        restored.TryGet<string>("good", out var kept).Should().BeTrue("the rest still loads");
+        kept.Should().Be("kept");
+    }
+
+    [Fact]
+    public void Checkpoint_UnknownTypeName_StillSkipsRatherThanThrows()
+    {
+        var restored = new PipelineContext();
+
+        var act = () => _sut.Restore(
+            """[{"K":"x","T":"No.Such.Type, Nowhere","V":"\"v\""}]""", restored);
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Checkpoint_NormalisedCollection_KeepsItsElements() =>
+        CheckpointType.Of((IReadOnlyList<string>)["only"]).Type
+            .Should().Be(typeof(List<string>), "the checkpoint may only name a type it can read back");
 
     /// <summary>
     /// p0469: the log used to hold its entries privately, so it serialised to <c>{}</c> and
@@ -143,5 +221,17 @@ public sealed class PipelineContextSerializerTests
         restored.RepoName.Should().Be("api");
         restored.ContextName.Should().Be("server");
         restored.Workdir.Should().Be("server/");
+    }
+
+    /// <summary>p0478: several parameterised constructors and no parameterless one — what
+    /// System.Text.Json refuses with NotSupportedException. The compiler-generated list that
+    /// broke the live resume has the same shape; it cannot stand in here because
+    /// Type.GetType never resolves it, so that entry is skipped one branch earlier.</summary>
+    public sealed class NoConstructorJsonCanUse
+    {
+        public NoConstructorJsonCanUse(int a) => A = a;
+        public NoConstructorJsonCanUse(int a, int b) { A = a; B = b; }
+        public int A { get; }
+        public int B { get; }
     }
 }

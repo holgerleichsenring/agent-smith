@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0478
+goal: "A parked run resumes: an entry the checkpoint cannot restore is skipped, and a compiler-generated collection never reaches the checkpoint."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      A MID-RUN QUESTION KILLED THE RUN THAT ASKED IT. Measured 2026-08-20: a run parked at
+      phase c, the operator answered in the dashboard, and the resume threw
+      NotSupportedException on '<>z__ReadOnlySingleElementList`1[SpecAccount]' out of
+      PipelineContextSerializer.TryRestoreEntry, through ResumeRequestReader.TryRead, into
+      ExecutePipelineUseCase. The run had thirty-seven of fifty-five steps done and two
+      phases complete. Answering again cannot help: the same checkpoint is read again.
+  - key: |
+      THE TRIGGER IS A COMPILER TYPE IN THE BAG. A collection expression with EXACTLY one
+      element — [account] assigned to IReadOnlyList<T> — is optimised by Roslyn into an
+      internal <>z__ReadOnlySingleElementList<T>. The serializer records value.GetType(), so
+      the checkpoint names a type with no usable constructor. Writing succeeds because a JSON
+      array is a JSON array; reading is what fails. Zero or two elements produce different
+      types — and those are compiler-generated too, so a collection expression of ANY size
+      assigned to IReadOnlyList<T> is unresumable. Found while testing: the two-element case
+      is <>z__ReadOnlyArray<T>. The live run happened to hit the single-element variant.
+  - key: |
+      THE DEFECT THAT MATTERS IS THE ASYMMETRY. TrySerializeEntry catches NotSupportedException,
+      JsonException and InvalidOperationException, logs "excluded from the checkpoint" and
+      carries on. TryRestoreEntry catches ONLY JsonException — while its own message says
+      "skipped" and Restore counts restored against total. The intent on both sides is plainly
+      to tolerate one bad entry; only one side does it. With the read path as forgiving as the
+      write path this run would have resumed even without the type fix.
+  - key: |
+      BOTH HALVES SHIP, AND THE ORDER MATTERS. Tolerance alone would resume the run and
+      silently lose the accounts; normalisation alone would leave the next unserialisable
+      type fatal. The tolerance is the safety net, the normalisation is the repair.
+  - key: |
+      NAMING THE TYPE IS NOT ENOUGH, THE VALUE MUST BE MATERIALISED. Recording List<T> while
+      writing the original instance makes Serialize throw ArgumentException, because the value
+      does not derive from the input type. The tests caught that; the first implementation had
+      only renamed it.
+  - key: |
+      NORMALISE TO List<T>, NOT TO THE DECLARED INTERFACE. The bag holds object, so there is
+      no declared type to fall back on. The element type is recoverable from the runtime
+      type's IEnumerable<T>, and a List<T> deserialises and satisfies every consumer, which
+      reads these as IReadOnlyList<T> or IEnumerable<T>.
+  - key: |
+      THE TOLERANCE TEST NEEDED A TYPE THE COMPILER ONE CANNOT PLAY. The faithful fixture
+      would be the compiler-generated list itself, but Type.GetType never resolves it, so
+      that entry is skipped one branch earlier and the test passes with or without the fix.
+      The failure CLASS is what matters — a resolvable type System.Text.Json refuses to
+      construct — so the test declares one with two parameterised constructors and no
+      parameterless one. Revert-probed RED on both halves independently.
+  - key: |
+      THE SERIALIZER HAS NOW BITTEN TWICE IN ONE DAY. p0474's review predicted that a type
+      with no public state round-trips as {} and comes back empty-but-present; this is the
+      same seam failing in the other direction. Recorded because the next change near this
+      file should expect it.
+
+steps:
+  - id: the-read-path-forgives-what-the-write-path-forgives
+    action: "Catch the same exceptions on restore as on serialize, skip the entry and continue."
+  - id: a-compiler-generated-collection-is-recorded-as-a-list
+    action: "Record and serialize a compiler-generated collection as List<T> so the checkpoint names a deserialisable type."
+
+tests:
+  - "Checkpoint_SingleElementCollectionExpression_RoundTrips"
+  - "Checkpoint_EntryThatCannotBeRestored_IsSkippedAndTheRestContinues"
+  - "Checkpoint_UnknownTypeName_StillSkipsRatherThanThrows"
+  - "Checkpoint_EmptyAndMultiElementCollections_StillRoundTrip"
+  - "Checkpoint_NormalisedCollection_KeepsItsElements"
+
+done:
+  - "a parked run whose bag holds a single-element collection expression resumes"
+  - "an entry that cannot be restored is skipped and the remaining entries still load"
+  - "no restore path throws out of Restore"
+  - "build green, full suite green"

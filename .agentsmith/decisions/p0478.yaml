@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0478
+
+decisions:
+  - category: Correctness
+    chose: "Catch on restore what serialize already catches, and continue"
+    over: "Only fixing the type that threw"
+    reason: |
+      TrySerializeEntry catches NotSupportedException, JsonException and InvalidOperationException,
+      logs "excluded from the checkpoint" and carries on. TryRestoreEntry caught only
+      JsonException while its own message said "skipped" and Restore counts restored against
+      total. The intent on both sides is plainly to tolerate one bad entry; one side did not.
+      With this alone the live run would have resumed.
+  - category: Correctness
+    chose: "Materialise a compiler-generated collection into List<T> before writing it"
+    over: "Recording List<T> as the type name and writing the original instance"
+    reason: |
+      Serialize validates that the value derives from the input type, so renaming alone throws
+      ArgumentException. The first implementation did exactly that and the tests caught it.
+  - category: Correctness
+    chose: "Detect the compiler type by its name carrying '<>'"
+    over: "Checking for CompilerGeneratedAttribute"
+    reason: |
+      The attribute is not on these types; the unspeakable name is what identifies them, and
+      it is what the runtime reports. A collection expression of any size assigned to
+      IReadOnlyList<T> produces one — <>z__ReadOnlySingleElementList for one element,
+      <>z__ReadOnlyArray for several.
+  - category: Testing
+    chose: "Declare a type with two parameterised constructors for the tolerance test"
+    over: "Using the compiler-generated list itself"
+    reason: |
+      Type.GetType never resolves the compiler-generated name, so that entry is skipped one
+      branch earlier and the test passes with or without the fix. Three fixtures were tried
+      and discarded for that reason before this one; what matters is the failure CLASS, a
+      resolvable type System.Text.Json refuses to construct.
+  - category: Testing
+    chose: "Revert-probe each half separately"
+    over: "Trusting a green suite"
+    reason: |
+      The first probe replaced the wrong catch clause — the string occurs twice and the
+      replacement took the serialize one — so the tolerance half read as covered while nothing
+      tested it. Both halves are now red without their fix and green with it.

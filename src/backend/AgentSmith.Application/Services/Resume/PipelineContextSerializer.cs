@@ -60,9 +60,9 @@ public sealed class PipelineContextSerializer(
     {
         try
         {
-            var type = value.GetType();
+            var (type, writable) = CheckpointType.Of(value);
             return new SerializedEntry(key, type.AssemblyQualifiedName!,
-                JsonSerializer.Serialize(value, type));
+                JsonSerializer.Serialize(writable, type));
         }
         catch (Exception ex) when (ex is NotSupportedException or JsonException or InvalidOperationException)
         {
@@ -88,7 +88,11 @@ public sealed class PipelineContextSerializer(
             into.Set(entry.K, value);
             return true;
         }
-        catch (JsonException ex)
+        // p0478: as forgiving as TrySerializeEntry, which has always caught these three and
+        // carried on. This side caught only JsonException while saying "skipped", so a single
+        // unreadable entry threw out of Restore, out of ResumeRequestReader and killed the
+        // run — a parked run answered by the operator, thirty-seven steps in.
+        catch (Exception ex) when (ex is NotSupportedException or JsonException or InvalidOperationException)
         {
             logger.LogWarning(ex, "Checkpointed entry '{Key}' failed to deserialize — skipped", entry.K);
             return false;
@@ -97,4 +101,5 @@ public sealed class PipelineContextSerializer(
 
     /// <summary>One persisted entry: key, runtime type, payload JSON.</summary>
     private sealed record SerializedEntry(string K, string T, string V);
+
 }
