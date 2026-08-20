@@ -32,7 +32,7 @@ public sealed class SourceProviderFactory(
 
     private static LocalSourceProvider CreateLocal(RepoConnection config)
     {
-        return new LocalSourceProvider(config.Path!);
+        return new LocalSourceProvider(config.Path!, config.DefaultBranch);
     }
 
     private GitHubSourceProvider CreateGitHub(RepoConnection config)

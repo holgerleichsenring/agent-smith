@@ -105,6 +105,7 @@ public static partial class CommandBeats
         [CommandNames.CommitAndPR] = RunBeat.Outcome,
         [CommandNames.InitCommit] = RunBeat.Outcome,
         [CommandNames.PrCrossLink] = RunBeat.Outcome,
+        [CommandNames.InitComplete] = RunBeat.Outcome,
         [CommandNames.PersistWorkBranch] = RunBeat.Outcome,
         [CommandNames.CollectSpecDialogReply] = RunBeat.Outcome,
         [CommandNames.DeliverOutput] = RunBeat.Outcome,
