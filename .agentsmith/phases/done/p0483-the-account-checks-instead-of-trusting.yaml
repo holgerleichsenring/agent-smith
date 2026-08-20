@@ -51,8 +51,12 @@ decisions:
       been silently ignored. The wrapper is inert without tools — the same single call — so
       the other Reasoning callers are unaffected.
   - key: |
-      ASSERTED ON ChatOptions, NOT ON THE PROMPT. A phase that composes a tool and never
-      reaches the call is inert, and every assertion about the prompt would still pass.
+      ASSERTED ON ChatOptions AND ON THE LOOP, NOT ON THE PROMPT. A phase that composes a tool
+      and never reaches the call is inert, and every assertion about the prompt would still
+      pass. The tool is offered (ChatOptions), and a model that CALLS it reaches the sandbox
+      and reads the answer back — the second half asserted through UseFunctionInvocation,
+      because a tool result travels as FunctionResultContent and reading message text there
+      would pass on an empty result.
   - key: |
       THE CITATION SURVIVES FOR EVERYTHING ELSE. A build or test result is not re-runnable
       cheaply and a file criterion is answered by the diff, so those keep citing. What this
@@ -78,6 +82,8 @@ tests:
   - "BranchSearch_Repositories_AreTheOnesTheAccountMayName"
   - "SpecAccountant_WithABranchSearch_OffersTheSearchToolAndNamesTheRepository"
   - "SpecAccountant_WithoutABranchSearch_OffersNoToolAtAll"
+  - "AnAccountThatCallsTheSearch_RunsItAgainstTheSandbox_AndReadsTheAnswer"
+  - "TheSearchBudget_BindsInsideTheLoop"
   - "SpecAccountPrompt_WithSearchableRepositories_TellsTheAccountToSearchForItself"
   - "SpecAccountPrompt_WithSearchableRepositories_ForbidsRefusingWithoutLooking"
   - "SpecAccountPrompt_WithoutASandbox_KeepsTheCitedEvidenceWording"
