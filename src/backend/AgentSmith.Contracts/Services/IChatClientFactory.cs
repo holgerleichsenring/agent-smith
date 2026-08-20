@@ -23,7 +23,11 @@ public interface IChatClientFactory
 
     /// <summary>
     /// Returns the IChatClient configured for the given agent + task type.
-    /// Tool-bearing tasks (Primary, Scout, Planning) are wrapped with FunctionInvokingChatClient.
+    /// Tool-bearing tasks (Primary, Scout, Planning, Reasoning) are wrapped with
+    /// FunctionInvokingChatClient. p0483 added Reasoning so the delivery account can be handed
+    /// a tool: the wrapper is inert without one, since FunctionInvokingChatClient over empty
+    /// ChatOptions.Tools makes the same single call, so the other Reasoning callers are
+    /// unaffected.
     /// When <paramref name="maxIterations"/> is non-null, that value is used as the
     /// FunctionInvokingChatClient's MaximumIterationsPerRequest; null preserves the
     /// existing default (25). p0126a additive parameter for per-call cap support.

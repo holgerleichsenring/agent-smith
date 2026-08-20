@@ -56,8 +56,17 @@ internal static class CitationMatch
     private static bool NamesIt(string ran, string cited)
     {
         if (cited.Length == 0) return false;
-        return ran.StartsWith(cited, StringComparison.OrdinalIgnoreCase)
-            && cited.Length * 100 >= ran.Length * MinPrefixPercent;
+        if (!ran.StartsWith(cited, StringComparison.OrdinalIgnoreCase)) return false;
+        // p0481: a SHORTENED command is named only in FULL. Its head is shared by
+        // construction with every sibling that differs in the paths it ran against, and the
+        // run this phase comes from issued 21 over-cap commands of exactly that family: the
+        // same pattern, the same flags, one repository each. A head-only citation names all
+        // of them, which closes a two-repository absence criterion with a one-repository
+        // search — the refusal this phase exists to end, reborn as a false positive.
+        // Refusing it is LOUD: p0474's re-ask asks for the whole quoted span, which fits.
+        return CommandElision.WasShortened(ran)
+            ? cited.Length == ran.Length
+            : cited.Length * 100 >= ran.Length * MinPrefixPercent;
     }
 
     /// <summary>A step is cited by its name and nothing else — its message is output like
@@ -69,7 +78,4 @@ internal static class CitationMatch
         return colon > 0
             && string.Equals(commandResult[..colon].Trim(), citation.Trim(), StringComparison.OrdinalIgnoreCase);
     }
-
-    /// <summary>The command a line names: the quoted span where there is one, the whole
-    /// line where there is not. Never the output that follows it.</summary>
 }

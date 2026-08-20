@@ -96,6 +96,7 @@ public sealed class PhaseAccountingResilienceTests
         public Task<SpecAccount> AccountAsync(
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
+            BranchSearch? branchSearch,
             PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
             asCancellation
                 ? throw new OperationCanceledException(message)
