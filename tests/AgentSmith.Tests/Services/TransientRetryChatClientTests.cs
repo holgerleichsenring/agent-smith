@@ -1,3 +1,5 @@
+using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Runtime.CompilerServices;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.RateLimiting;
@@ -19,6 +21,69 @@ public sealed class TransientRetryChatClientTests
 
     private static TransientRetryChatClient Wrap(IChatClient inner, RetryConfig retry) =>
         new(inner, retry, "test", NullLogger.Instance);
+
+    // p0477: the Azure and OpenAI SDKs report a status refusal as ClientResultException,
+    // which the predicate could not see. A live run died on HTTP 429 sixty-two minutes in,
+    // with twelve of fourteen ledger items done and both pull requests already open.
+    [Fact]
+    public async Task TransientRetry_ClientResultException429_IsRetried()
+    {
+        var inner = new ScriptedChatClient(RateLimited());
+        var client = Wrap(inner, FastRetry());
+
+        var response = await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        response.Text.Should().Be("ok");
+        inner.Attempts.Should().Be(2, "a rate limit says the call arrived too soon, not that it is wrong");
+    }
+
+    [Fact]
+    public async Task TransientRetry_ClientResultException503_IsRetried() =>
+        TransientRetryChatClient.IsRetryableStatus(503).Should().BeTrue(
+            "a server admitting its own fault is worth waiting for");
+
+    [Fact]
+    public async Task TransientRetry_ClientResultException400_IsNotRetried()
+    {
+        var inner = new ScriptedChatClient(new ClientResultException("bad request", new FakeResponse(400)));
+        var client = Wrap(inner, FastRetry());
+
+        await FluentActions.Awaiting(() => client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]))
+            .Should().ThrowAsync<ClientResultException>(
+                "a 4xx that is not 408 or 429 can never succeed, and retrying burns time and money");
+        inner.Attempts.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task TransientRetry_HttpRequestException429_StillRetried() =>
+        TransientRetryChatClient.IsTransientNetwork(
+            new HttpRequestException("too many", null, System.Net.HttpStatusCode.TooManyRequests))
+            .Should().BeTrue("p0376's rule for this type is unchanged");
+
+    private static ClientResultException RateLimited() =>
+        new("rate_limit_exceeded", new FakeResponse(429));
+
+    /// <summary>p0477: the minimum a ClientResultException needs to carry a status.</summary>
+    private sealed class FakeResponse(int status) : PipelineResponse
+    {
+        public override int Status => status;
+        public override string ReasonPhrase => "test";
+        public override Stream? ContentStream { get => null; set { } }
+        public override BinaryData Content => BinaryData.FromString(string.Empty);
+        protected override PipelineResponseHeaders HeadersCore { get; } = new FakeHeaders();
+        public override BinaryData BufferContent(CancellationToken ct = default) => Content;
+        public override ValueTask<BinaryData> BufferContentAsync(CancellationToken ct = default) =>
+            ValueTask.FromResult(Content);
+        public override void Dispose() { }
+    }
+
+    private sealed class FakeHeaders : PipelineResponseHeaders
+    {
+        public override IEnumerator<KeyValuePair<string, string>> GetEnumerator() =>
+            Enumerable.Empty<KeyValuePair<string, string>>().GetEnumerator();
+        public override bool TryGetValue(string name, out string? value) { value = null; return false; }
+        public override bool TryGetValues(string name, out IEnumerable<string>? values) { values = null; return false; }
+    }
 
     [Fact]
     public async Task GetResponseAsync_TransientThenSuccess_RetriesAndReturns()
