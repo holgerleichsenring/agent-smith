@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0481
+goal: "A shortened command stays quotable and keeps the tail its reach is judged on."
+
+applies_to: "backend"
+
+requires:
+  - p0473
+  - p0474
+
+decisions:
+  - key: |
+      ONE TRAILING APOSTROPHE COST A FORTY MINUTE RUN. Run 0944 built both repositories,
+      passed 2,235 tests, pushed and opened two pull requests, and was refused at the gate.
+      The account cited 202 characters against a command the evidence renders as 201.
+      PhaseCommandBudget had cut an 820 character script at exactly 200, the cut landed
+      inside the literal echo 'No MassTransit references found', so the line presented an
+      unbalanced quote and the account closed it. CitationMatch compares one way only, and a
+      citation one character longer than the command is not a prefix of it.
+  - key: |
+      THE SECOND REFUSAL IS THE SAME CUT FROM THE OTHER END. "No listed successful absence
+      search covers Wolverine local-queue usage across both repositories" was not a citation
+      failure at all — nothing was rejected. The agent ran the search; its pattern sits
+      inside the first 200 characters and the PATHS it searched sit past them, so the reader
+      could not see the reach it was asked to judge. 21 of that phase's 106 commands were
+      over the cap. A command cut at its end loses precisely what an absence criterion turns
+      on.
+  - key: |
+      SO THE COMMAND IS SHORTENED IN THE MIDDLE, NOT AT THE END. Head 130, marker, tail 69,
+      two hundred characters as before. The order is trim, collapse, measure, elide: measuring
+      before the collapse would shorten a command that fits once its whitespace runs are one
+      space each, and slicing before it would leave the head shorter than the 130 the citation
+      floor is sized against. Newlines collapse to spaces, so one command stays one line of a
+      list the prompt renders one item per line.
+  - key: |
+      WHAT THE HEAD AND TAIL GUARANTEE, AND WHAT THEY DO NOT. Guaranteed: the tool, its
+      pattern, the leading flags, and as many TRAILING arguments as fit whole — the tail
+      begins at an argument boundary, because half a path printed as though it were a path is
+      evidence that is partly true, which is the failure this phase exists to end. Not
+      guaranteed: flags in the middle, and every path beyond the tail's 69 characters. Two
+      absolute sandbox paths do not both fit. WHICH repository a search covered is carried by
+      the evidence line's repository prefix, which elision cannot touch.
+  - key: |
+      NUMBERING THE EVIDENCE WAS THE WRONG ANSWER AND IS NOT DONE HERE. The first draft had
+      the account cite "[e12]" instead of the command. A review killed it on its own merits:
+      a citation that resolves by INDEX turns a hallucinated citation from a loud failure
+      into a silent mis-attribution, because every integer in range resolves against some
+      real command and the resolver has no coverage check. Refusing a fabricated citation is
+      the gate's one mechanical guarantee and it is not traded for convenience. It would also
+      have broken the step-name reading, the cost model behind the 30,000 character budget,
+      and seven committed tests, none of which either refusal needed.
+  - key: |
+      QUOTABLE IS RESTORED RATHER THAN ABANDONED. The account keeps copying the command from
+      between the quotes, which is what p0474's re-ask already teaches — the change is that a
+      shortened command can now be copied back. The citation is trimmed of the grammar's own
+      quotes and of the elision marker, in both readings of a citation, before it is compared.
+      Trimming can only SHORTEN what is cited, so the one-directional prefix rule and its 60
+      percent floor still decide, and nothing a model invents becomes resolvable that was not
+      resolvable before.
+  - key: |
+      A SHORTENED COMMAND IS NAMED ONLY IN FULL, WHICH THE FIRST DRAFT GOT WRONG. That draft
+      blessed a citation of the visible HEAD, on the reasoning that 130 of 200 characters
+      clears the floor. A review broke it: sibling commands share their head BY CONSTRUCTION
+      and differ in the paths they ran against, and run 0944 issued 21 over-cap commands of
+      exactly that family — same pattern, same flags, one repository each. A head-only
+      citation names all of them, so it closes a two-repository absence criterion with a
+      one-repository search. That is this phase's own first refusal, inverted into a false
+      positive, and it is the same trade numbering was killed for. So an elided command is
+      cited whole. The refusal is LOUD and p0474's re-ask asks for exactly the span that now
+      fits.
+  - key: |
+      A HEAD OF 130 SERVES THE READER, NOT THE MATCH. Since an elided command is cited whole,
+      the split is free of the citation floor entirely and is chosen for what a reader needs:
+      enough head to recognise the tool, its pattern and its leading flags, and a tail long
+      enough for the trailing arguments that give a search its reach.
+  - key: |
+      A LINE THAT QUOTES NOTHING OFFERS NO COMMAND READING. Found while reviewing this: the
+      budget's own notice is citable today. It carries no apostrophe, so InEvidence returns
+      the whole line and any 60 percent prefix of it resolves as a command that ran. p0470
+      wrote the notice without a leading colon to keep it out of the STEP reading and left
+      the command reading open. A pipeline step is still cited by name, an absent quoted span
+      now yields nothing, and the notice is citable as neither.
+  - key: |
+      THE ELISION MOVES TO ITS OWN FILE BECAUSE THE BUDGET IS AT 110 OF 120 LINES. Deciding
+      what a list may weigh and shortening one command are two reasons to change, and the
+      ratchet refuses a new baseline entry.
+
+steps:
+  - id: a-shortened-command-keeps-its-head-and-its-tail
+    action: "Elide an over-long command in the middle and collapse its newlines, in a file of its own."
+  - id: a-shortened-command-can-be-quoted-back
+    action: "Trim the grammar's quotes and the elision marker from both readings of a citation before comparing."
+  - id: a-shortened-command-is-named-only-in-full
+    action: "Require a citation of an elided command to reproduce the whole of what is shown, since its head names its siblings too."
+  - id: a-line-that-quotes-nothing-names-no-command
+    action: "Return no command for an evidence line carrying no quoted span, leaving the step-name reading untouched."
+
+tests:
+  - "CommandElision_ACommandOverTheCap_KeepsItsHeadAndItsTail"
+  - "CommandElision_ACommandUnderTheCap_IsUntouched"
+  - "CommandElision_ACommandAtExactlyTheCap_IsUntouched"
+  - "CommandElision_AnElidedCommand_StaysWithinTheCap"
+  - "CommandElision_NewlinesInACommand_CollapseToSpaces"
+  - "CommandElision_TheLiveWolverineSearch_ShowsItsPatternItsFlagsAndItsPaths"
+  - "PhaseCommandLog_TheSameSearchInTwoRepositories_NamesEachRepositoryItRanIn"
+  - "CommandElision_TheElidedMiddle_IsTheOnlyPartLost"
+  - "CommandElision_TheTail_BeginsAtAWholeArgument"
+  - "CommandElision_MorePathsThanTheTailHolds_StillBeginsAtAWholePath"
+  - "CommandElision_WhitespaceIsCollapsedBeforeTheLengthIsMeasured"
+  - "CommandElision_AWhitespaceHeavyCommandStillOverTheCap_StaysWithinTheCap"
+  - "CommandElision_ASurrogatePairOnTheBoundary_IsNotSplit"
+  - "Citation_TheShownCommandPlusTheGrammarsClosingQuote_Resolves"
+  - "Citation_TheShownCommandCopiedWhole_Resolves"
+  - "Citation_AWholeEvidenceLineOfAShortenedCommand_Resolves"
+  - "Citation_OnlyTheVisibleHeadOfAShortenedCommand_DoesNotResolve"
+  - "Citation_TwoSearchesDifferingOnlyInTheirPath_AreNotBothNamedByTheirSharedHead"
+  - "Citation_TrimmingTheQuotesLeavesNothing_DoesNotResolve"
+  - "Citation_ACommandThatNeverRan_StillDoesNotResolve"
+  - "Citation_AShortPrefixOfARealCommand_StillDoesNotResolve"
+  - "EvidenceCommand_ALineWithNoQuotedSpan_NamesNoCommand"
+  - "Citation_TheBudgetNotice_IsNotCitable"
+  - "Citation_APipelineStep_IsStillCitedByName"
+
+done:
+  - "a shortened command cited whole, plus the grammar's closing quote, resolves — the shape that refused run 0944"
+  - "a shortened command cited by its head alone does not resolve, and two sibling searches are told apart"
+  - "the live Wolverine grep shows its pattern, its narrowing flags and a whole trailing path"
+  - "the budget notice resolves as neither a command nor a step"
+  - "no per-command or whole-list character budget changed, and the evidence line grammar is unchanged — a multi-line command now occupies one line"
+  - "build green, full suite green"

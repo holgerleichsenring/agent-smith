@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0482
+goal: "The delivery account runs its own searches against the branch instead of judging an absence from a list of commands."
+
+applies_to: "backend"
+
+requires:
+  - p0481
+
+decisions:
+  - key: |
+      FOUR PHASES HAVE FIXED THE FORMAT OF A QUESTION THAT SHOULD NOT BE ASKED. p0469 gave the
+      account the agent's commands, p0470 stopped the list dropping them, p0473 and p0474 and
+      p0481 fixed how one is cited. Every one of those was a RETRIEVAL failure: the reader
+      needed a fact that existed and had no way to reach it, so the fact was copied into a
+      budgeted list and copied back out again. The copying is the defect.
+  - key: |
+      THE ISOLATION IS RIGHT AND STAYS. The account is a fresh instance told it did not do the
+      work, because a model that believes it did confirms itself. Letting the working agent
+      ARGUE its case is exactly what that excludes, and this phase does not open that channel.
+  - key: |
+      PERSUASION AND RETRIEVAL ARE NOT THE SAME CHANNEL. "Trust me, it is covered" is
+      persuasion. "What exactly ran, and over which paths" is retrieval, and it is answerable
+      from the record rather than from the agent. So the account gets TOOLS over the evidence,
+      not a conversation with the author.
+  - key: |
+      A SEARCH IT RUNS ITSELF ENDS THE TRUST QUESTION FOR ABSENCE CRITERIA. The branch sandbox
+      is still standing when the account runs. An account that can grep it does not need a
+      cited command, a reach argument or a citation format: it looks. That is strictly
+      stronger than any evidence the agent could offer, because the agent's commands ran at
+      some point during the work while the sandbox holds what the branch carries now — which
+      is already the tie-break the prompt states.
+  - key: |
+      THE CITATION SURVIVES FOR EVERYTHING ELSE. A build or test result is not re-runnable
+      cheaply and a file criterion is answered by the diff, so those keep citing. What this
+      removes is the class that has cost the most runs and is the least suited to being
+      quoted: proving something is not there.
+
+steps:
+  - id: the-account-can-read-a-command-whole
+    action: "Give the account a tool that returns one recorded command and its output in full, unbudgeted, by its position in the list."
+  - id: the-account-can-search-the-branch-itself
+    action: "Give the account a read-only search tool over the branch sandbox, and record what it ran in the run trail like any other command."
+  - id: an-absence-criterion-is-decided-by-its-own-search
+    action: "State in the prompt that an absence criterion is settled by a search the account runs, and keep citation for build, test and file criteria."
+
+tests:
+  - "AccountTools_ReadCommand_ReturnsTheWholeCommandAndOutput"
+  - "AccountTools_ReadCommand_APositionNoCommandHolds_SaysSo"
+  - "AccountTools_Search_RunsAgainstTheBranchSandbox"
+  - "AccountTools_Search_IsReadOnly"
+  - "AccountTools_EverySearchTheAccountRuns_IsInTheRunTrail"
+  - "SpecAccountant_AnAbsenceCriterion_IsDecidedByTheAccountsOwnSearch"
+  - "SpecAccountant_ABuildCriterion_StillNeedsACitation"
+  - "SpecAccountant_NoSandbox_FallsBackToTheCitedEvidence"
+
+done:
+  - "an absence criterion is decided by a search the account ran, not by a command it was shown"
+  - "the account can read any recorded command in full"
+  - "build and test criteria still require a citation that resolves"
+  - "the account still has no channel to the agent that did the work"
+  - "build green, full suite green"
