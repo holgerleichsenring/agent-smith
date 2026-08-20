@@ -90,6 +90,22 @@ public sealed class ServerDiLifetimeTests
             "Server-side composition registers ITicketClaimService (not Application — see p0109a)");
     }
 
+    // p0489: the manual init launcher is reached only through the HTTP endpoint, so a
+    // wiring break would surface as a 500 in production and nowhere in a mocked unit
+    // test. Resolve it from the REAL server composition, in a request scope.
+    [Fact]
+    public void ServerDi_InitRunLauncher_ResolvesFromTheRealComposition()
+    {
+        // The launch composes with the dashboard API it belongs to — the same gate
+        // decides whether the endpoint exists and whether its services do.
+        var services = BuildServerLikeServices().AddDashboardApi();
+        var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetService<AgentSmith.Server.Services.Init.InitRunLauncher>()
+            .Should().NotBeNull("POST /api/projects/{name}/init resolves the launcher per request");
+    }
+
     [Fact]
     public async Task ServerShapedDi_ConcurrentJiraTransitions_SecondGetsPreconditionFailed()
     {

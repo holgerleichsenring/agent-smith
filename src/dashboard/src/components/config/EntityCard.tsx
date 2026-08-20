@@ -14,6 +14,7 @@ import { ENTITY_BADGE, ENTITY_ICON } from "./entities";
 import { FieldBlock, WiringChip } from "./primitives";
 import type { ConfigCatalog } from "./useConfigCatalog";
 import { resolves, resolveRepoRef } from "./integrity";
+import { ProjectInitAction } from "@/components/system/ProjectInitAction";
 
 // p0345/p0343c (pixel identity): one entity card in the config-studio.html
 // .ecard DOM — .ec-top (icon block, mono id, sub line, type badge + "edit ›"),
@@ -51,6 +52,8 @@ export function EntityCard({
           <SubLine kind={kind} entity={entity} catalog={catalog} />
         </div>
         <div className="ec-right">
+          {/* p0489: a project can be asked to initialize itself right here. */}
+          {kind === "projects" && <ProjectInitAction project={entity.id} />}
           <span className="tybadge" data-testid={`config-card-badge-${entity.id}`}>
             {typeBadge(kind, entity)}
           </span>
