@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0482
+goal: "A first-time visitor sees the product on the landing page, and the reference diagrams live where someone has already decided to read them."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THREE DIAGRAMS AND NO PRODUCT. The landing page carried lifecycle.svg in the hero, coding-loop.svg
+      and control-flow.svg below it, and not one screenshot. control-flow.svg alone holds 153 text
+      elements: twenty-six numbered steps, a table of model calls, a tick chart per pipeline and a
+      footnote on what it cannot show. That is a reference poster, and a visitor deciding whether to
+      try the thing scrolls past it or feels stupid. Measured rather than asserted: 29, 54 and 153
+      text elements against 1159 words of prose whose jargon density is fine.
+  - key: |
+      THE HERO SHOWED ARCHITECTURE AND PROMISED AN OUTCOME. lifecycle.svg draws four tracker boxes, one
+      orchestrator box and a worker card; its own alt text promises "opens one PR per repo and resolves
+      the ticket", which is nowhere in the picture, and half the canvas stays empty even after its
+      animation settles.
+  - key: |
+      THE SCREENSHOTS ALREADY EXISTED. The runs board and the run detail were captured for the docs and
+      show exactly what the taglines claim: COST TODAY, a run that pauses to ask with the question and
+      its answer buttons visible, an honestly failed verification, and the five-beat spine ending in a
+      pull request. No new capture, no demo instance, and the cropping is the only edit.
+  - key: |
+      THE DIAGRAMS MOVE, THEY ARE NOT DELETED. coding-loop.svg is already on the lifecycle page, so the
+      website copy simply goes. control-flow.svg is generated from the pipeline presets by a test that
+      fails when code and picture disagree, which makes it valuable exactly where a reader has already
+      committed attention, so it moves into the pipelines reference.
+  - key: |
+      ONE DIAGRAM STAYS, AT THE END. The ticket-to-PR shape is worth drawing for a reader who has seen
+      the product and now wants the mechanism, so lifecycle.svg keeps a place further down the page
+      rather than fronting it.
+
+steps:
+  - id: the-hero-is-the-product
+    action: "Replace the hero diagram with the runs board, cropped to the counters and the first waiting question."
+  - id: the-story-section-shows-a-real-run
+    action: "Replace the two heavy diagrams in the how-it-works section with the run detail screenshot."
+  - id: configuring-in-the-browser-is-shown-not-claimed
+    action: "Add the config studio screenshot where the page says configuration happens in the UI."
+  - id: the-reference-diagram-moves-to-the-reference
+    action: "Move control-flow.svg into docs and reference it from the pipelines page."
+  - id: the-remaining-diagram-earns-its-place
+    action: "Keep the ticket-to-PR diagram lower on the page, after the product is visible."
+
+tests:
+  - "no automated test: this phase changes a static page and its images. The eleventy build is the gate."
+
+done:
+  - "the first image a visitor sees is the running product"
+  - "no landing-page diagram carries C# type names or a per-step reference table"
+  - "control-flow.svg is reachable from the docs and no longer on the landing page"
+  - "the eleventy build is green and no image reference is broken"

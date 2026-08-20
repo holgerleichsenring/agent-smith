@@ -1,5 +1,14 @@
 # Pipelines
 
+## Every step, and where the model gets a say
+
+This one is generated from the pipeline definitions in the source, by a test that fails when the code and the picture disagree. So it is what the orchestrator really executes, in that order.
+
+Each box is one step. Green means a model runs there, and it names which one and what it is asked for. Grey is plain machinery with no model involved. Blue is a gate that speaks up only when it has something to report. The dashed frame is the part that repeats once per derived phase, and how many phases a ticket becomes is decided during the run.
+
+![The control flow of an agent-smith run, generated from the pipeline presets: the code pipeline's steps in order, the ones that call a model, a table of what each model call is asked for and what is expected back, one row per shipped pipeline with its master and step count, and a closing note on what the diagram cannot show.](../../assets/control-flow.svg)
+
+
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
