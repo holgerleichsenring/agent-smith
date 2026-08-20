@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0488
+
+decisions:
+  - category: Architecture
+    chose: "Discovered repos are rows in a capped scroll window"
+    over: "Keeping the wrapping .pick chips and only adding a filter"
+    reason: |
+      The defect is the wall, not the length of the wall. Three hundred chips wrap into a
+      shape with no column to read down, so a filter only makes a smaller wall. Rows carry
+      the three facts that matter — picked, name, default branch — in fixed positions, which
+      is what makes a long list scannable. Chips stay for the few refs actually selected,
+      where a wrapping cloud is the right shape.
+  - category: TradeOff
+    chose: "A cap plus a stated count and a show-more control"
+    over: "Paging the list, or an infinite scroll inside the form field"
+    reason: |
+      The discovery snapshot arrives in one response and already lives client-side, so paging
+      would invent round-trips that buy nothing. Infinite scroll inside a drawer steals the
+      scroll the form itself needs. What the operator actually has to know is how many matched
+      and how many are out of sight, so the window is capped at 25 and the count line states
+      showing-of-matched-of-discovered plus the hidden remainder. Nothing is dropped silently.
+  - category: Implementation
+    chose: "One box: the filter IS the wildcard input"
+    over: "Keeping the separate name-or-wildcard field below the list"
+    reason: |
+      Two inputs for one thought were the visible untidiness. Typing narrows the list; when
+      what was typed carries a *, the same box offers 'add rule conn/<pattern>' labelled with
+      the count it currently matches, so the rule is legible BEFORE it is saved. Plain text
+      still offers the exact ref, which keeps the not-discovered-yet fallback alive from the
+      same box.
+  - category: Implementation
+    chose: "A wildcard filter matches by glob, plain text by substring"
+    over: "Substring matching for everything"
+    reason: |
+      The count shown next to the offered rule has to be the count the rule will actually
+      cover, or the number is a lie. Matching a *-bearing query with the same glob rule the
+      ref will be evaluated by makes the preview and the saved rule the same claim. Plain
+      text is a search, not a rule, so case-insensitive substring is the useful behaviour.
+  - category: Implementation
+    chose: "A repo a rule already covers renders as covered, with no checkbox"
+    over: "A checked-but-disabled checkbox, or leaving the checkbox free"
+    reason: |
+      A free checkbox invites an exact ref that shadows the rule and then rots when the rule
+      is edited. A disabled checkbox still says 'this is a pick that happens to be locked',
+      which is the wrong model — the row is covered by a RULE, not picked. The row shows the
+      rule that covers it instead, so the operator reads why it is on.
+  - category: Implementation
+    chose: "Select-all offers the single rule when the filter is a pattern"
+    over: "Always adding N exact refs for the filtered set"
+    reason: |
+      Filtering to a common prefix and taking all of it is the frequent move, and it is
+      exactly the move that should produce one durable rule rather than N frozen picks. When
+      the filter is plain text it names no rule, so the exact refs are what gets taken.
+  - category: Architecture
+    chose: "refMatches moves to src/lib/repoRefs.ts and both callers import it"
+    over: "Re-exporting it from RepoInventory so old imports keep working"
+    reason: |
+      A re-export is a shim, and the spec cites [[feedback_no_wrapper_shims]]. The two callers
+      are migrated directly and the one test that imported it from the component was updated.
+      A source-level test asserts neither component declares its own refMatches, so inventory
+      and picker cannot drift apart about what a rule covers.
+  - category: Implementation
+    chose: "A dedicated RepoPicker.test.tsx rendering the component directly"
+    over: "Adding ten more cases to ProjectForm.test.tsx"
+    reason: |
+      The new cases need fixtures the project form does not — sixty repos, a pre-existing
+      rule, a never-resolving discovery — and rendering the whole EntityForm to reach them
+      would bury what is under test. ProjectForm.test.tsx keeps the integration-level cases
+      it already had, retargeted at the filter box that replaced the name field.
+  - category: Implementation
+    chose: "The five states keep p0345c's four word for word, and add the fifth beside them"
+    over: "Folding 'filter matched nothing' into the discovered-but-empty state"
+    reason: |
+      'The discovery found no repos here' and 'your filter matched none of the sixty repos
+      here' are different claims about different things, and collapsing them would make the
+      picker lie in exactly the situation the filter created. The fifth state renders next to
+      a count that still names the sixty.
