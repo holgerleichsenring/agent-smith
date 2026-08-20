@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
 import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
-import { refMatches } from "../RepoInventory";
+import { refMatches } from "@/lib/repoRefs";
 
 // p0345c: the Repositories page shows BOTH worlds — the per-connection
 // DISCOVERED inventory (read-only, with referenced-by badges and the honest
