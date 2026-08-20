@@ -97,4 +97,18 @@ public interface ISourceProvider : ITypedProvider
     /// happen for it to be mergeable.
     /// </summary>
     Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0490: finishes an already-opened pull request — merged on GitHub and GitLab,
+    /// completed on Azure Repos, and on a local repository, which has no pull request
+    /// server, by fast-forwarding the default branch onto <paramref name="sourceBranch"/>.
+    /// The platform implementations identify the pull request from
+    /// <paramref name="prUrl"/> the same way the body and draft edits above do.
+    /// A branch policy, a required reviewer or a required build that declines the merge
+    /// comes back as a refused <see cref="PullRequestCompletion"/> carrying the
+    /// platform's reason — never as a throw, because the caller's run is not the
+    /// pull request's success criterion.
+    /// </summary>
+    Task<PullRequestCompletion> CompletePullRequestAsync(
+        string prUrl, BranchName sourceBranch, CancellationToken cancellationToken);
 }

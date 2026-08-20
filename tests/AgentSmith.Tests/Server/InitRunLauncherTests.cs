@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -32,6 +33,9 @@ public sealed class InitRunLauncherTests : IDisposable
 {
     private const string Project = "sample";
     private const string InitPipeline = "init-project";
+    // p0490: these cases are about admission, not about what happens to the pull
+    // requests afterwards — the flag's own journey has its own test below.
+    private const bool AutoComplete = false;
 
     private readonly SqliteConnection _connection;
     private readonly ServiceProvider _provider;
@@ -63,7 +67,7 @@ public sealed class InitRunLauncherTests : IDisposable
     [Fact]
     public async Task InitLauncher_TicketlessRequest_IsEnqueued_AndNoTrackerCallIsMade()
     {
-        var result = await NewLauncher().LaunchAsync(Project, CancellationToken.None);
+        var result = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
 
         result.Outcome.Should().Be(InitLaunchOutcome.Started);
         var request = _enqueued.Should().ContainSingle().Subject;
@@ -79,7 +83,7 @@ public sealed class InitRunLauncherTests : IDisposable
     [Fact]
     public async Task InitLauncher_TheRunRow_CarriesTriggerManual_AndNoTicketId()
     {
-        var result = await NewLauncher().LaunchAsync(Project, CancellationToken.None);
+        var result = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
 
         using var ctx = new AgentSmithDbContext(Options());
         var run = ctx.Runs.Single(r => r.Id == result.RunId);
@@ -94,9 +98,9 @@ public sealed class InitRunLauncherTests : IDisposable
     [Fact]
     public async Task InitLauncher_SecondLaunchWhileOneRuns_IsRefused_WithTheLiveRunId()
     {
-        var first = await NewLauncher().LaunchAsync(Project, CancellationToken.None);
+        var first = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
 
-        var second = await NewLauncher().LaunchAsync(Project, CancellationToken.None);
+        var second = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
 
         second.Outcome.Should().Be(InitLaunchOutcome.AlreadyRunning);
         second.RunId.Should().Be(first.RunId, "the answer is the run that is already going");
@@ -108,7 +112,7 @@ public sealed class InitRunLauncherTests : IDisposable
     {
         _budgetMemory = "1Mi"; // the stub footprint is 4Gi — it cannot fit
 
-        var result = await NewLauncher().LaunchAsync(Project, CancellationToken.None);
+        var result = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
 
         result.Outcome.Should().Be(InitLaunchOutcome.NoCapacity);
         result.Reason.Should().Contain("exceeds the remaining budget");
@@ -121,7 +125,7 @@ public sealed class InitRunLauncherTests : IDisposable
     [Fact]
     public async Task InitLauncher_UnknownProject_IsRefused()
     {
-        var result = await NewLauncher().LaunchAsync("not-configured", CancellationToken.None);
+        var result = await NewLauncher().LaunchAsync("not-configured", AutoComplete, CancellationToken.None);
 
         result.Outcome.Should().Be(InitLaunchOutcome.UnknownProject);
         result.Reason.Should().Contain("not-configured");
@@ -133,7 +137,7 @@ public sealed class InitRunLauncherTests : IDisposable
     {
         _probe = DenyingProbe("namespace quota is full");
 
-        var result = await NewLauncher().LaunchAsync(Project, CancellationToken.None);
+        var result = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
 
         result.Outcome.Should().Be(InitLaunchOutcome.NoCapacity);
         result.Reason.Should().Be("namespace quota is full");
@@ -143,10 +147,40 @@ public sealed class InitRunLauncherTests : IDisposable
     }
 
     [Fact]
+    public async Task InitLauncher_AutoAccept_RidesTheEnqueuedRequest()
+    {
+        await NewLauncher().LaunchAsync(Project, autoCompletePullRequests: true, CancellationToken.None);
+
+        var context = _enqueued.Should().ContainSingle().Subject.Context;
+        context.Should().ContainKey(ContextKeys.AutoCompletePullRequests)
+            .WhoseValue.Should().Be(true, "consent belongs to the launch that carried it");
+    }
+
+    [Fact]
+    public async Task InitEndpoint_AutoAccept_TravelsFromTheBodyToTheRequest()
+    {
+        await ProjectInitEndpoints.InitAsync(
+            Project, new InitLaunchRequest(AutoCompletePullRequests: true),
+            NewLauncher(), CancellationToken.None);
+
+        _enqueued.Single().Context!
+            .Should().Contain(ContextKeys.AutoCompletePullRequests, true);
+    }
+
+    [Fact]
+    public async Task InitEndpoint_NoBody_DoesNotAutoAccept()
+    {
+        await ProjectInitEndpoints.InitAsync(Project, request: null, NewLauncher(), CancellationToken.None);
+
+        _enqueued.Single().Context!
+            .Should().Contain(ContextKeys.AutoCompletePullRequests, false);
+    }
+
+    [Fact]
     public async Task InitEndpoint_Success_AnswersTheRunId()
     {
         var response = await ProjectInitEndpoints.InitAsync(
-            Project, NewLauncher(), CancellationToken.None);
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
 
         StatusOf(response).Should().Be(StatusCodes.Status200OK);
         BodyOf(response).RunId.Should().Be(_enqueued.Single().RunId);
@@ -155,10 +189,10 @@ public sealed class InitRunLauncherTests : IDisposable
     [Fact]
     public async Task InitEndpoint_AlreadyRunning_Answers409_WithTheRunId()
     {
-        var first = await NewLauncher().LaunchAsync(Project, CancellationToken.None);
+        var first = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
 
         var response = await ProjectInitEndpoints.InitAsync(
-            Project, NewLauncher(), CancellationToken.None);
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
 
         StatusOf(response).Should().Be(StatusCodes.Status409Conflict);
         BodyOf(response).RunId.Should().Be(first.RunId);
@@ -170,7 +204,7 @@ public sealed class InitRunLauncherTests : IDisposable
         _probe = DenyingProbe("namespace quota is full");
 
         var response = await ProjectInitEndpoints.InitAsync(
-            Project, NewLauncher(), CancellationToken.None);
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
 
         StatusOf(response).Should().Be(StatusCodes.Status503ServiceUnavailable);
         BodyOf(response).Reason.Should().Be("namespace quota is full");

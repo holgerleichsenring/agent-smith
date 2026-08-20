@@ -53,6 +53,7 @@ public static partial class CommandNames
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
+        [InitComplete] = "Completing init pull requests",
         [GenerateTests] = "Generating tests",
         [GenerateDocs] = "Generating docs",
         [Triage] = "Triaging ticket",

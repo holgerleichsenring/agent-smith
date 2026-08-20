@@ -57,6 +57,33 @@ describe("PullRequestsPage", () => {
     expect(opened.compareDocumentPosition(attempts)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
+  it("PullRequestsPage_MergedAndRefusedCompletions_StayWithTheProducedPrs", async () => {
+    // p0490: an init run that finished its own PRs still produced them — filing a
+    // merged PR under "runs that produced no pull request" would be a lie, and the
+    // open counts must stop counting one that is merged.
+    mockFetch.mockResolvedValue([
+      pr({ runId: "r1", repo: "server", status: "completed", url: "https://git/pr/1" }),
+      pr({
+        runId: "r2",
+        repo: "web",
+        status: "completion_refused",
+        url: "https://git/pr/2",
+        reason: "At least 1 approving review is required.",
+      }),
+      pr({ runId: "r3", repo: "api", status: "no_changes", url: null }),
+    ]);
+    render(<PullRequestsPage />);
+
+    const opened = await screen.findByTestId("pr-opened-section");
+    expect(within(opened).getByTestId("pr-opened-count")).toHaveTextContent("2");
+    expect(within(opened).getByTestId("pr-row-r1-server-status")).toHaveTextContent("merged");
+    expect(within(opened).getByTestId("pr-row-r2-web-status")).toHaveTextContent("still open");
+    // Only the one still waiting counts as open.
+    expect(screen.getByTestId("pr-metric-total")).toHaveTextContent("1");
+    expect(within(screen.getByTestId("pr-attempts-section"))
+      .getByTestId("pr-attempts-count")).toHaveTextContent("1");
+  });
+
   it("PullRequestsPage_MultiRepoRun_ShowsEveryRepoRow", async () => {
     // One run opened PRs in two repos — the page keeps a row per repo.
     mockFetch.mockResolvedValue([

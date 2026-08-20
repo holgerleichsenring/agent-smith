@@ -23,12 +23,22 @@ interface InitLaunchBody {
   reason?: string | null;
 }
 
+// p0490: what the operator ticked on THIS launch travels with it. Auto-accept is not
+// project configuration — consent belongs to the click that started this run — so it is
+// stated explicitly on every request rather than remembered anywhere.
+export interface InitOptions {
+  autoCompletePullRequests: boolean;
+}
+
 export async function startProjectInit(
   project: string,
+  options: InitOptions,
   signal?: AbortSignal,
 ): Promise<InitLaunch> {
   const res = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(project)}/init`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options),
     signal,
   });
   const body = (await readBody(res)) ?? {};

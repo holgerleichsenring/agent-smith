@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -29,7 +30,11 @@ public sealed class InitRunLauncher(
 
     private const string QueuedSummary = "starting — initialization requested from the dashboard";
 
-    public async Task<InitLaunchResult> LaunchAsync(string projectName, CancellationToken ct)
+    /// <param name="autoCompletePullRequests">p0490: the operator's auto-accept, as
+    /// ticked on THIS launch. It rides the enqueued request into the pipeline context,
+    /// where the init pipeline's last step reads it.</param>
+    public async Task<InitLaunchResult> LaunchAsync(
+        string projectName, bool autoCompletePullRequests, CancellationToken ct)
     {
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
         if (!config.Projects.TryGetValue(projectName, out var project))
@@ -38,10 +43,11 @@ public sealed class InitRunLauncher(
         var live = await runs.FindLiveRunIdAsync(projectName, PipelineName, ct);
         if (live is not null) return InitLaunchResult.AlreadyRunning(live);
 
-        return await AdmitAndEnqueueAsync(project, ct);
+        return await AdmitAndEnqueueAsync(project, autoCompletePullRequests, ct);
     }
 
-    private async Task<InitLaunchResult> AdmitAndEnqueueAsync(ResolvedProject project, CancellationToken ct)
+    private async Task<InitLaunchResult> AdmitAndEnqueueAsync(
+        ResolvedProject project, bool autoCompletePullRequests, CancellationToken ct)
     {
         var runId = RunIdGenerator.Generate(timeProvider.GetUtcNow());
         var decision = await admission.TryAdmitAsync(project, PipelineName, runId, ct);
@@ -53,7 +59,8 @@ public sealed class InitRunLauncher(
         await runs.CreateQueuedRunAsync(
             runId, project.Name, PipelineName,
             project.Repos.Select(r => r.Name).ToList(), QueuedSummary, ct);
-        await jobQueue.EnqueueAsync(ToRequest(project.Name, runId), ct);
+        await jobQueue.EnqueueAsync(
+            ToRequest(project.Name, runId, autoCompletePullRequests), ct);
 
         logger.LogInformation(
             "Init launched for project {Project} (run {RunId}) — ticketless, trigger manual",
@@ -61,6 +68,11 @@ public sealed class InitRunLauncher(
         return InitLaunchResult.Started(runId);
     }
 
-    private static PipelineRequest ToRequest(string projectName, string runId) => new(
-        projectName, PipelineName, TicketId: null, IsInit: true, Headless: true, RunId: runId);
+    private static PipelineRequest ToRequest(
+        string projectName, string runId, bool autoCompletePullRequests) => new(
+        projectName, PipelineName, TicketId: null, IsInit: true, Headless: true, RunId: runId,
+        Context: new Dictionary<string, object>
+        {
+            [ContextKeys.AutoCompletePullRequests] = autoCompletePullRequests,
+        });
 }

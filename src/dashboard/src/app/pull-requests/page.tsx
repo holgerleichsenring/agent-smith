@@ -7,6 +7,7 @@ import { fetchPullRequests } from "@/lib/pullRequestsApi";
 import { PrButton } from "@/components/jobs/PrButton";
 import type { PullRequest } from "@/types/hub-events";
 import { cn } from "@/lib/utils";
+import { hasPullRequest, isOpenPullRequest, pullRequestStatusLabel } from "@/lib/prStatus";
 
 // p0347: agent-smith's OUTPUT gets its own surface. The Pull Requests page lists
 // every PR the agent opened — per repo, so multi-repo runs keep all their PRs —
@@ -61,14 +62,18 @@ export default function PullRequestsPage() {
     return () => controller.abort();
   }, []);
 
-  const opened = useMemo(() => (prs ?? []).filter((p) => p.status === "opened"), [prs]);
+  // p0490: the split is "produced a pull request" vs "produced none" — a merged one
+  // and a refused completion both produced one. The metrics stay the count of pull
+  // requests still WAITING, which a merged one no longer is.
+  const opened = useMemo(() => (prs ?? []).filter((p) => hasPullRequest(p.status)), [prs]);
   const attempts = useMemo(
-    () => (prs ?? []).filter((p) => p.status !== "opened"),
+    () => (prs ?? []).filter((p) => !hasPullRequest(p.status)),
     [prs],
   );
 
-  const openToday = opened.filter((p) => isToday(p.openedAt)).length;
-  const openWeek = opened.filter((p) => withinDays(p.openedAt, 7)).length;
+  const stillOpen = opened.filter((p) => isOpenPullRequest(p.status));
+  const openToday = stillOpen.filter((p) => isToday(p.openedAt)).length;
+  const openWeek = stillOpen.filter((p) => withinDays(p.openedAt, 7)).length;
 
   return (
     <div className="mock-shell mock-runs" data-testid="pull-requests-page">
@@ -90,7 +95,7 @@ export default function PullRequestsPage() {
         >
           <Metric label="Open today" value={openToday} testId="pr-metric-today" />
           <Metric label="Open this week" value={openWeek} testId="pr-metric-week" />
-          <Metric label="Total open" value={opened.length} testId="pr-metric-total" />
+          <Metric label="Total open" value={stillOpen.length} testId="pr-metric-total" />
         </div>
 
         {prs === null ? (
@@ -183,8 +188,11 @@ function OpenedRow({ pr }: { pr: PullRequest }) {
         </div>
       </div>
 
-      <span className="pill ok" data-testid={`pr-row-${pr.runId}-${pr.repo}-status`}>
-        opened
+      <span
+        className={cn("pill", pr.status === "completion_refused" ? "q" : "ok")}
+        data-testid={`pr-row-${pr.runId}-${pr.repo}-status`}
+      >
+        {pullRequestStatusLabel(pr.status)}
       </span>
 
       <span className="prog hidesm">{relativeAgo(pr.openedAt)}</span>

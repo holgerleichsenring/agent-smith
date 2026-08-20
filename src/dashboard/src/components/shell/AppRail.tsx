@@ -21,6 +21,7 @@ import {
 } from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 import { AppRailItem } from "./AppRailItem";
+import { isOpenPullRequest } from "@/lib/prStatus";
 
 // p0209a: persistent left app rail. p0343c (pixel identity): the rail emits the
 // ratified mocks' .side DOM verbatim — .brand (logo block + name), the
@@ -342,7 +343,7 @@ function useOpenPrCount(): number | null {
   useEffect(() => {
     const controller = new AbortController();
     fetchPullRequests(controller.signal)
-      .then((prs) => setCount(prs.filter((p) => p.status === "opened").length))
+      .then((prs) => setCount(prs.filter((p) => isOpenPullRequest(p.status)).length))
       .catch(() => {
         /* honest: no count rather than a fabricated 0 */
       });

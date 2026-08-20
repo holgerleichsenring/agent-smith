@@ -33,6 +33,38 @@ describe("PrOutcomeList", () => {
     expect(link).toHaveAttribute("href", "https://github.com/test/repo/pull/42");
   });
 
+  it("PrStep_CompletedPr_ReadsAsMerged_NotFailed", () => {
+    // p0490: an init run may finish what it opened — that is a good outcome, and
+    // must not fall through to the red "failed" branch.
+    render(<PrOutcomeList events={[outcome({ repo: "server", status: "completed" })]} />);
+    const row = screen.getByTestId("pr-outcome-server");
+    expect(row).toHaveTextContent("merged");
+    expect(row).not.toHaveTextContent("failed");
+    expect(screen.getByTestId("pr-outcome-server-link")).toHaveAttribute(
+      "href",
+      "https://github.com/test/repo/pull/42",
+    );
+  });
+
+  it("PrStep_CompletionRefused_SaysStillOpen_WithTheReason", () => {
+    render(
+      <PrOutcomeList
+        events={[
+          outcome({
+            repo: "server",
+            status: "completion_refused",
+            reason: "At least 1 approving review is required.",
+          }),
+        ]}
+      />,
+    );
+    const row = screen.getByTestId("pr-outcome-server");
+    expect(row).toHaveTextContent("still open");
+    expect(row).toHaveTextContent("approving review is required");
+    expect(row).not.toHaveTextContent("failed");
+    expect(screen.getByTestId("pr-outcome-server-link")).toBeInTheDocument();
+  });
+
   it("PrStep_FailedWithSurvivingDraftPr_UrlStaysClickable", () => {
     // p0372: a failed outcome that still carries a PR (draft survived the
     // failure) renders it as the clickable draft PrButton, not dead text.

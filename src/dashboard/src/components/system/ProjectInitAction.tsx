@@ -12,6 +12,11 @@ import { startProjectInit } from "@/lib/projectInitApi";
 // STARTED run that later fails is the ordinary run detail, so the action becomes
 // a link to that run. A second press while an init is live opens the live run
 // instead of starting another.
+//
+// p0490: the checkbox beside it defaults to ON. An init pull request is generated
+// .agentsmith/ context on a repo that had none, and nobody reviews it — so the review
+// step the tick skips was already not happening. It applies to the run it starts and
+// to nothing else.
 
 type InitState =
   | { kind: "idle" }
@@ -21,11 +26,12 @@ type InitState =
 
 export function ProjectInitAction({ project }: { project: string }) {
   const [state, setState] = useState<InitState>({ kind: "idle" });
+  const [autoAccept, setAutoAccept] = useState(true);
 
   async function start() {
     setState({ kind: "starting" });
     try {
-      const launch = await startProjectInit(project);
+      const launch = await startProjectInit(project, { autoCompletePullRequests: autoAccept });
       setState(
         launch.runId
           ? { kind: "running", runId: launch.runId }
@@ -41,17 +47,25 @@ export function ProjectInitAction({ project }: { project: string }) {
   }
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button
-        variant="ghost"
-        data-testid={`project-init-${project}`}
-        disabled={state.kind === "starting"}
-        onClick={(e) => {
-          e.stopPropagation();
-          void start();
-        }}
-      >
-        {state.kind === "starting" ? "Initializing…" : "Initialize"}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          data-testid={`project-init-${project}`}
+          disabled={state.kind === "starting"}
+          onClick={(e) => {
+            e.stopPropagation();
+            void start();
+          }}
+        >
+          {state.kind === "starting" ? "Initializing…" : "Initialize"}
+        </Button>
+        <AutoAcceptToggle
+          project={project}
+          checked={autoAccept}
+          disabled={state.kind === "starting"}
+          onChange={setAutoAccept}
+        />
+      </div>
       {state.kind === "refused" && (
         <span
           className="dsh-label text-rose-700"
@@ -62,6 +76,35 @@ export function ProjectInitAction({ project }: { project: string }) {
         </span>
       )}
     </div>
+  );
+}
+
+function AutoAcceptToggle({
+  project,
+  checked,
+  disabled,
+  onChange,
+}: {
+  project: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label
+      className="flex items-center gap-1.5 dsh-label text-stone-600"
+      title="Merge the pull requests this initialization opens. A branch policy that refuses leaves the pull request open."
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        data-testid={`project-init-auto-accept-${project}`}
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      Auto-accept PRs
+    </label>
   );
 }
 
