@@ -38,7 +38,8 @@ internal static class AccountReAsk
         sb.AppendLine();
         sb.AppendLine("A citation element is ONE whole thing: one path exactly as the FILE LIST");
         sb.AppendLine("prints it, or one command copied character for character from between the");
-        sb.AppendLine("quotes on its line under COMMANDS. Two commands are two elements; never join");
+        sb.AppendLine("quotes on its line under COMMANDS — a shortened one carries a … for the part");
+        sb.AppendLine("left out and that is copied too. Two commands are two elements; never join");
         sb.AppendLine("them and never cut one apart.");
         sb.AppendLine();
         sb.AppendLine("Answer again with ONLY the JSON array, for these criteria alone. If you cannot");

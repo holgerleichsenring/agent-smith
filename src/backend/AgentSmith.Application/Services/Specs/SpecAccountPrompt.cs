@@ -49,8 +49,10 @@ public static class SpecAccountPrompt
             file list, or one command copied VERBATIM from between the quotes on its line,
             with nothing added and nothing summarised. A command contains semicolons, pipes
             and ampersands of its own, so never join two commands into one element and never
-            cut one apart — two commands are two elements. A description of what the
-            commands did, however accurate, names no command and does not count.
+            cut one apart — two commands are two elements. A long command is listed
+            SHORTENED, with … standing for the part left out; copy it exactly as it is
+            listed, marker included, and never restore what it hides. A description of what
+            the commands did, however accurate, names no command and does not count.
 
             A listed command satisfies a criterion only when it COVERS it. A build or test
             criterion is covered by a command that exited 0. An ABSENCE criterion is covered

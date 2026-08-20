@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0481
+
+decisions:
+  - category: Correctness
+    chose: "Shorten an over-long command in the MIDDLE, keeping its head and its tail"
+    over: "Cutting it at the end, as p0470 did"
+    reason: |
+      Run 0944 refused "no listed successful absence search covers Wolverine local-queue usage
+      across both repositories" for a search the agent really had run: the pattern sat inside
+      the 200-character cap and the PATHS it searched sat past it. 21 of that phase's 106
+      commands were over the cap. An end-cut removes exactly what an absence criterion is
+      judged on.
+  - category: Correctness
+    chose: "Trim the grammar's quotes and the elision marker from a citation before comparing"
+    over: "Widening the prefix match, or comparing in both directions again"
+    reason: |
+      The cut landed inside the literal echo 'No MassTransit references found', so the line
+      showed an unbalanced quote and the account closed it — 202 characters cited against the
+      201 the line carried, one too long to be a prefix. Trimming can only SHORTEN what is
+      cited, so the one-directional rule p0473 introduced still decides every citation, and
+      no invented citation becomes resolvable. Widening the match reopens p0473's hole.
+  - category: Correctness
+    chose: "A shortened command is cited only in FULL"
+    over: "Accepting its visible head, sized at 65% to clear the 60% floor"
+    reason: |
+      The first draft accepted the head and a review broke it. Sibling commands share their
+      head BY CONSTRUCTION and differ in the paths they ran against; run 0944 issued 21
+      over-cap commands of that family. A head-only citation names all of them, closing a
+      two-repository absence criterion with a one-repository search — this phase's own first
+      refusal, inverted into a false positive. Refusing is loud, and p0474's re-ask asks for
+      the span that now fits. Proven by a test that resolves two searches differing only in
+      their path.
+  - category: Correctness
+    chose: "The tail begins at a whole argument"
+    over: "Taking the last N characters as they fall"
+    reason: |
+      A tail starting mid-token prints half a path as though it were a path. Evidence that is
+      partly true is the failure this phase exists to end. The HEAD is cut hard by contrast,
+      because a prefix reads as a prefix.
+  - category: Correctness
+    chose: "An evidence line carrying no quoted span names no command"
+    over: "Falling back to the whole line, as EvidenceCommand did"
+    reason: |
+      Found while reviewing this phase: the budget's own notice was citable. It carries no
+      apostrophe, so the reading fell back to the whole line and any 60% prefix of it resolved
+      as a command that ran. p0470 wrote the notice without a leading colon to keep it out of
+      the STEP reading and left this one open. Verified that every other unquoted line in the
+      codebase is a step line, cited by name through the untouched step reading.
+  - category: Design
+    chose: "Collapse whitespace in the command, then measure, then elide"
+    over: "Measuring the raw command"
+    reason: |
+      A multi-line command renders as several items of a list the prompt writes one item per
+      line, and the reader counts what it can see. Collapsing first also lets a command that
+      fits once its whitespace runs are single spaces escape elision entirely.
+  - category: Design
+    chose: "Numbering every evidence line and citing by index — DROPPED"
+    over: "Shipping it as the first draft proposed"
+    reason: |
+      A citation that resolves by INDEX turns a hallucinated citation from a loud failure into
+      a silent mis-attribution: every integer in range resolves against some real command and
+      the resolver has no coverage check. It would also have broken the step-name reading, the
+      cost model behind the 30,000-character budget, and seven committed tests. Neither
+      observed refusal needed it.
+  - category: Design
+    chose: "Extract the elision into CommandElision"
+    over: "Adding it to PhaseCommandBudget"
+    reason: |
+      PhaseCommandBudget was 110 of a hard 120 lines and is not in the length baseline, whose
+      test refuses a new entry. Deciding what a list may weigh and shortening one command are
+      two reasons to change.
+  - category: Testing
+    chose: "Build the citation fixture by feeding the real script through the live record"
+    over: "Freezing the 202-character string the run produced"
+    reason: |
+      That string is cmd[..200] + marker, and the record now holds head + marker + tail, so
+      the historical string is unresolvable by construction. Freezing it would pin a rendering
+      the code no longer produces. The failure MODE is what the test reproduces.
+  - category: Testing
+    chose: "Fixtures at the real sizes, with the customer identifiers anonymised at equal length"
+    over: "Short synthetic strings"
+    reason: |
+      Length is the property under test; a synthetic fixture passes at any head and tail. The
+      review caught the first Wolverine fixture claiming both repositories survived when only
+      the second did, which is why the surviving tail is now asserted for what it actually
+      contains and the two-repository fact is pinned on the line's repository prefix instead.
