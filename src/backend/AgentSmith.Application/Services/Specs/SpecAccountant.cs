@@ -36,6 +36,7 @@ public sealed class SpecAccountant(
         string diff,
         IReadOnlyList<string> commandResults,
         AgentConfig agent,
+        BranchSearch? branchSearch,
         PipelineCostTracker costTracker,
         CancellationToken cancellationToken)
     {
@@ -44,7 +45,13 @@ public sealed class SpecAccountant(
             return new SpecAccount(repoKey, [], "the phase states no completion criteria");
 
         var resolver = new CitationResolver(CitedFileIndex.FromDiff(diff), commandResults);
-        var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
+        // p0482: the account settles an absence by searching the branch itself, so the call
+        // carries a tool and an iteration cap. Without a sandbox it falls back to the cited
+        // evidence, which is what every account did before this.
+        var searchable = branchSearch?.Repositories;
+        var tools = AccountTools.For(branchSearch);
+        var chat = chatClientFactory.Create(
+            agent, TaskType.Reasoning, tools is null ? null : AccountTools.MaxIterations);
 
         // A diff too large for one call is SPLIT, never cut: evidence is monotone, so a
         // criterion satisfied by one window is satisfied, and the windows' answers union.
@@ -56,7 +63,8 @@ public sealed class SpecAccountant(
                 repoKey, windows.Count);
 
         var answer = await AskEveryWindowAsync(
-            chat, repoKey, criteria, windows, commandResults, costTracker, cancellationToken);
+            chat, repoKey, criteria, windows, commandResults, searchable, tools,
+            costTracker, cancellationToken);
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
@@ -75,7 +83,8 @@ public sealed class SpecAccountant(
             repoKey, unresolved.Count);
         var second = await call.AskAsync(
             chat, repoKey, [.. unresolved.Select(u => u.Criterion)], windows.Count > 0 ? windows[0] : string.Empty,
-            commandResults, costTracker, cancellationToken, AccountReAsk.Message(unresolved));
+            searchable, commandResults, costTracker, cancellationToken,
+            AccountReAsk.Message(unresolved), tools);
         if (second is null) return new SpecAccount(repoKey, rows);
 
         var corrected = reader.Resolve(repoKey, [.. unresolved.Select(u => u.Criterion)], second, resolver);
@@ -84,7 +93,6 @@ public sealed class SpecAccountant(
                 string.Equals(c.Criterion, r.Criterion, StringComparison.OrdinalIgnoreCase)) is { Satisfied: true } fixedRow
                 ? fixedRow : r)]);
     }
-
 
     private const string RoleName = "spec-accountant";
 
@@ -96,15 +104,16 @@ public sealed class SpecAccountant(
     private async Task<IReadOnlyList<AccountRow>?> AskEveryWindowAsync(
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria,
         IReadOnlyList<string> windows, IReadOnlyList<string> commandResults,
+        IReadOnlyList<string>? searchable, IList<AITool>? tools,
         PipelineCostTracker costTracker, CancellationToken ct)
     {
         var answers = new List<IReadOnlyList<AccountRow>>();
         foreach (var window in windows.Count == 0 ? [string.Empty] : windows)
         {
-            var rows = await call.AskAsync(chat, repoKey, criteria, window, commandResults, costTracker, ct);
+            var rows = await call.AskAsync(
+                chat, repoKey, criteria, window, searchable, commandResults, costTracker, ct, tools: tools);
             if (rows is not null) answers.Add(rows);
         }
         return answers.Count == 0 ? null : AccountWindowMerge.Of(answers);
     }
-
 }
