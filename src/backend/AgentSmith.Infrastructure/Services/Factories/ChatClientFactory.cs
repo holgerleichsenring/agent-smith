@@ -34,7 +34,7 @@ public sealed class ChatClientFactory(
     private const int MaxIterationsPerRequest = 25;
 
     private static readonly HashSet<TaskType> ToolBearingTasks =
-        new() { TaskType.Primary, TaskType.Scout, TaskType.Planning };
+        new() { TaskType.Primary, TaskType.Scout, TaskType.Planning, TaskType.Reasoning };
 
     private readonly Dictionary<string, IChatClientBuilder> _builderByType = BuildIndex(builders);
     private readonly ILogger<ChatClientFactory> _logger = loggerFactory.CreateLogger<ChatClientFactory>();
