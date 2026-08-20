@@ -274,7 +274,7 @@ public sealed class PipelineSandboxCoordinator(
         }
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
         logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
-        return sandbox is null ? null! : new SandboxEventProjector(sandbox, eventPublisher, runContext, key);
+        return sandbox is null ? null! : new SandboxEventProjector(sandbox, eventPublisher, runContext, key, logger);
     }
 
     public async ValueTask DisposeAsync()
