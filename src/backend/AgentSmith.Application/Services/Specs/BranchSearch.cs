@@ -30,7 +30,6 @@ public sealed class BranchSearch(
     IReadOnlyDictionary<string, ISandbox> sandboxes, ILogger logger)
 {
     private const int TimeoutSeconds = 90;
-    private const int MaxOutputChars = 4_000;
 
     /// <summary>The repositories a search may name, for the prompt to list.</summary>
     public IReadOnlyList<string> Repositories => [.. sandboxes.Keys];
@@ -40,7 +39,21 @@ public sealed class BranchSearch(
     /// round-trip inside a model call at the end of a run.</summary>
     public const int MaxSearches = 12;
 
+    private readonly Lock _sync = new();
+    private readonly List<string> _evidence = [];
     private int _ran;
+
+    /// <summary>
+    /// p0484: what the account searched, in the same grammar an agent command is reported in,
+    /// so the citation check needs no new reading. p0483 let the account settle an absence by
+    /// LOOKING and left it unable to say that it had looked: the first live run ran fifteen
+    /// searches and was then refused with "claimed satisfied but cited nothing", because a
+    /// search the ACCOUNT ran is neither a path in the diff nor a command in the list.
+    /// </summary>
+    public IReadOnlyList<string> Evidence
+    {
+        get { lock (_sync) return [.. _evidence]; }
+    }
 
     [Description("Searches the branch as it stands now, in one repository, and returns the "
                  + "matching lines with their file and line number. This is how you settle a "
@@ -63,10 +76,20 @@ public sealed class BranchSearch(
             return "A search needs a pattern.";
 
         var result = await RunAsync(sandbox, pattern, path, ct);
+        Remember(repository, pattern, result.ExitCode);
         logger.LogInformation(
             "The delivery account searched {Repo} for {Pattern} under {Path} — exit {Exit}",
             repository, pattern, path ?? ".", result.ExitCode);
-        return Report(result, repository, pattern, path);
+        return SearchOutcome.Report(result, repository, path, pattern);
+    }
+
+    /// <summary>The pattern is what is cited, because the account wrote it and can reproduce
+    /// it exactly. Only a search that RAN is remembered — an unknown repository or a blank
+    /// pattern never reached the branch and is evidence of nothing.</summary>
+    private void Remember(string repository, string pattern, int exitCode)
+    {
+        lock (_sync)
+            _evidence.Add($"{repository}: the account searched '{pattern}' exited {exitCode}");
     }
 
     /// <summary>grep with a fixed argument vector and no shell: the pattern is one argv
@@ -89,19 +112,4 @@ public sealed class BranchSearch(
             progress: null, ct);
     }
 
-    /// <summary>grep exits 1 BECAUSE it found nothing, and that is the proof an absence
-    /// criterion asks for — so the status is reported as a finding, never as a failure. An
-    /// exit above 1 is grep itself failing, which proves nothing at all.</summary>
-    private static string Report(StepResult result, string repository, string pattern, string? path)
-    {
-        var where = $"{repository}{(string.IsNullOrWhiteSpace(path) ? string.Empty : "/" + path)}";
-        var output = (result.OutputContent ?? string.Empty).Trim();
-        return result.ExitCode switch
-        {
-            0 => $"'{pattern}' found in {where}:\n"
-                 + (output.Length <= MaxOutputChars ? output : output[..MaxOutputChars] + "\n… more matches follow"),
-            1 => $"'{pattern}' does not occur anywhere in {where}.",
-            _ => $"The search of {where} could not run (exit {result.ExitCode}) and proves nothing: {output}",
-        };
-    }
 }
