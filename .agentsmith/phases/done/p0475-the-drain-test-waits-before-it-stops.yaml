@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0475
+goal: "The drain test waits for what it asserts while the process that produces it is still running."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE TEST ASKS A STOPPED PROCESS TO KEEP WORKING.
+      Broadcaster_DrainLagsThenQuiesces_CursorReachesRunFinished waits for the RUN row,
+      stops the only broadcaster, and then waits up to sixty seconds for the TRAIL row —
+      which only that broadcaster writes. On a fast machine the trail row lands before the
+      stop and the test passes; on a loaded CI runner it does not, the wait runs out, and
+      the failure reads "the terminal event reaches the trail, not only the run row".
+  - key: |
+      THE PRODUCT IS CORRECT AND STAYS UNCHANGED. StopAsync cancels the loop's token and
+      awaits it, so a drain in flight is abandoned by design: the Redis stream is the source
+      of truth and the cursor only advances over entries already processed, so a restart
+      re-reads what was dropped. Broadcaster_HighVolumeRun_RunFinishedPersists proves exactly
+      that — process A dies mid-drain and process B cold-starts and catches up. Making
+      StopAsync flush would add a shutdown promise nothing needs.
+  - key: |
+      MOVING THE WAIT, NOT WEAKENING THE ASSERTION. The test still proves what it was written
+      for: a lagging cursor reaches the quiesced tail, and the terminal event lands in both
+      the run row and the trail exactly once. Only the moment of asking changes, from after
+      the producer stopped to before.
+  - key: |
+      NOT FOLDED INTO p0474. The failure surfaced on that phase's pull request and has
+      nothing to do with it — different subsystem, and p0474's own suite was green locally
+      and through the gate. Fixing it there would have hidden an unrelated flake inside a
+      change about citations.
+
+steps:
+  - id: the-trail-is-awaited-before-the-stop
+    action: "Wait for the trail row while the broadcaster is still running, then stop it and assert."
+
+tests:
+  - "Broadcaster_DrainLagsThenQuiesces_CursorReachesRunFinished (existing, made order-correct)"
+
+done:
+  - "the test no longer waits on output from a process it has stopped"
+  - "its assertions are unchanged"
+  - "build green, full suite green"
