@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0486
+
+decisions:
+  - category: Design
+    chose: "The command writes the artifact it captures"
+    over: "Instructing the agent to transcribe command output faithfully"
+    reason: |
+      Run d8d1 was refused because its inventory claims 35 request handlers and lists fewer.
+      The ticket asked, in the operator's own words, to run the greps and capture the results;
+      the agent ran every one of them and then retyped them into prose. A model that retypes a
+      list shortens it — summarising is what reading is for — so the instruction stops asking
+      for a faithful copy. A redirected capture cannot disagree with what the command found.
+  - category: Design
+    chose: "A count stands on the entries beneath it"
+    over: "Allowing a number beside a list"
+    reason: |
+      A number written next to a list is a second, independent claim, and the two drift the
+      moment either is edited. That drift is exactly what the delivery account caught.
+  - category: Correctness
+    chose: "State that the redirect target is repo-relative"
+    over: "Saying only 'redirect it'"
+    reason: |
+      run_command runs the shell inside the repository named in its own argument, while
+      write_file takes a repo-prefixed path. A rule that omitted this would have produced
+      repo/repo/... on the first attempt.
+  - category: Testing
+    chose: "Pin-gated assertions against the packaged master"
+    over: "Goldens in the skills repository"
+    reason: |
+      The first draft of this spec said goldens; there are none for master skills — the skills
+      repository has no test suite, only a frontmatter validator. The mechanism that exists is
+      PackagedMaster plus the gating p0412 established, so the guard states the gap out loud
+      below the arming release and goes live by itself when the pin moves. A review caught the
+      fiction before any code was written.
+  - category: Testing
+    chose: "Gate the artifact-phase paragraph check on the same release"
+    over: "Asserting it unconditionally"
+    reason: |
+      That paragraph is itself newer than the pinned v4.5.0 catalog, so an unconditional
+      assertion failed immediately. The claim it makes — the new rule sits beside the old one
+      rather than replacing it — only means anything once the pin carries both.
+  - category: Design
+    chose: "Name the pin bump p0487"
+    over: "Calling it a follow-up"
+    reason: |
+      Until the pin moves, the guards assert the opposite of the intent. That is honest only
+      while the move has a phase id the operator can see.
+  - category: Design
+    chose: "This is the third of three, and the family is named"
+    over: "Treating it as an isolated skill tweak"
+    reason: |
+      p0481 stopped the model copying a command into a citation, p0483 stopped it relying on
+      being told and let it look, and this stops it transcribing a command's output into a
+      document. Each was a model asked to reproduce text it had already caused to exist.
