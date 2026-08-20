@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0484
+
+decisions:
+  - category: Correctness
+    chose: "A search the account ran is evidence a citation may name"
+    over: "Leaving the resolver to accept only diff paths and listed commands"
+    reason: |
+      p0483 gave the account a new kind of evidence and forgot to let it say so. The first
+      live run ran fifteen searches across two repositories, settled an absence criterion by
+      looking, and was refused with "claimed satisfied but cited nothing" — because a search
+      the ACCOUNT ran is neither a path in the diff nor a command in the list. It was allowed
+      to look and not allowed to report that it had looked.
+  - category: Design
+    chose: "The same evidence grammar as an agent command"
+    over: "A new citation form for searches"
+    reason: |
+      "repo: the account searched 'pattern' exited N" is read by the existing citation check
+      without teaching it anything, and exit 1 keeps meaning the absence is proven. The
+      pattern is what is cited because the account wrote it and can reproduce it exactly.
+  - category: Correctness
+    chose: "Build the citation resolver AFTER the call, and again after the re-ask"
+    over: "Building it once before the call"
+    reason: |
+      Searches happen DURING the model call, so a resolver constructed ahead of it can never
+      see them — that ordering IS the defect. The re-ask runs searches of its own, so it is
+      judged against a resolver taken after it too.
+  - category: Correctness
+    chose: "Only a search that reached the branch is remembered"
+    over: "Recording every call to the tool"
+    reason: |
+      An unknown repository or a blank pattern never ran against anything. Recording those
+      would let a citation resolve against a search that never happened, which is the
+      fabrication the whole citation check exists to refuse.
+  - category: Design
+    chose: "Extract AccountSecondPass and SearchOutcome"
+    over: "Growing SpecAccountant and BranchSearch"
+    reason: |
+      The accountant stood at 119 of a hard 120 lines and BranchSearch went to 131. Merging
+      two answers, reading what an exit status means, and taking an account are three reasons
+      to change.
+  - category: Testing
+    chose: "Pin the live refusal and its inverse"
+    over: "Testing only that a search is recorded"
+    reason: |
+      A citation naming a pattern nobody searched for must still fail, and an account with no
+      sandbox at all must still need a file or a command. The standard does not move; what
+      changes is that a true report of work the account really did is now expressible.
