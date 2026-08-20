@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0487
+goal: "The embedded skills pin moves to the release carrying the artifact-capture rule, arming the guards p0486 left dormant."
+
+applies_to: "backend"
+
+requires:
+  - p0486
+
+decisions:
+  - key: |
+      NAMED RATHER THAN DEFERRED. p0486 writes the rule in agent-smith-skills and pins it here
+      with assertions gated on SkillsCatalogVersion, which means they assert the OPPOSITE
+      until the pin moves. That is the established pattern and it is honest only while the
+      move has a phase id an operator can see [[feedback_no_silent_defer]].
+  - key: |
+      THE RELEASE COMES FIRST AND IS NOT THIS PHASE'S TO CUT. agent-smith-skills releases
+      through release-please on a conventional-commit PR TITLE; the commit message is
+      discarded [[reference_skills_repo_releases]]. This phase moves the pin once the release
+      exists, and reports the version it actually moved to rather than the one it expected.
+
+steps:
+  - id: the-pin-moves-to-the-release
+    action: "Raise SkillsCatalogVersion to the agent-smith-skills release carrying the artifact-capture rule, and replace the embedded tarball."
+  - id: the-dormant-guards-arm-themselves
+    action: "Confirm p0486's pin-gated assertions flip from stating the gap to asserting the rule, with no edit to the test."
+
+tests:
+  - "PackagedCodingMaster_CapturedOutput_IsRedirectedNotRetyped"
+  - "PackagedCodingMaster_ACountInAnArtifact_StandsOnItsList"
+  - "PackagedCodingMaster_TheRedirectTarget_IsRepoRelative"
+  - "PackagedCodingMaster_TheArtifactPhaseParagraph_IsUnchanged"
+
+done:
+  - "the pinned catalog carries the artifact-capture rule"
+  - "p0486's assertions are live without having been edited"
+  - "build green, full suite green"
