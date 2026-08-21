@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.134.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.133.0...v0.134.0) (2026-08-21)
+
+
+### Features
+
+* a finished phase is a place you can go back to (p0466) ([c46ef0d](https://github.com/holgerleichsenring/agent-smith/commit/c46ef0d2d8cd4a6c3da82ed4d55542226a5373eb))
+* a finished phase is a place you can go back to (p0466) ([62d8c83](https://github.com/holgerleichsenring/agent-smith/commit/62d8c832ebd93cad30c3faad7ebe87150f255ebe))
+* a picker with many repos stays legible (p0488) ([0a076a7](https://github.com/holgerleichsenring/agent-smith/commit/0a076a7fb8005fe4c5baca30735506f67ac498e6))
+* a project initializes itself from the dashboard (p0489) ([0ccd086](https://github.com/holgerleichsenring/agent-smith/commit/0ccd08691c0be016114cd7ecba1dc6cef58262f3))
+* an init pull request can accept itself (p0490) ([03df2b1](https://github.com/holgerleichsenring/agent-smith/commit/03df2b1fc292a35cb6e81509cfe1f2b469ba41b5))
+* repo picker filter, ticketless dashboard init, and init PR auto-accept (p0488-p0490) ([0ebb2ed](https://github.com/holgerleichsenring/agent-smith/commit/0ebb2ed08d6f96f5fc3bfda39f63a81a2a410b81))
+* the account checks instead of trusting (p0482) ([59e029b](https://github.com/holgerleichsenring/agent-smith/commit/59e029bf7d93f9aa2ebbad8bf4323cf4da2bc750))
+* the command writes the artifact it captures (p0486) ([232a380](https://github.com/holgerleichsenring/agent-smith/commit/232a380d57575f8a682c332ac7d7b401188c50f5))
+* the command writes the artifact it captures (p0486), and p0439 carries the done ruling ([6da03fd](https://github.com/holgerleichsenring/agent-smith/commit/6da03fdeeea21e1e6df3716b6be9aa9e0d83f182))
+
+
+### Bug Fixes
+
+* a checkpoint restores what it can (p0478) ([15ac66c](https://github.com/holgerleichsenring/agent-smith/commit/15ac66c672b833c5ad636ad765521d125003595a))
+* a checkpoint restores what it can (p0478) ([b24f2e8](https://github.com/holgerleichsenring/agent-smith/commit/b24f2e87afff00c231dd7a087da195b7c2cfb386))
+* a citation is a list, and a bad one gets a second chance (p0474) ([89c7f02](https://github.com/holgerleichsenring/agent-smith/commit/89c7f029138340f8f36f96a5aea685882136132a))
+* a citation is a list, and a bad one gets a second chance (p0474) ([95dfc16](https://github.com/holgerleichsenring/agent-smith/commit/95dfc168776b87a5299eef9f8e5848131398acd6))
+* a citation is written the way it is read (p0473) ([818b70b](https://github.com/holgerleichsenring/agent-smith/commit/818b70b3e6c298932fa16db79e0287695d259c8d))
+* a citation is written the way it is read (p0473) ([d23016b](https://github.com/holgerleichsenring/agent-smith/commit/d23016bcba84ffaeea3243db7c56c0aa4eddbae3))
+* a provider saying no does not end the run (p0477) ([fe4aaa3](https://github.com/holgerleichsenring/agent-smith/commit/fe4aaa3244b42e3cb5dce1ebb192650b82e2bf0e))
+* a provider saying no does not end the run (p0477) ([9902fdc](https://github.com/holgerleichsenring/agent-smith/commit/9902fdc7a1d9d3fe0af1d274ed707c83b81a1912))
+* a search the account ran is evidence (p0484) ([472afbb](https://github.com/holgerleichsenring/agent-smith/commit/472afbb358119c9f8967b71c069fa0c829249532))
+* a search the account ran is evidence (p0484) ([06e8cdd](https://github.com/holgerleichsenring/agent-smith/commit/06e8cdd00a6e932b999f2ca47802cc41c236e2a9))
+* a shortened command stays quotable (p0481) ([b8fef04](https://github.com/holgerleichsenring/agent-smith/commit/b8fef04d9ee327ca380e6afdc435891180fd4089))
+* main builds again (p0466a) ([52dbab4](https://github.com/holgerleichsenring/agent-smith/commit/52dbab465abe38bfaf08154a887cef1bb2eccda4))
+* main builds again (p0466a) ([cc93240](https://github.com/holgerleichsenring/agent-smith/commit/cc93240a11ce20c7dda79964083b404cf708ed44))
+* no evidence is lost without saying so (p0470) ([915b7cd](https://github.com/holgerleichsenring/agent-smith/commit/915b7cd6fe463acddea2a15720d2cb08b99d6ce4))
+* no evidence is lost without saying so (p0470) ([babfbac](https://github.com/holgerleichsenring/agent-smith/commit/babfbac0f29a4e84a7f24e1b7c1d97227c1d4d31))
+* **p0482:** the diagram's committed home is the constant, and the phase is renumbered ([c620d77](https://github.com/holgerleichsenring/agent-smith/commit/c620d77a67b58df620e906e09942b902f9755f40))
+* the account sees what the agent ran (p0469) ([c77286c](https://github.com/holgerleichsenring/agent-smith/commit/c77286c4350697c62cdca55ce23e88a9694f9502))
+* the account sees what the agent ran (p0469) ([5ef2e3e](https://github.com/holgerleichsenring/agent-smith/commit/5ef2e3e9fa380d588ca44c804dcce9a6d8edf6e3))
+* the drain test waits before it stops (p0475) ([1086460](https://github.com/holgerleichsenring/agent-smith/commit/1086460750be7ac0b2583b3b613c2a9b40c82c6e))
+* the drain test waits before it stops (p0475) ([7efd7df](https://github.com/holgerleichsenring/agent-smith/commit/7efd7dfd93aa6d54f33bdafe1a28863d5638997e))
+* the evidence a delivery account reads, and the search it runs itself (p0481, p0483) ([17dac41](https://github.com/holgerleichsenring/agent-smith/commit/17dac412f94b3d324a56a5170f9503bc1303a885))
+* the output a command produced reaches the model (p0491) ([f8f9881](https://github.com/holgerleichsenring/agent-smith/commit/f8f9881cc7dbdcd994d9dad065245cccdd509992))
+* the output a command produced reaches the model (p0491) ([612030b](https://github.com/holgerleichsenring/agent-smith/commit/612030b5194685feac3ea2b25d65ae1aaec1f0db))
+
 ## [0.133.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.132.0...v0.133.0) (2026-08-19)
 
 
