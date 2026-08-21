@@ -15,6 +15,8 @@ public sealed class AzureReposPullRequestUpdater(
     string project, string repoName, IAzDoClientFactory clientFactory,
     string organizationUrl, string personalAccessToken, ILogger logger)
 {
+    private readonly AzureReposAutoComplete _autoComplete = new(project, repoName, logger);
+
     public async Task<bool> UpdateBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
     {
@@ -57,11 +59,9 @@ public sealed class AzureReposPullRequestUpdater(
         }
     }
 
-    // p0490: Azure DevOps completes a pull request by updating it to Completed against
-    // the head it last merged — the LastMergeSourceCommit read here is what makes the
-    // completion refuse instead of racing a branch that moved. A branch policy that is
-    // not satisfied leaves the pull request Active and names itself in
-    // MergeFailureMessage, which is the reason recorded for the repo.
+    // p0501: an immediate merge (Status = Completed) is the one thing a branch policy
+    // refuses, so the pull request is APPROVED and ARMED instead and finishes itself when
+    // the required build goes green. See AzureReposAutoComplete for why that identity.
     public async Task<PullRequestCompletion> CompleteAsync(
         string prUrl, CancellationToken cancellationToken)
     {
@@ -72,35 +72,13 @@ public sealed class AzureReposPullRequestUpdater(
             var client = CreateGitClient();
             var pr = await client.GetPullRequestAsync(
                 project, repoName, prId, cancellationToken: cancellationToken);
-            var completed = await UpdateAsync(Completion(pr), prId, cancellationToken);
-            if (completed.Status == PullRequestStatus.Completed)
-            {
-                logger.LogInformation("PR !{PrId} completed", prId);
-                return PullRequestCompletion.Merged();
-            }
-            return Refuse(prId, completed.MergeFailureMessage
-                ?? $"Azure DevOps left the pull request in status '{completed.Status}'.");
+            return await _autoComplete.ArmAsync(client, pr, prId, cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Completing PR !{PrId} was refused", prId);
             return PullRequestCompletion.Refused(ex.Message);
         }
-    }
-
-    private static GitPullRequest Completion(GitPullRequest pr) => new()
-    {
-        Status = PullRequestStatus.Completed,
-        LastMergeSourceCommit = pr.LastMergeSourceCommit,
-        // p0490 keeps the source branch: the init branch is the audit trail of what
-        // the run wrote, and deleting branches was explicitly out of scope.
-        CompletionOptions = new GitPullRequestCompletionOptions { DeleteSourceBranch = false },
-    };
-
-    private PullRequestCompletion Refuse(int prId, string reason)
-    {
-        logger.LogInformation("PR !{PrId} was not completed: {Reason}", prId, reason);
-        return PullRequestCompletion.Refused(reason);
     }
 
     private Task<GitPullRequest> UpdateAsync(
