@@ -1,0 +1,43 @@
+phase: p0497
+decisions:
+  - id: the-toggle-stops-borrowing-the-operating-systems-colour
+    chosen: "A tick box drawn from --accent/--accent-wash/--line, with the native input kept and visually hidden."
+    alternatives:
+      - "Leave the native checkbox and only set accent-color: one class, but the shape and size stay the browser's and the control still reads as borrowed."
+      - "Replace the input with a button carrying aria-checked: loses the form semantics for no gain, and every p0490 test drives the input."
+    why: |
+      The bare input drew the OPERATING SYSTEM's accent — the only colour on the page no
+      token controls, and the reason the control looked pasted on. Hiding the input rather
+      than replacing it keeps accessibility and keeps p0489/p0490's tests driving the real
+      control, so this phase stays appearance-only by construction.
+  - id: one-chip-vocabulary-for-both-controls
+    chosen: "Both the action and the toggle wear the repo picker's .pick chip shape, expressed as inline tokens."
+    alternatives:
+      - "Reuse the .pick CSS class directly: it is scoped to .mock-config, and this component also renders in the system project panel, so half its uses would be unstyled."
+      - "Add a third styling idiom in Tailwind stone shades: matches today's palette by hand and drifts the moment a token moves."
+    why: |
+      One definition has to cover both hosts. The tokens are declared on .mock-shell, which
+      wraps both, so inline token references travel where a scoped class cannot.
+  - id: grouping-not-just-recolouring
+    chosen: "The pair becomes one action group ended by a rule, so the row reads [name] … [actions] | [badge] [edit]."
+    alternatives:
+      - "Recolour only: fixes the palette complaint and leaves the action still interleaved with the metadata."
+      - "Move the action to its own row under the card header: a bigger layout change than the complaint warrants, and it would push every project card taller."
+    why: |
+      The operator named two things, colour AND positioning. A card's right side is
+      metadata; an action inside it needs a boundary, not just a nicer shade.
+  - id: longhand-styles-only
+    chosen: "borderWidth/borderStyle/borderColor and fontWeight, never the border/font shorthands."
+    alternatives:
+      - "Keep the shorthand and accept React's warning."
+    why: |
+      The checked state overrides borderColor and fontWeight. Mixing a shorthand with a
+      longhand it contains makes React warn that removing one during a rerender is how
+      styling bugs start — shipping a warning we caused is not a bar this repository keeps.
+  - id: the-visual-assertion-is-named-as-weak
+    chosen: "Tests assert the accent token and the group's boundary, and the phase says out loud that they cannot judge appearance."
+    alternatives:
+      - "Screenshot comparison: real coverage, and a rig this phase does not justify."
+    why: |
+      Claiming a test proves a design reads well would be the same overclaim the run-account
+      phases keep fixing one level up.
