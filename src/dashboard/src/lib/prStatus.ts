@@ -9,10 +9,17 @@ import type { PullRequestStatus } from "@/types/hub-events";
 
 /** A pull request exists on the platform and has a URL worth linking to. */
 export function hasPullRequest(status: PullRequestStatus): boolean {
-  return status === "opened" || status === "completed" || status === "completion_refused";
+  return (
+    status === "opened" ||
+    status === "completed" ||
+    status === "completion_armed" ||
+    status === "completion_refused"
+  );
 }
 
-/** The pull request is waiting for someone — the count the operator acts on. */
+/** The pull request is waiting for a PERSON — the count the operator acts on. p0501: an
+ *  armed one is waiting too, but for a build, so counting it here would send the operator
+ *  to look at something that is already finishing itself. */
 export function isOpenPullRequest(status: PullRequestStatus): boolean {
   return status === "opened" || status === "completion_refused";
 }
@@ -22,6 +29,8 @@ export function pullRequestStatusLabel(status: PullRequestStatus): string {
   switch (status) {
     case "completed":
       return "merged";
+    case "completion_armed":
+      return "auto-merging";
     case "completion_refused":
       return "still open";
     case "no_changes":
