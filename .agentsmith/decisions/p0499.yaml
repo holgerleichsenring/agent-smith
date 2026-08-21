@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0499
+
+decisions:
+  - category: Architecture
+    chose: "A row per entry — one key input and one value input — replaces the textarea"
+    over: "Splitting at the LAST colon, or at the last ': ' with a space"
+    reason: |
+      A smarter split is still a guess about a string the operator never wrote for a
+      parser. lastIndexOf breaks the moment a VALUE contains a colon; requiring the
+      ": " separator breaks on a key that contains one, which is precisely the live
+      data. Two inputs cannot be split at all: the key is whatever is in the key box,
+      colons included. The operator asked for the list shape because a textarea is not
+      maintainable; the round-trip corruption is the reason it is also the only shape
+      that is correct.
+  - category: Implementation
+    chose: "The rows are component state, and the emitted Record is derived from them"
+    over: "Deriving the rows from the Record on every render, the way the textarea derived its text"
+    reason: |
+      A row being typed has an empty key and CANNOT exist in a Record<string,string>.
+      Deriving rows from the value therefore deletes the row the moment it appears,
+      which is the second, milder fault in the same control — a half-typed line
+      vanishing as it is written. Rows also carry order and identity (a stable id per
+      row) that a Record does not, so an entry keeps its place while its key is being
+      retyped instead of jumping as the map re-orders.
+  - category: Implementation
+    chose: "Reseed the rows only when the incoming value disagrees with what this field last EMITTED"
+    over: "Reseeding whenever the incoming value disagrees with what the rows currently produce"
+    reason: |
+      The two read the same on a well-behaved parent and differ exactly where it
+      matters. Comparing against the CURRENT rows means an empty or duplicate row —
+      which by construction cannot appear in the emitted Record — reads as an external
+      change and destroys itself. Comparing against the last emission asks the right
+      question: did this value come back from us, or from somewhere else (the drawer
+      switching entity, a type change pruning the key)? Only the second is a reason to
+      throw the operator's in-progress edit away.
+  - category: Implementation
+    chose: "The test drives a controlled harness that feeds the emitted map back in"
+    over: "Passing an inert vi.fn() as onChange"
+    reason: |
+      An inert spy models a parent that ignores every edit, which EntityDrawer is not —
+      it holds the draft and re-renders with it. Testing against the inert version made
+      the field look broken in a way the app could never produce, and would have pushed
+      the implementation toward never resyncing at all. The harness is four lines and
+      makes each test an actual round trip: the map goes out, comes back, and is
+      re-rendered from what returned.
+  - category: Architecture
+    chose: "MapField moves to its own file and formFields re-exports it"
+    over: "Growing formFields.tsx in place"
+    reason: |
+      MapField is no longer a primitive input — it owns state, identity and a reseed
+      rule, which is a different kind of thing from TextField and SelectField. Moving
+      it out shrinks formFields.tsx from 363 to 317 lines and keeps the new control
+      under the 120-line limit, while the re-export means no call site has to learn a
+      second import path for the same field vocabulary.
+  - category: Scope
+    chose: "Convert the control, which converts every map field at once"
+    over: "Converting the two known tracker fields"
+    reason: |
+      capabilityFields renders EVERY descriptor field of kind `map` through this one
+      component — "Pipeline by label" and "Lifecycle status names" today, and whatever
+      the backend declares next. Fixing the control leaves no second map editor holding
+      the shredder, and a field added to the descriptor tomorrow inherits the fix
+      rather than the defect.
+  - category: Scope
+    chose: "Nothing server-side changed, and that was checked rather than assumed"
+    over: "Auditing the client only"
+    reason: |
+      The map is a Dictionary<string,string> on every server surface it crosses —
+      TrackerEntity, TrackerConnection, RawTrackerEntry, RawConfigPatch,
+      ConfigCatalogMapper — carried as a JSON object over the API and a YAML mapping in
+      the file, both of which parse a colon-bearing key natively. No server code splits
+      these maps out of text, so the shredder existed only between the textarea and the
+      request body, and only the client needed fixing.
+  - category: Scope
+    chose: "Record that p0351's headline claim was too broad"
+    over: "Leaving the claim standing"
+    reason: |
+      p0351's goal says it closed "the LAST free-text gap in the Config Studio" and its
+      own first decision then narrows the phase to model roles. The map fields were
+      free text the entire time, behind a headline saying the gap was closed — which is
+      part of why nobody looked at them again for four months. The narrowing is the
+      honest fact; the headline is the one that got remembered.
