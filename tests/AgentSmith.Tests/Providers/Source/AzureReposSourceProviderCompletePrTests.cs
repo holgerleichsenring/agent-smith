@@ -11,10 +11,16 @@ using Moq;
 namespace AgentSmith.Tests.Providers.Source;
 
 /// <summary>
-/// p0490: Azure DevOps finishes an init pull request by updating it to Completed
-/// against the head it last merged. An unsatisfied branch policy leaves the pull
-/// request Active and names itself in MergeFailureMessage — that is the reason
-/// recorded for the repo, and the pull request stays open.
+/// p0501: p0490 finished an Azure Repos pull request by updating it to Completed — an
+/// immediate merge, which Azure DevOps refuses outright whenever a branch policy
+/// requires an integration build. That is the operator's setup, so auto-completion was
+/// unavailable in exactly the environment it was built for.
+/// <para>
+/// The mechanism that works is APPROVE then ARM: an approving reviewer vote plus
+/// AutoCompleteSetBy, after which the pull request merges itself when the build goes
+/// green. These pin all three outcomes apart — merged, armed, refused — because the
+/// operator has to be able to tell "it is handling itself" from "it needs you".
+/// </para>
 /// </summary>
 public sealed class AzureReposSourceProviderCompletePrTests
 {
@@ -24,38 +30,72 @@ public sealed class AzureReposSourceProviderCompletePrTests
     private const string Pat = "azdo-pat";
     private const string PrUrl = "https://dev.azure.com/example/demo/_git/sample-server/pullrequest/7";
 
+    private static readonly IdentityRef Creator = new() { Id = "id-42", DisplayName = "agent-smith" };
+
     [Fact]
-    public async Task AzureReposSourceProvider_CompletePullRequest_CompletesIt()
+    public async Task AzureRepos_CompleteAsync_ApprovesAndArmsAutoComplete()
     {
         var client = NewGitClientMock();
-        SetupGet(client, new GitPullRequest
-        {
-            PullRequestId = 7,
-            Status = PullRequestStatus.Active,
-            LastMergeSourceCommit = new GitCommitRef { CommitId = "abc123" },
-        });
+        SetupGet(client, Active());
+        IdentityRefWithVote? vote = null;
+        SetupReviewer(client)
+            .Callback<IdentityRefWithVote, string, string, int, string, object, CancellationToken>(
+                (v, _, _, _, _, _, _) => vote = v)
+            .ReturnsAsync(() => new IdentityRefWithVote());
         GitPullRequest? sent = null;
         SetupUpdate(client)
             .Callback<GitPullRequest, string, string, int, object, CancellationToken>(
                 (update, _, _, _, _, _) => sent = update)
-            .ReturnsAsync(() => new GitPullRequest { Status = PullRequestStatus.Completed });
+            .ReturnsAsync(() => Armed());
+
+        await CreateSut(client.Object).CompletePullRequestAsync(
+            PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
+
+        vote!.Vote.Should().Be(10, "10 is Azure DevOps' approving vote");
+        sent!.AutoCompleteSetBy!.Id.Should().Be(
+            Creator.Id, "our own run opened this PR, so CreatedBy IS the token's identity");
+        sent.Status.Should().Be(
+            PullRequestStatus.NotSet, "asking for an immediate merge is what a policy refuses");
+        sent.CompletionOptions!.DeleteSourceBranch.Should().Be(false, "p0490 keeps the init branch");
+    }
+
+    [Fact]
+    public async Task AzureRepos_PolicyPending_ReportsArmed_NotRefused()
+    {
+        var client = NewGitClientMock();
+        SetupGet(client, Active());
+        SetupReviewer(client).ReturnsAsync(() => new IdentityRefWithVote());
+        SetupUpdate(client).ReturnsAsync(() => Armed(
+            "The pull request is queued for auto-complete when the build policy passes."));
 
         var completion = await CreateSut(client.Object).CompletePullRequestAsync(
             PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeTrue();
-        sent!.Status.Should().Be(PullRequestStatus.Completed);
-        sent.LastMergeSourceCommit!.CommitId.Should().Be("abc123",
-            "completing against the head AzDO last merged is what makes a moved branch refuse");
-        sent.CompletionOptions!.DeleteSourceBranch.Should().Be(false,
-            "p0490 does not delete source branches");
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
+        completion.Settled.Should().BeTrue("nobody has to come back to an armed pull request");
+        completion.Reason.Should().Contain("build policy");
     }
 
     [Fact]
-    public async Task AzureReposSourceProvider_CompletePullRequest_PolicyRefuses_ReportsMergeFailureMessage()
+    public async Task AzureRepos_CompletedImmediately_ReportsMerged()
     {
         var client = NewGitClientMock();
-        SetupGet(client, new GitPullRequest { PullRequestId = 7, Status = PullRequestStatus.Active });
+        SetupGet(client, Active());
+        SetupReviewer(client).ReturnsAsync(() => new IdentityRefWithVote());
+        SetupUpdate(client).ReturnsAsync(() => new GitPullRequest { Status = PullRequestStatus.Completed });
+
+        var completion = await CreateSut(client.Object).CompletePullRequestAsync(
+            PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
+
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
+    }
+
+    [Fact]
+    public async Task AzureRepos_ArmingRejected_ReportsRefusedWithThePlatformsReason()
+    {
+        var client = NewGitClientMock();
+        SetupGet(client, Active());
+        SetupReviewer(client).ReturnsAsync(() => new IdentityRefWithVote());
         SetupUpdate(client).ReturnsAsync(() => new GitPullRequest
         {
             Status = PullRequestStatus.Active,
@@ -65,24 +105,40 @@ public sealed class AzureReposSourceProviderCompletePrTests
         var completion = await CreateSut(client.Object).CompletePullRequestAsync(
             PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeFalse();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("required reviewers policy");
     }
 
     [Fact]
-    public async Task AzureReposSourceProvider_CompletePullRequest_ServerThrows_IsRefused_NotRaised()
+    public async Task AzureRepos_ServerThrows_IsRefused_NotRaised()
     {
         var client = NewGitClientMock();
-        SetupGet(client, new GitPullRequest { PullRequestId = 7 });
+        SetupGet(client, Active());
+        SetupReviewer(client).ReturnsAsync(() => new IdentityRefWithVote());
         SetupUpdate(client).ThrowsAsync(new VssServiceException(
             "TF401027: You need the Git 'PullRequestBypassPolicy' permission."));
 
         var completion = await CreateSut(client.Object).CompletePullRequestAsync(
             PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeFalse();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("TF401027");
     }
+
+    private static GitPullRequest Active() => new()
+    {
+        PullRequestId = 7,
+        Status = PullRequestStatus.Active,
+        CreatedBy = Creator,
+        LastMergeSourceCommit = new GitCommitRef { CommitId = "abc123" },
+    };
+
+    private static GitPullRequest Armed(string? mergeFailureMessage = null) => new()
+    {
+        Status = PullRequestStatus.Active,
+        AutoCompleteSetBy = Creator,
+        MergeFailureMessage = mergeFailureMessage,
+    };
 
     private static void SetupGet(Mock<GitHttpClient> client, GitPullRequest pr) =>
         client.Setup(c => c.GetPullRequestAsync(
@@ -91,6 +147,12 @@ public sealed class AzureReposSourceProviderCompletePrTests
                 It.IsAny<bool?>(), It.IsAny<bool?>(),
                 It.IsAny<object>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => pr);
+
+    private static Moq.Language.Flow.ISetup<GitHttpClient, Task<IdentityRefWithVote>> SetupReviewer(
+        Mock<GitHttpClient> client) =>
+        client.Setup(c => c.CreatePullRequestReviewerAsync(
+            It.IsAny<IdentityRefWithVote>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()));
 
     private static Moq.Language.Flow.ISetup<GitHttpClient, Task<GitPullRequest>> SetupUpdate(
         Mock<GitHttpClient> client) =>

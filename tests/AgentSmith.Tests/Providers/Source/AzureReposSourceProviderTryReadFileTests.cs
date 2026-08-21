@@ -134,16 +134,12 @@ public sealed class AzureReposSourceProviderTryReadFileTests
             .Returns(gitClient);
 
         // GetDefaultBranchAsync also goes through CreateGitClient (calls
-        // GetRepositoryAsync). Short-circuit by pre-seeding the cached default
-        // branch via the private field — alternative is mocking GetRepositoryAsync
-        // with its full GitRepository return shape, which buys nothing here.
-        var sut = new AzureReposSourceProvider(
-            new AzureReposSourceConnection(OrgUrl, Project, Repo, Pat),
+        // GetRepositoryAsync), which this mock does not answer. p0500: an unanswered
+        // lookup falls back to the CONFIGURED branch, so naming it on the connection
+        // pins the branch these tests read on — no reflection into a private field.
+        return new AzureReposSourceProvider(
+            new AzureReposSourceConnection(OrgUrl, Project, Repo, Pat, DefaultBranch: DefaultBranch),
             factoryMock.Object,
             NullLogger<AzureReposSourceProvider>.Instance);
-        var field = typeof(AzureReposSourceProvider)
-            .GetField("_cachedDefaultBranch", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        field.SetValue(sut, DefaultBranch);
-        return sut;
     }
 }

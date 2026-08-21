@@ -549,6 +549,15 @@
 .mock-config .pick .pk { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--line); display: grid; place-items: center; }
 .mock-config .pick.on .pk { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* p0499: a string->string map is edited as one ROW PER ENTRY — a key input and a
+   value input side by side, never a line of text. The key column is wider because
+   the operator's keys are label names (agent-smith:security-scan), not identifiers. */
+.mock-config .maprows { display: flex; flex-direction: column; gap: 7px; }
+.mock-config .maprow { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 7px; align-items: center; }
+.mock-config .maprow input { font-family: var(--mono); font-size: 12.5px; }
+.mock-config .maprow .pick { padding: 7px 10px; line-height: 1; color: var(--ink-3); }
+.mock-config .maprow .pick:hover { border-color: var(--bad); color: var(--bad); }
+
 /* p0488: the connection repo picker — one filter box (which also offers the
    wildcard RULE), a capped scroll window of discovered rows, and the
    covered-by-a-rule row that is deliberately not a free checkbox. */

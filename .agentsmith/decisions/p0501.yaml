@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0501
+
+decisions:
+  - category: Architecture
+    chose: "Azure Repos completion approves the pull request and sets AutoCompleteSetBy"
+    over: "Updating it to Status = Completed, which is what p0490 shipped"
+    reason: |
+      An immediate merge is the one thing a branch policy refuses. Where a policy
+      requires an integration build — the operator's setup — Azure DevOps declines the
+      completion every time, for as long as the policy exists, so the capability p0490
+      built was unavailable in exactly the environment p0490 argued it was for.
+      Approve-then-arm is the platform's own mechanism for the same intent: the policy
+      runs its build and the merge happens when the build goes green, with nobody
+      returning to the pull request. This does not relitigate p0490's decision that
+      nobody reviews an init pull request — it is that decision, expressed in the form
+      Azure DevOps accepts.
+  - category: Implementation
+    chose: "The identity for the vote and for AutoCompleteSetBy is the pull request's CreatedBy"
+    over: "Reading the authenticated identity from connection data"
+    reason: |
+      Both need an identity, and the pull request already carries the right one: our own
+      run opened it seconds earlier, so CreatedBy IS the token's identity. Taking it off
+      the GetPullRequestAsync response the code already makes avoids a second round trip
+      for a fact the first answer returned, and avoids depending on a second API surface
+      whose failure mode would be a completion that silently does nothing. When it is
+      absent the completion refuses and says so, rather than arming on nobody's behalf.
+  - category: Architecture
+    chose: "Armed is a third outcome on PullRequestCompletion and a third per-repo status"
+    over: "Reporting an armed pull request as merged, or as a refusal"
+    reason: |
+      p0490 declined to split REFUSAL into policy-versus-transport because the caller
+      does the same thing for both, and that reasoning still holds — this is not that
+      split. Armed is not a refusal at all: the work is done, nothing more will be
+      asked of anyone, and the pull request merges itself. Reporting it as merged would
+      claim a merge that has not happened; reporting it as refused would send the
+      operator to look at something already finishing itself. Three answers the surfaces
+      genuinely act on differently is what earns a third member — the same test p0490
+      applied and failed, applied again and passed.
+  - category: Implementation
+    chose: "PullRequestCompletion carries an outcome enum instead of a bool"
+    over: "Keeping bool Completed and adding a separate bool Armed"
+    reason: |
+      Two bools admit a fourth state that means nothing (completed AND armed) and force
+      every reader to check them in the right order. The enum makes the three outcomes
+      exhaustive and lets the compiler find every call site that has to decide again —
+      which is how the four provider test files and the handler were found rather than
+      remembered. `Settled` stays as a named predicate for the one question more than
+      one caller asks: will this reach the default branch without further help.
+  - category: Architecture
+    chose: "The wording and the status mapping move into InitCompletionReport"
+    over: "Growing InitCompleteHandler with a third branch in each"
+    reason: |
+      Adding the third outcome pushed the handler from 117 to 134 lines, past the
+      120-line limit, and it is not baselined so it could not stay there. The forcing
+      function named a real seam: the handler ORCHESTRATES (which pull requests, which
+      provider, publish the outcome) while naming what happened — the status constant
+      and the operator-facing sentence — is a separate concern that the tests can now
+      exercise without a pipeline context. The handler came back to 111 lines.
+  - category: Scope
+    chose: "GitHub, GitLab and the local provider are left alone"
+    over: "Arming auto-merge everywhere for symmetry"
+    reason: |
+      Checked rather than assumed. GitHub merges through the Merge API and GitLab through
+      merge with the answer's state asserted; neither has a documented arming alternative
+      on the same call path that a refused merge should have used instead. GitHub's
+      auto-merge is a repository-level opt-in feature that has to be enabled on the repo
+      before the API will accept it — a different question, with its own operator
+      prerequisite, and it gets its own phase if the need appears. The local provider
+      fast-forwards a branch and has no policy to wait for.
+  - category: Implementation
+    chose: "The dashboard learns the third status in prStatus, where p0490 put the vocabulary"
+    over: "Letting the surfaces each decide what armed means"
+    reason: |
+      p0490 created prStatus.ts precisely so the rail count, the list page and the run
+      detail could not drift apart on what a status means, and an unknown status would
+      have quietly fallen through hasPullRequest to false — losing the link on every
+      surface at once, which is the failure p0490 was written to prevent. Armed counts
+      as having a pull request and NOT as waiting for a human, and reads "auto-merging"
+      on the pill.
