@@ -549,6 +549,27 @@
 .mock-config .pick .pk { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--line); display: grid; place-items: center; }
 .mock-config .pick.on .pk { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* p0488: the connection repo picker — one filter box (which also offers the
+   wildcard RULE), a capped scroll window of discovered rows, and the
+   covered-by-a-rule row that is deliberately not a free checkbox. */
+.mock-config .repo-filter { display: flex; gap: 9px; align-items: center; }
+.mock-config .repo-filter input { flex: 1; font-family: var(--mono); }
+.mock-config .repo-head { display: flex; gap: 9px; align-items: center; }
+.mock-config .repo-head .help { margin-right: auto; font-variant-numeric: tabular-nums; }
+.mock-config .repo-rows { display: flex; flex-direction: column; max-height: 244px; overflow-y: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
+.mock-config .repo-row { display: flex; align-items: center; gap: 9px; padding: 7px 12px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); border-bottom: 1px solid var(--line); }
+.mock-config .repo-row:last-child { border-bottom: 0; }
+.mock-config .repo-row.on { background: var(--accent-wash); color: var(--accent); font-weight: 600; }
+.mock-config .repo-row.covered { color: var(--ink-3); }
+.mock-config .repo-row input[type="checkbox"] { width: 15px; height: 15px; flex: none; padding: 0; margin: 0; border-radius: 4px; accent-color: var(--accent); cursor: pointer; }
+.mock-config .repo-row .rr-lock { width: 15px; flex: none; text-align: center; color: var(--accent); }
+.mock-config .repo-row .rr-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-config .repo-row .rr-branch { font-size: 11.5px; color: var(--ink-3); }
+.mock-config .repo-row .rr-rule { font-size: 11px; color: var(--ink-3); }
+.mock-config .pick.more { align-self: flex-start; }
+.mock-config .pick .rk { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mock-config .pick.on .rk { color: inherit; opacity: 0.72; }
+
 /* live wiring preview in form */
 .mock-config .preview-wire { border: 1px solid var(--line); border-radius: 11px; background: var(--panel); padding: 14px; }
 .mock-config .preview-wire .pw-h { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin-bottom: 10px; }

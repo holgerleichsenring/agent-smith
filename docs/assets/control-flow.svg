@@ -252,7 +252,7 @@
   <rect x="730" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1256" x2="880" y2="1256" class="cf-rule"/>
   <text x="40" y="1274" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">init-project</text>
-  <text x="40" y="1290" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">project-discovery · 12 steps · 2 with a model</text>
+  <text x="40" y="1290" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">project-discovery · 13 steps · 2 with a model</text>
   <rect x="430" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
@@ -265,6 +265,7 @@
   <rect x="565" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="580" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="595" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="610" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1304" x2="880" y2="1304" class="cf-rule"/>
   <text x="40" y="1322" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">legal-analysis</text>
   <text x="40" y="1338" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">legal-analyst-master · 9 steps · 2 with a model</text>

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0490
+goal: "An init run started from the dashboard can complete its own pull requests, and says per repo whether that worked."
+
+requires:
+  - p0489
+
+applies_to: "backend + dashboard"
+
+decisions:
+  - key: |
+      NOBODY REVIEWS THIS PR, AND PRETENDING OTHERWISE COSTS A CLICK PER REPO. An init PR
+      contains .agentsmith/ context, code map and coding principles — generated files, on a
+      repo that had none. The operator states plainly that nobody looks at it. A checkbox that
+      defaults to ON is therefore the honest default, not a shortcut: the review step it skips
+      was already not happening.
+  - key: |
+      IT IS SCOPED TO THE INIT BUTTON, NOT TO PROJECTS. Auto-complete rides on the p0489 launch
+      request, not on project config. A per-project setting would silently apply to whatever
+      opens a PR next; the operator's consent belongs to the click that started THIS run.
+  - key: |
+      ISourceProvider LEARNS TO COMPLETE, ALL FOUR TOGETHER. The interface can open, find,
+      re-body and un-draft a pull request; it cannot finish one. Completion is added there and
+      implemented for GitHub, GitLab and Azure Repos with their native mechanisms, and for the
+      local provider by fast-forwarding the default branch. No adapter, no partial rollout
+      [[feedback_no_wrapper_shims]].
+  - key: |
+      DIRECT PUSH TO THE DEFAULT BRANCH WAS THE OTHER OPTION AND IS WORSE. Skipping the PR
+      entirely looks simpler until the target branch is protected — which, in the environments
+      this runs in, it is. Open-then-complete is the path that survives a branch policy, and
+      the one that leaves the change auditable afterwards.
+  - key: |
+      A REFUSED MERGE DOES NOT FAIL THE RUN. Branch policies, required reviewers and required
+      builds all legitimately refuse a completion. p0321 already settled the principle for this
+      handler — the PR is init's output, not its success criterion — so the PR stays open, the
+      reason is recorded per repo, and the run keeps its result.
+  - key: |
+      IT RUNS LAST, AFTER THE CROSS-LINK. PrCrossLink PATCHes each sibling PR's body in a second
+      pass; completing a PR before that pass would either lose the cross-link or fail against a
+      closed PR. Completion is therefore its own step at the end of the preset.
+  - key: |
+      THE OUTCOME IS PER REPO, IN THE PLACE THAT ALREADY HOLDS PER-REPO PR OUTCOMES. p0347's
+      PullRequestsJson is exactly that record; completion extends its status rather than opening
+      a parallel one.
+
+steps:
+  - id: a-provider-can-complete-a-pull-request
+    action: "Add pull-request completion to ISourceProvider and implement it for GitHub, GitLab, Azure Repos and the local provider."
+  - id: the-launch-carries-the-operators-consent
+    action: "Carry an auto-complete flag on the p0489 init launch through to the pipeline context."
+  - id: the-init-run-completes-what-it-opened
+    action: "Add a final init-project step that completes each opened PR when the flag is set, leaving a refused one open with its reason."
+  - id: the-outcome-is-recorded-per-repo
+    action: "Extend the per-repo pull-request outcome with completed / completion-refused and the reason."
+  - id: the-checkbox-sits-on-the-button
+    action: "Add an auto-accept checkbox, default on, beside the dashboard Initialize action."
+
+tests:
+  - "GitHubSourceProvider_CompletePullRequest_MergesIt"
+  - "GitLabSourceProvider_CompletePullRequest_MergesIt"
+  - "AzureReposSourceProvider_CompletePullRequest_CompletesIt"
+  - "LocalSourceProvider_CompletePullRequest_FastForwardsTheDefaultBranch"
+  - "InitComplete_FlagOff_LeavesEveryPullRequestOpen"
+  - "InitComplete_FlagOn_CompletesEachOpenedPullRequest"
+  - "InitComplete_PolicyRefusesTheMerge_PullRequestStaysOpen_RunKeepsItsResult"
+  - "InitComplete_RefusalReason_IsRecordedPerRepo"
+  - "InitComplete_SkippedNoChangesRepo_IsNotCompleted"
+  - "InitComplete_RunsAfterTheCrossLinkPass"
+  - "InitializeAction_AutoAcceptCheckbox_DefaultsToOn_AndTravelsWithTheLaunch"
+
+done:
+  - "an init started from the dashboard with auto-accept on completes its own PRs"
+  - "every provider implements completion; none is left throwing"
+  - "a policy-refused completion leaves the PR open, records the reason per repo, and does not fail the run"
+  - "completion happens after the sibling cross-link pass"
+  - "the checkbox defaults to on and applies only to the run it started"

@@ -34,10 +34,10 @@ public static class RunSnapshotMapper
         // drafts), so it is derived from the terminal status. PrUrl stays = the
         // first opened PR for back-compat with the single-link surfaces.
         var openedPrs = run.Repos
-            .Where(r => r.PrStatus == "opened" && !string.IsNullOrEmpty(r.PrUrl))
+            .Where(r => PullRequestStatuses.HasPullRequest(r.PrStatus) && !string.IsNullOrEmpty(r.PrUrl))
             .Select(r => new RunPullRequestView(r.RepoName, r.PrUrl!, r.PrStatus!, IsDraft: run.Status != "success"))
             .ToList();
-        var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
+        var openedPr = run.Repos.FirstOrDefault(r => PullRequestStatuses.HasPullRequest(r.PrStatus));
         // p0404: the run's time split, rolled up from what its steps carry. Read
         // once — the top-level LlmDurationMs/ThrottleWaitMs pair is the same
         // measurement the drawer's split is made of, so they cannot disagree.

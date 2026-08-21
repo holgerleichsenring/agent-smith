@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0490
+
+decisions:
+  - category: Architecture
+    chose: "CompletePullRequestAsync takes the source branch alongside the pull request URL"
+    over: "The URL alone, the way the body and draft edits are addressed"
+    reason: |
+      Three of the four providers need nothing but the URL — it carries the number, the
+      iid or the id, and the existing parsers already recover it. The local provider has
+      no pull request at all: what CreatePullRequestAsync hands back is the sentence
+      "Local repository - no PR created, commit recorded on branch: X", and parsing the
+      branch back out of an English sentence would be a fiction one wording change away
+      from breaking. The branch is what identifies the work locally, so it is a
+      parameter, and the platform providers ignore it.
+  - category: Architecture
+    chose: "A per-platform PullRequestUpdater that owns body, draft and completion together"
+    over: "A fourth completion method inline in each provider"
+    reason: |
+      All three platform providers are over the 120-line limit and may only shrink, so a
+      fourth copy of the URL parser plus a completion call could not land there anyway.
+      The forcing function named a responsibility that was already there: opening a pull
+      request needs a repository, a branch and a default-branch lookup, while CHANGING
+      one that exists needs only the identifier recovered from its web URL. That is the
+      whole of the extracted type — one parser, three edits — and it is why the three
+      providers each got ~60 lines shorter while gaining a capability.
+  - category: TradeOff
+    chose: "Refusal is the answer for every failure mode, including a provider that throws"
+    over: "Distinguishing a policy refusal from a transport failure in the return type"
+    reason: |
+      The caller does the same thing either way — leave the pull request open, record why,
+      keep the run's result (p0321). A second failure kind would only be honest if
+      something acted on it, and nothing does. The reason string carries the platform's
+      own sentence, which is what the operator actually reads, so the distinction survives
+      where it matters without a type that promises a decision nobody makes.
+  - category: Implementation
+    chose: "git fetch . src:dst for the local fast-forward"
+    over: "git branch -f, or checking out the default branch and merging --ff-only"
+    reason: |
+      The init run leaves the working tree on the init branch, so the default branch is
+      not checked out. `git branch -f` moves a ref without checking anything and would
+      silently discard commits the default branch had; a checkout-and-merge would move the
+      operator's working tree out from under them. The fetch form refuses a
+      non-fast-forward by default AND works on a branch that is not checked out, so the
+      refusal is git's, not a condition this code re-derives.
+  - category: Implementation
+    chose: "LocalSourceProvider learns its default branch from the repo config"
+    over: "Probing for main, then master, when the fast-forward needs a target"
+    reason: |
+      The target branch is a fact the configuration already carries (RepoConnection
+      .DefaultBranch, honoured by all three remote providers); the local factory simply
+      dropped it. Picking between candidate branch names would have been a heuristic
+      standing in for a field that exists [[feedback_no_heuristic_for_missing_data]]. The
+      pre-existing "main" fallback stays exactly where CheckoutAsync already had it.
+  - category: Architecture
+    chose: "The flag rides PipelineRequest.Context and is read through PipelineContext.Flag"
+    over: "A typed property on PipelineRequest"
+    reason: |
+      Context is the request's slot for exactly this — per-launch input the pipeline reads
+      — and a typed property would grow the record for one pipeline's one option. The
+      catch is that Context is Dictionary<string, object>, so the Redis job queue's JSON
+      round-trip hands the value back as a JsonElement and a plain TryGet<bool> silently
+      reads false: p0327 hit the same wall and worked around it by riding as a string.
+      The read is therefore a named extension on PipelineContext rather than a bool
+      TryGet at the call site, and a test drives it through a real serialize/deserialize
+      so the silent-false path cannot come back.
+  - category: Implementation
+    chose: "The endpoint does not auto-accept when the request body says nothing"
+    over: "Defaulting the flag to true so the endpoint matches the checkbox"
+    reason: |
+      The checkbox defaults to ON because nobody reviews an init pull request; that is a
+      statement about the dashboard's default, not about what an unspecified request
+      means. A body-less POST merging pull requests would make silence into consent for
+      every future caller. The dashboard states its choice explicitly on every launch, so
+      the two defaults never have to agree.
+  - category: Architecture
+    chose: "Completion extends the p0347 per-repo status vocabulary"
+    over: "A separate completion record beside the pull-request outcome"
+    reason: |
+      Runs.PullRequestsJson already holds one row per repo with a status, a URL and a
+      reason, upserted by repo. Completion is another thing that happened to the SAME
+      pull request, so it is another status on that row — completed, or
+      completion_refused with the policy's sentence. A parallel record would have to be
+      joined back to the first one on every surface that renders it.
+  - category: Implementation
+    chose: "Teach the three PR surfaces to ask 'has a pull request', not 'is opened'"
+    over: "Leaving the status filters alone"
+    reason: |
+      Before this phase, "opened" answered both questions, and the run side rail, the
+      Pull Requests page and the rail's live count all leaned on that. The moment a run
+      merges what it opened, those filters lose every link the run produced and a merged
+      pull request files itself under "runs that produced no pull request". The two
+      questions are now separate predicates — one in PullRequestStatuses, one in the
+      dashboard's prStatus module — so the surfaces cannot drift apart on the answer.
+  - category: Scope
+    chose: "Completion is NOT in the finalizer tail"
+    over: "Running it after a failed step like WriteRunResult and PrCrossLink do"
+    reason: |
+      InitCommit is not a finalizer either, so a failed init run has no pull request to
+      finish. Adding completion to the tail would only ever fire on a run that failed
+      after opening one — which is precisely the run whose output should stay open for a
+      human.

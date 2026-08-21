@@ -69,6 +69,11 @@ internal sealed class StubSourceProvider : ISourceProvider
 
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
         Task.FromResult(true);
+
+    // p0490: the stub has no PR server; nothing refuses, so completion always succeeds.
+    public Task<PullRequestCompletion> CompletePullRequestAsync(
+        string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
+        Task.FromResult(PullRequestCompletion.Merged());
 }
 
 internal sealed class StubSourceProviderFactory : ISourceProviderFactory

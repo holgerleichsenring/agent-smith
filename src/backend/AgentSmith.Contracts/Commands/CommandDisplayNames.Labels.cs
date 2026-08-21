@@ -46,6 +46,7 @@ public static partial class CommandDisplayNames
         [CommandNames.CommitAndPR] = "Create pull request",
         [CommandNames.InitCommit] = "Commit init files",
         [CommandNames.PrCrossLink] = "Cross-link sibling pull requests",
+        [CommandNames.InitComplete] = "Complete the init pull requests",
         [CommandNames.GenerateTests] = "Generate tests",
         [CommandNames.GenerateDocs] = "Generate docs",
         [CommandNames.Triage] = "Triage ticket",

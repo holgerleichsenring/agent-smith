@@ -11,8 +11,12 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// CheckoutAsync is metadata-only. K8s mode is not supported because the
 /// operator cannot bind-mount a local disk into a remote pod.
 /// </summary>
-public sealed class LocalSourceProvider(string basePath) : ISourceProvider
+public sealed class LocalSourceProvider(string basePath, string? defaultBranch = null) : ISourceProvider
 {
+    private const string FallbackDefaultBranch = "main";
+
+    private readonly LocalBranchFastForward _fastForward = new();
+
     public string ProviderType => "Local";
 
     // A local repo has no remote to reach — "reachable" means the base path exists
@@ -29,7 +33,7 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
             throw new NotSupportedException(
                 "LocalSourceProvider in Kubernetes is not supported — use bind-mounted DockerSandbox or a remote source provider.");
 
-        var target = branch ?? new BranchName("main");
+        var target = branch ?? new BranchName(DefaultBranch);
         return Task.FromResult(new Repository(target, basePath));
     }
 
@@ -77,4 +81,13 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
     // p0393a: a local repository has no pull request, so there is no draft to leave.
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
         Task.FromResult(true);
+
+    // p0490: with no pull request server, finishing the work IS moving the default
+    // branch onto the branch the run committed. The prUrl a local "PR" carries is the
+    // sentence CreatePullRequestAsync returns, so the branch is what identifies the work.
+    public Task<PullRequestCompletion> CompletePullRequestAsync(
+        string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
+        _fastForward.RunAsync(basePath, sourceBranch.Value, DefaultBranch, cancellationToken);
+
+    private string DefaultBranch => defaultBranch ?? FallbackDefaultBranch;
 }

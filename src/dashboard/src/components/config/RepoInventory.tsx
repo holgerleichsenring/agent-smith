@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { refMatches } from "@/lib/repoRefs";
 import {
   fetchConnectionRepos,
   type ConnectionRepos,
@@ -134,20 +135,4 @@ function ConnectionInventory({
       )}
     </div>
   );
-}
-
-/** Does a project repo ref ("conn/Name", "conn/*", "conn/Pre*") cover this
- *  discovered repo? Plain catalog refs (no slash) never match here. */
-export function refMatches(ref: string, connectionId: string, repoName: string): boolean {
-  const slash = ref.indexOf("/");
-  if (slash <= 0 || ref.slice(0, slash) !== connectionId) return false;
-  const pattern = ref.slice(slash + 1);
-  if (!pattern.includes("*")) return pattern === repoName;
-  const rx = new RegExp(
-    `^${pattern
-      .split("*")
-      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join(".*")}$`,
-  );
-  return rx.test(repoName);
 }

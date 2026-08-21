@@ -107,12 +107,13 @@ describe("ProjectForm", () => {
 
   it("RepoPicker_OffersDiscoveredRepos_AndWildcard", async () => {
     // p0345c: picking a connection loads its discovery cache — the repos that
-    // ACTUALLY exist there are offered as toggle chips, and a wildcard/glob
-    // stays possible next to them.
+    // ACTUALLY exist there are offered for selection, and a wildcard/glob stays
+    // possible. p0488: they are filterable rows, and the wildcard comes from
+    // the filter box itself.
     render(<Harness />);
     fireEvent.change(screen.getByTestId("form-connref-connection"), { target: { value: "conn" } });
 
-    // The discovered repos render as pick chips.
+    // The discovered repos render as selectable rows.
     const api = await screen.findByTestId("form-connref-discovered-Sample.Api");
     expect(screen.getByTestId("form-connref-discovered-Sample.Web")).toBeInTheDocument();
     expect(mockedRepos).toHaveBeenCalledWith("conn", expect.anything());
@@ -125,8 +126,8 @@ describe("ProjectForm", () => {
     fireEvent.click(screen.getByTestId("form-connref-discovered-Sample.Api"));
     expect(screen.queryByTestId("form-connref-chip-conn/Sample.Api")).toBeNull();
 
-    // The wildcard path stays: a glob is typed, not picked.
-    fireEvent.change(screen.getByTestId("form-connref-name"), { target: { value: "*" } });
+    // The wildcard path stays: a glob is typed into the filter box, not picked.
+    fireEvent.change(screen.getByTestId("form-connref-filter"), { target: { value: "*" } });
     fireEvent.click(screen.getByTestId("form-connref-add"));
     expect(screen.getByTestId("form-connref-chip-conn/*")).toBeInTheDocument();
     expect(screen.getByTestId("wiring-repo-conn/*")).toHaveAttribute("data-resolved", "true");
@@ -134,7 +135,8 @@ describe("ProjectForm", () => {
 
   it("RepoPicker_NotDiscoveredYet_HonestState_FreeTextStillWorks", async () => {
     // discoveredAt null = the discovery never ran — the picker says so and
-    // falls back to typing a name instead of pretending an empty inventory.
+    // falls back to typing a name (p0488: into the filter box, the only box)
+    // instead of pretending an empty inventory.
     mockedRepos.mockResolvedValue({ discoveredAt: null, repos: [] });
     render(<Harness />);
     fireEvent.change(screen.getByTestId("form-connref-connection"), { target: { value: "conn" } });
@@ -142,7 +144,7 @@ describe("ProjectForm", () => {
     const honest = await screen.findByTestId("form-connref-undiscovered");
     expect(honest).toHaveTextContent("not discovered yet — run a discovery or type a name");
 
-    fireEvent.change(screen.getByTestId("form-connref-name"), { target: { value: "Sample.Api" } });
+    fireEvent.change(screen.getByTestId("form-connref-filter"), { target: { value: "Sample.Api" } });
     fireEvent.click(screen.getByTestId("form-connref-add"));
     expect(screen.getByTestId("form-connref-chip-conn/Sample.Api")).toBeInTheDocument();
   });
@@ -187,15 +189,15 @@ describe("ProjectForm", () => {
 
   it("ProjectForm_ConnScopedRepoRef_AddedViaConnectionPicker_CountsForIntegrity", async () => {
     // p0345b: the operator-shaped config references repos through a
-    // connection ("conn/Name") — added via the connection picker + repo-name
-    // input, and integrity treats the resolved connection as a valid ref.
+    // connection ("conn/Name") — added via the connection picker + filter box,
+    // and integrity treats the resolved connection as a valid ref.
     render(<Harness />);
     fireEvent.change(screen.getByTestId("form-ref-agent"), { target: { value: "gpt5" } });
     fireEvent.change(screen.getByTestId("form-ref-tracker"), { target: { value: "azdo" } });
 
     fireEvent.change(screen.getByTestId("form-connref-connection"), { target: { value: "conn" } });
     await screen.findByTestId("form-connref-discovered-Sample.Api");
-    fireEvent.change(screen.getByTestId("form-connref-name"), { target: { value: "Sample.Api" } });
+    fireEvent.change(screen.getByTestId("form-connref-filter"), { target: { value: "Sample.Api" } });
     fireEvent.click(screen.getByTestId("form-connref-add"));
 
     expect(screen.getByTestId("form-connref-chip-conn/Sample.Api")).toBeInTheDocument();

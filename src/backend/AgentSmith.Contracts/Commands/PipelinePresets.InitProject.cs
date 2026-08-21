@@ -30,5 +30,6 @@ public static partial class PipelinePresets
         CommandNames.WriteRunResult,
         CommandNames.InitCommit,
         CommandNames.PrCrossLink, // p0158c: multi-repo init pass-2 (no-op for single-PR runs)
+        CommandNames.InitComplete, // p0490: LAST — the cross-link pass must land before a PR closes
     ];
 }

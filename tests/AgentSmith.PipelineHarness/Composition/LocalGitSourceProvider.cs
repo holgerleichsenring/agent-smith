@@ -64,4 +64,16 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
 
     /// <summary>Pull requests this run took out of draft.</summary>
     public static List<string> MarkedReady { get; } = [];
+
+    // p0490: the fake local remote has no merge surface — record the request so a
+    // harness test can assert what a run asked to complete, and answer merged.
+    public Task<PullRequestCompletion> CompletePullRequestAsync(
+        string prUrl, BranchName sourceBranch, CancellationToken cancellationToken)
+    {
+        Completed.Add(prUrl);
+        return Task.FromResult(PullRequestCompletion.Merged());
+    }
+
+    /// <summary>Pull requests this run completed.</summary>
+    public static List<string> Completed { get; } = [];
 }

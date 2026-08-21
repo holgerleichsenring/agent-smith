@@ -43,6 +43,7 @@ public static class ContextBuildersExtensions
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);
         AddBuilder<PrCrossLinkContextBuilder>(services, CommandNames.PrCrossLink);
+        AddBuilder<InitCompleteContextBuilder>(services, CommandNames.InitComplete); // p0490
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);
