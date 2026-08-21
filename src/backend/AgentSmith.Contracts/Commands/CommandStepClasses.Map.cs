@@ -93,6 +93,7 @@ public static partial class CommandStepClasses
         [CommandNames.WritePhaseRecord] = Internal,
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
+        [CommandNames.InitComplete] = Internal,
         [CommandNames.SwitchSkill] = Internal,
         [CommandNames.SessionSetup] = Internal,
         [CommandNames.PersistWorkBranch] = Internal,

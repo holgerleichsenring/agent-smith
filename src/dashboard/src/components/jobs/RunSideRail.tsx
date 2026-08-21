@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { RunPullRequest, RunSnapshot } from "@/types/hub-events";
+import type { PullRequestStatus, RunPullRequest, RunSnapshot } from "@/types/hub-events";
+import { hasPullRequest } from "@/lib/prStatus";
 import { toNodeStatus } from "./runStatus";
 import { useSandboxActivity } from "@/hooks/useSandboxActivity";
 import { cn } from "@/lib/utils";
@@ -67,13 +68,15 @@ function shortMs(ms: number): string {
   return `${minutes}m`;
 }
 
-// p0347: the OPENED PRs to surface in the rail. Prefer the per-repo projection
+// p0347: the PRs to surface in the rail. Prefer the per-repo projection
 // (multi-repo runs keep every PR); an old run that predates it contributes its
 // single prUrl as one opened row so history isn't blank. Only entries with a
-// real url are returned — an "opened" status with no url is not linkable.
+// real url are returned — a status with no url is not linkable.
+// p0490: "has a pull request", not "is open" — a run that merged what it opened
+// still has the PRs it produced, and the rail is where the operator finds them.
 function openedPullRequests(snapshot: RunSnapshot): RunPullRequest[] {
   const projected = (snapshot.pullRequests ?? []).filter(
-    (pr) => pr.status === "opened" && !!pr.url,
+    (pr) => hasPullRequest(pr.status as PullRequestStatus) && !!pr.url,
   );
   if (projected.length > 0) return projected;
   if (snapshot.prUrl) {
