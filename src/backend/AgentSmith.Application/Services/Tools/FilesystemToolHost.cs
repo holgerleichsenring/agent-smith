@@ -36,7 +36,7 @@ public sealed class FilesystemToolHost : IToolHost
     // to a new dictionary under _sync) so the hot read paths (Route/Resolve, and
     // p0280's concurrent sub-agents) stay lock-free and never see a torn map.
     private volatile IReadOnlyDictionary<string, SandboxStepRunner> _runners;
-    private readonly int? _runCommandTimeoutSeconds;
+    private readonly RunCommandTimeout _runCommandTimeout;
     private readonly string _defaultRepo;
     private readonly ToolGuardInvoker _guards;
     private readonly ILogger? _logger;
@@ -63,11 +63,11 @@ public sealed class FilesystemToolHost : IToolHost
         SkillExecutionPhase writePhase = SkillExecutionPhase.Implementation,
         string? contextName = null,
         ILogger? logger = null,
-        int? runCommandTimeoutSeconds = null)
+        int? runCommandTimeoutSeconds = null, int? stepTimeoutCapSeconds = null)
         : this(
             new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [string.Empty] = sandbox },
             defaultRepo: string.Empty,
-            repoPath, readGuard, writeGuard, writePhase, contextName, logger, runCommandTimeoutSeconds)
+            repoPath, readGuard, writeGuard, writePhase, contextName, logger, runCommandTimeoutSeconds, stepTimeoutCapSeconds)
     { }
 
     // Multi-sandbox constructor (p0158e). Each tool call's first path segment
@@ -83,12 +83,12 @@ public sealed class FilesystemToolHost : IToolHost
         SkillExecutionPhase writePhase = SkillExecutionPhase.Implementation,
         string? contextName = null,
         ILogger? logger = null,
-        int? runCommandTimeoutSeconds = null,
+        int? runCommandTimeoutSeconds = null, int? stepTimeoutCapSeconds = null,
         IReadOnlyDictionary<string, string>? keyToRepo = null)
     {
+        var timeout = new RunCommandTimeout(runCommandTimeoutSeconds, stepTimeoutCapSeconds);
         var runners = sandboxes.ToDictionary(
-            kv => kv.Key, kv => new SandboxStepRunner(kv.Value, runCommandTimeoutSeconds),
-            StringComparer.Ordinal);
+            kv => kv.Key, kv => new SandboxStepRunner(kv.Value, timeout), StringComparer.Ordinal);
         // p0250: alias each REPO NAME to its representative sandbox via the
         // authoritative key→repo map (ContextKeys.SandboxRepos). The master now
         // addresses by repo name (the stable identifier the prompt lists), and it
@@ -101,7 +101,7 @@ public sealed class FilesystemToolHost : IToolHost
                 if (runners.TryGetValue(key, out var runner) && !runners.ContainsKey(repoName))
                     runners[repoName] = runner;
         _runners = runners;
-        _runCommandTimeoutSeconds = runCommandTimeoutSeconds;
+        _runCommandTimeout = timeout;
         _defaultRepo = defaultRepo;
         _guards = new ToolGuardInvoker(readGuard, writeGuard, repoPath, writePhase, contextName);
         _logger = logger;
@@ -173,7 +173,7 @@ public sealed class FilesystemToolHost : IToolHost
             var next = _runners.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
             var runner = next.TryGetValue(sandboxKey, out var existing)
                 ? existing
-                : new SandboxStepRunner(sandbox, _runCommandTimeoutSeconds);
+                : new SandboxStepRunner(sandbox, _runCommandTimeout);
             next[sandboxKey] = runner;
             if (!next.ContainsKey(repoName)) next[repoName] = runner;
             _runners = next;

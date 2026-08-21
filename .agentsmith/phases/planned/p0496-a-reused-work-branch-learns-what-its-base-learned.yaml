@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0496
+goal: "A re-run that reuses a ticket's work branch brings the base branch's newer commits with it, and a bootstrap refusal names the branch it read instead of blaming the repository."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THREE RUNS IN A ROW DIED ON A FILE THAT WAS THERE. The bootstrap gate aborted a ticket's
+      runs with "missing bootstrap in repos: [<repo>]" while the operator had the file open in
+      the browser on the base branch. Step 8 of the same run proves it is not a path or
+      discovery fault: one repository's /work/.agentsmith/contexts/<name>/context.yaml read
+      back 1641 bytes, and the other's returned exit 1 — same run, same probe, same shape.
+  - key: |
+      THE PROBE READ A DIFFERENT BRANCH THAN THE OPERATOR DID. Step 5 shows the checkout:
+      `git checkout agent-smith/<ticket>` — the work branch of an EARLIER run, not the base.
+      The file reached the base branch after that branch was cut, so it is not in the tree the
+      probe reads, and never will be.
+  - key: |
+      NOTHING RECONCILES A REUSED WORK BRANCH WITH ITS BASE. SandboxRepoCloner's
+      MaybeSwitchBranchAsync checks out the existing branch and RETURNS on success; only a
+      failed checkout falls through to creating it from the clone's default HEAD. Building on
+      the prior run's committed work is the intended behaviour and stays — inheriting a
+      permanently stale base is the unintended half.
+  - key: |
+      THE CONDITION IS ALREADY DETECTED AND NOTHING ACTS ON IT. Preflight in the same run
+      reported "the checked-out branch already carries commits from an earlier run" per
+      repository. The signal exists; only the response is missing.
+  - key: |
+      MERGE, NOT REBASE. A pull request hangs off that branch, so rewriting its pushed history
+      would orphan the review and force-push over a reviewer's context. The base is merged INTO
+      the work branch, which is additive and leaves the pull request intact.
+  - key: |
+      A CONFLICTING MERGE STOPS THE RUN, IT DOES NOT CONTINUE HALF-MERGED. A tree with conflict
+      markers builds nothing and would fail later as something unrecognisable. The run reports
+      the conflicting paths and the two refs by name, and leaves the branch untouched
+      [[feedback_no_heuristic_for_missing_data]].
+  - key: |
+      THE REFUSAL STOPS GUESSING. Today it reads "The repo may be empty or newly renamed —
+      verify the scoped repo name", which sent the operator to check a repository name that was
+      correct while the file sat one branch away. It names the branch it probed, the base it was
+      cut from, and the paths it looked for. A diagnosis that guesses is worse than one that
+      states what it did.
+  - key: |
+      DELETING THE STALE BRANCH IS THE OPERATOR'S WORKAROUND, NOT THE FIX. It works — the next
+      run cuts a fresh branch from the base — and it discards the earlier run's commits and
+      closes the pull request hanging off them. That is a decision for a person, which is
+      exactly why the automatic path must be the additive one.
+
+steps:
+  - id: a-reused-branch-takes-its-base-with-it
+    action: "After checking out an existing work branch, merge the repository's base branch into it before the pipeline reads the tree."
+  - id: a-conflict-stops-instead-of-continuing
+    action: "Report a conflicting merge with its paths and both refs, and leave the branch unchanged."
+  - id: a-fresh-branch-is-unaffected
+    action: "Keep the create-from-base path for a first run untouched, taking no merge."
+  - id: the-refusal-names-what-it-read
+    action: "State the probed branch, its base, and the probed paths in the bootstrap refusal, replacing the empty-or-renamed guess."
+
+tests:
+  - "ReusedWorkBranch_BaseHasNewerCommits_AreMergedIn"
+  - "ReusedWorkBranch_AlreadyUpToDate_IsLeftUnchanged"
+  - "ReusedWorkBranch_MergeConflicts_RunStops_AndNamesThePathsAndRefs"
+  - "ReusedWorkBranch_MergeConflicts_BranchIsLeftUntouched"
+  - "FreshWorkBranch_CreatedFromBase_TakesNoMerge"
+  - "BootstrapRefusal_NamesTheProbedBranch_AndItsBase"
+  - "BootstrapRefusal_NamesTheProbedPaths"
+  - "BootstrapRefusal_NoLongerClaimsTheRepoMayBeEmptyOrRenamed"
+
+done:
+  - "a re-run on an existing work branch sees commits the base gained after that branch was cut"
+  - "a first run's branch creation is unchanged and takes no merge"
+  - "a conflicting merge stops the run with the paths and both refs named, and changes nothing"
+  - "the work branch keeps its history, so the pull request hanging off it survives"
+  - "a bootstrap refusal states the branch, the base and the paths it read"
+  - "the empty-or-renamed guess is gone from the refusal"
