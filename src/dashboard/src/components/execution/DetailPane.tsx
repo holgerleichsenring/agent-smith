@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { ExecutionNodeProps } from "./ExecutionNode";
 import type { NodeStatus } from "./TimingGutter";
+import { splitOnUrls } from "@/lib/prUrls";
 
 // p0205: the right pane of the two-pane run detail. Renders the selected rail
 // node in full: breadcrumb, title + status pill, a meta line (duration + cost),
@@ -108,27 +109,26 @@ export function DetailPane({ node, parentLabel, footer, lead }: DetailPaneProps)
 // as a link "button" — there may be several (one PR per repo on a multi-repo
 // run). The proper per-repo, repo-labelled buttons come from PullRequestOutcome
 // events (PrOutcomeList); this catches the plain-message fallback too.
-const URL_SPLIT_RE = /(https?:\/\/[^\s]+)/g;
-const IS_URL_RE = /^https?:\/\//; // non-global: safe for repeated .test()
-
+// p0502: where a URL ENDS is prUrls' answer, not a second pattern here. This one
+// ran to the next whitespace, so a comma-joined list — how CommitAndPRHandler and
+// InitCommitHandler write them — put the comma inside every href but the last.
 function LinkifiedText({ text }: { text: string }) {
-  const parts = text.split(URL_SPLIT_RE);
   return (
     <>
-      {parts.map((part, i) =>
-        IS_URL_RE.test(part) ? (
+      {splitOnUrls(text).map((part, i) =>
+        part.isUrl ? (
           <a
             key={i}
             data-testid="detail-pane-message-link"
-            href={part}
+            href={part.value}
             target="_blank"
             rel="noreferrer"
             className="mx-0.5 inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono dsh-label text-emerald-700 hover:bg-emerald-100"
           >
-            {prLinkLabel(part)} ↗
+            {prLinkLabel(part.value)} ↗
           </a>
         ) : (
-          <span key={i}>{part}</span>
+          <span key={i}>{part.value}</span>
         ),
       )}
     </>

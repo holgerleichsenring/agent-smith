@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0502
+goal: "Every pull-request link in a step message is clickable, not just the last one. The linkifier's URL pattern swallows the comma that separates them."
+
+requires: [p0228, p0372]
+
+applies_to: "dashboard"
+
+scope:
+  in: "The one linkifier that owns its own URL pattern."
+  out: "The markdown surfaces, which autolink through remark-gfm and never see this pattern."
+
+decisions:
+  - key: |
+      THE PATTERN ENDS AT WHITESPACE AND PROSE DOES NOT. DetailPane's
+      URL_SPLIT_RE = /(https?:\\/\\/[^\\s]+)/g takes everything up to the next space,
+      so in a comma-joined list — which is how CommitAndPRHandler and
+      InitCommitHandler join them — every URL but the last ends in a comma that
+      lands inside the href. Those links 404. On a multi-repo run that is every
+      pull request except one.
+  - key: |
+      THE REPOSITORY ALREADY KNEW THE ANSWER, IN ANOTHER FILE. lib/prUrls.ts (p0372)
+      matches with [^\\s)\\]>\"']+ and then trims trailing [.,;:!?]+ — the same job,
+      done correctly, for the outcome-prose buttons. Two URL vocabularies in one
+      dashboard is the defect's actual cause, so the split moves INTO prUrls beside
+      the extract and strip it belongs with, and DetailPane stops owning a pattern.
+  - key: |
+      THE TRIMMED PUNCTUATION GOES BACK INTO THE PROSE, NOT INTO THE VOID. A split
+      that dropped the comma would render \"…/9018 …/9019\" and quietly rewrite the
+      operator's sentence. The separator is text, so it comes back as a text segment
+      and the rendered line still reads the way the message was written.
+  - key: |
+      THE EXISTING TEST COUNTED LINKS INSTEAD OF READING THEM.
+      DetailPane_MultipleUrls_RenderSeparateLinks uses a comma-joined pair — the
+      exact failing input — and asserts only that there are two anchors, which was
+      true the whole time the first one pointed at a 404. It now asserts both hrefs.
+
+steps:
+  - id: one-url-vocabulary
+    action: "Move URL splitting into lib/prUrls.ts next to extractUrls and stripUrls, sharing the pattern and the trailing-punctuation trim."
+    new:
+      - "splitOnUrls: prose split into url and non-url segments"
+  - id: the-detail-pane-borrows-it
+    action: "Replace DetailPane's own URL_SPLIT_RE and IS_URL_RE with the shared split."
+    delete:
+      - "URL_SPLIT_RE, IS_URL_RE"
+  - id: the-list-case-is-pinned
+    action: "Assert the href of every link in a comma-joined list, not just how many there are."
+
+tests:
+  - "SplitOnUrls_CommaJoinedList_EndsEachUrlBeforeTheComma"
+  - "SplitOnUrls_TrimmedPunctuation_StaysInTheProse"
+  - "SplitOnUrls_SentenceEndingUrl_DropsTheFullStop"
+  - "SplitOnUrls_NoUrl_ReturnsTheTextUntouched"
+  - "DetailPane_MultipleUrls_RenderSeparateLinks"
+  - "DetailPane_CommaJoinedUrls_EveryHrefIsTheBareUrl"
+
+done:
+  - "every link in a comma-joined list carries the bare URL"
+  - "the dashboard has one URL pattern, not two that disagree"
+  - "the separator still reads as written"
+  - "the href test is red against the [^\\s]+ pattern"

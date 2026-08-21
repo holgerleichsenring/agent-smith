@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0502
+
+decisions:
+  - category: Architecture
+    chose: "The split moves into lib/prUrls.ts, beside extractUrls and stripUrls"
+    over: "Fixing the character class in DetailPane's own URL_SPLIT_RE"
+    reason: |
+      Editing the pattern in place would have fixed the symptom and left the cause:
+      two modules each answering \"where does a URL end\" with a different regex.
+      prUrls.ts (p0372) already had the correct answer — [^\\s)\\]>\"']+ plus a trailing
+      [.,;:!?]+ trim — and DetailPane had [^\\s]+, so the two disagreed on exactly the
+      comma-joined list the handlers produce. One vocabulary means the next surface
+      that needs to linkify borrows the answer instead of inventing a third.
+  - category: Implementation
+    chose: "Trimmed punctuation is returned as part of the following TEXT segment"
+    over: "Dropping it, or leaving it inside the URL"
+    reason: |
+      Leaving it in is the defect. Dropping it silently rewrites the operator's
+      sentence — \"…/9018, …/9019\" would render as \"…/9018 …/9019\" — and the message
+      is the handler's own wording, not ours to edit. Returning it as prose keeps the
+      line reading the way it was written, and makes the split total: concatenating
+      every segment's value reproduces the input exactly, which is the property the
+      test asserts rather than a hand-checked example.
+  - category: Implementation
+    chose: "splitOnUrls returns tagged segments rather than the String.split convention"
+    over: "Keeping the capture-group split and re-testing each part with a second regex"
+    reason: |
+      The old shape needed TWO regexes that had to agree — a global one to split and a
+      non-global one to identify the odd-indexed parts — and a caller that trusted the
+      alternation. Once the URL boundary and the raw match differ (which is the whole
+      point of trimming punctuation), the split-and-retest form cannot express the
+      result at all: the trimmed comma belongs to neither part. Tagging each segment
+      states what it is once, at the place that already knows.
+  - category: TradeOff
+    chose: "Assert the href of every link, not how many anchors rendered"
+    over: "Leaving DetailPane_MultipleUrls_RenderSeparateLinks as the coverage"
+    reason: |
+      That test already used a comma-joined pair — the exact failing input — and
+      passed for as long as the defect existed, because two anchors DID render and one
+      of them pointed at a 404. A count answers \"did we linkify\" when the question is
+      \"did we linkify the right string\". The new case pins all three hrefs, and the
+      old one stays because the count is still worth having.
+  - category: Scope
+    chose: "The markdown surfaces are left alone"
+    over: "Routing them through the same split"
+    reason: |
+      Markdown.tsx autolinks through react-markdown + remark-gfm, which follows the
+      GFM autolink-literal rules — including the trailing-punctuation rule this phase
+      is about — and then sanitises. It never sees URL_PATTERN, has no divergence to
+      fix, and replacing a spec-compliant linkifier with ours would be a regression
+      dressed as consistency.
