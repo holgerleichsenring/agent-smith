@@ -10,17 +10,19 @@ using Moq;
 namespace AgentSmith.Tests.Providers.Source;
 
 /// <summary>
-/// Bug regression: TryReadFileAsync + ListDirectoryAsync went through
-/// GetDefaultBranchAsync without respecting a configured DefaultBranch on
-/// AzureReposSourceConnection. After the fix (+ p0179 follow-up), the
-/// configured branch flows all the way down into the Azure SDK call's
-/// GitVersionDescriptor. These tests pin that path so an operator who sets
-/// default_branch: develop on a catalog entry sees the discovery /
-/// context-yaml read hit the develop ref, not main.
-///
-/// Without this coverage the bug recurs silently: GetDefaultBranchAsync
-/// could be refactored to skip the configured override and the build would
-/// still pass.
+/// TryReadFileAsync and ListDirectoryAsync resolve their branch through
+/// GetDefaultBranchAsync, and whatever it decides has to reach the Azure SDK call's
+/// GitVersionDescriptor — the read is what actually hits a ref, so a resolver fix
+/// that stopped short of the descriptor would change nothing.
+/// <para>
+/// p0500 reversed WHICH branch wins. Here the mocked GitHttpClient names no
+/// repository default, so these exercise the FALLBACK arm: with the platform
+/// silent, the configured value is used, which is the contract
+/// config/agentsmith.example.yml states. The repository-wins arm is covered in
+/// AzureReposSourceProviderDefaultBranchTests, and the last case below pins that a
+/// repository that DOES answer overrides the configured name all the way into the
+/// descriptor.
+/// </para>
 /// </summary>
 public sealed class AzureReposSourceProviderConfiguredBranchE2eTests
 {
@@ -34,17 +36,7 @@ public sealed class AzureReposSourceProviderConfiguredBranchE2eTests
     public async Task TryReadFileAsync_ConfiguredDefaultBranch_PassedToAzureSdkVersionDescriptor()
     {
         var (sut, gitClientMock, captured) = BuildSut();
-        gitClientMock.Setup(c => c.GetItemContentAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<VersionControlRecursionType?>(),
-                It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<bool?>(),
-                It.IsAny<GitVersionDescriptor>(),
-                It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<bool?>(),
-                It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, string, string, VersionControlRecursionType?, bool?, bool?, bool?,
-                      GitVersionDescriptor, bool?, bool?, bool?, object, CancellationToken>(
-                (_, _, _, _, _, _, _, _, vd, _, _, _, _, _) => captured.VersionDescriptor = vd)
-            .ReturnsAsync(() => new MemoryStream(System.Text.Encoding.UTF8.GetBytes("yaml: ok")));
+        CaptureVersionDescriptor(gitClientMock, captured);
 
         await sut.TryReadFileAsync(".agentsmith/contexts/api/context.yaml", CancellationToken.None);
 
@@ -76,6 +68,36 @@ public sealed class AzureReposSourceProviderConfiguredBranchE2eTests
         descriptor!.Version.Should().Be(ConfiguredBranch);
         descriptor.VersionType.Should().Be(GitVersionType.Branch);
     }
+
+    [Fact]
+    public async Task TryReadFileAsync_RepositoryDefaultBranch_OverridesTheConfiguredNameInTheDescriptor()
+    {
+        // The live defect, end to end: default_branch: develop on the connection, a
+        // repository whose own default is main. Reading it on develop answered TF401175
+        // for every path, so discovery saw nothing and init-project opened no PR.
+        var (sut, gitClientMock, captured) = BuildSut();
+        gitClientMock.Setup(c => c.GetRepositoryAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GitRepository { DefaultBranch = "refs/heads/main" });
+        CaptureVersionDescriptor(gitClientMock, captured);
+
+        await sut.TryReadFileAsync(".agentsmith/contexts/api/context.yaml", CancellationToken.None);
+
+        captured.VersionDescriptor!.Version.Should().Be("main");
+    }
+
+    private static void CaptureVersionDescriptor(Mock<GitHttpClient> gitClientMock, Capture captured) =>
+        gitClientMock.Setup(c => c.GetItemContentAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<VersionControlRecursionType?>(),
+                It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<bool?>(),
+                It.IsAny<GitVersionDescriptor>(),
+                It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<bool?>(),
+                It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, string, string, VersionControlRecursionType?, bool?, bool?, bool?,
+                      GitVersionDescriptor, bool?, bool?, bool?, object, CancellationToken>(
+                (_, _, _, _, _, _, _, _, vd, _, _, _, _, _) => captured.VersionDescriptor = vd)
+            .ReturnsAsync(() => new MemoryStream(System.Text.Encoding.UTF8.GetBytes("yaml: ok")));
 
     private static (AzureReposSourceProvider Sut, Mock<GitHttpClient> GitClientMock, Capture Captured) BuildSut()
     {
