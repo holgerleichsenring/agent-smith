@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0493
+
+decisions:
+  - category: Correctness
+    chose: "Take the retries away from the Azure/OpenAI SDK and keep one retry layer"
+    over: "Reading Retry-After in our layer as well and leaving the SDK's own retries in place"
+    reason: |
+      Measured through the builder's test-transport seam rather than assumed. The SDK
+      (System.ClientModel 1.8.1 under OpenAI 2.8.0 / Azure.AI.OpenAI 2.1.0) already spends
+      three further attempts on a 429, already honours Retry-After exactly, and honours it
+      with NO ceiling — Retry-After 20 produced waits of 20s, 20s, 20s. With no header it
+      waits nothing at all: three retries in 0.03 seconds. So the obvious fix was already
+      true one layer down, and the harms are what stacking causes: up to 24 provider calls
+      for one logical call, waits that emit nothing into the run trail and re-acquire no
+      throttle capacity, an hour-long Retry-After parking a run for three hours where no
+      bound of ours can reach it, and three instant extra requests to an endpoint that has
+      just said too many. One layer that logs, bounds and re-throttles beats two that
+      multiply.
+  - category: Correctness
+    chose: "A rate limit is its own waiting class — the server's Retry-After, else a 15s floor"
+    over: "The configured network ladder (4s, 8s, 16s, 32s, 60s) for every retryable failure"
+    reason: |
+      A connection that died mid-body is worth retrying in seconds; an Azure throughput
+      window is sixty seconds wide, so the whole network ladder expires inside two minutes of
+      a limit that routinely outlasts it. Where the server names an interval, guessing one is
+      strictly worse. Where it does not, a floor of a quarter of the refill window gives
+      15s, 30s, 60s, 120s, 120s — about five and three quarter minutes, an order of magnitude
+      above the network class, which is the order the two failures differ by.
+  - category: Safety
+    chose: "A per-wait ceiling of 120 seconds, clamped and stated in the log"
+    over: "Honouring Retry-After in full, or capping at the configured MaxDelayMs of 60s"
+    reason: |
+      Azure's request and token budgets refill on a sixty-second window, so an honest
+      Retry-After for a throughput limit cannot much exceed a minute; a longer one names a
+      quota no run can wait out, and parking on it turns a legible failure into a silent
+      hang. Twice the refill window leaves room for a server that is queueing rather than
+      refusing, and five waits at the ceiling is at most ten minutes — a third of the
+      1800-second default run watchdog, so the retry can never be what a run dies of. The
+      clamp is named in the warning, because a clamp nobody can see is a clamp nobody can
+      diagnose.
+  - category: Observability
+    chose: "One warning that names the class and the reason for the wait it chose"
+    over: "Keeping p0477's 'Transient LLM network error' wording"
+    reason: |
+      That wording was already wrong for a 429 and sends whoever reads the trail hunting a
+      socket fault that was never there. It also never said what it waited or why. Each
+      retry now carries one of three reasons: the interval the server asked for, the clamp
+      that shortened it, or a rate limit that sent no header at all.
+  - category: Scope
+    chose: "State the uncertainty about the live run instead of resolving it"
+    over: "Writing a spec that claims the run exhausted its retries, or that it never retried"
+    reason: |
+      Image 0.134.0 does carry p0477 — ClientResultException and IsRetryableStatus are
+      present at that tag and absent at v0.133.0 — so the 429 was retryable there. There are
+      no cluster logs, so whether the run exhausted five attempts or never retried at all is
+      unknown and both fit the evidence. The fix is correct under either reading, and a spec
+      that picked one would be inventing the half that decides nothing.
+  - category: Scope
+    chose: "Leave the Anthropic path, streaming and RetryConfig alone"
+    over: "Unifying all three providers' retry handling, or exposing floor and ceiling as config"
+    reason: |
+      AnthropicOAuthHttpHandler already reads Retry-After and already clamps at sixty
+      seconds, and no live failure points at it. Nothing in the run path calls
+      GetStreamingResponseAsync, and replaying a partly-yielded stream would duplicate
+      output. The floor and the ceiling are properties of what a provider's refill window IS,
+      not of a deployment's taste — a knob that can be set wrong is a knob that will be.
