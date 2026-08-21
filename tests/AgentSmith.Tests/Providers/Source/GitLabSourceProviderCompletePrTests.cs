@@ -32,7 +32,7 @@ public sealed class GitLabSourceProviderCompletePrTests
         var completion = await CreateSut(handler).CompletePullRequestAsync(
             MrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeTrue();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
         seen.Should().ContainSingle();
         seen[0].Method.Should().Be(HttpMethod.Put);
         seen[0].Path.Should().EndWith($"/projects/{ProjectPath}/merge_requests/7/merge");
@@ -48,7 +48,7 @@ public sealed class GitLabSourceProviderCompletePrTests
         var completion = await CreateSut(handler).CompletePullRequestAsync(
             MrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeFalse();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("approvals are missing");
         completion.Reason.Should().Contain("405");
     }
@@ -64,7 +64,7 @@ public sealed class GitLabSourceProviderCompletePrTests
         var completion = await CreateSut(handler).CompletePullRequestAsync(
             MrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeFalse();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("opened");
     }
 

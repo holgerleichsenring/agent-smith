@@ -157,6 +157,9 @@ describe("Config Studio shows what is missing (p0392)", () => {
     expect(await screen.findByTestId("form-field-needsClarificationStatus")).toBeInTheDocument();
     // And the shapes come from the descriptor, so a map/bool field needs no UI change.
     expect(screen.getByTestId("form-field-zeroMatchComment")).toBeInTheDocument();
-    expect(screen.getByTestId("form-field-pipelineFromLabel").tagName).toBe("TEXTAREA");
+    // p0499: a map is edited as rows of key/value inputs, not as `key: value` text —
+    // the operator's label keys contain colons, and the text form shredded them.
+    expect(screen.getByTestId("form-field-pipelineFromLabel-add")).toBeInTheDocument();
+    expect(screen.queryByTestId("form-field-pipelineFromLabel")?.tagName).not.toBe("TEXTAREA");
   });
 });

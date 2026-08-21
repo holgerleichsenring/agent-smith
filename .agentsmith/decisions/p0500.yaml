@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0500
+
+decisions:
+  - category: Architecture
+    chose: "The precedence is decided at READ time, inside the providers"
+    over: "Filling RepoConnection.DefaultBranch from discovery at resolution time"
+    reason: |
+      Resolution time fixes at most one of the two paths that reach a provider.
+      RepoGlobExpander already prefers the discovered per-repo value over the
+      connection's (repo.DefaultBranch ?? connection.DefaultBranch), while the exact-ref
+      path goes through ConnectionRepoUrlBuilder, which is deliberately API-free and
+      cannot consult discovery at all — and the legacy repos catalog and the CLI reach
+      the provider without discovery in the picture either. The provider is the one
+      layer that holds the repository's own answer on every path, so putting the
+      precedence there fixes all of them at once, and anything the resolver decided
+      earlier would still be a branch nobody had checked.
+  - category: Architecture
+    chose: "One DefaultBranchResolver, shared by Azure Repos, GitHub and GitLab"
+    over: "The same three-line precedence edited into each provider"
+    reason: |
+      All three carried the identical inversion — verified by reading them, not
+      assumed — and all three are over the 120-line limit and may only shrink, so a
+      fourth copy of the decision could not have landed there anyway. Extracting it
+      made each provider shorter (402→386, 318→300, 384→369) while the platform call
+      stayed where it belongs: the resolver owns the PRECEDENCE and the caching, each
+      provider owns the one line that asks its own API. The rule can now only be
+      changed in one place, which is what a contract stated in a config file deserves.
+  - category: TradeOff
+    chose: "The repository's own default wins outright; the configured value is the fallback"
+    over: "Honouring a configured branch when it exists and falling back only when it does not"
+    reason: |
+      The existence-check version is tempting because it preserves a deliberate
+      per-repo override, but it needs an extra API call per repo to answer a question
+      the default-branch lookup has already answered, and it keeps the inverted
+      precedence alive for every repo where both branches exist — which is where the
+      operator's connection-level develop would keep silently overriding repos that
+      are maintained on main. The documented contract is the simpler one and it costs
+      nothing real here: where a repository's default IS develop, discovery says so and
+      nothing changes; where it is not, the configured value was already failing every
+      read. Recorded as a trade-off because a genuine per-repo override now has no
+      home — see the scope note.
+  - category: Implementation
+    chose: "A disagreement between the configured and the actual branch is logged at warning level"
+    over: "Silently preferring the repository's branch"
+    reason: |
+      Silence was the other half of the defect. The failure the operator saw was
+      \"discovery found nothing, so no pull request\" — an outcome that never mentions a
+      branch, which is why it was read as a missing language or a skills gap. The
+      warning names the repo, the configured branch, the actual branch and which one
+      was used, so the next time a connection-level default disagrees with a
+      repository, the run's own output says so. Agreement is logged at debug, because
+      a warning that fires on the healthy path stops being read.
+  - category: Implementation
+    chose: "The tests that pinned the inversion are rewritten, not deleted"
+    over: "Removing them as obsolete"
+    reason: |
+      AzureReposSourceProviderDefaultBranchTests and ...ConfiguredBranchE2eTests
+      asserted \"configured wins, without calling the API\" — the defect, written down
+      as an intention. What they were really protecting is still worth protecting:
+      that whatever gets resolved reaches CheckoutAsync, and reaches the Azure SDK's
+      GitVersionDescriptor rather than stopping at the resolver. Those assertions stay
+      and the precedence flips, plus a new E2E case drives the live shape — configured
+      develop, repository main — all the way into the descriptor.
+  - category: Implementation
+    chose: "AzureReposSourceProviderTryReadFileTests names its branch on the connection"
+    over: "Reflecting into the private cache field, as it did"
+    reason: |
+      That helper reached into _cachedDefaultBranch to pre-seed the lookup, so deleting
+      the field broke four passing tests that were not about default branches at all.
+      The supported seam does the same job: the mock does not answer the repository
+      lookup, an unanswered lookup falls back to the configured value, so naming it on
+      the connection pins the branch those reads happen on. A test that has to reach
+      through the type to set it up is coupled to an implementation detail it never
+      meant to depend on.
+  - category: Scope
+    chose: "No per-repo override field in the UI, and no silent deferral either"
+    over: "Adding one alongside the fix"
+    reason: |
+      The value comes from discovery, which answers for every repo a connection can
+      see — DiscoveredRepo.DefaultBranch is already populated by all three discovery
+      providers — so an override would be a manual field standing in for data the
+      system already has [[feedback_no_heuristic_for_missing_data]]. Nothing found here
+      shows discovery failing to answer. If a repository ever needs to be read on a
+      branch that is NOT its default, that is a real feature with a real question
+      behind it (per repo, or per project, or per run?) and it gets its own phase
+      rather than being folded in here [[feedback_no_silent_defer]].

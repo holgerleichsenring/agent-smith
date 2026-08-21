@@ -33,7 +33,7 @@ public sealed class GitHubSourceProviderCompletePrTests
         var completion = await CreateSut().CompletePullRequestAsync(
             PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeTrue();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
         completion.Reason.Should().BeNull();
         _pullRequests.VerifyAll();
     }
@@ -48,7 +48,7 @@ public sealed class GitHubSourceProviderCompletePrTests
         var completion = await CreateSut().CompletePullRequestAsync(
             PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeFalse();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("approving review is required");
     }
 
@@ -58,7 +58,7 @@ public sealed class GitHubSourceProviderCompletePrTests
         var completion = await CreateSut().CompletePullRequestAsync(
             "Local repository - no PR created", new BranchName("agentsmith/init"), CancellationToken.None);
 
-        completion.Completed.Should().BeFalse();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         _pullRequests.Verify(
             c => c.Merge(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<MergePullRequest>()),
             Times.Never);

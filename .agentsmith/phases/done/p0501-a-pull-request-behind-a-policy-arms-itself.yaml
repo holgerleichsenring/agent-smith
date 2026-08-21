@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0501
+goal: "An init pull request on Azure Repos finishes itself where a branch policy requires a build, by approving and arming auto-complete instead of demanding an immediate merge."
+
+requires: [p0490]
+
+applies_to: "backend + dashboard"
+
+scope:
+  in: "Azure Repos completion, and the third outcome it produces."
+  out: >
+    GitHub, GitLab and the local provider. Checked: GitHub merges via the Merge API
+    and GitLab via merge with the answer's state asserted; neither issues an
+    immediate-merge call that a policy turns into a hard refusal the platform has a
+    documented arming alternative for on the SAME call path. GitHub's auto-merge is
+    a repository-level opt-in feature, which is a different phase's question.
+
+decisions:
+  - key: |
+      A DIRECT MERGE IS THE ONE THING A POLICY REFUSES. p0490's CompleteAsync sets
+      Status = Completed with CompletionOptions, which asks Azure DevOps to merge
+      NOW. Where a branch policy requires an integration build — the operator's
+      setup — Azure declines, every time, for as long as the policy exists. The
+      capability p0490 shipped is therefore unavailable in exactly the environment
+      p0490 argued it was for.
+  - key: |
+      THE PLATFORM'S OWN MECHANISM IS APPROVE-THEN-ARM. On Azure Repos a pull request
+      finishes itself when a reviewer vote approves it and AutoCompleteSetBy is set:
+      the policy runs its build, and the merge happens when the build goes green,
+      without anyone returning to the pull request. That is the same intent p0490
+      recorded — nobody reviews an init pull request — expressed in the form the
+      platform accepts.
+  - key: |
+      THE IDENTITY IS THE ONE THAT OPENED IT. AutoCompleteSetBy and the approving
+      vote both need an identity, and the pull request already carries the right one:
+      our own run created it, so pr.CreatedBy IS the token's identity. Reading it off
+      the pull request avoids a second round trip to connection data for a fact the
+      first response already returned.
+  - key: |
+      ARMED IS A THIRD OUTCOME, AND THIS DOES NOT RELITIGATE p0490. p0490 declined to
+      split REFUSAL into policy-versus-transport, because the caller does the same
+      thing for both. Armed is not a refusal: nothing more will be done, the pull
+      request will merge on its own, and no one needs to come back to it — which is
+      the opposite of what \"still open\" tells the operator to do. A status the
+      surfaces act on differently earns its place in the vocabulary; one they do not
+      does not.
+  - key: |
+      THE HONESTY PROPERTY IS THE POINT, SO THE THREE STAY DISTINGUISHABLE. Merged,
+      armed and refused are three different per-repo answers on p0347's
+      PullRequestsJson, and the dashboard reads them as three: merged is done, armed
+      is waiting on a build nobody has to watch, refused is still open and wants a
+      human. Collapsing armed into either neighbour would report a lie in one
+      direction or the other.
+
+steps:
+  - id: the-vocabulary-gains-the-third-answer
+    action: "Add an armed outcome to PullRequestCompletion and an armed status to PullRequestStatuses, counted as having a pull request and as not needing a human."
+  - id: azure-approves-and-arms
+    action: "Replace the Azure Repos direct-merge completion with an approving reviewer vote plus AutoCompleteSetBy, reporting merged, armed or refused."
+    new:
+      - "AzureReposAutoComplete: the vote and the arming, addressed by pull request id"
+  - id: the-outcome-reaches-the-operator
+    action: "Record the armed status per repo and say so in the step's report."
+  - id: the-dashboard-reads-three-answers
+    action: "Teach prStatus about the armed status so a run's links and open count stay correct."
+
+tests:
+  - "AzureRepos_CompleteAsync_ApprovesAndArmsAutoComplete"
+  - "AzureRepos_PolicyPending_ReportsArmed_NotRefused"
+  - "AzureRepos_CompletedImmediately_ReportsMerged"
+  - "AzureRepos_ArmingRejected_ReportsRefusedWithThePlatformsReason"
+  - "InitComplete_ArmedPullRequest_IsRecordedArmedPerRepo"
+  - "InitComplete_ArmedAndRefused_AreReportedSeparately"
+  - "PullRequestStatuses_Armed_HasAPullRequest"
+  - "PrStatus_Armed_IsNotCountedAsWaitingForAHuman"
+
+done:
+  - "an init pull request behind a required build arms itself and merges when the build passes"
+  - "merged, armed and refused are three outcomes the operator can tell apart per repo"
+  - "a refusal still leaves the pull request open and the run's result intact"
+  - "the armed test is red against the direct-merge implementation"
