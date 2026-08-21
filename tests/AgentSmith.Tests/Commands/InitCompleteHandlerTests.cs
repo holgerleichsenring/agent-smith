@@ -55,6 +55,47 @@ public sealed class InitCompleteHandlerTests
     }
 
     [Fact]
+    public async Task InitComplete_ArmedPullRequest_IsRecordedArmedPerRepo()
+    {
+        var harness = new Harness()
+            .WithArmed("a", "https://x/a/pull/1", "Waiting on the build policy.");
+
+        var result = await harness.RunAsync(autoComplete: true);
+
+        result.IsSuccess.Should().BeTrue();
+        var outcome = harness.Outcomes.Single();
+        outcome.Status.Should().Be(PullRequestStatuses.CompletionArmed);
+        outcome.Reason.Should().Contain("build policy");
+        outcome.Url.Should().Be("https://x/a/pull/1", "an armed row still links to what will merge");
+        harness.Completed.Should().BeEmpty("armed is not merged");
+    }
+
+    [Fact]
+    public async Task InitComplete_ArmedAndRefused_AreReportedSeparately()
+    {
+        // The honesty property p0490 shipped: the operator has to be able to tell
+        // "it is finishing itself" from "it needs you" from "it is done".
+        var harness = new Harness()
+            .WithOpened("merged", "https://x/m/pull/1")
+            .WithArmed("armed", "https://x/a/pull/2", "Waiting on the build policy.")
+            .WithRefusal("refused", "https://x/r/pull/3", "Requires two reviewers.");
+
+        var result = await harness.RunAsync(autoComplete: true);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("Merged 1/3");
+        result.Message.Should().Contain("Auto-complete armed");
+        result.Message.Should().Contain("Still open");
+        result.Message.Should().Contain("Requires two reviewers");
+        harness.Outcomes.Single(o => o.Repo == "armed").Status
+            .Should().Be(PullRequestStatuses.CompletionArmed);
+        harness.Outcomes.Single(o => o.Repo == "refused").Status
+            .Should().Be(PullRequestStatuses.CompletionRefused);
+        harness.Outcomes.Single(o => o.Repo == "merged").Status
+            .Should().Be(PullRequestStatuses.Completed);
+    }
+
+    [Fact]
     public async Task InitComplete_PolicyRefusesTheMerge_PullRequestStaysOpen_RunKeepsItsResult()
     {
         var harness = new Harness()
@@ -137,6 +178,11 @@ public sealed class InitCompleteHandlerTests
         public Harness WithRefusal(string name, string prUrl, string reason) =>
             WithProvider(name, prUrl, _ => PullRequestCompletion.Refused(reason));
 
+        // p0501: the Azure Repos answer where a branch policy requires a build — the pull
+        // request is not merged and is not refused either; it merges itself when the build passes.
+        public Harness WithArmed(string name, string prUrl, string reason) =>
+            WithProvider(name, prUrl, _ => PullRequestCompletion.Armed(reason));
+
         public Harness WithThrowingProvider(string name, string prUrl, string message) =>
             WithProvider(name, prUrl, _ => throw new InvalidOperationException(message));
 
@@ -178,7 +224,7 @@ public sealed class InitCompleteHandlerTests
                 {
                     branch.Value.Should().Be(Branch, "a local repo needs the work branch to fast-forward");
                     var completion = answer(url);
-                    if (completion.Completed) Completed.Add(url);
+                    if (completion.Outcome is PullRequestCompletionOutcome.Merged) Completed.Add(url);
                     return Task.FromResult(completion);
                 });
             _sources.Setup(f => f.Create(It.Is<RepoConnection>(r => r.Name == name)))
