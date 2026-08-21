@@ -13,12 +13,20 @@ namespace AgentSmith.Infrastructure.Services.RateLimiting;
 /// connection that dies mid-body; a live master-loop run (2026-07-24 …6fe6) was
 /// killed at step 17 by exactly that after 100+ successful calls.
 ///
-/// Bounded by <see cref="RetryConfig"/> (attempts + exponential backoff). Wraps
-/// the rate-limited client, so every attempt re-acquires throttle capacity rather
-/// than hammering. Cancellation is never retried. Non-streaming only:
-/// GetResponseAsync re-sends the same materialised messages idempotently, while a
-/// streaming response passes through untouched (replaying a partially-yielded
-/// stream would duplicate output).
+/// Bounded by <see cref="RetryConfig"/>. Wraps the rate-limited client, so every attempt
+/// re-acquires throttle capacity rather than hammering. Cancellation is never retried.
+/// Non-streaming only: GetResponseAsync re-sends the same materialised messages
+/// idempotently, while a streaming response passes through untouched (replaying a
+/// partially-yielded stream would duplicate output).
+///
+/// p0493: this is now the ONLY retry layer on the Azure and OpenAI path — their SDK's own
+/// policy is set to zero attempts in <c>OpenAiChatClientBuilder</c>. Measured, not assumed:
+/// that policy retried a 429 three more times, honoured Retry-After exactly and without any
+/// ceiling, and waited NOTHING when the header was absent. Stacked under this loop one
+/// logical call could cost 24 provider calls, its waits emitted nothing into the run trail,
+/// they re-acquired no throttle capacity, and an hour-long Retry-After parked the run for
+/// three hours where no bound of ours could reach it. <see cref="RetryWait"/> decides how
+/// long each attempt waits and says why.
 /// </summary>
 internal sealed class TransientRetryChatClient(
     IChatClient inner, RetryConfig retry, string label, ILogger logger) : DelegatingChatClient(inner)
@@ -40,11 +48,13 @@ internal sealed class TransientRetryChatClient(
                 && !cancellationToken.IsCancellationRequested
                 && IsTransientNetwork(ex))
             {
-                var delay = BackoffDelay(retry, attempt);
+                // p0493: what it waited and WHY. Since p0477 this said "network error" for a
+                // 429, which sent the reader hunting a fault that was never there.
+                var wait = RetryWait.For(retry, attempt, ex);
                 logger.LogWarning(ex,
-                    "Transient LLM network error for {Label} (attempt {Attempt}/{Max}); retrying in {Delay}ms",
-                    label, attempt + 1, retry.MaxRetries, (int)delay.TotalMilliseconds);
-                await Task.Delay(delay, cancellationToken);
+                    "Retrying LLM call for {Label} (attempt {Attempt}/{Max}) in {Delay}ms — {Reason}",
+                    label, attempt + 1, retry.MaxRetries, (int)wait.Delay.TotalMilliseconds, wait.Reason);
+                await Task.Delay(wait.Delay, cancellationToken);
             }
         }
     }
@@ -91,9 +101,4 @@ internal sealed class TransientRetryChatClient(
     internal static bool IsRetryableStatus(int status) =>
         status is 408 or 429 || status >= 500;
 
-    private static TimeSpan BackoffDelay(RetryConfig retry, int attempt)
-    {
-        var ms = retry.InitialDelayMs * Math.Pow(retry.BackoffMultiplier, attempt);
-        return TimeSpan.FromMilliseconds(Math.Min(ms, retry.MaxDelayMs));
-    }
 }
