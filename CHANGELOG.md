@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.134.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.134.0...v0.134.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* a command runs as long as the operator allows (p0495) ([45a554b](https://github.com/holgerleichsenring/agent-smith/commit/45a554bc455e4280101da5b9c86a1fcff2a94702))
+* a command that ends in a quote can be cited (p0492) ([39ca7ff](https://github.com/holgerleichsenring/agent-smith/commit/39ca7ff17fff9cb08a46f408624affb53611118e))
+* a key with a colon survives being edited (p0499) ([22bf968](https://github.com/holgerleichsenring/agent-smith/commit/22bf968676a923a477f256e1c7a4a96501dc4eed))
+* a link in a list ends where the url ends (p0502) ([c0140f4](https://github.com/holgerleichsenring/agent-smith/commit/c0140f4445806ddb76cb9b0e6dceb4d4f24bb5fe))
+* a map, a branch, a policy and a link (p0499-p0502) ([a763614](https://github.com/holgerleichsenring/agent-smith/commit/a76361473e9b823285d994626d0c24c91225a0cb))
+* a pull request behind a policy arms itself (p0501) ([6ebdc79](https://github.com/holgerleichsenring/agent-smith/commit/6ebdc79a14b6d4def6bad4f58628bf368c0abe73))
+* a quoted command can be cited, and a rate limit is waited out on its own clock (p0492, p0493) ([6921e06](https://github.com/holgerleichsenring/agent-smith/commit/6921e06813eb611a46fca1376d6398ff23eeff5f))
+* a rate limit is waited out on its own clock (p0493) ([5d92c6b](https://github.com/holgerleichsenring/agent-smith/commit/5d92c6b2b9fa89a31719a9ad996565c4c3666df0))
+* a repository is read on the branch it has (p0500) ([767e645](https://github.com/holgerleichsenring/agent-smith/commit/767e64550b244ce8f689616e2b510a52bb5c76e7))
+* the configured step cap is the ceiling a command may ask for (p0495, p0497) ([5d74b3d](https://github.com/holgerleichsenring/agent-smith/commit/5d74b3de2475f9d6f466da5869176760ff39453e))
+* the init action belongs to the card (p0497) ([dfb25d0](https://github.com/holgerleichsenring/agent-smith/commit/dfb25d0146cca8759fab9167913fa301b94a38bc))
+
 ## [0.134.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.133.0...v0.134.0) (2026-08-21)
 
 
