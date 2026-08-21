@@ -32,6 +32,10 @@ export interface SandboxCommandEntry {
   isWrite?: boolean;
   exitCode: number | null;
   durationMs: number | null;
+  /** p0495: the agent killed this command at its limit, and the limit it was killed at.
+   *  A command that never started carries neither, so exit -1 still reads "not run". */
+  timedOut?: boolean;
+  timeoutSeconds?: number;
   timestamp: string;
 }
 

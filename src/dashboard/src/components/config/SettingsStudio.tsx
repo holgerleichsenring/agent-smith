@@ -6,6 +6,7 @@ import { SettingsForm } from "./SettingsForm";
 import { useSetting } from "./useSetting";
 import { useCapabilities } from "./useCapabilities";
 import { SETTING_ICON, SETTING_LABEL, SETTING_SUBTITLE } from "./settings";
+import { settingRefusal } from "./settingsRefusal";
 
 // p0353: the Settings pane — one typed form per global settings singleton, sitting
 // inside the config studio shell next to the entity catalog. It loads the doc, edits
@@ -25,9 +26,12 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
   }, [value]);
 
   const dirty = draft !== null && value !== null && JSON.stringify(draft) !== JSON.stringify(value);
+  // p0495: a draft the server would only ever contradict is refused here, in both its
+  // numbers, instead of being saved and silently outranked at the sandbox boundary.
+  const refusal = draft === null ? null : settingRefusal(settingKey, draft);
 
   async function onSave() {
-    if (draft === null) return;
+    if (draft === null || refusal !== null) return;
     try {
       await save(draft);
     } catch {
@@ -52,7 +56,7 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
             type="button"
             className="btn primary"
             onClick={onSave}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || refusal !== null}
             data-testid="settings-save"
           >
             {saving ? "Saving…" : "Save changes"}
@@ -62,6 +66,11 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
         {error && (
           <p data-testid="settings-load-error" className="msub" style={{ color: "var(--bad)" }}>
             Failed to load these settings: {error}
+          </p>
+        )}
+        {refusal && (
+          <p data-testid="settings-refusal" className="msub" style={{ color: "var(--bad)" }}>
+            {refusal}
           </p>
         )}
         {saveError && (
