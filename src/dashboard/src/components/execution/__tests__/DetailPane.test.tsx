@@ -88,4 +88,35 @@ describe("DetailPane", () => {
 
     expect(screen.getAllByTestId("detail-pane-message-link")).toHaveLength(2);
   });
+
+  it("DetailPane_CommaJoinedUrls_EveryHrefIsTheBareUrl", () => {
+    // p0502: counting the anchors was never enough. CommitAndPRHandler joins the
+    // per-repo URLs with ", ", and a pattern that runs to the next whitespace put
+    // the separating comma INSIDE the href of every link but the last — two
+    // anchors, one of them a 404, and the count test passed the whole time.
+    const azure = "https://dev.azure.com/Org/Project/_git/Sample.Service/pullrequest";
+    const n = node({
+      id: "step-16", label: "Create pull request",
+      message: `Pull requests created: ${azure}/9018, ${azure}/9019, ${azure}/9020`,
+    });
+    render(<DetailPane node={n} parentLabel={null} />);
+
+    const hrefs = screen
+      .getAllByTestId("detail-pane-message-link")
+      .map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual([`${azure}/9018`, `${azure}/9019`, `${azure}/9020`]);
+  });
+
+  it("DetailPane_CommaJoinedUrls_SeparatorStaysInTheProse", () => {
+    const azure = "https://dev.azure.com/Org/Project/_git/Sample.Service/pullrequest";
+    const message = `Pull requests created: ${azure}/9018, ${azure}/9019`;
+    const n = node({ id: "step-16", label: "Create pull request", message });
+    render(<DetailPane node={n} parentLabel={null} />);
+
+    // Each link renders as a short label, so the prose around them is what remains.
+    expect(screen.getByTestId("detail-pane-message").textContent).toContain(
+      "Pull requests created:",
+    );
+    expect(screen.getByTestId("detail-pane-message").textContent).toContain(", ");
+  });
 });
