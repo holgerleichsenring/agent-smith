@@ -70,6 +70,21 @@ internal static class EvidenceCommand
         return text.Trim().TrimEnd('\'', '"', '…').TrimEnd();
     }
 
+    /// <summary>
+    /// p0494: the citation exactly as the account wrote it. The prompt asks for a verbatim
+    /// copy, and <see cref="Comparable"/> cannot tell the grammar's closing quote from a
+    /// quote the command owns — this command ends in
+    /// <c>--logger "console;verbosity=minimal"</c> — so the trimmed reading is a GUESS about
+    /// which of the two the last character is. Reading what was written first means a correct
+    /// copy is never shortened before it is compared; the trimmed reading stays for the
+    /// account that closes the line's own quote, and a reading that fails costs nothing.
+    /// </summary>
+    public static string AsWritten(string citation)
+    {
+        ArgumentNullException.ThrowIfNull(citation);
+        return citation.Trim();
+    }
+
     /// <summary>The citation's own quoted span, for the account that cites a command the way
     /// the list prints it — "build 'dotnet build'", or a whole evidence line copied across.
     /// Empty when the citation quotes nothing, so the caller falls back to the plain reading.
