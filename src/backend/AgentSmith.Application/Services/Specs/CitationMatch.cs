@@ -36,7 +36,12 @@ internal static class CitationMatch
 
     private static bool NamesTheCommand(string commandResult, string citation)
     {
-        var ran = EvidenceCommand.InEvidence(commandResult);
+        // p0492: read in the SAME comparable form both citation readings are read in. The
+        // trim used to apply to the cited side only, so a command whose own last character is
+        // a quote came out one character longer than any correct citation of it — and p0481
+        // asks a shortened command to be cited at exactly its length. Symmetry, not a looser
+        // rule: the head-only refusal below is untouched.
+        var ran = EvidenceCommand.Comparable(EvidenceCommand.InEvidence(commandResult));
         if (ran.Length == 0) return false;
         // p0473: two readings of the citation, because both forms are honest. A verbatim
         // copy keeps the command's own apostrophes; a citation written the way the list

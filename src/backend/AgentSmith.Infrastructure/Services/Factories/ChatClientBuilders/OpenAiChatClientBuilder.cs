@@ -48,16 +48,30 @@ public sealed class OpenAiChatClientBuilder(HttpMessageHandler? testTransport = 
                     "Azure OpenAI requires a deployment name (per-task or AgentConfig.Deployment).");
 
             var azureOptions = new AzureOpenAIClientOptions { NetworkTimeout = timeout };
+            OwnTheRetries(azureOptions);
             ApplyTestTransport(azureOptions);
             var azure = new AzureOpenAIClient(new Uri(endpoint), credential, azureOptions);
             return azure.GetChatClient(deployment).AsIChatClient();
         }
 
         var openAiOptions = new OpenAIClientOptions { NetworkTimeout = timeout };
+        OwnTheRetries(openAiOptions);
         ApplyTestTransport(openAiOptions);
         var openAi = new OpenAIClient(credential, openAiOptions);
         return openAi.GetChatClient(assignment.Model).AsIChatClient();
     }
+
+    /// <summary>
+    /// p0493: the SDK does not retry — TransientRetryChatClient does, one layer up, where the
+    /// wait is logged, bounded and re-acquires throttle capacity. Measured through the test
+    /// transport below, not assumed: the default policy spent three further attempts on a
+    /// 429, honoured Retry-After exactly and with NO ceiling (20s asked → 20s, 20s, 20s), and
+    /// waited nothing at all when the header was absent. Stacked under the outer loop that is
+    /// up to 24 provider calls for one logical call, in silence, and an hour-long Retry-After
+    /// would park the run for three.
+    /// </summary>
+    private static void OwnTheRetries(ClientPipelineOptions options) =>
+        options.RetryPolicy = new ClientRetryPolicy(maxRetries: 0);
 
     // Point the SDK's client pipeline at the fake handler when a test supplies one.
     private void ApplyTestTransport(ClientPipelineOptions options)

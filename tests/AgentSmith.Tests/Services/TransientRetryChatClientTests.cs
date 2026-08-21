@@ -1,10 +1,10 @@
 using System.ClientModel;
-using System.ClientModel.Primitives;
 using System.Runtime.CompilerServices;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.RateLimiting;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Services;
@@ -63,26 +63,36 @@ public sealed class TransientRetryChatClientTests
     private static ClientResultException RateLimited() =>
         new("rate_limit_exceeded", new FakeResponse(429));
 
-    /// <summary>p0477: the minimum a ClientResultException needs to carry a status.</summary>
-    private sealed class FakeResponse(int status) : PipelineResponse
+    /// <summary>
+    /// p0493: the warning has to name what actually happened. Since p0477 a 429 was logged as
+    /// "Transient LLM network error", which sends whoever reads the run trail hunting a socket
+    /// fault that was never there — and it said nothing about how long it then waited.
+    /// </summary>
+    [Fact]
+    public async Task TransientRetry_ARateLimit_LogsTheWaitAndItsReason()
     {
-        public override int Status => status;
-        public override string ReasonPhrase => "test";
-        public override Stream? ContentStream { get => null; set { } }
-        public override BinaryData Content => BinaryData.FromString(string.Empty);
-        protected override PipelineResponseHeaders HeadersCore { get; } = new FakeHeaders();
-        public override BinaryData BufferContent(CancellationToken ct = default) => Content;
-        public override ValueTask<BinaryData> BufferContentAsync(CancellationToken ct = default) =>
-            ValueTask.FromResult(Content);
-        public override void Dispose() { }
+        var logger = new CapturingLogger();
+        var inner = new ScriptedChatClient(
+            new ClientResultException("rate_limit_exceeded", new FakeResponse(429, ("Retry-After", "0.01"))));
+        var client = new TransientRetryChatClient(inner, FastRetry(), "test", logger);
+
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        logger.Warnings.Should().ContainSingle().Which
+            .Should().Contain("rate limit").And.Contain("asked for")
+            .And.NotContain("network error");
     }
 
-    private sealed class FakeHeaders : PipelineResponseHeaders
+    private sealed class CapturingLogger : ILogger
     {
-        public override IEnumerator<KeyValuePair<string, string>> GetEnumerator() =>
-            Enumerable.Empty<KeyValuePair<string, string>>().GetEnumerator();
-        public override bool TryGetValue(string name, out string? value) { value = null; return false; }
-        public override bool TryGetValues(string name, out IEnumerable<string>? values) { values = null; return false; }
+        public List<string> Warnings { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) Warnings.Add(formatter(state, exception));
+        }
     }
 
     [Fact]

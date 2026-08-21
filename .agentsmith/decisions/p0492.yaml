@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0492
+
+decisions:
+  - category: Correctness
+    chose: "Normalise BOTH sides — the citation and the command that ran — before comparing"
+    over: "Trimming the citation only, as p0481 shipped it"
+    reason: |
+      p0481 introduced two rules that cancel each other out. It trims the evidence grammar's
+      own closing quote off the CITATION, and it requires a SHORTENED command to be cited at
+      exactly its own length. A command ending in a quote — the live one ends in
+      --logger "console;verbosity=minimal" — therefore lost a character on the cited side and
+      none on the side it was compared against, so the equality failed by one, always. The
+      trim only ever shortens, and shortening both sides identically restores the symmetry
+      without moving the standard: the one-directional prefix rule and its 60 percent floor
+      still decide every citation.
+  - category: Correctness
+    chose: "Keep the full-length rule for a shortened command"
+    over: "Accepting a prefix of a shortened command, or comparing on the head plus a margin"
+    reason: |
+      That is the rule p0481 exists for. Sibling commands share their head BY CONSTRUCTION
+      and differ only in the paths they ran against, so a head-only citation names all of
+      them and closes a two-repository absence criterion with a one-repository search. The
+      defect here is an asymmetric comparison, not a rule that is too strict, and
+      Citation_TwoSearchesDifferingOnlyInTheirPath_AreNotBothNamedByTheirSharedHead stays
+      green untouched.
+  - category: Structure
+    chose: "Name the comparable form once on EvidenceCommand and read both sides through it"
+    over: "Repeating the TrimEnd call at the comparison site"
+    reason: |
+      The bug was two copies of one idea drifting apart — one side trimmed, the other not.
+      A single named form makes the asymmetry impossible to reintroduce, and it is where the
+      grammar already lives. InCitation stays as the reading a caller asks for by name.
+  - category: Testing
+    chose: "Build the fixture by feeding the live script through PhaseCommandLog.Record"
+    over: "Freezing the rendered evidence line as a literal"
+    reason: |
+      A frozen literal pins a rendering the code may no longer produce, which this repository
+      has already been burned by. A separate case asserts the fixture's own premise — that it
+      really is shortened and really does end in a quote — so the phase cannot pass by
+      accident if the 200-character cap or the head/tail split ever moves.

@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0493
+goal: "A provider rate limit is waited out on the server's own clock, once, visibly and bounded."
+
+applies_to: "backend"
+
+requires:
+  - p0374
+  - p0477
+
+decisions:
+  - key: |
+      WHAT THE LIVE RUN PROVES AND WHAT IT DOES NOT. A run on image 0.134.0 died with
+      "ClientResultException: HTTP 429 (too_many_requests: rate_limit_exceeded) Your requests
+      to <deployment> in swedencentral have exceeded rate limit". 0.134.0 DOES carry p0477 —
+      ClientResultException and IsRetryableStatus are present at that tag and absent at
+      v0.133.0 — so a 429 there was retryable. There are no cluster logs, so whether that run
+      exhausted its five attempts or never retried at all is UNKNOWN, and both fit the
+      evidence. This phase does not claim to know; the fix is correct under either.
+  - key: |
+      THE SDK ALREADY RETRIES 429, ALREADY HONOURS Retry-After, AND IS NOT BOUNDED. Measured
+      through the builder's own test-transport seam (System.ClientModel 1.8.1 under OpenAI
+      2.8.0 / Azure.AI.OpenAI 2.1.0), not assumed: a 429 costs FOUR attempts inside the SDK;
+      with Retry-After 2 the three waits are 2s, 2s, 2s; with Retry-After 20 they are 20s,
+      20s, 20s — the header is honoured EXACTLY and with NO ceiling; and with no header at
+      all the three retries fire in 0.03 seconds, with no backoff whatever. So the fix
+      direction "honour Retry-After on the Azure/OpenAI path" was already true one layer down,
+      and the real defects are the three that measurement exposed.
+  - key: |
+      SO THE SMALLER CHANGE IS TO STOP STACKING, NOT TO ADD A SECOND Retry-After READER. Three
+      harms follow from the SDK layer as configured. Two retry layers MULTIPLY: five outer
+      attempts over four SDK attempts is up to 24 provider calls for one logical call. The
+      SDK's waits are INVISIBLE and UNBOUNDED: they emit nothing into the run trail, they do
+      not re-acquire our rate-limiter capacity, and a Retry-After of an hour parks the run for
+      three hours where no ceiling of ours can reach it. And a headerless 429 sends three more
+      requests INSTANTLY to an endpoint that has just said too many. Retries move to the one
+      layer that logs them, bounds them and re-acquires throttle capacity —
+      TransientRetryChatClient — and the SDK's own policy is set to zero retries on the
+      OpenAI and Azure paths.
+  - key: |
+      A RATE LIMIT IS A DIFFERENT WAITING CLASS FROM A SOCKET FAULT. A mid-stream connection
+      drop is worth retrying in seconds; an Azure TPM window is sixty seconds wide and a
+      preview deployment's limit routinely outlasts the operator's whole ladder (4s, 8s, 16s,
+      32s, 60s — about two minutes). So a 429 waits the server's OWN Retry-After when one is
+      sent, and otherwise a rate-limit ladder with a fifteen-second floor: 15s, 30s, 60s,
+      120s, 120s, about five and three quarter minutes. A network fault keeps the configured
+      ladder exactly as it is.
+  - key: |
+      THE CEILING IS 120 SECONDS PER WAIT, AND IT IS ARGUED RATHER THAN ROUND. Azure's request
+      and token budgets refill on a SIXTY second window, so an honest Retry-After for a
+      throughput limit cannot exceed about a minute; a longer one is a quota that no run can
+      wait out, and parking on it converts a fast, legible failure into a silent hang. Twice
+      the refill window leaves room for a server that is queueing rather than refusing, and
+      five waits at the ceiling is at most ten minutes — a third of the 1800-second default
+      run watchdog, so the retry can never be what a run dies of. A Retry-After above the
+      ceiling is honoured up to it and the clamp is stated in the log, never swallowed.
+  - key: |
+      THE LOG SAYS WHAT IT WAITED AND WHY. Since p0477 the warning has read "Transient LLM
+      network error" for a 429, which is not what happened and sends the reader hunting a
+      network fault. A rate limit now says so, and every wait carries its reason — the
+      server's own Retry-After, the clamp that shortened it, or a rate limit that sent no
+      header at all.
+  - key: |
+      WHAT IS DELIBERATELY NOT TOUCHED. The Anthropic path keeps its own handler: it already
+      reads Retry-After, already clamps at sixty seconds, and no live failure points at it.
+      Streaming stays unretried — nothing in the run path calls GetStreamingResponseAsync, and
+      replaying a partly-yielded stream would duplicate output. RetryConfig gains no new
+      operator knobs: the rate-limit floor and ceiling are properties of what a provider window
+      IS, not of a deployment's taste, and a knob that can be set wrong is a knob that will be.
+
+steps:
+  - id: the-provider-refuses-once
+    action: "Set the OpenAI and Azure OpenAI client retry policy to zero attempts, so a status refusal reaches the layer that can log and bound it."
+  - id: a-rate-limit-waits-on-the-servers-clock
+    action: "Read Retry-After off the refusal and wait it, capped; fall back to a rate-limit ladder with its own floor when no header is sent."
+  - id: the-warning-names-what-happened
+    action: "Log a rate limit as a rate limit, with the wait it chose and the reason it chose it."
+
+tests:
+  - "RetryWait_ARateLimitCarryingRetryAfter_WaitsTheServersOwnInterval"
+  - "RetryWait_ARetryAfterAboveTheCeiling_IsCappedAndSaysSo"
+  - "RetryWait_ARetryAfterDate_IsReadAsAnInterval"
+  - "RetryWait_ARateLimitWithNoRetryAfter_WaitsTheRateLimitLadderNotTheNetworkOne"
+  - "RetryWait_ANetworkFault_KeepsTheConfiguredLadder"
+  - "RetryWait_ARateLimitLadder_NeverExceedsTheCeiling"
+  - "RetryWait_ARateLimit_IsNotCalledANetworkError"
+  - "TransientRetry_ARateLimit_LogsTheWaitAndItsReason"
+  - "OpenAi_TheSdkRetryPolicy_IsDisabledSoARefusalReachesOurLayer"
+  - "Azure_TheSdkRetryPolicy_IsDisabledSoARefusalReachesOurLayer"
+
+done:
+  - "a 429 carrying Retry-After waits that interval, capped at the ceiling, and the log says which"
+  - "a 429 without Retry-After waits the rate-limit ladder, an order of magnitude above the network one"
+  - "one 429 costs one provider call per attempt, not four"
+  - "no warning calls a rate limit a network error"
+  - "build green, full suite green"
