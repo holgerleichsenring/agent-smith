@@ -30,6 +30,7 @@ public sealed class InitProjectPipelinePresetTests
             CommandNames.WriteRunResult,
             CommandNames.InitCommit,
             CommandNames.PrCrossLink, // p0158c
+            CommandNames.InitComplete, // p0490: LAST, after the cross-link pass
         }, options => options.WithStrictOrdering());
     }
 
