@@ -23,6 +23,12 @@ const FIXTURES: Record<string, unknown> = {
     },
   },
   registries: [],
+  sandbox: {
+    agentRegistry: "ghcr.io/x",
+    agentVersion: "0.48.0",
+    stepTimeoutSeconds: 900,
+    runCommandTimeoutSeconds: 300,
+  },
   limits: {
     maxToolCallsPerSkill: 30,
     maxToolCallsPerInvestigator: 10,
@@ -133,6 +139,41 @@ describe("SettingsStudio", () => {
     fireEvent.change(field, { target: { value: "" } });
     expect(field).toHaveValue(30);
     expect(screen.getByTestId("settings-save")).toBeDisabled();
+  });
+
+  // p0495: the two sandbox timeouts are one rule. A default above the cap is a number
+  // the cap would never let apply, so the studio refuses it and names both values.
+  it("SandboxSettings_RunCommandDefaultAboveTheCap_IsRefused_NamingBothValues", async () => {
+    render(<SettingsStudio settingKey="sandbox" />);
+    const runCommand = await screen.findByTestId("setting-sandbox-runcmd");
+    // The section states the relationship before anything is typed.
+    expect(screen.getByTestId("setting-sandbox-timeouts-note")).toHaveTextContent(
+      /killed at the step cap/,
+    );
+
+    fireEvent.change(runCommand, { target: { value: "1200" } });
+
+    const refusal = screen.getByTestId("settings-refusal");
+    expect(refusal).toHaveTextContent("1200s");
+    expect(refusal).toHaveTextContent("900s");
+    expect(screen.getByTestId("settings-save")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("settings-save"));
+    expect(saveSetting).not.toHaveBeenCalled();
+  });
+
+  it("SandboxSettings_RunCommandDefaultAtTheCap_Saves", async () => {
+    render(<SettingsStudio settingKey="sandbox" />);
+    const runCommand = await screen.findByTestId("setting-sandbox-runcmd");
+
+    fireEvent.change(runCommand, { target: { value: "900" } });
+
+    expect(screen.queryByTestId("settings-refusal")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith(
+      "sandbox",
+      expect.objectContaining({ runCommandTimeoutSeconds: 900, stepTimeoutSeconds: 900 }),
+    );
   });
 
   it("RegistriesForm_AddsAndEditsAFeed", async () => {

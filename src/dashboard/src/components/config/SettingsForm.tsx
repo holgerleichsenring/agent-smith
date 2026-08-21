@@ -129,12 +129,17 @@ function SandboxForm({ value, onChange }: { value: SandboxSetting; onChange: (v:
         mono testId="setting-sandbox-registry" help="the registry the sandbox agent image is pulled from" />
       <TextField label="Agent version" value={value.agentVersion} onChange={(v) => set({ agentVersion: v })}
         mono placeholder="0.48.0" testId="setting-sandbox-version" help="sandbox agent image tag" />
+      {/* p0495: the pair is one rule, said once, above the two fields it governs. */}
+      <p className="help" data-testid="setting-sandbox-timeouts-note">
+        A run_command gets the default when it asks for no timeout, may ask for more, and is
+        killed at the step cap — so raising the cap raises what a command may ask for.
+      </p>
       <NumberField label="Step timeout (seconds)" value={value.stepTimeoutSeconds}
         onChange={(v) => set({ stepTimeoutSeconds: keep(v, value.stepTimeoutSeconds) })} testId="setting-sandbox-step"
-        help="per-sandbox-step wall-time cap" />
+        help="per-sandbox-step wall-time cap — the ceiling a run_command may ask for" />
       <NumberField label="Run-command timeout (seconds)" value={value.runCommandTimeoutSeconds}
         onChange={(v) => set({ runCommandTimeoutSeconds: keep(v, value.runCommandTimeoutSeconds) })} testId="setting-sandbox-runcmd"
-        help="default timeout for an agent run_command; bounded by the step cap" />
+        help="what an agent run_command gets when it asks for none; never above the step cap" />
     </>
   );
 }
