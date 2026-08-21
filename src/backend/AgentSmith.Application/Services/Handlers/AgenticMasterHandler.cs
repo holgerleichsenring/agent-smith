@@ -206,6 +206,9 @@ public sealed class AgenticMasterHandler(
             context.MasterSkillName, context.Repository.LocalPath);
         var runCommandTimeout = context.Pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var rct)
             ? rct : (int?)null;
+        // p0495: the operator's step cap is the ceiling a run_command may ask for.
+        var stepTimeoutCap = context.Pipeline.TryGet<int>(ContextKeys.StepTimeoutSeconds, out var stc)
+            ? stc : (int?)null;
         // p0258: pass the logger so the master's file tool calls are visible
         // (`tool_call: WriteFile path=… bytes=…`). Without it the ToolHost was
         // constructed logger-less and we were BLIND to what the master actually
@@ -216,7 +219,8 @@ public sealed class AgenticMasterHandler(
         // repair pass records onto the first pass's list instead of replacing it.
         var fs = new FilesystemToolHost(
             sandboxes, defaultKey, context.Repository.LocalPath,
-            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo, logger: logger)
+            runCommandTimeoutSeconds: runCommandTimeout, stepTimeoutCapSeconds: stepTimeoutCap,
+            keyToRepo: keyToRepo, logger: logger)
         { Commands = Specs.PhaseCommandScope.Open(context.Pipeline) };
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         // p0380: memory recall (a read, every surface) + remember (a proposal
