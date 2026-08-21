@@ -199,6 +199,11 @@ export interface SandboxResultEvent extends RunEventBase {
   command: string;
   exitCode: number;
   durationMs: number;
+  /** p0495: the agent killed this command at its limit. Absent on pre-p0495 events —
+   *  which is why exit -1 alone can never tell a timeout from a command that never ran. */
+  timedOut?: boolean;
+  /** p0495: the limit that killed it, in seconds. 0/absent when it did not time out. */
+  timeoutSeconds?: number;
 }
 
 export interface ToolCallEvent extends RunEventBase {

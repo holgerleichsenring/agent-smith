@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0495
+
+decisions:
+  - category: Architecture
+    chose: "Delete MaxRunCommandTimeoutSeconds; the ceiling is the operator's configured step cap"
+    over: "Exposing the 600 as a fourth configurable timeout"
+    reason: |
+      The old bound was Math.Max(600, runCommandDefault) — a ceiling derived from the
+      DEFAULT rather than from the thing that actually bounds a step. A project that
+      configured a higher default silently got a higher ceiling, while the cap that
+      governs the sandbox had no influence at all. Making the 600 configurable would
+      have added a knob whose only job is to contradict a number the operator already
+      sets. A requested timeout now clamps to [1, stepCap], and raising the cap is what
+      lets a command run longer — which is what an operator raising it expects.
+  - category: Architecture
+    chose: "A RunCommandTimeout value object owns the default/cap arithmetic"
+    over: "Two int fields and an inline clamp inside SandboxStepRunner"
+    reason: |
+      Both SandboxStepRunner and FilesystemToolHost sit in the file-length baseline and
+      may only shrink, so a second int field plus a clamp expression could not land in
+      either. The forcing function named a responsibility that was already there: what a
+      run_command's wall-time comes out as is one rule reading two configured numbers,
+      and it is now one small type with one method. Both files came out at or below their
+      baseline while gaining the cap.
+  - category: Architecture
+    chose: "The cap is threaded through the constructor, from the same resolution pass as the default"
+    over: "Exposing the cap on ISandbox so the runner can interrogate its backend"
+    reason: |
+      p0230 threaded the resolved run-command default exactly this way; the cap is the
+      same kind of value from the same ConfigResolutionPass, published on the pipeline
+      context as ContextKeys.StepTimeoutSeconds and read by AgenticMasterHandler. Putting
+      it on ISandbox would spread a configuration value across a transport interface that
+      exists to move steps and results.
+  - category: TradeOff
+    chose: "A call site that threads no cap leaves the request standing"
+    over: "Falling back to the resolved default, or to any constant, as the ceiling"
+    reason: |
+      A handful of hosts (the toolchain probe, bootstrap/docs/tests) resolve neither
+      number. Falling back to their 60s default would CUT what those agents may ask for
+      from today's 600 — a regression dressed as a fix. Falling back to a constant is the
+      defect this phase deletes. The honest answer is that such a runner knows no cap, so
+      the request stands and SandboxStepCap lowers it at the backend: the same operator
+      cap, one layer down, and no constant bounds a command anywhere in the run path.
+  - category: Architecture
+    chose: "SandboxResultEvent carries TimedOut AND the limit that killed it"
+    over: "Carrying only the flag and letting the dashboard show the duration"
+    reason: |
+      "not run · 600.5s" is a sentence that contradicts itself, and the reader's next
+      question is 'killed at what?'. StepResult.TimedOut already existed and ProcessRunner
+      already set it — the truth was dropped at the event boundary, so the field IS the fix
+      [[feedback_no_heuristic_for_missing_data]]. The duration is not the limit: showing it
+      as one would be the same guess in a friendlier font. Both fields are additive
+      trailing optionals, so pre-p0495 events replay unchanged.
+  - category: Implementation
+    chose: "The timeline reads the flag, never the exit code or the duration"
+    over: "Treating exit -1 with a duration near the limit as a timeout"
+    reason: |
+      Exit -1 keeps its other meaning: a cancelled run's probes legitimately never start
+      and legitimately read "not run". Separating the two cases by exit code is impossible,
+      and separating them by comparing the duration to the limit would be a heuristic
+      standing in for the field that was missing. Two tests pin both readings.
+  - category: Scope
+    chose: "Step.DefaultTimeoutSeconds = 600 is left alone"
+    over: "Making the wire default config-driven too"
+    reason: |
+      It looked like the culprit — it is 600 as well. Checked: every orchestrator producer
+      sets TimeoutSeconds explicitly, several on a continuation line, so the wire default
+      only ever covers a malformed step. Giving it configuration reach would add a
+      dependency to a constant nothing currently depends on.
+  - category: TradeOff
+    chose: "The contradiction is refused in the settings form, in one rule"
+    over: "Refusing it again in the settings PUT endpoint"
+    reason: |
+      The studio is the editing surface for these singletons, and the refusal has to name
+      both values where the operator can act on them — which is the form. Restating the
+      same rule server-side would be a second copy of 'what a valid configuration is';
+      ConfigDraftRules exists precisely because this codebase keeps paying for that drift.
+      The rule lives in one pure module the form consults, and nothing is silently clamped:
+      the cap only lowers, so a default above it could never have applied.
