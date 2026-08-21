@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
@@ -44,7 +45,7 @@ public sealed class LocalSourceProviderCompletePrTests : IDisposable
         var completion = await CreateSut().CompletePullRequestAsync(
             "Local repository - no PR created", new BranchName(WorkBranch), CancellationToken.None);
 
-        completion.Completed.Should().BeTrue();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
         Rev("main").Should().Be(initHead, "the default branch now carries the init commit");
     }
 
@@ -61,7 +62,7 @@ public sealed class LocalSourceProviderCompletePrTests : IDisposable
         var completion = await CreateSut().CompletePullRequestAsync(
             "Local repository - no PR created", new BranchName(WorkBranch), CancellationToken.None);
 
-        completion.Completed.Should().BeFalse();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("fast-forward");
         Rev("main").Should().Be(mainHead, "a refused completion leaves the default branch alone");
     }
@@ -76,7 +77,7 @@ public sealed class LocalSourceProviderCompletePrTests : IDisposable
         var completion = await new LocalSourceProvider(_repoPath, "trunk").CompletePullRequestAsync(
             "Local repository - no PR created", new BranchName(WorkBranch), CancellationToken.None);
 
-        completion.Completed.Should().BeTrue();
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
         Rev("trunk").Should().Be(Rev(WorkBranch));
         Rev("main").Should().NotBe(Rev(WorkBranch), "only the configured default branch moves");
     }

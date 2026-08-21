@@ -26,11 +26,24 @@ public static class PullRequestStatuses
     /// success criterion.</summary>
     public const string CompletionRefused = "completion_refused";
 
+    /// <summary>p0501: the platform accepted the instruction to finish the pull request
+    /// and will merge it ITSELF once the policy it is waiting on — typically a required
+    /// integration build — is satisfied. Distinct from <see cref="Completed"/>, which has
+    /// already merged, and from <see cref="CompletionRefused"/>, which needs a human:
+    /// nobody has to come back to an armed pull request.</summary>
+    public const string CompletionArmed = "completion_armed";
+
     /// <summary>p0490: the repo HAS a pull request on the platform — opened, completed,
-    /// or left open by a refused completion — as opposed to none at all. Before init
-    /// learned to finish its own pull requests, <see cref="Opened"/> answered this
+    /// armed, or left open by a refused completion — as opposed to none at all. Before
+    /// init learned to finish its own pull requests, <see cref="Opened"/> answered this
     /// question on its own; it no longer does, and a surface that still asks it that way
     /// loses every link the moment a run merges what it opened.</summary>
     public static bool HasPullRequest(string? status) =>
-        status is Opened or Completed or CompletionRefused;
+        status is Opened or Completed or CompletionArmed or CompletionRefused;
+
+    /// <summary>p0501: the pull request is waiting for a PERSON. An armed one is waiting
+    /// too, but for a build, so counting it here would send the operator to look at
+    /// something that is already handling itself.</summary>
+    public static bool NeedsAHuman(string? status) =>
+        status is Opened or CompletionRefused;
 }
