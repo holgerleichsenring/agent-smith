@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0492
+goal: "A shortened command whose last character is a quote can be cited."
+
+applies_to: "backend"
+
+requires:
+  - p0473
+  - p0481
+
+decisions:
+  - key: |
+      TWO RULES FROM ONE PHASE CANCEL EACH OTHER OUT. p0481 trims the evidence grammar's own
+      closing quote off the CITATION — TrimEnd('\'', '"', '…') — and, in the same phase,
+      requires a SHORTENED command to be cited at exactly its own length, because a head is
+      shared by every sibling that differs only in its paths. Neither rule is wrong. Together
+      they make a command whose last character is a quote uncitable: the trim shortens the
+      cited side and never the side it is compared against, so the equality fails by exactly
+      one character, every time, for that command's whole life.
+  - key: |
+      THE LIVE COST. Run 2026-08-21T06-29-48-6697 (ticket 19222) reached step 42 of 43, spent
+      $8.19, and the delivery account ran 44 searches of its own before answering. It was
+      refused on one criterion — final restore, build and test commands exit successfully for
+      both repositories — having cited the command CORRECTLY AND IN FULL. The command ends in
+      --logger "console;verbosity=minimal". Reproduced offline before anything was built:
+      citation 186 characters, 185 after the trim, command 186, StartsWith true, equality
+      false.
+  - key: |
+      THE FIX IS SYMMETRY, NOT A LOOSER RULE. The same normalisation now applies to BOTH sides
+      before the comparison, so a command ending in a quote trims identically on each side and
+      the equality holds. Both original intents survive intact: the grammar's closing quote is
+      still absorbed, and a shortened command is still named in FULL rather than by its head.
+      Weakening the full-length rule was the alternative and is refused — p0481 exists because
+      sibling commands share their head by construction, and a head-only citation closes a
+      two-repository absence criterion with a one-repository search.
+  - key: |
+      TRIMMING BOTH SIDES CANNOT INVENT A MATCH. The normalisation only ever SHORTENS, it is
+      applied to the command that ran as well as to what was cited, and the one-directional
+      prefix rule and its 60 percent floor still decide every citation. What it buys is at
+      most a few trailing quote characters of slack at the very END of a command — never the
+      head-for-tail substitution the full-length rule was written to refuse.
+  - key: |
+      THE FIXTURE IS THE LIVE COMMAND, PUT THROUGH THE CODE THAT STORES IT. The verification
+      script is fed to PhaseCommandLog.Record, so the test reads whatever the log actually
+      renders rather than a frozen literal — this repository has already been burned by a test
+      that pinned a rendering the code no longer produced. A separate case asserts the
+      fixture's own premise (it is shortened, and it does end in a quote), so the phase cannot
+      pass by accident if the cap or the elision split ever moves.
+
+steps:
+  - id: the-comparable-form-is-named-once
+    action: "Give the evidence grammar one comparable form — trailing grammar quote and elision marker removed — and read the citation through it."
+  - id: both-sides-are-trimmed-the-same-way
+    action: "Normalise the command that ran with that same form before the prefix, full-length and floor comparisons."
+
+tests:
+  - "TheFixture_IsShortenedAndEndsInAQuote"
+  - "Citation_AShortenedCommandEndingInAQuote_Resolves"
+  - "Citation_AShortenedCommandEndingInAQuote_WithTheGrammarsClosingQuote_Resolves"
+  - "Citation_AWholeEvidenceLineOfACommandEndingInAQuote_Resolves"
+  - "Citation_OnlyTheHeadOfACommandEndingInAQuote_DoesNotResolve"
+  - "Citation_ADifferentCommandEndingInAQuote_StillDoesNotResolve"
+
+done:
+  - "the live refused command, cited whole, resolves — with and without the grammar's closing quote"
+  - "the head-only refusal is unchanged, and two sibling searches are still told apart"
+  - "a command nobody ran is still not citable, quote or no quote"
+  - "build green, full suite green"
