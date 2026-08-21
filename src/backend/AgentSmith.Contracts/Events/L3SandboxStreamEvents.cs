@@ -66,7 +66,13 @@ public sealed record SandboxResultEvent(
     int ArgsLength = 0,
     long OutputChars = 0,
     long DeliveredChars = 0,
-    int Attempt = 1)
+    int Attempt = 1,
+    // p0495: the agent already reports a killed command as timed out on StepResult;
+    // the truth used to stop here, so a command killed at its limit reached the
+    // dashboard as exit -1 and rendered as "not run". TimeoutSeconds is the limit the
+    // step carried, so the reader is told what killed it and not merely that it died.
+    bool TimedOut = false,
+    int TimeoutSeconds = 0)
     : RunEvent(RunId, EventType.SandboxResult, Timestamp), IMeasuredWork
 {
     [JsonIgnore]
