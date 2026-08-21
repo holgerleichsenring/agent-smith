@@ -25,11 +25,12 @@ public sealed class AzureReposSourceProvider(
     private readonly string _repoName = connection.RepoName;
     private readonly string _personalAccessToken = connection.PersonalAccessToken;
     private readonly string _cloneUrl = $"{connection.OrganizationUrl.TrimEnd('/')}/{connection.Project}/_git/{connection.RepoName}";
-    private readonly string? _configuredDefaultBranch = connection.DefaultBranch;
     private readonly AzureReposPullRequestUpdater _pullRequests = new(
         connection.Project, connection.RepoName, clientFactory,
         connection.OrganizationUrl.TrimEnd('/'), connection.PersonalAccessToken, logger);
-    private string? _cachedDefaultBranch;
+    // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
+    private readonly DefaultBranchResolver _defaultBranch = new(
+        connection.DefaultBranch, $"{connection.Project}/{connection.RepoName}", logger);
 
     public string ProviderType => "AzureRepos";
 
@@ -227,31 +228,14 @@ public sealed class AzureReposSourceProvider(
         return deleted;
     }
 
-    private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
+    private Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        _defaultBranch.ResolveAsync(AskAzureDevOpsAsync, cancellationToken);
+
+    private async Task<string?> AskAzureDevOpsAsync(CancellationToken cancellationToken)
     {
-        if (_configuredDefaultBranch is not null)
-            return _configuredDefaultBranch;
-
-        if (_cachedDefaultBranch is not null)
-            return _cachedDefaultBranch;
-
-        try
-        {
-            var client = CreateGitClient();
-            var repo = await client.GetRepositoryAsync(
-                _project, _repoName, cancellationToken: cancellationToken);
-            var raw = repo.DefaultBranch ?? "refs/heads/main";
-            _cachedDefaultBranch = raw.StartsWith("refs/heads/", StringComparison.Ordinal)
-                ? raw["refs/heads/".Length..] : raw;
-            logger.LogDebug("Resolved default branch from Azure DevOps API: {Branch}", _cachedDefaultBranch);
-            return _cachedDefaultBranch;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to resolve default branch from Azure DevOps API, falling back to 'main'");
-            _cachedDefaultBranch = "main";
-            return _cachedDefaultBranch;
-        }
+        var repo = await CreateGitClient().GetRepositoryAsync(
+            _project, _repoName, cancellationToken: cancellationToken);
+        return repo.DefaultBranch;
     }
 
     // p0390: the same search the already-exists path uses, exposed so CommitAndPR
