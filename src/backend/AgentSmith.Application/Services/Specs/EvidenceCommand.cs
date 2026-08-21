@@ -50,7 +50,24 @@ internal static class EvidenceCommand
     public static string InCitation(string citation)
     {
         ArgumentNullException.ThrowIfNull(citation);
-        return citation.Trim().TrimEnd('\'', '"', '…').TrimEnd();
+        return Comparable(citation);
+    }
+
+    /// <summary>
+    /// p0492: the form in which two commands are COMPARED — the grammar's closing quote and
+    /// the elision marker gone. Applied to the citation and to the command that ran alike,
+    /// because trimming one side only is what broke run 6697: its command ends in
+    /// <c>--logger "console;verbosity=minimal"</c>, the trim took that quote off the citation
+    /// and off nothing else, and p0481 asks a SHORTENED command to be cited at exactly its
+    /// own length — so the equality failed by one character for a command cited in full, and
+    /// would have failed for every command ending in a quote. Trimming only ever shortens,
+    /// and it now shortens both sides identically, so the one-directional prefix rule and its
+    /// floor still decide.
+    /// </summary>
+    public static string Comparable(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return text.Trim().TrimEnd('\'', '"', '…').TrimEnd();
     }
 
     /// <summary>The citation's own quoted span, for the account that cites a command the way
