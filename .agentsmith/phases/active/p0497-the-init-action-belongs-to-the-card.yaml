@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0497
+goal: "The initialize action reads as part of the project card: the studio's own colours, and one action group instead of a control wedged between the name and the metadata."
+
+applies_to: "dashboard"
+
+requires:
+  - p0489
+  - p0490
+
+decisions:
+  - key: |
+      THE RIGHT SIDE OF A CARD IS METADATA. .ec-right carries the type badge and the quiet
+      "edit ›" hint. p0489 put an ACTION in the middle of that row and p0490 added a second
+      control beside it, so the eye now reads name → action → badge → affordance, and the
+      loudest element sits in the quietest row on the card.
+  - key: |
+      THE ONE COLOUR NO TOKEN CONTROLS. Auto-accept was a bare checkbox input, so it renders
+      in the OPERATING SYSTEM's accent — blue on the operator's machine, against a page whose
+      every other colour comes from --accent, --line and the stone ramp. That is why it reads
+      as pasted on rather than as designed.
+  - key: |
+      THE STUDIO ALREADY HAS A BOOLEAN IDIOM. The repo picker's .pick chip with its .pk tick
+      box is what a toggle looks like here. The control adopts that shape rather than
+      inventing a third one.
+  - key: |
+      TOKENS, NOT A MATCHING SHADE. Both controls draw var(--accent), var(--accent-wash) and
+      var(--line) rather than a hand-picked green that happens to match today. The tokens are
+      declared on .mock-shell, which wraps BOTH hosts this component renders in — the config
+      card and the system project panel — so one definition covers both.
+  - key: |
+      ONE GROUP, SEPARATED FROM THE METADATA. The pair becomes an action group with a
+      separator, so the row reads [name] … [actions] | [badge] [edit ›]. Grouping is the fix
+      for "wedged between"; recolouring alone would leave the ordering wrong.
+  - key: |
+      APPEARANCE ONLY, AND THE TESTS PROVE IT. Every data-testid and every behaviour p0489 and
+      p0490 pinned stays exactly as it is, and their tests pass untouched. A visual phase that
+      has to edit behaviour tests is a visual phase that changed behaviour.
+  - key: |
+      A VISUAL ASSERTION IS WEAK AND IS SAID TO BE. A test can show that the toggle carries the
+      accent token and that the action group is a sibling of the badge rather than mixed into
+      it; it cannot show that the result looks right. The operator's eye is the acceptance
+      test here, and the phase says so instead of implying more.
+
+steps:
+  - id: the-toggle-wears-the-studios-accent
+    action: "Replace the bare checkbox with the studio's tick-box idiom drawn from the accent tokens, keeping the input for accessibility and its test id."
+  - id: the-button-matches-its-neighbour
+    action: "Draw the initialize control in the same chip vocabulary so the pair reads as one control."
+  - id: the-actions-are-their-own-group
+    action: "Group the pair and separate it from the type badge and the edit hint."
+  - id: nothing-behavioural-moves
+    action: "Leave every test id, state and refusal path from p0489 and p0490 untouched."
+
+tests:
+  - "AutoAcceptToggle_Checked_CarriesTheStudioAccentToken"
+  - "AutoAcceptToggle_Unchecked_CarriesNoAccent"
+  - "AutoAcceptToggle_IsStillAnInput_AndStillToggles"
+  - "InitAction_RendersAsOneActionGroup_SeparateFromTheTypeBadge"
+  - "InitAction_ExistingTestIds_AreUnchanged"
+
+done:
+  - "no control on the card draws its colour from the operating system"
+  - "the initialize control and the toggle read as one pair in the studio's own vocabulary"
+  - "the action group is separated from the type badge and the edit hint"
+  - "every p0489 and p0490 behaviour test passes without being edited"

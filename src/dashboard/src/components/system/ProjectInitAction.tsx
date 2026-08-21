@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { startProjectInit } from "@/lib/projectInitApi";
 
 // p0489: the operator's Initialize affordance for one project. Two failures,
@@ -17,12 +16,42 @@ import { startProjectInit } from "@/lib/projectInitApi";
 // .agentsmith/ context on a repo that had none, and nobody reviews it — so the review
 // step the tick skips was already not happening. It applies to the run it starts and
 // to nothing else.
+//
+// p0497: and it LOOKS like it belongs. The toggle used to be a bare checkbox input,
+// so it drew the operating system's accent — the one colour on the page no token
+// controls — and the pair sat in the middle of the card's metadata row. Both controls
+// now wear the studio's own chip idiom from --accent/--line, and they form one action
+// group the card can separate from its badge. Appearance only: every test id, state
+// and refusal path below is p0489's and p0490's, unchanged.
 
 type InitState =
   | { kind: "idle" }
   | { kind: "starting" }
   | { kind: "running"; runId: string }
   | { kind: "refused"; reason: string };
+
+/** The .pick chip the repo picker established, as inline tokens so the one
+ *  definition covers both hosts this renders in — the config card (.mock-config)
+ *  and the system project panel (.mock-system). */
+// Longhand throughout, never `border`/`font` shorthand: the checked state overrides
+// borderColor and fontWeight, and React warns that removing a longhand beside a
+// shorthand is how styling bugs start.
+const CHIP: CSSProperties = {
+  fontSize: "12.5px",
+  fontFamily: "var(--mono)",
+  fontWeight: 400,
+  padding: "6px 11px",
+  borderRadius: "9px",
+  borderWidth: "1px",
+  borderStyle: "solid",
+  borderColor: "var(--line)",
+  background: "var(--panel)",
+  color: "var(--ink-2)",
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "7px",
+};
 
 export function ProjectInitAction({ project }: { project: string }) {
   const [state, setState] = useState<InitState>({ kind: "idle" });
@@ -45,24 +74,26 @@ export function ProjectInitAction({ project }: { project: string }) {
   if (state.kind === "running") {
     return <RunningLink project={project} runId={state.runId} />;
   }
+  const starting = state.kind === "starting";
   return (
-    <div className="flex flex-col items-start gap-1">
+    <ActionGroup project={project}>
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
+        <button
+          type="button"
           data-testid={`project-init-${project}`}
-          disabled={state.kind === "starting"}
+          disabled={starting}
           onClick={(e) => {
             e.stopPropagation();
             void start();
           }}
+          style={{ ...CHIP, ...(starting ? { opacity: 0.5, cursor: "not-allowed" } : null) }}
         >
-          {state.kind === "starting" ? "Initializing…" : "Initialize"}
-        </Button>
+          {starting ? "Initializing…" : "Initialize"}
+        </button>
         <AutoAcceptToggle
           project={project}
           checked={autoAccept}
-          disabled={state.kind === "starting"}
+          disabled={starting}
           onChange={setAutoAccept}
         />
       </div>
@@ -75,6 +106,20 @@ export function ProjectInitAction({ project }: { project: string }) {
           {state.reason}
         </span>
       )}
+    </ActionGroup>
+  );
+}
+
+/** p0497: the actions are their own group, ended by a rule, so the card's row reads
+ *  [name] … [actions] | [badge] [edit ›] instead of interleaving the two kinds. */
+function ActionGroup({ project, children }: { project: string; children: React.ReactNode }) {
+  return (
+    <div
+      className="flex flex-col items-start gap-1"
+      data-testid={`project-init-group-${project}`}
+      style={{ paddingRight: 12, borderRight: "1px solid var(--line-2)" }}
+    >
+      {children}
     </div>
   );
 }
@@ -92,17 +137,45 @@ function AutoAcceptToggle({
 }) {
   return (
     <label
-      className="flex items-center gap-1.5 dsh-label text-stone-600"
       title="Merge the pull requests this initialization opens. A branch policy that refuses leaves the pull request open."
       onClick={(e) => e.stopPropagation()}
+      style={{
+        ...CHIP,
+        ...(checked
+          ? { borderColor: "var(--accent)", background: "var(--accent-wash)", color: "var(--accent)", fontWeight: 600 }
+          : null),
+        ...(disabled ? { opacity: 0.5, cursor: "not-allowed" } : null),
+      }}
     >
       <input
         type="checkbox"
+        className="sr-only"
         data-testid={`project-init-auto-accept-${project}`}
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
       />
+      {/* The repo picker's .pk tick box, drawn from the same tokens. */}
+      <span
+        aria-hidden="true"
+        data-testid={`project-init-auto-accept-box-${project}`}
+        style={{
+          width: 15,
+          height: 15,
+          borderRadius: 4,
+          display: "grid",
+          placeItems: "center",
+          fontSize: 10,
+          lineHeight: 1,
+          borderWidth: "1.5px",
+          borderStyle: "solid",
+          borderColor: checked ? "var(--accent)" : "var(--line)",
+          background: checked ? "var(--accent)" : "transparent",
+          color: checked ? "var(--accent-ink)" : "transparent",
+        }}
+      >
+        ✓
+      </span>
       Auto-accept PRs
     </label>
   );
@@ -114,7 +187,7 @@ function RunningLink({ project, runId }: { project: string; runId: string }) {
   return (
     <Link
       href={`/jobs/${encodeURIComponent(runId)}`}
-      className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 px-3 py-1.5 dsh-body font-medium text-stone-700 hover:bg-stone-100"
+      style={{ ...CHIP, borderColor: "var(--accent)", color: "var(--accent)", textDecoration: "none" }}
       data-testid={`project-init-running-${project}`}
       onClick={(e) => e.stopPropagation()}
     >
