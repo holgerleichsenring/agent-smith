@@ -36,16 +36,21 @@ internal static class CitationMatch
 
     private static bool NamesTheCommand(string commandResult, string citation)
     {
-        // p0492: read in the SAME comparable form both citation readings are read in. The
-        // trim used to apply to the cited side only, so a command whose own last character is
-        // a quote came out one character longer than any correct citation of it — and p0481
-        // asks a shortened command to be cited at exactly its length. Symmetry, not a looser
-        // rule: the head-only refusal below is untouched.
-        var ran = EvidenceCommand.Comparable(EvidenceCommand.InEvidence(commandResult));
-        if (ran.Length == 0) return false;
-        // p0473: two readings of the citation, because both forms are honest. A verbatim
-        // copy keeps the command's own apostrophes; a citation written the way the list
-        // prints it puts the command inside quotes. Neither reading reaches the output.
+        var shown = EvidenceCommand.InEvidence(commandResult);
+        if (shown.Length == 0) return false;
+        // p0494: what the account WROTE, against what the line SHOWED, with neither side
+        // touched. The account is asked for a verbatim copy and a verbatim copy is exact, so
+        // this reading needs no guess about whose the last character is — and the trim below
+        // has to guess, because a command ending in --logger "console;verbosity=minimal" owns
+        // the quote the grammar also uses to close it.
+        if (NamesIt(shown, EvidenceCommand.AsWritten(citation))) return true;
+        // p0492: then the comparable form of BOTH sides — the grammar's closing quote and the
+        // elision marker gone — for the account that closes the line's unbalanced quote.
+        // Trimming one side only is what refused a command cited in full.
+        var ran = EvidenceCommand.Comparable(shown);
+        // p0473: and the quoted span, for a citation written the way the list prints it.
+        // Neither reading reaches the command's output, and every one of the three passes the
+        // same prefix rule, the same floor and the same full-length rule below.
         return NamesIt(ran, EvidenceCommand.InCitation(citation))
             || NamesIt(ran, EvidenceCommand.Quoted(citation));
     }
