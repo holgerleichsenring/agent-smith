@@ -188,7 +188,10 @@ function roleLabel(call: PairedLlmCall): string {
 function CommandRow({ entry, repo }: { entry: SandboxCommandEntry; repo?: RepoDisplay }) {
   const isWrite = entry.isWrite || WRITE_VERBS.has(entry.verb);
   const running = entry.exitCode === null;
-  const failed = entry.exitCode !== null && entry.exitCode !== 0 && entry.exitCode !== -1;
+  // p0495: a command killed at its limit reads as a failure, not as the grey "never ran".
+  const failed =
+    entry.timedOut === true
+    || (entry.exitCode !== null && entry.exitCode !== 0 && entry.exitCode !== -1);
   return (
     <div
       data-testid={`command-row-${entry.verb}`}
@@ -218,9 +221,17 @@ function CommandRow({ entry, repo }: { entry: SandboxCommandEntry; repo?: RepoDi
 function outcomeLabel(entry: SandboxCommandEntry): string {
   if (entry.exitCode === null) return "running…";
   const dur = entry.durationMs !== null ? ` · ${formatMs(entry.durationMs)}` : "";
+  // p0495: the producer's flag decides, never the exit code — a cancelled run's probes
+  // legitimately exit -1 and legitimately read "not run". A killed command names the
+  // limit that killed it, so "not run · 600.5s" can no longer contradict itself.
+  if (entry.timedOut === true) return `timed out${dur}${limitSuffix(entry)}`;
   if (entry.exitCode === 0) return `ok${dur}`;
   if (entry.exitCode === -1) return `not run${dur}`;
   return `exit ${entry.exitCode}${dur}`;
+}
+
+function limitSuffix(entry: SandboxCommandEntry): string {
+  return entry.timeoutSeconds ? ` (limit ${entry.timeoutSeconds}s)` : "";
 }
 
 function formatTokens(input: number | null, output: number | null): string {

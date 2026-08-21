@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0495
+goal: "The configured step cap is the ceiling a command may ask for, and a command killed by it says it timed out instead of reporting that it never ran."
+
+applies_to: "backend + dashboard"
+
+decisions:
+  - key: |
+      THE UI ALREADY DOCUMENTS THE CONTRACT THE CODE DOES NOT KEEP. The run-command field's
+      own help text reads "default timeout for an agent run_command; bounded by the step cap".
+      It is not bounded by the step cap — SandboxStepRunner holds a private const
+      MaxRunCommandTimeoutSeconds = 600 and the operator's cap is never consulted on that
+      path. Measured on a live run: a solution-wide test command was killed at 600.5s while
+      the operator's configured step cap read 900. The help text is the specification; the
+      code is the defect.
+  - key: |
+      THE CEILING IS THE OPERATOR'S CAP — DELETE THE CONSTANT, DO NOT CONFIGURE IT. The first
+      instinct is to expose the 600 as a fourth number. Wrong: its only job would be to
+      contradict a number the operator already sets. The const goes, and the clamp reads
+      Math.Clamp(requested, 1, stepCap). One fewer knob, and the remaining ones stop
+      disagreeing.
+  - key: |
+      Math.Max(600, default) WAS THE TELL. The old ceiling was derived from the wrong
+      quantity: a project that configured a HIGHER RUN-COMMAND DEFAULT silently got a higher
+      ceiling, while the cap that actually governs the sandbox had no influence at all. A
+      bound computed from something other than the bounding thing is the bug in one line.
+  - key: |
+      THE CAP STILL ONLY LOWERS, AND THAT STAYS CORRECT. SandboxStepCap.Clamp never raises a
+      step's timeout, which is what a cap must do; p0407 made the agent the single enforcer
+      and that is unchanged. What changes is upstream — the run-command producer may now ask
+      for up to the cap, so RAISING the cap finally lets a command run longer. Today the
+      setting can only ever make things stricter, which is the opposite of what an operator
+      raising it expects.
+  - key: |
+      THE STEP CAP IS THREADED, NOT READ OFF THE SANDBOX. SandboxStepRunner already takes the
+      resolved run-command default as a constructor argument (p0230); the cap arrives the same
+      way, from the same resolution pass. The alternative — exposing the cap on ISandbox so the
+      runner can interrogate its backend — spreads a config value across a transport interface
+      and was rejected.
+  - key: |
+      A COMMAND KILLED AT ITS LIMIT DID NOT "NOT RUN". The dashboard prints "not run · 600.5s"
+      — a sentence that contradicts itself. StepResult.TimedOut EXISTS and ProcessRunner sets
+      it with "timed out after Ns"; SandboxResultEvent has no such field, so the truth is
+      dropped at the event boundary and CommandTimeline falls back to exitCode === -1. The
+      field IS the fix [[feedback_no_heuristic_for_missing_data]].
+  - key: |
+      EXIT -1 KEEPS ITS OTHER MEANING. A cancelled run's probes legitimately report exit -1 and
+      legitimately read "not run" — that is why the two cases cannot be separated by exit code
+      alone, and why guessing from the duration would be a heuristic around the missing field
+      rather than a fix.
+  - key: |
+      THE SECTION STATES THE RELATIONSHIP, NOT THREE LOOSE NUMBERS. The operator's confusion was
+      structural: three timeouts exist, only one is visible, and the visible one is the least
+      effective. The sandbox section says in one line what the pair means — a command gets the
+      default when it asks for nothing, may ask for more, and is killed at the cap — and a
+      default saved above the cap is refused rather than silently clamped, because two numbers
+      that contradict each other are how this started.
+  - key: |
+      Step.DefaultTimeoutSeconds IS NOT THE BUG AND IS LEFT ALONE. It looked like the culprit —
+      it is 600 too. Checked: every producer in the orchestrator sets TimeoutSeconds explicitly,
+      so the wire default only covers a malformed step. Turning it into a config-driven value
+      would add reach to a constant nothing currently depends on.
+
+steps:
+  - id: the-ceiling-is-the-configured-cap
+    action: "Thread the resolved step timeout into SandboxStepRunner, clamp a requested run_command timeout against it, and delete MaxRunCommandTimeoutSeconds."
+  - id: a-timeout-survives-the-event-boundary
+    action: "Carry the sandbox result's TimedOut flag on SandboxResultEvent and persist it with the command record."
+  - id: the-timeline-says-what-happened
+    action: "Render a timed-out command as timed out with its limit, keeping 'not run' for a command that never started."
+  - id: the-section-explains-the-pair
+    action: "State the default/ceiling relationship in the sandbox settings section, on the two fields it governs."
+  - id: a-contradiction-cannot-be-saved
+    action: "Refuse a run-command default greater than the step cap, naming both values."
+
+tests:
+  - "SandboxStepRunner_RequestedTimeoutAboveTheCap_IsClampedToTheCap"
+  - "SandboxStepRunner_RequestedTimeoutBelowTheCap_IsHonoured"
+  - "SandboxStepRunner_NoRequestedTimeout_UsesTheConfiguredDefault"
+  - "SandboxStepRunner_RaisingTheCap_RaisesWhatACommandMayAskFor"
+  - "SandboxStepCap_StillNeverRaisesAStepsOwnTimeout"
+  - "SandboxResult_TimedOutCommand_CarriesTheTimedOutFlag"
+  - "SandboxResult_CommandThatNeverStarted_DoesNotCarryIt"
+  - "CommandTimeline_TimedOutCommand_SaysTimedOutWithItsLimit"
+  - "CommandTimeline_CommandThatNeverStarted_StillSaysNotRun"
+  - "SandboxSettings_RunCommandDefaultAboveTheCap_IsRefused_NamingBothValues"
+
+done:
+  - "a run_command may ask for up to the configured step cap, and raising the cap raises what it may ask for"
+  - "no constant bounds a command's timeout anywhere in the run path"
+  - "the cap itself still only lowers a step's timeout"
+  - "a command killed at its limit is reported as timed out, with the limit that killed it"
+  - "a command that never started still reads as not run"
+  - "the sandbox settings section states how the default and the ceiling relate"
+  - "a run-command default above the cap cannot be saved"
