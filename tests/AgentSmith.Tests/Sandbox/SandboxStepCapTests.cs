@@ -46,6 +46,20 @@ public sealed class SandboxStepCapTests
         SandboxStepCap.ChannelWait(clamped).Should().Be(TimeSpan.FromSeconds(930));
     }
 
+    /// <summary>p0495: the run-command producer may now ask for up to the cap, which makes
+    /// it worth pinning that the cap itself is still LOWERING-only. A cap that raised a
+    /// step's own timeout would be no cap at all.</summary>
+    [Fact]
+    public void SandboxStepCap_StillNeverRaisesAStepsOwnTimeout()
+    {
+        var wellUnderTheCap = Run(30);
+
+        var clamped = SandboxStepCap.Clamp(wellUnderTheCap, 900);
+
+        clamped.TimeoutSeconds.Should().Be(30);
+        clamped.Should().BeSameAs(wellUnderTheCap);
+    }
+
     private static Step Run(int timeoutSeconds) => new(
         Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
         Command: "/bin/sh", Args: ["-c", "dotnet build"], TimeoutSeconds: timeoutSeconds);

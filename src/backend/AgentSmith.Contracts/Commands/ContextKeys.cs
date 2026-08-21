@@ -9,10 +9,10 @@ namespace AgentSmith.Contracts.Commands;
 public static partial class ContextKeys
 {
     public const string AgentConfig = "AgentConfig";
-    // p0230: resolved default run_command timeout (seconds) for this run —
-    // per-project override ?? global sandbox.run_command_timeout_seconds. Read by
-    // the agentic handlers when building the filesystem tool host.
+    // p0230/p0495: this run's resolved sandbox timeouts (per-project override ?? global) —
+    // the default a run_command gets, and the step cap, the ceiling it may ask for.
     public const string RunCommandTimeoutSeconds = "RunCommandTimeoutSeconds";
+    public const string StepTimeoutSeconds = "StepTimeoutSeconds";
     public const string TicketId = "TicketId";
     public const string Ticket = "Ticket";
 
