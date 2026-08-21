@@ -53,6 +53,38 @@ describe("CommandTimeline (p0228)", () => {
     expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("0 writes");
   });
 
+  // p0495: "not run · 600.5s" is a sentence that contradicts itself. The producer's
+  // TimedOut flag decides, and the limit that killed the command is named.
+  it("CommandTimeline_TimedOutCommand_SaysTimedOutWithItsLimit", () => {
+    render(
+      <CommandTimeline
+        commands={[
+          cmd({
+            verb: "/bin/sh", summary: "-c dotnet test", exitCode: -1,
+            durationMs: 600_500, timedOut: true, timeoutSeconds: 900,
+          }),
+        ]}
+      />,
+    );
+    const row = screen.getByTestId("command-row-/bin/sh");
+    expect(row).toHaveTextContent("timed out");
+    expect(row).toHaveTextContent("limit 900s");
+    expect(row).not.toHaveTextContent("not run");
+  });
+
+  it("CommandTimeline_CommandThatNeverStarted_StillSaysNotRun", () => {
+    // A cancelled run's probes legitimately exit -1 without ever starting — the case
+    // the exit code alone could never be told apart from a timeout.
+    render(
+      <CommandTimeline
+        commands={[cmd({ verb: "Grep", summary: "ResponseType", exitCode: -1, durationMs: 3 })]}
+      />,
+    );
+    const row = screen.getByTestId("command-row-Grep");
+    expect(row).toHaveTextContent("not run");
+    expect(row).not.toHaveTextContent("timed out");
+  });
+
   it("CommandTimeline_HighlightsWriteFile_AsAnEdit", () => {
     render(<CommandTimeline commands={[cmd({ verb: "WriteFile", summary: "Foo.cs" })]} />);
     const row = screen.getByTestId("command-row-WriteFile");

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
-phase: p0492
+phase: p0495
 goal: "The configured step cap is the ceiling a command may ask for, and a command killed by it says it timed out instead of reporting that it never ran."
 
 applies_to: "backend + dashboard"

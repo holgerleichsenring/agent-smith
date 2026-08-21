@@ -30,21 +30,27 @@ public sealed class FilesystemToolHostRunCommandTests
         result.Should().Contain("stderr:\nstderr line");
     }
 
+    // p0495: the ceiling a run_command may ask for is the operator's configured step cap,
+    // threaded in beside the default. The private const 600 it replaces killed a command
+    // at 600.5s on a project whose cap read 900.
     [Fact]
-    public async Task RunCommand_TimeoutOverride_PassedThroughClampedTo600s()
+    public async Task RunCommand_TimeoutOverride_ClampedToTheConfiguredStepCap()
     {
         var sandbox = new Mock<ISandbox>();
         Step? captured = null;
         sandbox.Setup(s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
             .Callback<Step, IProgress<StepEvent>?, CancellationToken>((s, _, _) => captured = s)
             .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null));
-        var host = new FilesystemToolHost(sandbox.Object);
+        var host = new FilesystemToolHost(sandbox.Object, stepTimeoutCapSeconds: 900);
 
         await host.RunCommand("dotnet build", timeout_seconds: 300);
         captured!.TimeoutSeconds.Should().Be(300);
 
+        await host.RunCommand("dotnet build", timeout_seconds: 840);
+        captured!.TimeoutSeconds.Should().Be(840, "the old ceiling stopped at 600");
+
         await host.RunCommand("dotnet build", timeout_seconds: 9999);
-        captured!.TimeoutSeconds.Should().Be(600);
+        captured!.TimeoutSeconds.Should().Be(900);
     }
 
     [Fact]
