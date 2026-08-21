@@ -17,6 +17,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// or failed is never completed, and a completion a branch policy, a required reviewer
 /// or a required build refuses leaves the pull request OPEN with the reason recorded
 /// for that repo: the pull request is init's output, not its success criterion (p0321).
+/// p0501: a completion can also come back ARMED — accepted, not yet merged, and merging
+/// itself when its policy passes. <see cref="InitCompletionReport"/> keeps the three
+/// apart in the per-repo record and in the sentence the operator reads.
 /// </summary>
 public sealed class InitCompleteHandler(
     ISourceProviderFactory sourceFactory,
@@ -36,18 +39,19 @@ public sealed class InitCompleteHandler(
             .Where(o => o.Status == OpenStatus.Opened && o.Url is not null)
             .ToList();
         if (!context.AutoComplete)
-            return CommandResult.Ok(Untouched(completable.Count));
+            return CommandResult.Ok(InitCompletionReport.Untouched(completable.Count));
         if (completable.Count == 0)
             return CommandResult.Ok("No open pull request to complete.");
 
-        var refusals = await CompleteAllAsync(context, completable, cancellationToken);
-        return CommandResult.Ok(Report(completable.Count, refusals));
+        var (refusals, armed) = await CompleteAllAsync(context, completable, cancellationToken);
+        return CommandResult.Ok(InitCompletionReport.Describe(completable.Count, refusals, armed));
     }
 
-    private async Task<List<string>> CompleteAllAsync(
+    private async Task<(List<string> Refusals, List<string> Armed)> CompleteAllAsync(
         InitCompleteContext context, IReadOnlyList<OpenedPullRequest> completable, CancellationToken ct)
     {
         var refusals = new List<string>();
+        var armed = new List<string>();
         foreach (var entry in completable)
         {
             var repo = context.Configs.FirstOrDefault(r => r.Name == entry.RepoName);
@@ -58,10 +62,12 @@ public sealed class InitCompleteHandler(
             }
             var completion = await CompleteOneAsync(repo, entry, context.SourceBranch, ct);
             await PublishOutcomeAsync(context.Pipeline, entry, completion, ct);
-            if (!completion.Completed)
+            if (completion.Outcome is PullRequestCompletionOutcome.Refused)
                 refusals.Add($"{entry.RepoName}: {completion.Reason}");
+            else if (completion.Outcome is PullRequestCompletionOutcome.Armed)
+                armed.Add($"{entry.RepoName}: {completion.Reason}");
         }
-        return refusals;
+        return (refusals, armed);
     }
 
     private async Task<PullRequestCompletion> CompleteOneAsync(
@@ -71,11 +77,9 @@ public sealed class InitCompleteHandler(
         {
             var completion = await sourceFactory.Create(repo)
                 .CompletePullRequestAsync(entry.Url!, sourceBranch, ct);
-            if (completion.Completed)
-                logger.LogInformation("{Repo}: init PR completed ({Url})", repo.Name, entry.Url);
-            else
-                logger.LogInformation(
-                    "{Repo}: init PR stays open — {Reason}", repo.Name, completion.Reason);
+            logger.LogInformation(
+                "{Repo}: init PR {Outcome} ({Url}){Reason}", repo.Name, completion.Outcome, entry.Url,
+                completion.Reason is null ? string.Empty : $" - {completion.Reason}");
             return completion;
         }
         catch (Exception ex)
@@ -99,19 +103,9 @@ public sealed class InitCompleteHandler(
         await events.PublishAsync(
             new PullRequestOutcomeEvent(
                 runId!, entry.RepoName,
-                completion.Completed ? PullRequestStatuses.Completed : PullRequestStatuses.CompletionRefused,
+                InitCompletionReport.StatusOf(completion),
                 DateTimeOffset.UtcNow, entry.Url, completion.Reason),
             ct);
     }
 
-    private static string Untouched(int count) =>
-        count == 0
-            ? "Auto-accept was off; no pull request was opened."
-            : $"Auto-accept was off; {count} pull request(s) stay open.";
-
-    private static string Report(int attempted, IReadOnlyList<string> refusals) =>
-        refusals.Count == 0
-            ? $"Completed {attempted} init pull request(s)."
-            : $"Completed {attempted - refusals.Count}/{attempted} init pull request(s); "
-              + $"still open — {string.Join("; ", refusals)}";
 }

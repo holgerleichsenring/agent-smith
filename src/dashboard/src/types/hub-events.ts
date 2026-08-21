@@ -710,13 +710,16 @@ export interface RunPullRequest {
  *  nothing to open; "failed" = the open itself failed (reason set).
  *  p0490 adds the two outcomes of finishing one: "completed" = the run merged the PR
  *  it opened; "completion_refused" = the platform declined (branch policy, required
- *  reviewer, required build) and the PR is STILL OPEN, with the reason set. Mirrors
+ *  reviewer, required build) and the PR is STILL OPEN, with the reason set.
+ *  p0501 adds "completion_armed" = the platform accepted the instruction and will merge
+ *  the PR ITSELF once its policy passes — nobody has to come back to it. Mirrors
  *  the C# PullRequestStatuses vocabulary. */
 export type PullRequestStatus =
   | "opened"
   | "no_changes"
   | "failed"
   | "completed"
+  | "completion_armed"
   | "completion_refused";
 
 /** p0347: one row of GET /api/pull-requests — a per-repo PR outcome flattened
