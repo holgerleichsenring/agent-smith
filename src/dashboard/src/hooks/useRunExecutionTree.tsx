@@ -204,6 +204,9 @@ function ingestSandboxResult(
     if (c.repo === e.repo && c.exitCode === null && c.durationMs === null) {
       c.exitCode = e.exitCode;
       c.durationMs = e.durationMs;
+      // p0495: the producer says whether the limit killed it, and which limit.
+      c.timedOut = e.timedOut === true;
+      c.timeoutSeconds = e.timeoutSeconds;
       break;
     }
   }
