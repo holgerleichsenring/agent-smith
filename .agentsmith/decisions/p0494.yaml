@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0494
+
+decisions:
+  - category: Correctness
+    chose: "Read the citation AS WRITTEN against the command as SHOWN, before any trimming"
+    over: "Making the trim smarter — counting quote balance, tracking shell literals"
+    reason: |
+      The trim exists to absorb the evidence grammar's own closing quote and cannot tell it
+      from a quote the command owns; the refused command ends in
+      --logger "console;verbosity=minimal". Teaching the trim to guess better is another
+      guess in the same place, and it would still be wrong for the command that ends in an
+      unbalanced quote BECAUSE the elision cut it there. A verbatim copy is exact, so it
+      needs no guess at all: it is compared first, and the trimmed reading and the quoted
+      span stay as fallbacks. A reading that is tried and fails costs nothing.
+  - category: Correctness
+    chose: "Leave the prefix direction, the 60 percent floor and the full-length rule untouched"
+    over: "Loosening the shortened-command rule to a head plus a margin"
+    reason: |
+      Each of the three readings passes the same rules. Adding a reading cannot make a
+      citation resolve against a command that never ran — it can only stop a correct citation
+      being destroyed before the comparison happens. p0481's rule is why a head-only citation
+      is refused: siblings share their head by construction, so a head closes a
+      two-repository absence criterion with a one-repository search.
+  - category: Correctness
+    chose: "Ship the reading even though p0492 had already closed the live refusal"
+    over: "Closing p0494 as superseded, or reverting p0492 in favour of it"
+    reason: |
+      p0492 shipped first, from the SAME live run and the same arithmetic, and fixed it by
+      trimming both sides through one comparable form. Verified on this branch before any
+      code was written: the run's own 186-character citation already resolved. The two fixes
+      are not redundant, though — p0492 makes the two sides trim ALIKE, this one makes a
+      verbatim copy not be trimmed at all, which is what the 60 percent floor sees when a
+      correct citation ends within one character of it. Reverting p0492 was refused: it is
+      merged, live, and its symmetry is the thing that keeps the trim from drifting apart
+      again.
+  - category: Structure
+    chose: "Name the verbatim reading on EvidenceCommand beside InCitation and Quoted"
+    over: "Trimming the citation inline at the comparison site"
+    reason: |
+      The three readings of a citation are one idea and belong in one place — the type that
+      already owns the evidence grammar. The comparison site then reads as what it is: what
+      was written against what was shown, then the comparable form of both sides.
+  - category: Testing
+    chose: "Build the regression from the real command, anonymised, through Collapse+Shorten"
+    over: "A synthetic citation of a made-up long command"
+    reason: |
+      p0474 established why: a synthetic citation passes at every stage and proves none of
+      it. The fixture goes through PhaseCommandLog.Record, so it is the real elision boundary
+      and not a frozen literal, and the test asserts its own premise — 186 characters, last
+      character a quote — so it cannot pass by accident if the cap or the head/tail split
+      moves.
+  - category: Scope
+    chose: "State the design question rather than answer it"
+    over: "Settling a build-and-test criterion from the verification stage's own exit codes"
+    reason: |
+      The criterion was about a build and a test that the stage had JUST run and whose exit
+      codes it holds. Judging such a criterion from those outcomes instead of from a
+      transcription of a command would remove this whole class of refusal — five phases now
+      (p0473, p0474, p0481, p0484, p0492) have fixed one way a fact that existed could not be
+      reached. That is a change to what an account is FOR, and it belongs to the operator.
