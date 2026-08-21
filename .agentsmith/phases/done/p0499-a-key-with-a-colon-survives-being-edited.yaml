@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0499
+goal: "A tracker's label-to-pipeline map survives being opened and saved. Editing it as text splits every key at its first colon, and the operator's keys contain colons."
+
+requires: [p0392, p0351]
+
+applies_to: "dashboard"
+
+scope:
+  in: "The MapField control and every capability field of kind `map`."
+  out: "The server-side shape, which is a dictionary end to end and never parsed from text."
+
+decisions:
+  - key: |
+      THIS IS DATA LOSS, NOT A UI PREFERENCE. parseMap splits each line at
+      line.indexOf(\":\") — the FIRST colon. The operator's live \"Pipeline by label\" map
+      keys ARE label names containing a colon, so five lines
+      (agent-smith:init: init-project, :bug:, :feature:, :security-scan:,
+      :api-security-scan:) all parse to the key \"agent-smith\" and
+      Object.fromEntries keeps the last: one entry, four gone. The render side writes
+      `k + \": \" + v` back out, so the field LOOKS correct until it is touched, and
+      onChange fires on every keystroke — opening the dialog, touching the field and
+      saving wipes the mapping, after which no ticket triggers any pipeline.
+  - key: |
+      THE SHAPE IS THE FIX, NOT A SMARTER SPLIT. lastIndexOf, or a rule about which
+      colon separates, would still be a guess about a string the operator did not
+      write for a parser. Two inputs per row cannot be split wrongly at all, a key
+      containing a colon is just a string, and an empty new row is a row rather than
+      a line that fails to parse. The operator asked for the list shape; the
+      round-trip corruption is why it is also the correct one.
+  - key: |
+      ONE CONTROL, SO ALL MAPS MOVE TOGETHER. capabilityFields renders EVERY
+      `kind: map` field through the single MapField — \"Pipeline by label\" and
+      \"Lifecycle status names\" today, and whatever the descriptor declares next.
+      Converting the control converts all of them at once; there is no second
+      map editor left holding the shredder.
+  - key: |
+      ROWS ARE STATE, NOT A VIEW OF THE RECORD. A row being typed has an empty key
+      and cannot exist in a Record<string,string>, so deriving rows from the value
+      on every render is what swallows a half-typed line. MapField keeps the ordered
+      rows and emits the Record; it reseeds only when the incoming value disagrees
+      with what its own rows produce, which is exactly the case where the change
+      came from outside the field.
+  - key: |
+      p0351 CLAIMED TOO MUCH AND THAT CLAIM IS WHY THIS SURVIVED. Its goal says
+      \"Close the LAST free-text gap in the Config Studio\" and its first decision then
+      narrows the phase to model roles. The map fields were free text the whole time,
+      behind a headline saying the gap was closed. Recorded here rather than repeated.
+
+steps:
+  - id: the-map-editor-is-a-list-of-pairs
+    action: "Replace MapField's textarea + parseMap with a row list: one key input and one value input per entry, an add and a remove control."
+    new:
+      - "MapField.tsx: the row-based map editor, extracted from formFields"
+    delete:
+      - "parseMap: the first-colon splitter"
+    modify:
+      - "formFields.tsx: re-exports MapField from its own file"
+  - id: the-round-trip-is-pinned
+    action: "Test the operator's real five-entry colon-keyed map through the editor unchanged, and an empty row surviving while it is filled in."
+  - id: the-existing-textarea-assertion-follows
+    action: "Update the Config Studio test that asserts the map field is a TEXTAREA."
+
+tests:
+  - "MapField_ColonBearingKeys_RoundTripUnchanged"
+  - "MapField_EditingOneValue_LeavesEveryOtherEntryIntact"
+  - "MapField_NewEmptyRow_SurvivesUntilItsKeyIsTyped"
+  - "MapField_RemoveRow_DropsOnlyThatEntry"
+  - "Studio_TrackerForm_OffersTheParkStatusAndEveryDeclaredShape"
+
+done:
+  - "a map whose keys contain colons round-trips through the editor unchanged"
+  - "no field of kind map is edited as text anywhere in the dashboard"
+  - "an empty row is not lost while it is being filled in"
+  - "the round-trip test is red against the textarea implementation"

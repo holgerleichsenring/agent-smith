@@ -20,11 +20,11 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly string _repo;
     private readonly string _cloneUrl;
     private readonly string _token;
-    private readonly string? _configuredDefaultBranch;
     private readonly IGitHubClientFactory _clientFactory;
     private readonly ILogger<GitHubSourceProvider> _logger;
     private readonly GitHubPullRequestUpdater _pullRequests;
-    private string? _cachedDefaultBranch;
+    // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
+    private readonly DefaultBranchResolver _defaultBranch;
 
     public string ProviderType => "GitHub";
 
@@ -37,9 +37,10 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _cloneUrl = connection.RepoUrl.EndsWith(".git") ? connection.RepoUrl : $"{connection.RepoUrl}.git";
         _token = connection.Token;
         _clientFactory = clientFactory;
-        _configuredDefaultBranch = connection.DefaultBranch;
         _logger = logger;
         _pullRequests = new GitHubPullRequestUpdater(_owner, _repo, clientFactory, _token, logger);
+        _defaultBranch = new DefaultBranchResolver(
+            connection.DefaultBranch, $"{_owner}/{_repo}", logger);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -146,28 +147,9 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         return pr.HtmlUrl;
     }
 
-    private async Task<string> GetDefaultBranchAsync(IGitHubClient client)
-    {
-        if (_configuredDefaultBranch is not null)
-            return _configuredDefaultBranch;
-
-        if (_cachedDefaultBranch is not null)
-            return _cachedDefaultBranch;
-
-        try
-        {
-            var repo = await client.Repository.Get(_owner, _repo);
-            _cachedDefaultBranch = repo.DefaultBranch;
-            _logger.LogDebug("Resolved default branch from GitHub API: {Branch}", _cachedDefaultBranch);
-            return _cachedDefaultBranch;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to resolve default branch from GitHub API, falling back to 'main'");
-            _cachedDefaultBranch = "main";
-            return _cachedDefaultBranch;
-        }
-    }
+    private Task<string> GetDefaultBranchAsync(IGitHubClient client) =>
+        _defaultBranch.ResolveAsync(async _ => (await client.Repository.Get(_owner, _repo)).DefaultBranch,
+            CancellationToken.None);
 
     public async Task PostCommentAsync(
         string prIdentifier, string markdown, CancellationToken cancellationToken = default)

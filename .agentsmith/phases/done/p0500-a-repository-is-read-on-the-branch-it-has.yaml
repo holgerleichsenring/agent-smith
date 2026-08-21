@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0500
+goal: "A repository is read on the branch it actually has. A connection-level default_branch currently overrides every repo's own default, so one repo without that branch reads as empty and init opens no pull request."
+
+requires: [p0281a]
+
+applies_to: "backend"
+
+scope:
+  in: "Default-branch resolution inside the Azure Repos, GitHub and GitLab source providers."
+  out: >
+    A per-repo override field in the UI. The value comes from discovery, which
+    answers for every repo the connection can see; a manual override is only worth
+    building if discovery cannot answer, and nothing here shows that it cannot.
+
+decisions:
+  - key: |
+      THE DOCUMENTED CONTRACT WAS INVERTED IN CODE. config/agentsmith.example.yml
+      states \"default_branch comes from each discovered repo; the connection value is
+      only a fallback\". All three remote providers do the opposite:
+      GetDefaultBranchAsync returns the configured value UNCONDITIONALLY when set and
+      asks the platform only when nothing is configured. Checked, not assumed —
+      Azure Repos, GitHub and GitLab each carry the same two lines.
+  - key: |
+      THE COST IS A REPO THAT READS AS EMPTY. With default_branch: develop on the
+      connection, a repo that has no develop answers TF401175 to every read, so
+      ListDirectoryAsync and TryReadFileAsync return nothing, discovery sees an
+      un-initialised repository, and init-project opens no pull request. Nothing
+      about that outcome mentions a branch. The operator read it as a missing
+      language or skills gap; project-discovery already names Terraform and main.tf,
+      and no detection ran at all because no file was ever read.
+  - key: |
+      THE FIX BELONGS AT READ TIME, NOT AT RESOLUTION TIME. Filling
+      RepoConnection.DefaultBranch from discovery would fix ONE of the two paths that
+      reach a provider — RepoGlobExpander already prefers the discovered value, while
+      ConnectionRepoUrlBuilder deliberately makes no API call and cannot — and it
+      would still hand the provider a branch nobody checked. The provider is the only
+      layer holding the repository's own answer, so it is where the precedence
+      belongs, and fixing it there covers globbed refs, exact refs, the legacy repos
+      catalog and the CLI in one place.
+  - key: |
+      SILENCE WAS THE OTHER HALF OF THE DEFECT. A configured branch that disagrees
+      with the repository's own is now logged with both names and the one that was
+      used, at warning level, on the resolution that made the choice. The blinding
+      was survivable; being unable to see it from the run's own output was not.
+  - key: |
+      THE EXISTING TESTS ASSERT THE INVERSION AND ARE REVERSED, DELIBERATELY.
+      AzureReposSourceProviderDefaultBranchTests and ...ConfiguredBranchE2eTests were
+      written to pin \"configured wins, without calling the API\". That is the behaviour
+      this phase removes, so they are rewritten to pin the restored contract rather
+      than deleted — the E2E case still proves the chosen branch reaches the SDK's
+      GitVersionDescriptor, which is the part that must not regress.
+
+steps:
+  - id: one-resolver-states-the-precedence
+    action: "Extract default-branch resolution into a single type: the repository's own default wins, the configured value is the fallback, 'main' the last resort, and a disagreement is logged."
+    new:
+      - "DefaultBranchResolver: caches the platform answer, applies the precedence, warns on mismatch"
+  - id: every-remote-provider-reads-through-it
+    action: "Replace the configured-first lookup in the Azure Repos, GitHub and GitLab providers with the resolver."
+    modify:
+      - "AzureReposSourceProvider, GitHubSourceProvider, GitLabSourceProvider: GetDefaultBranchAsync delegates"
+  - id: the-restored-contract-is-pinned
+    action: "Reverse the tests that pinned the inversion and add the repo-wins and mismatch-visible cases."
+
+tests:
+  - "DefaultBranch_RepositoryHasItsOwn_WinsOverTheConfiguredValue"
+  - "DefaultBranch_ConfiguredDisagreesWithTheRepository_IsLoggedWithBothNames"
+  - "DefaultBranch_RepositoryAnswersNothing_FallsBackToTheConfiguredValue"
+  - "DefaultBranch_NeitherAnswers_FallsBackToMain"
+  - "DefaultBranch_ResolvedOnce_IsNotAskedAgain"
+  - "CheckoutAsync_ExplicitBranchArgument_StillWins"
+  - "TryReadFileAsync_ResolvedBranch_PassedToAzureSdkVersionDescriptor"
+  - "GitHubSourceProvider_RepositoryDefaultBranch_WinsOverTheConfiguredValue"
+  - "GitLabSourceProvider_RepositoryDefaultBranch_WinsOverTheConfiguredValue"
+
+done:
+  - "a repo whose default branch differs from the connection's is read on its own branch"
+  - "all three remote providers resolve through the same precedence"
+  - "a disagreement between configured and actual is visible in the log"
+  - "the repo-wins tests are red against the configured-first behaviour"
