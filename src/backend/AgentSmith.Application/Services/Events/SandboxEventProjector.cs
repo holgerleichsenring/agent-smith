@@ -88,10 +88,10 @@ public sealed class SandboxEventProjector(
                 new SandboxResultEvent(runId, repo, commandLabel, exitCode,
                     durationMs, DateTimeOffset.UtcNow, outputTail, summary,
                     SandboxStepFacts.ContentHash(step, result),
-                    // p0423: what the command printed, and how much of it the caller was
-                    // handed. A build that streamed four megabytes into a result nobody
-                    // kept is invisible from either number alone.
-                    argsLength, tail.TotalChars, result?.OutputContent?.Length ?? 0),
+                    // p0423: what the command printed and how much of it the caller was
+                    // handed. p0495: and whether its limit killed it, and which limit.
+                    argsLength, tail.TotalChars, result?.OutputContent?.Length ?? 0,
+                    TimedOut: result?.TimedOut ?? false, TimeoutSeconds: step.TimeoutSeconds),
                 CancellationToken.None);
         }
         catch { /* publisher failure must not mask the inner exception */ }
