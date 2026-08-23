@@ -39,7 +39,21 @@ hook_cwd=$(printf '%s' "$cwd_b64" | base64 -d 2>/dev/null)
 # deliberately ignores commands that merely *mention* git commit (grep, echo,
 # this script's own tests).
 printf '%s' "$cmd" | grep -Eq '(^|[;&|]|&&)[[:space:]]*git[[:space:]]+commit\b' || exit 0
-printf '%s' "$cmd" | grep -Eq '\(p[0-9]+[a-z]?\)' || exit 0
+
+# Look for the marker in the message the commit will CARRY, not in the command
+# line. `--amend --no-edit`, `-F <file>`, `-t <template>` and `-C <rev>` keep the
+# phase id off the command line entirely, and matching the raw string waved every
+# one of them through — a skip that is indistinguishable from a pass, since both
+# exit 0. commit-message.py resolves the message (exit 3 when it cannot exist
+# yet: a bare commit, an editor amend, `-F -`); those pass through, but loudly,
+# because that is the one case with a human sitting in front of it.
+resolver="$(dirname "${BASH_SOURCE[0]}")/commit-message.py"
+if message=$(printf '%s' "$cmd" | python3 "$resolver" "${hook_cwd:-${CLAUDE_PROJECT_DIR:-.}}"); then
+  printf '%s' "$message" | grep -Eq '\(p[0-9]+[a-z]?\)' || exit 0
+else
+  echo "[phase-gate] could not read the commit message (${message:-resolver unavailable}) — not gating; run the phase checks by hand if this is a phase commit" >&2
+  exit 0
+fi
 
 # Gate the tree the commit ACTUALLY runs in, not the session's project dir. Work
 # in a git worktree (a phase implemented on its own branch) lives outside
