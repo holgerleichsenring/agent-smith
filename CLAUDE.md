@@ -51,6 +51,27 @@ one line per memory, content never in the index.
 9. **Move to done** — move the phase file from `active/` to `done/`.
 10. **Commit** — one commit per phase, descriptive message.
 
+## Phase Gate — what it covers
+
+`.claude/hooks/phase-gate.sh` runs as a PreToolUse hook on every Bash call and gates a
+`git commit` whose message names a phase: build, full suite, CLI dry-runs and harness
+presets must be green, or the commit is blocked. Read this before a definition of done
+leans on it.
+
+- **One copy serves everyone.** `$CLAUDE_PROJECT_DIR` is the launching session's project
+  directory, so a subagent in its own worktree runs the *shared checkout's* script — an
+  edit to the gate takes effect only once it lands in that working tree. It still gates
+  the tree the commit runs in, resolved from the call's `cwd` or a leading `cd`.
+- **Gated message forms:** `-m`, repeated `-m`, a heredoc, `-F <file>`, `-t <template>`,
+  `-C`/`-c <rev>`, `--amend --no-edit`.
+- **Passed through, loudly:** a bare commit or an editor amend (no message exists yet),
+  `-F -`, and a message the shell builds from a command substitution such as
+  `-m "$(cat message.txt)"` — its text never reaches the gate. Run the checks by hand.
+- **Not covered at all:** a commit made outside the Bash tool.
+- **Afterwards:** every recognised phase commit leaves one line in `.claude/phase-gate.log`
+  of the shared checkout — verdict (`passed`/`blocked`/`not-gated`), phase id, the tree, and
+  the commit's parent. A phase commit with no line never met the gate.
+
 ## Key Rules
 
 - **English only** — all code, comments, docs, exceptions, logs, commit messages. Phase specs and repo docs are English even when the conversation is German.

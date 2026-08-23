@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0511
+
+decisions:
+  - category: Tooling
+    chose: "Instrument the worktree's own copy of the hook and let the absence of its log answer the question"
+    over: "Reasoning from what CLAUDE_PROJECT_DIR ought to mean in a worktree"
+    reason: |
+      The probe appended one line per invocation to a file outside any repository. It
+      never wrote a line — and yet a phase-shaped commit in a throwaway repository was
+      blocked, twice, including once after the worktree's copy had been deleted from
+      disk entirely. Three of the four candidate explanations die on that pair of
+      observations: hooks ARE delivered to a subagent's Bash calls, the resolver does
+      not fail closed, and the gate is not absent. What is true is narrower and was on
+      nobody's list: $CLAUDE_PROJECT_DIR expands to the LAUNCHING session's project
+      directory, so the script that runs is the shared checkout's, never the worktree's
+      [[feedback_challenge_premises]].
+  - category: Tooling
+    chose: "A `-F message.txt` commit whose marker exists only in the file identifies WHICH copy ran"
+    over: "Adding a second probe to the shared checkout's copy"
+    reason: |
+      That form is gated by the p0508 script and waved through by everything older, so
+      it reads the version of a file the measurement is not allowed to touch: the
+      shared checkout is the operator's working tree, and instrumenting it would have
+      been a change to a running system to observe it [[feedback_dont_touch_operator_runtime]].
+      It was gated, which dates the script to p0508 — and dates the two seconds-long
+      subagent commits to the hours BEFORE p0508 reached that working tree at 21:08,
+      when the gate still matched the raw command line.
+  - category: Implementation
+    chose: "One ledger line per recognised phase commit — passed, blocked or not-gated — carrying the phase id, the tree and the commit's parent"
+    over: "A trailer appended to the commit message, or a note attached to the commit"
+    reason: |
+      A PreToolUse hook runs before the commit exists: there is no object to annotate
+      and no supported way to rewrite the message it was shown. The parent sha closes
+      that gap from the other side — given a commit, its parent identifies the line
+      that gated it, so a pass and an absence stop being byte-identical. The ledger
+      also lands in one place for every worktree, which is only true because there is
+      provably one script; the measurement is what makes the design available.
+  - category: Implementation
+    chose: "A message the shell builds — `-m \"$(cat message.txt)\"` — passes through loudly and is recorded as not-gated"
+    over: "Leaving it silent, or teaching the resolver to expand substitutions"
+    reason: |
+      The resolver sees the command line, so it reads the literal `$(cat message.txt)`
+      and finds no marker in it. That is not evidence of a non-phase commit; it is
+      evidence of nothing, and it was the last remaining form where the gate's silence
+      meant \"I could not look\" rather than \"I looked and it was clean\" — the very
+      confusion this phase exists to end. Expanding the substitution would mean running
+      it, which is how you make a gate execute the command it is gating. A heredoc stays
+      gated because its text is on the command line and the marker is found first.
+  - category: Scope
+    chose: "State the coverage in CLAUDE.md and correct the one docs sentence the measurement contradicts"
+    over: "Only fixing the mechanism"
+    reason: |
+      Every phase's definition of done leans on this gate, and the docs claimed the
+      model \"has no way to wave itself through\" — which is true of every form the gate
+      can read and false of the three it cannot. A phase author needs the boundary, not
+      the reassurance. CLAUDE.md is where they already look; the docs page now points
+      at it rather than overstating.
+  - category: Scope
+    chose: "Leave alone how subagents run the checks"
+    over: "Giving each worktree its own hook, or having subagents invoke the gate directly"
+    reason: |
+      The spec put that out of scope pending the answer, and the answer removes the
+      motive: the shared script already gates the worktree's own tree, resolved from the
+      call's cwd. The one real consequence — an edit to the gate is inert until it
+      reaches the shared checkout's working tree — is a fact to write down, not a
+      mechanism to build.
