@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0507
+goal: "A phase id is minted from a clock and a random suffix, the way this system already mints run ids, so nobody has to know what anyone else has taken."
+
+applies_to: "backend (phase-record rules, spec and decision schemas, decision file naming, requires-edge checking, step labels) + repo tooling (CLAUDE.md) + spec-first plugin (two schemas, four skills, templates) + skills catalog (design-partner-master placeholders)"
+
+requires:
+  - p0508
+  - p0509
+
+scope:
+  in: "A date-and-suffix phase id valid alongside the counter, recognised by both schemas in both repositories, by the phase-record rules, by the decision-file naming, by the requires-edge checker and by the step-label reader; the six pending specs renamed onto it; and the release and pin steps that carry it into the plugin and the catalog."
+  out: "Renaming any phase that has shipped. The counter namespace stays valid forever and nothing that cites it moves. The ticket-derived shape, which p0509 fixes independently."
+
+decisions:
+  - key: |
+      THE PRECEDENT I CITED WAS WRONG, AND THE REAL ONE POINTS THE OTHER WAY. An earlier draft
+      argued that runs solved this with a database allocator handing out {date}-{nr}.
+      RunIdGenerator mints `2026-05-20T22-27-43-8a3f` — a UTC timestamp plus four hex digits from
+      Random.Shared — with no server, no count and no database, and absorbs same-second collisions
+      in a 16-bit keyspace. The mechanism this repository already trusts is the one the draft
+      declined to adopt [[feedback_challenge_premises]].
+  - key: |
+      A COUNT IS THE UNKNOWABLE THIS PHASE EXISTS TO REMOVE. {date}-{nr} needs "how many were
+      minted today", which a worktree cut this morning cannot answer and a sandboxed agent cannot
+      answer at all. It shrinks the window from forever to a day — and the evidence that motivated
+      the change is six specs written in one session on one day. The suffix is random, so minting
+      needs nothing but a clock.
+  - key: |
+      NOTHING THAT SHIPPED IS RENAMED, AND THE REASON IS MEASURED. 6,503 phase-id citations across
+      2,423 source files, 653 commit messages, 630 records in context.yaml, 515 decision files, 708
+      specs, 31 documentation pages — and outside the repository, open pull requests, unpushed
+      branches, the operator's notes and the presentation material. Commit messages cannot move at
+      all without a third history rewrite. The counter becomes a closed namespace, permanently
+      valid, and every pattern keeps its counter branch byte-identical so the p0403 ratchet does
+      not fail on a correct change.
+  - key: |
+      THE FAILURE TODAY IS NOISY WHERE THE FIRST DRAFT SAID SILENT. PhaseRecordRuleTests asserts
+      that a spec's phase field matches, so ONE date-minted spec in planned/ turns three tests red
+      with "must declare a `phase:` id". The context-key and requires extractors are the silent
+      ones. The conclusion — tooling first, rename last — survives; the reasoning did not, and a
+      done criterion written against the wrong failure would have proved nothing.
+  - key: |
+      THIRTEEN PATTERNS ACROSS FOUR REPOSITORIES, AND TWO OF THEM ARE RUNTIME. The first draft
+      named four. Beyond the spec schema, the record rules and the gate: the decision schema; BOTH
+      schemas in the plugin templates, which have already diverged from this repository's; the
+      "must declare" assertion itself; DecisionFileLabel, where an unrecognised id sends a phase's
+      logged decisions to decisions/{runId}.yaml instead of decisions/{phase}.yaml; RequiresEdgeChecker,
+      where an unrecognised dependency is classified as free text so sibling, parent and cycle
+      checks silently pass for a whole epic; and RunStepsReader, which splits a step label on the id
+      and would show the raw prefix in the run rail.
+  - key: |
+      THE SCHEMA NEEDS TIGHTENING IN THE SAME BREATH AS WIDENING. `p\d+` accepts `p20260822a`
+      today, which the record rules then read as `p2026`. Widening for the new shape without
+      tightening the counter branch to four digits leaves a third, broken shape valid.
+  - key: |
+      A SLUG-NAMED SUCCESSOR IS PROSE, AND THAT IS A REAL LOSS. A random suffix cannot be reserved
+      in advance, so a deferred follow-up can only be named by what it does. A dangling
+      `requires: p0511` goes red; "the successor *a profile can install what its image lacks*" is
+      checked by nothing. The earlier draft claimed this served [[feedback_no_silent_defer]] better.
+      It does not — it reads better and enforces less. `requires:` names only phases that exist,
+      as it does today, and the phase record is where an owed successor stays visible.
+  - key: |
+      THE FILENAME MUST SAY WHERE THE ID ENDS. The `p` prefix did that work for the counter. A
+      date-minted id is `{yyyy-MM-dd}-{4 hex}` followed by the slug, and the boundary is the
+      suffix's fixed width — stated in the schema pattern so every reader implements the same rule.
+  - key: |
+      THE TREE CAN BE GREEN WHILE THE DEPLOYED SERVER IS NOT. The spec schema is an embedded
+      resource compiled into the server image, so a running server keeps rejecting date-minted
+      drafts until it is rebuilt without cache and redeployed [[feedback_deploy_server_image]]. The
+      plugin needs a release and a re-pin; the catalog's placeholder text needs a release and a pin
+      bump. Each is a separate, separately revertible act and each is named as a step.
+  - key: |
+      THE HOOK IS NOT REWRITTEN HERE, WHICH IS WHY THE ORDERING HAZARD IS GONE. p0508 moves the
+      gate onto the real commit message first. This phase only widens what the gate matches, so it
+      is never in the position of gating its own commit with an untested rewrite.
+
+steps:
+  - id: both-schemas-in-both-repositories-accept-it
+    action: "Widen the spec and decision id patterns for the date-minted shape and tighten the counter branch to four digits, in this repository and in the plugin templates, which have already diverged."
+  - id: the-record-rules-read-it-whole
+    action: "Teach the phase, context-key and requires patterns the second shape, keeping the counter branch byte-identical so the record baseline does not move."
+  - id: the-runtime-readers-stop-degrading-silently
+    action: "Teach DecisionFileLabel and RequiresEdgeChecker the shape, so a phase's decisions land in its own file and its dependency edges are checked rather than read as prose."
+  - id: the-run-rail-shows-a-label-not-a-prefix
+    action: "Teach the step-label reader the shape so a date-minted phase renders like any other."
+  - id: the-gate-matches-either-shape
+    action: "Match either id shape in the commit message p0508 resolves."
+  - id: the-methodology-teaches-minting
+    action: "Update CLAUDE.md, the plugin's four skills and its templates so a phase id is minted from the date and a random suffix, and a deferred successor is named by slug in prose."
+  - id: the-catalog-stops-emitting-a-shape-that-never-validated
+    action: "Replace the design-partner-master's pNNNN placeholders, which match neither pattern, and assert the packaged master carries the new wording before the pin moves."
+  - id: the-pending-specs-move
+    action: "Rename the six uncommitted specs onto date-minted ids, rewriting their phase fields, their requires chain and the prose cross-references inside their scope and decision bodies."
+  - id: the-change-reaches-the-things-that-run
+    action: "Cut the plugin release and re-pin it, cut the skills release and bump the embedded pin, and rebuild the server image without cache so the embedded schema is the new one."
+
+tests:
+  - "Schema_CounterShapedId_StillValidates"
+  - "Schema_DateMintedId_Validates"
+  - "Schema_YearPrefixedCounterId_IsRejected"
+  - "Schema_PluginTemplates_AcceptTheSameTwoShapes"
+  - "PhaseRecord_DateMintedPhase_IsCountedForDuplicates"
+  - "PhaseRecord_TwoFilesClaimingOneDateMintedId_GoesRed"
+  - "PhaseRecord_RequiresNamingADateMintedPhase_IsCheckedForExistence"
+  - "PhaseRecord_DateMintedDonePhase_MustAppearInTheContext"
+  - "PhaseRecord_ExistingSpecs_ProduceTheSameViolationSetAsBefore"
+  - "DecisionFileLabel_DateMintedPhase_WritesToItsOwnFile"
+  - "RequiresEdgeChecker_DateMintedSibling_IsCheckedNotTreatedAsProse"
+  - "StepLabel_DateMintedPhase_RendersWithoutTheRawPrefix"
+  - "Gate_CommitCarryingADateMintedId_Gates"
+  - "PackagedDesignPartner_PlaceholderMatchesAValidatingShape"
+
+done:
+  - "a phase id minted from a date and a random suffix validates, records, gates and logs its decisions to its own file"
+  - "a year-prefixed counter id is rejected rather than collapsing"
+  - "the requires-edge checker and the step-label reader handle both shapes"
+  - "the record baseline is unchanged for every existing spec, verified before and after"
+  - "the six uncommitted specs carry date-minted ids and their prose cross-references agree"
+  - "no phase that has shipped is renamed and no citation to the counter is touched"
+  - "the plugin is released and re-pinned, the catalog released and the embedded pin bumped, the server rebuilt without cache"
+  - "a date-minted spec is drafted end to end against the DEPLOYED server, not only against the tree"
+  - "build green, full suite green"
