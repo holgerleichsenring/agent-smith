@@ -37,6 +37,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TrackerCatalogBuilder>();
         services.AddSingleton<ResolvedProjectBuilder>();
         services.AddSingleton<ConfigCatalogResolver>();
+        // p0506: ${NAME} resolution for the secrets map, registry tokens and a
+        // project's jira_trigger.secret — the environment read is injected so a
+        // test never mutates the process the rest of the suite runs in.
+        services.AddSingleton(_ => new ConfigSecretReferences(Environment.GetEnvironmentVariable));
+        // p0506: the one platform->secret table the verifier, the tracker-auth check
+        // and the connections panel all read.
+        services.AddSingleton<IWebhookSecretResolver>(
+            _ => new Services.Webhooks.WebhookSecretResolver(Environment.GetEnvironmentVariable));
         // p0349: the shared raw->typed pipeline both the file loader and the
         // server's DB loader run over a RawAgentSmithConfig.
         services.AddSingleton<RawConfigMaterializer>();

@@ -1,10 +1,13 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Webhooks;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Diagnostics;
+using AgentSmith.Server.Services.Webhooks;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -54,6 +57,34 @@ public sealed class ConnectionDiagnosticsServiceTests
         var jira = snapshot.Webhooks.Single(w => w.Platform == "jira");
         jira.SecretConfigured.Should().BeTrue();
         jira.LastReceivedUtc.Should().Be(DateTimeOffset.UnixEpoch);
+    }
+
+    // p0506: the panel's "secret configured" badge and the verifier's refusal must be the
+    // same fact. They read one resolver now; before, each carried its own copy of the
+    // platform-to-env-var table and the verifier ignored both when the header was absent.
+    [Fact]
+    public async Task Diagnostics_SecretConfigured_MatchesWhatTheVerifierRequires()
+    {
+        var config = BuildConfig();
+        var resolver = new WebhookSecretResolver(_ => "the-shared-secret");
+        var sut = CreateSut(config, chatConfigured: false, webhookSecretEnv: "the-shared-secret");
+        var services = new ServiceCollection()
+            .AddSingleton<IWebhookSecretResolver>(resolver)
+            .AddSingleton(new ServerContext("agentsmith.yml"))
+            .AddSingleton<IConfigurationLoader>(new FixedConfigurationLoader(config))
+            .BuildServiceProvider();
+        var verifier = new WebhookSignatureVerifier(services, NullLogger.Instance);
+        var unsigned = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var snapshot = await sut.GetSnapshotAsync(CancellationToken.None);
+
+        foreach (var webhook in snapshot.Webhooks)
+        {
+            webhook.SecretConfigured.Should().BeTrue();
+            verifier.Validate(webhook.Platform, "{}", unsigned).Should().BeFalse(
+                "{0} reports a configured secret, so an unsigned delivery must be refused",
+                webhook.Platform);
+        }
     }
 
     [Fact]
@@ -112,7 +143,8 @@ public sealed class ConnectionDiagnosticsServiceTests
     private static ConnectionDiagnosticsService CreateSut(
         AgentSmithConfig config,
         bool chatConfigured,
-        IReadOnlyDictionary<string, DateTimeOffset>? lastSeen = null)
+        IReadOnlyDictionary<string, DateTimeOffset>? lastSeen = null,
+        string? webhookSecretEnv = null)
     {
         var reachable = ConnectionProbeResult.Reachable(1);
 
@@ -137,7 +169,15 @@ public sealed class ConnectionDiagnosticsServiceTests
             infra.Object,
             chat.Object,
             new FakeTracker(lastSeen ?? new Dictionary<string, DateTimeOffset>()),
+            new WebhookSecretResolver(_ => webhookSecretEnv),
             NullLogger<ConnectionDiagnosticsService>.Instance);
+    }
+
+    private sealed class FixedConfigurationLoader(AgentSmithConfig config) : IConfigurationLoader
+    {
+        public ConfigFileReadFact? LastRead => null;
+
+        public AgentSmithConfig LoadConfig(string configPath) => config;
     }
 
     private sealed class FakeTracker(IReadOnlyDictionary<string, DateTimeOffset> seen) : IWebhookDeliveryTracker

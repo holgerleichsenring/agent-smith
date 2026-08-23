@@ -146,7 +146,6 @@
 132	AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs
 131	AgentSmith.Server/Services/LlmIntentParser.cs
 131	AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs
-130	AgentSmith.Server/Services/Diagnostics/ConnectionDiagnosticsService.cs
 129	AgentSmith.Cli/ServiceProviderFactory.cs
 129	AgentSmith.Infrastructure/Services/SensitiveToolHistoryScrubChatClient.cs
 128	AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs
@@ -160,7 +159,6 @@
 125	AgentSmith.Application/Services/Specs/SpecSetIndex.cs
 125	AgentSmith.Application/Services/Tickets/TicketDocumentMaterializer.cs
 125	AgentSmith.Application/Services/Tools/WebToolHost.cs
-125	AgentSmith.Infrastructure.Core/Services/Configuration/RawConfigMaterializer.cs
 125	AgentSmith.Infrastructure/Services/Spectral/SpectralSpawner.cs
 124	AgentSmith.Application/Services/Scope/RepoScopeEvaluator.cs
 124	AgentSmith.Server/Services/Adapters/SlackErrorBlockBuilder.cs
