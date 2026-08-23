@@ -430,7 +430,7 @@ tool_runner:
 # docs/skills/source-modes.md.
 skills:
   source: default
-  version: v4.0.0
+  version: v4.6.0
   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
   # cache_dir: /var/lib/agentsmith/skills
 
