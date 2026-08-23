@@ -9,7 +9,7 @@ requires:
   - p0509
 
 scope:
-  in: "A date-and-suffix phase id valid alongside the counter, recognised by both schemas in both repositories, by the phase-record rules, by the decision-file naming, by the requires-edge checker and by the step-label reader; the six pending specs renamed onto it; and the release and pin steps that carry it into the plugin and the catalog."
+  in: "A date-and-suffix phase id valid alongside the counter, recognised by both schemas in both repositories, by the phase-record rules, by the decision-file naming, by the requires-edge checker and by the step-label reader; and the release and pin steps that carry it into the plugin and the catalog."
   out: "Renaming any phase that has shipped. The counter namespace stays valid forever and nothing that cites it moves. The ticket-derived shape, which p0509 fixes independently."
 
 decisions:
@@ -54,6 +54,13 @@ decisions:
       today, which the record rules then read as `p2026`. Widening for the new shape without
       tightening the counter branch to four digits leaves a third, broken shape valid.
   - key: |
+      NOTHING IS RENAMED, BECAUSE BY THE TIME THIS RUNS THERE IS NOTHING PENDING. An earlier
+      draft ended by renaming six uncommitted specs onto the new shape. Every one of them has
+      since been committed and shipped, and renaming a shipped phase is what this phase's
+      second decision forbids. The counter namespace therefore closes at this phase and the
+      next id minted is the first date-minted one — a cut point, not a migration. A step with
+      no work left is a spec that lies.
+  - key: |
       A SLUG-NAMED SUCCESSOR IS PROSE, AND THAT IS A REAL LOSS. A random suffix cannot be reserved
       in advance, so a deferred follow-up can only be named by what it does. A dangling
       `requires: p0511` goes red; "the successor *a profile can install what its image lacks*" is
@@ -90,8 +97,8 @@ steps:
     action: "Update CLAUDE.md, the plugin's four skills and its templates so a phase id is minted from the date and a random suffix, and a deferred successor is named by slug in prose."
   - id: the-catalog-stops-emitting-a-shape-that-never-validated
     action: "Replace the design-partner-master's pNNNN placeholders, which match neither pattern, and assert the packaged master carries the new wording before the pin moves."
-  - id: the-pending-specs-move
-    action: "Rename the six uncommitted specs onto date-minted ids, rewriting their phase fields, their requires chain and the prose cross-references inside their scope and decision bodies."
+  - id: the-counter-namespace-closes
+    action: "Record that this phase is the last counter-minted id, so the next phase written is the first date-minted one, and no shipped spec is touched."
   - id: the-change-reaches-the-things-that-run
     action: "Cut the plugin release and re-pin it, cut the skills release and bump the embedded pin, and rebuild the server image without cache so the embedded schema is the new one."
 
@@ -116,7 +123,7 @@ done:
   - "a year-prefixed counter id is rejected rather than collapsing"
   - "the requires-edge checker and the step-label reader handle both shapes"
   - "the record baseline is unchanged for every existing spec, verified before and after"
-  - "the six uncommitted specs carry date-minted ids and their prose cross-references agree"
+  - "the counter namespace is closed at this phase and no shipped spec was renamed"
   - "no phase that has shipped is renamed and no citation to the counter is touched"
   - "the plugin is released and re-pinned, the catalog released and the embedded pin bumped, the server rebuilt without cache"
   - "a date-minted spec is drafted end to end against the DEPLOYED server, not only against the tree"

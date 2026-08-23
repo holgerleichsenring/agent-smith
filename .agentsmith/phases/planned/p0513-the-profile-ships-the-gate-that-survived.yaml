@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0513
+
+goal: "A data repository declaring the databricks domain gets the commands p0505 watched go red, and nothing it did not."
+
+applies_to: "skills catalog (profiles/databricks, validator) + backend (the binding that refuses an unmeasured command)"
+
+requires:
+  - p0504
+  - p0505
+
+scope:
+  in: "The databricks profile in the skills catalog, its compatible-image list, and the mechanism that stops it declaring a command absent from p0505's measured table."
+  out: "Anything needing a live workspace — dbt build and bundle deploy. The two content-only skills, which reach no prompt until activation has a consumer in a coding run. The measurement itself, which p0505 shipped."
+
+decisions:
+  - key: |
+      THE TABLE DECIDES, NOT THE DRAFT. p0505 recorded 123 rows across three repository shapes.
+      What survived as declarable: `dbt deps --profiles-dir . && dbt parse --profiles-dir .`,
+      `sqlfluff lint --dialect databricks models`, and `check-jsonschema` against the schema
+      `databricks bundle schema` emits. What did not: `dbt parse` alone (exit 2 on the CLEAN
+      fixture — packages.yml declares a package that is not installed) and
+      `databricks bundle validate` (resolves workspace auth before validating, so it reds on
+      every fixture including the clean one). The profile declares the first three.
+  - key: |
+      TWO CLAIMS THE FIRST DRAFT MADE ARE MEASURED FALSE, AND THE PROFILE MUST NOT REPEAT THEM.
+      `dbt parse` does not catch an undefined macro — only sqlfluff reds on it. And
+      `check-jsonschema` against databricks.yml alone detects nothing, because the fixtures use
+      `include: resources/*.yml` and the defects live in the included file; the command names
+      both paths.
+  - key: |
+      NOTHING MECHANICAL CONNECTS THE TABLE TO THE DECLARATION, AND THAT IS THIS PHASE'S REAL
+      WORK. The measured table lives in agent-smith; the profile lives in agent-smith-skills.
+      p0505 said so and left evidence rather than a ratchet. The binding has to be built here or
+      the profile is a promise: either the table ships in the catalog tarball and the catalog's
+      validator reads it, or the backend's profile reader refuses a command the committed table
+      does not record as declarable. The second is smaller and cannot drift, because the reader
+      and the table are in the same repository.
+  - key: |
+      `dbt deps` NEEDS THE NETWORK, WHICH p0304 WILL TAKE AWAY. The measurement records it: the
+      declarable command's clean row is green with network and red under `--network none`. Behind
+      the planned egress allowlist it becomes broken-on-clean. The profile records the dependency
+      rather than discovering it later [[feedback_no_heuristic_for_missing_data]].
+  - key: |
+      THE COMPATIBLE-IMAGE LIST IS WHAT MAKES A DOMAIN AND AN IMAGE CORRELATE. p0504 refuses a
+      context that declares a domain and an image the profile does not know. The profile
+      therefore names its own image and any others carrying the same tools; the measurement ran
+      in `agentsmith-data-toolchain:p0505` on `python:3.12-bookworm` with pinned dbt-core,
+      dbt-databricks, sqlfluff, yamllint and check-jsonschema, and no pipeline in this project
+      publishes a conforming image yet — so the list starts with what an operator must build.
+  - key: |
+      THE PREMISE IS STILL UNPROVEN AND THE PHASE SAYS SO. p0505's analyzer eval is built and
+      wired but skipped for want of an API key. If the project analyzer emits any ci command for
+      a data repository, that command wins and the profile's list is never consulted. One live
+      run settles it; until then this phase ships a gate whose reachability is assumed
+      [[feedback_challenge_premises]].
+
+steps:
+  - id: the-profile-declares-what-was-measured
+    action: "Add profiles/databricks/profile.yaml with the three surviving commands in order, the image it was measured in, and its compatible-image list."
+    new:
+      - "profiles/databricks/profile.yaml"
+  - id: an-unmeasured-command-cannot-be-declared
+    action: "Refuse, where the profile is read, any declared command the committed measured table does not record as green on its clean shape and red on a defect."
+  - id: the-network-dependency-is-recorded-where-it-will-bite
+    action: "Record on the profile which declared commands need network access, and name the egress phase that will remove it."
+
+tests:
+  - "Profile_Databricks_DeclaresOnlyMeasuredDeclarableCommands"
+  - "Profile_ACommandAbsentFromTheTable_IsRefused"
+  - "Profile_ACommandTheTableMarksBrokenOnClean_IsRefused"
+  - "Profile_TheDeclaredOrder_RunsDepsBeforeParse"
+  - "Profile_CompatibleImageList_ContainsTheImageTheMeasurementRanIn"
+  - "Profile_NetworkDependentCommands_AreMarkedAsSuch"
+
+done:
+  - "the profile declares exactly the three commands p0505 recorded as declarable"
+  - "a command absent from the measured table cannot be declared, proven by a test"
+  - "bundle validate and bare dbt parse are absent, and the profile says why"
+  - "the compatible-image list names the measured image"
+  - "the analyzer premise is named as unproven with the run that would settle it"
+  - "build green, full suite green, skills validator green"
