@@ -1,245 +1,30 @@
-using System.Text.Json;
-using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
-using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
-using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
-using Microsoft.AspNetCore.Mvc;
 
 namespace AgentSmith.Server.Extensions;
 
 /// <summary>
-/// p0345: the config studio's WRITE surface over <see cref="IConfigStore"/>. CRUD
-/// per catalog entity plus the attributed change feed and revert. Referential
-/// integrity is enforced in the store (unknown agent/tracker/repo ref on a project
-/// → <see cref="ConfigurationException"/> surfaced here as 400). Mapped only inside
-/// Program.cs's <c>AGENTSMITH_UI_API_ENABLED</c> block, like the other dashboard
-/// endpoints, so a dashboard-less deployment never exposes the mutation surface.
+/// p0345: the config studio's surface over <see cref="IConfigStore"/> — CRUD per catalog
+/// entity, the capability and validation reads, catalog transfer, the attributed change
+/// feed and revert, and the settings singletons. Referential integrity is enforced in the
+/// store (unknown agent/tracker/repo ref on a project → <see cref="ConfigurationException"/>
+/// surfaced as 400). Mapped only inside Program.cs's <c>AGENTSMITH_UI_API_ENABLED</c>
+/// block, like the other dashboard endpoints, so a dashboard-less deployment never
+/// exposes the mutation surface.
+/// <para>
+/// p0510: this is the entry point only — each surface maps its own routes from its own
+/// file, and they share one write guard (<see cref="Services.Config.ConfigStudioWriteGuard"/>).
+/// </para>
 /// </summary>
 internal static class ConfigStudioEndpoints
 {
     internal static WebApplication MapConfigStudioEndpoints(this WebApplication app)
     {
-        MapEntity<AgentEntity>(app, "agents",
-            s => s.GetAgents(), (s, e, by) => s.UpsertAgent(e, by), (s, id, by) => s.DeleteAgent(id, by),
-            (e, id) => e with { Id = id });
-        MapEntity<TrackerEntity>(app, "trackers",
-            s => s.GetTrackers(), (s, e, by) => s.UpsertTracker(e, by), (s, id, by) => s.DeleteTracker(id, by),
-            (e, id) => e with { Id = id });
-        MapEntity<RepoEntity>(app, "repos",
-            s => s.GetRepos(), (s, e, by) => s.UpsertRepo(e, by), (s, id, by) => s.DeleteRepo(id, by),
-            (e, id) => e with { Id = id });
-        MapEntity<ProjectEntity>(app, "projects",
-            s => s.GetProjects(), (s, e, by) => s.UpsertProject(e, by), (s, id, by) => s.DeleteProject(id, by),
-            (e, id) => e with { Id = id });
-        MapEntity<McpServerEntity>(app, "mcp-servers",
-            s => s.GetMcpServers(), (s, e, by) => s.UpsertMcpServer(e, by), (s, id, by) => s.DeleteMcpServer(id, by),
-            (e, id) => e with { Id = id });
-        MapEntity<SecretEntity>(app, "secrets",
-            s => s.GetSecrets(), (s, e, by) => s.UpsertSecret(e, by), (s, id, by) => s.DeleteSecret(id, by),
-            (e, id) => e with { Id = id });
-        // p0345b: git-host connections (the p0281a discovery catalog) — the
-        // entity connection-scoped project repo refs validate against.
-        MapEntity<ConnectionEntity>(app, "connections",
-            s => s.GetConnections(), (s, e, by) => s.UpsertConnection(e, by), (s, id, by) => s.DeleteConnection(id, by),
-            (e, id) => e with { Id = id });
-
-        // p0345c: the backend-truth capabilities descriptor the studio's forms
-        // render from. Type/strategy/pipeline lists come from the enums + code-
-        // defined presets; agent providers from the REGISTERED chat-client
-        // builders — the same index ChatClientFactory resolves against.
-        app.MapGet("/api/config/capabilities", ([FromServices] IEnumerable<IChatClientBuilder> builders) =>
-            Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))));
-
-        // p0392: what the server would say about a draft the operator has not saved.
-        // p0391a made the server report what is missing once it is running; the editor
-        // that PRODUCED the configuration is a better place to hear it. Same rules, one
-        // source — ConfigDraftRules calls the server's own rule objects, so the studio
-        // never restates a requirement in TypeScript.
-        app.MapPost("/api/config/projects/validate",
-            ([FromBody] ProjectEntity draft, IConfigStore store, [FromServices] ConfigDraftRules rules) =>
-                Results.Ok(Views(rules.ForProject(draft, store.Catalog))));
-
-        app.MapPost("/api/config/trackers/validate",
-            ([FromBody] TrackerEntity draft, [FromServices] ConfigDraftRules rules) =>
-                Results.Ok(Views(rules.ForTracker(draft))));
-
-        // p0345c: the repo picker's discovery cache — the p0281a last-good snapshot.
-        // Unknown connection → 404; known-but-undiscovered → 200 with
-        // discoveredAt null + empty repos (honest "not discovered yet").
-        app.MapGet("/api/config/connections/{id}/repos",
-            async (string id, IConfigStore store,
-                [FromServices] IConnectionRepoSnapshotStore snapshots, CancellationToken ct) =>
-            {
-                if (store.GetConnections().All(c => c.Id != id))
-                    return Results.NotFound(new { error = $"Unknown connection '{id}'." });
-                var discovery = await snapshots.TryGetDiscoveryAsync(id, ct);
-                return Results.Ok(new ConnectionReposView(
-                    discovery?.DiscoveredAt,
-                    discovery?.Repos.Select(r => new ConnectionRepoView(r.Name, r.DefaultBranch)).ToList()
-                        ?? []));
-            });
-
-        // p0343b: the studio's "Export agentsmith.yml" — the canonical catalog as
-        // loader-round-trippable YAML, served as a download.
-        app.MapGet("/api/config/export.yml", (IConfigStore store) =>
-            Results.Text(store.ExportYaml(), "text/yaml"));
-
-        // p0352: the studio's "Import agentsmith.yml" — the DR/cutover counterpart of
-        // export, over the DB entity-document store. Guarded like the CLI: an empty
-        // store imports freely, a non-empty one needs ?force=true (409 otherwise, so
-        // the UI can confirm-overwrite and retry). persistence is bootstrap-only
-        // (read from file/env before the DB), so it is never imported.
-        app.MapPost("/api/config/import",
-            async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            {
-                var force = req.Query["force"] == "true";
-                using var reader = new StreamReader(req.Body);
-                var yaml = await reader.ReadToEndAsync();
-                if (!force && !docStore.IsEmpty())
-                    return Results.Conflict(new
-                    {
-                        error = "Config store is not empty; confirm to overwrite it (versions are bumped, history kept).",
-                    });
-                return await GuardSignalingAsync(ctx, reload, events, () =>
-                {
-                    var raw = new RawConfigYaml().Deserialize(yaml);
-                    var writes = new ConfigDocumentAssembler().Decompose(raw)
-                        .Where(d => d.Type != ConfigDocTypes.Persistence)
-                        .Select(d => new ConfigDocWrite(
-                            d.Type, d.Id, d.Doc, ExpectedVersion: null, d.Edges, Attribution(ctx).Actor))
-                        .ToList();
-                    docStore.Import(writes, force);
-                    store.Load();
-                    return Results.Ok(new { imported = writes.Count });
-                });
-            });
-
-        // p0353: map to the field-diff DTO the client expects (timestampUtc/entityKind/
-        // action/fields[]); returning the raw record left `fields` undefined and crashed
-        // the Changes view.
-        app.MapGet("/api/config/changes", (IConfigStore store) =>
-            Results.Ok(store.GetChanges().Select(Services.Config.ConfigChangeView.From)));
-        app.MapPost("/api/config/changes/{id}/revert",
-            (string id, IConfigStore store, [FromServices] IConfigReloadSignal reload,
-                [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-                GuardSignalingAsync(ctx, reload, events,
-                    () => { store.Revert(id, Attribution(ctx)); return Results.NoContent(); }));
-
-        // p0353: the global SETTINGS singletons — one typed form per settings doc in
-        // the studio. GET the exposed type list + each assembled value; PUT saves the
-        // doc through GuardSignalingAsync, so a settings change records an attributed,
-        // revertible ConfigChange AND bumps the epoch + publishes ConfigChangedEvent —
-        // it shows in Changes and applies live (poller + enforcers re-read), exactly
-        // like entity CRUD. An unknown/non-editable type is a 404, a malformed doc a 400.
-        app.MapGet("/api/config/settings", (IConfigStore store) => Results.Ok(store.SettingTypes));
-
-        app.MapGet("/api/config/settings/{type}", (string type, IConfigStore store) =>
-            store.SettingTypes.Contains(type)
-                ? Results.Ok(store.GetSetting(type))
-                : Results.NotFound(new { error = $"Unknown settings type '{type}'." }));
-
-        app.MapPut("/api/config/settings/{type}",
-            async (string type, [FromBody] JsonElement doc, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            {
-                if (!store.SettingTypes.Contains(type))
-                    return Results.NotFound(new { error = $"Unknown settings type '{type}'." });
-                return await GuardSignalingAsync(ctx, reload, events,
-                    () => { store.SaveSetting(type, doc, Attribution(ctx)); return Results.Ok(store.GetSetting(type)); });
-            });
-
+        app.MapConfigEntityRoutes();
+        app.MapConfigCapabilityEndpoints();
+        app.MapConfigTransferEndpoints();
+        app.MapConfigChangeEndpoints();
+        app.MapConfigSettingsEndpoints();
         return app;
-    }
-
-    private static void MapEntity<TEntity>(
-        WebApplication app,
-        string route,
-        Func<IConfigStore, IReadOnlyList<TEntity>> getAll,
-        Action<IConfigStore, TEntity, ChangeAttribution> upsert,
-        Action<IConfigStore, string, ChangeAttribution> delete,
-        Func<TEntity, string, TEntity> withId)
-    {
-        var basePath = $"/api/config/{route}";
-
-        app.MapGet(basePath, (IConfigStore store) => Results.Ok(getAll(store)));
-
-        app.MapPost(basePath, ([FromBody] TEntity entity, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            GuardSignalingAsync(ctx, reload, events,
-                () => { upsert(store, entity, Attribution(ctx)); return Results.Ok(entity); }));
-
-        app.MapPut(basePath + "/{id}", (string id, [FromBody] TEntity entity, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            GuardSignalingAsync(ctx, reload, events, () =>
-            {
-                var withRouteId = withId(entity, id);
-                upsert(store, withRouteId, Attribution(ctx));
-                return Results.Ok(withRouteId);
-            }));
-
-        app.MapDelete(basePath + "/{id}", (string id, IConfigStore store,
-                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
-            GuardSignalingAsync(ctx, reload, events,
-                () => { delete(store, id, Attribution(ctx)); return Results.NoContent(); }));
-    }
-
-    private static IReadOnlyList<Models.StartupFindingView> Views(
-        IReadOnlyList<AgentSmith.Contracts.Models.Configuration.StartupFinding> findings) =>
-        findings.Select(Models.StartupFindingView.From).ToList();
-
-    private static ChangeAttribution Attribution(HttpContext ctx)
-    {
-        var actor = ctx.Request.Headers["X-Actor"].FirstOrDefault();
-        return new ChangeAttribution(string.IsNullOrWhiteSpace(actor) ? "dashboard" : actor!);
-    }
-
-    // p0353: run a config WRITE, and on success bump the config epoch + publish a
-    // ConfigChangedEvent so the poller leader and settings enforcers pick the change
-    // up live (no restart). The signal is best-effort and post-commit — a signal
-    // failure must never fail an already-durable write, and the known validation
-    // exceptions short-circuit BEFORE signalling (no epoch bump on a rejected write).
-    private static async Task<IResult> GuardSignalingAsync(
-        HttpContext ctx, IConfigReloadSignal reload, ISystemEventPublisher events, Func<IResult> action)
-    {
-        IResult result;
-        try
-        {
-            result = action();
-        }
-        catch (StaleConfigVersionException ex)
-        {
-            // p0349: a concurrent edit moved the entity's version on — 409, never a
-            // silent last-write-wins. The client reloads and retries.
-            return Results.Conflict(new { error = ex.Message });
-        }
-        catch (ConfigurationException ex)
-        {
-            // Referential integrity / validation failure — a client error, not a 500.
-            return Results.BadRequest(new { error = ex.Message });
-        }
-
-        await SignalConfigChangedAsync(reload, events, Attribution(ctx).Actor);
-        return result;
-    }
-
-    private static async Task SignalConfigChangedAsync(
-        IConfigReloadSignal reload, ISystemEventPublisher events, string actor)
-    {
-        // CancellationToken.None: the write already committed, so the reload signal
-        // must fire even if the client disconnected — otherwise the leader stays stale.
-        try
-        {
-            var epoch = await reload.BumpAsync(CancellationToken.None);
-            await events.PublishAsync(
-                new ConfigChangedEvent("config-studio", epoch, actor, DateTimeOffset.UtcNow), CancellationToken.None);
-        }
-        catch
-        {
-            // Best-effort: a bump/publish failure is swallowed so the write still returns 2xx.
-        }
     }
 }

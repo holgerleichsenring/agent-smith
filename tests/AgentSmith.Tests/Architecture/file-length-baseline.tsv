@@ -29,7 +29,6 @@
 207	AgentSmith.Application/Services/PipelineStepRunner.cs
 259	AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs
 257	AgentSmith.Application/Services/Handlers/RunResultFormatter.cs
-245	AgentSmith.Server/Extensions/ConfigStudioEndpoints.cs
 243	AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs
 242	AgentSmith.Application/Services/Loop/SubAgentRunner.cs
 241	AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs
