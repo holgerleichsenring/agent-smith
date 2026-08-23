@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Dialogue;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services.Lifecycle;
@@ -31,13 +31,13 @@ internal static class RunControlEndpoints
 {
     internal static WebApplication MapRunControlEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/runs/{runId}/cancel", CancelAsync);
+        app.MapPost("/api/runs/{runId}/cancel", CancelAsync).Needs(Security.Permissions.RunsControl);
         // p0327: the dashboard's answer affordance for waiting_for_input runs.
-        app.MapPost("/api/runs/{runId}/answer", AnswerAsync);
+        app.MapPost("/api/runs/{runId}/answer", AnswerAsync).Needs(Security.Permissions.RunsControl);
         // p0390: the explicit operator Retry for a ticket parked on a
         // not-implementable verdict — the only way back, because a verdict does
         // not auto-retry on a comment the way a question does.
-        app.MapPost("/api/runs/{runId}/retry", RetryAsync);
+        app.MapPost("/api/runs/{runId}/retry", RetryAsync).Needs(Security.Permissions.RunsControl);
         return app;
     }
 

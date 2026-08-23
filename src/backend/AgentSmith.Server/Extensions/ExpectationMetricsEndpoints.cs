@@ -1,4 +1,5 @@
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services;
 
 namespace AgentSmith.Server.Extensions;
@@ -14,7 +15,7 @@ internal static class ExpectationMetricsEndpoints
 {
     internal static WebApplication MapExpectationMetricsEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/expectations/metrics", GetMetricsAsync);
+        app.MapGet("/api/runs/expectations/metrics", GetMetricsAsync).Needs(Permissions.RunsRead);
         return app;
     }
 

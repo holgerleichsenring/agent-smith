@@ -1,4 +1,5 @@
 using AgentSmith.Server.Hubs;
+using AgentSmith.Server.Security;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -31,7 +32,7 @@ internal static class ServerEndpointExtensions
     internal static WebApplication MapDashboardApi(this WebApplication app)
     {
         app.UseCors(DashboardConstants.CorsPolicy);
-        app.MapHub<JobsHub>("/hub/jobs");
+        app.MapHub<JobsHub>("/hub/jobs").Needs(Permissions.RunsRead);
         app.MapRunControlEndpoints(); // p0506: cancel / answer / retry
         app.MapRunQueryEndpoints();
         app.MapPullRequestQueryEndpoints(); // p0347: the Pull Requests page read surface
@@ -44,7 +45,8 @@ internal static class ServerEndpointExtensions
         app.MapDiagnosticsEndpoints();
         app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
         app.MapGet("/api/openapi.json", () => Results.Redirect("/api/openapi/v1.json", permanent: false))
-           .ExcludeFromDescription();
+           .ExcludeFromDescription()
+           .Anonymous("the document that describes the routes is read before a caller has a token");
         return app;
     }
 }

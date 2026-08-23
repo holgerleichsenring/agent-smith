@@ -14,7 +14,8 @@ internal static class StartupFindingsEndpoints
     internal static WebApplication MapStartupFindingsEndpoints(this WebApplication app)
     {
         app.MapGet("/api/config/findings", (IStartupFindings findings) =>
-            Results.Ok(StartupFindingsResponse.From(findings.All)));
+            Results.Ok(StartupFindingsResponse.From(findings.All))).Anonymous(
+            "the channel that reports a broken authority cannot depend on that authority");
         return app;
     }
 }

@@ -1,3 +1,4 @@
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
 
 namespace AgentSmith.Server.Extensions;
@@ -18,9 +19,10 @@ internal static class RunStepQueryEndpoints
 
     internal static WebApplication MapRunStepQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/steps", GetRunStepsAsync);
-        app.MapGet("/api/runs/{runId}/steps/{stepIndex:int}/events", GetRunStepEventsAsync);
-        app.MapGet("/api/runs/{runId}/decisions", GetRunDecisionsAsync);
+        app.MapGet("/api/runs/{runId}/steps", GetRunStepsAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/steps/{stepIndex:int}/events", GetRunStepEventsAsync)
+           .Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/decisions", GetRunDecisionsAsync).Needs(Permissions.RunsRead);
         return app;
     }
 

@@ -1,3 +1,4 @@
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
 
 namespace AgentSmith.Server.Extensions;
@@ -14,8 +15,8 @@ internal static class RunPhaseQueryEndpoints
 {
     internal static WebApplication MapRunPhaseQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/phases", GetRunPhasesAsync);
-        app.MapGet("/api/runs/{runId}/phases/{phaseId}", GetRunPhaseAsync);
+        app.MapGet("/api/runs/{runId}/phases", GetRunPhasesAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/phases/{phaseId}", GetRunPhaseAsync).Needs(Permissions.RunsRead);
         return app;
     }
 

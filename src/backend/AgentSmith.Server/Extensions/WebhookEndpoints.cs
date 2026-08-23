@@ -13,10 +13,10 @@ internal static class WebhookEndpoints
 {
     internal static WebApplication MapWebhookEndpoints(this WebApplication app)
     {
-        app.MapPost("/webhook", (Delegate)HandleWebhookAsync);
-        app.MapPost("/webhook/github", (Delegate)HandleWebhookAsync);
-        app.MapPost("/webhook/gitlab", (Delegate)HandleWebhookAsync);
-        app.MapPost("/webhook/jira", (Delegate)HandleWebhookAsync);
+        app.MapPost("/webhook", (Delegate)HandleWebhookAsync).Anonymous("the sending platform signs its own delivery (p0506)");
+        app.MapPost("/webhook/github", (Delegate)HandleWebhookAsync).Anonymous("GitHub signs the delivery with the configured secret (p0506)");
+        app.MapPost("/webhook/gitlab", (Delegate)HandleWebhookAsync).Anonymous("GitLab authenticates with the configured webhook token (p0506)");
+        app.MapPost("/webhook/jira", (Delegate)HandleWebhookAsync).Anonymous("Jira authenticates with the configured webhook secret (p0506)");
         return app;
     }
 

@@ -1,6 +1,6 @@
-using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Server.Services.Adapters;
+using System.Text.Json.Nodes;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -8,7 +8,7 @@ internal static class TeamsEndpoints
 {
     internal static WebApplication MapTeamsEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/teams/messages", (Delegate)HandleTeamsActivityAsync);
+        app.MapPost("/api/teams/messages", (Delegate)HandleTeamsActivityAsync).Anonymous("a Bot Framework JWT from a different authority authenticates this, not our scheme");
         return app;
     }
 

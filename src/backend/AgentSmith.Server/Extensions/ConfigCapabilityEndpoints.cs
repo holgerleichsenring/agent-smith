@@ -1,8 +1,9 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
+using AgentSmith.Server.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgentSmith.Server.Extensions;
@@ -22,7 +23,8 @@ internal static class ConfigCapabilityEndpoints
         // defined presets; agent providers from the REGISTERED chat-client
         // builders — the same index ChatClientFactory resolves against.
         app.MapGet("/api/config/capabilities", ([FromServices] IEnumerable<IChatClientBuilder> builders) =>
-            Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))));
+            Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))))
+           .Needs(Permissions.ConfigRead);
 
         // p0392: what the server would say about a draft the operator has not saved.
         // p0391a made the server report what is missing once it is running; the editor
@@ -31,11 +33,13 @@ internal static class ConfigCapabilityEndpoints
         // never restates a requirement in TypeScript.
         app.MapPost("/api/config/projects/validate",
             ([FromBody] ProjectEntity draft, IConfigStore store, [FromServices] ConfigDraftRules rules) =>
-                Results.Ok(Views(rules.ForProject(draft, store.Catalog))));
+                Results.Ok(Views(rules.ForProject(draft, store.Catalog))))
+           .Needs(Permissions.ConfigWrite);
 
         app.MapPost("/api/config/trackers/validate",
             ([FromBody] TrackerEntity draft, [FromServices] ConfigDraftRules rules) =>
-                Results.Ok(Views(rules.ForTracker(draft))));
+                Results.Ok(Views(rules.ForTracker(draft))))
+           .Needs(Permissions.ConfigWrite);
 
         // p0345c: the repo picker's discovery cache — the p0281a last-good snapshot.
         // Unknown connection → 404; known-but-undiscovered → 200 with
@@ -51,7 +55,7 @@ internal static class ConfigCapabilityEndpoints
                     discovery?.DiscoveredAt,
                     discovery?.Repos.Select(r => new ConnectionRepoView(r.Name, r.DefaultBranch)).ToList()
                         ?? []));
-            });
+            }).Needs(Permissions.ConfigRead);
 
         return app;
     }

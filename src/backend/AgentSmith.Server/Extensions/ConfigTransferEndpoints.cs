@@ -1,8 +1,9 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Server.Security;
 using Microsoft.AspNetCore.Mvc;
 using static AgentSmith.Server.Services.Config.ConfigStudioWriteGuard;
 
@@ -20,7 +21,8 @@ internal static class ConfigTransferEndpoints
         // p0343b: the studio's "Export agentsmith.yml" — the canonical catalog as
         // loader-round-trippable YAML, served as a download.
         app.MapGet("/api/config/export.yml", (IConfigStore store) =>
-            Results.Text(store.ExportYaml(), "text/yaml"));
+            Results.Text(store.ExportYaml(), "text/yaml"))
+           .Needs(Permissions.ConfigExport, Permissions.SecretsRead);
 
         // p0352: the studio's "Import agentsmith.yml" — the DR/cutover counterpart of
         // export, over the DB entity-document store. Guarded like the CLI: an empty
@@ -51,7 +53,7 @@ internal static class ConfigTransferEndpoints
                     store.Load();
                     return Results.Ok(new { imported = writes.Count });
                 });
-            });
+            }).Needs(Permissions.ConfigImport, Permissions.SecretsWrite);
 
         return app;
     }
