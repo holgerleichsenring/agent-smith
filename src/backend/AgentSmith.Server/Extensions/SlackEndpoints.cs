@@ -10,10 +10,10 @@ internal static class SlackEndpoints
 {
     internal static WebApplication MapSlackEndpoints(this WebApplication app)
     {
-        app.MapPost("/slack/events", (Delegate)SlackEventEndpointHandler.HandleAsync);
-        app.MapPost("/slack/interact", (Delegate)HandleSlackInteractAsync);
-        app.MapPost("/slack/commands", (Delegate)HandleSlackCommandAsync);
-        app.MapPost("/slack/options", (Delegate)SlackOptionsEndpointHandler.HandleAsync);
+        app.MapPost("/slack/events", (Delegate)SlackEventEndpointHandler.HandleAsync).Anonymous("Slack signs the event delivery");
+        app.MapPost("/slack/interact", (Delegate)HandleSlackInteractAsync).Anonymous("Slack signs the interaction payload");
+        app.MapPost("/slack/commands", (Delegate)HandleSlackCommandAsync).Anonymous("Slack signs the slash-command payload");
+        app.MapPost("/slack/options", (Delegate)SlackOptionsEndpointHandler.HandleAsync).Anonymous("Slack signs the options request");
         return app;
     }
 
