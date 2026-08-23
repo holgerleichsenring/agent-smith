@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0509
+goal: "Every phase id the framework itself mints is read whole by the rules that check it, so no id silently collapses into another."
+
+applies_to: "backend (phase-record rules, phase id factory)"
+
+scope:
+  in: "The phase-record extraction patterns, so a ticket-derived id is read whole; tests for the factory that mints them; and the ratchet consequence of changing extraction."
+  out: "Introducing a new id shape, which is its own phase. Renaming anything that has shipped."
+
+decisions:
+  - key: |
+      THE FRAMEWORK MINTS AN ID ITS OWN RULES MISREAD. PhaseIdFactory.For builds
+      `p{digits-of-ticket}{letter}` — a real ticket produces `p19106a` — and WritePhaseRecord
+      writes it into every target repository as a phase file. PhaseRecordRuleTests extracts with
+      `p\d{4}[a-z]?`, unanchored, so `p19106a` is read as `p1910`. Two phases from the same
+      ticket collapse onto one id, duplicate-id sees a clash that is not one, the context key
+      does not match at all, and a `requires:` naming it resolves to a phase nobody wrote.
+      Measured, not supposed.
+  - key: |
+      IT HAS SINCE BITTEN THIS REPOSITORY'S OWN WORK, WHICH SETTLES THE PRIORITY. Writing a
+      predecessor phase as `p0503a-pre` — a shape the spec schema explicitly allows and which
+      `p0131c-pre` already shipped under — turned the duplicate-id rule red, because the
+      unanchored pattern collapses it onto `p0503a`. The house's own `-pre` convention is
+      unusable for anything new: `p0131c`/`p0131c-pre` and the five `p0169j-*` siblings all
+      collide today and survive only by sitting in the baseline. The predecessor was renamed to a
+      free number to get the suite green; the convention stays broken until this phase lands.
+  - key: |
+      IT WAS FOUND WHILE ARGUING ABOUT A HYPOTHETICAL, WHICH IS WHY IT SHIPS ALONE. The same
+      collapse was raised as an objection to a proposed year-prefixed id shape. The proposal is a
+      separate question and may not happen; this defect is already in production and does not
+      depend on it. PhaseIdFactory has no tests at all [[feedback_challenge_premises]].
+  - key: |
+      THE RATCHET FAILS IN BOTH DIRECTIONS, SO THE CHANGE MUST BE BYTE-IDENTICAL WHERE IT MATTERS.
+      phase-record-baseline.tsv lists the violations that stood when the rule was installed, and
+      a fixed entry MUST leave the baseline. Any change to extraction that alters how even one of
+      the existing specs is read shifts the violation set and fails the suite in a way that reads
+      like a regression. The counter branch of the pattern stays exactly as it is; the widening is
+      additive and anchored.
+  - key: |
+      THE ASSERTION THAT ALREADY EXISTS IS THE LOUD ONE, AND IT SHOULD STAY THAT WAY. A spec whose
+      phase field matches nothing fails with "must declare a `phase:` id". The context-key and
+      requires extractors skip silently instead. That asymmetry is worth keeping — one hard stop,
+      two soft ones — but the soft ones must not be the reason a real id goes unchecked.
+
+steps:
+  - id: an-id-is-read-to-its-end
+    action: "Anchor and widen the phase-record extraction so a ticket-derived id is read whole, leaving the counter branch byte-identical."
+  - id: the-factory-that-mints-them-is-tested
+    action: "Add tests for the phase id factory covering a long ticket number, the letter suffix across an epic, and a ticket id carrying non-digits."
+  - id: the-baseline-still-says-what-it-said
+    action: "Confirm the violation set is unchanged for every existing spec, and record any entry that legitimately leaves the baseline."
+
+tests:
+  - "PhaseId_TicketDerivedId_IsExtractedWhole"
+  - "PhaseId_TwoPhasesFromOneTicket_AreTwoIds"
+  - "PhaseId_ContextKeyForATicketDerivedId_IsMatched"
+  - "PhaseId_RequiresNamingATicketDerivedId_IsCheckedForExistence"
+  - "PhaseIdFactory_LongTicketNumber_KeepsEveryDigit"
+  - "PhaseIdFactory_SecondPhaseOfATicket_GetsTheNextLetter"
+  - "PhaseIdFactory_TicketIdWithNonDigits_KeepsOnlyTheDigits"
+  - "PhaseRecord_ExistingSpecs_ProduceTheSameViolationSetAsBefore"
+
+done:
+  - "a ticket-derived id is read whole by the spec, context and requires patterns"
+  - "two phases from one ticket no longer collapse onto one id"
+  - "the factory has tests, having had none"
+  - "the violation set for every existing spec is unchanged, verified before and after"
+  - "build green, full suite green"

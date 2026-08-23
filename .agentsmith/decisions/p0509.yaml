@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0509
+
+decisions:
+  - category: Implementation
+    chose: "The widened id is a SECOND alternative that only wins at the end of the value; the four-digit counter branch is untouched"
+    over: "Replacing p\\d{4}[a-z]? with p\\d+[a-z]?(-[a-z][a-z0-9-]*)? everywhere"
+    reason: |
+      A plain widening reads the phase field of some eighty legacy specs differently.
+      They put the whole slug there — p0176-operator-ux-polish, p0192-pre-commit-secret-scan,
+      p0169j-a-frozen-trail-persistence — and the record has always read them by PREFIX,
+      keeping only the id and discarding the description. Widening the tail turns
+      p0176 into p0176-operator, which the context has never recorded, so the unrecorded
+      rule gains eighty violations and the ratchet goes red in the direction that reads
+      like a regression. The tail is ambiguous by construction: p0169-pre-dashboard-bootstrap
+      and p0192-pre-commit-secret-scan are the same shape and mean opposite things, and
+      no pattern can tell them apart. Anchoring the wide branch to the END of the value
+      sidesteps the ambiguity entirely — a value that IS an id has nothing after it —
+      and every slug-bearing spec falls through to the reading it has always had.
+  - category: Implementation
+    chose: "The wide branch keeps the four-digit FLOOR (p\\d{4,}), widening only upward"
+    over: "p\\d+, any number of digits"
+    reason: |
+      Measured, not supposed: p\\d+ picks up p57a from p0111b's requires — a legacy
+      unpadded id from before p0100 zero-padding — and adds a dangling violation that
+      the four-digit reading never saw. The defect is ids that are LONGER than four
+      digits, so the floor stays where it is.
+  - category: Architecture
+    chose: "Reading is extracted to PhaseIdReader, and the record itself to PhaseRecord, parameterised by the reader"
+    over: "Editing the four regex literals in place inside PhaseRecordRuleTests"
+    reason: |
+      p0430's ratchet fails in BOTH directions, so a change to the reading is a change
+      to the debt and has to be provable rather than argued. With the reading as a
+      parameter, the old one can be kept beside the new one and every spec, context key
+      and requires entry in the repository read twice, which is what
+      PhaseRecord_ExistingSpecs_ProduceTheSameViolationSetAsBefore does. In place, the
+      only evidence available would have been "the suite is still green", which cannot
+      distinguish an unchanged violation set from a changed one that happens to fit the
+      baseline. The rule file also stops holding two responsibilities — how an id is
+      read and what counts as a violation.
+  - category: TradeOff
+    chose: "duplicate-id p0131c leaves phase-record-baseline.tsv; it is the phase's only baseline departure"
+    over: "Keeping the entry, or regenerating the whole baseline"
+    reason: |
+      p0131c-pre is a spec in its own right — the shape the schema documents, shipped
+      in done/, and named by p0131c's own requires:. It counted as a duplicate of
+      p0131c only because the reading stopped before its tail, which is the defect.
+      A fixed entry MUST leave the baseline, so the line goes and the header says why.
+      Regenerating instead would have rewritten eighty entries to change one and lost
+      the chance to see that nothing else moved. Measured before and after over all
+      705 specs: the unrecorded set, the dangling set and the planned/done overlap are
+      byte-identical, and duplicate-id is the single departure.
+  - category: Scope
+    chose: "The p0169j siblings keep colliding and stay in the baseline"
+    over: "Widening the tail far enough to separate p0169j-a from p0169j-d"
+    reason: |
+      Their phase field carries the full slug (p0169j-a-frozen-trail-persistence), so
+      separating them needs a tail pattern that stops after one segment — and that same
+      pattern reads p0176-operator-ux-polish as p0176-operator and
+      p0192-pre-commit-secret-scan as p0192-pre. The fix for those five is to write the id in
+      the phase field and leave the slug to the filename, which is a change to five
+      shipped specs and the context keys that name them, not to a regex. Named debt,
+      still in the baseline, not silently carried.
+  - category: Scope
+    chose: "PhaseIdFactory gets characterisation tests, not a change"
+    over: "Also lifting the six-digit ceiling that trims a longer ticket number"
+    reason: |
+      The factory was already correct for the case that bites: ticket 19106 mints
+      p19106a and has since it was written. It simply had no tests at all, so nothing
+      stated the shape the record has to be able to read back. The six-digit cap is
+      deliberate — an id is also a filename — and changing it is a change to the id
+      shape, which this phase's scope puts out of bounds. The three tests were green on
+      first run and are recorded as characterisation, not as a fix.
