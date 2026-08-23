@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0503e
+goal: "A server whose configured authority is unreachable tells an operator so instead of answering every dashboard call with a bare 401 — and it does that without latching a failure it can never clear, and without failing the probe that would restart it."
+
+applies_to: "backend (startup findings, auth pipeline, dashboard short circuit)"
+
+requires:
+  - p0503b
+
+scope:
+  in: "What a configured-but-unreachable authority should do, and the enumerated set of routes any answer must not touch. This spec is a question with its constraints measured, not a decided design — the step that resolves it is a decision, and the implementation follows it."
+  out: >
+    Validation of a reachable authority, the policies and the enforce switch — *a token is
+    validated against one authority*. Roles and the identity endpoint — *a claim becomes a
+    role becomes a permission*. Retrying, caching or replacing the discovery manager, which is
+    the SDK's job and not ours.
+
+decisions:
+  - key: |
+      THE ROUTES ARE ALWAYS MAPPED, AND THAT PART IS NOT OPEN. p0391a ruled that a server which
+      cannot tell you what is wrong leaves you unable to act, and
+      tests/AgentSmith.Tests/Server/StartupResilienceTests.cs exists so a reintroduced throw
+      goes red. Refusing to MAP the dashboard API on an unreachable authority would need an
+      eager discovery fetch at boot — the external dependency p0391a removed — and would turn a
+      thirty-second identity-provider blip into a permanently dashboard-less pod.
+  - key: |
+      THE OPEN QUESTION IS WHEN THE SERVER LEARNS, AND BOTH ANSWERS ARE WRONG IN A DIFFERENT
+      WAY. A BOOT PROBE gives a sticky latch: nothing re-runs it, and the only callers of
+      IStartupFindings.Clear are DbConfigurationLoader.cs:43 for the database subsystem and
+      RawConfigMaterializer.cs:37 for the configuration subsystem — neither would ever clear an
+      auth finding, so an authority that recovers leaves a permanent red banner and a permanent
+      short circuit until someone restarts the pod. LAZY RECORDING self-heals, but the first
+      caller after the outage pays for it: Microsoft.IdentityModel's ConfigurationManager
+      throws IDX20803 out of the request, which the pipeline turns into a 500 rather than a
+      finding, and its RefreshInterval defaults to five minutes, so "the next request succeeds"
+      — the earlier draft's done criterion — is likely false for the following five minutes.
+      Neither of those is a design; picking one with its cost written down is.
+  - key: |
+      A BLOCKING FINDING MUST CARRY Project: null OR IT DISABLES A PROJECT'S TRIGGERS.
+      StartupFindingsQueries.BlockingReason (StartupFindingsQueries.cs:21-27) matches a
+      blocking finding by project name, ProjectResolver.cs:88 consults it on every dispatch and
+      TrackerDiscoveryQueryBuilder.cs:77 on the poller's claim path. An auth finding scoped to a
+      project would silently switch that project off — including for a polling-only deployment
+      that never exposes an HTTP surface at all. This is the same trap p0506 documented and
+      reversed for the webhook finding.
+  - key: |
+      /health CANNOT BE PART OF ANY 503, BECAUSE IT IS BOTH PROBES.
+      deploy/k8s/8-deployment-server.yaml:128 is the livenessProbe path and :136 the
+      readinessProbe path, and both are /health. A 503 there is not a signal, it is a restart
+      loop, and the restarted pod meets the same unreachable authority. The exclusion set is
+      enumerated rather than described: /health, /api/config/findings — the channel that
+      reports this very failure — the four webhook receivers, Slack's four routes and Teams,
+      which answer other systems on their own authentication, and GET /api/openapi.json. What
+      remains is the set of dashboard routes carrying a RequiresPermission declaration, and
+      only those.
+  - key: |
+      THE SHORT CIRCUIT MUST CARRY THE REASON, OR IT IS WORSE THAN THE 401 IT REPLACES. The
+      whole value of answering 503 instead of 401 is that the body says the authority could not
+      be reached and names it. A 503 with an empty body tells an operator less than the bare
+      401 does, because at least a 401 is a familiar shape.
+  - key: |
+      A FINDING THAT NEVER CLEARS IS A FINDING OPERATORS LEARN TO IGNORE. Whatever the resolved
+      design, it owes an answer to "what makes this go away when the authority comes back" that
+      is not "restart the pod" — or it must say in the finding text that a restart is what
+      clears it, so nobody waits for a banner that will not move.
+
+steps:
+  - id: the-question-is-answered-before-it-is-built
+    action: "Decide between the boot probe and lazy recording with the cost of each written into the phase's decision log, including what clears the finding and what the first caller after an outage receives."
+  - id: an-unreachable-authority-is-recorded-without-scoping-it-to-a-project
+    action: "Record the finding with Project null so no trigger, webhook or poller path is disabled by it."
+  - id: the-short-circuit-knows-what-it-must-not-touch
+    action: "Answer the enumerated dashboard route set with a 503 carrying the reason, leaving health, findings, the machine-called surfaces and the openapi route untouched."
+  - id: the-probe-path-is-proven-untouched
+    action: "Assert that both k8s probe paths still answer 200 while the authority is unreachable."
+
+tests:
+  - "Startup_AuthorityUnreachable_RoutesStayMapped"
+  - "Startup_AuthorityUnreachable_DoesNotDisableAnyTrigger"
+  - "Startup_AuthorityUnreachable_HealthStillAnswers200"
+  - "Startup_AuthorityUnreachable_FindingsEndpointStillAnswers"
+  - "Startup_AuthorityUnreachable_AWebhookIsStillAccepted"
+  - "Startup_AuthorityUnreachable_ADashboardRouteAnswers503CarryingTheReason"
+  - "Startup_AuthorityUnreachable_TheFindingCarriesNoProject"
+  - "Startup_AuthorityRecovers_TheFindingClearsTheWayTheDecisionSaysItDoes"
+
+done:
+  - "the choice between a latching probe and self-healing lazy detection is recorded with its cost"
+  - "an unreachable authority disables no trigger and no poller"
+  - "both k8s probe paths answer 200 throughout"
+  - "the 503 reaches only the enumerated dashboard routes and carries the reason"
+  - "the finding either clears on its own or says in its own text that it will not"
+  - "build green, full suite green"
