@@ -72,6 +72,13 @@ add_literal "jira-email"          "${JIRA_EMAIL:-}"
 add_literal "slack-bot-token"     "${SLACK_BOT_TOKEN:-}"
 add_literal "slack-signing-secret" "${SLACK_SIGNING_SECRET:-}"
 
+# p0506: the webhook shared secrets. jira-webhook-secret has been declared in
+# 4-secret-template.yaml since it was written and nothing ever wrote it.
+add_literal "github-webhook-secret" "${GITHUB_WEBHOOK_SECRET:-}"
+add_literal "gitlab-webhook-token"  "${GITLAB_WEBHOOK_TOKEN:-}"
+add_literal "azdo-webhook-secret"   "${AZDO_WEBHOOK_SECRET:-}"
+add_literal "jira-webhook-secret"   "${JIRA_WEBHOOK_SECRET:-}"
+
 # Redis URL for K8s Jobs: the in-cluster Redis service name.
 # Override via REDIS_URL in .env if your Redis runs elsewhere.
 add_literal "redis-url" "${REDIS_URL:-redis:6379}"
@@ -95,7 +102,8 @@ import sys, json
 data = json.load(sys.stdin)
 sensitive = {'anthropic-api-key','openai-api-key','gemini-api-key','github-token',
              'azure-devops-token','gitlab-token','jira-token','slack-bot-token',
-             'slack-signing-secret'}
+             'slack-signing-secret','github-webhook-secret','gitlab-webhook-token',
+             'azdo-webhook-secret','jira-webhook-secret'}
 for k in sorted(data.keys()):
     val = '***' if k in sensitive else '(set)' if data[k] else '(empty)'
     print(f'  {k:<28} {val}')
