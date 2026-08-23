@@ -1,0 +1,12 @@
+bundle:
+  name: sample_bundle
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-0000000000000000.0.example.invalid

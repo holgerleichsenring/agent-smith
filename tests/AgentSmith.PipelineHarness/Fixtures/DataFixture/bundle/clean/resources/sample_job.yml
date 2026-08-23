@@ -1,0 +1,9 @@
+resources:
+  jobs:
+    sample_job:
+      name: sample_job
+      max_concurrent_runs: 1
+      tasks:
+        - task_key: main
+          notebook_task:
+            notebook_path: ../src/main.py
