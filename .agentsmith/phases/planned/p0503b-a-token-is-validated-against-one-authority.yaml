@@ -1,0 +1,160 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0503b
+goal: "A caller's token is validated against one configured authority, every catalogued permission becomes a policy the route metadata resolves to, and a caller who is short a permission is told which one — all behind a switch that is off until an operator turns it on."
+
+applies_to: "backend (auth pipeline, policy registration, bootstrap configuration, startup findings)"
+
+requires:
+  - p0503a
+  - p0349
+  - p0391a
+
+packages:
+  - "Microsoft.AspNetCore.Authentication.JwtBearer (new — no reference exists anywhere in the repo today)"
+
+scope:
+  in: "JwtBearer against one OIDC authority read from bootstrap configuration, the endpoint convention that turns p0503a's metadata into policies, one policy per catalogued permission, the enforce switch defaulting off, a 403 body naming the missing permission, an advisory finding when no authority is configured, and the booted-server fixture with a local token issuer."
+  out: >
+    Roles, group mapping, custom roles, the admin grant and the identity endpoint — *a claim
+    becomes a role becomes a permission*. What an unreachable authority should do — *an
+    authority that cannot be reached still answers*, which is an open question and not a
+    decided one. Attribution — *the trail names the principal*. The dashboard's PKCE login and
+    the flip of the enforce default — *the dashboard signs in*.
+
+decisions:
+  - key: |
+      THE METADATA IS TRANSLATED, NOT REPLACED, AND THAT IS WHY p0503a COULD SHIP ALONE.
+      p0503a attached RequiresPermission and AnonymousRoute — types the routing middleware does
+      not inspect. Here an endpoint convention reads that metadata and calls
+      RequireAuthorization with the matching policy name, and it runs only where the
+      authentication and authorization middleware are registered. Route declaration and route
+      enforcement stay two commits apart, and neither half is inert-by-accident.
+  - key: |
+      THE PACKAGE IS NEW. Measured: nothing in the repo references
+      Microsoft.AspNetCore.Authentication.JwtBearer, and there is no
+      Directory.Packages.props — versions are pinned per project file, so the reference is
+      added to AgentSmith.Server.csproj pinned the way its neighbours are.
+  - key: |
+      THE MIDDLEWARE IS REGISTERED ONLY WHEN AN AUTHORITY IS CONFIGURED. Authorization
+      middleware with no scheme registered fails every request with a 500 rather than a 401.
+      An operator preparing an authority must not brick their own dashboard before it can
+      obtain a token, so no authority means no middleware, no convention and no policies —
+      exactly today's behaviour, with the annotations sitting inert as p0503a proved they do.
+  - key: |
+      THE AUTH BLOCK IS BOOTSTRAP CONFIGURATION, AND `persistence` IS THE PRECEDENT — AT A
+      PRICE THAT IS COUNTED, NOT WAVED AT. Config moved into the database in p0349 and became
+      live-reloadable in p0353; persistence is the one doc type read from file and environment
+      before the store exists. Auth is boot-critical in the same sense: p0349 ruled that the
+      Config Studio endpoints AND THEIR AUTH must run without a loaded config, so the thing
+      that fixes auth cannot sit behind auth that is broken. A second bootstrap-only block is
+      ten sites across nine files, not "copy persistence": BootstrapConfig.cs:11,
+      BootstrapConfigReader, RawAgentSmithConfig.cs (next to Persistence at :34),
+      DbConfigurationLoader.ApplyBootstrap:77, ConfigDocTypes.cs,
+      ConfigDocumentTaxonomy.cs:40, ConfigSettingsAccess.cs:17 and :46, the import filter at
+      ConfigStudioEndpoints.cs:111, and Cli/Commands/ConfigCommand.cs:100. Honest cost, stated
+      rather than discovered: nothing here is live-reloadable, so changing the authority costs
+      a restart.
+  - key: |
+      SKIPPING THE TAXONOMY ENTRY WOULD BE A SILENT DATA-LOSS BUG, SO IT IS DECIDED IN WRITING.
+      ConfigYamlExporter serializes the RawAgentSmithConfig that ConfigDocumentTaxonomy
+      ASSEMBLES, with OmitNull. With no descriptor for the auth type the block is never
+      assembled, so `agentsmith config export` writes a file that quietly lacks it and a
+      re-import loses the authority with no error anywhere. The descriptor ships, and auth
+      joins persistence in both exclusion lists (ConfigSettingsAccess.cs:17 and :46) so it
+      exports but is neither studio-editable nor importable.
+  - key: |
+      A TYPO IN THE AUTH BLOCK IS SWALLOWED TODAY. RawConfigYaml.cs:19 builds its deserializer
+      with IgnoreUnmatchedProperties(), so `authortiy:` deserializes to an auth block with
+      every field null and produces no error on any surface. A finding fires on "an auth block
+      is present and nothing in it is usable", because the failure it otherwise produces is
+      "authentication silently did not happen".
+  - key: |
+      NO AUTHORITY IS AN ADVISORY FINDING. This reverses the earlier draft.
+      StartupFindingsResponse.From (StartupFindingsResponse.cs:16-21) sets
+      `Degraded = blocking > 0`, and DegradedBanner renders on that flag alone — a blocking
+      finding would paint the red "running degraded" banner across every existing installation
+      the moment it upgrades, for a feature nobody has turned on. It also carries
+      `Project: null`, because StartupFindingsQueries.BlockingReason
+      (StartupFindingsQueries.cs:21-27) matches by project name and a project-scoped blocking
+      finding disables that project's triggers, poller included.
+  - key: |
+      THE ENFORCE SWITCH DEFAULTS OFF, AND THAT IS THE PROMISE THIS PHASE KEEPS. With an
+      authority configured and the switch off, tokens are validated when presented and nothing
+      is refused for lacking one. The default flips in *the dashboard signs in*, which is the
+      one commit where the dashboard can actually obtain a token, and therefore the one commit
+      where flipping it is honest.
+  - key: |
+      A 403 THAT NAMES THE MISSING PERMISSION IS THE ONLY FEEDBACK A WRONG MAPPING GIVES. With
+      a permission model, the difference between a support ticket and a self-service fix is the
+      word `config.write` in the body. A route requiring more than one permission names each
+      one the caller is short of, not the first.
+  - key: |
+      THE TEST HOST IS AN EXTRACTION, AND THE ISSUER IS THE ONLY NEW THING.
+      StartupResilienceTests.cs:180 already boots the real server through
+      ServerHostFactory.CreateAsync, binds Kestrel on an ephemeral port and drives it with a
+      real HttpClient — it is lifted into a shared fixture rather than grown a second time,
+      because p0391a's guarantees depend on there being exactly one boot path. It is already
+      [Collection(EnvVarCollection.Name)] and the fixture stays in that collection. What is new
+      is a local issuer: signing key, discovery document, issuer and audience, without which
+      the expiry and mismatch tests assert nothing.
+  - key: |
+      NARROWING THE ANONYMOUS DIAGNOSTICS IS REFUSED, NOT DEFERRED — DO NOT RE-PROPOSE IT. The
+      draft wanted /health and /api/config/findings to give an anonymous caller subsystem and
+      severity only, keeping the reason for an authenticated one. Measured:
+      src/dashboard/src/lib/findingsApi.ts sends no Authorization header on that fetch, and
+      DegradedBanner.tsx renders `f.reason` for each blocking finding. With enforcement off —
+      which is every existing deployment and the default this phase ships — every dashboard
+      would show a degraded banner with the reasons blanked, falsifying this phase's own "with
+      enforcement off nothing changes" criterion. It is also self-defeating: the failure it
+      would hide the details of is a broken authority, and a broken authority makes every
+      caller anonymous. There is no follow-up phase for it.
+
+steps:
+  - id: the-authority-is-read-before-the-store-exists
+    action: "Add the auth block to bootstrap configuration across all ten sites, exported like persistence and excluded from the studio and from import."
+    new:
+      - "AuthConfig: authority, audience, enforce — bootstrap-only, not live-reloadable"
+  - id: a-token-is-validated-against-one-authority
+    action: "Register JwtBearer authentication and the authorization middleware only when an authority is configured, validating issuer, audience, lifetime and signature."
+  - id: the-metadata-becomes-a-policy
+    action: "Register one authorization policy per catalogued permission and add the endpoint convention that turns RequiresPermission into RequireAuthorization and AnonymousRoute into no policy at all."
+    new:
+      - "PermissionPolicyConvention: RequiresPermission -> the policies it names, all required"
+  - id: a-refusal-names-what-was-missing
+    action: "Answer a failed permission check with a 403 body naming every permission the caller was short of."
+  - id: an-unconfigured-or-unusable-auth-block-says-so
+    action: "Record an advisory, project-less startup finding when no authority is configured, and a second one when an auth block is present but nothing in it is usable."
+  - id: the-assertions-get-a-host-and-an-issuer
+    action: "Extract the booted-server harness into a shared fixture and add a local token issuer so a 401 and a 403 are observable through the real pipeline."
+    new:
+      - "BootedServerFixture: the extracted host boot, in the env-var collection"
+      - "LocalTokenIssuer: signing key, discovery document, issuer, audience, expiry"
+
+tests:
+  - "Endpoint_NoToken_Returns401"
+  - "Endpoint_ExpiredToken_Returns401"
+  - "Endpoint_WrongIssuer_Returns401"
+  - "Endpoint_WrongAudience_Returns401"
+  - "Endpoint_TamperedSignature_Returns401"
+  - "Policy_MissingPermission_Returns403NamingIt"
+  - "Policy_RouteRequiringTwoPermissions_NamesBothWhenBothAreMissing"
+  - "Convention_RequiresPermission_ResolvesToTheMatchingPolicy"
+  - "Convention_AnonymousRoute_GetsNoPolicy"
+  - "Enforce_SwitchOff_EveryRouteAnswersAsBefore"
+  - "Enforce_SwitchOn_TheAnonymousRoutesStayReachable"
+  - "Startup_NoAuthorityConfigured_RecordsAnAdvisoryFindingWithNoProject"
+  - "Startup_NoAuthorityConfigured_DoesNotReportDegraded"
+  - "Startup_AuthBlockPresentButUnusable_RecordsAFinding"
+  - "Bootstrap_AuthBlock_SurvivesExportAndReimport"
+  - "Bootstrap_AuthBlock_IsNotEditableThroughTheStudio"
+
+done:
+  - "a token is validated against one configured authority and a bad one is a 401"
+  - "every catalogued permission is a policy, and p0503a's metadata resolves to it"
+  - "a caller short a permission gets a 403 naming each one"
+  - "with no authority configured, no middleware is registered and nothing changes"
+  - "with the switch off, an existing deployment answers exactly as it does today"
+  - "the auth block round-trips through export and import and cannot be edited in the studio"
+  - "the no-authority finding is advisory, project-less, and turns no banner red"
+  - "one boot path, one fixture, and a local issuer the expiry tests actually use"
+  - "build green, full suite green"

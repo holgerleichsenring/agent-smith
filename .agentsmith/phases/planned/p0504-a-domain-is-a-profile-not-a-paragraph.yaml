@@ -1,0 +1,184 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0504
+goal: "A repository declares a domain in its own context.yaml, and that one word brings a toolchain image and a set of verification commands from one versioned profile."
+
+applies_to: "backend (context.yaml shape and schema, sandbox image resolution, verify stage resolution, sandbox provisioning) + skills catalog (profile definition, packaging, validator)"
+
+scope:
+  in: "Profile definition and packaging in the skills catalog, `meta.domain` in context.yaml, the image and verify-command layers it feeds, and refusal of an unknown domain before a sandbox exists."
+  out: "Profile prerequisites, which need the prerequisites field to become an ordered list run through a shell — the successor *a profile can install what its image lacks*. Publishing project_domain to the concept vocabulary — the successor *a domain is a fact skills can act on*, worth shipping only once a coding run consults activation at all. Prose instructions to the master, ever."
+
+decisions:
+  - key: |
+      THE PROFILE LIVES WHERE THE SKILLS LIVE. profiles/<name>/profile.yaml in
+      agent-smith-skills, shipped in the pinned tarball. Carried in agentsmith.yml it would be
+      copied into every client project and drift within a month; carried in the binary it would
+      need a release per domain. Two mechanical consequences an earlier draft missed:
+      package.sh's SOURCES is (patterns principles references skills) and would not ship a
+      profiles/ directory at all, and validate-skills.sh is 211 lines of grep with no YAML
+      parser, so validating a profile is new capability there rather than an existing check.
+  - key: |
+      THE DECLARATION BELONGS TO THE REPOSITORY, NOT THE PROJECT. Every other toolchain fact is
+      per-context: lang, image, resources and prerequisites all live in a repository's
+      context.yaml and reach the run as RemoteContextDiscovery. A project-level declaration
+      would be applied project-wide, because PipelineSandboxCoordinator builds one spec per
+      discovery but from the single projectConfig — so a project holding a .NET repo and a data
+      repo would hand the .NET sandbox the data image and fail its build with "command not
+      found".
+  - key: |
+      IT SITS UNDER meta:, AND THAT IS WHAT MAKES THE IMAGE REACHABLE AT ALL.
+      WriteContextYamlToolHost rejects any context.yaml carrying a stack block without
+      stack.image, and the operator has ruled that a declared stack.image always wins. Under
+      stack:, a data repository declaring a domain would be FORCED to name an image, and the
+      profile's image would be unreachable for every repository agent-smith initialised itself
+      — the phase would ship a branch that never executes. Under meta: a context may declare a
+      domain and no stack block at all, and the mandatory-image rule learns that a domain
+      supplies one. A context that names its own image keeps it, untouched.
+  - key: |
+      A DOMAIN AND AN IMAGE MUST CORRELATE, SO A MISMATCH IS A REFUSAL, NOT A RANKING. `domain:
+      databricks` beside a .NET SDK image is not a preference conflict — it is a contradiction in
+      one file, and picking either side silently picks one horn of it. The profile therefore
+      DECLARES which images it is compatible with: its own, plus any the operator lists as
+      carrying the same tools. A context declaring a domain and no image gets the profile's; one
+      declaring a compatible image keeps it, so the operator's ruling stands untouched; one
+      declaring an image the profile does not know refuses the run and names both, at the same
+      gate an unknown domain refuses. The check is declarative and needs no pull.
+  - key: |
+      THIS REPLACES A WEAKER CONSTRUCTION AND REMOVES A WHOLE FAILURE MODE. An earlier draft let a
+      foreign image run the profile's commands and improved the error message when they failed
+      with "command not found". A better message is not a gate: the run still burned a sandbox to
+      discover a contradiction that was legible in the file [[feedback_design_not_just_fixes]].
+  - key: |
+      THE PROFILE IS CONSULTED IN THE SKIP, NOT AFTER DISCOVERY. Corrects an earlier draft that
+      had the order wrong with the code in front of it. ResolveStagesAsync runs: declared ci
+      commands, then the skip for a repository that is null-mapped or not .NET, and only THEN
+      .NET entry-point discovery. Placing the profile after discovery puts it in a branch a data
+      repository can never reach — green tests on the .NET path, never firing in production.
+      The profile replaces the skip's empty return. A .NET repository is unaffected: it does
+      not enter that branch.
+  - key: |
+      "DECLARED CI COMMANDS" ARE THE ANALYZER'S GUESS, NOT THE REPOSITORY'S WORD. They are
+      produced fresh every run by the agentic project analyzer and decoded from its JSON;
+      context.yaml carries no ci block. VerificationCommand.CanFail exists because that analyzer
+      once wrote `echo Build command placeholder` as a repository's build stage. The profile
+      therefore defers to a guess, and the guess wins because it saw the files. Whether a data
+      repository draws a guess at all is UNPROVEN and is measured by *a data repo is verified
+      before it is deployed*, which is independent of this phase and does not block it.
+  - key: |
+      THE PROFILE IMAGE IS THE LAST OPERATOR-SHAPED LAYER BEFORE CONVENTION, AND IT IS REFUSED
+      RATHER THAN DROPPED. Real order today: sandbox.toolchain_image, the per-language operator
+      table (p0245, which an earlier draft omitted), the LLM-named stack.image, the language
+      convention table, a generic fallback. The profile sits between stack.image and the
+      convention table. It passes the same p0265 trusted-registry and git-bearing check — a
+      catalog author forgets that a sandbox runs git clone inside the image exactly as an LLM
+      does — but where an LLM-named image falls through to the table, a profile image that fails
+      the gate REFUSES: falling back would run the profile's commands in an image that never
+      carried them, which is the failure this phase exists to prevent.
+  - key: |
+      AN UNKNOWN DOMAIN IS REFUSED WHERE THE VALUE FIRST EXISTS. Not at config load: the loader
+      is synchronous, runs on dozens of poll and webhook paths, and cannot see the catalog,
+      which is resolved FROM the config one line later. Not at run admission either — no
+      repository has been read there, and only the code preset carries a ScopeRepos step at
+      all. The one site every preset passes with discoveries in hand and no pod created is
+      PipelineSandboxCoordinator, between applying the scoped contexts and building the specs.
+      A doctor check answers the same question without a run, reading each configured
+      repository remotely.
+  - key: |
+      A STALE PIN REFUSES, AND THE MESSAGE MAKES THAT READABLE. A domain the resolved catalog
+      does not carry is indistinguishable from a typo, so it is the same refusal — degrading to
+      "no domain" would silently drop the gate, which is the outcome this phase exists to
+      remove. What makes it survivable is the message: the value read, the repository and
+      context that carried it, and the catalog's resolved source and version, because with four
+      source modes "the pin" names nothing an operator can check.
+  - key: |
+      THE COMMANDS ARE AN ORDERED NAMED LIST, THE WIDENING IS CHEAP, AND FAIL-FAST STAYS.
+      VerifyOutcome.Stage has four consumers and every one interpolates it into human-readable
+      text; nothing switches on "build" or "test" and the dashboard never sees it. Verification
+      still stops a repository at the first non-zero exit — with two stages that lost nothing,
+      with four it means one red run surfaces one gate. Changing that is a separate behavioural
+      decision and is not smuggled in here.
+  - key: |
+      THE FIELD MUST SURVIVE FIVE SHAPES, AND THE SCHEMA IS THE ONE ALWAYS FORGOTTEN. The
+      serializer's private block class is what YamlDotNet actually deserializes into and drops
+      an undeclared key without a warning; the summary is built positionally; RemoteContextDiscovery
+      is constructed at two sites; the writer emits. And .agentsmith/context.schema.json sets
+      additionalProperties false — p0265 shipped stack.image without it and p0272 shipped
+      prerequisites without it, both recorded. This is the third time and the first that says so
+      in advance.
+  - key: |
+      TWO CONTEXTS SHARING AN IMAGE COLLAPSE INTO ONE SANDBOX, AND ONLY ONE DOMAIN WOULD SURVIVE.
+      The coordinator groups discoveries by resolved image and keeps a representative; verify
+      reads that representative. Whether a domain is honoured would then depend on discovery
+      order. The full per-sandbox context list is already published and is what the verify path
+      reads instead.
+  - key: |
+      NO version: FIELD ON THE PROFILE. The catalog is versioned as a whole and its version is
+      already in the refusal message. A second version nobody reads is a field that is wrong
+      within two releases.
+  - key: |
+      THE EXTRACTIONS COME FIRST, AND THEY ARE NOT FREE LINES. All seven files this touches sit
+      in the file-length ratchet baseline and may only shrink — ExecutePipelineUseCase 655,
+      VerifyPhaseHandler 335, PipelineSandboxCoordinator 314, SandboxSpecBuilder 241,
+      WriteContextYamlToolHost 193, SandboxLanguageResolver 181, ContextYamlSerializer 139 —
+      and ResolveStagesAsync is 59 lines against a 20-line cap. A stage resolver, an image
+      resolution chain and a meta reader come out first, each defensible on its own and each
+      carrying real regression risk in load-bearing code.
+
+steps:
+  - id: the-files-that-must-shrink-shrink
+    action: "Extract the verify stage resolver, the image resolution chain and the context-meta reader so every touched file leaves the ratchet with room, with behaviour unchanged and the suite green before any feature lands."
+  - id: a-profile-is-a-file-in-the-catalog
+    action: "Define profiles/<name>/profile.yaml in agent-smith-skills — name, image, ordered verify commands — add profiles to package.sh SOURCES, and validate the shape and the image's registry and git-bearing tag in validate-skills.sh."
+    new:
+      - "profiles/README.md — the profile shape"
+      - "backend profile catalog contract + reader rooted at the resolved catalog path"
+  - id: a-repository-declares-its-domain
+    action: "Add `domain:` to context.yaml meta across the serializer's block shape, the summary, both discovery construction sites, the writer and .agentsmith/context.schema.json, and relax the mandatory-image rule when a domain is present."
+  - id: an-unknown-domain-never-reaches-a-sandbox
+    action: "Refuse in the sandbox coordinator before any pod exists, naming the value, the repository and context that carried it, and the catalog's resolved source and version; add the same check to doctor."
+  - id: the-profile-names-an-image-the-context-did-not
+    action: "Insert the profile image between the LLM-named stack.image and the language convention table, refusing rather than falling back when it fails the trusted-registry or git-bearing check."
+  - id: the-profile-brings-the-gate-nothing-else-provided
+    action: "Resolve verify stages from the profile's ordered command list inside the skip branch, reading the per-sandbox context list rather than the grouped representative, and keeping the CanFail filter."
+  - id: an-incompatible-image-refuses-before-the-sandbox
+    action: "Refuse a context whose declared image is absent from its profile's compatible list, naming both, at the same gate that refuses an unknown domain."
+
+tests:
+  - "ContextYaml_MetaDomainRoundTrips_ThroughReaderWriterAndDiscovery"
+  - "ContextYaml_DomainDeclaredWithoutAStackImage_IsAccepted"
+  - "ContextYaml_StackBlockWithoutImageAndWithoutDomain_IsStillRejected"
+  - "ContextSchema_MetaDomain_Validates"
+  - "Profile_UnknownDomain_RefusesBeforeAnySandbox_NamingValueContextSourceAndVersion"
+  - "Profile_KnownDomain_ResolvesFromThePinnedCatalog"
+  - "Profile_NoDomainDeclared_BehavesExactlyAsBefore"
+  - "Profile_ImageFailsTheGitBearingGate_RefusesRatherThanFallingBack"
+  - "ResolveImage_StackImageAndProfileBothPresent_TheStackImageWins"
+  - "ResolveImage_ProfileSetAndNoStackImage_BeatsTheLanguageTable"
+  - "ResolveImage_PerLanguageOperatorTable_StillWinsOverTheProfile"
+  - "ResolveImage_ProjectToolchainOverride_StillWinsOutright"
+  - "ResolveStages_RepoHasDeclaredCiCommands_TheProfileIsNotConsulted"
+  - "ResolveStages_NonDotnetContextWithADomain_RunsTheProfileCommandsInOrder"
+  - "ResolveStages_DotnetContext_StillDiscoversItsOwnEntryPoint"
+  - "ResolveStages_ProfileCommandCannotFail_IsDroppedLikeADeclaredOne"
+  - "ResolveStages_FirstCommandFails_TheRestDoNotRun"
+  - "ResolveStages_NoDomain_StillSkips"
+  - "MixedProject_DotnetContextAndDataContext_EachSandboxGetsItsOwnImage"
+  - "SharedImage_TwoContextsOneSandbox_EachContextKeepsItsOwnDomain"
+  - "Compatibility_DomainAndACompatibleImage_KeepsTheContextImage"
+  - "Compatibility_DomainAndAnUnknownImage_RefusesNamingBoth"
+  - "Compatibility_DomainAndNoImage_TakesTheProfileImage"
+  - "Packaging_ProfilesDirectory_IsInTheTarball"
+
+done:
+  - "a context declaring a domain gets that profile's image and those commands"
+  - "a context in the same project that declares none is untouched, image and gate alike"
+  - "a context may declare a domain and no image; a compatible image is kept; an incompatible one refuses before a sandbox"
+  - "an unknown domain refuses before a sandbox exists, naming context, source and version"
+  - "a .NET context still discovers its own entry point in a domain project"
+  - "the profile ships in the tarball and a bad profile image refuses rather than falling back"
+  - "meta.domain is in .agentsmith/context.schema.json"
+  - "every touched file left the ratchet baseline with room before the feature landed"
+  - "no profile text reaches the master prompt"
+  - "the docker harness tier is green for the run path this phase changes"
+  - "the packaged masters assert the new domain wording before the pin moves"
+  - "build green, full suite green, skills validator green"

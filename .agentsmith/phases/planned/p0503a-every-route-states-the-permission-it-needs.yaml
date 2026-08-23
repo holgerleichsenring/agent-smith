@@ -1,0 +1,208 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0503a
+goal: "Every route the server maps states which permission a caller needs, in metadata that changes nothing at runtime, and a route that states nothing fails the build."
+
+applies_to: "backend (permission catalog, route metadata, all endpoint extensions, the hub's map call, route guard test)"
+
+requires:
+  - p0510
+  - p0506
+
+scope:
+  in: "The closed permission catalog, the built-in roles as bundles over it, an inert permission declaration on every mapped route and on the hub, explicit anonymous declarations with a reason for the machine-called surfaces, and the guard test that enumerates the real route table against a golden."
+  out: >
+    Authentication, policy registration, role resolution and the enforce switch — *a token
+    is validated against one authority* and its successors. The hub token and log scrubbing
+    — *the hub carries a token and the token is not logged*. Per-project scope — a
+    permission on a route says nothing about WHICH run or WHICH project, and never will.
+
+decisions:
+  - key: |
+      SUPERSEDES p0301, WHICH WAS NEVER IMPLEMENTED. That spec had three roles, a cookie
+      handler and AGENTSMITH_UI_API_ENABLED kept as an auth-off mode. It was also wrong about
+      that env-var: DashboardApiExtensions.IsEnabled gates whether the dashboard API is MAPPED
+      and its services REGISTERED, which is a different question from who may call it. The
+      file leaves planned/ in this commit, and the planned entry that points at it —
+      .agentsmith/contexts/default/context.yaml:663 — is replaced by a done line, or the
+      context still advertises a phase whose file is gone.
+  - key: |
+      RequireAuthorization WOULD 500 EVERY ANNOTATED ROUTE TODAY, SO THE PERMISSION IS OUR OWN
+      METADATA. This is the correction that reverses the earlier draft, which claimed
+      annotation was inert. It is not: Microsoft.AspNetCore.Routing.EndpointMiddleware throws
+      "Endpoint ... contains authorization metadata, but a middleware was not found that
+      supports authorization" when an executed endpoint carries IAuthorizeData and the
+      authorization middleware has not run, and RequireAuthorization adds exactly that.
+      Measured: `grep -rn "UseAuthorization\|AddAuthorization\|UseAuthentication" src/` returns
+      nothing. So the annotation would have turned 63 of 75 routes into 500s on every existing
+      deployment and taken ConfigStudioApiSmokeTests and CapabilityWireShapeTests — which
+      self-host the real routes on a loopback port — down with them. The declaration is
+      `.WithMetadata(new RequiresPermission("config.write"))`: our type, implementing nothing
+      the framework inspects, therefore genuinely inert. *A token is validated against one
+      authority* translates it into a policy through an endpoint convention, at the one moment
+      the pipeline exists. Suppressing the framework check through
+      RouteOptions.SuppressCheckForUnhandledSecurityMetadata was the alternative: it disables
+      the guard globally and forever, to buy a property our own metadata type has for free.
+  - key: |
+      AllowAnonymous IS INERT, AND IT CARRIES A REASON ALONGSIDE. AllowAnonymousAttribute
+      implements IAllowAnonymous only, not IAuthorizeData, so EndpointMiddleware never looks at
+      it. The anonymous declaration is that attribute plus an AnonymousRoute metadata naming
+      WHY — a reason a reader can check is the difference between a decision and an omission.
+  - key: |
+      THE PERMISSION IS THE UNIT AND THE ROLE IS A BUNDLE. A route needs `runs.control`, not
+      "operator". Putting the role at the endpoint makes every customer with a different org
+      chart a code change to the routes; putting the permission there makes it a configuration
+      line. admin, operator and reader are pre-built bundles over the catalog, not permissions.
+  - key: |
+      FOURTEEN PERMISSIONS, DERIVED FROM THE SEVENTY-FIVE MAPPED ROUTES, NOT INVENTED. Twelve
+      routes are anonymous. runs.read 13, runs.control 3, runs.delete 2; projects.init 1;
+      catalog.read 2; diagnostics.read 1 and diagnostics.probe 1 — a probe makes an outbound
+      authenticated call into a customer system and is not a read; config.read 12, config.write
+      22, config.export 1, config.import 1; secrets.read and secrets.write over the secret
+      entity's four routes and the four that cross into them. The fourteenth is identity.read,
+      which no route carries yet: it is the permission the identity endpoint will need, and it
+      is catalogued here so the catalog is not reopened by the phase that adds one route.
+  - key: |
+      projects.init IS NOT runs.trigger. The earlier draft named the permission after a family
+      of routes that does not exist: POST /api/projects/{name}/init
+      (ProjectInitEndpoints.cs:17) is the only route it covers, and what it starts is a project
+      initialisation. A permission named for a capability the route table does not have is a
+      permission the next reader will hang unrelated routes on.
+  - key: |
+      A ROUTE STATES A LIST, BECAUSE FOUR ROUTES CROSS THE SECRETS BOUNDARY. The
+      config/secrets split holds for direct entity CRUD and leaks everywhere else, measured on
+      the route table rather than on the catalog: GET /api/config/changes returns
+      ConfigChangeView, which carries EntityKind "secrets" with the entity id and the changed
+      field names; POST /api/config/changes/{id}/revert calls store.Revert(id, ...) with no
+      type filter at all, so it can restore or remove a secret entity; GET
+      /api/config/export.yml serializes the assembled document including the secret entities;
+      POST /api/config/import filters only ConfigDocTypes.Persistence. Each of those four
+      states both permissions and the policy requires ALL of them, so a holder of config.* can
+      neither read the secret names out of the audit feed nor delete one through revert.
+  - key: |
+      THE HELPER RETURNS void AND DISCARDS FOUR ROUTE BUILDERS. MapEntity<T>
+      (ConfigStudioEndpoints.cs:158, ConfigEntityRoutes after p0510) maps GET, POST, PUT and
+      DELETE from seven call sites and returns nothing — there is no call site to annotate.
+      It takes its read and write permissions as parameters, and the secrets registration is
+      the call site that passes different ones. Those 28 routes are precisely the ones a
+      hurried implementer never touches, so the guard test names them rather than counting
+      "all covered", which passes vacuously when they are absent.
+  - key: |
+      A MACHINE CALLER IS AN EXPLICIT ANONYMOUS NEXT TO ITS OWN AUTHENTICATION. Slack's four
+      routes, Teams and the four webhook receivers answer other systems and would return 401 to
+      GitHub under a denying fallback, killing the trigger path silently. Teams is the one a
+      naive rule breaks: it authenticates with a Bot Framework JWT from a DIFFERENT authority,
+      so it must be anonymous to the server's own scheme and is not defective for carrying no
+      signature of ours. /health is anonymous because a probe cannot log in, and
+      /api/config/findings because it is the channel that reports a broken authority. p0506 is
+      what makes the webhook checks able to refuse at all, which is why it is required rather
+      than restated.
+  - key: |
+      THE OPENAPI ROUTE AND THE OPENAPI MIDDLEWARE ARE TWO THINGS, AND THE EARLIER DRAFT
+      CONFLATED THEM. ServerEndpointExtensions.cs:38 maps GET /api/openapi.json — a real
+      endpoint in the data source, the twelfth anonymous route, declared like the other eleven.
+      ServerEndpointExtensions.cs:37 registers UseSwagger, which serves
+      /api/openapi/{document}.json from middleware that never enters EndpointDataSource: no
+      guard can see it and no fallback policy will ever apply to it. That one is an accepted
+      anonymous surface, written down here because "every route states a permission" is
+      otherwise quietly false for the document that describes all the others.
+  - key: |
+      THREE FILES ARE AT THEIR RATCHET CEILING AND NONE OF THEM MAY GROW.
+      file-length-baseline.tsv records RunControlEndpoints.cs at 194, TeamsEndpoints.cs at 166
+      and JobsHub.cs at 164, and all three are at exactly that length. The declaration is
+      chained onto the existing MapPost line, which costs no line;
+      FileLengthRatchetTests.NoBaselineFile_GrewSinceTheRatchetWasInstalled is the check. The
+      hub is annotated at its MapHub call site in ServerEndpointExtensions.cs:27 — a 41-line
+      file — and JobsHub.cs is not opened. ConfigStudioEndpoints.cs was the one file where this
+      does not work, which is why p0510 comes first.
+  - key: |
+      THE GUARD TEST READS DataSources, NOT THE RESOLVED EndpointDataSource. Measured on a real
+      host: app.Services.GetRequiredService<EndpointDataSource>() answers EMPTY before
+      UseRouting has run, so a guard test built on it passes over nothing and reports success.
+      The seam that carries the routes is
+      ((IEndpointRouteBuilder)app).DataSources.SelectMany(d => d.Endpoints) on the app the Map*
+      calls were made against — no Kestrel bind, no request, no UseRouting.
+  - key: |
+      ENUMERATING AN ENDPOINT RUNS RequestDelegateFactory.InferMetadata, WHICH THROWS ON AN
+      UNREGISTERED PARAMETER TYPE. Also measured on a real host, and it is why a bare
+      WebApplication.CreateBuilder().Build() is not enough: reading the endpoints builds the
+      request delegates, and a handler with more than one unregistered complex parameter fails
+      with "Did you mean to register the UNKNOWN parameters as a Service?" —
+      RunControlEndpoints.CancelAsync is the proven case. The parameter TYPES must be present
+      in the container. They need not WORK: a factory that throws on resolve is never invoked
+      during enumeration, so the guard test registers throwing stubs and stays free of a
+      database, a Redis and a spawner. Without this the guard test fails on its first run for a
+      reason that looks nothing like the rule it enforces.
+  - key: |
+      THE GUARD TEST PINS THE ENVIRONMENT IT DEPENDS ON. DashboardApiExtensions.IsEnabled reads
+      AGENTSMITH_UI_API_ENABLED from the process on every call — it caches nothing — so the
+      test sets it explicitly and joins
+      tests/AgentSmith.Tests/TestSupport/EnvVarCollection.cs. Without both it races the
+      env-mutating tests, and a run that happened to see the dashboard API switched off passes
+      vacuously over the unconditional routes alone instead of all seventy-five.
+  - key: |
+      THE ASSERTION IS A GOLDEN, NOT A COUNT. A count is satisfied by the wrong permission on
+      the right route. The test compares (method, path) to the declared permission list against
+      a checked-in golden, so moving a route between permissions is a visible diff — which is
+      the whole reason the table is worth having.
+  - key: |
+      p0506 MOVES THREE ROUTES ACROSS THE DASHBOARD GATE, SO THE GOLDEN IS WRITTEN AFTER IT
+      MERGES. Cancel, answer and retry leave MapServerEndpoints for MapDashboardApi. The route
+      COUNT does not change, but which routes exist with the dashboard API off does, and that
+      is exactly what the guard test enumerates.
+
+steps:
+  - id: a-permission-is-a-named-capability
+    action: "Define the closed fourteen-permission catalog and the built-in roles as bundles over it."
+    new:
+      - "Permissions: the fourteen catalogued names, closed"
+      - "BuiltInRoles: admin, operator, reader as bundles over the catalog"
+  - id: a-route-declares-in-metadata-nothing-inspects
+    action: "Add the permission and anonymous metadata types and the two builder extensions that attach them, over IEndpointConventionBuilder so the hub's map call takes them too."
+    new:
+      - "RequiresPermission: one or more permission names, required together"
+      - "AnonymousRoute: the reason this surface answers without a token"
+      - "RoutePermissionExtensions: Needs(params) and Anonymous(reason)"
+  - id: the-generic-helper-carries-its-permissions
+    action: "Give the config-studio entity helper read and write permission parameters so its twenty-eight routes are annotated at their source, and pass the secrets permissions at the secrets call site."
+  - id: every-route-states-its-permission
+    action: "Declare a permission on every mapped route and on the hub's map call, chaining onto the existing line in the three files at their ratchet ceiling, and declare the twelve anonymous routes with their reasons."
+  - id: the-four-crossing-routes-state-both
+    action: "Declare the secrets permission alongside the config one on the change feed, revert, export and import."
+  - id: a-route-without-a-permission-fails-the-build
+    action: "Add the guard test that enumerates ((IEndpointRouteBuilder)app).DataSources over a host whose container carries throwing stubs for every handler parameter type, with the dashboard gate pinned and the env-var collection joined, and compares every route to a checked-in golden of method, path and permission list."
+    new:
+      - "RouteTableFixture: the built app plus throwing stubs for the handler parameter types InferMetadata resolves"
+      - "route-permission-baseline.tsv: method, path, declaration for all seventy-five routes"
+  - id: p0301-leaves-planned-and-the-context-says-so
+    action: "Delete the p0301 spec and replace its planned entry in the default context with a done line naming this phase."
+
+tests:
+  - "Permissions_EveryPermission_BelongsToAtLeastOneRole"
+  - "Permissions_ReaderHoldsNoConfigRead"
+  - "Permissions_ConfigWriteAlone_SatisfiesNoSecretsRoute"
+  - "Metadata_RequiresPermission_IsNotAuthorizeData"
+  - "Metadata_AnonymousDeclaration_CarriesAReason"
+  - "RouteGuard_EveryMappedRoute_DeclaresAPermissionOrAnAnonymousReason"
+  - "RouteGuard_TheRouteTable_MatchesTheGoldenMethodPathAndPermissionList"
+  - "RouteGuard_ARouteAddedWithoutADeclaration_Fails"
+  - "RouteGuard_GeneratedEntityRoutes_AreTwentyEightAcrossTheSevenBasePaths"
+  - "RouteGuard_TheSecretsEntityRoutes_CarryTheSecretsPermissions"
+  - "RouteGuard_TheChangeFeedRevertExportAndImport_CarryBothPermissions"
+  - "RouteGuard_TheTwelveAnonymousRoutes_AreExactlyTheDeclaredSet"
+  - "RouteGuard_DashboardApiDisabled_EnumeratesOnlyTheUnconditionalRoutes"
+  - "RouteGuard_TheRouteTable_EnumeratesWithoutADatabaseOrARedis"
+  - "Runtime_AnnotatedRouteOnABootedHost_AnswersInsteadOfFivehundred"
+  - "Runtime_TheHubMapCall_StillNegotiates"
+
+done:
+  - "all seventy-five mapped routes and the hub declare a permission or an anonymous reason"
+  - "the declaration implements nothing the routing middleware inspects, proven by a booted host answering an annotated route without authorization middleware"
+  - "the twenty-eight generated routes are annotated at their source, not at a call site"
+  - "the four routes that cross into secrets state both permissions"
+  - "the golden pins method, path and permission list, and the guard test fails on a new undeclared route"
+  - "the guard test enumerates all seventy-five routes on a host with no database, no Redis and no spawner"
+  - "no baseline file grew and JobsHub.cs was not opened"
+  - "the openapi MIDDLEWARE document is declared an accepted anonymous surface, separately from the openapi ROUTE"
+  - "p0301 is gone from planned/ and from the context's planned list"
+  - "no runtime behaviour changes and no deployment is affected"
+  - "build green, full suite green"
