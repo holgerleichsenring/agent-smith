@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0512
+
+decisions:
+  - category: Architecture
+    chose: "400 characters, enforced by a test, with the 273 entries already over it baselined"
+    over: "Asking phase authors for shorter entries again, or rewriting all 574 at once"
+    reason: |
+      The operator has asked for brevity twice and neither request survived contact
+      with the next phase, because nothing measured it. 400 is read off the record
+      rather than invented: 290 of the 574 entries already fit, and the number is
+      about four sentences — what shipped, in what area, and the pointer. Rewriting
+      every entry would be 450k characters of judgement about phases nobody will
+      revisit, and each rewrite risks dropping the one fact that mattered; the
+      ratchet keeps the debt visible and one-directional with no flag day.
+  - category: Implementation
+    chose: "The record is read with YamlDotNet, through a shared PhaseRecordFile"
+    over: "A regex over the file, as the sibling PhaseRecordRuleTests already does"
+    reason: |
+      Every entry is doubly quoted, so an inner \" ends the value as far as a regex
+      is concerned and everything after it is invisible. p0499 shipped after four
+      entries were written broken for exactly that reason. A rule that MEASURES an
+      entry cannot afford to measure the wrong string: a grep would pass a 3000
+      character essay whose first quote happened to fall early. PhaseRecordFile also
+      became the single locator, so PhaseRecordRuleTests dropped its own repo-root
+      walk rather than a third reader being added beside it.
+  - category: Scope
+    chose: "Eleven entries compressed, the rest baselined untouched"
+    over: "Compressing every entry over the cap"
+    reason: |
+      The eleven over 3000 characters held 33,913 characters between them and are
+      the ones that make the file unreadable; compressing them cost 32,687
+      characters, a 7% cut, and every one of them still names what shipped, in what
+      area, with its pointer into phases/done/ intact. Below 3000 the entries are
+      long but scannable, and a rewrite of 273 of them is a different phase.
+  - category: TradeOff
+    chose: "A 3000-character ceiling asserted against every entry, with no baseline available"
+    over: "Letting the ratchet alone carry the compression"
+    reason: |
+      The three ratchet tests already prevent a new long entry and a listed one
+      growing, so the eleven are protected as long as the baseline is honest. But a
+      baseline is a text file, and the only thing stopping a future agent from
+      regenerating it wholesale is a comment. The ceiling is the floor under the
+      debt: it names a length no entry may reach whether or not it is listed, which
+      is the part of this phase that has to hold without anyone's cooperation.
+  - category: Scope
+    chose: "Four tests, not the five the spec names"
+    over: "Writing PhaseRecord_AnEntryOverTheCap_IsInTheBaselineOrFails as its own case"
+    reason: |
+      That name and PhaseRecord_ANewEntry_FitsTheCap are contrapositives of one
+      assertion — an entry over the cap without a baseline row fails — and they
+      would compute the identical violation set. Two tests stating one truth make
+      the suite look broader than it is and both go red together, which teaches the
+      reader nothing the first failure did not.
