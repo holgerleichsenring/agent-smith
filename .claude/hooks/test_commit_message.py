@@ -7,7 +7,9 @@ The Resolve_* cases call the resolver as a function. The Gate_* cases drive
 phase-gate.sh itself against a throwaway repository, where it has no
 AgentSmith.sln and no skills validator and therefore reports "nothing to gate"
 instead of running the four .NET checks — that line is the tell that the gate
-recognised the commit as a phase commit at all.
+recognised the commit as a phase commit at all. The ledger cases give the gate a
+repository that does carry a skills validator, so it reaches a real verdict
+without a .NET build, and read the line it leaves behind.
 """
 
 import contextlib
@@ -64,10 +66,35 @@ def _repository(*messages):
         yield path
 
 
-def _run_gate(command, cwd):
+def _run_gate(command, cwd, ledger=None):
+    """Drive the gate; without a ledger path its record goes nowhere."""
     payload = json.dumps({"tool_input": {"command": command}, "cwd": cwd})
+    environment = _environment()
+    environment["PHASE_GATE_LOG"] = str(ledger) if ledger else os.devnull
     return subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=cwd,
-                          env=_environment(), capture_output=True, text=True)
+                          env=environment, capture_output=True, text=True)
+
+
+@contextlib.contextmanager
+def _catalog_repository(validator_exit=0):
+    """A throwaway repository shaped like the skills catalog, with a validator that
+    exits as told — the gate reaches a verdict there without a .NET build."""
+    with _repository("seed") as repo:
+        validator = pathlib.Path(repo) / "scripts" / "validate-skills.sh"
+        validator.parent.mkdir()
+        validator.write_text(f"#!/usr/bin/env bash\nexit {validator_exit}\n")
+        validator.chmod(0o755)
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "chore: a validator to gate on")
+        yield repo
+
+
+def _ledger(path):
+    """The ledger as a list of fields per line."""
+    path = pathlib.Path(path)
+    if not path.exists():
+        return []
+    return [line.split("\t") for line in path.read_text().splitlines() if line]
 
 
 def Resolve_DashM_ReturnsTheMessage():
@@ -154,6 +181,61 @@ def Gate_UnresolvableMessage_PassesThroughAndSaysSo():
         assert completed.returncode == 0, completed
         assert "could not read" in completed.stderr, completed.stderr
         assert GATE_ENTERED not in completed.stderr, completed.stderr
+
+
+def Gate_InvocationFromThisSession_LeavesATrace():
+    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
+        assert completed.returncode == 0, completed
+        lines = _ledger(ledger)
+        assert len(lines) == 1, lines
+        assert lines[0][1] == "passed" and lines[0][2] == "p9999", lines
+
+
+def Gate_InvocationFromAWorktree_LeavesATraceOrIsRecordedAsNotRunning():
+    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
+        worktree = pathlib.Path(elsewhere) / "worktree"
+        _git(repo, "worktree", "add", "-q", "-b", "gate-probe", str(worktree))
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', str(worktree), ledger)
+        assert completed.returncode == 0, completed
+        lines = _ledger(ledger)
+        assert len(lines) == 1 and lines[0][1] == "passed", lines
+        assert os.path.realpath(lines[0][3]) == os.path.realpath(worktree), lines
+
+
+def Gate_PassingRun_IsDistinguishableFromNoRun():
+    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        _run_gate('git commit -m "chore: no phase here"', repo, ledger)
+        assert _ledger(ledger) == [], _ledger(ledger)
+        _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
+        assert [line[1] for line in _ledger(ledger)] == ["passed"], _ledger(ledger)
+
+
+def Gate_BlockedCommit_IsRecordedAsBlocked():
+    with _catalog_repository(validator_exit=1) as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
+        assert completed.returncode == 2, completed
+        assert [line[1] for line in _ledger(ledger)] == ["blocked"], _ledger(ledger)
+
+
+def Gate_MessageBuiltByTheShell_PassesThroughAndSaysSo():
+    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate('git commit -m "$(cat message.txt)"', repo, ledger)
+        assert completed.returncode == 0, completed
+        assert "built by the shell" in completed.stderr, completed.stderr
+        assert [line[1] for line in _ledger(ledger)] == ["not-gated"], _ledger(ledger)
+
+
+def Gate_UnresolvableMessage_IsRecordedAsNotGated():
+    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        _run_gate("git commit -F -", repo, ledger)
+        assert [line[1] for line in _ledger(ledger)] == ["not-gated"], _ledger(ledger)
 
 
 def _cases():
