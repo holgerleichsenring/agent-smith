@@ -1,0 +1,15 @@
+resources:
+  jobs:
+    sample_job:
+      name: sample_job
+      max_concurrent_runs: 1
+      unknown_job_key: this key is not in the bundle schema
+      tasks:
+        - task_key: dbt_build
+          dbt_task:
+            project_directory: ""
+            profiles_directory: ""
+            commands:
+              - dbt deps
+              - dbt build
+            warehouse_id: 0123456789abcdef
