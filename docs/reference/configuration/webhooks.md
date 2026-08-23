@@ -52,7 +52,7 @@ The HTTP response from the receiver indicates the **claim outcome**, not pipelin
 | GitHub | `issues` (labeled) | Yes | HMAC-SHA256 (`X-Hub-Signature-256`) |
 | GitLab | `Issue Hook` (labeled) | Yes | Token header (`X-Gitlab-Token`) |
 | Azure DevOps | `workitem.updated` | Yes | Basic auth |
-| Jira | `issue_updated`, `comment_created` | No (planned) | HMAC (optional) |
+| Jira | `issue_updated`, `comment_created` | No (planned) | HMAC (`x-hub-signature`) |
 
 ## Webhook Secrets
 
@@ -64,10 +64,20 @@ Webhook secrets are **environment variables on the server process** — there is
 | `GITLAB_WEBHOOK_TOKEN` | GitLab | Token compare (`X-Gitlab-Token`) |
 | `AZDO_WEBHOOK_SECRET` | Azure DevOps | Basic auth |
 
-Jira is the exception: its secret lives in config, per project, under `projects.<name>.jira_trigger.secret`.
+Jira is the exception: its secret lives in config, per project, under
+`projects.<name>.jira_trigger.secret`. Written as `${NAME}` it resolves against the
+`secrets:` map first and then against the environment variable of that name; a reference
+that resolves to nothing counts as **unconfigured**, not as a secret. Several projects
+may each carry a different Jira secret — a delivery is accepted when any one of them
+verifies it.
 
-!!! tip "Development mode"
-    Empty secret = signature verification skipped. Useful for local ngrok testing; never use in production.
+!!! warning "A configured secret is enforced"
+    Once a platform has a secret, a delivery that arrives **without** a valid signature is
+    refused with `401` — an absent signature header included. A platform with **no** secret
+    configured is not verified at all and every delivery is accepted; that is the state
+    every shipped template ships in, and it is safe only where the endpoint is not reachable
+    from the internet. The System → Connections panel says which platforms are in that state
+    and names any that already accepted an unsigned delivery.
 
 ## Endpoints
 

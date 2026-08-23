@@ -8,24 +8,22 @@ namespace AgentSmith.Application.Services.Preflight.Checks;
 /// <summary>
 /// p0324: per tracker, a real authenticated read proves the PAT/token works — a dead
 /// tracker credential otherwise means the poller silently claims nothing, forever.
-/// Also verifies the webhook shared secret is configured for each tracker platform
-/// (mirrors WebhookSignatureVerifier's sources): without it every incoming webhook is
-/// rejected and tickets only ever move via polling. Registration-presence probing on
-/// the tracker side needs new ITicketProvider vocabulary — p0324b.
+/// Also verifies the webhook shared secret is configured for each tracker platform:
+/// without it every incoming webhook is unverified — p0506 makes an unsigned delivery a
+/// refusal wherever a secret IS set, so an absent one means the endpoint is open and
+/// tickets only ever move via polling. Registration-presence probing on the tracker side
+/// needs new ITicketProvider vocabulary — p0324b.
+/// <para>
+/// p0506: what a platform requires comes from <see cref="IWebhookSecretResolver"/>. This
+/// check used to carry its own copy of the platform-to-env-var table, with a comment
+/// saying it mirrored the verifier's.
+/// </para>
 /// </summary>
 public sealed class TrackerAuthCheck(
     IPreflightConfigSource configSource,
     ITicketProviderFactory trackerFactory,
-    Func<string, string?> envReader) : IPreflightCheck
+    IWebhookSecretResolver secretResolver) : IPreflightCheck
 {
-    private static readonly IReadOnlyDictionary<TrackerType, string> WebhookSecretEnvVars =
-        new Dictionary<TrackerType, string>
-        {
-            [TrackerType.GitHub] = "GITHUB_WEBHOOK_SECRET",
-            [TrackerType.GitLab] = "GITLAB_WEBHOOK_TOKEN",
-            [TrackerType.AzureDevOps] = "AZDO_WEBHOOK_SECRET",
-        };
-
     public string Name => "tracker-auth";
 
     public string Category => "tracker";
@@ -70,15 +68,11 @@ public sealed class TrackerAuthCheck(
         var missing = new List<string>();
         foreach (var type in config.Trackers.Values.Select(t => t.Type).Distinct())
         {
-            if (type == TrackerType.Jira)
-            {
-                if (!config.Projects.Values.Any(p => !string.IsNullOrEmpty(p.JiraTrigger?.Secret)))
-                    missing.Add("jira (no project has a jira trigger secret)");
-                continue;
-            }
-            if (WebhookSecretEnvVars.TryGetValue(type, out var envVar)
-                && string.IsNullOrEmpty(envReader(envVar)))
-                missing.Add($"{type} ({envVar})");
+            var source = secretResolver.Resolve(type.ToString().ToLowerInvariant(), config);
+            if (source is null || source.IsConfigured) continue;
+            missing.Add(source.EnvVar is null
+                ? "jira (no project has a jira trigger secret)"
+                : $"{type} ({source.EnvVar})");
         }
         return missing;
     }

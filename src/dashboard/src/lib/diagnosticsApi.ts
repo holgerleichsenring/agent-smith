@@ -28,6 +28,8 @@ export interface WebhookStatus {
   platform: string;
   secretConfigured: boolean;
   lastReceivedUtc: string | null;
+  /** p0506: a delivery reached this deployment and nothing verified that the platform sent it. */
+  acceptedUnsignedDelivery: boolean;
 }
 
 export interface ConnectionDiagnostics {
