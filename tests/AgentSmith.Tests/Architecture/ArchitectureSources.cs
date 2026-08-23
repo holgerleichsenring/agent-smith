@@ -11,6 +11,9 @@ internal static class ArchitectureSources
 
     public static string TestSourceRoot { get; } = Resolve("tests", "AgentSmith.Tests");
 
+    /// <summary>p0512: the methodology tree, for the rules that judge the phase record.</summary>
+    public static string AgentSmithRoot { get; } = Resolve(".agentsmith");
+
     public static IEnumerable<string> HandWrittenBackendFiles() =>
         Directory.EnumerateFiles(BackendRoot, "*.cs", SearchOption.AllDirectories)
             .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",

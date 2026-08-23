@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0512
+
+goal: "A phase record entry is short enough to scan, and a limit enforces it instead of an operator asking again."
+
+applies_to: "backend tests (phase-record length rule) + .agentsmith/contexts/default/context.yaml + CLAUDE.md"
+
+scope:
+  in: "A per-entry character cap enforced by a test, the existing entries baselined as debt that may only shrink, the worst offenders compressed, and the rule written where a phase author reads it."
+  out: "Changing what a phase spec's decisions may say. The spec files are where reasoning belongs and they are not capped here."
+
+decisions:
+  - key: |
+      A NUMBER THAT FAILS A BUILD SURVIVES; A REQUEST FOR BREVITY DOES NOT. Measured: 579
+      entries, 467,616 characters, mean 807. By phase range the mean runs 100 / 198 / 965 /
+      1430 / 1691 / 3039 — thirtyfold growth, still accelerating. The longest entry in the
+      file is p0506 at 5,227 characters, written today by an agent that had been told the
+      house prefers terse records. The operator has asked for this before and the request
+      did not survive contact with the next phase.
+  - key: |
+      FOUR HUNDRED CHARACTERS, BECAUSE ENTRIES ARE ONE LINE AND LINES MEASURE NOTHING. That
+      is about four sentences: what shipped, where, and the pointer. 299 of the 579 entries
+      already fit it, so the number is read off what the record looked like before it
+      drifted rather than invented.
+  - key: |
+      THE ENTRY POINTS AT THE SPEC, AND THE SPEC CARRIES THE DETAIL. Every entry already ends
+      with a path into phases/done/, and that spec plus its decisions file hold the full
+      account. The record can be short precisely because nothing is lost by shortening it —
+      the long version is one file away. An entry that repeats its spec is a second copy
+      that will disagree with the first.
+  - key: |
+      ELEVEN ENTRIES ARE COMPRESSED, NOT ALL 579. Rewriting every entry is 467k characters of
+      judgement about phases nobody will revisit, and each rewrite risks dropping the one
+      fact that mattered. Eleven exceed 3000 characters and hold roughly 40,000 of them —
+      few enough to compress carefully, and the ones that make the file unreadable.
+  - key: |
+      THE REST IS A RATCHET, THE SHAPE THIS REPOSITORY ALREADY RUNS. Listed entries may only
+      shrink, an entry that drops under the cap must leave the list, and nothing new may
+      join. The debt stays visible and one-directional without a flag day.
+
+steps:
+  - id: an-entry-has-a-length-and-a-test-knows-it
+    action: "Add a rule capping a phase-record entry at 400 characters, with the current lengths baselined so existing entries may only shrink and none may be added."
+    new:
+      - "phase-record length rule + its baseline"
+  - id: the-eleven-worst-become-readable
+    action: "Compress every entry over 3000 characters to the cap, keeping what shipped, where, and the pointer, and dropping what the spec already says."
+  - id: the-rule-is-where-the-author-looks
+    action: "State the cap and what an entry is for in CLAUDE.md, beside the workflow step that writes one."
+
+tests:
+  - "PhaseRecord_ANewEntry_FitsTheCap"
+  - "PhaseRecord_AnEntryOverTheCap_IsInTheBaselineOrFails"
+  - "PhaseRecord_AnEntryThatShrankUnderTheCap_MustLeaveTheBaseline"
+  - "PhaseRecord_NoEntryGrew_SinceTheBaselineWasTaken"
+  - "PhaseRecord_TheElevenLongest_AreUnderTheCap"
+
+done:
+  - "a new phase record entry over 400 characters fails the suite"
+  - "the eleven entries over 3000 characters are under the cap and still name what shipped and where"
+  - "every remaining long entry is baselined and may only shrink"
+  - "CLAUDE.md states the cap beside the step that writes the entry"
+  - "build green, full suite green"
