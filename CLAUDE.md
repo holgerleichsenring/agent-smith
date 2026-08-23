@@ -47,7 +47,7 @@ one line per memory, content never in the index.
 5. **Build after each step** — fix errors immediately, don't accumulate them.
 6. **Run ALL tests** — ensure zero failures before moving on.
 7. **Log decisions** — one YAML per phase at `.agentsmith/decisions/p{NNNN}.yaml`; each entry: what was chosen, what alternatives existed, and why.
-8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`.
+8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `PhaseRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/phases/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/p{NNNN}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
 9. **Move to done** — move the phase file from `active/` to `done/`.
 10. **Commit** — one commit per phase, descriptive message.
 
