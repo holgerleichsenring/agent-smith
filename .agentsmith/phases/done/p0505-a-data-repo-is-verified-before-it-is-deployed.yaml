@@ -1,0 +1,254 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0505
+goal: "Run the candidate offline commands against fixture repositories of the three data-repository shapes and record what each one actually did, on a clean tree and on a named defect, in a committed table pinned to the fixtures that produced it."
+
+applies_to: "backend (pipeline-harness fixtures, a measurement script, the offline guard over its output, one LiveLLM eval)"
+
+scope:
+  in: "Fixture trees for the dbt, bundle and combined shapes with a named defect per variant, each with its own context.yaml; a committed measurement script; the recorded table, outside every fixture root, carrying a fixture hash per shape and a tool version and image per row; the offline tests that keep the table honest; and one eval measuring what the project analyzer emits for such a repository."
+  out: >
+    THE BINDING TO THE DECLARATION, WHICH THIS PHASE CANNOT SHIP. The successor
+    *the profile ships the gate that survived* writes profiles/<name>/profile.yaml in
+    agent-smith-skills; the table lives here. Nothing mechanical connects the two
+    repositories, so this phase leaves evidence, not a ratchet — the successor owes the
+    check that its declared list is a subset of what this table records, and it owes it
+    on the skills side where the declaration is [[feedback_no_silent_defer]].
+    The profile mechanism itself — p0504, independent, mentions no data tooling.
+    Baking the Go CLI into an image — the successor *a profile can install what its image
+    lacks*. Publishing any image at all: see the recorded fact below. Anything needing a
+    live workspace. And p0507 renames this spec: its filename, its `phase:` id, its
+    decisions path and its notes path all move when it does.
+
+decisions:
+  - key: |
+      THE FIRST DRAFT WAS CONFIDENTLY WRONG ABOUT THE TOOLS, SO THE TOOLS ARE MEASURED FIRST.
+      Four claims did not survive review. `pip install databricks-cli` installs the ARCHIVED
+      legacy CLI, which has no `bundle` command group; Asset Bundles need the current Go CLI
+      from 0.205 up, with no pip distribution. `databricks bundle validate` resolves workspace
+      authentication and fails without a host and token. `dbt parse` builds the manifest from
+      Jinja and YAML and never reaches a warehouse, so a renamed column is invisible to it. And
+      `dbt parse` SUCCEEDS with uninstalled packages, so the stated reason for ordering deps
+      before parse was inverted [[feedback_challenge_premises]].
+  - key: |
+      A COMMAND THAT CANNOT SUCCEED PASSES THE FAILURE TEST. VerificationCommand.CanFail rejects
+      echo, true, colon, printf and hash by leading verb (VerificationCommand.cs:25). A command
+      that does not exist exits non-zero on every fixture, clean ones included, so "it went red on
+      the broken fixture" proves nothing alone. Every command is recorded against BOTH, and a
+      command that reds on a clean fixture of its own shape is a broken command, not a gate.
+  - key: |
+      THE SAME LOGIC APPLIES TO THE FIXTURE, WHICH IS WHY THERE ARE THREE. A dbt project and a
+      Databricks Asset Bundle are different repository shapes: a dbt repo has dbt_project.yml
+      and models and no bundle; a bundle repo has databricks.yml and resources and no dbt; the
+      combined shape exists officially as a bundle wrapping a dbt project as a job task. On one
+      combined fixture you cannot tell "bundle validate is a real gate" from "this half of the
+      repository is missing" — and a profile resolved from one word will meet all three shapes.
+      The measurement is a shape-by-defect grid, not a clean-and-broken pair.
+  - key: |
+      THE PRECEDENT THE DRAFT CITED IS A FALSE ANALOGY, AND SAYING SO CHANGES THE MECHANISM.
+      file-length-baseline.tsv and phase-record-baseline.tsv cannot rot because their tests
+      RECOMPUTE ground truth on every run — FileLengthRatchetTests.cs:80 walks src/backend live
+      through ArchitectureSources, PhaseRecordRuleTests.cs:160 re-derives every violation from
+      the phase files — and each has a rule that fails when a baseline row stops matching
+      reality (FileLengthRatchetTests.cs:55, PhaseRecordRuleTests.cs:85). A measured exit code
+      has NO offline recomputation: nothing in a `dotnet test` run can re-derive what `dbt parse`
+      did without dbt installed. Calling this table a ratchet would have imported a guarantee it
+      does not have [[feedback_stale_claims_are_load_bearing]].
+  - key: |
+      SO THE TABLE IS PINNED TO THE FIXTURES BY HASH, AND THE THREE CHEAP OFFLINE CHECKS ARE
+      NAMED. (1) The TSV header carries a content hash per fixture shape directory, computed over
+      the SOURCE tree — walked up from the test's base directory to the folder holding
+      AgentSmith.sln, the way ExpectationGoldenEvalTests already resolves its report path — and
+      the test recomputes them and goes red when a fixture changed without a re-measurement.
+      (2) Shape coverage is cross-checked both ways: every fixture directory appears as a shape in
+      the table, and every shape in the table has a directory. (3) Every row carries the tool
+      version that produced it and the image reference it ran in, so a row is readable as a fact
+      about a pinned toolchain rather than about "dbt".
+  - key: |
+      WHAT THE OFFLINE TEST STILL CANNOT DETECT, STATED PLAINLY. A tool release changing behaviour
+      under an unchanged version pin. An exit code transcribed wrongly by hand. A defect variant
+      whose failure is not the failure the row names — a model that reds for a YAML tab rather than
+      for the unresolved ref it was built to carry. None of those are visible without the toolchain,
+      and none are papered over with a heuristic [[feedback_no_heuristic_for_missing_data]]: they
+      are caught by re-running the script, and the script is the only thing that can catch them.
+  - key: |
+      NO IMAGE IS PUBLISHED HERE, AND THE REASON IS A MEASURED FACT, NOT A DEFERRAL.
+      .github/workflows/docker-publish.yml is this repository's only publisher. It pushes to Docker
+      Hub under DOCKER_NAMESPACE=holgerleichsenring (docker-publish.yml:11, :158), so every image
+      name it produces contains a '/' — and SandboxSpecBuilder.IsTrustedRegistry accepts a Docker
+      Hub image only when the repository part has NO '/' (SandboxSpecBuilder.cs:114-115). Its tags
+      are latest, the version and major.minor (docker-publish.yml:159-162), none of which matches
+      GitBearingImagePatterns (SandboxSpecBuilder.cs:90-100). No pipeline in this repository can
+      publish a conforming image; a conforming one is a NEW pipeline with an owner nobody has
+      named, so the earlier draft's step fixing a registry and tag shape is deleted.
+  - key: |
+      THE TRAP IN THE GIT-BEARING PATTERN, WRITTEN DOWN BEFORE SOMEONE HITS IT. `:[^-]*-bookworm$`
+      (SandboxSpecBuilder.cs:95) forbids an interior hyphen between the colon and the suffix, so
+      `…:0.1.0-bookworm` passes and `…:v1-python3.12-bookworm` fails. Anyone tagging a data image
+      later will reach for the second shape.
+  - key: |
+      THE PIP HALF NEEDS NO IMAGE AT ALL. python:3.12-bookworm is already in the language table
+      (SandboxSpecBuilder.cs:71) and clears both gates — no '/' in the repository part, and "3.12"
+      carries no interior hyphen before "-bookworm" — and LegalFixture already installs its tool
+      through a p0202a prerequisite on that exact image (`prerequisites: pip install
+      markitdown==0.1.1`). dbt, sqlfluff, yamllint and check-jsonschema are all pip-installable
+      there. Only the Go CLI needs a baked layer, and it needs one precisely because
+      EnsurePrerequisitesHandler tokenises ONE command and runs it with NO shell, so a piped
+      installer cannot work. That belongs to the successor *a profile can install what its image
+      lacks*.
+  - key: |
+      THE dbt ADAPTER IS DECIDED, BECAUSE AN UNDECIDED ADAPTER IS THE FAILURE CLASS THAT SANK
+      DRAFT 1. `dbt-core` alone parses nothing — it needs an adapter matching profiles.yml's
+      `type:`. The choice is dbt-databricks pinned at or above 1.9.6. Rejected: dbt-duckdb, which
+      parses offline but only by making the fixture's profiles.yml say `type: duckdb` — which is
+      not the shape being measured, and generalises to `dbt parse` alone, never to the adapter
+      layer a real repository runs. The pin has a floor because dbt-databricks 1.9.0 through 1.9.4
+      constructed a workspace client during `dbt parse` and threw without credentials
+      (databricks/dbt-databricks#940); PR #941 deferred SDK configuration to connection-open time
+      and shipped in 1.9.6 (2025-02-24). Anything below that breaks the offline premise outright.
+  - key: |
+      profiles.yml IS A STEP-0 INPUT, NOT SOMETHING THIS PHASE ANSWERS BY OBSERVATION. dbt needs
+      one before the first measurement exists, so each dbt-bearing fixture carries its own at the
+      project root and EVERY measured dbt command pins `--profiles-dir .`. Without that pin dbt
+      falls back to ~/.dbt and the table records the measuring machine rather than the fixture —
+      which is the one way a measurement can be green here and red for the next person.
+  - key: |
+      THE BUNDLE SHAPE MAY YIELD ZERO DECLARABLE COMMANDS, AND THAT IS A RESULT, NOT A FAILURE.
+      `databricks bundle validate` resolves workspace authentication BEFORE it validates anything,
+      so with no host and no token it reds on the CLEAN fixture — which this phase's own rule calls
+      a broken command, not a gate. It is measured and recorded, never declared. The offline
+      candidates that could pass are named up front so the shape is not tested by one command:
+      `databricks bundle schema`, which emits the bundle JSON Schema without a workspace but cannot
+      fail on a bad bundle and is therefore a producer, not a gate; `check-jsonschema` against that
+      emitted schema, which IS a real gate and is pure python on the image we already have; and
+      `yamllint`. If every one of them reds on the clean bundle fixture or greens on every defect,
+      the bundle shape declares nothing and the table says so.
+  - key: |
+      THE CANDIDATES AND THE DEFECTS ARE ENUMERATED, BECAUSE "RED ON AT LEAST ONE DEFECT" IS
+      OTHERWISE SATISFIED BY A YAML SYNTAX ERROR. Candidates, each with the defect class it is
+      CLAIMED to detect: `dbt deps --profiles-dir .` — an unresolvable packages.yml entry;
+      `dbt parse --profiles-dir .` — an unresolved ref, an undefined macro, a schema.yml
+      documenting a model file that is not there; `sqlfluff lint --dialect databricks models` —
+      SQL that does not parse in the databricks dialect; `databricks bundle schema` — nothing,
+      it is the producer; `check-jsonschema --schemafile <emitted> databricks.yml` — a resource
+      key the bundle schema does not define, and a field given the wrong type; `yamllint .` —
+      syntax alone, and it is in the grid as the CONTROL. Defect variants: yaml-syntax (a
+      tab-indented line), unresolved-ref, undefined-macro, schema-orphan, bad-sql-dialect,
+      missing-package, unknown-bundle-key, wrong-type. dbt defects land on the dbt and combined
+      shapes, bundle defects on the bundle and combined shapes, yaml-syntax on all three. A
+      command that reds ONLY on yaml-syntax is recorded as a linter, not as a gate for its
+      claimed class.
+  - key: |
+      THE ANALYZER MEASUREMENT IS AN EVAL, IT LIVES WITH THE EVALS, AND IT ASSERTS NOTHING ABOUT
+      THE MODEL. Verify resolution consults declared ci commands FIRST, and those come from the
+      project analyzer fresh every run — if it emits any build command for a data repository, it
+      wins and a profile's list is never reached; p0504 flagged that premise as unproven. It is a
+      real LLM call: ProjectAnalyzer.AnalyzeAsync takes an ISandbox (IProjectAnalyzer.cs:17) and
+      InProcessSandbox satisfies it with no daemon. Home is
+      tests/AgentSmith.PipelineHarness/Evals/ on the ExpectationGoldenEvalTests pattern —
+      [Trait("Category","LiveLLM")] (ExpectationGoldenEvalTests.cs:24), a loud runtime skip per
+      missing credential via EvalChatClientEnv.TryBuild, report committed under Reports/.
+  - key: |
+      THE EVAL MUST ASSERT ONLY ITS OWN MECHANICS, OR IT BECOMES A PAID FLAKY GATE FOREVER. The
+      phase-gate hook runs `dotnet test AgentSmith.sln --no-build` with NO filter
+      (.claude/hooks/phase-gate.sh:92) — unlike CI, which excludes Category!=LiveLLM. So this test
+      WILL execute on every future phase commit, on the operator's machine, where the credentials
+      live. It writes its report and asserts what ExpectationGoldenEvalTests asserts and nothing
+      more: the entry count and that the file exists (ExpectationGoldenEvalTests.cs:51-52). No
+      assertion about what the model said, ever [[feedback_safety_in_api_not_process]].
+  - key: |
+      ONE RUN DOES NOT SETTLE A NON-DETERMINISTIC QUESTION. The analyzer is an LLM, so "does a data
+      repository draw a declared ci command at all" can answer differently run to run. N=3 against
+      the clean dbt fixture, all three recorded verbatim in the report; a split result is RECORDED
+      as a split, not collapsed to a majority.
+  - key: |
+      THE TABLE MUST NOT SIT INSIDE A FIXTURE ROOT. The analyzer reads the fixture tree; a TSV
+      enumerating dbt and databricks commands inside it would be measuring a repository that
+      contains the answers. It lives with the harness's other committed record, under Reports/.
+  - key: |
+      THE COMMANDS RUN AGAINST A COPY, AND THE EARLIER ARITHMETIC FOR IT WAS INVENTED. The draft
+      claimed six copies across three target frameworks in two configurations. The harness targets
+      net10.0 only (AgentSmith.PipelineHarness.csproj:4), there is no Directory.Build.props, the
+      stale bin/net8.0 and bin/net9.0 directories are leftovers, and bin/ is gitignored anyway. The
+      conclusion survives on the real mechanisms: `<None Include="Fixtures\**\*">` with
+      CopyToOutputDirectory PreserveNewest (csproj:51-52) re-copies anything a command leaves in
+      the source tree on every build, and DockerHarnessSession.CreateAsync deep-copies the fixture
+      into Path.GetTempPath() and git-commits THAT temp copy (DockerHarnessSession.cs:35-36, :53).
+      The script therefore copies each variant to a temp directory and runs there; nothing is
+      generated inside this repository. target/, dbt_packages/ and dbt's .user.yml are gitignored
+      as well, because .gitignore carries none of the three today.
+  - key: |
+      EACH FIXTURE NEEDS ITS OWN context.yaml, AND TWO FIELDS IT CANNOT HAVE — SAID HERE SO THE
+      NEXT AGENT DOES NOT WRITE ONE AND BELIEVE IT. Each fixture root carries
+      .agentsmith/contexts/default/context.yaml with meta.workdir, which is required
+      (ContextYamlSerializer.cs:48 throws without it), and stack.lang, exactly as LegalFixture
+      does. It CANNOT declare meta.domain: the field does not exist until p0504 ships it, the
+      private ReadShape/MetaBlock is what YamlDotNet actually deserializes into
+      (ContextYamlSerializer.cs:105-117), and the deserializer is built with
+      IgnoreUnmatchedProperties (ContextYamlBuilders.cs:23), so an undeclared key is dropped
+      without a warning. It CANNOT declare a ci: block either — ReadShape has no ci member at all,
+      which is why CsharpFixture's `ci: test_command:` is already dead text today.
+  - key: |
+      OFFLINE MEANS NO WORKSPACE, NOT NO NETWORK. dbt deps fetches from the hub and pip fetches
+      from PyPI. p0304's egress allowlist is still planned and puts the agent phase behind a
+      default deny, which is where verification runs. Which commands touch the network is a
+      recorded column, so that phase inherits a fact instead of a surprise.
+  - key: |
+      THE DELIVERABLE IS A COMMITTED FILE, AND THE PRECEDENT IS tools/verify-python-payload.
+      p0420 checks that every satisfied criterion names a path that is actually in the diff, so
+      "answered by observation" closes nothing. p0358 shipped a compose harness nobody runs
+      automatically and recorded, in the phase record itself, the OBSERVED OUTPUT — "[dotnet-sdk-8]
+      OK + [node-20] OK — executed locally 2026-07-21, python 3.12.13, symlinks intact, codemod
+      works" — not a derived verdict. This phase copies that habit: the record carries the observed
+      lines, not "the matrix was run". The narrative and the two open answers go to
+      .agentsmith/notes/, which has been pruned before, so the record and the memory index carry
+      the one-line fact independently. The decisions file holds only the choices the table drove;
+      its schema is closed to five fields and a table fits none of them.
+  - key: |
+      NOTHING IS DECLARED ABOUT WHAT THIS PHASE SHIPS. p0421 deleted ships_code whole and the
+      phase kind is now derived from the run's own changes. Reintroducing it would validate
+      silently against a schema with no such property and be read by nothing — the exact shape
+      [[feedback_stale_claims_are_load_bearing]] names, using ships_code as its own example.
+
+steps:
+  - id: three-shapes-and-their-defects
+    action: "Add a dbt-only, a bundle-only and a combined fixture tree, each in a clean variant plus one variant per named defect, each root carrying its own context.yaml with meta.workdir and stack.lang and neither meta.domain nor a ci block; and gitignore target/, dbt_packages/ and .user.yml."
+    new:
+      - "tests/AgentSmith.PipelineHarness/Fixtures/DataFixture/{dbt,bundle,combined}/{clean,<defect>}/ — the shape-by-defect grid"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/DataFixture/*/*/.agentsmith/contexts/default/context.yaml"
+  - id: the-adapter-and-the-profile-are-pinned-before-the-first-run
+    action: "Pin dbt-core with dbt-databricks at or above 1.9.6, sqlfluff, yamllint and check-jsonschema in the script's install line; give each dbt-bearing fixture its own profiles.yml at the project root; and pin --profiles-dir . in every measured dbt command."
+  - id: run-the-matrix-in-a-copy-and-record-it
+    action: "Copy each variant to a temp directory and execute every candidate command there with no workspace credentials, recording shape, variant, command, exit code, network use, tool version, image reference and the failing output's first line; write the fixture content hashes into the table header."
+    new:
+      - "tools/measure-data-toolchain.sh — runs the matrix in a temp copy, emits the TSV"
+      - "tests/AgentSmith.PipelineHarness/Reports/data-toolchain/measured-commands.tsv — outside every fixture root"
+  - id: ask-the-analyzer-what-it-would-have-declared
+    action: "Add a LiveLLM eval that runs the project analyzer three times against the clean dbt fixture over an InProcessSandbox, writes the emitted ci commands verbatim to a committed report, and asserts only entry count and file existence."
+    new:
+      - "tests/AgentSmith.PipelineHarness/Evals/DataRepositoryAnalyzerEvalTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Reports/data-toolchain/analyzer-ci-commands.md"
+  - id: the-table-cannot-drift-from-the-fixtures-unnoticed
+    action: "Add the offline tests: well-formedness, the fixture-hash recomputation, the shape cross-check both ways, the clean-shape/named-defect rule, and the linter-versus-gate distinction."
+  - id: write-down-what-was-learned
+    action: "Record the narrative and the profiles.yml and workspace-auth answers in .agentsmith/notes/, and put the OBSERVED output lines — not a verdict — on the phase record and the one-line fact in the memory index."
+
+tests:
+  - "MeasuredCommands_EveryRow_CarriesShapeVariantCommandExitNetworkToolVersionAndImage"
+  - "MeasuredCommands_AFixtureChangedSinceTheMeasurement_GoesRedOnTheRecordedHash"
+  - "MeasuredCommands_ShapeCoverage_MatchesTheFixtureDirectoriesBothWays"
+  - "MeasuredCommands_EveryDeclarableCommand_IsGreenOnItsCleanShapeAndRedOnANamedDefect"
+  - "MeasuredCommands_ACommandRedOnlyOnTheSyntaxDefect_IsRecordedAsALinterNotAGate"
+  - "AnalyzerEval_OverTheCleanDbtFixture_WritesThreeRunsAndAssertsNothingAboutTheModel"
+
+done:
+  - "Fixtures/DataFixture holds the three shapes, their clean variants and one variant per named defect, each with its own context.yaml"
+  - "measured-commands.tsv records every candidate against every variant with exit code, network use, tool version and image, and sits outside every fixture root"
+  - "the table header carries a content hash per fixture shape and the offline test recomputes them"
+  - "no command is marked declarable that reds on a clean fixture of its own shape, and a syntax-only detector is marked a linter"
+  - "the bundle shape's result is recorded even if it is zero declarable commands"
+  - ".agentsmith/notes/p0505-data-toolchain-measurement.md answers the profiles.yml and workspace-auth questions from observed output"
+  - "the analyzer's emitted ci commands for a dbt repository are recorded verbatim for three runs, and the eval asserts nothing about model content"
+  - "the offline tests run with no tool, no daemon and no network, in CI and in the commit gate"
+  - "target/, dbt_packages/ and .user.yml are gitignored and no command ran inside the fixture tree"
+  - "the phase record carries the observed output lines, not only a verdict"
+  - "build green, full suite green"

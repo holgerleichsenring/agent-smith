@@ -1,0 +1,5 @@
+meta:
+  workdir: .
+  project: sample-bundle
+stack:
+  lang: python
