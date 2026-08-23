@@ -214,24 +214,11 @@ public sealed class PhaseRecordRuleTests
             .ToHashSet(StringComparer.Ordinal);
     }
 
-    private static string ContextYaml() =>
-        File.ReadAllText(Path.Combine(
-            RepoRoot(), ".agentsmith", "contexts", "default", "context.yaml"));
+    // p0512: one locator, one reader — PhaseRecordFile also serves the length ratchet.
+    private static string ContextYaml() => PhaseRecordFile.Text();
 
-    private static string PhasesRoot() => Path.Combine(RepoRoot(), ".agentsmith", "phases");
+    private static string PhasesRoot() => PhaseRecordFile.PhasesRoot;
 
     private static string SourceDirectory() =>
-        Path.Combine(RepoRoot(), "tests", "AgentSmith.Tests", "Architecture");
-
-    private static string RepoRoot()
-    {
-        var dir = AppContext.BaseDirectory;
-        for (var i = 0; i < 10; i++)
-        {
-            if (Directory.Exists(Path.Combine(dir, ".agentsmith", "phases"))) return dir;
-            dir = Directory.GetParent(dir)?.FullName ?? dir;
-        }
-
-        throw new InvalidOperationException($"Could not locate the repo root from '{AppContext.BaseDirectory}'");
-    }
+        Path.Combine(ArchitectureSources.TestSourceRoot, "Architecture");
 }
