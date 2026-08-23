@@ -81,6 +81,38 @@ spec:
                 secretKeyRef:
                   name: agentsmith-secrets
                   key: slack-signing-secret
+            # p0506: the webhook shared secrets. optional:true is load-bearing — a
+            # secretKeyRef to a key the Secret does not carry gives
+            # CreateContainerConfigError and the pod never starts, so an operator
+            # upgrading with an older Secret must not be stopped by these.
+            # An absent value simply leaves that platform unverified, as before.
+            - name: GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: github-webhook-secret
+                  optional: true
+            - name: GITLAB_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: gitlab-webhook-token
+                  optional: true
+            - name: AZDO_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: azdo-webhook-secret
+                  optional: true
+            # Jira's secret is referenced from the configuration as
+            # ${JIRA_WEBHOOK_SECRET} (3-configmap.yaml), so the value has to reach
+            # the process the same way the other three do.
+            - name: JIRA_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: jira-webhook-secret
+                  optional: true
             - name: K8S_NAMESPACE
               valueFrom:
                 fieldRef:

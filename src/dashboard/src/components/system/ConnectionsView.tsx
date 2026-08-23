@@ -248,6 +248,13 @@ function WebhookPanel({ webhooks }: { webhooks: WebhookStatus[] }) {
                 ? `last seen ${new Date(w.lastReceivedUtc).toLocaleString()}`
                 : "never seen"}
             </span>
+            {/* p0506: the conjunction neither fact states on its own. A deployment that
+                never received a delivery says nothing here. */}
+            {w.acceptedUnsignedDelivery && (
+              <span className="tybadge bad" data-testid={`webhook-unsigned-${w.platform}`}>
+                accepted an unsigned delivery
+              </span>
+            )}
           </div>
         ))}
       </div>
