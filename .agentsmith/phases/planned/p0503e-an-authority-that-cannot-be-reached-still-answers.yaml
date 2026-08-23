@@ -1,93 +1,100 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0503e
-goal: "A server whose configured authority is unreachable tells an operator so instead of answering every dashboard call with a bare 401 — and it does that without latching a failure it can never clear, and without failing the probe that would restart it."
 
-applies_to: "backend (startup findings, auth pipeline, dashboard short circuit)"
+goal: "When the configured authority is unreachable, the server says so about itself instead of telling every caller their token is invalid, and stops saying it once the authority returns."
+
+applies_to: "backend (authority probe, auth findings, the challenge the server writes)"
 
 requires:
   - p0503b
 
 scope:
-  in: "What a configured-but-unreachable authority should do, and the enumerated set of routes any answer must not touch. This spec is a question with its constraints measured, not a decided design — the step that resolves it is a decision, and the implementation follows it."
-  out: >
-    Validation of a reachable authority, the policies and the enforce switch — *a token is
-    validated against one authority*. Roles and the identity endpoint — *a claim becomes a
-    role becomes a permission*. Retrying, caching or replacing the discovery manager, which is
-    the SDK's job and not ours.
+  in: "A recurring reachability probe for the configured authority that records and clears its own finding, and a challenge that names the server's own fault rather than the caller's token."
+  out: "Short-circuiting any route with a 503 — measured to be either a lie or unreadable. Blocking the dashboard's sign-in loop against a dead authority, which belongs to the phase that owns that loop."
 
 decisions:
   - key: |
-      THE ROUTES ARE ALWAYS MAPPED, AND THAT PART IS NOT OPEN. p0391a ruled that a server which
-      cannot tell you what is wrong leaves you unable to act, and
-      tests/AgentSmith.Tests/Server/StartupResilienceTests.cs exists so a reintroduced throw
-      goes red. Refusing to MAP the dashboard API on an unreachable authority would need an
-      eager discovery fetch at boot — the external dependency p0391a removed — and would turn a
-      thirty-second identity-provider blip into a permanently dashboard-less pod.
+      THE MEASUREMENT KILLED BOTH OPTIONS AN EARLIER DRAFT OFFERED, SO THE DILEMMA IS GONE. Run
+      against a real stub authority that could be taken down at will: an unreachable authority
+      produces a 401, NOT a 500. AddJwtBearer with an Authority installs a ConfigurationManager,
+      which is a BaseConfigurationManager and is therefore handed to TokenValidationParameters, so
+      ValidateTokenAsync absorbs the fetch failure — IDX20803 never reaches the pipeline. The
+      "first caller gets a 500" cost was fiction [[feedback_challenge_premises]].
   - key: |
-      THE OPEN QUESTION IS WHEN THE SERVER LEARNS, AND BOTH ANSWERS ARE WRONG IN A DIFFERENT
-      WAY. A BOOT PROBE gives a sticky latch: nothing re-runs it, and the only callers of
-      IStartupFindings.Clear are DbConfigurationLoader.cs:43 for the database subsystem and
-      RawConfigMaterializer.cs:37 for the configuration subsystem — neither would ever clear an
-      auth finding, so an authority that recovers leaves a permanent red banner and a permanent
-      short circuit until someone restarts the pod. LAZY RECORDING self-heals, but the first
-      caller after the outage pays for it: Microsoft.IdentityModel's ConfigurationManager
-      throws IDX20803 out of the request, which the pipeline turns into a 500 rather than a
-      finding, and its RefreshInterval defaults to five minutes, so "the next request succeeds"
-      — the earlier draft's done criterion — is likely false for the following five minutes.
-      Neither of those is a design; picking one with its cost written down is.
+      LAZY DETECTION IS NOT EXPENSIVE, IT IS IMPOSSIBLE. The exception the pipeline sees is
+      SecurityTokenInvalidIssuerException with NO inner exception — the transport failure is gone
+      by then. OnAuthenticationFailed therefore cannot tell "the authority is unreachable" from
+      "this token has the wrong issuer". Any lazy implementation must run a separate reachability
+      check, at which point it is a probe with a request as its trigger, not lazy detection.
   - key: |
-      A BLOCKING FINDING MUST CARRY Project: null OR IT DISABLES A PROJECT'S TRIGGERS.
-      StartupFindingsQueries.BlockingReason (StartupFindingsQueries.cs:21-27) matches a
-      blocking finding by project name, ProjectResolver.cs:88 consults it on every dispatch and
-      TrackerDiscoveryQueryBuilder.cs:77 on the poller's claim path. An auth finding scoped to a
-      project would silently switch that project off — including for a polling-only deployment
-      that never exposes an HTTP surface at all. This is the same trap p0506 documented and
-      reversed for the webhook finding.
+      THE REFRESH INTERVAL GATES A CASE THAT NEVER FAILS. Measured both ways: with a cached
+      configuration an outage is INVISIBLE — tokens keep validating from cached keys, so the
+      motivating thirty-second blip produces zero failed requests. With no cached configuration
+      the manager retries on every call, because its guard short-circuits only when a configuration
+      already exists, and recovery was immediate on the first request after the authority returned.
+      The five minutes are real and irrelevant.
   - key: |
-      /health CANNOT BE PART OF ANY 503, BECAUSE IT IS BOTH PROBES.
-      deploy/k8s/8-deployment-server.yaml:128 is the livenessProbe path and :136 the
-      readinessProbe path, and both are /health. A 503 there is not a signal, it is a restart
-      loop, and the restarted pod meets the same unreachable authority. The exclusion set is
-      enumerated rather than described: /health, /api/config/findings — the channel that
-      reports this very failure — the four webhook receivers, Slack's four routes and Teams,
-      which answer other systems on their own authentication, and GET /api/openapi.json. What
-      remains is the set of dashboard routes carrying a RequiresPermission declaration, and
-      only those.
+      THE REAL DEFECT IS THE BLAME, NOT THE STATUS CODE. The 401 carries
+      error="invalid_token" with a description saying the issuer is invalid — the server telling
+      the caller their token is bad because the server cannot reach its own authority. That is what
+      an operator sees and cannot diagnose, and it is what this phase fixes: once the probe knows
+      the authority is down, the challenge says so about the server.
   - key: |
-      THE SHORT CIRCUIT MUST CARRY THE REASON, OR IT IS WORSE THAN THE 401 IT REPLACES. The
-      whole value of answering 503 instead of 401 is that the body says the authority could not
-      be reached and names it. A 503 with an empty body tells an operator less than the bare
-      401 does, because at least a 401 is a familiar shape.
+      A RECURRING PROBE THAT CLEARS ITS OWN FINDING, WHICH IS WHAT Clear WAS BUILT FOR.
+      IStartupFindings.Clear exists so a subsystem can re-probe and publish a current picture, and
+      the configuration loader already does exactly this on every load. The auth subsystem becomes
+      its first periodic user. Recovery is visible with no dashboard work: the degraded banner polls
+      the findings endpoint every thirty seconds, so a cleared finding disappears on its own.
   - key: |
-      A FINDING THAT NEVER CLEARS IS A FINDING OPERATORS LEARN TO IGNORE. Whatever the resolved
-      design, it owes an answer to "what makes this go away when the authority comes back" that
-      is not "restart the pod" — or it must say in the finding text that a restart is what
-      clears it, so nobody waits for a banner that will not move.
+      THE PROBE RUNS AFTER THE LISTENER BINDS, NOT IN THE BOOT SEQUENCE. Boot probes run BEFORE
+      the port is bound — the doc comment claiming otherwise is wrong — and each is bounded at ten
+      seconds, so a sixth probe against a blackholed provider moves the worst-case pre-bind delay
+      from fifty to sixty seconds. Against the shipped manifest that is survivable for liveness and
+      NOT for readiness, whose budget is thirty-five. A hosted service after the bind costs nothing
+      and is the only shape that can recur anyway.
+  - key: |
+      NO 503, AND THE REASON IS MEASURED TWICE OVER. With a cached configuration a 503 would be a
+      lie, since tokens validate fine. Without one the caller is refused regardless. And the body
+      is unreadable by the only consumer: every dashboard client discards it on a non-ok response
+      and throws the status alone. The reason reaches an operator through the banner, which already
+      polls. The one place a 503 would buy something is stopping a sign-in loop bouncing against a
+      dead provider, and that belongs to the phase that owns the loop.
+  - key: |
+      p0391a FORBIDS NOTHING HERE, AND AN EARLIER DRAFT MISREAD IT. p0391a did not remove external
+      boot dependencies — the persistence and redis probes open network connections at boot today.
+      It made them non-fatal and bounded. A probe returns findings and never throws, and the runner
+      converts a throwing probe into a finding anyway, so this is compatible in the letter.
+  - key: |
+      SEVERITY FOLLOWS ENFORCEMENT, AND THE SCOPE IS ALREADY LAW. Blocking while enforcement is on,
+      because callers really are being refused; advisory while it is off, because nothing is and a
+      red banner on every upgrading installation is what p0503b refused. The finding carries no
+      project either way — that decision belongs to p0503b and is cited, not re-taken.
 
 steps:
-  - id: the-question-is-answered-before-it-is-built
-    action: "Decide between the boot probe and lazy recording with the cost of each written into the phase's decision log, including what clears the finding and what the first caller after an outage receives."
-  - id: an-unreachable-authority-is-recorded-without-scoping-it-to-a-project
-    action: "Record the finding with Project null so no trigger, webhook or poller path is disabled by it."
-  - id: the-short-circuit-knows-what-it-must-not-touch
-    action: "Answer the enumerated dashboard route set with a 503 carrying the reason, leaving health, findings, the machine-called surfaces and the openapi route untouched."
-  - id: the-probe-path-is-proven-untouched
-    action: "Assert that both k8s probe paths still answer 200 while the authority is unreachable."
+  - id: the-server-learns-that-its-authority-is-down
+    action: "Add a recurring reachability probe for the configured discovery document, running after the listener binds, that records its finding and clears it on a pass that succeeds."
+    new:
+      - "the authority probe and its hosted schedule"
+      - "the auth subsystem constant"
+  - id: the-refusal-names-the-server-not-the-token
+    action: "When the probe reports the authority unreachable, write a challenge that says the server cannot reach its authority instead of describing the caller's token as invalid."
 
 tests:
-  - "Startup_AuthorityUnreachable_RoutesStayMapped"
-  - "Startup_AuthorityUnreachable_DoesNotDisableAnyTrigger"
-  - "Startup_AuthorityUnreachable_HealthStillAnswers200"
-  - "Startup_AuthorityUnreachable_FindingsEndpointStillAnswers"
-  - "Startup_AuthorityUnreachable_AWebhookIsStillAccepted"
-  - "Startup_AuthorityUnreachable_ADashboardRouteAnswers503CarryingTheReason"
-  - "Startup_AuthorityUnreachable_TheFindingCarriesNoProject"
-  - "Startup_AuthorityRecovers_TheFindingClearsTheWayTheDecisionSaysItDoes"
+  - "AuthProbe_AuthorityReachable_RecordsNothing"
+  - "AuthProbe_AuthorityUnreachable_RecordsAFindingCarryingNoProject"
+  - "AuthProbe_AuthorityRecovers_TheSecondPassClearsIt"
+  - "AuthProbe_EnforcementOn_TheFindingIsBlocking"
+  - "AuthProbe_EnforcementOff_TheFindingIsAdvisory"
+  - "AuthProbe_AuthorityUnreachable_DisablesNoTrigger"
+  - "Challenge_AuthorityUnreachable_NamesTheServerNotTheToken"
+  - "Challenge_AuthorityReachableAndTokenForged_StillNamesTheToken"
+  - "Startup_AuthorityUnreachable_HealthStillAnswers"
 
 done:
-  - "the choice between a latching probe and self-healing lazy detection is recorded with its cost"
-  - "an unreachable authority disables no trigger and no poller"
-  - "both k8s probe paths answer 200 throughout"
-  - "the 503 reaches only the enumerated dashboard routes and carries the reason"
-  - "the finding either clears on its own or says in its own text that it will not"
+  - "an unreachable authority is a finding the server records about itself"
+  - "the finding clears on the first passing probe, verified by a two-pass test against a stub authority"
+  - "a caller is told the server cannot reach its authority, not that their token is invalid"
+  - "a forged token is still described as a forged token"
+  - "no route is short-circuited and health still answers"
+  - "the probe runs after the listener binds and adds nothing to the boot budget"
   - "build green, full suite green"

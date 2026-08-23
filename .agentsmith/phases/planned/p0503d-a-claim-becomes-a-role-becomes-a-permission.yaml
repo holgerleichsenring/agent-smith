@@ -1,137 +1,166 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0503d
-goal: "The roles in a caller's token become the permissions the routes ask for, an operator who has been assigned nothing can still read what their token carried, and an admin grant that lives outside every store makes lockout impossible."
 
-applies_to: "backend (claims resolution, custom roles, identity endpoint) + deploy templates + docs"
+goal: "The directory says which roles a caller holds, the application says what those roles may do, and a caller with none can still see what their token carried."
+
+applies_to: "backend (role resolution, identity endpoint, config attribution) + deploy templates + docs"
 
 requires:
   - p0503b
 
 scope:
-  in: "Roles from a configured role claim or a configured group claim, additive custom roles as subsets of the catalog, the environment admin grant read through an injected reader, Entra group-overage detection, the identity endpoint, the deploy template variable and the first-login walkthrough."
-  out: >
-    Editing the mapping through the Config Studio, which must arrive with its own lockout
-    rules — no self-demotion, one admin must remain. Assigning a person a role, which is not
-    a thing this product does at all. Per-project scope.
+  in: "Roles from a role claim or a group mapping, additive custom roles, an unremovable environment admin grant, group-overage detection, the identity endpoint and its first-login walkthrough, and config attribution that stops trusting a client header."
+  out: "Per-project scope. Operator-editable mappings through the Config Studio. The dashboard's sign-in flow, without which the identity page is reached by hand."
 
 decisions:
   - key: |
       THE DIRECTORY SAYS WHICH ROLES, THE APPLICATION SAYS WHAT THEY MEAN, AND NOBODY ASSIGNS A
       PERSON ANYTHING. There is no user store and this phase never adds one. Identity to roles
-      happens AT THE IDP — an app-role assignment or a group membership. Roles to permissions
-      happens here. There is no screen on which an administrator grants a person a role, and
-      there will not be one. Saying that plainly is what ends the recurring search for it.
+      happens at the identity provider — an app-role assignment or a group membership. Roles to
+      permissions happens here. There is no screen on which an administrator grants a person a
+      role, and there will not be one. Saying that plainly is what ends the recurring search for it.
   - key: |
-      A ROLE CLAIM IS THE PRIMARY PATH, NOT THE EXCEPTION. Entra emits a roles claim carrying
-      the string values from the app registration, which is Microsoft's own recommended route
-      and needs no mapping at all. The group path stays, but for a different reason than
-      "directories that cannot emit roles": the app registration is often owned by a different
-      team than the one asking for access, and a group name is what that team can give you.
-      Both read the token and nothing else; the claim NAME is configuration in both cases.
+      MapInboundClaims MUST BE OFF, OR THE ROLE CLAIM IS INVISIBLE. JwtBearer defaults it to true
+      and the inbound map rewrites `roles` to the long WS-Federation role type — so a configured
+      claim name of `roles` finds ZERO claims, while `groups`, which is not in the map, survives.
+      That asymmetry makes the shape this spec calls primary fail first in production and pass in
+      a unit test that constructs a ClaimsPrincipal directly. It is a p0503b option this phase
+      names and pins.
   - key: |
-      ROLES ARE ADDITIVE, AND CLOSING THEM WOULD HAVE BOUGHT NOTHING. admin, operator and
-      reader ship in code and cannot be edited or deleted. A customer may declare further roles
-      as SUBSETS of p0503a's closed catalog — an auditor who reads runs and cost and triggers
-      nothing is the second question a consultancy asks, not an exotic fourth role. The
-      argument for closing them was that an editable role can be edited into a lockout; that
-      argument does not survive, because the group mapping becomes editable later and needs the
-      same protection anyway. An unknown permission name in a declared role is a startup
-      finding, not a throw.
+      KEYCLOAK'S ROLES ARE NESTED, SO THE GROUP PATH IS ITS ONLY PATH. Realm roles live under
+      realm_access.roles and client roles under resource_access.<client>.roles; the handler
+      flattens the object into a claim whose value is JSON text. A flat configured claim name
+      cannot address either. An earlier draft claimed both shapes work over a configurable name
+      for both providers — true for Entra app roles, false for Keycloak unless its operator adds a
+      protocol mapper. The group path is what covers it, and the documentation says so.
   - key: |
-      THE LOCKOUT IS SOLVED BY A GRANT THAT CANNOT BE REMOVED, READ THROUGH AN INJECTED READER.
-      An admin group — or subject — unioned into every role resolution, reachable through no
-      surface and no store. With it present, lockout is structurally impossible whatever later
-      lives in the database. It is read through a `Func<string, string?>` the way
-      TrackerAuthCheck.cs:19 already takes one, NOT through Environment.GetEnvironmentVariable:
-      a direct process read drags every test that touches role resolution into
-      tests/AgentSmith.Tests/TestSupport/EnvVarCollection.cs and serialises them
-      [[feedback_unit_tests_bypass_di]].
+      THE COMPARISONS ARE PINNED PER SURFACE, BECAUSE THE SHIPPED CODE IS ALREADY ORDINAL.
+      BuiltInRoles.All is built with StringComparer.Ordinal, so a token carrying `Admin` resolves
+      to nothing today. Entra emits an app-role value as the operator capitalised it; Keycloak
+      lowercases; a group PATH arrives with a leading slash while the key an operator copies out of
+      the console does not. Role names compare case-insensitively; group values compare ordinally,
+      because an Entra group value is an opaque object GUID and case-folding an opaque identifier
+      is a smell; the leading slash is normalised. Each rule gets its own test.
   - key: |
-      identity.read IS THE ONE PERMISSION AUTHENTICATION ITSELF CONFERS, AND THAT IS THE POINT.
-      p0503a catalogued it and put it in all three built-in bundles so the catalog stays closed
-      and no permission is orphaned. But the caller this endpoint exists for has ZERO roles and
-      therefore zero role-derived permissions, so its policy requires an authenticated
-      principal rather than a claim. The two alternatives both break p0503a's guard test:
-      declaring the route anonymous puts a thirteenth route in the anonymous set that is
-      asserted exactly, and declaring nothing fails the guard outright.
+      THE OVERAGE DETECTOR MATCHES ON PRESENCE, NEVER ON A PARSED VALUE, AND COVERS THREE MARKERS.
+      Past roughly two hundred group memberships Entra omits `groups` and emits `_claim_names` and
+      `_claim_sources` — JSON OBJECTS, which arrive as a single claim whose value is JSON text, so
+      a test minting a flat string is green against a shape Entra never sends. A token delivered
+      through the URL fragment carries `hasgroups` instead. All three are detected by name, and the
+      test mints the nested shape through the same handler the server uses.
   - key: |
-      THE FIRST LOGIN IS A CHICKEN AND EGG, AND THE IDENTITY PAGE IS THE ANSWER. You cannot map
-      a group before you know its value, and Entra emits object GUIDs rather than names. So
-      there is exactly one surface behind authentication and in front of authorization: an
-      identity endpoint that answers a caller with no roles, showing subject, issuer, the raw
-      role and group claim values the token carried, the roles resolved from them and the
-      permissions those carry. The operator signs in, reads the GUID, writes it into the
-      bootstrap configuration, restarts. The environment grant is the step before that, for the
-      case where nobody can sign in yet. Both are documented as one walkthrough, because an
-      operator meeting this the first time has no way to derive it.
+      THE IDENTITY ENDPOINT IS MAPPED WITH THE DASHBOARD API, AND ITS POLICY IS THE ONE EXCEPTION.
+      Mapped unconditionally it would break p0503a's guard test twice — the eleven routes left with
+      the dashboard off would become twelve, and the assertion that all of them are anonymous would
+      be false along with its stated reason. Behind the dashboard gate the golden simply gains one
+      row. And because a zero-role caller holds no permissions, the uniform permission-per-policy
+      rule would refuse the very caller the page exists for: identity.read is catalogued and held
+      by every built-in role, but its POLICY requires an authenticated principal. That exception is
+      asserted, not assumed.
   - key: |
-      THE SAME PAGE DIAGNOSES THE ONE FAILURE THAT IS OTHERWISE INVISIBLE. Past roughly two
-      hundred group memberships Entra omits the groups claim entirely and points at Graph
-      instead. That caller resolves to no groups, no roles and 403 on everything —
-      indistinguishable from an unmapped group. The overage indirection is detected by name and
-      reported as itself. In a large tenant this is the first production incident.
+      THE HANDLER'S DEPENDENCIES ARE REGISTERED UNCONDITIONALLY. p0503a's guard test enumerates the
+      built route table, and enumeration runs InferMetadata, which throws on a handler parameter
+      type absent from the container. If role resolution were registered only when an authority is
+      configured, the guard test — which boots with no authority — would fail with a message about
+      unregistered services that looks nothing like the rule it enforces.
   - key: |
-      THE GRANT NEEDS A VARIABLE THAT EXISTS IN THE TEMPLATES. p0506 made the same call for the
-      webhook secrets: a walkthrough that names an environment variable no shipped template
-      contains is a walkthrough an operator cannot follow. The variable goes into the k8s
-      secret template, the server deployment and the compose example in this phase.
+      THE GRANT HAS A NAME, A SYNTAX AND A LIST. An earlier draft quoted the lesson that a
+      walkthrough naming a variable no template contains cannot be followed, and then named no
+      variable. AGENTSMITH_ADMIN_GRANT takes a comma-separated list of prefixed values —
+      `group:<value>` or `sub:<value>` — because a grant matched across claim types is a
+      privilege-escalation surface: an attacker-controllable email claim colliding with a group
+      identifier. Two operators bootstrapping together is the normal case, so it is a list.
   - key: |
-      TWO TESTS FROM THE DRAFT ARE DROPPED FOR PROVING NOTHING.
-      Roles_EnvironmentAdminGrant_CannotBeRemovedByConfiguration asserts that a value read from
-      an injected environment reader is not affected by a configuration surface that never
-      writes to it — there is no code path it could go red against.
-      Enforce_MetadataPresentAndNoSchemeRegistered_DoesNotThrow is p0503a's
-      Runtime_AnnotatedRouteOnABootedHost_AnswersInsteadOfFivehundred wearing a different name
-      [[feedback_verify_via_harness]].
-
+      THE DELEGATE IS CAPTURED AT THE COMPOSITION ROOT, NOT REGISTERED IN THE CONTAINER.
+      WebhookSecretResolver takes a Func<string,string?> as a positional constructor argument and
+      the registration passes Environment.GetEnvironmentVariable. Nothing registers that delegate
+      as a service, and the DI architecture rules treat a constructor parameter absent from the
+      container as a factory product. An implementer reading "injected reader" and reaching for
+      AddSingleton invents a registration this codebase does not have.
+  - key: |
+      A ROLE SET UNIONS, AND AN UNKNOWN PERMISSION IS FILTERED BEFORE IT IS REPORTED. A caller in
+      two mapped groups holds the union of both bundles, and the grant unions with whatever roles
+      the token already carried. A custom role naming a permission the closed catalog does not
+      contain has that name DROPPED from the effective set and then recorded as a finding —
+      filter, then find, or "additive cannot grant what the catalog lacks" is a claim with no
+      mechanism.
+  - key: |
+      THE HEADER GOES AWAY ENTIRELY, WHICH CLOSES THE FORGERY FOR EVERYONE RATHER THAN FOR NOBODY.
+      Config changes are attributed from a client-supplied X-Actor header defaulting to the literal
+      "dashboard", and the dashboard never sends it — so every deployment already gets the default.
+      An earlier draft kept the read and ignored it when a principal was present, which closes the
+      hole only for authenticated callers, i.e. nobody until enforcement is on. Deleting the read
+      closes it immediately and changes nothing for anyone. Both attribution sites go through one
+      method, so it is one edit; the claim the principal is named by is configuration, and it is the
+      same accessor the identity endpoint reads. This was p0503f, which was a step wearing a phase.
 steps:
-  - id: claims-become-roles
-    action: "Resolve roles from the configured role claim, or from the configured group claim through the bootstrap mapping, reading the claim names from configuration in both cases."
+  - id: a-claim-becomes-a-role
+    action: "Resolve roles from the configured role claim or the configured group claim through the group mapping, with MapInboundClaims off, the comparisons pinned per surface and the leading slash normalised."
     new:
-      - "RoleResolver: token claims -> role names, claim name configured"
-  - id: roles-become-permissions
-    action: "Merge declared custom roles over the built-ins as subsets of the catalog, union the environment admin grant read through an injected reader, and expose the resulting permission set to the policies."
-  - id: an-unknown-permission-is-a-finding
-    action: "Record an advisory startup finding for a declared role naming a permission the catalog does not contain, and for a declared role named after a built-in."
+      - "the role resolver"
+      - "the group mapping and custom roles on the auth block"
+  - id: a-role-becomes-a-permission
+    action: "Merge custom roles over the built-in bundles, union a caller's roles, filter unknown permission names out of the effective set and record them as a finding."
+    new:
+      - "the role catalog merge"
+      - "the permission resolver"
+  - id: an-administrator-can-always-get-in
+    action: "Union an environment admin grant, read through a delegate captured at the composition root, into every resolution, reachable through no editable surface."
+    new:
+      - "the admin grant reader"
   - id: a-directory-that-hides-its-groups-says-so
-    action: "Detect the group-overage indirection by name and report it as itself rather than as an unmapped group."
-  - id: a-caller-can-see-what-their-token-carried
-    action: "Add the identity endpoint under identity.read, whose policy is an authenticated principal, answering with subject, issuer, raw role and group claim values, resolved roles and effective permissions."
+    action: "Detect the three overage markers by claim presence and report the condition as itself rather than as an unmapped group."
     new:
-      - "IdentityResponse: subject, issuer, raw claims, resolved roles, effective permissions"
-  - id: the-grant-variable-ships-in-the-templates
-    action: "Add the admin-grant variable to the k8s secret template, the server deployment and the compose example."
+      - "the overage detector"
+  - id: a-caller-can-see-what-their-token-carried
+    action: "Add the identity endpoint with the dashboard API, answering an authenticated caller with no roles, showing subject, issuer, the raw role and group claim values, the resolved roles and the effective permissions."
+    new:
+      - "the identity endpoint and its response"
+  - id: the-route-table-gains-exactly-one-row
+    action: "Regenerate p0503a's golden through its write flag and confirm the diff is the single identity row."
   - id: the-first-login-is-written-down
-    action: "Document the walkthrough end to end: the environment grant, the first sign-in, reading the claim values off the identity page, writing the mapping, the restart it costs, and what a 403 body means."
+    action: "Document the walkthrough for a caller with no dashboard sign-in yet: the environment grant, the first request, reading the claim values, writing the mapping, the restart it costs, and what a 403 body means."
+  - id: the-attribution-stops-trusting-the-client
+    action: "Delete the X-Actor read so a config change is attributed to the principal when there is one and to the existing default when there is not."
+  - id: the-settings-reach-a-cluster
+    action: "Add the grant and the claim settings to the config example, the config schema, the k8s deployment and secret template with optional:true, the apply script, the env example and the compose example."
 
 tests:
   - "Roles_RoleClaimCarriesRoleNames_ResolvesWithoutAMapping"
-  - "Roles_GroupClaimAndMapping_ResolvesToTheMappedRole"
-  - "Roles_ClaimNameIsConfigurable_ReadsTheConfiguredName"
-  - "Roles_UnmappedGroup_GetsNoRoleAndNoPermission"
-  - "Roles_DeclaredCustomRole_GrantsExactlyItsSubset"
-  - "Roles_CustomRoleNamingAnUnknownPermission_RecordsAFinding"
+  - "Roles_RoleClaimNamedRoles_IsFoundWithInboundMappingOff"
+  - "Roles_ConfiguredClaimName_ReadsOnlyThatClaimWhenBothArePresent"
+  - "Roles_RoleNameCasingDiffers_StillResolves"
+  - "Roles_GroupValueCasingDiffers_DoesNotResolve"
+  - "Roles_GroupPathWithLeadingSlash_MatchesTheKeyWithout"
+  - "Roles_TwoMappedGroups_UnionTheirPermissions"
+  - "Roles_MappedAndUnmappedGroupTogether_ResolvesExactlyOneRole"
+  - "Roles_CustomRoleGrantsItsSubset_AndNothingMore"
+  - "Roles_CustomRoleNamingAnUnknownPermission_DoesNotGrantItAndRecordsAFinding"
   - "Roles_CustomRoleNamedAdmin_DoesNotOverrideTheBuiltIn"
-  - "Roles_EnvironmentAdminGrant_IsAdminWithNoMappingAtAll"
-  - "Roles_EnvironmentAdminGrant_IsReadThroughTheInjectedReader"
-  - "Roles_GroupOverageIndirection_IsReportedAsItself"
-  - "Reader_OnRunQuery_Succeeds"
-  - "Reader_OnProjectInit_Returns403NamingTheMissingPermission"
-  - "Reader_OnCancelRun_Returns403"
-  - "Reader_OnConfigRead_Returns403"
-  - "Reader_OnConfigExport_Returns403"
-  - "Operator_OnSecretsList_Returns403"
-  - "Operator_OnTheChangeFeed_Returns403ForTheSecretsPermission"
-  - "Identity_CallerWithZeroRoles_StillSeesItsRawClaims"
-  - "Identity_CallerWithRoles_SeesResolvedRolesAndPermissions"
-  - "Identity_NoToken_Returns401"
+  - "Roles_AdminGrant_IsAdminWithNoMappingAtAll"
+  - "Roles_AdminGrant_UnionsWithRolesTheTokenAlreadyCarried"
+  - "Roles_AdminGrant_IsReadThroughTheCapturedReader"
+  - "Roles_AdminGrantWithoutAPrefix_IsRejectedRatherThanMatchedAcrossClaims"
+  - "Overage_ClaimNamesObjectShape_IsReportedAsItself"
+  - "Overage_HasGroupsMarker_IsReportedAsItself"
+  - "Identity_CallerWithZeroRoles_IsNotRefusedByThePermissionPolicy"
+  - "Identity_CallerWithZeroRoles_SeesItsRawClaimValues"
+  - "Identity_CallerWithRoles_SeesResolvedRolesAndEffectivePermissions"
+  - "Identity_DashboardApiDisabled_TheRouteIsNotMapped"
+  - "RouteGuard_TheGolden_GainsExactlyTheIdentityRow"
+  - "CustomRole_HoldingConfigReadOnly_OnTheChangeFeed_Returns403NamingSecretsReadOnly"
+  - "Attribution_PrincipalPresent_TheChangeNamesTheConfiguredClaim"
+  - "Attribution_XActorHeaderSent_IsIgnoredWithAndWithoutAPrincipal"
+  - "Attribution_NoPrincipal_KeepsTodaysDefault"
+  - "Attribution_TheChangedEvent_CarriesTheSameActorAsTheFeed"
 
 done:
-  - "a validated token yields roles from either shape and the permissions they carry"
-  - "a declared custom role grants its subset and an unknown permission is a finding"
-  - "the environment admin grant makes lockout impossible and drags no test into the env-var collection"
-  - "an operator with zero roles can sign in, read their claim values, and configure themselves in"
-  - "a group-overage token is diagnosed as itself, not as an unmapped group"
-  - "the grant variable exists in every shipped template the walkthrough names"
-  - "the walkthrough is documented end to end, restart cost included"
+  - "a role claim and a group mapping each resolve, with the comparisons pinned and tested per surface"
+  - "a caller in two groups holds the union, and an unknown permission is dropped before it is reported"
+  - "the admin grant makes lockout impossible, is named in every template, and matches only its declared claim"
+  - "an overage token is diagnosed as itself, for all three markers"
+  - "a caller with zero roles reaches the identity page and reads the values that would configure them in"
+  - "p0503a's golden gains exactly one row and its dashboard-off assertions are untouched"
+  - "the X-Actor header is gone and both attribution sites name the principal"
+  - "the walkthrough works for a caller with no dashboard sign-in"
   - "build green, full suite green"
