@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0505
+
+decisions:
+  - category: Tooling
+    chose: "dbt-core 1.11.4 + dbt-databricks 1.12.4, sqlfluff 3.4.2, yamllint 1.37.1, check-jsonschema 0.35.0, databricks CLI v1.13.0"
+    over: "Pinning dbt-databricks at the 1.9.6 floor the spec names"
+    reason: |
+      The floor exists for one reason: 1.9.0-1.9.4 constructed a workspace client
+      during `dbt parse` and threw without credentials, and PR #941 deferred SDK
+      configuration to connection-open time in 1.9.6. That is a floor, not a target.
+      1.12.4 was verified to satisfy it by observation — a full parse against a
+      `.invalid` host with no token, exit 0 — which is the property the phase needed,
+      and the table records the exact version per row so the claim reads as a fact
+      about a pinned toolchain rather than about \"dbt\".
+  - category: Implementation
+    chose: "`dbt deps --profiles-dir . && dbt parse --profiles-dir .` is measured as its own candidate, alongside the standalone parse"
+    over: "Dropping packages.yml from the fixtures so the standalone parse goes green"
+    reason: |
+      The spec states that `dbt parse` succeeds with uninstalled packages. On
+      dbt-core 1.11.4 it does not: it exits 2 with \"dbt found 1 package(s)
+      specified in packages.yml, but only 0 package(s) installed in dbt_packages\".
+      Deleting packages.yml would have produced the expected answer and taken the
+      `missing-package` defect class with it, which is bending the fixture until the
+      claim holds. So the standalone command stays in the table marked
+      broken-on-clean — that IS the finding — and the sequence a repository with a
+      packages.yml actually runs is added beside it as the row a successor can
+      declare [[feedback_challenge_premises]].
+  - category: Implementation
+    chose: "One derived column, `verdict`, computed from the row's own exit codes"
+    over: "A table of raw observations only, or a hand-written declarable/not column"
+    reason: |
+      The phase's own rule — green on the clean fixture of its own shape, red on a
+      named non-syntax defect — has to live somewhere a test can check. An exit code
+      has no offline recomputation: nothing in `dotnet test` can re-derive what
+      `dbt parse` did without dbt installed. The verdict is the one field that CAN
+      be re-derived, so the emitter writes it and MeasuredCommandVerdict recomputes
+      it, and every other column stays an untouchable observation. Calling the whole
+      table a ratchet would have imported a guarantee it does not have.
+  - category: Implementation
+    chose: "The network column is measured by a second `--network none` pass, not asserted"
+    over: "Marking per command which one is known to fetch"
+    reason: |
+      Offline means no workspace, not no network — `dbt deps` fetches from the hub
+      and the successor phase p0304 puts the agent behind a default-deny egress
+      allowlist. Which commands break under that is exactly the fact p0304 should
+      inherit, and a hand-written column would have been the author's belief about
+      dbt rather than an observation. The whole matrix therefore runs twice and a row
+      reads `yes` when the two passes disagreed on the exit code.
+  - category: Tooling
+    chose: "check-jsonschema validates databricks.yml AND resources/sample_job.yml"
+    over: "Validating databricks.yml alone, as the spec's candidate list writes it"
+    reason: |
+      The fixtures use the ordinary `include: resources/*.yml` layout, so the
+      unknown-key and wrong-type defects live in the included file. Pointed at the
+      root document alone the command greens on both — it would have been recorded
+      as detecting nothing while the defect sat one file away. Naming both files
+      measures the bundle, not one of its fragments.
+  - category: Tooling
+    chose: "Each dbt fixture carries a .sqlfluff giving the jinja templater dbt stand-ins plus load_macros_from_path"
+    over: "Running sqlfluff bare, or installing the dbt templater"
+    reason: |
+      Bare, sqlfluff cannot render `{{ ref() }}` or the project's own macros and reds
+      on the CLEAN fixture, which by this phase's rule makes it a broken command
+      rather than a gate — and the reason would have been the harness, not the SQL.
+      The stand-in macros are sqlfluff's own documented answer for a dbt project
+      without the templater, and they leave the measurement pointed at what the
+      command claims to detect: SQL that does not parse in the databricks dialect.
+  - category: TradeOff
+    chose: "The analyzer eval reads the pinned catalog's project-analyzer-master body directly"
+    over: "Composing SkillCatalogPromptCatalog with its real loader chain"
+    reason: |
+      The production catalog resolves that name through an eight-dependency
+      YamlSkillLoader graph, and none of it is what the eval measures — the body it
+      ends up serving is the master SKILL.md that PackagedMaster already reads for
+      the prompt tests. The one difference (no @-reference resolution) is stated on
+      the class rather than left to be discovered. The eval asserts nothing about
+      model content either way: the phase-gate hook runs the suite unfiltered, so a
+      content assertion would become a paid, flaky gate on every future phase commit
+      [[feedback_safety_in_api_not_process]].
+  - category: Scope
+    chose: "package-lock.yml joins target/, dbt_packages/ and .user.yml in .gitignore, scoped to the fixture tree"
+    over: "The three names the spec lists, unscoped"
+    reason: |
+      `dbt deps` writes package-lock.yml next to packages.yml, so the observed set of
+      generated names is four, not three. Scoping the patterns to
+      Fixtures/DataFixture keeps a bare `target/` from silently ignoring a directory
+      elsewhere in a repository that has no Rust or Java in it today. The same four
+      names are skipped by both fixture hashers, so a stray generated file cannot
+      false-red the pin.

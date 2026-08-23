@@ -1,0 +1,5 @@
+meta:
+  workdir: .
+  project: sample-dbt
+stack:
+  lang: python

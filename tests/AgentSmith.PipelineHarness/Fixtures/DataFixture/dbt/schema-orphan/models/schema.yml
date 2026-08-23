@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: orders
+
+models:
+  - name: stg_orders
+    description: One row per order, straight from the raw source.
+    columns:
+      - name: order_id
+        description: Primary key.
+  - name: orders
+    description: Orders with the amount converted to dollars.
+    columns:
+      - name: order_id
+        description: Primary key.
+  - name: payments
+    description: Documented here, but models/payments.sql does not exist.
+    columns:
+      - name: payment_id
+        description: Primary key.
