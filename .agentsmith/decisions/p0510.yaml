@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0510
+
+decisions:
+  - category: Architecture
+    chose: "Six route files behind one entry point, split by config-studio SURFACE"
+    over: "One extraction of MapEntity plus its seven registrations"
+    reason: |
+      A single extraction was arithmetically insufficient: the generic helper and its
+      registrations are 54 of the 245 lines, so what remained would still have been
+      over 120 and the baseline row could not have been deleted. Splitting by surface
+      instead of by size gives each file a nameable responsibility — entity CRUD,
+      capability and validation reads, catalog transfer, the change feed, settings —
+      so the next annotation phase edits the file whose name matches the routes it is
+      annotating rather than hunting through one list of thirty-nine.
+  - category: Implementation
+    chose: "ConfigStudioEndpoints stays as the mapping entry point, now 30 lines"
+    over: "Deleting it and calling the five surface mappers from ServerEndpointExtensions"
+    reason: |
+      MapConfigStudioEndpoints has three call sites — ServerEndpointExtensions and two
+      test hosts — and the spec requires ConfigStudioApiSmokeTests and
+      CapabilityWireShapeTests to pass UNEDITED. Keeping the extension method keeps the
+      seam those tests measure, so the whole split is provable by tests that never
+      changed. It also keeps one place that answers what the config studio maps.
+  - category: Architecture
+    chose: "The write guard lives in Services/Config as ConfigStudioWriteGuard"
+    over: "A seventh file under Extensions/"
+    reason: |
+      Attribution, exception translation and the post-commit reload signal are not
+      route mapping — they are what a config write DOES. Extensions/ is the project's
+      folder for extension-method classes; Services/ is where functional code lives,
+      next to ConfigChangeView, which the change feed already reaches for the same way.
+      Every writing surface now calls one copy instead of four files carrying it.
+  - category: TradeOff
+    chose: "The guard stays a static class with static members"
+    over: "Modelling it as an injected service behind an interface"
+    reason: |
+      The coding principles want instance services in DI, and a guard that publishes
+      events is a service by that reading. Doing it here would change how every write
+      endpoint resolves its collaborators, which is behaviour, and this phase exists
+      precisely so the annotation phase after it can read a diff of pure absences.
+      The members are moved verbatim, including the deliberately swallowed best-effort
+      signal failure. Making the guard injectable is a separate, arguable change.
+  - category: Implementation
+    chose: "The route test reads endpoints off the route builder without starting a server"
+    over: "Another self-hosted loopback host like the two existing smoke tests"
+    reason: |
+      The claim under test is that the same thirty-nine verb/path pairs are mapped, and
+      the route builder's data sources hold exactly that. Mapping still runs the request
+      delegate factory over every handler, so IConfigStore has to be a known service
+      type — registered as a factory that throws, mirroring CapabilityWireShapeTests, so
+      the host cannot quietly answer a request the test never makes. No port, no
+      database, no seed, and a failure names the route rather than a status code.
+  - category: Scope
+    chose: "Nothing about permissions, authentication or handler bodies was touched"
+    over: "Adding the route annotations while the files were already open"
+    reason: |
+      The split is the predecessor, not the first step. Carried in one commit with
+      seventy-five new annotations, neither change is reviewable: a moved line and a
+      changed line look alike in a diff that large. The proof this phase offers is that
+      two untouched wire tests still pass, and that proof only exists while the commit
+      contains no new behaviour.
