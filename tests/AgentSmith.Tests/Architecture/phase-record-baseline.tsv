@@ -2,7 +2,9 @@
 # installed (2026-08-17). Nothing new may join this list; an entry that is fixed must
 # leave it. Regenerate ONLY when it shrinks: AGENTSMITH_WRITE_PHASE_BASELINE=1
 #
-# duplicate-id  two phase files declare the same `phase:` id (p0169j-a..d, p0131c x2)
+# duplicate-id  two phase files declare the same `phase:` id (p0169j-a..d, whose
+#               slug tails the record still reads by prefix). p0131c left this
+#               list in p0509: p0131c-pre is now read whole and is its own id.
 # unrecorded    a phase in done/ that state.done in context.yaml never recorded
 # dangling      a `requires:` naming a phase no file and no context entry defines
 dangling	p0162b -> p0162a
@@ -22,7 +24,6 @@ dangling	p0277 -> p0179
 dangling	p0278 -> p0179
 dangling	p0363 -> p0341e
 dangling	p0388a -> p0373
-duplicate-id	p0131c
 duplicate-id	p0169j
 unrecorded	p0019b
 unrecorded	p0020a
