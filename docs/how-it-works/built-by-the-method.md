@@ -74,8 +74,12 @@ running crash free.
 
 CI would have told me about a break afterwards. The hook stops the commit from
 existing. Whatever the model believes about its own work, that belief has to get
-past a build before it reaches the history, and the model has no way to wave
-itself through.
+past a build before it reaches the history.
+
+A hook can only read the commit it is shown, so a few invocation forms carry no
+message it can inspect and are let through — loudly, and with a line in the gate's
+ledger saying so. `CLAUDE.md` lists exactly which, because a definition of done that
+leans on the gate has to know where the gate stops.
 
 ## Principles as tests
 
