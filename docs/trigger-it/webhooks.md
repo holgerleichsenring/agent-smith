@@ -40,9 +40,9 @@ In Jira Cloud: **System → System Webhooks → Create a Webhook**.
 - URL: `https://agent-smith.your-host.example/webhook/jira`
 - Events: **Issue created**, **Issue updated**.
 - JQL filter: `project = TL` (or whatever your project key is) — narrows webhooks to just the project Agent Smith manages.
-- Secret: paste your `JIRA_WEBHOOK_SECRET` value. When Jira sends a signature header, the server HMAC-verifies the body against it.
+- Secret: paste your `JIRA_WEBHOOK_SECRET` value. Once the project carries a secret, every delivery must arrive with a matching `x-hub-signature` — one without it is refused with `401`.
 
-Jira is the one platform where the secret is referenced from the configuration (per project, on the trigger block) rather than read from a server env var directly. On a server that reference is set in the project drawer, and the value itself still lives in the environment under the name you give here:
+Jira is the one platform where the secret is referenced from the configuration (per project, on the trigger block) rather than read from a server env var directly. On a server that reference is set in the project drawer. A `${NAME}` reference resolves against the `secrets:` map first and then against the environment variable of that name, and a reference that resolves to nothing counts as unconfigured — so a placeholder nobody exported leaves the platform open rather than turning every delivery into a `401`:
 
 ```yaml
 projects:
@@ -53,7 +53,7 @@ projects:
       # ...
 ```
 
-Jira Cloud system webhooks don't send a signature header at all — in that case the request is accepted; use the JQL filter plus network-level controls to keep the endpoint quiet.
+Jira Cloud **system** webhooks don't send a signature header at all. If you rely on those, leave the project's secret unset — the platform then falls open and every delivery is accepted; use the JQL filter plus network-level controls to keep the endpoint quiet. Setting a secret and using a webhook that cannot sign gives you a `401` on every delivery.
 
 For Jira Server / Data Center the webhook UI is similar but lives under **System → Webhooks**.
 
@@ -108,7 +108,7 @@ If you can't reach the orchestrator from the tracker, use [polling](polling.md) 
 
 ## What the framework does on receipt
 
-1. Detect the platform and verify the secret (HMAC for GitHub, HMAC when present for Jira, token compare for GitLab, basic-auth for Azure DevOps).
+1. Detect the platform and verify the secret (HMAC for GitHub and Jira, token compare for GitLab, basic-auth for Azure DevOps). Wherever a secret is configured this is mandatory: a delivery without a valid signature — an absent header included — is refused with `401` before any handler runs. A platform with no secret configured is not verified at all.
 2. Parse the payload, extract the ticket id and the changed fields.
 3. Decide if this event matters: did the status change to one of `trigger_statuses`? Did a `pipeline_from_label` label get added? Did a comment with the project's `comment_keyword` land? If none of the above, return 200 OK and stop.
 4. If the event matters: claim the ticket — the claim is a database lease, so a webhook and a poll racing on the same ticket can't double-trigger, and one ticket never has two live runs (that's enforced by construction, not by timing). Then check capacity: if the run's whole footprint doesn't fit right now, it queues in strict FIFO order instead of failing (see [Capacity & queueing](../reference/operations/capacity.md)).

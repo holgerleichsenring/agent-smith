@@ -17,9 +17,12 @@ public sealed class RawConfigMaterializer(
     DeploymentDefaultsApplier deploymentDefaults,
     ConfigCatalogResolver resolver,
     IAgentSmithPaths paths,
-    IStartupFindings? findings = null)
+    IStartupFindings? findings = null,
+    ConfigSecretReferences? secretReferences = null)
 {
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
+    private readonly ConfigSecretReferences _references =
+        secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable);
     private readonly List<StartupFinding> _unmaterializable = [];
 
     /// <summary>
@@ -37,7 +40,7 @@ public sealed class RawConfigMaterializer(
         _findings.Clear(StartupSubsystems.Configuration);
         _unmaterializable.Clear();
         ResolveSecrets(raw);
-        ResolveRegistryTokens(raw);
+        ResolveSecretReferences(raw);
         deploymentDefaults.Apply(raw);
         ApplyEffectiveTriggers(raw);
         NormalizeProjects(raw);
@@ -95,31 +98,23 @@ public sealed class RawConfigMaterializer(
 
     // p0191: registry tokens reference secrets via ${name}; substitute them after
     // ResolveSecrets has replaced the secrets-dict values with env-var contents.
-    private static void ResolveRegistryTokens(RawAgentSmithConfig raw)
+    // p0506: a project's jira_trigger.secret carries the same reference shape — the
+    // shipped example writes ${JIRA_WEBHOOK_SECRET} — and was substituted by nothing,
+    // so the verifier compared deliveries against the literal placeholder.
+    private void ResolveSecretReferences(RawAgentSmithConfig raw)
     {
         foreach (var entry in raw.Registries)
-            entry.Token = ResolveSecretReference(entry.Token, raw.Secrets);
+            entry.Token = _references.Resolve(entry.Token, raw.Secrets);
+        foreach (var project in raw.Projects.Values)
+            if (project.JiraTrigger?.Secret is { } secret)
+                project.JiraTrigger.Secret = _references.Resolve(secret, raw.Secrets);
     }
 
-    private static string ResolveSecretReference(string value, IReadOnlyDictionary<string, string> secrets)
-    {
-        if (!value.StartsWith("${") || !value.EndsWith("}")) return value;
-        var key = value[2..^1];
-        return secrets.TryGetValue(key, out var resolved) ? resolved : string.Empty;
-    }
-
-    private static void ResolveSecrets(RawAgentSmithConfig raw)
+    private void ResolveSecrets(RawAgentSmithConfig raw)
     {
         var resolved = new Dictionary<string, string>();
         foreach (var (key, value) in raw.Secrets)
-            resolved[key] = ResolveEnvironmentVariable(value);
+            resolved[key] = _references.ResolveFromEnvironment(value);
         raw.Secrets = resolved;
-    }
-
-    private static string ResolveEnvironmentVariable(string value)
-    {
-        if (!value.StartsWith("${") || !value.EndsWith("}")) return value;
-        var varName = value[2..^1];
-        return Environment.GetEnvironmentVariable(varName) ?? string.Empty;
     }
 }

@@ -139,6 +139,10 @@ services:
       # so a restore reads from disk instead of the network. Set to false to force a
       # cold restore in every sandbox; `docker volume rm agentsmith-pkgcache-<eco>` clears one.
       - SANDBOX_PACKAGE_CACHE=${SANDBOX_PACKAGE_CACHE:-true}
+      # p0506: the webhook shared secrets — GITHUB_WEBHOOK_SECRET, GITLAB_WEBHOOK_TOKEN,
+      # AZDO_WEBHOOK_SECRET and JIRA_WEBHOOK_SECRET — arrive through env_file (../.env,
+      # see .env.example). Set one and an unsigned delivery for that platform is refused;
+      # leave it unset and that platform stays open.
     ports:
       - "${SERVER_PORT:-8081}:8081"
     volumes:

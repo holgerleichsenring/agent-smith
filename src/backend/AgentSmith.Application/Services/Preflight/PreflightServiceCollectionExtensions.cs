@@ -22,7 +22,7 @@ public static class PreflightServiceCollectionExtensions
         services.AddSingleton<IPreflightCheck>(sp => new TrackerAuthCheck(
             sp.GetRequiredService<IPreflightConfigSource>(),
             sp.GetRequiredService<Contracts.Providers.ITicketProviderFactory>(),
-            Environment.GetEnvironmentVariable));
+            sp.GetRequiredService<IWebhookSecretResolver>()));
         services.AddSingleton<IPreflightCheck, RepoAccessCheck>();
         services.AddSingleton<IPreflightCheck, SkillsCatalogCheck>();
         services.AddSingleton<IPreflightCheck, SandboxSpawnCheck>();
