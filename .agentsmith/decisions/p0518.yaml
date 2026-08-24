@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0518
+
+decisions:
+  - category: Architecture
+    chose: "200 is the number, and it is the loader's real limit"
+    over: "Collapsing everything onto the catalog's 180, or keeping 180 as an authoring margin under a hard 200"
+    reason: |
+      Measured first: all fourteen masters in the pinned catalog sit between 56 and 175 chars,
+      so both candidates ship unchanged today. 180 loses anyway. It is not a safety property —
+      the release gate catches an over-limit description at 200 just as reliably as at 180, and
+      no description between 181 and 200 has ever caused a failure, because the loader accepts
+      it. Lowering the PARSE-TIME gate to 180 would be worse than the defect: it would hard-fail
+      a catalog that loads perfectly well, turning an authoring convention into a runtime
+      outage for anyone on a pin we did not author. What 180 actually bought was the confusion
+      this phase exists to remove — an author reading the binary's error ("at most 200") writes
+      190 and is then refused by the release gate quoting a different number.
+  - category: Implementation
+    chose: "One shared source file, SkillDescriptionRule, compiled into both binary gates via a linked Compile item"
+    over: "A project reference from AgentSmith.Infrastructure.Core to AgentSmith.SkillsPackaging, or a shared constant in AgentSmith.Contracts"
+    reason: |
+      The packaging tool must build BEFORE the runtime projects — Infrastructure.Core already
+      references it with ReferenceOutputAssembly=false purely for build ordering, and undefines
+      the RID/publish globals so a self-contained publish does not infer the host RID. Consuming
+      its output assembly would undo exactly that, and routing the constant through Contracts
+      would drag a runtime project into the tool's RID-less restore and build it twice under
+      different global properties. A linked source file gives one literal and one verdict with
+      no graph edge at all. It carries the SHAPE as well as the number, which is what removed
+      the second disagreement below.
+  - category: Implementation
+    chose: "A block-scalar description is refused by all three gates, detected from the deserialized value containing a newline"
+    over: "Teaching the shell gate to measure a block scalar, or letting the binary keep passing one"
+    reason: |
+      The shell refuses a block scalar because bash cannot measure one; the binary deserialized
+      it and measured it, so a cross-check fixture was red by construction. Making bash fold and
+      chomp YAML would reproduce the deserializer approximately, and an off-by-one on trailing
+      newline chomping is precisely the gap that reopens the hole. Detecting the shape from the
+      value needs no raw frontmatter plumbed through SkillMdParser and NewFormatSkillBuilder: a
+      literal or clip-chomped folded scalar keeps its newline through deserialization, a
+      single-line quoted scalar never has one. A strip-chomped single-paragraph folded scalar
+      (">-") still slips past the binary; it is measured correctly and the shell refuses it at
+      authoring time, so it cannot reach a release.
+  - category: Tooling
+    chose: "The catalog declares its cap in skills/description-cap.txt, ships it in the tarball, and the packaging gate fails the build when the two numbers differ"
+    over: "Restating 200 in the shell script with a comment, or having the binary trust the catalog's declaration"
+    reason: |
+      The two repositories cannot see each other's source, so 'one declaration' across them can
+      only be a lock, not a variable. The tarball is the one artefact that crosses, and it
+      crosses in the direction that matters: the number becomes visible next to the binary's own
+      at the moment a catalog is vendored. The check is EQUALITY, not 'at or under' — an
+      ordering would let the catalog drift quietly downward again and recreate the two-number
+      state. The file needs no change to scripts/package.sh, whose SOURCES already sweep
+      skills/ with find. The binary never reads the cap FROM the catalog: a catalog that could
+      raise the limit could disable the gate.
+  - category: Scope
+    chose: "A catalog that declares nothing is accepted, and the cross-repository lock stays dormant until the pin moves"
+    over: "Making the declaration mandatory now"
+    reason: |
+      The pinned v4.6.0 tarball predates this file, and the pin points at a published release
+      whose SHA256 the build verifies — there is no way to add the file to it without cutting a
+      release, which this phase may not do. Mandatory today would simply break the build. Every
+      master in that tarball is still gated one by one against the same number, so nothing is
+      unguarded in the meantime; only the two-way lock waits for the next pin bump.
+  - category: Scope
+    chose: "Removed the fourth copy of the number from SkillsCatalogCheck's fix hint rather than wiring a third gate to the shared rule"
+    over: "Linking SkillDescriptionRule into AgentSmith.Application as well"
+    reason: |
+      The hint is prose, not a gate — it cannot cause the failure class, but it was the next
+      number to go stale. The exception it accompanies already names the limit that was broken,
+      so the hint points at it instead of restating it. Its test asserted the literal "200" and
+      now asserts the number is absent, which is the rule the phase installs.
