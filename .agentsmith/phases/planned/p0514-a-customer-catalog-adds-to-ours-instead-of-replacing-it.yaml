@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0514
+goal: "A customer who writes their own skills keeps every master the pinned catalog ships and adds theirs on top, so \"this binary runs that catalog\" stays true for the half they did not write."
+
+applies_to: "backend (catalog resolution, the overlay materialisation, what a run records about its binding) + docs"
+
+scope:
+  in: "An overlay directory layered onto the resolved catalog whatever its source, materialised into one root so every reader downstream is unchanged, recorded in the run's catalog binding, and documented as the way a customer ships their own skills."
+  out: >
+    A NEW VALIDATION VERB. Measured: agentsmith validate-concepts --skills-path already runs
+    frontmatter, role, non-empty description, the description cap, the output_schema enum and
+    the activation-expression rules over any directory, and the materialised overlay root is
+    a directory it accepts. A second verb would be the fifth implementation of the same rules.
+    A CONTRACT VERSION NUMBER — measured inert, see the decision below. The description-cap
+    disagreement between the two existing implementations, which is a real defect and is
+    p0518. Merging INSIDE a file: an overlay replaces a file or adds one, it does not splice.
+
+decisions:
+  - key: |
+      THE ORIGINAL PREMISE WAS FALSE AND THE REVIEW MEASURED IT: A CUSTOMER CATALOG CANNOT RUN
+      TODAY. PathSourceHandler validates that <path>/skills exists and returns config.Path as the
+      root, wholesale — nothing is layered. The binary then demands masters by literal name:
+      PipelinePresets.Masters.cs names coding-agent-master, security-master, api-security-master,
+      legal-analyst-master, mad-discussion-master, pr-review-master, design-partner-master;
+      PromptOwnership.cs names project-analyzer-master, knowledge-master, contract-classifier-master,
+      context-generator-master; SpecSetDeriver.cs:35 names spec-derivation-master. Fourteen in all,
+      plus skills/concept-vocabulary.yaml, references/ and principles/ read from the same root. A
+      customer pointing skills.path at their own directory loses every one of them and gets
+      "Prompt resource not found" on the first run. Overlaying was written as a successor; it is
+      the precondition, and this phase is now that.
+  - key: |
+      THE CONTRACT VERSION IS DROPPED BECAUSE IT CANNOT REACH THE BINARY AND WOULD NEVER FIRE.
+      Measured: package.sh packages four trees — patterns, principles, references, skills — and
+      version.txt is not among them, so a catalog ships with no manifest of any kind and a declared
+      contract would never leave the source repository. For the official pair the pin is already
+      hard and already wins: the csproj pins the catalog version AND a SHA256 with an <Error> on
+      mismatch, and EmbeddedSkillsCatalog reads its version from assembly metadata, a build-time
+      constant that cannot disagree with itself. For the mode a customer actually uses, Path mode
+      substitutes the literal string "local" for an unset version. A second compatibility axis that
+      is inert for one pair and unanchored for the other is not an answer to the question; the
+      overlay is, because it makes the pin keep meaning what it means for the fourteen masters the
+      customer did not write.
+  - key: |
+      ONE FIELD, NOT A NEW SOURCE MODE, BECAUSE THE OVERLAY IS ORTHOGONAL TO HOW THE BASE ARRIVES.
+      A customer may pin a released catalog, run the embedded one, or mount a directory, and want
+      their own skills on top of any of them. skills.overlay is therefore a path applied AFTER the
+      configured handler returns, not a fifth SkillsSourceMode. It carries the same two checks
+      PathSourceHandler already makes — the directory exists, it contains skills/ — and throws the
+      same way when it does not, because a misconfigured overlay that silently resolved to the bare
+      official catalog would ship the customer's runs without their skills and say nothing.
+  - key: |
+      MATERIALISE INTO ONE ROOT, BECAUSE ONE ROOT IS THE CONTRACT EVERY READER ALREADY HAS.
+      CatalogResolution carries a single Root and SkillsCatalogResolver sets SkillsCatalogPath from
+      it; the loaders, the vocabulary, references/ and principles/ all read from that one path.
+      Turning the path into a search list would touch every reader and every test that constructs
+      one. Copying the base tree into a cache directory and copying the overlay over it leaves all
+      of them untouched, and file-level union — overlay wins per file, base survives everywhere
+      else — is exactly the semantics the goal sentence describes.
+  - key: |
+      THE MATERIALISATION IS FINGERPRINT-CACHED, THE WAY THE DEFAULT HANDLER ALREADY CACHES.
+      DefaultSourceHandler re-uses its extract when a version marker matches and re-pulls when the
+      pin drifts. The overlay uses the same shape: a marker over the base version and a fingerprint
+      of the overlay's file set, so an edited overlay re-materialises and an unchanged one does not.
+      Without it every pipeline start copies the catalog, and a customer iterating on a skill would
+      not see their edit until they guessed to clear a cache.
+  - key: |
+      THE BINDING NAMES BOTH HALVES, BECAUSE A RUN THAT CANNOT SAY WHICH SKILLS IT RAN IS NOT
+      DIAGNOSABLE. CatalogResolution exists so the visible Load-catalog step records what THIS run
+      bound to. With an overlay the version string alone is a half-truth: "4.6.0" while a customer
+      file replaced a master. The resolution therefore carries the base version and the overlay
+      fingerprint, and the run step shows both. This is the surface a customer running the CLI
+      actually sees — measured: startup findings are printed by exactly one CLI path,
+      `config validate`, which never resolves the catalog, so a finding would have been invisible
+      to the person this phase is for.
+  - key: |
+      REPLACING A MASTER IS ALLOWED AND IS THE POINT. A customer whose overlay carries
+      skills/_masters/coding-agent-master/SKILL.md gets theirs; every master they did not write
+      still comes from the pinned catalog. The alternative — refusing to shadow an official master —
+      would make the mechanism useless for the most common reason to build a catalog at all, and it
+      is not this phase's business to decide that an operator may not change their own coding
+      master. What the phase owes them instead is that the run says so.
+  - key: |
+      VALIDATION IS DOCUMENTED, NOT REBUILT. The description cap, the frontmatter check, role,
+      output_schema and the activation rules already exist in the binary — MasterDescriptionValidator
+      as a build gate over the tarball, NewFormatSkillValidator at parse time on every load, and
+      ValidateConceptsCommand.CheckNewFormatRules behind `validate-concepts --skills-path`. The
+      materialised overlay root is an ordinary catalog directory containing both the customer's
+      skills and the official concept-vocabulary.yaml, so that verb works on it unchanged. What the
+      catalog repository's shell validator adds beyond this is OUR content policy, not a contract:
+      it names our masters by hand and requires our principles tree down to specific words in the
+      Rust delta. Shipping that to a customer would fail every honest catalog, and shipping a subset
+      would create the second implementation this phase is supposed to prevent.
+  - key: |
+      THE PIN KEEPS ITS MEANING, WHICH IS THE OPERATOR'S ACTUAL QUESTION ANSWERED. "0.134.1 runs on
+      4.6.0" says nothing to someone with their own catalog only while their catalog REPLACES ours.
+      Once it layers, the sentence is exactly as true as before for the fourteen masters and the
+      vocabulary, and the customer owns the compatibility of the files they wrote — which they can
+      check with the verb above and which no version number could have decided for them.
+
+steps:
+  - id: an-overlay-is-configured-and-checked
+    action: "Add the overlay path to the skills configuration and validate it the way a mounted catalog is validated — the directory exists and contains skills/ — throwing rather than silently resolving to the bare base."
+    new:
+      - "the overlay path on the skills configuration, its schema entry and its environment binding"
+  - id: the-overlay-lands-on-top-of-whatever-resolved
+    action: "After the configured source handler returns, materialise base and overlay into one cache root by file-level union with the overlay winning per file, keyed by a marker over the base version and the overlay's fingerprint so an unchanged overlay is not re-copied."
+    new:
+      - "the overlay materialiser and its cache marker"
+  - id: the-run-says-which-catalog-it-actually-ran
+    action: "Carry the overlay fingerprint on the catalog binding so the visible Load-catalog step names the base version and the overlay together."
+  - id: the-answer-is-written-down
+    action: "Document how a customer ships their own skills: where the overlay goes, what layering means file by file, that the pinned pair still governs everything they did not write, and which existing verb validates what."
+
+tests:
+  - "Overlay_NotConfigured_TheResolvedRootIsTheBaseUnchanged"
+  - "Overlay_Configured_TheOfficialMastersAreAllStillPresent"
+  - "Overlay_CarriesASkillTheBaseDoesNot_ItIsInTheResolvedRoot"
+  - "Overlay_CarriesAFileTheBaseAlsoHas_TheOverlayWins"
+  - "Overlay_MissingDirectory_Throws"
+  - "Overlay_DirectoryWithoutASkillsSubtree_Throws"
+  - "Overlay_AppliedToAnEmbeddedBase_Works"
+  - "Overlay_AppliedToAMountedPathBase_Works"
+  - "Overlay_Unchanged_TheSecondResolveReusesTheMaterialisedRoot"
+  - "Overlay_FileAdded_TheNextResolveRematerialises"
+  - "Binding_WithAnOverlay_NamesTheBaseVersionAndTheOverlayFingerprint"
+  - "Binding_WithoutAnOverlay_IsUnchanged"
+  - "ValidateConcepts_AgainstAMaterialisedOverlayRoot_ResolvesTheOfficialVocabulary"
+
+done:
+  - "a customer catalog adds and replaces files while every master it does not carry still comes from the pinned catalog"
+  - "an overlay works on top of an embedded, a released and a mounted base"
+  - "a misconfigured overlay throws instead of silently running the bare base"
+  - "an unchanged overlay is not re-copied and an edited one takes effect on the next resolve"
+  - "the run's catalog binding names the base version and the overlay together"
+  - "the existing validate-concepts verb validates a materialised overlay root, and the docs say what it checks and what it does not"
+  - "no new validation verb and no contract version number were added"
+  - "build green, full suite green"
