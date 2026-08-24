@@ -71,8 +71,15 @@ public sealed class FileDomainProfileCatalog(
             [.. (parsed.CompatibleImages ?? []).Where(i => !string.IsNullOrWhiteSpace(i)).Select(i => i.Trim())],
             [.. (parsed.Verify ?? [])
                 .Where(v => !string.IsNullOrWhiteSpace(v.Stage) && !string.IsNullOrWhiteSpace(v.Command))
-                .Select(v => new DomainProfileCommand(v.Stage!.Trim(), v.Command!.Trim()))]);
+                .Select(v => new DomainProfileCommand(
+                    v.Stage!.Trim(), v.Command!.Trim(), Condition(v.WhenPresent)))]);
     }
+
+    // p0513: a blank when_present is no condition at all, not a path that never
+    // exists — a profile author writing `when_present: ""` must not silently lose
+    // the command.
+    private static string? Condition(string? whenPresent) =>
+        string.IsNullOrWhiteSpace(whenPresent) ? null : whenPresent.Trim();
 
     // The catalog path throws until the bootstrap service has resolved it; a doctor
     // check or a unit-scoped run must not crash on that.

@@ -186,6 +186,7 @@ public static class PipelineHandlersExtensions
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.ContextDomainResolver>();
         services.AddTransient<DotnetEntryPointDiscovery>();
+        services.AddTransient<ProfileCommandPresence>();
         services.AddTransient<VerifyStageResolver>();
         services.AddTransient<DomainProfileStagesResolver>();
         // p0420: delivery is accounted for against the branch, not inferred from the run.

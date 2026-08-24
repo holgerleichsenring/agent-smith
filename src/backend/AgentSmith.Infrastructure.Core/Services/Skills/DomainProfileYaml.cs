@@ -20,5 +20,8 @@ internal sealed class DomainProfileYaml
         public string? Stage { get; set; }
 
         public string? Command { get; set; }
+
+        /// <summary>p0513: <c>when_present</c> — the path the command needs to exist.</summary>
+        public string? WhenPresent { get; set; }
     }
 }
