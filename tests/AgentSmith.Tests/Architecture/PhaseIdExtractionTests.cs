@@ -69,6 +69,26 @@ public sealed class PhaseIdExtractionTests
         Departures(Overlap(before), Overlap(after)).Should().BeEmpty();
     }
 
+    /// <summary>
+    /// p0507's landmine, found on the first use of what p0507 shipped. The legacy comparison
+    /// reads EVERY spec on disk with the pre-p0509 four-digit reading and insists each one
+    /// matches — so the first date-minted spec anyone wrote turned it red. A reading that is
+    /// historical must skip what it could never have named; the reading in force must not.
+    /// </summary>
+    [Fact]
+    public void LegacyReading_ADateMintedSpec_IsSkippedRatherThanCalledUndeclared()
+    {
+        const string minted = "phase: 2026-08-24-035a\n";
+
+        PhaseIdReader.Legacy.ReadsEveryNamespace.Should().BeFalse(
+            "a spec the four-digit reading cannot name did not exist while it was the rule");
+        PhaseIdReader.Legacy.SpecId.Match(minted).Success.Should().BeFalse();
+
+        PhaseIdReader.Current.ReadsEveryNamespace.Should().BeTrue(
+            "the reading in force names both namespaces, so a spec it cannot read declares nothing");
+        PhaseIdReader.Current.SpecId.Match(minted).Groups["id"].Value.Should().Be("2026-08-24-035a");
+    }
+
     private static string SpecId(string specText) =>
         PhaseIdReader.Current.SpecId.Match(specText).Groups["id"].Value;
 
