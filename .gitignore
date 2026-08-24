@@ -78,3 +78,7 @@ tests/AgentSmith.PipelineHarness/Fixtures/DataFixture/**/dbt_packages/
 tests/AgentSmith.PipelineHarness/Fixtures/DataFixture/**/logs/
 tests/AgentSmith.PipelineHarness/Fixtures/DataFixture/**/.user.yml
 tests/AgentSmith.PipelineHarness/Fixtures/DataFixture/**/package-lock.yml
+
+# compiled python caches (a gate cache once carried the fingerprint list)
+__pycache__/
+*.pyc

@@ -35,7 +35,7 @@ public sealed class VerificationCommandTests
 
     [Theory]
     [InlineData("dotnet build")]
-    [InlineData("dotnet test sample.Sample.Tests")]
+    [InlineData("dotnet test Sample.Tests")]
     [InlineData("npm run build")]
     [InlineData("make check")]
     [InlineData("./gradlew assemble")]
