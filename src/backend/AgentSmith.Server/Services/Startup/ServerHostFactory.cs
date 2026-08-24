@@ -1,5 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Extensions;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +27,9 @@ public static class ServerHostFactory
     public static async Task<WebApplication> CreateAsync(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        var auth = TokenAuthority();
         ConfigureHost(builder);
-        ConfigureServices(builder);
+        ConfigureServices(builder, auth);
         await builder.Services.AddJobSpawnerAsync(
             builder.Configuration,
             LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
@@ -35,6 +38,9 @@ public static class ServerHostFactory
         var app = builder.Build();
         app.MapServerEndpoints();
         if (DashboardApiExtensions.IsEnabled) app.MapDashboardApi();
+        // p0503b: after the map calls, because MapDashboardApi is where UseCors is
+        // registered and a preflight must be answered before anything can refuse it.
+        app.UseServerAuthentication(auth);
         await RunProbesAsync(app);
         return app;
     }
@@ -60,7 +66,19 @@ public static class ServerHostFactory
         }
     }
 
-    private static void ConfigureServices(WebApplicationBuilder builder)
+    /// <summary>
+    /// p0503b: the auth block is needed BEFORE Build(), which is before the container that
+    /// registers the bootstrap reader exists — so the reader is used directly here. The
+    /// findings this read would record are recorded again by the DI-resolved BootstrapConfig
+    /// during the startup probes, into the list the findings endpoint serves; they collapse
+    /// by identity, so the operator sees one finding rather than two.
+    /// </summary>
+    private static TokenAuthorityConfig? TokenAuthority() =>
+        new BootstrapConfigReader(
+            new EnvConfigStoreLocation(), new RawConfigYaml(), new AuthEnvironmentOverlay())
+            .Read().Auth;
+
+    private static void ConfigureServices(WebApplicationBuilder builder, TokenAuthorityConfig? auth)
     {
         // p0199: every IServiceCollection.Add* call lives in the shared
         // ServerCompositionBuilder so the real-composition harness builds an identical
@@ -68,6 +86,7 @@ public static class ServerHostFactory
         ServerCompositionBuilder.ConfigureServices(builder.Services, ConfigPath());
         builder.Services.AddSandboxOptions(builder.Configuration);
         if (DashboardApiExtensions.IsEnabled) builder.Services.AddDashboardApi();
+        builder.Services.AddServerAuthentication(auth);
     }
 
     private static void ConfigureHost(WebApplicationBuilder builder)
