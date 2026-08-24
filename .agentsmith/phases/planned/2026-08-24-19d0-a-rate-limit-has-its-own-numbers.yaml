@@ -1,0 +1,150 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-24-19d0
+goal: "A rate limit is waited on numbers of its own — and every number that decides whether a run survives a 429 is set where the operator works, means what it reads, and governs the next run without a redeploy."
+
+applies_to: "backend + dashboard"
+
+requires:
+  - p0493
+  - p0345c
+  - p0353
+
+scope:
+  in: "A rate-limit retry block of its own; both retry blocks and the pacing budget editable in the Config Studio and validated there; the cached-token discount confined to providers that honour it; an exhausted refusal an operator can act on."
+  out: "Adding the completion budget to the reservation, and any adaptive send rate that adjusts itself on a 429 — both rejected below. The Anthropic path's own retry handler, which no failing evidence points at."
+
+decisions:
+  - key: |
+      THE LADDER p0493 DESCRIBED HAS NEVER RUN, AT ANY CONFIGURATION. Measured on run
+      2026-08-24T13-53-48-b593: five attempts against one Azure deployment, all refused, the
+      fifth waiting 60000ms, no Retry-After on any of them. p0493's text promises
+      "15s, 30s, 60s, 120s, 120s — about five and three quarter minutes"; what ran was
+      15s, 15s, 16s, 32s, 60s = 138 seconds. The cause is not that a deployed config undercut
+      a good default: RetryWait floors the wait at fifteen seconds and clamps it at a hundred
+      and twenty, but the LADDER BETWEEN those bounds is InitialDelayMs · BackoffMultiplier^n,
+      and both are the NETWORK knobs. At p0493's own defaults the total is 93 seconds. The
+      floor was never the base, so the promised shape was unreachable everywhere, and
+      RetryWaitTests asserts only that no rung exceeds the ceiling — which is vacuous while
+      MaxDelayMs sits below it. Raising only the ceiling would have bought four seconds.
+  - key: |
+      SO A RATE LIMIT GETS A COMPLETE SET OF NUMBERS, NOT A SECOND BOUND. The rate-limit block
+      carries its own attempts, base, growth and ceiling, defaulting to exactly what p0493
+      argued — 5, 15s, 2.0, 120s, which IS 15/30/60/120/120 — and is used only when the refusal
+      is a 429. A network fault keeps the existing block untouched. p0493 reasoned about a
+      provider window correctly and then expressed half of it in constants that a differently
+      purposed knob could and did overrule; the smaller fix is to let the two waiting classes
+      own their own numbers.
+  - key: |
+      A NUMBER THAT LIVES ONLY IN A YAML IS NOT A KNOB. This phase's whole claim is that the
+      operator steers the behaviour instead of a control loop guessing at it, and that claim is
+      empty if steering means editing a file and redeploying a cluster. So every number this
+      phase introduces or relies on — the rate-limit ladder, the network ladder that is already
+      there, and the pacing budget — is a Config Studio field in the agent drawer, validated
+      there, and takes effect for the next run through the existing config-epoch path rather
+      than a restart. The last part is a DONE criterion and not an assumption: it is what the
+      operator will actually try first, and nothing in this repository proves today that an
+      agent-section edit reaches a run without one.
+  - key: |
+      THIS REVERSES A RATIFIED p0493 DECISION, AND SAYS SO. p0493 held that "RetryConfig gains
+      no new operator knobs … a knob that can be set wrong is a knob that will be." That
+      protection was already absent — the ladder obeyed operator knobs the whole time, just the
+      wrong ones. What the argument earns is not fewer knobs but a guard: p0493 bounded the
+      ladder against the 1800-second run watchdog, and a configurable attempt count times a
+      configurable ceiling can exceed it and kill the run mid-wait with a far less legible
+      failure than the 429 it was waiting out. The numbers are therefore validated where they
+      are entered, not withheld.
+  - key: |
+      WHETHER THIS WOULD HAVE SAVED THE MEASURED RUN IS UNKNOWN. Five refusals inside 138
+      seconds do not say what a sixth at 345 would have answered, and no Retry-After was ever
+      sent — which is itself the strongest hint that this was capacity rather than our own
+      quota, and a capacity refusal is precisely the one a longer wait does not cure. This
+      phase does not claim the cure. It makes the wait what the specification always said it
+      was, puts the levers where they can be turned, and makes the next refusal report the
+      facts that decide the question.
+  - key: |
+      COUNTING MORE ACCURATELY IS REJECTED; AN UNEVIDENCED DISCOUNT IS NOT COUNTING. The
+      candidate to add each call's completion budget to the reservation is refused: input is
+      already chars/4, the cached share is an EWMA of past calls, the provider's admission
+      formula is not published per deployment, and a second server instance on the same
+      endpoint is invisible to us — elaborating that sum makes the error harder to see, not
+      smaller. But LlmRateLimiter's CacheWeight of 0.1 is not an estimate, it is an ASSUMPTION
+      that the provider bills a cache read at a tenth of a fresh token for rate purposes, and
+      it is applied to every provider. Where it holds, the operator's number means what it
+      says; where it does not, a warm cache silently inflates a configured budget several-fold
+      on exactly the path that produced this 429. It survives only where evidence supports it,
+      which today is the Anthropic path.
+  - key: |
+      AND AN ADAPTIVE SEND RATE IS REJECTED ON THE EVIDENCE, NOT ON TASTE. Halving the bucket
+      on a 429 and ramping it back is the textbook answer, and "a control loop hides the wrong
+      number" would be a false dichotomy, since it could shrink AND log. It is rejected because
+      of what this deployment actually looks like: the bucket is per provider-and-model, per
+      process, and one Azure endpoint is served here by two independent instances. A local loop
+      would converge on a signal it does not own and two instances would oscillate against each
+      other. The operator sets the number; the server refuses when it is wrong; the refusal
+      says so.
+  - key: |
+      THE PACING FIELD STATES WHAT IT IS NOT. rate_limit decides whether we provoke a 429 at
+      all and is the one agent section the studio cannot edit — endpoint, timeout, models,
+      pricing, cache, compaction and retry are all there. It becomes a field, and three
+      properties travel with it in the field's own help text, because each makes the number
+      mean less than it reads: it is applied SEPARATELY to every model of the agent, so an
+      agent with three models permits three times the budget at one endpoint; it is
+      per-process, so a second instance doubles it again; and it paces estimated input only.
+      A number whose caveats are invisible is worse than no field.
+  - key: |
+      NULL IS MEANINGFUL FOR THIS SECTION, SO THE STUDIO NEVER WRITES IT. Upsert preserves any
+      section the entity leaves null, which is harmless for cache and retry and is not harmless
+      here: a null rate_limit selects the provider tier default, so "preserve" and "clear" would
+      be the same signal and the wrong override could never be removed. The studio therefore
+      seeds the section from the provider tier when it is added, requires both numbers, and
+      offers no clear — removing an override is expressed as setting it to the tier's own
+      values, which the operator can read.
+  - key: |
+      A REFUSAL THAT ONLY REACHES A CONTAINER LOG TEACHES NOBODY. The exhaustion line names the
+      model, the deployment, the attempts, the total waited and whether any Retry-After was ever
+      seen — and the operator-facing failure text carries those facts too, because today every
+      429 is humanised to "AI provider rate limit hit. Wait a moment and retry." on the surface
+      the operator actually reads. The deployment is not in scope at the retry layer yet and is
+      plumbed in; the give-up itself has no site at all today, since the exception simply stops
+      matching the filter and propagates.
+
+steps:
+  - id: the-rate-limit-ladder-carries-its-own-numbers
+    action: "Give a 429 its own attempts, base, growth and ceiling, defaulting to p0493's argued 5 / 15s / 2.0 / 120s; leave the network ladder as it is."
+  - id: every-number-is-set-where-the-operator-works
+    action: "Carry the rate-limit ladder and the pacing budget on the studio agent entity and its form beside the existing retry drawer — pacing seeded from the provider tier, both its numbers required, no clear — with help text naming the per-model and per-process multiplication."
+  - id: numbers-that-cannot-be-set-wrong
+    action: "Validate what the form and the loader accept: positive values, no half-set pacing budget, and a rate-limit ladder whose worst-case total stays well inside the run watchdog."
+  - id: an-edit-governs-the-next-run
+    action: "Prove an agent-section edit reaches a newly started run through the config-epoch path, and close the gap if it does not."
+  - id: a-cache-discount-only-where-the-provider-gives-one
+    action: "Confine the cached-token reservation discount to the provider path it is evidenced on, so a configured budget is not silently inflated by a warm cache."
+  - id: an-exhausted-refusal-states-its-case
+    action: "Plumb the deployment to the retry layer, log one give-up line with attempts, total waited and whether any Retry-After was seen, and carry those facts into the operator-facing failure text."
+
+tests:
+  - "RateLimitLadder_TheDefaults_SumToThePromisedTotalNotAThirdOfIt"
+  - "RateLimitLadder_ANetworkBlockWithASmallMaxDelay_DoesNotShortenIt"
+  - "RateLimitLadder_ItsOwnAttemptCount_IsIndependentOfTheNetworkOne"
+  - "RateLimitLadder_NoBlockConfigured_UsesThePhaseDefaults"
+  - "RetryWait_ANetworkFault_StillUsesTheNetworkLadder"
+  - "RetryWait_ARetryAfter_StillWinsOverTheLadder"
+  - "Validation_ARateLimitLadderThatOutlastsTheWatchdog_IsRefusedWithItsTotal"
+  - "Validation_AZeroPacingBudget_IsRefusedInsteadOfBreakingClientConstruction"
+  - "RateLimiter_AnAzureCallWithAWarmCache_ReservesWhatTheOperatorConfigured"
+  - "RateLimiter_AnAnthropicCallWithAWarmCache_KeepsItsDiscount"
+  - "TransientRetry_ExhaustedRateLimit_LogsModelDeploymentAttemptsTotalWaitAndRetryAfterPresence"
+  - "ErrorFormatter_AnExhaustedRateLimit_CarriesTheDeploymentAndTheTotalWaited"
+  - "AgentEntity_TheRateLimitLadderAndPacingBudget_RoundTripThroughExportAndUpsert"
+  - "AgentEntity_APacingBudgetWithOneNumberMissing_IsRefused"
+  - "AgentForm_TheRateLimitDrawer_EditsTheLadderAndSeedsPacingFromTheProviderTier"
+  - "ConfigEpoch_AnAgentSectionEdit_GovernsTheNextRunWithoutARestart"
+
+done:
+  - "a 429 waits its own configured ladder — 345 seconds at the defaults — whatever the network block holds"
+  - "the rate-limit ladder, the network ladder and the pacing budget are all editable in the Config Studio and survive a round trip"
+  - "a change made in the studio governs the next run started, with no restart and no redeploy"
+  - "a ladder that could outlast the run watchdog, a half-set pacing budget, and a budget of zero are refused where they are entered, with the number that explains why"
+  - "a configured budget is not silently inflated by a warm cache on a provider that does not discount one"
+  - "an exhausted rate limit reaches the operator's screen naming the deployment, the attempts, the total waited and whether the server ever asked for a wait"
+  - "build green, full suite green"
