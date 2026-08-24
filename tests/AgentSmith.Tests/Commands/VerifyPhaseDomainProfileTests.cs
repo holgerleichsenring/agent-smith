@@ -58,6 +58,8 @@ public sealed class VerifyPhaseDomainProfileTests
         new VerifyStageResolver(
             new DotnetEntryPointDiscovery(
                 new SandboxFileReaderFactory(), NullLogger<DotnetEntryPointDiscovery>.Instance),
+            new ProfileCommandPresence(
+                new SandboxFileReaderFactory(), NullLogger<ProfileCommandPresence>.Instance),
             NullLogger<VerifyStageResolver>.Instance),
         new DomainProfileStagesResolver(new TestDomainProfiles(Profile)),
         new SandboxTargets(),

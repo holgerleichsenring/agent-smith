@@ -34,6 +34,7 @@ public sealed class VerifyStageResolverProfileTests
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
         return new VerifyStageResolver(
             new DotnetEntryPointDiscovery(factory.Object, NullLogger<DotnetEntryPointDiscovery>.Instance),
+            new ProfileCommandPresence(factory.Object, NullLogger<ProfileCommandPresence>.Instance),
             NullLogger<VerifyStageResolver>.Instance);
     }
 
