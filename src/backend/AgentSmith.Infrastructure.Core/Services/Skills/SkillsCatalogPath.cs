@@ -25,7 +25,10 @@ public sealed class SkillsCatalogPath : ISkillsCatalogPath
     {
         ArgumentNullException.ThrowIfNull(resolution);
         _root = resolution.Root;
-        _origin = $"{resolution.Source.ToString().ToLowerInvariant()} {resolution.Version} "
+        // p0514: an overlaid root is not the pinned catalog, so the phrase that
+        // names the catalog says so rather than reporting the base version alone.
+        var overlay = resolution.Overlay is null ? string.Empty : $" + overlay {resolution.Overlay}";
+        _origin = $"{resolution.Source.ToString().ToLowerInvariant()} {resolution.Version}{overlay} "
             + $"at {resolution.Root}";
     }
 }
