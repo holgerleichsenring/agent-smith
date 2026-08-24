@@ -40,6 +40,17 @@ public sealed class SkillsConfig
     public string? Sha256 { get; set; }
 
     /// <summary>
+    /// p0514: a directory whose skills are layered ON TOP OF whatever
+    /// <see cref="Source"/> resolved, instead of replacing it. Applies to every
+    /// source mode, because an operator may pin a release, run the embedded
+    /// catalog or mount a directory and still want their own skills on top of it.
+    /// Must exist and contain a <c>skills/</c> subdirectory — the same two checks
+    /// a mounted catalog gets. Unset means no layering and byte-for-byte the
+    /// resolution the configured source handler returned.
+    /// </summary>
+    public string? Overlay { get; set; }
+
+    /// <summary>
     /// Local cache directory where downloaded tarballs are extracted. Empty
     /// string means "use the IAgentSmithPaths default" — the YAML loader fills
     /// this from <c>SkillsCatalogRoot</c> when the operator didn't set it.

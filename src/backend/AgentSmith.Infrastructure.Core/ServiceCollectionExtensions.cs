@@ -110,6 +110,7 @@ public static class ServiceCollectionExtensions
         // p0325: the embedded catalog is the default resolution when no
         // explicit skills source is configured.
         services.AddSingleton<ISkillsSourceHandler, EmbeddedSourceHandler>();
+        services.AddSingleton<ISkillsOverlayMaterializer, SkillsOverlayMaterializer>(); // p0514
         services.AddSingleton<ISkillsCatalogResolver, SkillsCatalogResolver>();
         // p0358: eager, logged catalog refresh when a config reload changes skills.version.
         services.AddSingleton<SkillsCatalogRefresher>();
