@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-24-035a
+
+goal: "No network call happens before the listener binds, so a slow or absent dependency costs a finding instead of the boot — the port opens in milliseconds, readiness stays honest, and a booted-server test stops costing forty seconds."
+
+applies_to: "backend (host construction, the spawner registration, the startup probes) + deploy templates"
+
+requires:
+  - p0503e
+
+scope:
+  in: "Moving every reachability check out of the pre-bind path — the five startup probes and the spawner backend probe — into the shape p0503e already established: a hosted service that runs after the listener binds and publishes findings."
+  out: "Which checks exist and what they report. Removing UnavailableJobSpawner or any other refusing implementation — a spawner that refuses and says why must still always exist. Test-side fixture sharing, which is a separate saving and a separate phase."
+
+decisions:
+  - key: |
+      THERE ARE TWO OFFENDERS, NOT ONE, AND THE FIRST IS BEFORE Build(). Measured in
+      ServerHostFactory.CreateAsync: line 33 awaits AddJobSpawnerAsync during SERVICE
+      REGISTRATION, which probes the container backend and then the orchestrator over the
+      network before the container exists; line 44 awaits RunProbesAsync after Build() and
+      before the caller reaches app.Run(). Async I/O in a composition root is the defect the
+      operator named, and it is the earlier of the two.
+  - key: |
+      THE COST IS MEASURED, NOT ESTIMATED, AND IT SPLITS CLEANLY BETWEEN THE TWO. Profiling the
+      suite twice, once with the probe budget at ten seconds and once at one: 55 of 4,407 tests
+      carry 83.6% of the time, and every one of them boots a server. Throttling the probe budget
+      alone drops sum-of-durations from 21.2 to 15.7 minutes and removes SEVEN classes from the
+      slow list entirely — RoutePermissionGuardTests fell from 161 seconds to 2. What does NOT
+      move is StartupResilienceTests, 218 to 207 seconds, still 26 seconds per boot: that is the
+      spawner probe, which the throttle never touched because it runs before Build().
+  - key: |
+      THE DEPLOYMENT CONSEQUENCE IS THE REASON THIS IS NOT A TEST-SPEED PHASE. Five probes
+      bounded at ten seconds each is a worst case of fifty seconds before the port is bound, and
+      p0503e measured the shipped manifest's readiness budget at thirty-five. An orchestrator
+      kills the pod before it ever opens a socket — the same outcome as "it does not come up",
+      reached by a different mechanism. The suite getting faster is a side effect of fixing that.
+  - key: |
+      THE SHAPE ALREADY EXISTS IN THIS REPOSITORY AND WAS BUILT YESTERDAY. p0503e's authority
+      probe runs as a hosted service after the listener binds, yields first so the boot budget is
+      untouched, records a finding whose severity follows configuration, and clears it on a
+      passing pass. This phase does not invent a pattern; it moves five probes and one spawner
+      check to where the sixth already is.
+  - key: |
+      THE TRY/CATCH BANDS ARE EVIDENCE, NOT A FIX. RunProbesAsync catches everything and converts
+      it to a blocking finding; AddJobSpawnerAsync catches per backend and falls back to a
+      refusing spawner. Both were retrofitted after real outages — p0391a after a boot
+      dependency killed the process, p0393 after the container could not build an OrphanJobDetector
+      whose IJobSpawner was absent. They work. What they prove is that I/O was put somewhere it
+      has to be defended against, and the defence does not make it belong there.
+  - key: |
+      THE SPAWNER IS CHOSEN FROM CONFIGURATION, NOT FROM A PROBE. SPAWNER_TYPE already names the
+      backend; the probe only establishes whether it is REACHABLE, and reachability decided at
+      registration time is a snapshot that was already stale when the first job ran. So the
+      configured backend is registered unconditionally, and reachability becomes a post-bind
+      probe that records a finding. A backend that cannot be reached at call time refuses there,
+      where the caller can be told why — which is what UnavailableJobSpawner already does.
+  - key: |
+      NOTHING ABOUT WHAT IS REPORTED CHANGES, AND THE FINDINGS PAGE IS THE PROOF. Every finding
+      this phase moves keeps its subsystem, its severity and its text. The difference is only
+      WHEN it appears: a fraction of a second after the port opens rather than up to fifty
+      seconds before. The degraded banner already polls, so an operator sees the same picture.
+  - key: |
+      READINESS MUST NOT GO GREEN BEFORE THE PROBES HAVE RUN ONCE, OR THIS TRADES ONE DEFECT FOR
+      ANOTHER. Binding early is only correct if the endpoint that says "ready" still waits for
+      the first pass. Liveness answers immediately — a server that is up is up. Readiness reports
+      not-ready until the first probe pass completes or its own budget expires, so an
+      orchestrator does not route traffic to a server that has not yet checked itself.
+  - key: |
+      THE TEST SUITE IS NOT ALLOWED TO BE THE JUSTIFICATION, BUT IT IS ALLOWED TO BE THE
+      MEASUREMENT. The done criteria state a suite time because it is the cheapest observable
+      proxy for "the boot path does no I/O" — if a booted-server test still costs tens of
+      seconds, something is still reaching out before the bind.
+
+steps:
+  - id: the-spawner-is-registered-without-being-probed
+    action: "Register the configured spawner backend from SPAWNER_TYPE without any network call during service registration, keeping a refusing implementation for a backend that cannot be reached at call time."
+  - id: the-reachability-checks-move-behind-the-bind
+    action: "Run the startup probes and the spawner reachability check from a hosted service after the listener binds, in the shape p0503e established, recording the same findings they record today."
+  - id: readiness-waits-for-the-first-pass
+    action: "Keep liveness immediate and hold readiness not-ready until the first probe pass has completed or its budget has expired, so early binding does not route traffic to an unchecked server."
+  - id: the-manifests-say-what-the-server-now-promises
+    action: "Update the deploy templates' probe timings to the boot they now describe."
+
+tests:
+  - "Boot_NoDependencyReachable_TheHostIsConstructedWithoutAnyNetworkCall"
+  - "Boot_NoDependencyReachable_TheListenerBindsInUnderASecond"
+  - "Boot_SpawnerBackendUnreachable_RegistrationMakesNoCall"
+  - "Boot_SpawnerBackendUnreachable_TheSpawnerRefusesAtCallTimeAndSaysWhy"
+  - "Probes_RunAfterTheBind_AndRecordTheSameFindingsAsBefore"
+  - "Probes_OneHangs_TheOthersStillReportAndTheServerStillAnswers"
+  - "Liveness_BeforeTheFirstProbePass_Answers"
+  - "Readiness_BeforeTheFirstProbePass_IsNotReady"
+  - "Readiness_AfterTheFirstProbePass_IsReady"
+  - "Readiness_ProbeBudgetExpires_BecomesReadyRatherThanHangingForever"
+  - "Findings_EverySubsystemSeverityAndText_IsUnchangedFromBeforeTheMove"
+  - "BootedServerTests_CostUnderTwoSecondsEach"
+
+done:
+  - "no network call happens before the listener binds, proven by a boot with nothing reachable"
+  - "the spawner is chosen from configuration and refuses at call time, not at registration"
+  - "every finding keeps its subsystem, severity and text, and only its timing changes"
+  - "liveness answers immediately and readiness waits for the first probe pass or its budget"
+  - "a booted-server test costs under two seconds, and the suite's sum-of-durations falls below ten minutes"
+  - "build green, full suite green"

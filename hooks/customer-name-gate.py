@@ -32,7 +32,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-_LOCAL_LIST = Path(__file__).with_name("customer-fingerprints.txt")
+# Outside any repository on purpose: an in-repo list is one `git add -f`
+# from being the leak it exists to prevent (p0516).
+_LOCAL_LIST = Path.home() / ".config" / "agent-smith" / "customer-fingerprints.txt"
 
 
 def _load_patterns():
@@ -64,7 +66,8 @@ def main(argv):
     if not patterns:
         sys.stderr.write(
             "customer-name-gate: no fingerprint list configured "
-            "(set AGENTSMITH_CUSTOMER_FINGERPRINTS or hooks/customer-fingerprints.txt) "
+            "(set AGENTSMITH_CUSTOMER_FINGERPRINTS or "
+            "~/.config/agent-smith/customer-fingerprints.txt) "
             "- gate inert.\n")
         return 0
     pattern = re.compile("|".join(patterns), re.IGNORECASE)

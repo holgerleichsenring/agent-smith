@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0510
+goal: "The config studio's thirty-nine routes are split across files small enough to change, so the phase that annotates every route is not blocked by the line ratchet on its first edit."
+
+applies_to: "backend (ConfigStudioEndpoints and the files it becomes)"
+
+scope:
+  in: "A behaviour-preserving split of ConfigStudioEndpoints.cs into per-surface files under the line limit, and the removal of its baseline row."
+  out: >
+    Permissions, authentication and anything the routes DO — *every route states the
+    permission it needs*. The other three files at their ratchet ceiling
+    (RunControlEndpoints 194, TeamsEndpoints 166, JobsHub 164): each needs a single
+    same-line suffix or an annotation at its MapHub call site, which costs no line, and
+    p0503a says so in writing rather than splitting three more files for one token each.
+
+decisions:
+  - key: |
+      THE RATCHET IS AT ZERO ON THE ONE FILE THE NEXT PHASE MUST REWRITE.
+      tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:32 records
+      ConfigStudioEndpoints.cs at 245 lines and `wc -l` answers 245 today, so
+      FileLengthRatchetTests.NoBaselineFile_GrewSinceTheRatchetWasInstalled goes red on line
+      246. p0503a has to widen the generic helper at ConfigStudioEndpoints.cs:158 — six
+      parameters over six lines — and thread the new ones through seven call sites. There is
+      no arrangement of that change that fits inside 245 lines.
+  - key: |
+      A SPLIT IS A PREDECESSOR, NOT A FIRST STEP. A move that changes no behaviour is
+      reviewable by reading the diff for absences; the same move carried in the same commit as
+      seventy-five new annotations is not. Separating them is what makes either one checkable.
+  - key: |
+      THE SPLIT FOLLOWS THE ROUTE SURFACES ALREADY IN THE FILE. Six of them sit there today:
+      the seven entity CRUD registrations and the generic helper that generates them
+      (ConfigStudioEndpoints.cs:25-47 and :158), the capabilities descriptor and the two
+      validation posts plus the connection repo listing (:53-:80), transfer — export.yml and
+      import (:87 and :95), the change feed and revert (:124 and :126), settings (:138-:145),
+      and the attribution plus write-guard helpers every writer calls (:194-:245). Each becomes
+      its own file at or under 120 lines, so none of them may join the baseline —
+      FileLengthRatchetTests.NoNewFile_ExceedsTheLineLimit forbids a new row.
+  - key: |
+      THE BASELINE ROW LEAVES WITH THE LINES.
+      FileLengthRatchetTests.NoFixedFile_StillSitsInTheBaseline fails on a row whose file is at
+      or below the limit, so deleting file-length-baseline.tsv:32 is part of the work, not a
+      tidy-up afterwards.
+  - key: |
+      NOTHING ON THE WIRE MOVES, AND TWO EXISTING TESTS ARE THE PROOF.
+      tests/AgentSmith.Tests/ConfigStudio/ConfigStudioApiSmokeTests.cs and
+      CapabilityWireShapeTests.cs self-host the real routes on a loopback port and assert
+      response bodies and status codes. They are not edited here. If a path, a verb or a JSON
+      shape changed, they say so.
+
+steps:
+  - id: the-write-guard-is-shared-rather-than-copied
+    action: "Move the attribution reader and the signalling write guard out of the endpoint file so every config-studio surface calls one copy."
+    new:
+      - "ConfigStudioWriteGuard: Attribution(HttpContext), GuardSignalingAsync, SignalConfigChangedAsync"
+  - id: the-generic-entity-routes-get-their-own-file
+    action: "Move the generic entity helper and the seven entity registrations into their own file, unchanged in shape."
+    new:
+      - "ConfigEntityRoutes: MapEntity<T> plus the seven MapConfigEntityRoutes registrations"
+  - id: the-remaining-surfaces-each-get-a-file
+    action: "Split the capabilities and validation reads, transfer, the change feed and settings into one file each, and leave ConfigStudioEndpoints as the entry point that calls them."
+    new:
+      - "ConfigCapabilityEndpoints: capabilities, the two validate posts, the connection repo listing"
+      - "ConfigTransferEndpoints: export.yml and import"
+      - "ConfigChangeEndpoints: the change feed and revert"
+      - "ConfigSettingsEndpoints: the settings list, read and save"
+  - id: the-baseline-row-goes-with-it
+    action: "Delete the ConfigStudioEndpoints.cs row from file-length-baseline.tsv and add no new rows."
+
+tests:
+  - "ConfigStudio_MappedRoutes_AreTheSameThirtyNineAfterTheSplit"
+  - "ConfigStudio_MappedRoutes_KeepTheirVerbsAndPaths"
+  - "FileLengthRatchet_NoConfigStudioFile_IsInTheBaseline"
+  - "FileLengthRatchet_EveryNewConfigStudioFile_IsUnderTheLimit"
+
+done:
+  - "the thirty-nine config-studio routes are mapped from files no longer than the limit"
+  - "the write guard and attribution exist once"
+  - "file-length-baseline.tsv lost a row and gained none"
+  - "ConfigStudioApiSmokeTests and CapabilityWireShapeTests pass unedited"
+  - "build green, full suite green"

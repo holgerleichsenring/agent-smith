@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0516
+goal: "Close the paths a customer name reaches the repository by, so the guard covers how files actually arrive rather than one way of writing them."
+
+applies_to: "repo tooling (hooks/, .claude settings) — no product code"
+
+requires:
+  - p0511
+
+scope:
+  in: "Making the fingerprint check run on the ways content actually enters: a Bash-written file, a staged file nobody wrote through a tool, and a push that skipped the working copy. Keeping the existing git-secrets hooks while doing it."
+  out: "The fingerprint list itself, which stays out of this repository by design. Rewriting the history — that is a separate, operator-owned decision."
+
+decisions:
+  - key: |
+      THE GUARD WAS NEVER WRONG, IT WAS NEVER ON THE PATH. It matches Write|Edit|MultiEdit and
+      reads tool_input.file_path / content / new_string. Every file produced through Bash — a
+      heredoc, sed -i, perl -pi, cp — carries no such payload, and bypass-permissions sessions are
+      instructed to prefer exactly that. The three findings of 2026-08-24 arrived by paths the
+      guard cannot see, not by a pattern it failed to match.
+  - key: |
+      THE COMMIT IS THE ONLY PLACE THAT SEES EVERY PATH. A PreToolUse hook can only judge what a
+      tool call carries. `hooks/pre-commit` judges staged content, so it covers a vendored file, a
+      generated artifact and a hand-written commit alike. It exists, it is written, and
+      core.hooksPath has never pointed at it — the layer designed for this case has never run.
+  - key: |
+      CHAIN, DO NOT REPLACE. Pointing core.hooksPath at hooks/ silently retires the git-secrets
+      pre-commit, commit-msg and prepare-commit-msg hooks in .git/hooks. A gate that removes
+      another gate to install itself is a net loss [[feedback_safety_in_api_not_process]].
+  - key: |
+      A GATE WITH NO LIST MUST SAY SO. The script is inert without patterns and exits 0 — correct
+      for a fresh clone, indistinguishable from "checked and clean" for the operator who believes
+      they are covered. p0511 established that a silent pass and an absent run must not look alike.
+
+steps:
+  - id: the-commit-hook-actually-runs
+    action: "Point core.hooksPath at hooks/ and have hooks/pre-commit chain to the git-secrets hooks it displaces, so both gates run."
+  - id: the-bash-path-is-covered
+    action: "Extend the PreToolUse matcher to Bash and scan the command text, so a heredoc or an inline replacement is judged like a Write."
+  - id: an-inert-gate-announces-itself
+    action: "When no fingerprint list is configured, say so once per session instead of passing silently."
+  - id: ci-sees-what-the-working-copy-never-did
+    action: "Scan the pushed range in CI with the list supplied as a secret, so a direct push is covered too."
+
+tests:
+  - "Gate_FileWrittenThroughBash_IsScanned"
+  - "Gate_StagedFileNoToolWrote_IsBlocked"
+  - "Gate_GitSecretsHooks_StillRunAfterHooksPathChange"
+  - "Gate_NoListConfigured_IsReportedNotSilent"
+
+done:
+  - "a fingerprint cannot reach a commit through Bash, through git add, or through a direct push"
+  - "the git-secrets hooks still run"
+  - "an unconfigured gate is distinguishable from a passing one"

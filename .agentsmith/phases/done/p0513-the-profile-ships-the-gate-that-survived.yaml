@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0513
+goal: "A repository declaring the data domain runs the commands p0505 measured green on a repository of ITS shape, and none that were never measured against it."
+
+applies_to: "backend (a presence condition on a profile command, the gate that refuses an unmeasured command) + skills catalog (the data profile, validator)"
+
+requires:
+  - p0504
+  - p0505
+
+scope:
+  in: "A presence condition on a profile command so a command runs only where its files exist, the data profile carrying the two command families measured green on both dbt-bearing shapes, a test in this repository that refuses a profile command the measured table does not record, and the validator rule for the new field."
+  out: >
+    THE BUNDLE SCHEMA CHECK. Its measured string names a schema file the harness injected
+    and a fixture's own file name; the only form a repository could run appears in no row,
+    so declaring it would be a guess that this phase's own gate would then refuse. Successor:
+    *the bundle check is measured in the form a repository can run*. Prerequisites and
+    installation — p0504's named successor *a profile can install what its image lacks*.
+    Publishing the toolchain image, which is an operator step named below.
+
+decisions:
+  - key: |
+      THE PROFILE WAS SHAPELESS AND THE MEASUREMENT IS PER-SHAPE — THIS IS THE DEFECT THE
+      REVIEW FOUND AND THE REASON THE PHASE GREW A MECHANISM. MeasuredCommandVerdict classifies
+      each command against the clean variant OF ITS OWN SHAPE, and the table has no sqlfluff or
+      dbt rows for the bundle shape and no check-jsonschema rows for the dbt shape. p0504's
+      profile is one flat ordered list with no discrimination. Shipping three commands behind one
+      domain word therefore reds a clean dbt-only repository on a bundle command and a clean
+      bundle-only repository on two dbt commands — and VerifyPhaseHandler stops at the first
+      non-zero exit, so whichever false red lands first HIDES the real gates. That is the goal
+      sentence inverted, and it is why a command now states what it needs to be present.
+  - key: |
+      THE CONDITION IS A PATH THAT MUST EXIST, NOT A SHAPE ENUM. Enumerating repository shapes
+      would put the taxonomy in the binary and make every new profile wait for a code change. A
+      command that names the file it operates on — dbt_project.yml for the dbt pair, models for
+      the linter — is self-describing, is checked in the sandbox where the checkout actually is,
+      and lets one profile serve a dbt repository, a bundle repository and one carrying both. A
+      command with no condition always runs, so p0504's existing profiles are unaffected.
+  - key: |
+      FOUR COMMANDS ARE DECLARABLE, NOT THREE, AND THE SPEC SAID THREE. `dbt deps --profiles-dir .`
+      standalone is declarable on every row of both dbt-bearing shapes, alongside the deps-and-parse
+      pair. The profile ships the pair, because deps alone verifies nothing a repository cares
+      about, but the gate's assertion is about the TABLE and the table has four — a test written
+      against "exactly the three" would have been red against the committed evidence on the first
+      run.
+  - key: |
+      THE GATE IS A TEST OVER THE EMBEDDED CATALOG, NOT A RUNTIME REFUSAL, BECAUSE THE TABLE IS
+      NOT IN THE DEPLOYED ARTEFACT. The measured table and every reader for it live in the
+      PipelineHarness test project, resolved by a helper that walks parent directories for
+      AgentSmith.sln and THROWS when it finds none. "Refuse where the profile is read" runs in a
+      pod with no checkout: it would either throw on every domain run in production or be quietly
+      downgraded to a unit test. So it is a unit test by design — and it can be, because the
+      catalog tarball is embedded in this repository at test time and the table sits beside it.
+  - key: |
+      THE GATE IS SCOPED TO PROFILES THAT HAVE A TABLE, OR IT MAKES THE MECHANISM UNEXTENSIBLE.
+      Written as "any declared command the measured table does not record", the rule has no domain
+      scope and there is exactly one table, for this toolchain — so every command of every future
+      profile would be refused. The rule is therefore: a profile for which this repository ships a
+      measured table may declare only commands that table records as declarable. A profile with no
+      table is not gated by evidence it was never offered.
+  - key: |
+      THE TOOLCHAIN IMAGE DOES NOT EXIST ANYWHERE AND THAT IS AN OPERATOR STEP, NOT A PROFILE
+      FIELD. The measurement ran in a locally built image over python:3.12-bookworm with a pip
+      install list and a downloaded CLI. That tag is in no registry, and p0504's packaging gate
+      requires a trusted registry and a git-bearing tag, so declaring it would fail the catalog's
+      own validator. The profile therefore declares the image the operator publishes, and until
+      it is published a repository declaring this domain must name its own image — which the
+      standing rule already allows, since the image in the repository's context.yaml is the image
+      that gets used.
+  - key: |
+      THE PROFILE'S GREEN DEPENDS ON TWO FILES IT DOES NOT SHIP, AND THEY ARE STATED AS INPUTS.
+      `--profiles-dir .` requires a profiles.yml at the repository root; the measured sqlfluff
+      green comes from a fixture carrying a .sqlfluff that stands in jinja macros for dbt's
+      built-ins, without which a real repository reds on ref() on a clean tree. p0505 handed both
+      forward as step-zero inputs and this phase records them in the profile's own documentation
+      rather than discovering them in a customer's first run.
+  - key: |
+      THE ORDERING TEST WAS A TAUTOLOGY AND IS GONE. The declarable row is ONE command string
+      containing `&&`, executed by a shell; there is no two-entry ordering to assert. A test
+      indexing a substring of a literal the same commit wrote cannot fail for the right reason.
+  - key: |
+      THE DOMAIN WORD NAMES THE TOOLCHAIN, NOT THE CATEGORY. A generic data-warehouse word would
+      promise portability these commands do not have — they name one vendor's CLI, one dialect and
+      one profiles convention. A repository declaring this domain is declaring which tools it is
+      verified by, which is what the operator's rule about images is also about.
+  - key: |
+      THE WORKING DIRECTORY IS THE SANDBOX WORK PATH AND A NESTED PROJECT NEEDS meta.workdir.
+      Profile commands run where declared ci commands run. A repository whose dbt project sits in
+      a subdirectory sets meta.workdir, which p0504 already reads. The measured combined fixture
+      flattens both projects into one root, so the nested case is UNMEASURED — it is written down
+      here rather than implied to work.
+
+steps:
+  - id: a-command-says-what-it-needs-to-be-present
+    action: "Add an optional presence condition to a profile command — a path that must exist in the checkout for the command to run — applied where profile verify stages are resolved, with an absent path skipping the command rather than failing it."
+    new:
+      - "the presence condition on the profile command shape, its validator rule and its documentation in the profile format"
+  - id: the-profile-ships-what-was-measured-on-both-dbt-shapes
+    action: "Add the data profile to the skills catalog with the deps-and-parse pair conditioned on the dbt project file and the linter conditioned on the model directory, declaring the image the operator publishes and recording profiles.yml and .sqlfluff as repository inputs."
+  - id: an-unmeasured-command-cannot-be-declared
+    action: "Add a test that reads the profile out of the embedded catalog and fails when a profile for which this repository ships a measured table declares a command that table does not record as declarable."
+
+tests:
+  - "Condition_CommandWithNoCondition_AlwaysRuns"
+  - "Condition_PathPresent_TheCommandRuns"
+  - "Condition_PathAbsent_TheCommandIsSkippedNotFailed"
+  - "Condition_PathAbsentForOneOfTwo_TheOtherStillRuns"
+  - "Profile_Data_DeclaresOnlyCommandsTheMeasuredTableRecordsAsDeclarable"
+  - "Profile_WithNoMeasuredTable_IsNotGatedByTheTable"
+  - "Profile_Data_TheDbtPairIsConditionedOnTheProjectFile"
+  - "Profile_Data_TheLinterIsConditionedOnTheModelDirectory"
+  - "Profile_Data_DeclaresNoBundleSchemaCommand"
+  - "Profile_Data_TheImagePassesThePackagingGate"
+  - "DbtOnlyShape_ResolvesTheDbtPairAndTheLinterAndNothingElse"
+  - "BundleOnlyShape_ResolvesNoCommandsFromThisProfile"
+
+done:
+  - "a clean repository of any of the three measured shapes runs only commands measured green against that shape"
+  - "a command whose path is absent is skipped, not failed, so it cannot hide a later real gate"
+  - "the profile declares no command the measured table does not record as declarable, proven by a test over the embedded catalog"
+  - "a profile with no measured table is not gated by one"
+  - "profiles.yml and .sqlfluff are written down as repository inputs, and the nested-project case is written down as unmeasured"
+  - "skills validator green, build green, full suite green"

@@ -11,8 +11,8 @@
   "properties": {
     "phase": {
       "type": "string",
-      "description": "Phase identifier (e.g. p0001, p0042, p0057a, p0131c-pre). Padded to 4 digits with optional lowercase letter suffix and optional descriptive tail.",
-      "pattern": "^p\\d+[a-z]?(-[a-z][a-z0-9-]*)?$",
+      "description": "Phase identifier. Either a counter id (e.g. p0001, p0057a, p0131c-pre) of four to six digits \u2014 the closed namespace, six digits because PhaseIdFactory mints from a ticket number \u2014 or a date-minted id (e.g. 2026-08-24-8a3f): the UTC date plus a four-hex random suffix, whose fixed width marks where the id ends and the descriptive tail begins.",
+      "pattern": "^(?:p\\d{4,6}[a-z]?|\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4})(?:-[a-z][a-z0-9-]*)?$",
       "examples": [
         "p0001",
         "p0042",

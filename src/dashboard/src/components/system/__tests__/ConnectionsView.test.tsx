@@ -67,12 +67,49 @@ describe("ConnectionsView", () => {
   it("ConnectionsView_WebhookPanel_ShowsSecretLastSeenAndCannotTestNote", async () => {
     mockedApi.fetchConnections.mockResolvedValue({
       connections: [],
-      webhooks: [{ platform: "github", secretConfigured: true, lastReceivedUtc: "2026-06-01T00:00:00Z" }],
+      webhooks: [
+        {
+          platform: "github",
+          secretConfigured: true,
+          lastReceivedUtc: "2026-06-01T00:00:00Z",
+          acceptedUnsignedDelivery: false,
+        },
+      ],
     });
 
     render(<ConnectionsView />);
 
     expect(await screen.findByTestId("webhook-row-github")).toHaveTextContent("secret configured");
     expect(screen.getByTestId("webhook-panel")).toHaveTextContent("cannot be actively tested");
+    expect(screen.queryByTestId("webhook-unsigned-github")).not.toBeInTheDocument();
+  });
+
+  // p0506: the conjunction — a delivery landed and nothing verified it. A deployment
+  // that never received one says nothing, so a polling-only install stays quiet.
+  it("ConnectionsView_WebhookAcceptedUnsigned_NamesTheExposure", async () => {
+    mockedApi.fetchConnections.mockResolvedValue({
+      connections: [],
+      webhooks: [
+        {
+          platform: "github",
+          secretConfigured: false,
+          lastReceivedUtc: "2026-06-01T00:00:00Z",
+          acceptedUnsignedDelivery: true,
+        },
+        {
+          platform: "jira",
+          secretConfigured: false,
+          lastReceivedUtc: null,
+          acceptedUnsignedDelivery: false,
+        },
+      ],
+    });
+
+    render(<ConnectionsView />);
+
+    expect(await screen.findByTestId("webhook-unsigned-github")).toHaveTextContent(
+      "accepted an unsigned delivery",
+    );
+    expect(screen.queryByTestId("webhook-unsigned-jira")).not.toBeInTheDocument();
   });
 });

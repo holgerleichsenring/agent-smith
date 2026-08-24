@@ -254,6 +254,8 @@ public sealed class SkillCatalogPromptCatalogTests
     private sealed class StubCatalogPath(string? root) : ISkillsCatalogPath
     {
         public string Root => root ?? throw new InvalidOperationException("Catalog not ready");
+
+        public string Origin => root ?? "(catalog not resolved)";
     }
 
     private sealed class VerbatimBodyResolver : ISkillBodyResolver

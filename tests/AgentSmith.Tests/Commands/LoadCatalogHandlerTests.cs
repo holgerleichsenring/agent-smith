@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Events;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -148,5 +149,41 @@ public sealed class LoadCatalogHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         publisher.Events.Should().BeEmpty("no binding to report when the resolver was bypassed");
+    }
+
+    // p0514: with an operator overlay layered on, the version string alone is a
+    // half-truth — a run may have loaded an operator file in place of a pinned
+    // master. The step names the base version and the overlay together.
+    [Fact]
+    public async Task Binding_WithAnOverlay_NamesTheBaseVersionAndTheOverlayFingerprint()
+    {
+        var result = await RunWith(new CatalogResolution(
+            "/cache-overlay", "v4.6.0", SkillsSourceMode.Embedded,
+            "embedded://agentsmith-skills/v4.6.0", FromCache: true, Overlay: "a1b2c3d4e5f6"));
+
+        result.Message.Should().Contain("v4.6.0").And.Contain("overlay a1b2c3d4e5f6");
+    }
+
+    [Fact]
+    public async Task Binding_WithoutAnOverlay_IsUnchanged()
+    {
+        var result = await RunWith(new CatalogResolution(
+            "/cache", "v4.6.0", SkillsSourceMode.Embedded,
+            "embedded://agentsmith-skills/v4.6.0", FromCache: true));
+
+        result.Message.Should().StartWith("catalog v4.6.0:").And.NotContain("overlay");
+    }
+
+    private static async Task<CommandResult> RunWith(CatalogResolution resolution)
+    {
+        var handler = new LoadCatalogHandler(
+            new FakeSkillLoader([Role("coding-agent-master", "master")]),
+            new RecordingEventPublisher(), NullLogger<LoadCatalogHandler>.Instance);
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.RunId, "run-1");
+        pipeline.Set(ContextKeys.ConceptVocabulary, VocabWith(2));
+        pipeline.Set(ContextKeys.CatalogResolution, resolution);
+
+        return await handler.ExecuteAsync(new LoadCatalogContext(pipeline), CancellationToken.None);
     }
 }

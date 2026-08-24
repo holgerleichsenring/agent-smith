@@ -17,7 +17,7 @@ When the pipeline needs to do work that requires a specific toolchain (dotnet SD
 - Specific steps that need a toolchain (TestCommand, build steps, security scanners) spawn an ephemeral runtime container with just that toolchain.
 - Server pod stays lightweight — no SDKs.
 
-**Why:** refenv's K8s only deploys the Server image. The CLI image has never been built/pushed/deployed to a registry the cluster can reach. The original spec premise ("queue path should mirror Slack-intent's IJobSpawner usage") was itself faulty — the Slack-intent path was never actually exercised in production either, so its design wasn't validated.
+**Why:** the reference target's K8s only deploys the Server image. The CLI image has never been built/pushed/deployed to a registry the cluster can reach. The original spec premise ("queue path should mirror Slack-intent's IJobSpawner usage") was itself faulty — the Slack-intent path was never actually exercised in production either, so its design wasn't validated.
 
 **How to apply:**
 - When a spec or task says "spawn a CLI container", challenge that premise BEFORE implementing. Ask: is the CLI deployed where it would need to be? What does the runtime container need to actually contain? Is this orchestration work or toolchain work?

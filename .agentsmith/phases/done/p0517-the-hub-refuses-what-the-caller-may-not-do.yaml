@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0517
+goal: "The permission table p0503c wrote becomes the thing that decides: a hub invocation the caller lacks the permission for is refused, and the handshake token reaches the authentication pipeline that validates it."
+
+applies_to: "backend (hub authorization filter, the handshake wiring into the JwtBearer events)"
+
+requires:
+  - p0503b
+  - p0503c
+
+scope:
+  in: "An IHubFilter that resolves the invoked method's permission from p0503c's table and refuses the invocation when the caller lacks it, gated on p0503b's enforce switch; and the one call that installs p0503c's handshake reader in OnMessageReceived."
+  out: "The table itself, the reader itself and the redaction — p0503c. The authentication pipeline, the enforce switch and the per-permission requirements — p0503b. Authorizing a hub method's ARGUMENT — *the caller has a scope*. Flipping the enforce default, which belongs to the phase that gives the dashboard a way to sign in."
+
+decisions:
+  - key: |
+      THIS PHASE EXISTS BECAUSE p0503b AND p0503c POINTED AT EACH OTHER. p0503b's scope assigned
+      the hub handshake to p0503c; p0503c's draft placed the read inside OnMessageReceived, which
+      exists only inside p0503b's AddJwtBearer. Measured at the base commit both were written
+      against: no AddJwtBearer, no AddAuthorization, no IHubFilter anywhere in src/, and
+      Microsoft.AspNetCore.Authentication.JwtBearer absent from the ref pack — so the four
+      handshake tests could not have compiled in either phase. The work that genuinely needs BOTH
+      halves is this one, and it is small: a filter and a one-line wiring.
+  - key: |
+      THE FILTER READS p0503b'S SWITCH, IT DOES NOT MODEL ONE. p0503b introduces the auth block —
+      authority, audience, enforce — and attaches its fallback policy only when enforce is on. The
+      filter takes the same value from the same source. A second copy of the switch is the exact
+      collision the p0503c split was made to avoid, and a filter that decided independently of the
+      middleware would refuse hub methods on an installation whose routes are still open.
+  - key: |
+      AN IHubFilter, NOT A METHOD ATTRIBUTE, AND p0503c ALREADY PROVED WHY. SignalR's dispatcher
+      evaluates a method's AuthorizeAttributes itself through IAuthorizationService on every
+      invocation, outside the middleware and outside any enforce switch, so an attribute would
+      refuse or throw the moment it landed. A filter sees InvocationContext.HubMethodName, reads
+      the table, and can be silent while the switch is off.
+  - key: |
+      A METHOD MISSING FROM THE TABLE IS REFUSED, NOT ALLOWED. p0503c's enumeration test makes a
+      gap a build failure, so the runtime case should be unreachable — which is exactly why the
+      unreachable branch must fail closed. A future method added without a table entry then costs
+      a refused invocation, not a silent hole.
+  - key: |
+      THE HANDSHAKE WIRING IS ONE CALL, AND ITS ABSENCE IS WHY IT IS HERE RATHER THAN IN p0503b.
+      p0503c ships HubHandshakeToken.Read as a pure function over HttpContext. p0503b's scope
+      explicitly excludes the hub handshake, so with both landed nobody has installed it and a
+      browser cannot authenticate a hub connection. This phase adds the OnMessageReceived call
+      that does, which is the first point at which the JwtBearer package and the reader coexist.
+  - key: |
+      WITH THE SWITCH OFF THIS PHASE CHANGES NOTHING, AND THAT IS THE ACCEPTANCE CRITERION. The
+      enforce default stays off until the dashboard can sign in; until then a switch turned on
+      refuses every hub method because no browser sends a token. The tests therefore pin both
+      states, and the off state is pinned first.
+
+steps:
+  - id: the-filter-decides-when-the-switch-is-on
+    action: "Add an IHubFilter that resolves the invoked method's permission from p0503c's table and refuses the invocation when the caller lacks it, doing nothing at all while p0503b's enforce switch is off."
+    new:
+      - "HubPermissionFilter: reads the table by method name, checks the connection's principal, gated on p0503b's enforce switch"
+  - id: the-handshake-token-reaches-the-pipeline
+    action: "Call p0503c's handshake reader from OnMessageReceived on p0503b's JwtBearer registration, so a token in the hub query string authenticates the connection and does not survive the request."
+
+tests:
+  - "Enforce_SwitchOff_HubMethodsBehaveAsBefore"
+  - "Enforce_SwitchOn_CallerLacksThePermission_TheInvocationIsRefused"
+  - "Enforce_SwitchOn_CallerHoldsThePermission_TheInvocationProceeds"
+  - "Enforce_SwitchOn_MethodMissingFromTheTable_IsRefusedRatherThanAllowed"
+  - "Enforce_SwitchOn_TheWatchPermission_LetsAReaderExpandASandbox"
+  - "Handshake_TokenOnTheHubPath_AuthenticatesTheConnection"
+  - "Handshake_AfterAuthentication_TheRequestNoLongerCarriesTheToken"
+
+done:
+  - "with the enforce switch off every hub method behaves exactly as it does today"
+  - "with the switch on, a caller lacking the permission is refused and one holding it proceeds"
+  - "a hub method absent from the table is refused rather than allowed"
+  - "a token in the hub handshake query string authenticates the connection"
+  - "the filter reads p0503b's switch rather than a second copy of it"
+  - "build green, full suite green"

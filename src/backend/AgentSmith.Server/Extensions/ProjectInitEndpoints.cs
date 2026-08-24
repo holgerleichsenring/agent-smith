@@ -1,3 +1,4 @@
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Init;
 
 namespace AgentSmith.Server.Extensions;
@@ -14,7 +15,7 @@ internal static class ProjectInitEndpoints
 {
     internal static WebApplication MapProjectInitEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/projects/{name}/init", InitAsync);
+        app.MapPost("/api/projects/{name}/init", InitAsync).Needs(Permissions.ProjectsInit);
         return app;
     }
 

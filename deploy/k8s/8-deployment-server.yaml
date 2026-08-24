@@ -81,6 +81,88 @@ spec:
                 secretKeyRef:
                   name: agentsmith-secrets
                   key: slack-signing-secret
+            # p0506: the webhook shared secrets. optional:true is load-bearing — a
+            # secretKeyRef to a key the Secret does not carry gives
+            # CreateContainerConfigError and the pod never starts, so an operator
+            # upgrading with an older Secret must not be stopped by these.
+            # An absent value simply leaves that platform unverified, as before.
+            - name: GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: github-webhook-secret
+                  optional: true
+            - name: GITLAB_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: gitlab-webhook-token
+                  optional: true
+            - name: AZDO_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: azdo-webhook-secret
+                  optional: true
+            # Jira's secret is referenced from the configuration as
+            # ${JIRA_WEBHOOK_SECRET} (3-configmap.yaml), so the value has to reach
+            # the process the same way the other three do.
+            - name: JIRA_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: jira-webhook-secret
+                  optional: true
+            # p0503b: the token authority. optional:true for the same reason the
+            # webhook secrets carry it — a secretKeyRef to a key the Secret does not
+            # have gives CreateContainerConfigError and the pod never starts, so an
+            # operator upgrading with an older Secret must not be stopped by these.
+            # No authority means nothing authenticates, as before this phase.
+            - name: AGENTSMITH_AUTH_AUTHORITY
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-authority
+                  optional: true
+            - name: AGENTSMITH_AUTH_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-audience
+                  optional: true
+            - name: AGENTSMITH_AUTH_ENFORCE
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-enforce
+                  optional: true
+            # p0503d: the claim names role resolution reads, and the admin grant
+            # that keeps a wrong mapping from locking every human out. optional:true
+            # for the same reason as above — an older Secret must not stop the pod.
+            - name: AGENTSMITH_AUTH_ROLE_CLAIM
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-role-claim
+                  optional: true
+            - name: AGENTSMITH_AUTH_GROUP_CLAIM
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-group-claim
+                  optional: true
+            - name: AGENTSMITH_AUTH_NAME_CLAIM
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-name-claim
+                  optional: true
+            - name: AGENTSMITH_ADMIN_GRANT
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: admin-grant
+                  optional: true
             - name: K8S_NAMESPACE
               valueFrom:
                 fieldRef:

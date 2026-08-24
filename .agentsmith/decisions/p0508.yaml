@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0508
+
+decisions:
+  - category: Architecture
+    chose: "The message resolver is a python module beside the hook, called as a filter"
+    over: "Parsing the command in bash"
+    reason: |
+      Splitting an arbitrary shell string in bash means `eval`, and `eval` on a
+      `git commit` command line would RUN the commit the gate is supposed to
+      decide about — the gate would become the thing it guards. The hook already
+      shells to python3 for its JSON payload, so the seam exists; the resolver
+      follows it as one pure function from (command, working directory) to a
+      message. Command in on stdin, message out on stdout, exit 3 when there is
+      no message yet.
+  - category: Implementation
+    chose: "An unsplittable command falls back to its own raw text as the message"
+    over: "Reporting it unresolvable"
+    reason: |
+      shlex.split raises on unbalanced quotes, which is what a hand-built heredoc
+      command can look like. Today's gate matches the raw string, so that case is
+      gated NOW; treating it as unresolvable would turn a working gate into a
+      pass-through. The fallback keeps exactly the current behaviour for the one
+      input shape the old grep got right. The common heredoc form
+      (`-m \"$(cat <<'EOF' …)\"`) splits cleanly and never reaches the fallback.
+  - category: Implementation
+    chose: "Unresolvable cases pass through with a line on stderr"
+    over: "Blocking them, or passing them through silently as today"
+    reason: |
+      A bare `git commit`, an `--amend` that opens an editor and `-F -` have no
+      message to read: it does not exist until after the hook has answered, and
+      COMMIT_EDITMSG is written BY the commit. Blocking would break every
+      non-phase commit made without -m. Passing through silently is the defect
+      this phase exists to fix — the skip is indistinguishable from a pass
+      because both exit 0. The stderr line makes the one remaining open case
+      visible, and it is the case with a human sitting in front of it.
+  - category: Scope
+    chose: "The parenthesised marker and the four checks are untouched"
+    over: "Matching a bare phase id anywhere in the message"
+    reason: |
+      Most phase commit messages MENTION other phase ids in their body; a bare-id
+      match would gate on every mention and, now that the body is read, would fire
+      far more often than before. Only WHERE the marker is looked for moves. The
+      build/test/dry-run/preset body keeps its current shape — the phase is about
+      which commits reach it.
+  - category: TradeOff
+    chose: "Only the resolver is covered by tests; the gate body stays uncovered"
+    over: "An end-to-end assertion over a real phase commit"
+    reason: |
+      Asserting the body end to end would mean running a build, the full suite and
+      every harness preset inside a test — minutes per case, and the suite would be
+      testing dotnet rather than the gate. The four Gate_* cases drive the real hook
+      against a throwaway repository, where it reaches \"nothing to gate\" instead of
+      the .NET checks: that line proves the routing decision without paying for the
+      checks. The body stays as untested as it is today.

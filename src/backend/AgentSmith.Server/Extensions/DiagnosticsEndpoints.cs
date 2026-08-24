@@ -1,3 +1,4 @@
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Diagnostics;
 
 namespace AgentSmith.Server.Extensions;
@@ -16,14 +17,15 @@ internal static class DiagnosticsEndpoints
     {
         app.MapGet("/api/diagnostics/connections",
             async (IConnectionDiagnosticsService diagnostics, CancellationToken ct) =>
-                Results.Ok(await diagnostics.GetSnapshotAsync(ct)));
+                Results.Ok(await diagnostics.GetSnapshotAsync(ct)))
+           .Needs(Permissions.DiagnosticsRead);
 
         app.MapPost("/api/diagnostics/connections/{name}/probe",
             async (string name, IConnectionDiagnosticsService diagnostics, CancellationToken ct) =>
             {
                 var status = await diagnostics.ProbeAsync(name, ct);
                 return status is null ? Results.NotFound() : Results.Ok(status);
-            });
+            }).Needs(Permissions.DiagnosticsProbe);
 
         return app;
     }

@@ -51,12 +51,20 @@ public sealed class LoadCatalogHandler(
         await PublishCatalogLoadedAsync(
             pipeline, resolution, skillNames, masterNames, conceptNames, sw.ElapsedMilliseconds, cancellationToken);
 
+        var binding = Binding(resolution);
         logger.LogInformation(
-            "Catalog {Version} ({Source}): {Concepts} concepts, {Skills} skills, {Masters} masters, fromCache={FromCache}",
-            resolution.Version, resolution.Source, conceptNames.Count, skillNames.Count, masterNames.Count, resolution.FromCache);
+            "Catalog {Binding} ({Source}): {Concepts} concepts, {Skills} skills, {Masters} masters, fromCache={FromCache}",
+            binding, resolution.Source, conceptNames.Count, skillNames.Count, masterNames.Count, resolution.FromCache);
         return CommandResult.Ok(
-            $"catalog {resolution.Version}: {conceptNames.Count} concepts, {skillNames.Count} skills, {masterNames.Count} masters");
+            $"catalog {binding}: {conceptNames.Count} concepts, {skillNames.Count} skills, {masterNames.Count} masters");
     }
+
+    // p0514: with an overlay the base version alone is a half-truth — the run may
+    // have loaded an operator file in place of a pinned master. The step names both.
+    private static string Binding(CatalogResolution resolution) =>
+        resolution.Overlay is null
+            ? resolution.Version
+            : $"{resolution.Version} + overlay {resolution.Overlay}";
 
     private static bool IsMaster(RoleSkillDefinition role) =>
         string.Equals(role.Role, MasterRole, StringComparison.Ordinal);

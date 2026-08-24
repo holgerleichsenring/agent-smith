@@ -12,4 +12,7 @@ public static class StartupSubsystems
     public const string Database = "database";
     public const string Redis = "redis";
     public const string Spawner = "spawner";
+
+    /// <summary>p0503b: the token authority a caller is validated against.</summary>
+    public const string Auth = "auth";
 }

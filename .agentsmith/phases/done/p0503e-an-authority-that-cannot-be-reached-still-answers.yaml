@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0503e
+
+goal: "When the configured authority is unreachable, the server says so about itself instead of telling every caller their token is invalid, and stops saying it once the authority returns."
+
+applies_to: "backend (authority probe, auth findings, the challenge the server writes)"
+
+requires:
+  - p0503b
+
+scope:
+  in: "A recurring reachability probe for the configured authority that records and clears its own finding, and a challenge that names the server's own fault rather than the caller's token."
+  out: "Short-circuiting any route with a 503 — measured to be either a lie or unreadable. Blocking the dashboard's sign-in loop against a dead authority, which belongs to the phase that owns that loop."
+
+decisions:
+  - key: |
+      THE MEASUREMENT KILLED BOTH OPTIONS AN EARLIER DRAFT OFFERED, SO THE DILEMMA IS GONE. Run
+      against a real stub authority that could be taken down at will: an unreachable authority
+      produces a 401, NOT a 500. AddJwtBearer with an Authority installs a ConfigurationManager,
+      which is a BaseConfigurationManager and is therefore handed to TokenValidationParameters, so
+      ValidateTokenAsync absorbs the fetch failure — IDX20803 never reaches the pipeline. The
+      "first caller gets a 500" cost was fiction [[feedback_challenge_premises]].
+  - key: |
+      LAZY DETECTION IS NOT EXPENSIVE, IT IS IMPOSSIBLE. The exception the pipeline sees is
+      SecurityTokenInvalidIssuerException with NO inner exception — the transport failure is gone
+      by then. OnAuthenticationFailed therefore cannot tell "the authority is unreachable" from
+      "this token has the wrong issuer". Any lazy implementation must run a separate reachability
+      check, at which point it is a probe with a request as its trigger, not lazy detection.
+  - key: |
+      THE REFRESH INTERVAL GATES A CASE THAT NEVER FAILS. Measured both ways: with a cached
+      configuration an outage is INVISIBLE — tokens keep validating from cached keys, so the
+      motivating thirty-second blip produces zero failed requests. With no cached configuration
+      the manager retries on every call, because its guard short-circuits only when a configuration
+      already exists, and recovery was immediate on the first request after the authority returned.
+      The five minutes are real and irrelevant.
+  - key: |
+      THE REAL DEFECT IS THE BLAME, NOT THE STATUS CODE. The 401 carries
+      error="invalid_token" with a description saying the issuer is invalid — the server telling
+      the caller their token is bad because the server cannot reach its own authority. That is what
+      an operator sees and cannot diagnose, and it is what this phase fixes: once the probe knows
+      the authority is down, the challenge says so about the server.
+  - key: |
+      A RECURRING PROBE THAT CLEARS ITS OWN FINDING, WHICH IS WHAT Clear WAS BUILT FOR.
+      IStartupFindings.Clear exists so a subsystem can re-probe and publish a current picture, and
+      the configuration loader already does exactly this on every load. The auth subsystem becomes
+      its first periodic user. Recovery is visible with no dashboard work: the degraded banner polls
+      the findings endpoint every thirty seconds, so a cleared finding disappears on its own.
+  - key: |
+      THE PROBE RUNS AFTER THE LISTENER BINDS, NOT IN THE BOOT SEQUENCE. Boot probes run BEFORE
+      the port is bound — the doc comment claiming otherwise is wrong — and each is bounded at ten
+      seconds, so a sixth probe against a blackholed provider moves the worst-case pre-bind delay
+      from fifty to sixty seconds. Against the shipped manifest that is survivable for liveness and
+      NOT for readiness, whose budget is thirty-five. A hosted service after the bind costs nothing
+      and is the only shape that can recur anyway.
+  - key: |
+      NO 503, AND THE REASON IS MEASURED TWICE OVER. With a cached configuration a 503 would be a
+      lie, since tokens validate fine. Without one the caller is refused regardless. And the body
+      is unreadable by the only consumer: every dashboard client discards it on a non-ok response
+      and throws the status alone. The reason reaches an operator through the banner, which already
+      polls. The one place a 503 would buy something is stopping a sign-in loop bouncing against a
+      dead provider, and that belongs to the phase that owns the loop.
+  - key: |
+      p0391a FORBIDS NOTHING HERE, AND AN EARLIER DRAFT MISREAD IT. p0391a did not remove external
+      boot dependencies — the persistence and redis probes open network connections at boot today.
+      It made them non-fatal and bounded. A probe returns findings and never throws, and the runner
+      converts a throwing probe into a finding anyway, so this is compatible in the letter.
+  - key: |
+      SEVERITY FOLLOWS ENFORCEMENT, AND THE SCOPE IS ALREADY LAW. Blocking while enforcement is on,
+      because callers really are being refused; advisory while it is off, because nothing is and a
+      red banner on every upgrading installation is what p0503b refused. The finding carries no
+      project either way — that decision belongs to p0503b and is cited, not re-taken.
+
+steps:
+  - id: the-server-learns-that-its-authority-is-down
+    action: "Add a recurring reachability probe for the configured discovery document, running after the listener binds, that records its finding and clears it on a pass that succeeds."
+    new:
+      - "the authority probe and its hosted schedule"
+      - "the auth subsystem constant"
+  - id: the-refusal-names-the-server-not-the-token
+    action: "When the probe reports the authority unreachable, write a challenge that says the server cannot reach its authority instead of describing the caller's token as invalid."
+
+tests:
+  - "AuthProbe_AuthorityReachable_RecordsNothing"
+  - "AuthProbe_AuthorityUnreachable_RecordsAFindingCarryingNoProject"
+  - "AuthProbe_AuthorityRecovers_TheSecondPassClearsIt"
+  - "AuthProbe_EnforcementOn_TheFindingIsBlocking"
+  - "AuthProbe_EnforcementOff_TheFindingIsAdvisory"
+  - "AuthProbe_AuthorityUnreachable_DisablesNoTrigger"
+  - "Challenge_AuthorityUnreachable_NamesTheServerNotTheToken"
+  - "Challenge_AuthorityReachableAndTokenForged_StillNamesTheToken"
+  - "Startup_AuthorityUnreachable_HealthStillAnswers"
+
+done:
+  - "an unreachable authority is a finding the server records about itself"
+  - "the finding clears on the first passing probe, verified by a two-pass test against a stub authority"
+  - "a caller is told the server cannot reach its authority, not that their token is invalid"
+  - "a forged token is still described as a forged token"
+  - "no route is short-circuited and health still answers"
+  - "the probe runs after the listener binds and adds nothing to the boot budget"
+  - "build green, full suite green"

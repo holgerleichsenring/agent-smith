@@ -56,7 +56,30 @@
     },
     "sandbox": { "type": "object" },
     "orchestrator": { "type": "object" },
-    "primary_provider": { "type": "string" }
+    "primary_provider": { "type": "string" },
+    "auth": {
+      "type": "object",
+      "description": "p0503b: the single OIDC authority a bearer token is validated against, and the switch that lets the permission a route declares refuse a caller. Bootstrap-only \u2014 read from this file and from AGENTSMITH_AUTH_* before the config store exists, and never stored in it, so an export can never emit a block the installation does not have. p0503d: it also says how the directory's claims become roles \u2014 the identity provider decides WHO holds a role, this block decides what a role MEANS.",
+      "additionalProperties": false,
+      "properties": {
+        "authority": { "type": "string", "description": "The OIDC issuer. Absent means nothing authenticates." },
+        "audience": { "type": "string", "description": "The audience a token must carry. Absent means the audience is not checked." },
+        "enforce": { "type": "boolean", "default": false, "description": "Whether a missing permission refuses the call. With an authority configured and this off, a presented token is still validated and no route is refused." },
+        "role_claim": { "type": "string", "default": "roles", "description": "p0503d: the claim carrying role NAMES, read verbatim. A directory that NESTS its roles (realm roles under realm_access.roles) cannot be addressed by a flat claim name at all; map its groups instead." },
+        "group_claim": { "type": "string", "default": "groups", "description": "p0503d: the claim carrying group values, mapped onto roles by group_roles. Group values compare exactly, because they are opaque identifiers; a group path's leading slash is normalised away." },
+        "name_claim": { "type": "string", "default": "sub", "description": "p0503d: the claim a caller is NAMED by, on the identity page and in a config change's attribution. sub is opaque but always present; preferred_username or upn read better." },
+        "group_roles": {
+          "type": "object",
+          "description": "p0503d: group value -> the roles holding it grants. A caller in two mapped groups holds the union of both bundles.",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+        },
+        "roles": {
+          "type": "object",
+          "description": "p0503d: roles this installation adds to the built-in admin/operator/reader, as bundles over the permission catalog. Additive: a name colliding with a built-in role does not replace it, and a permission the catalog does not contain is dropped rather than granted.",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
   },
   "$defs": {
     "agent": {

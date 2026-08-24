@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0508
+goal: "The commit gate decides on the message the commit will actually carry, so an amended or file-supplied phase commit is gated like any other."
+
+applies_to: "repo tooling (.claude/hooks/phase-gate.sh and its message resolver)"
+
+scope:
+  in: "Resolving the commit message a git invocation will use — an explicit -m, a -F file, a reused message from an amend or -C, a -t template — and matching the phase marker in it; plus a visible line when the message cannot be resolved."
+  out: "The phase id's SHAPE, which is a separate question and a separate phase. The gate's four checks themselves, which are unchanged."
+
+decisions:
+  - key: |
+      THE GATE GREPS THE COMMAND LINE, AND EXIT 0 LOOKS EXACTLY LIKE GREEN. It matches
+      `\(p[0-9]+[a-z]?\)` against the raw command string and passes through on no match. Simulated
+      against the current hook: `-m "…(p0501)"` gates, including a heredoc-built message; but
+      `--amend --no-edit`, `-F <file>`, `-C <rev>` and a message without parentheses all skip
+      silently. Both greps exit 0 on no match, so a commit that was never gated is
+      indistinguishable from one that passed [[project_phase_gate_greps_the_command_line]].
+  - key: |
+      RESOLVE WHAT CAN BE RESOLVED, AND SAY SO WHEN IT CANNOT. An explicit message is already in
+      hand; a -F file and a -t template are readable; an amend or a -C reuses a message
+      `git log -1 --pretty=%B` returns. What is structurally unresolvable at this point is a bare
+      `git commit` or an `--amend` that opens an editor, and `-F -`: the message does not exist
+      yet, and COMMIT_EDITMSG is written BY the commit. Those pass through — but with a line on
+      stderr saying the gate could not read a message, so the one case that stays open is the one
+      case a human is sitting in front of.
+  - key: |
+      THE PARENTHESES STAY THE MARKER. Matching a bare id anywhere in a message would gate a
+      commit that merely mentions a phase, which is most of them. The marker is unchanged; only
+      where it is looked for moves.
+  - key: |
+      SPLITTING A SHELL STRING IN BASH WOULD MEAN EVAL, AND EVAL WOULD RUN THE COMMIT. The hook
+      already shells to python3 for its JSON payload; the resolver goes there too, as one pure
+      function from command string and working directory to a message, with a raw-string fallback
+      when the split fails — which is exactly the heredoc case that already works today
+      [[feedback_safety_in_api_not_process]].
+  - key: |
+      ONLY THE RESOLVER IS TESTABLE, AND THAT IS THE PART WORTH TESTING. Asserting the gate end to
+      end would mean running a build, the full suite and every harness preset inside a test. The
+      resolver is separated so it can be exercised directly; the heavy body keeps its current
+      shape and stays untested, as it is today.
+
+steps:
+  - id: the-message-is-resolved-before-the-marker-is-sought
+    action: "Extract a message resolver taking the command string and the resolved working directory, covering an explicit message, a -F file, a -t template, an amend, and a -C or -c reuse."
+    new:
+      - ".claude/hooks/commit-message.py — the resolver, importable and directly exercisable"
+  - id: an-unreadable-message-is-announced
+    action: "Pass through when the message cannot exist yet, with a line on stderr naming why."
+  - id: the-resolver-is-exercised-directly
+    action: "Add a test that drives the resolver over each invocation form against a throwaway repository."
+
+tests:
+  - "Resolve_DashM_ReturnsTheMessage"
+  - "Resolve_RepeatedDashM_ReturnsAllParagraphs"
+  - "Resolve_HeredocMessage_StillResolves"
+  - "Resolve_DashFFile_ReadsIt"
+  - "Resolve_DashFFileRelativeToALeadingCd_ReadsIt"
+  - "Resolve_AmendNoEdit_ReturnsThePreviousMessage"
+  - "Resolve_DashCRev_ReturnsThatRevisionsMessage"
+  - "Resolve_BareCommit_ReportsUnresolvable"
+  - "Resolve_DashFStdin_ReportsUnresolvable"
+  - "Gate_AmendNoEditCarryingAPhaseMarker_IsGated"
+  - "Gate_DashFFileCarryingAPhaseMarker_IsGated"
+  - "Gate_MessageWithoutAMarker_PassesThrough"
+  - "Gate_UnresolvableMessage_PassesThroughAndSaysSo"
+
+done:
+  - "an amended phase commit and a -F phase commit are gated, each verified skipping against the current hook first"
+  - "a message that cannot exist yet passes through with a visible reason"
+  - "the marker and the four checks are unchanged"
+  - "the resolver is exercised directly over every invocation form"

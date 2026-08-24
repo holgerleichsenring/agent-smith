@@ -22,6 +22,16 @@
 # The --docker harness tier is intentionally NOT in the blocking gate: it needs
 # a docker daemon + redis and is too heavy/flaky for a commit hook. Run it
 # manually via `/smoke all` when you want the full end-to-end matrix.
+#
+# One copy of this script serves every session: Claude Code expands
+# $CLAUDE_PROJECT_DIR to the LAUNCHING session's project directory, so a subagent
+# working in its own git worktree runs the shared checkout's copy, not the one
+# its worktree happens to contain (p0511 measured this). An edit to the gate
+# therefore takes effect only once it reaches the shared checkout's working tree.
+#
+# Every phase commit the gate recognises leaves one line in the ledger, whether it
+# passed, was blocked, or was let through unchecked. A phase commit with no ledger
+# line never met the gate — which is what tells a pass apart from an absence.
 set -uo pipefail
 
 input=$(cat)
@@ -34,12 +44,57 @@ print(enc(d.get("tool_input", {}).get("command", "")), enc(d.get("cwd", "")))
 cmd=$(printf '%s' "$cmd_b64" | base64 -d 2>/dev/null)
 hook_cwd=$(printf '%s' "$cwd_b64" | base64 -d 2>/dev/null)
 
+hooks_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ledger="${PHASE_GATE_LOG:-$hooks_dir/../phase-gate.log}"
+
+# The phase marker a commit message carries, in either namespace: the closed counter
+# id, e.g. (p0272) / (p73a), or a p0507 date-minted id, e.g. (2026-08-24-8a3f). The
+# ledger and the gating decision below read this ONE definition — a marker recognised
+# by one and not the other would gate a commit it never records, or record one it
+# never gated.
+phase_marker='\((p[0-9]+[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})\)'
+
+# One line per recognised phase commit: when, what the gate decided, the phase id,
+# the tree it gated and the commit the new one will sit on. That last field is what
+# ties a ledger line to a commit afterwards — it is the commit's parent.
+record() {
+  local verdict=$1 tree=$2 detail=$3 phase parent
+  phase=$(printf '%s' "${message:-}" | grep -Eo "$phase_marker" | head -1 | tr -d '()')
+  parent=$(git -C "$tree" rev-parse --short HEAD 2>/dev/null || echo none)
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$verdict" \
+    "${phase:-unknown}" "$tree" "$parent" "$detail" >>"$ledger" 2>/dev/null || true
+}
+
 # Only gate an actual `git commit` invocation (command word at start or after a
-# shell separator) whose message names a phase, e.g. (p0272) / (p73a). This
+# shell separator) whose message names a phase in either namespace. This
 # deliberately ignores commands that merely *mention* git commit (grep, echo,
 # this script's own tests).
 printf '%s' "$cmd" | grep -Eq '(^|[;&|]|&&)[[:space:]]*git[[:space:]]+commit\b' || exit 0
-printf '%s' "$cmd" | grep -Eq '\(p[0-9]+[a-z]?\)' || exit 0
+
+# Look for the marker in the message the commit will CARRY, not in the command
+# line. `--amend --no-edit`, `-F <file>`, `-t <template>` and `-C <rev>` keep the
+# phase id off the command line entirely, and matching the raw string waved every
+# one of them through — a skip that is indistinguishable from a pass, since both
+# exit 0. commit-message.py resolves the message (exit 3 when it cannot exist
+# yet: a bare commit, an editor amend, `-F -`); those pass through, but loudly,
+# because that is the one case with a human sitting in front of it.
+resolver="$hooks_dir/commit-message.py"
+if message=$(printf '%s' "$cmd" | python3 "$resolver" "${hook_cwd:-${CLAUDE_PROJECT_DIR:-.}}"); then
+  if ! printf '%s' "$message" | grep -Eq "$phase_marker"; then
+    # `-m "$(cat message.txt)"` reaches the resolver unexpanded: the shell, not the
+    # command line, supplies the text. Finding no marker in `$(cat message.txt)`
+    # proves nothing about the message the commit will carry, so say so instead of
+    # passing in silence — silence here is what a clean pass looks like.
+    printf '%s' "$message" | grep -Eq '[$]\(|`' || exit 0
+    record not-gated "${hook_cwd:-.}" "message built by a shell substitution"
+    echo "[phase-gate] the commit message is built by the shell ($(printf '%s' "$message" | head -c 60)) — its text never reached the gate, so it was not gated; run the phase checks by hand if this is a phase commit" >&2
+    exit 0
+  fi
+else
+  record not-gated "${hook_cwd:-.}" "unreadable message: ${message:-resolver unavailable}"
+  echo "[phase-gate] could not read the commit message (${message:-resolver unavailable}) — not gating; run the phase checks by hand if this is a phase commit" >&2
+  exit 0
+fi
 
 # Gate the tree the commit ACTUALLY runs in, not the session's project dir. Work
 # in a git worktree (a phase implemented on its own branch) lives outside
@@ -62,7 +117,7 @@ cd "$target_dir" || { echo "phase-gate: cannot cd to $target_dir" >&2; exit 2; }
 
 tmp=$(mktemp -d 2>/dev/null || echo /tmp)
 log()  { echo "[phase-gate] $*" >&2; }
-fail() { echo "" >&2; echo "PHASE GATE BLOCKED COMMIT — $1 failed. Fix it before committing the phase." >&2; exit 2; }
+fail() { record blocked "$target_dir" "$1"; echo "" >&2; echo "PHASE GATE BLOCKED COMMIT — $1 failed. Fix it before committing the phase." >&2; exit 2; }
 
 # A phase routinely spans both repos, and the four checks below are all .NET
 # solution checks. In the skills catalog the equivalent gate is its own validator
@@ -74,9 +129,11 @@ if [ ! -f AgentSmith.sln ]; then
     log "phase commit in the skills catalog — gating $target_dir (validate-skills)"
     bash scripts/validate-skills.sh >"$tmp/validate.log" 2>&1 || {
       tail -30 "$tmp/validate.log" >&2; fail "validate-skills"; }
-    log "all green — commit allowed"
+    record passed "$target_dir" "validate-skills"
+    log "all green — commit allowed (recorded in $ledger)"
     exit 0
   fi
+  record not-gated "$target_dir" "no AgentSmith.sln and no skills validator"
   log "no AgentSmith.sln and no skills validator in $target_dir — nothing to gate"
   exit 0
 fi
@@ -115,5 +172,6 @@ while IFS= read -r p; do
   log "    preset ran: $p (rc=$rc)"
 done <<< "$presets"
 
-log "all green — commit allowed"
+record passed "$target_dir" "build,tests,dry-runs,harness-presets"
+log "all green — commit allowed (recorded in $ledger)"
 exit 0

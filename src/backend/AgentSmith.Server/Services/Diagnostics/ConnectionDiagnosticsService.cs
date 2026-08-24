@@ -23,20 +23,10 @@ internal sealed class ConnectionDiagnosticsService(
     IInfraConnectivityProbe infraProbe,
     IChatConnectivityProbe chatProbe,
     IWebhookDeliveryTracker webhookTracker,
+    IWebhookSecretResolver secretResolver,
     ILogger<ConnectionDiagnosticsService> logger) : IConnectionDiagnosticsService
 {
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(30);
-
-    // Mirrors WebhookSignatureVerifier's secret sources. Jira's secret is per
-    // project (JiraTrigger.Secret), so it has no env var — see IsSecretConfigured.
-    private static readonly IReadOnlyDictionary<string, string?> WebhookSecretEnvVars =
-        new Dictionary<string, string?>
-        {
-            ["github"] = "GITHUB_WEBHOOK_SECRET",
-            ["gitlab"] = "GITLAB_WEBHOOK_TOKEN",
-            ["azuredevops"] = "AZDO_WEBHOOK_SECRET",
-            ["jira"] = null,
-        };
 
     public async Task<ConnectionDiagnosticsSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {
@@ -108,20 +98,12 @@ internal sealed class ConnectionDiagnosticsService(
     private async Task<IReadOnlyList<WebhookStatus>> BuildWebhookStatusesAsync(CancellationToken cancellationToken)
     {
         var lastSeen = await webhookTracker.GetLastSeenAsync(cancellationToken);
-        return WebhookSecretEnvVars
-            .Select(entry => new WebhookStatus(
-                entry.Key,
-                IsSecretConfigured(entry.Key, entry.Value),
-                lastSeen.TryGetValue(entry.Key, out var timestamp) ? timestamp : null))
+        return secretResolver.ResolveAll(config)
+            .Select(source => new WebhookStatus(
+                source.Platform,
+                source.IsConfigured,
+                lastSeen.TryGetValue(source.Platform, out var timestamp) ? timestamp : null))
             .ToList();
-    }
-
-    private bool IsSecretConfigured(string platform, string? envVar)
-    {
-        if (platform == "jira")
-            return config.Projects.Values.Any(p => !string.IsNullOrEmpty(p.JiraTrigger?.Secret));
-        return envVar is not null
-            && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(envVar));
     }
 
     private sealed record ProbeTarget(

@@ -1,4 +1,5 @@
 using AgentSmith.Server.Hubs;
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Lifecycle;
 using Microsoft.AspNetCore.SignalR;
 
@@ -16,8 +17,8 @@ internal static class RunDeletionEndpoints
 {
     internal static WebApplication MapRunDeletionEndpoints(this WebApplication app)
     {
-        app.MapDelete("/api/runs/{runId}", DeleteRunAsync);
-        app.MapDelete("/api/runs", ClearTerminalAsync);
+        app.MapDelete("/api/runs/{runId}", DeleteRunAsync).Needs(Permissions.RunsDelete);
+        app.MapDelete("/api/runs", ClearTerminalAsync).Needs(Permissions.RunsDelete);
         return app;
     }
 

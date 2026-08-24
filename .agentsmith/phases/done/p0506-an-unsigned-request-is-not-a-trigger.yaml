@@ -1,0 +1,252 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0506
+goal: "A webhook whose platform has a secret configured must prove it sent the payload, the Jira secret an operator configured actually resolves, and a deployment that accepted an unsigned delivery says so."
+
+applies_to: "backend (AgentSmith.Server webhook verification + diagnostics, AgentSmith.Application preflight, Infrastructure.Core config materialization) + deploy templates + docs"
+
+requires:
+  - p0391a
+
+scope:
+  in: >
+    The absent-header short circuit in WebhookSignatureVerifier and its two sibling
+    bypasses; the ${...} expansion JiraTrigger.Secret never got; one secret resolver
+    the verifier, the preflight check and the diagnostics service all read; the
+    exposure fact derived from a delivery that actually arrived; the webhook secret
+    keys in the shipped deployment templates; and moving run control off the
+    unconditional endpoint set.
+  out: >
+    Bearer authentication, roles and per-project scope — p0503a and its successors.
+    Rotating or storing the secrets themselves. Rate limiting. Slack, which already
+    implements the rule this phase adds. The Retry affordance retry needs to have a
+    caller — p0382, which owns the run-detail terminal-state actions. TrackerAuthCheck's
+    severity: it FAILS the preflight over a missing webhook secret today and still will;
+    it moves onto the resolver and answers exactly what it answers now.
+
+decisions:
+  - key: |
+      THE ABSENT HEADER IS THE WHOLE ATTACK. WebhookSignatureVerifier.Validate answers
+      `!headers.TryGetValue(...) || Validate(...)` for github, gitlab and azuredevops
+      (WebhookSignatureVerifier.cs:21-29): header absent, TryGetValue false, the negation
+      true, the disjunction short-circuits, the secret is never read. It is the only
+      authentication on the route — WebhookRequestProcessor.cs:33-39 is the whole gate. An
+      unsigned POST /webhook/github with a forged X-GitHub-Event reaches ProjectResolver and
+      a caller who guesses the resolution label enqueues a pipeline run on the org's
+      credentials. The sharpest path is not a new run: a PR-comment approval routes to
+      WebhookDialogueRouter (WebhookRequestProcessor.cs:59) and publishes an ANSWER to a
+      master blocked on a question. No identity, no signature.
+  - key: |
+      THE VALIDATOR ALREADY KNEW, AND ITS CALLER DEFEATED IT.
+      WebhookSignatureValidator.ValidateJira carries the rule in a comment and in code —
+      "Secret configured but header missing → reject" (WebhookSignatureValidator.cs:78-80).
+      The verifier never reaches it: ValidateJira in the VERIFIER reads the header, finds
+      null and returns true first (WebhookSignatureVerifier.cs:48-50). The rule moves to one
+      place every platform passes through [[feedback_safety_in_api_not_process]].
+  - key: |
+      THE JIRA SECRET IS A PLACEHOLDER THAT NEVER EXPANDS, AND FIXING THAT COMES FIRST.
+      config/agentsmith.example.yml:394 ships `secret: ${JIRA_WEBHOOK_SECRET}` and
+      docs/trigger-it/webhooks.md:45 promises "the value itself still lives in the
+      environment under the name you give here". It does not:
+      RawConfigMaterializer.ResolveSecrets expands raw.Secrets only
+      (RawConfigMaterializer.cs:111-117) and ResolveSecretReference is applied to registry
+      tokens alone (:98-102). JiraTrigger.Secret is touched by neither, so an operator who
+      copied the example holds the LITERAL string `${JIRA_WEBHOOK_SECRET}` as a configured
+      secret. Apply the absent-header rule on top of that and every Jira webhook 401s on
+      upgrade while every advisory stays silent, because the secret LOOKS set. The expansion
+      is therefore its own step and it lands BEFORE the rule.
+  - key: |
+      AN UNRESOLVED REFERENCE IS UNCONFIGURED, NOT A SECRET. `${X}` resolves against
+      raw.Secrets first — the registry-token convention (RawConfigMaterializer.cs:104-109) —
+      then against the environment variable named X, which is the shape both the example and
+      the docs actually use. When neither resolves the value is EMPTY, so the platform reads
+      as unconfigured and falls open, instead of silently becoming a secret no sender can
+      match. RawConfigMaterializer sits at its 125/125 ratchet ceiling, so the two reference
+      helpers move OUT into the new resolver and Materialize's ResolveRegistryTokens line
+      widens to cover both — the file shrinks, it does not grow.
+  - key: |
+      THE FINDING RIDES ON A DELIVERY THAT HAPPENED, NOT ON A TRIGGER THAT EXISTS. This is
+      the correction that kills two earlier drafts at once. EffectiveTriggerBuilder.Apply
+      SYNTHESIZES a trigger for any project with a tracker and a `resolution:` shorthand
+      (EffectiveTriggerBuilder.cs:22-27), so EVERY polling-only project carries a webhook
+      trigger in the model and no config field separates exposed from synthesized. Draft 1
+      recorded a blocking finding and disabled the poller through
+      StartupFindingsQueries.BlockingReason → ProjectResolver.IsBlocked, whose own comment
+      says both the webhook dispatch AND the poller's claim path resolve there
+      (ProjectResolver.cs:80-84). Draft 2 made it advisory and told every polling-only
+      operator to set a secret for a webhook they do not expose. The evidence of exposure is
+      IWebhookDeliveryTracker: a request arrived. A polling-only deployment never records
+      one, so it never sees the finding, and no invented config signal is needed.
+  - key: |
+      NO THIRD VOCABULARY — THE JOIN ALREADY SITS ON ONE ROW.
+      ConnectionDiagnosticsService.BuildWebhookStatusesAsync already pairs
+      IsSecretConfigured with the tracker's last-seen per platform
+      (ConnectionDiagnosticsService.cs:108-125), and ConnectionsView.tsx:242-249 already
+      renders "no secret" and "last seen" two pixels apart. So the earlier claim that "a
+      deployment cannot see that it is open" was FALSE — it can, and TrackerAuthCheck FAILS
+      the preflight over the same fact (TrackerAuthCheck.cs:56-63), and the docs say it too.
+      What no surface states is the CONJUNCTION: a delivery landed and nothing verified it.
+      That is one derived property on WebhookStatus.cs (a 10-line record) and one badge. It
+      touches neither ProjectTriggerRules nor a StartupFinding, so the Config Studio trap
+      never arises: ProjectTriggerRules.Evaluate runs on every load INCLUDING the studio's
+      unsaved-draft validation via ProjectConfigNormalizer.Inspect
+      (ProjectConfigNormalizer.cs:38-50, ConfigDraftRulesTests), where "GITHUB_WEBHOOK_SECRET
+      is not set" would be nonsense about a draft.
+  - key: |
+      ONE PLACE MEANS THE OTHER TWO MIGRATE, OR THE CLAIM IS A LIE. The platform→env-var
+      triple exists three times today — inline at WebhookSignatureVerifier.cs:23/26/29,
+      TrackerAuthCheck.cs:21-27, ConnectionDiagnosticsService.cs:32-39 — and the latter two
+      each carry a comment saying they MIRROR the verifier. A resolver serving only the
+      verifier would make it four. All three migrate. Consequence to plan for:
+      ConnectionDiagnosticsService is at its 130/130 ceiling and losing the dictionary plus
+      IsSecretConfigured drops it under 120, so its baseline row must be DELETED or
+      NoFixedFile_StillSitsInTheBaseline goes red.
+  - key: |
+      THE SECRET IS READ THROUGH AN INJECTED READER. Three Environment.GetEnvironmentVariable
+      calls sit inside Validate and a fourth inside IsSecretConfigured
+      (ConnectionDiagnosticsService.cs:124); tests that set them mutate state shared across a
+      parallelised suite. TrackerAuthCheck already takes a Func<string, string?> envReader
+      (TrackerAuthCheck.cs:19) — the resolver copies the constructor it already has
+      [[feedback_unit_tests_bypass_di]].
+  - key: |
+      JIRA IS N-VALUED AND IS ALREADY WRONG. The verifier iterates projects and RETURNS
+      inside the loop on the first one carrying a secret (WebhookSignatureVerifier.cs:52-58),
+      so a second Jira project with a different secret is refused today. The rule is "accept
+      if ANY configured secret validates".
+  - key: |
+      THE TWO REMAINING BYPASSES ARE NOT EQUAL, AND ONLY ONE IS LIVE.
+      `_ => true` (WebhookSignatureVerifier.cs:31) is UNREACHABLE: WebhookPlatformDetector
+      returns only the four known platforms or null, and null is answered 200 before the
+      verifier is constructed (WebhookRequestProcessor.cs:27-31). Closing it is defence in
+      depth and is not presented as live exposure. `if (configLoader is null || serverCtx is
+      null) return true` (:41-42) is the live sibling of the same mistake: an unreadable
+      configuration is not evidence that no secret is configured, so it becomes a refusal.
+      That branch is reachable only when the configuration cannot be loaded at all, in which
+      case no trigger could resolve a project anyway.
+  - key: |
+      THE RUN-CONTROL RATIONALE IS ABOUT answer AND retry, NOT cancel. With
+      AGENTSMITH_UI_API_ENABLED=false, cancel already 500s: CancelAsync takes JobsBroadcaster
+      (RunControlEndpoints.cs:99), registered ONLY in AddDashboardApi
+      (DashboardApiExtensions.cs:29), itself called only behind the gate
+      (ServerHostFactory.cs:70). answer and retry resolve fine — IRunCheckpointStore,
+      IDialogueTransport and NotImplementableRetryService all come from the unconditional
+      chain (ServerCompositionBuilder.cs:37-52). So the real unauthenticated exposure with
+      the dashboard off is publishing an answer to a blocked master and moving a parked
+      ticket back into a trigger status. All three move into MapDashboardApi — a holding
+      position until p0503a gives them a permission, and named as one.
+  - key: |
+      retry HAS NO CALLER, WHICH IS AN UNFINISHED DELIVERABLE, NOT DEAD CODE. Nothing in the
+      dashboard, the docs or the tests posts /api/runs/{runId}/retry; p0390 shipped the route
+      without its button. It is not deleted here and it is not silently parked
+      [[feedback_no_silent_defer]]: p0382-resume-failed-run-from-ui.yaml already adds a
+      run-detail action next to a terminal state, and that is where the Retry affordance
+      belongs. This phase moves the route and says so.
+  - key: |
+      THE ROUTE-TABLE SEAM IS REAL BUT NOT THE OBVIOUS ONE — MEASURED, NOT ASSUMED.
+      AgentSmith.Server.csproj:34 has InternalsVisibleTo for AgentSmith.Tests, and none of
+      the unconditionally mapped endpoints resolves a service at map time: everything goes
+      through ctx.RequestServices at request time (WebhookEndpoints.cs:25, TeamsEndpoints.cs:17,
+      SlackEndpoints.cs:22, WebApplicationExtensions.cs:18). Two things were verified against a
+      real host rather than reasoned about, and both contradict the obvious spelling:
+      app.Services.GetRequiredService<EndpointDataSource>() returns EMPTY before UseRouting —
+      the enumerable seam is ((IEndpointRouteBuilder)app).DataSources; and enumerating it runs
+      RequestDelegateFactory.InferMetadata, which THROWS ("Did you mean to register the
+      UNKNOWN parameters as a Service?") unless every handler parameter type is REGISTERED.
+      Registration alone suffices — a factory that throws on resolve is never invoked during
+      enumeration. So the seam builds the real service collection and resolves nothing: no
+      DB, no Redis. p0503a's guard test needs exactly this seam, so it is built once, here.
+  - key: |
+      THE TEMPLATES GAIN THE KEYS WITHOUT CHANGING UPGRADE BEHAVIOUR. Measured: no shipped
+      template sets any of the three env vars — .env.example carries one commented
+      JIRA_WEBHOOK_SECRET (:23) and nothing else, the compose examples carry none, and
+      8-deployment-server.yaml injects SLACK_SIGNING_SECRET only (:79-83). The k8s half is
+      where carelessness ships an outage: a secretKeyRef WITHOUT optional:true on a key
+      absent from the Secret gives CreateContainerConfigError and the pod never starts, so
+      all three carry optional:true. deploy/apply-k8s-secret.sh must write them too, plus
+      jira-webhook-secret, which 4-secret-template.yaml:38 has DECLARED since it was written
+      and which nothing has ever written (apply-k8s-secret.sh:64-77).
+  - key: |
+      FAIL OPEN WHERE NOTHING IS CONFIGURED, AND SAY SO OUT LOUD. The unconfigured-secret
+      skip stays on every platform, because refusing everywhere would break every
+      template-following deployment on upgrade. SlackSignatureVerifier is the shape being
+      copied, not a second defect: it already refuses an absent header, a stale timestamp and
+      a wrong signature once its signing secret is set (SlackSignatureVerifier.cs:15-25), and
+      its only permissive branch is that same skip. Slack is not touched.
+  - key: |
+      ONE TEST IN THE LIST IS GREEN TODAY, DELIBERATELY.
+      Validate_NoSecretConfiguredAnywhere_IsAcceptedAsBefore passes against current code by
+      construction — it is the guard that this phase does not close the door on every
+      unconfigured deployment, and it is worth more than the tautology it replaces. An
+      earlier draft asserted every test went red first while listing three that could not:
+      two restatements of behaviour the phase no longer changes (already covered by
+      StartupFindingsTests and BlockedTriggerGatingTests) and one that asserted a lambda had
+      been called. They are gone; the done line names the one survivor instead of lying about
+      it [[feedback_verify_via_harness]].
+
+steps:
+  - id: the-configured-jira-secret-is-the-secret-the-verifier-reads
+    action: "Expand ${...} on every project's jira_trigger.secret — raw.Secrets first, then the environment variable of that name — treating an unresolved reference as unconfigured, and move the reference helpers out of RawConfigMaterializer so it shrinks rather than grows."
+    new:
+      - "ConfigSecretReferences — ${...} resolution for registry tokens AND trigger secrets"
+    modify:
+      - "RawConfigMaterializer: ResolveRegistryTokens widens to trigger secrets; the two static helpers move out"
+  - id: one-resolver-answers-what-a-platform-requires
+    action: "Introduce the per-platform secret resolver over an injected environment reader plus the project's Jira secrets, and migrate the verifier, TrackerAuthCheck and ConnectionDiagnosticsService onto it, deleting the duplicated env-var tables."
+    new:
+      - "WebhookSecretResolver — configured secrets per platform, env read injected"
+    modify:
+      - "ConnectionDiagnosticsService: drops WebhookSecretEnvVars + IsSecretConfigured — delete its file-length-baseline row"
+      - "TrackerAuthCheck: drops WebhookSecretEnvVars, same answers"
+  - id: an-absent-signature-is-a-refusal
+    action: "Refuse an absent or malformed signature whenever any secret is configured for the platform; accept a Jira payload against ANY configured project secret; refuse the unknown platform and the unreadable configuration. Extract the switch — Validate is an 18-line body against a 20-line cap."
+  - id: an-unsigned-delivery-that-was-accepted-is-visible
+    action: "State the conjunction on the webhook status — a delivery was received and no secret verified it — and render it on the connections panel."
+    modify:
+      - "WebhookStatus: the derived exposure fact over SecretConfigured + LastReceivedUtc"
+      - "ConnectionsView: the webhook row names it"
+  - id: the-secret-an-operator-wants-to-set-has-somewhere-to-go
+    action: "Add the three webhook secret keys to the k8s secret template and the server deployment with optional:true, write all four from the apply script, and list them in the env and compose examples."
+  - id: run-control-joins-the-dashboard-surface
+    action: "Map cancel, answer and retry with the dashboard API rather than unconditionally, and add the route-table test seam that enumerates the built DataSources without resolving a service."
+    new:
+      - "The shared route-enumeration seam p0503a's guard test builds on"
+  - id: the-docs-describe-the-behaviour-that-ships
+    action: "Correct the pages that promise the old permissive behaviour and the Jira env expansion that did not exist."
+    modify:
+      - "docs/reference/configuration/webhooks.md:55,67,70"
+      - "docs/trigger-it/webhooks.md:43,45,56,111"
+
+tests:
+  - "Materialize_JiraTriggerSecretReference_ResolvesFromTheEnvironment"
+  - "Materialize_JiraTriggerSecretReference_ResolvesFromTheSecretsMap"
+  - "Materialize_JiraTriggerSecretReferenceThatResolvesToNothing_IsUnconfigured"
+  - "Materialize_JiraTriggerSecretWrittenLiterally_IsLeftAlone"
+  - "Validate_GithubSecretConfiguredAndNoHeader_IsRefused"
+  - "Validate_GitlabSecretConfiguredAndNoHeader_IsRefused"
+  - "Validate_AzureDevopsSecretConfiguredAndNoHeader_IsRefused"
+  - "Validate_JiraSecretConfiguredAndNoHeader_IsRefused"
+  - "Validate_JiraSecondProjectHoldsTheMatchingSecret_IsAccepted"
+  - "Validate_JiraConfigurationUnreadable_IsRefused"
+  - "Validate_UnknownPlatform_IsRefused"
+  - "Validate_NoSecretConfiguredAnywhere_IsAcceptedAsBefore"
+  - "Webhook_UnsignedGithubIssues_ReachesNoHandler"
+  - "Webhook_UnsignedPrCommentApproval_IsRefusedBeforeAnyHandlerRuns"
+  - "Diagnostics_SecretConfigured_MatchesWhatTheVerifierRequires"
+  - "WebhookStatus_DeliveredAndNoSecret_SaysItAcceptedSomethingUnsigned"
+  - "WebhookStatus_NeverDelivered_SaysNothingAboutExposure"
+  - "Endpoints_MapServerEndpoints_DoesNotMapRunControl"
+  - "Endpoints_MapDashboardApi_MapsCancelAnswerAndRetry"
+  - "Endpoints_RouteEnumeration_ResolvesNoService"
+
+done:
+  - "a jira_trigger secret written as ${NAME} is the value the verifier compares against, and an unresolvable one reads as unconfigured"
+  - "an unsigned webhook is refused wherever a secret is configured, on every platform"
+  - "a Jira project's own secret is accepted even when another project also has one"
+  - "an unconfigured deployment keeps working, and its poller keeps dispatching untouched"
+  - "the platform→env-var table exists once; the two mirrors are deleted and ConnectionDiagnosticsService has left the file-length baseline"
+  - "a deployment that accepted an unsigned delivery states that; a polling-only deployment states nothing"
+  - "the k8s templates carry the keys with optional:true and no existing pod stops starting"
+  - "cancel, answer and retry are no longer mapped when the dashboard API is off"
+  - "the route-enumeration seam exists and is the one p0503a's guard test uses"
+  - "every test is red against current code except Validate_NoSecretConfiguredAnywhere_IsAcceptedAsBefore, which is the fail-open guard"
+  - "WebhookRequestProcessor (149/149) and AgentSmithConfigValidator (177/177) do not grow a line"
+  - "build green, full suite green"

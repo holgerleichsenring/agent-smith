@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0518
+goal: "The master description cap is one number in one place, so a description that passes the catalog's gate cannot fail the loader's."
+
+applies_to: "backend (packaging validator, skill parser validator) + skills catalog (shell validator)"
+
+scope:
+  in: "Collapsing the two disagreeing caps onto one declared value, and making the catalog's shell gate and the binary's gates agree on what a description is."
+  out: "Any other rule the shell validator carries — our master names, the principles tree, the Rust delta wording. Those are our content policy and stay where they are."
+
+decisions:
+  - key: |
+      THE TWO IMPLEMENTATIONS ALREADY DISAGREE, AND THE GAP IS TWENTY CHARACTERS.
+      MasterDescriptionValidator declares MaxDescriptionChars = 200 as the packaging gate over the
+      tarball; NewFormatSkillValidator declares 200 again at parse time on every load; the catalog
+      repository's shell validator declares DESC_CAP=180 with a comment calling it a safe margin
+      under the loader's hard 200. A description of 190 characters therefore passes the binary and
+      fails the catalog's own release gate — or, from the other side, a margin the binary does not
+      know about is the only thing keeping the live failure away.
+  - key: |
+      THE LIVE FAILURE CLASS IS WHY THIS IS NOT COSMETIC. Over the cap the loader silently drops
+      the master and the run dies with "Prompt resource not found" — the v3.16.0 breakage. A cap
+      that is enforced at three different numbers by three different gates is a cap nobody can
+      reason about at the moment it matters.
+  - key: |
+      THEY ALSO DISAGREE ON WHAT A DESCRIPTION IS. The shell validator rejects a block-scalar
+      description outright; the binary deserialises YAML and would measure and pass it. Any
+      cross-check fixture with a block scalar is red by construction until one of them moves.
+  - key: |
+      ONE NUMBER, DECLARED ONCE IN THE BINARY, READ BY THE SHELL. The binary is where the failure
+      happens, so the binary owns the number; the catalog's gate must not be able to drift below or
+      above it silently. Whether the shell reads it from a shipped artefact or asserts against it,
+      the criterion is that a change to the number cannot leave one gate behind.
+
+steps:
+  - id: the-two-binary-validators-share-the-number
+    action: "Declare the cap once and have both the packaging validator and the parse-time validator read that declaration rather than each carrying a literal."
+  - id: the-catalog-gate-cannot-drift
+    action: "Make the catalog repository's shell gate agree with the declared number rather than carrying an independent margin, and agree on whether a block-scalar description is a description."
+
+tests:
+  - "Cap_ThePackagingValidatorAndTheParser_UseTheSameNumber"
+  - "Cap_ADescriptionAtTheCap_PassesBothValidators"
+  - "Cap_ADescriptionOneOverTheCap_FailsBothValidators"
+  - "Cap_ABlockScalarDescription_IsTreatedTheSameByBoth"
+
+done:
+  - "one declaration of the cap, read by every gate in the binary"
+  - "the catalog's shell gate and the binary agree on the number and on what a description is"
+  - "a description that passes one gate passes the others"
+  - "build green, full suite green"

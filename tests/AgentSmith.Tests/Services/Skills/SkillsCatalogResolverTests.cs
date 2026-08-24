@@ -33,6 +33,11 @@ public sealed class SkillsCatalogResolverTests
         }
     }
 
+    // p0514: the REAL materializer, so every existing assertion here also proves
+    // that an unconfigured overlay leaves the handler's binding untouched.
+    private static ISkillsOverlayMaterializer Materializer() =>
+        new SkillsOverlayMaterializer(NullLogger<SkillsOverlayMaterializer>.Instance);
+
     private static SkillsConfig DefaultConfig() =>
         new() { Source = SkillsSourceMode.Default, Version = "v1", CacheDir = "/cache" };
 
@@ -41,7 +46,7 @@ public sealed class SkillsCatalogResolverTests
     {
         var handler = new CountingHandler();
         var sut = new SkillsCatalogResolver(
-            new[] { handler }, new SkillsCatalogPath(),
+            new[] { handler }, Materializer(), new SkillsCatalogPath(),
             NullLogger<SkillsCatalogResolver>.Instance);
 
         await sut.EnsureResolvedAsync(DefaultConfig(), CancellationToken.None);
@@ -58,7 +63,7 @@ public sealed class SkillsCatalogResolverTests
         var handler = new CountingHandler { Root = "/resolved/here" };
         var path = new SkillsCatalogPath();
         var sut = new SkillsCatalogResolver(
-            new[] { handler }, path, NullLogger<SkillsCatalogResolver>.Instance);
+            new[] { handler }, Materializer(), path, NullLogger<SkillsCatalogResolver>.Instance);
 
         await sut.EnsureResolvedAsync(DefaultConfig(), CancellationToken.None);
 
@@ -70,7 +75,7 @@ public sealed class SkillsCatalogResolverTests
     {
         var handler = new CountingHandler { Root = "/resolved/here" };
         var sut = new SkillsCatalogResolver(
-            new[] { handler }, new SkillsCatalogPath(),
+            new[] { handler }, Materializer(), new SkillsCatalogPath(),
             NullLogger<SkillsCatalogResolver>.Instance);
 
         var resolution = await sut.EnsureResolvedAsync(DefaultConfig(), CancellationToken.None);
@@ -86,7 +91,7 @@ public sealed class SkillsCatalogResolverTests
     {
         var handler = new CountingHandler();
         var sut = new SkillsCatalogResolver(
-            new[] { handler }, new SkillsCatalogPath(),
+            new[] { handler }, Materializer(), new SkillsCatalogPath(),
             NullLogger<SkillsCatalogResolver>.Instance);
 
         var resolution = await sut.EnsureResolvedAsync(DefaultConfig(), CancellationToken.None);
@@ -100,7 +105,7 @@ public sealed class SkillsCatalogResolverTests
     {
         var handler = new CountingHandler();
         var sut = new SkillsCatalogResolver(
-            new[] { handler }, new SkillsCatalogPath(),
+            new[] { handler }, Materializer(), new SkillsCatalogPath(),
             NullLogger<SkillsCatalogResolver>.Instance);
 
         await sut.EnsureResolvedAsync(DefaultConfig(), CancellationToken.None);
@@ -130,7 +135,7 @@ public sealed class SkillsCatalogResolverTests
                 new PathSourceHandler(NullLogger<PathSourceHandler>.Instance),
             };
             var sut = new SkillsCatalogResolver(
-                handlers, new SkillsCatalogPath(), NullLogger<SkillsCatalogResolver>.Instance);
+                handlers, Materializer(), new SkillsCatalogPath(), NullLogger<SkillsCatalogResolver>.Instance);
             var config = new SkillsConfig { Source = SkillsSourceMode.Path, Path = catalogDir, CacheDir = "/unused" };
 
             var resolution = await sut.EnsureResolvedAsync(config, CancellationToken.None);
@@ -148,7 +153,7 @@ public sealed class SkillsCatalogResolverTests
     public async Task EnsureResolvedAsync_NoHandlerForSource_Throws()
     {
         var sut = new SkillsCatalogResolver(
-            Array.Empty<ISkillsSourceHandler>(), new SkillsCatalogPath(),
+            Array.Empty<ISkillsSourceHandler>(), Materializer(), new SkillsCatalogPath(),
             NullLogger<SkillsCatalogResolver>.Instance);
 
         var act = () => sut.EnsureResolvedAsync(DefaultConfig(), CancellationToken.None);

@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0476
+goal: "A spec set carries why it is cut the way it is, so a later reader can judge whether a re-cut was right."
+
+applies_to: "backend"
+
+requires:
+  - p0422
+
+decisions:
+  - key: |
+      THE MOST CONSEQUENTIAL STEP LEAVES NO RECORD. Every other step in this repository is
+      required to state what it chose and what it rejected. The derivation decides how many
+      phases there are, where their boundaries fall and what each must satisfy — and when a
+      cut is accepted, the reasoning that produced it is gone. SpecCutReviewer states a
+      reason when it REJECTS; nothing survives when it approves.
+  - key: |
+      MEASURED. On 2026-08-20 a three-phase cut was amended and the reviewer objected to ONE
+      criterion in ONE phase: an inventory document the ticket never asks for, reported as
+      "not-in-ticket". The next attempt returned a SINGLE phase whose title is the ticket
+      title, and the three phase files were deleted from the branch as absent from the new
+      cut. Whether that collapse was an over-reaction or the right answer to a symptomatic
+      cut cannot be established from anything the run left behind.
+  - key: |
+      RECORD, DO NOT RESTRICT. The obvious repair — telling the re-ask to keep the other
+      phases and fix only the objected criterion — asserts that the rest of the cut was good,
+      which nobody knows. A narrow objection may be a symptom of a wrong decomposition, and a
+      constraint that forbids re-cutting would be exactly the kind of rule this project
+      refuses to add without evidence. The evidence is what is missing, so the evidence is
+      what this phase adds.
+  - key: |
+      THE AMENDMENT PATH IS NOT THE COMMON ONE. A re-trigger against an existing branch
+      artifact is a rerun, and a rerun is the exception; a fresh ticket derives once. So this
+      is not urgent, and it is not a fix for the collapse — it is what would let anyone decide
+      whether a collapse ever needs fixing.
+  - key: |
+      THE SET IS ALREADY A COMMITTED ARTIFACT. A spec set is written to the ticket branch as
+      files under .agentsmith/specs/, so it has somewhere to carry this: the attempt count,
+      what each rejected attempt was told, and the shape it replaced. No new store, no new
+      surface.
+
+steps:
+  - id: an-accepted-cut-names-what-it-replaced
+    action: "Record, with the committed spec set, how many attempts it took, what each rejection said, and the phase ids the accepted cut replaced."
+  - id: a-rerun-can-be-compared-with-what-it-amended
+    action: "Make the previous revision's shape readable beside the new one, so a collapse or an expansion is visible as a change rather than a fact."
+
+tests:
+  - "SpecSet_AcceptedAfterARejection_RecordsWhatTheRejectionSaid"
+  - "SpecSet_AcceptedOnTheFirstAttempt_RecordsNoObjection"
+  - "SpecSet_AmendedCut_NamesThePhaseIdsItReplaced"
+
+done:
+  - "a committed spec set says how many attempts produced it and what each rejected attempt was told"
+  - "an amendment names the phases it replaced"
+  - "nothing constrains what the deriver may cut"

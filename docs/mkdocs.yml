@@ -159,6 +159,7 @@ nav:
       - SKILL.md migration:       reference/configuration/skills/migration.md
       - Tool configuration:       reference/configuration/tools.md
       - Webhooks:                 reference/configuration/webhooks.md
+      - Access control:            reference/security/access-control.md
       - Custom security patterns: reference/security/custom-patterns.md
     - Architecture:
       - reference/architecture/index.md
@@ -172,6 +173,7 @@ nav:
       - Bootstrap:       reference/skills/bootstrap.md
       - Air-gap installs: reference/skills/airgap.md
       - Local iteration: reference/skills/local-iteration.md
+      - Your own skills:  reference/skills/your-own-skills.md
     - CI/CD integration:
       - reference/cicd/index.md
       - Azure DevOps:   reference/cicd/azure-devops.md

@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0503d
+
+decisions:
+  - category: Security
+    chose: "MapInboundClaims = false on the JwtBearer handler"
+    over: "Leaving the framework default and documenting the long claim type"
+    reason: |
+      Measured before building, not reasoned about: JwtBearerOptions.MapInboundClaims
+      defaults to TRUE, and JwtSecurityTokenHandler.DefaultInboundClaimTypeMap maps BOTH
+      'role' and 'roles' onto http://schemas.microsoft.com/ws/2008/06/identity/claims/role
+      while 'groups', 'hasgroups' and '_claim_names' are absent from the map entirely.
+      A configured role-claim name of 'roles' therefore finds ZERO claims in production and
+      every claim in a unit test that builds a ClaimsPrincipal directly — the asymmetry
+      fails exactly where it cannot be seen. Documenting the long type instead would make
+      the configured claim name a lie for the shape this phase calls primary.
+      Roles_RoleClaimNamedRoles_IsFoundWithInboundMappingOff runs through the real handler
+      for that reason; the unit tests alone could not have caught it.
+  - category: Security
+    chose: "The comparisons are pinned PER SURFACE: role names fold case, group values are ordinal"
+    over: "One comparer everywhere"
+    reason: |
+      BuiltInRoles.All is built with StringComparer.Ordinal, so a token carrying 'Admin'
+      resolved to nothing — one directory emits an app-role value as the operator
+      capitalised it, another lowercases, and neither is something an operator controls.
+      RoleCatalog therefore rebuilds the lookup case-insensitively. Group values do NOT
+      fold: they are opaque object identifiers, and case-folding an opaque identifier
+      widens a match nobody asked to widen. The one normalisation is a group PATH's leading
+      slash, which the console does not show and the token carries. Each rule has its own
+      test, including the negative one.
+  - category: Security
+    chose: "Every admin-grant entry is prefixed, and matched only against the claim its prefix names"
+    over: "Matching the value against whatever claim happens to contain it"
+    reason: |
+      A grant matched across claim types is a privilege-escalation surface: an
+      attacker-controllable claim — an email, a display name — colliding with a group
+      identifier would be an administrator. AGENTSMITH_ADMIN_GRANT takes a comma-separated
+      list of 'group:<value>' or 'sub:<value>'; an unprefixed entry grants nothing and is
+      reported as a finding rather than tried everywhere. A list rather than one value
+      because two operators bootstrapping together is the normal case.
+  - category: Architecture
+    chose: "identity.read is unioned into every AUTHENTICATED caller's permissions"
+    over: "A second metadata type that exempts the route from the permission requirement"
+    reason: |
+      The identity page exists for the caller who holds nothing yet, and the fallback policy
+      p0503b installs would refuse exactly that caller — with a 403 naming a permission out
+      of a catalog they have no way to read. Granting it in the RESOLVER rather than
+      exempting the ROUTE keeps one rule in the pipeline (a permission is a permission) and,
+      unlike an exemption, makes the identity response tell the truth: a zero-role caller is
+      shown holding identity.read, which is what they hold. The route still declares
+      identity.read, so the route table stays the permission table and the golden gains one
+      honest row.
+  - category: Architecture
+    chose: "Role resolution is registered in ServerCompositionBuilder, unconditionally"
+    over: "Registering it inside AddServerAuthentication, next to the JwtBearer handler"
+    reason: |
+      p0503a's route guard enumerates the built route table, and enumeration runs
+      RequestDelegateFactory.InferMetadata, which throws on a handler parameter type absent
+      from the container. The guard boots with NO authority, so a registration hanging off
+      the authority would fail it with a message about unregistered services that looks
+      nothing like the rule it enforces. The auth block itself is registered as a singleton
+      read from BootstrapConfigReader, so an installation with no block gets defaults that
+      resolve no roles rather than a null nobody handles.
+  - category: Security
+    chose: "The X-Actor header read is DELETED outright"
+    over: "Keeping the read and ignoring it when a principal is present"
+    reason: |
+      X-Actor was a client-supplied string written verbatim into the audit trail, and a
+      repository-wide grep found no producer — the dashboard never sent it, so every
+      deployment already got the literal default. Ignoring it only when a principal is
+      present closes the forgery for authenticated callers, i.e. for nobody until
+      enforcement is on. Deleting it closes it for everyone immediately and changes nothing
+      for anyone. All six Attribution(ctx) call sites across five route files go through one
+      method, so it stayed one edit.
+  - category: Implementation
+    chose: "NameClaimType on the token validation parameters, so ClaimsPrincipal.Identity.Name IS the configured claim"
+    over: "A resolver lookup of the configured claim name at each attribution site"
+    reason: |
+      Attribution runs inside a static write guard that takes only an HttpContext; reaching
+      a service from there would have meant either a RequestServices lookup (a service
+      locator) or threading a new handler parameter through five route files at their file
+      length ceilings. Setting NameClaimType at the one place the handler is configured
+      makes the framework's own accessor the configured one, and the identity endpoint reads
+      the same accessor — one mechanism, no second lookup that could disagree.
+  - category: Implementation
+    chose: "One CallerIdentity record, resolved internally and returned on the wire"
+    over: "A separate response DTO mapped from the resolution"
+    reason: |
+      Two records with the same fields have to agree, and eventually will not. The identity
+      endpoint's whole job is to show what the resolver made of a token, so the resolver's
+      output IS the answer. It carries the claim NAMES that were looked in alongside the
+      values found, because a first login cannot write a mapping without knowing both.
+  - category: Scope
+    chose: "The group mapping and the custom roles stay in the config file; only the claim names and the grant reach the environment"
+    over: "An environment representation of the whole auth block"
+    reason: |
+      An authority, an audience and three claim names are per-environment scalars a
+      Kubernetes operator varies through a Secret. A group-to-role mapping is STRUCTURE —
+      nested, multi-valued, and identical across environments — so encoding it into a
+      variable would invent a serialisation format for no gain. AuthEnvironmentOverlay
+      carries the declared mapping through unchanged.

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0487
+
+decisions:
+  - category: Tooling
+    chose: "Move the embedded pin to v4.6.0 and let p0486's assertions flip themselves"
+    over: "Editing the tests once the release existed"
+    reason: |
+      p0486 wrote its four guards against the PACKAGED master and gated them on
+      SkillsCatalogVersion, so each asserted the OPPOSITE while the pin predated the
+      release. Raising the pin flipped all four from stating the gap to asserting the
+      rule with no edit to the test file — which is the whole point of that idiom, and
+      the proof that the guard was real rather than decorative.
+  - category: Tooling
+    chose: "The shipped example config states skills v4.6.0 alongside the embedded pin"
+    over: "Leaving the example at v4.0.0, or editing the operator's own config files"
+    reason: |
+      The operator asked which artifact records that 0.134.1 runs against catalog 4.6.0.
+      Nothing did: the embedded pin said v4.5.0 in the tag v0.134.1 itself, the shipped
+      example said v4.0.0, and the value that actually runs lives in the database, live
+      editable since p0353. With the pin and the example agreeing, the git tag IS the
+      pair and a rollback is a checkout rather than a reconstruction. The operator's own
+      config files are their runtime and were not touched.
+  - category: Scope
+    chose: "The verification is the four guards plus the full suite, on this pin"
+    over: "A live run to prove the master behaves differently"
+    reason: |
+      What this phase changes is which catalog the binary carries, and the guards read
+      the packaged master directly. Whether the rule improves an agent's behaviour is a
+      question about p0486's wording, already argued there; re-litigating it here would
+      make a pin bump wait on a live run it cannot influence.

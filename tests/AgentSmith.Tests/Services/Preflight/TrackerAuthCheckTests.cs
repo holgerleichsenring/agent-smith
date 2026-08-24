@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Preflight.Checks;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Infrastructure.Core.Services.Webhooks;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Moq;
@@ -23,7 +24,7 @@ public sealed class TrackerAuthCheckTests
         var check = new TrackerAuthCheck(
             FakePreflightConfigSource.Of(config),
             new StubTicketProviderFactory(),
-            _ => null);
+            new WebhookSecretResolver(_ => null));
 
         var result = await check.RunAsync(CancellationToken.None);
 
@@ -44,7 +45,7 @@ public sealed class TrackerAuthCheckTests
         var check = new TrackerAuthCheck(
             FakePreflightConfigSource.Of(ConfigWithTracker("gh", TrackerType.GitHub)),
             factory.Object,
-            _ => "secret-set");
+            new WebhookSecretResolver(_ => "secret-set"));
 
         var result = await check.RunAsync(CancellationToken.None);
 
@@ -59,7 +60,7 @@ public sealed class TrackerAuthCheckTests
         var check = new TrackerAuthCheck(
             FakePreflightConfigSource.Of(ConfigWithTracker("gh", TrackerType.GitHub)),
             new StubTicketProviderFactory(),
-            _ => "secret-set");
+            new WebhookSecretResolver(_ => "secret-set"));
 
         var result = await check.RunAsync(CancellationToken.None);
 
@@ -77,7 +78,8 @@ public sealed class TrackerAuthCheckTests
             JiraTrigger = new JiraTriggerConfig { Secret = "shhh" },
         };
         var check = new TrackerAuthCheck(
-            FakePreflightConfigSource.Of(config), new StubTicketProviderFactory(), _ => null);
+            FakePreflightConfigSource.Of(config), new StubTicketProviderFactory(),
+            new WebhookSecretResolver(_ => null));
 
         var result = await check.RunAsync(CancellationToken.None);
 

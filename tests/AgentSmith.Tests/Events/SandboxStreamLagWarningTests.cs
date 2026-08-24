@@ -21,7 +21,7 @@ public sealed class SandboxStreamLagWarningTests
     public async Task RunStepAsync_StreamedLessThanTheBody_WarnsAboutTheLag()
     {
         var logger = new CapturingLogger();
-        var projector = Projector(streamed: ["./Sample.distribution.Server.csproj"],
+        var projector = Projector(streamed: ["./Sample.Distribution.Server.csproj"],
             body: new string('x', 27_355), logger: logger);
 
         await projector.RunStepAsync(RunStep(), progress: null, CancellationToken.None);
@@ -48,7 +48,7 @@ public sealed class SandboxStreamLagWarningTests
         var logger = new CapturingLogger();
         var projector = Projector(streamed: [], body: new string('x', 4_000), logger: logger);
         var read = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile,
-            TimeoutSeconds: 30, Path: "Sample.distribution.Server/Program.cs");
+            TimeoutSeconds: 30, Path: "Sample.Distribution.Server/Program.cs");
 
         await projector.RunStepAsync(read, progress: null, CancellationToken.None);
 

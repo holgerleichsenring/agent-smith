@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0513
+
+decisions:
+  - category: Design
+    chose: "A presence condition on the COMMAND — `when_present`, a path that must exist under the context's workdir"
+    over: "A shape enum on the profile, or three separate domain words"
+    reason: |
+      The measurement is per shape and the profile was shapeless. p0505's table has
+      no dbt or sqlfluff row for the bundle shape at all, so one flat list behind one
+      domain word reds a clean bundle repository on two commands that were never
+      measured against it — and verification stops at the first non-zero exit, so
+      that false red HIDES every gate behind it. A shape enum would put the taxonomy
+      in the binary and make each new profile wait for a code change; three domain
+      words would make a repository carrying both shapes undeclarable. A path is
+      self-describing, is checked in the sandbox where the checkout actually is, and
+      one profile then serves a dbt repository, a bundle repository and one carrying
+      both. A command with no condition always runs, so p0504's profiles are
+      unaffected.
+  - category: Design
+    chose: "An absent path SKIPS the command"
+    over: "Failing it, or reporting it as an unresolved stage"
+    reason: |
+      Absence of the files is not a defect in the repository — it is absence of
+      evidence about that shape. Failing would be the exact inversion of the goal,
+      and the first such failure would mask the real gates because the verify loop
+      breaks on the first non-zero exit.
+  - category: Design
+    chose: "The domain word is `dbt-databricks` — the toolchain"
+    over: "A category word such as `data-warehouse` (the README's own example)"
+    reason: |
+      CONFIRMED against the spec's argument, on the evidence. Every declared command
+      pins a vendor: one CLI (`dbt`), one dialect (`--dialect databricks`), one
+      profiles convention (`--profiles-dir .` reading a profiles.yml). A category
+      word would promise a portability these commands do not have, and the first
+      repository whose warehouse is a different vendor would declare the domain in
+      good faith and get a toolchain that cannot parse it. `dbt-databricks` is also
+      exactly the adapter package the measurement installed, so the word names the
+      evidence. It is a public vendor product name, not an organisation the project
+      works with.
+  - category: Tooling
+    chose: "The profile declares `ghcr.io/holgerleichsenring/agent-smith-data-toolchain:1.0.0-bookworm`, an image the operator must still build and publish"
+    over: "Declaring the measurement's local tag, or declaring `python:3.12-bookworm`"
+    reason: |
+      p0505 measured in a locally built image over python:3.12-bookworm with a pip
+      install list. That tag is in no registry, and p0504's packaging gate requires a
+      trusted registry AND a git-bearing tag — declaring it would fail the catalog's
+      own validator, and a profile image that fails the gate REFUSES the run. The
+      base image alone would pass the validator and be a lie: it carries neither dbt
+      nor sqlfluff, so every command would exit "command not found", which is the
+      precise failure this mechanism exists to prevent. So the profile declares the
+      image the operator publishes, the profile documents the exact tool versions the
+      evidence is bound to, and until it is published a repository declaring this
+      domain names its own image — which the standing operator rule already allows,
+      since a declared stack.image wins. Installing what an image lacks is p0504's
+      named successor, not this phase.
+  - category: Testing
+    chose: "The gate is a unit test over the pinned catalog tarball, ARMED AT THE PIN"
+    over: "A runtime refusal where the profile is read, or a second copy of the profile YAML in this repository"
+    reason: |
+      The measured table and every reader for it live in the PipelineHarness test
+      project, resolved by a helper that walks parents for AgentSmith.sln and THROWS
+      when it finds none. Refusing where the profile is read runs in a pod with no
+      checkout: it would throw on every domain run in production. So it is a test.
+      MEASURED FINDING, recorded because it is the phase's one honest gap: the pinned
+      catalog is v4.6.0 and carries no `profiles/` at all, so the six tests that read
+      the profile cannot bind until the operator cuts the release and bumps the pin.
+      They therefore follow the pattern p0504 already installed for exactly this
+      (`ProfilesFrom = 4.7.0`): below the pin they assert the tarball is still
+      readable and state what is outstanding, rather than passing because a read
+      broke. The gate was verified by building a local 4.7.0 catalog carrying the
+      profile and running against it — 13 green, and four mutations (an unmeasured
+      command, the bundle-schema command, the measurement's untrusted image, a
+      dropped condition) each turned exactly the tests that name them red
+      [[feedback_verify_via_harness]].
+  - category: Design
+    chose: "The gate is scoped to domains this repository ships a table for"
+    over: "\"Any declared command the measured table does not record\""
+    reason: |
+      There is exactly one table, for one toolchain. Unscoped, the rule would refuse
+      every command of every future profile and make the mechanism unextensible. A
+      profile this repository offers no evidence about is not gated by evidence it
+      was never offered.
+  - category: Scope
+    chose: "The bundle schema check is NOT declared"
+    over: "Declaring it conditioned on databricks.yml"
+    reason: |
+      Its measured string names a schema file the harness injected plus one fixture's
+      own resource file name. The form a repository could actually run appears in no
+      measured row, so declaring it would be a guess — and this phase's own gate would
+      then refuse it. Successor: the bundle check measured in the form a repository
+      can run. Proven, not asserted: mutation-testing the profile with that exact
+      command reds `Profile_Data_DeclaresNoBundleSchemaCommand`.
+  - category: Implementation
+    chose: "The presence check is its own injected collaborator, ProfileCommandPresence"
+    over: "Inlining the sandbox existence check into VerifyStageResolver"
+    reason: |
+      The resolver already carries three resolution strategies at 91 lines against a
+      120-line cap, and the check is a distinct responsibility with its own reason to
+      change (how presence is answered in a sandbox). It is DI-registered and
+      constructor-injected, never newed at a call site.

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0494
+goal: "A citation copied verbatim from the evidence resolves, including a command whose own last character is a quote."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE ACCOUNT CITED PERFECTLY AND WAS REFUSED. A run's third phase was rejected on
+      "Final restore, build, and existing test commands exit successfully for both affected
+      repositories (claimed satisfied by '...', which is neither a file the evidence covers
+      nor a command that ran)". The run's own trail shows both repositories restored, built
+      and tested, exit 0, inside that phase. The cited string was rebuilt offline from the
+      recorded command through Collapse + Shorten and compared against the citation: BYTE
+      IDENTICAL, 186 characters, elision marker included. Nothing was mis-transcribed.
+  - key: |
+      TWO p0481 RULES COLLIDE, AND THE COLLISION IS ONE CHARACTER WIDE. EvidenceCommand
+      .InCitation ends with a TrimEnd of apostrophe, double quote and the elision marker, to
+      drop the GRAMMAR's closing quote — p0481's fix for an account that cited 202 characters
+      against the 201 the line showed. This command ends with a logger argument in double
+      quotes, so the trim removes a quote that BELONGS TO THE COMMAND: 186 becomes 185.
+      p0481's other rule then demands that a SHORTENED command be cited in FULL, length for
+      length, and 185 is not 186. Each rule is right on its own case; together they refuse a
+      perfect citation.
+  - key: |
+      THE READING IS TRIED, NOT GUESSED. The trim cannot tell the grammar's quote from the
+      command's own, and making it smarter — counting balance, tracking literals — is another
+      guess in the same place. So the citation is read AS WRITTEN first, with the trimmed
+      reading and the quoted span kept as fallbacks. p0481's case still resolves through the
+      trimmed reading; this case resolves through the verbatim one. A reading that is tried
+      and fails costs nothing.
+  - key: |
+      NOTHING IS LOOSENED. Each reading still passes the same one-directional prefix rule, the
+      same percentage floor, and the same exact-length requirement for a shortened command.
+      Adding a reading cannot make a citation resolve against a command that never ran; it
+      only stops a correct citation being destroyed before the comparison happens.
+  - key: |
+      FIFTH IN THE SAME FAMILY, AND THE FIRST WHERE THE MODEL DID NOTHING WRONG. p0473, p0474,
+      p0481 and p0484 each fixed one way the reader could not reach a fact that existed —
+      splitting on a separator, joining with one, cutting a command mid-literal, having no
+      grammar for a search it ran. Those were about what the account WROTE. This one is
+      entirely inside the checker.
+  - key: |
+      THE FIXTURE IS THE RUN'S OWN STRING, ANONYMISED. p0474 established why: a synthetic
+      citation passes at every stage and proves none of it. The regression uses the real
+      command at its real length with the repository names replaced, so the 186-against-185
+      boundary is what is actually pinned.
+  - key: |
+      A DESIGN QUESTION THIS PHASE DOES NOT ANSWER, STATED RATHER THAN BURIED: the criterion
+      was about a build and a test, and the verification stage had JUST RUN both and holds
+      their exit codes. Settling such a criterion from the stage's own outcomes instead of
+      from a transcription of a command would remove this whole class of refusal. That is a
+      change to what an account is FOR, and it belongs to the operator, not to a defect fix.
+
+steps:
+  - id: the-citation-is-read-as-written-first
+    action: "Try the citation exactly as written before the trimmed reading and the quoted span, keeping all three."
+  - id: the-rules-that-decide-are-unchanged
+    action: "Leave the prefix direction, the percentage floor and the shortened-command exact-length rule exactly as they are."
+  - id: the-boundary-is-pinned-by-the-real-string
+    action: "Build the regression from the run's actual 186-character elided command, anonymised, and assert it resolves."
+
+tests:
+  - "Citation_VerbatimCopyOfAShortenedCommandEndingInAQuote_Resolves"
+  - "Citation_TrailingGrammarQuoteAddedByTheAccount_StillResolves"
+  - "Citation_ShortenedCommandCitedByItsHeadOnly_StillRefused"
+  - "Citation_CommandThatNeverRan_StillRefused"
+  - "Citation_QuotedSpanReading_IsUnchanged"
+  - "EvidenceCommand_InCitation_StillTrimsTheGrammarsQuote"
+
+done:
+  - "a citation copied verbatim from an evidence line resolves, whatever the command's last character is"
+  - "the citation that p0481 fixed still resolves"
+  - "a head-only citation of a shortened command is still refused"
+  - "a citation of a command that never ran is still refused"
+  - "the regression is built from the real refused citation at its real length"

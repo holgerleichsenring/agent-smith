@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# p0516: preserved from .git/hooks, which core.hooksPath displaces.
+set -uo pipefail
+command -v git-secrets >/dev/null 2>&1 || exit 0
+exec git secrets --prepare_commit_msg_hook -- "$@"

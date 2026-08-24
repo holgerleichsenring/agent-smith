@@ -1,0 +1,10 @@
+resources:
+  jobs:
+    sample_job:
+      name: sample_job
+      max_concurrent_runs: 1
+      unknown_job_key: this key is not in the bundle schema
+      tasks:
+        - task_key: main
+          notebook_task:
+            notebook_path: ../src/main.py

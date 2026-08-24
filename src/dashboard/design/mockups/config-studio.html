@@ -170,30 +170,30 @@
 (function(){
   var DB = {
     projects: [
-      { id:'dap-migration', agent:'azure_openai', tracker:'sampleorg-azdo', repos:['dap-server','dap-worker','dap-client'], trigger:'label: agent-smith', pipelines:['add-feature','fix-bug'] }
+      { id:'portal-migration', agent:'azure_openai', tracker:'sample-azdo', repos:['portal-server','portal-worker','portal-client'], trigger:'label: agent-smith', pipelines:['add-feature','fix-bug'] }
     ],
     agents: [
       { id:'azure_openai', provider:'Azure OpenAI', coding:'gpt-5.1', scan:'gpt-5.1-mini', key:'AZURE_OPENAI_KEY' },
       { id:'anthropic_prod', provider:'Anthropic', coding:'claude-opus-4-8', scan:'claude-haiku-4-5', key:'ANTHROPIC_API_KEY' }
     ],
     trackers: [
-      { id:'sampleorg-azdo', type:'Azure DevOps', org:'dev.azure.com/sampleorg', project:'sampleportal', auth:'AZDO_PAT' }
+      { id:'sample-azdo', type:'Azure DevOps', org:'dev.azure.com/sample-org', project:'SamplePortal', auth:'AZDO_PAT' }
     ],
     repos: [
-      { id:'dap-server', name:'sample.sampleportal.Server', branch:'main' },
-      { id:'dap-worker', name:'sample.sampleportal.BackgroundWorker', branch:'main' },
-      { id:'dap-client', name:'sample.sampleportal.Client', branch:'main' }
+      { id:'portal-server', name:'Sample.Portal.Server', branch:'main' },
+      { id:'portal-worker', name:'Sample.Portal.Worker', branch:'main' },
+      { id:'portal-client', name:'Sample.Portal.Client', branch:'main' }
     ],
     mcp: [
-      { id:'github-mcp', transport:'http', url:'https://mcp.github.internal', auth:'GITHUB_MCP_TOKEN' }
+      { id:'github-mcp', transport:'http', url:'https://mcp.example.internal', auth:'GITHUB_MCP_TOKEN' }
     ],
     secrets: [
       { id:'AZURE_OPENAI_KEY' }, { id:'ANTHROPIC_API_KEY' }, { id:'AZDO_PAT' }, { id:'GITHUB_MCP_TOKEN' }
     ],
     audit: [
       { id:'chg-0142', who:'holger', when:'today · 14:03', target:'agents / azure_openai', diff:'coding model: gpt-5.1 → gpt-5.2-preview', kind:'edit' },
-      { id:'chg-0141', who:'holger', when:'today · 11:27', target:'projects / dap-migration', diff:'repos: + dap-client', kind:'edit' },
-      { id:'chg-0140', who:'m.brandt', when:'yesterday · 16:52', target:'trackers / sampleorg-azdo', diff:'auth secret: AZDO_PAT_OLD → AZDO_PAT', kind:'edit' },
+      { id:'chg-0141', who:'holger', when:'today · 11:27', target:'projects / portal-migration', diff:'repos: + portal-client', kind:'edit' },
+      { id:'chg-0140', who:'j.doe', when:'yesterday · 16:52', target:'trackers / sample-azdo', diff:'auth secret: AZDO_PAT_OLD → AZDO_PAT', kind:'edit' },
       { id:'chg-0139', who:'holger', when:'yesterday · 09:14', target:'mcp / github-mcp', diff:'created (http · allow-list: 2 tools)', kind:'create' }
     ]
   };
@@ -310,7 +310,7 @@
     return '<div class="field"><label>'+label+'</label><div class="picks">'+vals.map(function(o){var on=draft[k].indexOf(o)>=0;return '<button type="button" class="pick'+(on?' on':'')+'" data-multi="'+k+'" data-v="'+o+'"><span class="pk">'+(on?'✓':'')+'</span>'+o+'</button>';}).join('')+'</div></div>'; }
 
   var FORM = {
-    projects:function(){ return txt('id','Project name',true,'e.g. dap-migration','lowercase, dashes',true)+
+    projects:function(){ return txt('id','Project name',true,'e.g. portal-migration','lowercase, dashes',true)+
       selRef('agent','Agent','agents',true)+ selRef('tracker','Tracker','trackers',true)+
       multiRef('repos','Repositories','repos')+
       txt('trigger','Trigger',false,'label: agent-smith','what starts a run')+
@@ -320,13 +320,13 @@
     agents:function(){ return txt('id','Agent name',true,'e.g. anthropic_prod',null,true)+ sel('provider','Provider',['Azure OpenAI','Anthropic','OpenAI'])+
       txt('coding','Coding model',true,'claude-opus-4-8',null,true)+ txt('scan','Scan model',false,'claude-haiku-4-5',null,true)+
       selRef('key','API key secret','secrets',true); },
-    trackers:function(){ return txt('id','Tracker name',true,'e.g. sampleorg-azdo',null,true)+ sel('type','Type',['Azure DevOps','Jira Data Center','Jira Cloud'])+
-      txt('org','Organisation / base URL',true,'dev.azure.com/sampleorg',null,true)+ txt('project','Project',true,'sampleportal',null,true)+
+    trackers:function(){ return txt('id','Tracker name',true,'e.g. sample-azdo',null,true)+ sel('type','Type',['Azure DevOps','Jira Data Center','Jira Cloud'])+
+      txt('org','Organisation / base URL',true,'dev.azure.com/sample-org',null,true)+ txt('project','Project',true,'SamplePortal',null,true)+
       selRef('auth','Auth secret','secrets',true); },
-    repos:function(){ return txt('id','Short name',true,'e.g. dap-server',null,true)+ txt('name','Full repository name',true,'sample.sampleportal.Server',null,true)+
+    repos:function(){ return txt('id','Short name',true,'e.g. portal-server',null,true)+ txt('name','Full repository name',true,'Sample.Portal.Server',null,true)+
       txt('branch','Default branch',false,'main',null,true); },
     mcp:function(){ return txt('id','Server name',true,'e.g. github-mcp',null,true)+ sel('transport','Transport',['http','sse'])+
-      txt('url','URL',true,'https://mcp.github.internal',null,true)+ selRef('auth','Auth secret','secrets',false); },
+      txt('url','URL',true,'https://mcp.example.internal',null,true)+ selRef('auth','Auth secret','secrets',false); },
     secrets:function(){ return txt('id','Env-name',true,'e.g. ANTHROPIC_API_KEY','the environment variable name your runtime provides',true)+
       '<div class="integrity"><span class="ii">◍</span><div>Only the name is stored here. The value is read from the environment at run time — agent-smith never persists secret values.</div></div>'; }
   };

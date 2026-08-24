@@ -72,6 +72,26 @@ add_literal "jira-email"          "${JIRA_EMAIL:-}"
 add_literal "slack-bot-token"     "${SLACK_BOT_TOKEN:-}"
 add_literal "slack-signing-secret" "${SLACK_SIGNING_SECRET:-}"
 
+# p0506: the webhook shared secrets. jira-webhook-secret has been declared in
+# 4-secret-template.yaml since it was written and nothing ever wrote it.
+add_literal "github-webhook-secret" "${GITHUB_WEBHOOK_SECRET:-}"
+add_literal "gitlab-webhook-token"  "${GITLAB_WEBHOOK_TOKEN:-}"
+add_literal "azdo-webhook-secret"   "${AZDO_WEBHOOK_SECRET:-}"
+add_literal "jira-webhook-secret"   "${JIRA_WEBHOOK_SECRET:-}"
+
+# p0503b: the token authority. Empty authority = nothing authenticates, which is
+# what the deployment does without these keys.
+add_literal "auth-authority" "${AGENTSMITH_AUTH_AUTHORITY:-}"
+add_literal "auth-audience"  "${AGENTSMITH_AUTH_AUDIENCE:-}"
+add_literal "auth-enforce"   "${AGENTSMITH_AUTH_ENFORCE:-}"
+
+# p0503d: the claim names, and the grant that makes lockout impossible. An empty
+# grant is the normal steady state — it is set while a mapping is being worked out.
+add_literal "auth-role-claim"  "${AGENTSMITH_AUTH_ROLE_CLAIM:-}"
+add_literal "auth-group-claim" "${AGENTSMITH_AUTH_GROUP_CLAIM:-}"
+add_literal "auth-name-claim"  "${AGENTSMITH_AUTH_NAME_CLAIM:-}"
+add_literal "admin-grant"      "${AGENTSMITH_ADMIN_GRANT:-}"
+
 # Redis URL for K8s Jobs: the in-cluster Redis service name.
 # Override via REDIS_URL in .env if your Redis runs elsewhere.
 add_literal "redis-url" "${REDIS_URL:-redis:6379}"
@@ -95,7 +115,8 @@ import sys, json
 data = json.load(sys.stdin)
 sensitive = {'anthropic-api-key','openai-api-key','gemini-api-key','github-token',
              'azure-devops-token','gitlab-token','jira-token','slack-bot-token',
-             'slack-signing-secret'}
+             'slack-signing-secret','github-webhook-secret','gitlab-webhook-token',
+             'azdo-webhook-secret','jira-webhook-secret'}
 for k in sorted(data.keys()):
     val = '***' if k in sensitive else '(set)' if data[k] else '(empty)'
     print(f'  {k:<28} {val}')
