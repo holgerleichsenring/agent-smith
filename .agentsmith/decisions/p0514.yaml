@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0514
+
+decisions:
+  - category: Architecture
+    chose: "One field on SkillsConfig applied AFTER handler dispatch, not a fifth SkillsSourceMode"
+    over: "An 'overlay' source mode alongside default/path/url/embedded"
+    reason: |
+      An operator may pin a release, run the embedded catalog or mount a directory and want
+      their own skills on top of any of them, so the overlay is orthogonal to how the base
+      arrived. As a source mode it would have had to re-implement each of the four ways a base
+      is obtained. SkillsCatalogResolver now calls ISkillsOverlayMaterializer.Apply on whatever
+      the dispatched handler returned; with skills.overlay unset Apply returns the very same
+      CatalogResolution instance, which Overlay_NotConfigured_TheResolvedRootIsTheBaseUnchanged
+      asserts with BeSameAs.
+  - category: Architecture
+    chose: "Materialise base + overlay into ONE root by file-level union"
+    over: "Turning ISkillsCatalogPath.Root into a search list the readers probe in order"
+    reason: |
+      Measured nine readers of the resolved root — SkillCatalogPromptCatalog, YamlSkillLoader,
+      MasterOutputSchemaResolver, LoadSkillsHandler, CatalogSkillReferenceSource,
+      CatalogPrinciplesTemplateSource, FileDomainProfileCatalog, PatternsDirectoryResolver and
+      ExecutePipelineUseCase. Every one of them is Path.Combine(Root, <subpath>); none takes a
+      list. A search list would touch all nine plus every test that constructs one. A copy
+      costs one tree walk per changed catalog and leaves all nine untouched. Verified the
+      catalog carries no symlinks (0 in the catalog repo), so a plain file copy is faithful,
+      and the only directory ENUMERATIONS over the root (skills/, skills/_masters/, profiles/)
+      are load-each loops that a union tree feeds more entries, never fewer.
+  - category: Implementation
+    chose: "The layered root is a sibling of skills.cache_dir, suffixed -overlay, rebuilt from scratch"
+    over: "Materialising in place under the cache directory, or patching the existing tree"
+    reason: |
+      The union must be a THIRD tree: for embedded/default/url the base root IS cache_dir, so
+      materialising inside it would copy a directory into itself, and for path mode the base is
+      the operator's own working tree, which we may never write to. Rebuilding rather than
+      patching means a file a previous base or overlay carried and the current one does not
+      cannot survive as a ghost — Overlay_FileAdded_TheNextResolveRematerialises holds it via a
+      sentinel file that must disappear. An overlay configured without cache_dir throws rather
+      than materialising into a relative "-overlay" directory.
+  - category: Implementation
+    chose: "The cache key fingerprints the BASE tree as well as the overlay, not just the base version"
+    over: "The spec's decision text: a marker over the base version plus the overlay fingerprint"
+    reason: |
+      Measured: in path mode PathSourceHandler substitutes the literal string 'local' for an
+      unset version, so the base version is a constant. Keying only on it would serve a stale
+      copy of an edited base forever in exactly the source mode
+      docs/reference/skills/local-iteration.md tells a skill author to use, and the operator
+      would have to guess to clear a cache. The fingerprint is metadata only (relative path,
+      length, last-write time, sorted, SHA256, first 12 hex chars) so the extra walk is
+      milliseconds once per resolve. The marker file is .overlay, distinct from the base's
+      .pulled, which the copy carries into the layered root.
+  - category: Architecture
+    chose: "CatalogResolution.Version stays the BASE version and a nullable Overlay carries the fingerprint"
+    over: "Rewriting Version into a composite string like '4.6.0+overlay'"
+    reason: |
+      Version feeds CatalogLoadedEvent and every consumer that reads a release tag; a composite
+      would silently become an unparseable tag everywhere. The half-truth the phase has to
+      remove is a run reporting '4.6.0' while an operator file replaced a master, so the
+      SECOND field carries that and the surfaces compose the phrase: the Load-catalog step
+      result, the resolver's debug line, and ISkillsCatalogPath.Origin (p0504), which stays
+      truthful because a refusal that blames the catalog must name the catalog that ran.
+  - category: Scope
+    chose: "CatalogLoadedEvent keeps its shape; the overlay is named in the step result, the log and Origin"
+    over: "Adding an overlay column to the event, its persistence and the run-detail page"
+    reason: |
+      The event record is persisted and rendered; a new field ripples through the applier, the
+      schema and the dashboard for a string the visible step message already carries. The
+      phase's obligation is that the run SAYS which catalog it ran, and Binding_WithAnOverlay_
+      NamesTheBaseVersionAndTheOverlayFingerprint holds that on the surface a person reads.
+  - category: Scope
+    chose: "Built no schema entry and no environment binding for skills.overlay"
+    over: "The spec step's new: list, which names both"
+    reason: |
+      Measured and reported rather than invented. config/agentsmith.schema.json declares
+      "skills": {"type": "object"} with no per-key properties at all, so there is no schema
+      entry for version, path, url, sha256 or cache_dir either and none to add for overlay. No
+      skills.* field has an environment binding anywhere in the backend; the only skills env
+      var read by code is AGENTSMITH_SKILLS_REPOSITORY_URL, a repository-URL override, and the
+      AGENTSMITH_SKILLS_DIR that docs/reference/skills/local-iteration.md mentions is read by
+      nothing. YamlDotNet's underscored naming convention binds the new property from
+      "overlay:" with no further wiring, and the config studio stores it through the existing
+      whole-SkillsConfig singleton descriptor.
+  - category: Scope
+    chose: "No new validation verb and no catalog contract version, as the spec ruled"
+    reason: |
+      Both premises re-measured and both held. package.sh packages exactly
+      (patterns principles references skills) and does not include version.txt, so a released
+      catalog ships no manifest and a declared contract version could never reach the binary.
+      validate-concepts --skills-path already runs frontmatter, role, description and its cap,
+      output_schema and the activation-expression rules over any directory, and the layered
+      root is an ordinary catalog directory it accepts —
+      ValidateConcepts_AgainstAMaterialisedOverlayRoot_ResolvesTheOfficialVocabulary proves an
+      overlay skill's activates_when resolves against the official vocabulary it did not ship.
