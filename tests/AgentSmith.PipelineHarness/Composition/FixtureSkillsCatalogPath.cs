@@ -20,4 +20,6 @@ internal sealed class FixtureSkillsCatalogPath : ISkillsCatalogPath
     }
 
     public string Root { get; }
+
+    public string Origin => $"harness at {Root}";
 }

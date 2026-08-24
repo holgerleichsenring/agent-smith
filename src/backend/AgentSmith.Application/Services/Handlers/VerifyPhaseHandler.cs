@@ -40,7 +40,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// which is the same answer without a field to maintain.
 /// </summary>
 public sealed class VerifyPhaseHandler(
-    ISandboxFileReaderFactory readerFactory,
+    VerifyStageResolver stageResolver,
+    DomainProfileStagesResolver profileStages,
     SandboxTargets sandboxTargets,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
@@ -50,8 +51,6 @@ public sealed class VerifyPhaseHandler(
     : ICommandHandler<VerifyPhaseContext>
 {
     private const int ReasonTailChars = 800;
-
-    private const int EntryPointSearchDepth = 2;
 
     public async Task<CommandResult> ExecuteAsync(
         VerifyPhaseContext context, CancellationToken cancellationToken)
@@ -91,13 +90,15 @@ public sealed class VerifyPhaseHandler(
             }
 
             var map = context.RepoProjectMaps.TryGetValue(key, out var m) ? m : null;
-            var workdir = SubTreeWorkdir(NormalizeWorkdir(
-                discoveries.TryGetValue(key, out var discovery) ? discovery.Workdir : null));
+            var workdir = SandboxWorkdir.Resolve(
+                discoveries.TryGetValue(key, out var discovery) ? discovery.Workdir : null);
 
-            foreach (var (stage, command, cwd) in await ResolveStagesAsync(
-                key, map, sandbox, workdir, resolutionFindings, cancellationToken))
+            foreach (var stage in await stageResolver.ResolveAsync(
+                key, map, sandbox, workdir, profileStages.For(context.Pipeline, key),
+                resolutionFindings, cancellationToken))
             {
-                var outcome = await commandRunner.RunAsync(key, stage, sandbox, cwd, command, cancellationToken);
+                var outcome = await commandRunner.RunAsync(
+                    key, stage.Stage, sandbox, stage.Cwd, stage.Command, cancellationToken);
                 outcomes.Add(outcome);
                 // A red build makes the test result meaningless; stop this repo here so the
                 // failure reason names the build rather than a downstream cascade.
@@ -191,88 +192,6 @@ public sealed class VerifyPhaseHandler(
     private static string FailingCommandOf(CommandResult result) =>
         result.Message.Split('\n', 2)[0].Trim();
 
-    /// <summary>
-    /// p0400: command resolution. Declared context commands always win. A .NET repo
-    /// declaring neither gets its entry point DISCOVERED from files that actually
-    /// exist; ambiguous or absent adds a named resolution finding and runs nothing —
-    /// a filename is never invented. Anything else keeps the p0393 skip.
-    /// </summary>
-    private async Task<IReadOnlyList<(string Stage, string Command, string Cwd)>> ResolveStagesAsync(
-        string key, ProjectMap? map, ISandbox sandbox, string workdir,
-        List<string> resolutionFindings, CancellationToken ct)
-    {
-        // p0400a: declared ci commands come from the project map, which the analyzer
-        // authored against the REPO ROOT (run b9b0: executing them at the context
-        // workdir turned a green baseline into MSB1009). Discovered entry points keep
-        // the workdir — their paths are built relative to where they were found.
-        // p0451: a declared command that cannot fail is not a verification. Run 587c ran
-        // `echo Build command placeholder` as a repo's build stage, and the gate reported it
-        // green over a repository nothing had compiled. Dropping it here falls through to
-        // discovery, and when that finds nothing the run says so.
-        foreach (var (stage, command) in Stages(map?.Ci))
-            if (!string.IsNullOrWhiteSpace(command) && !VerificationCommand.CanFail(command))
-                logger.LogWarning(
-                    "{Key}: the declared {Stage} command '{Command}' cannot fail — ignoring it "
-                    + "and resolving an entry point instead", key, stage, command);
-        var declared = Stages(map?.Ci)
-            .Where(s => VerificationCommand.CanFail(s.Command))
-            .Select(s => (s.Stage, s.Command!, Repository.SandboxWorkPath))
-            .ToList();
-        if (declared.Count > 0) return declared;
-
-        if (map is null || !IsDotnet(map))
-        {
-            logger.LogInformation(
-                "{Key}: no build/test command declared and no .NET project map — skipping verification", key);
-            return [];
-        }
-
-        var entries = await readerFactory.Create(sandbox).ListAsync(workdir, EntryPointSearchDepth, ct);
-        var relative = entries
-            .Select(e => Relative(e, workdir))
-            .Where(p => p.Length > 0)
-            .ToList();
-        var solutions = relative
-            .Where(p => p.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        if (solutions.Count == 1)
-        {
-            logger.LogInformation("{Key}: discovered build entry point {Solution}", key, solutions[0]);
-            return [("build", $"dotnet build \"{solutions[0]}\"", workdir)];
-        }
-        var projects = relative
-            .Where(p => !p.Contains('/') && p.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        if (solutions.Count == 0 && projects.Count == 1)
-        {
-            logger.LogInformation("{Key}: discovered build entry point {Project}", key, projects[0]);
-            return [("build", $"dotnet build \"{projects[0]}\"", workdir)];
-        }
-
-        resolutionFindings.Add(
-            $"{Where(key)}: searched for a single *.sln up to depth {EntryPointSearchDepth} under "
-            + $"{workdir} and a single *.csproj at {workdir} — found {solutions.Count} solution(s) "
-            + $"and {projects.Count} top-level project(s). No command was executed; declare "
-            + "ci.build_command / ci.test_command to make this repo verifiable.");
-        return [];
-    }
-
-    private static bool IsDotnet(ProjectMap map) =>
-        map.PrimaryLanguage.Trim().ToLowerInvariant() is "csharp" or "fsharp" or "dotnet";
-
-    // Entries may come back absolute or relative to the listed root; normalize to
-    // workdir-relative so the command runs against the path it was discovered at.
-    private static string Relative(string entry, string workdir)
-    {
-        var normalized = entry.Replace('\\', '/');
-        if (normalized.StartsWith(workdir + "/", StringComparison.Ordinal))
-            normalized = normalized[(workdir.Length + 1)..];
-        return normalized.TrimStart('/').Trim();
-    }
-
-    private static IEnumerable<(string Stage, string? Command)> Stages(CiConfig? ci) =>
-        [("build", ci?.BuildCommand), ("test", ci?.TestCommand)];
-
     private static CommandResult BuildAggregateResult(
         IReadOnlyList<VerifyOutcome> outcomes, IReadOnlyList<string> resolutionFindings, bool touchedSource)
     {
@@ -314,19 +233,6 @@ public sealed class VerifyPhaseHandler(
         string.Join(", ", ran
             .GroupBy(o => Where(o.Key))
             .Select(g => $"{g.Key} [{string.Join('+', g.Select(o => o.Stage))}]"));
-
-    private static string SubTreeWorkdir(string workdir) =>
-        workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
-
-    private static string NormalizeWorkdir(string? workdir)
-    {
-        if (string.IsNullOrWhiteSpace(workdir)) return ".";
-        var trimmed = workdir.Trim().Replace('\\', '/').Trim('/');
-        return trimmed.Length == 0 ? "." : trimmed;
-    }
-
-    private static string Combine(string? stdout, string? stderr) =>
-        string.Join('\n', new[] { stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
     private static string Tail(string? text, int max) =>
         string.IsNullOrEmpty(text) ? string.Empty

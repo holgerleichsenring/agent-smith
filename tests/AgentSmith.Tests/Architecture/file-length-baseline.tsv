@@ -31,7 +31,6 @@
 257	AgentSmith.Application/Services/Handlers/RunResultFormatter.cs
 243	AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs
 242	AgentSmith.Application/Services/Loop/SubAgentRunner.cs
-241	AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs
 240	AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs
 234	AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs
 233	AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs
@@ -126,7 +125,6 @@
 141	AgentSmith.Infrastructure/Services/Output/MarkdownOutputStrategy.cs
 140	AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs
 139	AgentSmith.Infrastructure.Core/Services/NewFormatSkillValidator.cs
-139	AgentSmith.Infrastructure/Services/ContextYamlSerializer.cs
 139	AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs
 138	AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs
 138	AgentSmith.Application/Services/ProjectAnalyzer.cs

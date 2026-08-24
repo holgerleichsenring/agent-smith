@@ -1,10 +1,10 @@
-using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Sandbox;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Sandbox;
 
 /// <summary>
-/// p0194: every toolchain image in SandboxSpecBuilder.LanguageImages MUST
+/// p0194: every toolchain image in ToolchainImageCatalog.KnownLanguages MUST
 /// bundle git, because CheckoutSourceHandler runs `git clone` inside the
 /// sandbox. A -slim or -alpine variant would break checkout silently — the
 /// operator only finds out after 5 minutes of pipeline wait time with
@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// fails the build. Adding a new language with an unknown base also fails
 /// until the new base is explicitly added to the allowlist.
 ///
-/// p0265: the allowlist is now the SHARED <see cref="SandboxSpecBuilder.GitBearingImagePatterns"/>
+/// p0265: the allowlist is now the SHARED <see cref="ToolchainImageCatalog.GitBearingImagePatterns"/>
 /// — the same patterns that gate an LLM-named context.yaml stack.image. One
 /// source of truth for "this image ships git".
 /// </summary>
@@ -24,9 +24,9 @@ public sealed class SandboxSpecBuilderImageBundlesGitTests
     public void AllLanguageImages_MatchGitBearingAllowlist()
     {
         var violations = new List<string>();
-        foreach (var (language, image) in SandboxSpecBuilder.KnownLanguages)
+        foreach (var (language, image) in ToolchainImageCatalog.KnownLanguages)
         {
-            if (!SandboxSpecBuilder.GitBearingImagePatterns.Any(p => p.IsMatch(image)))
+            if (!ToolchainImageCatalog.GitBearingImagePatterns.Any(p => p.IsMatch(image)))
                 violations.Add($"  - {language} → {image}");
         }
 
@@ -50,7 +50,7 @@ public sealed class SandboxSpecBuilderImageBundlesGitTests
     {
         // Pins the test itself — if the allowlist starts accepting slim /
         // alpine / bare tags by mistake, this fails immediately.
-        SandboxSpecBuilder.GitBearingImagePatterns.Any(p => p.IsMatch(image)).Should().BeFalse(
+        ToolchainImageCatalog.GitBearingImagePatterns.Any(p => p.IsMatch(image)).Should().BeFalse(
             $"'{image}' is known to ship without git and must not pass the allowlist");
     }
 
@@ -63,5 +63,5 @@ public sealed class SandboxSpecBuilderImageBundlesGitTests
     [InlineData("evil.example.com/pwn:latest", false)]
     [InlineData("someuser/node:20-bookworm", false)]
     public void IsTrustedRegistry_AcceptsOnlyOfficialSources(string image, bool trusted) =>
-        SandboxSpecBuilder.IsTrustedRegistry(image).Should().Be(trusted);
+        ToolchainImageCatalog.IsTrustedRegistry(image).Should().Be(trusted);
 }
