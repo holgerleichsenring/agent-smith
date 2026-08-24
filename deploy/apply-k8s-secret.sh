@@ -85,6 +85,13 @@ add_literal "auth-authority" "${AGENTSMITH_AUTH_AUTHORITY:-}"
 add_literal "auth-audience"  "${AGENTSMITH_AUTH_AUDIENCE:-}"
 add_literal "auth-enforce"   "${AGENTSMITH_AUTH_ENFORCE:-}"
 
+# p0503d: the claim names, and the grant that makes lockout impossible. An empty
+# grant is the normal steady state — it is set while a mapping is being worked out.
+add_literal "auth-role-claim"  "${AGENTSMITH_AUTH_ROLE_CLAIM:-}"
+add_literal "auth-group-claim" "${AGENTSMITH_AUTH_GROUP_CLAIM:-}"
+add_literal "auth-name-claim"  "${AGENTSMITH_AUTH_NAME_CLAIM:-}"
+add_literal "admin-grant"      "${AGENTSMITH_ADMIN_GRANT:-}"
+
 # Redis URL for K8s Jobs: the in-cluster Redis service name.
 # Override via REDIS_URL in .env if your Redis runs elsewhere.
 add_literal "redis-url" "${REDIS_URL:-redis:6379}"

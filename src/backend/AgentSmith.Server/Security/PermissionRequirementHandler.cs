@@ -11,8 +11,14 @@ namespace AgentSmith.Server.Security;
 /// It never calls <c>Fail</c>. An explicit failure discards the pending requirements, and
 /// those pending requirements ARE the list of missing permissions the refusal reports.
 /// </para>
+/// <para>
+/// p0503d: what a caller HOLDS is no longer read off the token directly — the resolver
+/// turns the directory's roles and groups into permissions first, and the token's own
+/// <c>permission</c> claims stay part of that union.
+/// </para>
 /// </summary>
-internal sealed class PermissionRequirementHandler : AuthorizationHandler<PermissionRequirement>
+internal sealed class PermissionRequirementHandler(CallerIdentityResolver identities)
+    : AuthorizationHandler<PermissionRequirement>
 {
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context, PermissionRequirement requirement)
@@ -28,6 +34,7 @@ internal sealed class PermissionRequirementHandler : AuthorizationHandler<Permis
         (context.Resource as HttpContext)?.GetEndpoint()?.Metadata.GetMetadata<RequiresPermission>()
             ?.Names.Contains(requirement.Permission, StringComparer.Ordinal) == true;
 
-    private static bool Holds(AuthorizationHandlerContext context, PermissionRequirement requirement) =>
-        context.User.HasClaim(PermissionClaims.Type, requirement.Permission);
+    private bool Holds(AuthorizationHandlerContext context, PermissionRequirement requirement) =>
+        identities.Resolve(context.User).Permissions
+            .Contains(requirement.Permission, StringComparer.Ordinal);
 }

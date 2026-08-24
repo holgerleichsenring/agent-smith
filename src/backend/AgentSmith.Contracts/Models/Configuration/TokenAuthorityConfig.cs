@@ -12,6 +12,11 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// is what keeps an installation reachable while its operator prepares an authority and
 /// before the dashboard has a way to sign in.
 /// </para>
+/// <para>
+/// p0503d: the directory says which ROLES a caller holds — through a role claim, or
+/// through a group membership this block maps onto a role. Nothing here assigns a role to
+/// a person; that happens at the identity provider, and there is no screen for it.
+/// </para>
 /// </summary>
 public sealed class TokenAuthorityConfig
 {
@@ -22,6 +27,33 @@ public sealed class TokenAuthorityConfig
     public string? Audience { get; init; }
 
     public bool Enforce { get; init; }
+
+    /// <summary>
+    /// The claim carrying role NAMES, read verbatim. Entra emits app roles under
+    /// <c>roles</c>; a Keycloak realm nests them under <c>realm_access.roles</c>, which no
+    /// flat claim name can address — that installation maps groups instead.
+    /// </summary>
+    public string RoleClaim { get; init; } = "roles";
+
+    /// <summary>The claim carrying group values, mapped onto roles by <see cref="GroupRoles"/>.</summary>
+    public string GroupClaim { get; init; } = "groups";
+
+    /// <summary>
+    /// The claim a caller is NAMED by — on the identity page and in a config change's
+    /// attribution. <c>sub</c> is opaque but always present; an installation that wants a
+    /// readable name points this at <c>preferred_username</c> or <c>upn</c>.
+    /// </summary>
+    public string NameClaim { get; init; } = "sub";
+
+    /// <summary>Group value -> the roles holding it grants. A caller in two mapped groups holds both.</summary>
+    public Dictionary<string, List<string>> GroupRoles { get; init; } = [];
+
+    /// <summary>
+    /// Roles this installation adds to the built-in three, as bundles over the catalog.
+    /// Additive: a name that collides with a built-in role does NOT replace it, and a
+    /// permission the catalog does not contain is dropped rather than granted.
+    /// </summary>
+    public Dictionary<string, List<string>> Roles { get; init; } = [];
 
     /// <summary>An authority is the one thing without which nothing else here can work.</summary>
     public bool IsUsable => !string.IsNullOrWhiteSpace(Authority);
