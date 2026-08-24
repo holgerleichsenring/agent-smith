@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0503a
+
+decisions:
+  - category: Security
+    chose: "The permission rides on the endpoint as our own RequiresPermission metadata"
+    over: "RequireAuthorization(policy), the framework's own declaration"
+    reason: |
+      RequireAuthorization attaches IAuthorizeData, and routing's EndpointMiddleware
+      throws \"contains authorization metadata, but a middleware was not found that
+      supports authorization\" for an executed endpoint carrying it when the
+      authorization middleware has not run. src/ registers none — no UseAuthorization,
+      no AddAuthorization, no UseAuthentication — so the framework's spelling would
+      have turned 63 of 75 routes into 500s on every existing deployment and taken
+      ConfigStudioApiSmokeTests and CapabilityWireShapeTests, which self-host the real
+      routes on a loopback port, down with them. Our type implements nothing the
+      framework inspects, which is inertness by construction rather than by
+      RouteOptions.SuppressCheckForUnhandledSecurityMetadata — a global, permanent
+      disabling of the guard, bought to obtain a property we get for free.
+      Runtime_AnnotatedRouteOnABootedHost_AnswersInsteadOfFivehundred boots a host with
+      no authorization middleware and asks, rather than arguing the point.
+  - category: Architecture
+    chose: "The permission is the unit; admin/operator/reader are bundles over the catalog"
+    over: "Naming the role at the endpoint"
+    reason: |
+      A route needs runs.control, not \"operator\". Putting the role at the endpoint
+      makes every installation with a different org chart a code change to the route
+      table; putting the permission there makes it a configuration line. reader
+      deliberately holds no config.read: the configuration is where the credentials,
+      the trackers and the repositories are named, and \"may look at the run list\" is
+      not \"may read the installation\".
+  - category: Implementation
+    chose: "Needs/Anonymous are generic over IEndpointConventionBuilder"
+    over: "Extensions on RouteHandlerBuilder"
+    reason: |
+      MapHub returns a HubEndpointConventionBuilder, not a RouteHandlerBuilder, so a
+      RouteHandlerBuilder extension could not have declared the hub — and the hub is
+      the one surface that streams every run's events. Generic with a
+      where TBuilder : IEndpointConventionBuilder constraint also returns the caller's
+      own type, so the declaration chains onto the existing map line and costs no line
+      in the three files sitting at their file-length ratchet ceiling.
+  - category: Implementation
+    chose: "RunControlEndpoints reaches the catalog as Security.Permissions, with no using"
+    over: "using AgentSmith.Server.Security; at the top of the file"
+    reason: |
+      Measured, not predicted: adding the using took RunControlEndpoints from 194 to
+      195 lines and TeamsEndpoints from 166 to 167, and both are recorded in
+      file-length-baseline.tsv at exactly their current length, so
+      NoBaselineFile_GrewSinceTheRatchetWasInstalled went red. A using directive is a
+      line like any other. The Extensions namespace sits under AgentSmith.Server, so
+      Security.Permissions resolves through the parent namespace — the same spelling
+      ConfigChangeEndpoints already uses for Services.Config.ConfigChangeView. The
+      files that only declare anonymity need no using at all: Needs and Anonymous are
+      extensions in the Extensions namespace itself.
+  - category: Implementation
+    chose: "Each anonymous Slack and webhook route states its own reason inline"
+    over: "One shared private const string Reason per file"
+    reason: |
+      SlackEndpoints.cs was at exactly 120 lines — the hard limit, which is why it is
+      not in the ratchet baseline — so a constant plus its blank line would have made
+      it a NEW offender under NoNewFile_ExceedsTheLineLimit. Inlining costs no line,
+      and the per-route reason turned out to be the better artifact anyway: \"GitHub
+      signs the delivery with the configured webhook secret (p0506)\" is checkable
+      where \"a machine calls this\" is not.
+  - category: TradeOff
+    chose: "The guard test extends p0506's ServerRouteTable instead of adding a RouteTableFixture"
+    over: "The separate fixture the spec's step named"
+    reason: |
+      The spec asked for a fixture holding the built app plus throwing stubs for the
+      handler parameter types InferMetadata resolves. ServerRouteTable already IS that
+      seam: it builds the REAL ServerCompositionBuilder registrations, so every
+      parameter type is present, and resolves nothing — p0506 proved it by poisoning
+      IConfigurationLoader, which /api/runs/{runId}/retry would have to resolve. A
+      second fixture would be a second answer to \"what is mapped?\" that can drift
+      from the first. Facts() reads the same endpoints for what they declare, so the
+      route table and the permission table are one enumeration.
+  - category: Implementation
+    chose: "The golden pins verb, pattern and permission list for 77 rows"
+    over: "Asserting a count of declared routes"
+    reason: |
+      A count is satisfied by the wrong permission on the right route. The 77 rows are
+      the 75 mapped routes plus the hub's two (\"/hub/jobs\" and its negotiate), which
+      carry no HttpMethodMetadata and so record their verb as *. Regeneration is
+      deliberate and flagged (AGENTSMITH_WRITE_ROUTE_BASELINE=1), so moving a route
+      between permissions shows up as a diff a reviewer reads.
+  - category: Security
+    chose: "The four routes crossing into secrets state both permissions, required together"
+    over: "Letting config.* cover the whole config studio"
+    reason: |
+      Measured on the route table, not on the catalog. GET /api/config/changes returns
+      ConfigChangeView, which carries EntityKind \"secrets\" with the entity id and the
+      changed field names; POST /api/config/changes/{id}/revert calls store.Revert with
+      no type filter at all, so it can restore or remove a secret entity; GET
+      /api/config/export.yml serialises the assembled document including the secret
+      entities; POST /api/config/import filters only ConfigDocTypes.Persistence. A
+      holder of config.* alone can therefore neither read a secret's name out of the
+      audit feed nor delete one through revert.
+  - category: Scope
+    chose: "The Swagger MIDDLEWARE document is written down as an accepted anonymous surface"
+    over: "Treating /api/openapi.json as the only openapi question"
+    reason: |
+      Two different things share a name. ServerEndpointExtensions maps GET
+      /api/openapi.json — a real endpoint in the data source, declared anonymous like
+      the other eleven. UseSwagger serves /api/openapi/{document}.json from middleware
+      that never enters EndpointDataSource: no guard can see it and no fallback policy
+      will ever apply to it. Saying so here is the difference between an accepted
+      surface and a hole, because \"every route states a permission\" is otherwise
+      quietly false for the document describing all the others.
+  - category: Scope
+    chose: "p0301 is deleted and its planned entry replaced by this phase's done line"
+    over: "Leaving the older SSO+RBAC spec in planned/"
+    reason: |
+      p0301 was never implemented and was wrong about its own premise: it treated
+      AGENTSMITH_UI_API_ENABLED as an auth-off mode, where DashboardApiExtensions.
+      IsEnabled gates whether the dashboard API is MAPPED and its services REGISTERED
+      — a different question from who may call it. Leaving the file would leave two
+      documents claiming the same ground; leaving the context entry after deleting the
+      file would advertise a phase whose spec is gone, and
+      PhaseRecord_NoShippedPhase_IsStillListedAsPlanned enforces exactly that.

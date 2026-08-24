@@ -13,7 +13,9 @@ const STEP_ID_PREFIX = "step-";
 // Generate plan". Current servers split it into RunStepView.PhaseId before it
 // reaches the client; this is the defensive split for payloads from servers
 // that predate that, so old runs still render the real step name.
-const PHASE_PREFIX_RE = /^(p\d+[a-z]?): (.+)$/;
+// p0507: both id shapes — the counter namespace and a date-minted id. This mirrors
+// RunStepsReader.PhaseQualifiedRegex; fixing only the backend leaves the raw prefix here.
+const PHASE_PREFIX_RE = /^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4})): (.+)$/;
 
 export function splitPhasePrefix(label: string): { phaseId: string | null; label: string } {
   const match = PHASE_PREFIX_RE.exec(label);

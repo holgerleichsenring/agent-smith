@@ -30,7 +30,7 @@ public sealed class RunCommandOutputTests
 
         text.Should().Contain("exit_code: 0").And.Contain("truncated: false");
         text.Should().Contain("--- projects ---", "the head of what the command printed");
-        text.Should().Contain("Sample.distribution.Server.Module199", "and the far end of it");
+        text.Should().Contain("Sample.Distribution.Server.Module199", "and the far end of it");
         text.Length.Should().BeGreaterThan(27_000);
     }
 
@@ -92,9 +92,9 @@ public sealed class RunCommandOutputTests
     {
         var sb = new StringBuilder("--- projects ---\n");
         for (var i = 0; i < 200; i++)
-            sb.Append("./Sample.distribution.Server.Module").Append(i)
-              .Append("/Sample.distribution.Server.Module").Append(i).Append(".csproj\n");
-        while (sb.Length < 27_100) sb.Append("./Sample.distribution.Server.Extra.csproj\n");
+            sb.Append("./Sample.Distribution.Server.Module").Append(i)
+              .Append("/Sample.Distribution.Server.Module").Append(i).Append(".csproj\n");
+        while (sb.Length < 27_100) sb.Append("./Sample.Distribution.Server.Extra.csproj\n");
         return sb.ToString();
     }
 

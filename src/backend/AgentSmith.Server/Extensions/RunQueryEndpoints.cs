@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
 using Microsoft.Extensions.Options;
 
@@ -24,9 +25,9 @@ internal static class RunQueryEndpoints
 {
     internal static WebApplication MapRunQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs", GetRunsAsync);
-        app.MapGet("/api/runs/{runId}", GetRunAsync);
-        app.MapGet("/api/runs/{runId}/trail", GetRunTrailAsync);
+        app.MapGet("/api/runs", GetRunsAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}", GetRunAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/trail", GetRunTrailAsync).Needs(Permissions.RunsRead);
         // p0388b: the full-pipeline read surface (rail, per-step page, decisions)
         // is its own endpoint class — same READ surface, separate responsibility.
         app.MapRunStepQueryEndpoints();

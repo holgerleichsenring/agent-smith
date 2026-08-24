@@ -37,6 +37,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TrackerCatalogBuilder>();
         services.AddSingleton<ResolvedProjectBuilder>();
         services.AddSingleton<ConfigCatalogResolver>();
+        // p0506: ${NAME} resolution for the secrets map, registry tokens and a
+        // project's jira_trigger.secret — the environment read is injected so a
+        // test never mutates the process the rest of the suite runs in.
+        services.AddSingleton(_ => new ConfigSecretReferences(Environment.GetEnvironmentVariable));
+        // p0506: the one platform->secret table the verifier, the tracker-auth check
+        // and the connections panel all read.
+        services.AddSingleton<IWebhookSecretResolver>(
+            _ => new Services.Webhooks.WebhookSecretResolver(Environment.GetEnvironmentVariable));
         // p0349: the shared raw->typed pipeline both the file loader and the
         // server's DB loader run over a RawAgentSmithConfig.
         services.AddSingleton<RawConfigMaterializer>();
@@ -53,6 +61,9 @@ public static class ServiceCollectionExtensions
         // server's own rule objects.
         services.AddSingleton<Services.Configuration.Studio.ConfigDraftRules>();
         services.AddSingleton<ConfigDocumentAssembler>();
+        // p0503b: the auth block reaches the bootstrap from the environment as well as
+        // the file, so the reader takes the overlay that decides which wins per field.
+        services.AddSingleton<AuthEnvironmentOverlay>();
         services.AddSingleton<BootstrapConfigReader>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();
@@ -89,6 +100,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEmbeddedDemoSample, EmbeddedDemoSample>();
         services.AddSingleton<SkillsCatalogPath>();
         services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
+        // p0504: the domain profiles the resolved catalog carries.
+        services.AddSingleton<IDomainProfileCatalog, FileDomainProfileCatalog>();
         // p0379: authored principles core+delta composition from the resolved catalog.
         services.AddSingleton<IPrinciplesTemplateSource, CatalogPrinciplesTemplateSource>();
         services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();
@@ -97,6 +110,7 @@ public static class ServiceCollectionExtensions
         // p0325: the embedded catalog is the default resolution when no
         // explicit skills source is configured.
         services.AddSingleton<ISkillsSourceHandler, EmbeddedSourceHandler>();
+        services.AddSingleton<ISkillsOverlayMaterializer, SkillsOverlayMaterializer>(); // p0514
         services.AddSingleton<ISkillsCatalogResolver, SkillsCatalogResolver>();
         // p0358: eager, logged catalog refresh when a config reload changes skills.version.
         services.AddSingleton<SkillsCatalogRefresher>();

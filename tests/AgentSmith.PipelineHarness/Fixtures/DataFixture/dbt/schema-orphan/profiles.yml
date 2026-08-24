@@ -1,0 +1,14 @@
+# Step-0 input, not an observation: dbt needs a profile before the first
+# measurement exists. Every measured dbt command pins `--profiles-dir .` so
+# the fixture answers, never the measuring machine's ~/.dbt.
+sample_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      catalog: sample_catalog
+      schema: sample_schema
+      host: adb-0000000000000000.0.example.invalid
+      http_path: /sql/1.0/warehouses/0000000000000000
+      token: "{{ env_var('DBT_PLACEHOLDER_TOKEN', 'placeholder') }}"
+      threads: 1

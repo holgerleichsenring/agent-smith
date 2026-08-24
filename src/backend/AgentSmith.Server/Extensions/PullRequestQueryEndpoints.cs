@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Security;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -23,7 +24,7 @@ internal static class PullRequestQueryEndpoints
 
     internal static WebApplication MapPullRequestQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/pull-requests", GetPullRequestsAsync);
+        app.MapGet("/api/pull-requests", GetPullRequestsAsync).Needs(Permissions.RunsRead);
         return app;
     }
 

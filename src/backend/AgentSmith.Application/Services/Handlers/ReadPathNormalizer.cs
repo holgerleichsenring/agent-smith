@@ -3,8 +3,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// p0279: matches a finding's <c>file</c> field against the set of paths the agent
 /// actually read this run, tolerant of the format differences between the two. The agent
-/// reads repo/sandbox-prefixed paths (<c>default/sample.portal.API/Program.cs</c>) while a
-/// finding's file is whatever the model wrote (<c>Program.cs</c>, <c>sample.portal.API/
+/// reads repo/sandbox-prefixed paths (<c>default/Sample.Api/Program.cs</c>) while a
+/// finding's file is whatever the model wrote (<c>Program.cs</c>, <c>Sample.Api/
 /// Program.cs</c>, <c>src/Program.cs</c>). Matching is deliberately LENIENT — the risk to
 /// avoid is a FALSE downgrade of a legitimate analyzed_from_source finding, not a rare
 /// false preserve. A match is: normalized-equal, OR one path is a segment-suffix of the

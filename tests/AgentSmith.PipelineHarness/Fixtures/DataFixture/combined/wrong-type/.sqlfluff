@@ -1,0 +1,17 @@
+# sqlfluff without the dbt templater: the jinja templater is given stand-ins
+# for dbt's built-ins and loads the project's own macros, so `sqlfluff lint`
+# measures SQL rather than an unrendered template.
+[sqlfluff]
+dialect = databricks
+templater = jinja
+max_line_length = 120
+
+[sqlfluff:templater:jinja]
+load_macros_from_path = macros
+
+[sqlfluff:templater:jinja:macros]
+dbt_ref = {% macro ref(model_name) %}{{ model_name }}{% endmacro %}
+dbt_source = {% macro source(source_name, table_name) %}{{ source_name }}.{{ table_name }}{% endmacro %}
+dbt_config = {% macro config() %}{% endmacro %}
+dbt_var = {% macro var(variable, default='') %}{{ default }}{% endmacro %}
+dbt_is_incremental = {% macro is_incremental() %}False{% endmacro %}

@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0503e
+
+decisions:
+  - category: Security
+    chose: "The 401 stays a 401 and only the BLAME changes"
+    over: "A 503, or any short-circuit ahead of the routes"
+    reason: |
+      Re-measured against p0503b's booted rig before building, because the spec's own
+      numbers had to be re-verified on the code as it now stands. With no cached
+      configuration and the authority down, a valid token is answered
+      401 `error="invalid_token", error_description="The issuer '...' is invalid"` — the
+      server telling a caller their token is bad for a fault that is entirely its own.
+      With a WARM configuration the same outage answered 200: tokens kept validating from
+      cached keys, so a 503 would have been a measured lie. Health answered 200 throughout.
+      The defect is the blame, not the status code, and that is all this phase moves.
+  - category: Security
+    chose: "error=\"temporarily_unavailable\" with a description naming the server"
+    over: "Keeping error=\"invalid_token\" and only rewording the description"
+    reason: |
+      A client that reads `invalid_token` refreshes its token and comes back, which against
+      a dead authority is a loop — the code is the part a client acts on, so leaving it
+      would keep the caller doing the wrong thing no matter what the description said. The
+      scheme stays `Bearer`, so p0503b's "refused by the auth pipeline" discrimination —
+      401 carrying a Bearer challenge, versus a handler's own refusal — still holds, and
+      the twelve anonymous routes are unaffected.
+  - category: Architecture
+    chose: "A recurring hosted service that clears its own finding"
+    over: "A sixth IStartupProbe, or lazy detection inside OnAuthenticationFailed"
+    reason: |
+      Lazy detection is not expensive, it is impossible: the exception reaching the
+      pipeline carries no transport failure, so "unreachable" and "wrong issuer" are the
+      same event by the time anything can inspect them — any lazy version would have to run
+      a reachability check of its own, i.e. a probe with a request as its trigger.
+      A startup probe is wrong twice: they run BEFORE the listener binds and each is
+      bounded at ten seconds, so a sixth against a blackholed provider pushes the
+      worst-case pre-bind delay past the readiness budget — and it runs once, while an
+      outage that ENDS has to be noticed. IStartupFindings.Clear exists for exactly this
+      re-probe-and-republish shape, and the degraded banner already polls every thirty
+      seconds, so recovery becomes visible with no dashboard work.
+  - category: Security
+    chose: "Severity follows the enforce switch; the finding names no project"
+    over: "Always blocking, or always advisory"
+    reason: |
+      Blocking while enforcement is on, because callers really are refused; advisory while
+      it is off, because nothing is, and a red banner on every installation that has not
+      turned enforcement on yet is what p0503b refused. No project either way:
+      StartupFindingsQueries matches a blocking finding to a trigger BY PROJECT NAME, so a
+      finding that named one would disable that project's triggers over a fault that is not
+      the project's. AuthProbe_AuthorityUnreachable_DisablesNoTrigger asserts the blocking
+      case leaves triggers alone rather than assuming it.
+  - category: Implementation
+    chose: "The probe is handed the auth block the JwtBearer handler was configured with"
+    over: "Resolving the registered TokenAuthorityConfig singleton"
+    reason: |
+      Found by the failing test, not reasoned about: the registered TokenAuthorityConfig is
+      produced by a factory that re-reads CONFIG_PATH from the ENVIRONMENT at resolution
+      time, so a probe built after that variable has moved measures a different authority
+      than the handler validates against — and a finding that names the wrong authority is
+      worse than no finding. The registration passes the captured block through
+      ActivatorUtilities so the one authority is stated once.
+  - category: Tooling
+    chose: "One booted server per test class, with the reachable control in its own class"
+    over: "Two class fixtures on the test that needs both halves"
+    reason: |
+      Measured while debugging a failure that looked like the challenge not firing: xUnit
+      initialises a class's fixtures CONCURRENTLY, and BootedServer sets CONFIG_PATH around
+      an awaited boot — so two fixtures in one class raced, and the server pointed at the
+      dead authority came up configured with the live one. Every existing class in this rig
+      happens to take exactly one fixture, so the race had never been reachable. The split
+      is the fix and the comment on both classes is the warning.
+  - category: Tooling
+    chose: "A dead loopback port as the unreachable authority, and a toggling stub for recovery"
+    over: "Stopping and restarting the real local issuer"
+    reason: |
+      A stopped loopback listener cannot be brought back on the same port, and the address
+      is what the auth block names — so an outage that ENDS needs one endpoint that answers
+      or does not on command, which is what FlakyAuthority is. The dead-port case stays a
+      genuine refused connection rather than a stub returning a failure code, so the
+      transport path the probe exists for is exercised for real in both the unit test and
+      the booted one.

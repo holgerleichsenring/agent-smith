@@ -26,6 +26,19 @@ describe("splitPhasePrefix", () => {
     expect(splitPhasePrefix("Fetch ticket")).toEqual({ phaseId: null, label: "Fetch ticket" });
     expect(splitPhasePrefix("prod: deploy")).toEqual({ phaseId: null, label: "prod: deploy" });
   });
+
+  // p0507: a phase id is minted from a date and a four-hex random suffix. This split is
+  // the dashboard's OWN copy of RunStepsReader.PhaseQualifiedRegex — teaching only the
+  // backend leaves the raw prefix rendered here, in the rail the operator actually reads.
+  it("RunStepRail_DateMintedPhase_RendersWithoutTheRawPrefix", () => {
+    expect(splitPhasePrefix("2026-08-24-8a3f: Generate plan"))
+      .toEqual({ phaseId: "2026-08-24-8a3f", label: "Generate plan" });
+  });
+
+  it("still leaves a date that is not a minted id alone", () => {
+    expect(splitPhasePrefix("2026-13-99-zzzz: nightly"))
+      .toEqual({ phaseId: null, label: "2026-13-99-zzzz: nightly" });
+  });
 });
 
 describe("toRailNodes phase handling", () => {

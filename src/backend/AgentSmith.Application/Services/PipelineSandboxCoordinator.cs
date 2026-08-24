@@ -30,24 +30,9 @@ public sealed class PipelineSandboxCoordinator(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     ISandboxLivenessSupervisor livenessSupervisor,
+    ContextDomainResolver domainResolver,
     ILogger<PipelineSandboxCoordinator> logger) : IPipelineSandboxCoordinator
 {
-    private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
-    {
-        CommandNames.CheckoutSource, CommandNames.AcquireSource,
-        CommandNames.AgenticExecute,
-        CommandNames.GenerateTests, CommandNames.GenerateDocs,
-        CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch,
-        CommandNames.BootstrapProject, CommandNames.BootstrapDocument, CommandNames.BootstrapCheck,
-        CommandNames.BootstrapDiscover, // p0161d: read-only LLM round reads via the per-repo sandbox
-        CommandNames.LoadContext, CommandNames.LoadCodingPrinciples, CommandNames.LoadCodeMap,
-        CommandNames.LoadRuns, CommandNames.AnalyzeCode,
-        CommandNames.CompileDiscussion, CommandNames.CompileKnowledge, CommandNames.QueryKnowledge,
-        CommandNames.WriteRunResult,
-        CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
-        CommandNames.SecurityTrend, CommandNames.SecuritySnapshotWrite, CommandNames.SpawnFix
-    };
-
     private readonly Dictionary<string, ISandbox> _sandboxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, RemoteContextDiscovery> _discoveries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<RemoteContextDiscovery>> _contextsBySandbox = new(StringComparer.Ordinal);
@@ -109,9 +94,12 @@ public sealed class PipelineSandboxCoordinator(
             // footprint — collapse them into ONE pod sized to the group's MAX
             // resource envelope. A genuine image/SDK difference still separates.
             // The per-sandbox context list still carries every context for probes.
+            // p0504: the declared meta.domain is resolved HERE — after scoping, before any
+            // spec exists — so an unknown domain refuses the run before a pod is created.
             var specced = discoveries
                 .Select(d => (Discovery: d, Spec: sandboxSpecBuilder.Build(
-                    projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)))
+                    projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources,
+                    domainResolver.Resolve(repo.Name, d)?.Image)))
                 .ToList();
             var groups = specced.GroupBy(x => x.Spec.ToolchainImage, StringComparer.Ordinal).ToList();
             foreach (var group in groups)
@@ -239,8 +227,10 @@ public sealed class PipelineSandboxCoordinator(
         string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
+        var repoOfKey = _sandboxRepos.GetValueOrDefault(sandboxKey);
         var spec = sandboxSpecBuilder.Build(
-            projectConfig, discovery.Language, _pipelineName, discovery.ToolchainImage, discovery.Resources);
+            projectConfig, discovery.Language, _pipelineName, discovery.ToolchainImage,
+            discovery.Resources, domainResolver.Resolve(repoOfKey, discovery)?.Image);
         // p0332: carry the resolved memory request so reserved resource-time is
         // computed from the sandbox's real reservation, not the global default.
         return eventPublisher.PublishAsync(

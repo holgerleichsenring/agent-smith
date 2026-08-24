@@ -17,6 +17,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- p0518: the master-description cap is ONE declaration. The packaging gate
+         and this assembly's parse-time gate compile the same source file rather
+         than each carrying a literal; a project reference is impossible because
+         the packaging tool must build before the runtime projects (see above). -->
+    <Compile Include="..\AgentSmith.SkillsPackaging\SkillDescriptionRule.cs"
+             Link="Services\SkillDescriptionRule.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
@@ -42,8 +51,8 @@
   <!-- v3.16.0 silent-drop incident, made a build failure).               -->
   <!-- ================================================================== -->
   <PropertyGroup>
-    <SkillsCatalogVersion>v4.5.0</SkillsCatalogVersion>
-    <SkillsCatalogSha256>f9c0cd784adab5fa9469826d07ae1bfdc16838c222d5dd7765e9bc4edf5f056f</SkillsCatalogSha256>
+    <SkillsCatalogVersion>v4.6.0</SkillsCatalogVersion>
+    <SkillsCatalogSha256>baad8a64adbca9484287ce3a48c673a21d7c1bfd733f9a6d9465827df7db5428</SkillsCatalogSha256>
     <SkillsCatalogFileName>agentsmith-skills-$(SkillsCatalogVersion).tar.gz</SkillsCatalogFileName>
     <SkillsCatalogTarball>$(MSBuildProjectDirectory)/Resources/$(SkillsCatalogFileName)</SkillsCatalogTarball>
     <SkillsCatalogDownloadUrl>https://github.com/holgerleichsenring/agent-smith-skills/releases/download/$(SkillsCatalogVersion)/$(SkillsCatalogFileName)</SkillsCatalogDownloadUrl>

@@ -1,0 +1,156 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0503b
+
+goal: "A token presented to the server is validated against one configured authority, and the permissions p0503a declared on every route become the thing that decides."
+
+applies_to: "backend (auth pipeline, bootstrap auth block, policy registration) + deploy templates + config example and schema"
+
+requires:
+  - p0503a
+  - p0349
+  - p0391a
+
+scope:
+  in: "JwtBearer against one OIDC authority from bootstrap file and environment, one requirement per catalogued permission, a fallback policy gated on an enforce switch, a 403 body naming what is missing, an advisory finding when the block is unusable, and the booted-server harness with a local issuer."
+  out: "Claims to roles, custom roles, the admin grant and the identity page — p0503d. The hub handshake — p0503c. An unreachable authority — p0503e. Flipping the enforce default, which belongs to the phase that gives the dashboard a way to sign in."
+
+decisions:
+  - key: |
+      A FALLBACK POLICY, NOT AN ENDPOINT CONVENTION — THERE IS NOWHERE TO ATTACH ONE. This
+      codebase has no route groups: ServerEndpointExtensions calls roughly fifteen independent
+      Map* extensions, each doing its own MapGet/MapPost, and minimal APIs expose no aggregate
+      hook on WebApplication. A convention would have to touch every endpoint file, including
+      RunControlEndpoints and TeamsEndpoints, both sitting AT their ratchet ceilings. A fallback
+      policy needs no route-file edit at all: p0503a already attached AllowAnonymousAttribute to
+      the twelve anonymous routes, which exempts them, and a requirement handler reads the
+      RequiresPermission metadata off the endpoint. p0503c already assumes this shape in writing.
+  - key: |
+      THE GATE IS THE ENFORCE SWITCH, NOT THE PRESENCE OF AN AUTHORITY. An earlier draft gated
+      the policy on the middleware existing, and then promised that with an authority configured
+      and the switch off nothing is refused. Both cannot hold — an anonymous caller to a
+      permissioned route would get 401 the moment an authority appeared. So: the middleware is
+      registered when an authority is configured, tokens are validated when presented, and the
+      FALLBACK POLICY attaches only when enforce is on. That is what keeps the hub reachable
+      while an operator prepares an authority and before the dashboard can sign in.
+  - key: |
+      ONE REQUIREMENT PER PERMISSION, BECAUSE THE 403 MUST NAME WHAT IS MISSING. ASP.NET's forbid
+      path writes an EMPTY body. Naming the missing permissions means replacing
+      IAuthorizationMiddlewareResultHandler and reading AuthorizationFailure.FailedRequirements —
+      which only says something useful if each permission is its own requirement rather than one
+      combined policy. p0503a's four crossing routes state two permissions each and its guard test
+      pins that, so the singular "the matching policy" of an earlier draft was simply wrong.
+  - key: |
+      AUTH IS NOT ADDED TO THE EXPORT, AND THE REASON REVERSES AN EARLIER DECISION. Measured:
+      ConfigCommand.ExportAsync assembles from ConfigDocumentRepository.LoadAll() — the database
+      alone, no bootstrap overlay — and persistence is never imported, so no row exists and export
+      already emits the DEFAULT PersistenceConfig rather than the operator's. Shipping an auth
+      descriptor would therefore not preserve a lost block; it would EMIT a false one — enforce
+      false, no authority — for an installation that has both. A lie in a disaster-recovery
+      artifact is worse than an omission. Auth stays out of the taxonomy, and the pre-existing
+      persistence lie is named as its own defect rather than inherited.
+  - key: |
+      THE BLOCK IS READ FROM FILE AND ENVIRONMENT, AND THE ENVIRONMENT HALF DOES NOT EXIST YET.
+      BootstrapConfigReader reads the file at IConfigStoreLocation.ConfigPath and nothing else;
+      PersistenceConfig has no environment binding. A Kubernetes operator reaches for environment
+      variables, and the deploy templates are how this reaches a cluster at all, so authority,
+      audience and enforce get env sites and land in the templates with optional:true — a
+      secretKeyRef to an absent key stops the pod from starting.
+  - key: |
+      THE MIDDLEWARE POSITION IS STATED, BECAUSE THE AUTOMATIC ONE IS WRONG HERE. WebApplication
+      inserts UseAuthentication and UseAuthorization straight after its automatic UseRouting,
+      BEFORE user-registered middleware — and UseCors is registered from inside MapDashboardApi,
+      after Build(). A cross-origin preflight to a permissioned route would then be answered 401
+      with no CORS headers, which is exactly how the dashboard talks to the server in compose.
+      Both are called explicitly, after the existing UseCors.
+  - key: |
+      THERE IS ALREADY A TOKEN VALIDATOR IN THIS SERVER. TeamsJwtValidator does OIDC discovery
+      with ConfigurationManager and full issuer, audience and lifetime validation against the Bot
+      Framework authority, and Microsoft.IdentityModel.Protocols.OpenIdConnect is already pinned
+      for it. Microsoft.AspNetCore.Authentication.JwtBearer is genuinely new and will move that
+      transitive pin. Two validators against two authorities is correct — Teams must stay
+      anonymous to this scheme — but it is a fact to state, not to discover.
+  - key: |
+      AN AUTH BLOCK THAT IS PRESENT BUT UNUSABLE IS A FINDING, BECAUSE THE LOADER SWALLOWS TYPOS.
+      RawConfigYaml uses IgnoreUnmatchedProperties, so a misspelled key yields no authority, no
+      error and a dashboard that quietly stays open. The finding is ADVISORY and carries no
+      project: StartupFindingsResponse sets Degraded from blocking findings alone, and
+      BlockingReason matches by project name, so a project-less finding disables no trigger and
+      no poller.
+  - key: |
+      THE HARNESS BOOTS AGAINST A DEAD REDIS, WHICH INVALIDATES TWO OBVIOUS TESTS.
+      StartupResilienceTests uses 127.0.0.1:1 deliberately, so every boot through it carries a
+      blocking redis finding and reports Degraded regardless of auth, and dashboard routes 500
+      for want of Redis. Assertions must therefore read the AUTH finding's own severity rather
+      than the degraded flag, and reachability tests must use routes that answer without Redis.
+      Any test touching the dashboard API must pin AGENTSMITH_UI_API_ENABLED, which is read from
+      the process on every call.
+  - key: |
+      THE LOCAL ISSUER IS A SECOND HTTP LISTENER, NOT A VALUE OBJECT. JwtBearer with an Authority
+      resolves signing keys through ConfigurationManager, so the test rig must serve a discovery
+      document AND a JWKS document, with RequireHttpsMetadata relaxed for a loopback address. It
+      needs the IdentityModel token packages, which the test project does not reference today.
+      Calling it a fixture understates it; it is infrastructure and it is named as such.
+  - key: |
+      THE BOOT HELPER IS PARAMETERISED, NOT SHARED. StartupResilienceTests boots per case with its
+      own config file and its own environment, which is what its p0391a assertions are for. An
+      xUnit fixture shared across cases cannot serve it. The extraction is a helper with
+      arguments, and the name says so, or it becomes a refactor of load-bearing safety tests
+      disguised as a free one.
+
+steps:
+  - id: the-block-is-read-before-the-store-exists
+    action: "Add the auth block to bootstrap configuration, read from the config file and from environment variables, with an advisory project-less finding when it is present but yields no usable authority."
+    new:
+      - "AuthConfig — authority, audience, enforce"
+      - "the bootstrap read and its env binding"
+  - id: a-token-is-validated-against-one-authority
+    action: "Register JwtBearer against the configured authority in its own extension, and call UseAuthentication and UseAuthorization explicitly after the existing UseCors."
+    new:
+      - "the authentication registration extension"
+  - id: a-permission-becomes-a-requirement
+    action: "Register one authorization requirement per catalogued permission and its handler, reading the RequiresPermission metadata p0503a attached."
+    new:
+      - "the permission requirement and its handler"
+  - id: the-fallback-decides-only-when-enforcement-is-on
+    action: "Attach the fallback policy when the enforce switch is on, leaving the anonymous routes exempt through the metadata p0503a already declared."
+  - id: a-refusal-names-what-was-missing
+    action: "Replace the authorization result handler so a 403 body names every permission the caller lacked."
+    new:
+      - "the authorization result handler"
+  - id: the-settings-reach-a-cluster
+    action: "Add the three settings to the config example, the config schema, the k8s deployment and secret template with optional:true, the apply script, the env example and the compose example."
+  - id: the-assertions-get-a-host-and-an-issuer
+    action: "Extract the booted-server helper from the startup resilience tests as a parameterised helper, and add a local issuer serving discovery and JWKS over loopback."
+    new:
+      - "the booted-server helper"
+      - "the local token issuer"
+
+tests:
+  - "Endpoint_EnforceOnAndNoToken_Returns401"
+  - "Endpoint_EnforceOnAndExpiredToken_Returns401"
+  - "Endpoint_EnforceOnAndWrongIssuer_Returns401"
+  - "Endpoint_EnforceOnAndWrongAudience_Returns401"
+  - "Endpoint_EnforceOnAndValidToken_ReachesTheHandler"
+  - "Enforce_SwitchOffWithAnAuthorityConfigured_NoRouteIsRefused"
+  - "Enforce_SwitchOffWithAnAuthorityConfigured_AValidTokenIsStillValidated"
+  - "Enforce_SwitchOn_TheTwelveAnonymousRoutesStayReachable"
+  - "Policy_MissingOnePermission_Returns403NamingIt"
+  - "Policy_MissingOneOfTwoOnACrossingRoute_Returns403NamingOnlyTheMissingOne"
+  - "Startup_AuthBlockPresentButUnusable_RecordsAnAdvisoryFinding"
+  - "Startup_AuthBlockPresentButUnusable_TheFindingCarriesNoProject"
+  - "Startup_AuthBlockPresentButUnusable_DisablesNoTrigger"
+  - "Startup_NoAuthBlockAtAll_RecordsNoAuthFinding"
+  - "Bootstrap_AuthorityFromEnvironment_OverridesTheFile"
+  - "Export_WithAnAuthBlockConfigured_EmitsNoAuthSection"
+  - "Cors_PreflightToAPermissionedRoute_CarriesCorsHeaders"
+
+done:
+  - "a token is validated against one configured authority, from file or environment"
+  - "with enforcement off nothing is refused, and a presented token is still validated"
+  - "with enforcement on a missing permission is a 403 that names it"
+  - "the twelve anonymous routes answer under enforcement without any route-file edit"
+  - "an unusable auth block is an advisory finding that disables no trigger"
+  - "export emits no auth section, and the persistence export defect is named as its own"
+  - "a cross-origin preflight to a permissioned route still carries its CORS headers"
+  - "the three settings exist in every shipped template, with optional:true where a Secret is read"
+  - "build green, full suite green"

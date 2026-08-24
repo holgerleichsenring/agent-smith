@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Console;
@@ -34,8 +35,24 @@ internal sealed class CompactConsoleFormatter() : ConsoleFormatter(FormatterName
         if (logEntry.Exception is not null)
             AppendExceptionChain(output, logEntry.Exception);
 
-        textWriter.WriteLine(output.ToString());
+        textWriter.WriteLine(Redact(output.ToString()));
     }
+
+    // p0503c: a websocket handshake carries no Authorization header, so the hub token
+    // rides in the query string as `access_token=…`. The COMPOSED line is scrubbed, not
+    // the message alone, because AppendExceptionChain writes exception messages verbatim.
+    // This is the one sink this repository reaches: the ingress access log, the hosting
+    // "Request starting" line (written before authentication) and the browser's own URL
+    // keep the raw query regardless.
+    private const string TokenParameter = "access_token";
+
+    private static readonly Regex TokenValue = new(
+        TokenParameter + "=[^&\\s\"']+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static string Redact(string line) =>
+        line.Contains(TokenParameter, StringComparison.OrdinalIgnoreCase)
+            ? TokenValue.Replace(line, TokenParameter + "=***")
+            : line;
 
     private static string LevelLabel(LogLevel level) => level switch
     {

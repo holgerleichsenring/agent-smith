@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0503b
+
+decisions:
+  - category: Security
+    chose: "A fallback authorization policy carrying one requirement per catalogued permission"
+    over: "An endpoint convention that turns each route's RequiresPermission into its own policy"
+    reason: |
+      Measured before building: `grep -rn MapGroup src` returns zero hits, and the sixteen
+      Map* extensions each call MapGet/MapPost directly, so minimal APIs expose no aggregate
+      hook to hang a convention on. A convention would have meant editing every endpoint
+      file. The fallback needs none: p0503a already attached AllowAnonymousAttribute to the
+      twelve anonymous routes, and the authorization middleware skips any endpoint carrying
+      IAllowAnonymous before it can challenge or forbid.
+      One requirement PER permission rather than one combined policy, because a refusal has
+      to name what was missing: PolicyAuthorizationResult carries FailedRequirements, so a
+      route stating two permissions can only report the one the caller lacked if each is its
+      own requirement. The handler therefore never calls Fail() — an explicit failure
+      discards the pending requirements, which ARE that list.
+  - category: Security
+    chose: "Registration hangs off the AUTHORITY, refusal hangs off the ENFORCE switch"
+    over: "One switch that both registers the middleware and turns on refusal"
+    reason: |
+      With one switch, the moment an authority appeared an anonymous caller to a permissioned
+      route would get 401 — so the promise that enforcement off refuses nothing could not
+      hold. Splitting them gives the state an operator actually needs: an authority
+      configured, tokens genuinely validated, and no route refused, which is how an issuer
+      gets proven before anybody can be locked out. With no authority at all nothing is
+      registered and the server behaves exactly as it did before this phase.
+  - category: Implementation
+    chose: "UseAuthentication and UseAuthorization called explicitly, after the map calls"
+    over: "WebApplication's automatic insertion"
+    reason: |
+      WebApplication inserts both straight after its own UseRouting, ahead of every
+      user-registered middleware — and UseCors is registered from INSIDE MapDashboardApi,
+      after Build(). A cross-origin preflight to a permissioned route would then be answered
+      401 with no CORS headers, which a browser reports as a network error. Cors_Preflight
+      ToAPermissionedRoute_CarriesCorsHeaders is that placement, asserted.
+      The call is unconditional at the host factory rather than "after the existing UseCors",
+      because MapDashboardApi — and therefore UseCors — is itself gated on
+      AGENTSMITH_UI_API_ENABLED. The spec's phrasing only holds with the dashboard on.
+  - category: Scope
+    chose: "A permission is read from a `permission` claim on the validated token"
+    over: "Building nothing and leaving the caller's permissions undefined"
+    reason: |
+      THE SPEC DOES NOT SAY where a caller's permissions come from, and its scope pushes
+      claims-to-roles into the successor phase. Without some claim read, five of its own
+      named tests are unwritable: a valid token would hold nothing, so every permissioned
+      route would answer 403 and Endpoint_EnforceOnAndValidToken_ReachesTheHandler could
+      never pass. The smallest fill that does not trespass on the successor is the primitive
+      the successor maps ONTO: the permission is the unit everywhere in p0503a, so a token
+      states permissions directly. Mapping an authority's roles, groups and scopes onto
+      these names stays with the phase that owns the org chart.
+  - category: Architecture
+    chose: "The auth block is NOT added to the config-document taxonomy, so export omits it"
+    over: "A singleton descriptor next to Persistence, so a DR export preserves it"
+    reason: |
+      Measured: ConfigCommand.ExportAsync assembles from ConfigDocumentRepository.LoadAll()
+      alone — no bootstrap overlay — and import filters Persistence out, so no row exists and
+      the export already emits DEFAULT persistence rather than the operator's. A descriptor
+      would not preserve a lost auth block; it would EMIT a false one, an installation with
+      an authority and enforcement exporting "no authority, enforce false". A lie in a
+      disaster-recovery artifact is worse than an omission.
+      The pre-existing persistence version of the same lie is named here as a defect of its
+      own rather than inherited as a precedent.
+  - category: Implementation
+    chose: "TokenAuthorityConfig, not AuthConfig"
+    over: "The obvious name the spec used throughout"
+    reason: |
+      AuthConfig collides with Docker.DotNet.Models.AuthConfig, which the sandbox tests
+      already import — the first build after adding it produced ten CS0104 ambiguity errors
+      in files nobody was editing. The longer name also says what the type is: the authority
+      a token is validated against, not "authentication settings" in general.
+  - category: Implementation
+    chose: "An advisory, project-less finding when the block is present but names no authority"
+    over: "A blocking finding, or silence"
+    reason: |
+      RawConfigYaml uses IgnoreUnmatchedProperties, so a misspelled key under `auth:` yields
+      no authority, no error, and a server that quietly stays open — the failure mode worth
+      reporting. Blocking is wrong twice over: StartupFindingsResponse derives Degraded from
+      blocking findings alone, and "this installation has no authentication" is the state
+      every installation was in before this phase, not a broken one. Project-less because
+      StartupFindingsQueries.BlockingReason matches by project name, so a finding that named
+      one would disable that project's triggers.
+      Absent and unusable are told apart by the raw property being nullable WITHOUT an
+      initializer: no `auth:` key leaves it null, a present key with unmatched contents
+      yields an instance with no authority.
+  - category: Implementation
+    chose: "The host factory reads the bootstrap a second time, before Build()"
+    over: "Resolving the registered BootstrapConfig, or threading the read through DI"
+    reason: |
+      The authority decides what gets REGISTERED, which is before the container that
+      registers the reader exists. The second read is the same reader, and its findings are
+      recorded again by the DI-resolved BootstrapConfig during the startup probes into the
+      list the findings endpoint serves — StartupFindings keys by identity, so the operator
+      sees one finding, not two.
+  - category: Tooling
+    chose: "A second HTTP listener serving discovery and JWKS, as test infrastructure"
+    over: "A fixture holding a symmetric signing key"
+    reason: |
+      JwtBearer with an Authority resolves its signing keys through ConfigurationManager, so
+      a symmetric-key fixture would prove that a token validates and NOT that it validates
+      against a configured authority — which is the sentence the phase is named after. The
+      issuer serves both documents over loopback with RequireHttpsMetadata relaxed for a
+      loopback address only; a deployed authority still must be HTTPS.
+  - category: Tooling
+    chose: "BootedServer as a parameterised helper, driven by one xUnit class fixture per configuration"
+    over: "One fixture shared across all cases, or a boot per test"
+    reason: |
+      StartupResilienceTests boots per case with its own config file and its own environment,
+      which is exactly what its p0391a assertions are for — a single shared fixture cannot
+      serve it, so the extraction takes arguments. The auth cases are the opposite shape:
+      ten of them ask the SAME server different questions, and a boot per test would have
+      added minutes to the suite. The configuration is the unit, so the fixture is too, and
+      the helper restores every environment variable it set on disposal.
+  - category: Implementation
+    chose: "Anonymous-route reachability asserted as 'not refused by the auth pipeline'"
+    over: "Asserting a success status on all twelve"
+    reason: |
+      Half of them answer other systems and refuse an empty body or an absent signature
+      themselves — POST /api/teams/messages returns 401 for a missing Bot Framework JWT,
+      which is the handler deciding and is the whole point. The test distinguishes the
+      pipeline's refusal (403, or 401 carrying WWW-Authenticate: Bearer) from the handler's,
+      and Enforce_SwitchOn_APermissionedRouteIsStillRefused is the control that proves the
+      distinction is not vacuous on the same boot.
