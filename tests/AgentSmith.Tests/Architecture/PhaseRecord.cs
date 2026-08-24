@@ -81,9 +81,11 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
                 {
                     var text = File.ReadAllText(path);
                     var match = reader.SpecId.Match(text);
+                    if (!match.Success && !reader.ReadsEveryNamespace) return null;
                     match.Success.Should().BeTrue($"{path} must declare a `phase:` id");
                     return new Spec(match.Groups["id"].Value, stage, text);
-                }))
+                })
+                .OfType<Spec>())
     ];
 
     /// <summary>

@@ -48,19 +48,31 @@ internal sealed class PhaseIdReader
         specId: $@"^\s*phase:\s*""?(?<id>{Counter})",
         contextId: $@"^    (?<id>{Counter}):",
         inlineRequires: Counter,
-        blockRequires: $@"^\s*-\s*(?<id>{Counter})");
+        blockRequires: $@"^\s*-\s*(?<id>{Counter})",
+        readsEveryNamespace: false);
 
     private readonly Regex _inlineRequires;
     private readonly Regex _blockRequires;
 
     private PhaseIdReader(
-        string specId, string contextId, string inlineRequires, string blockRequires)
+        string specId, string contextId, string inlineRequires, string blockRequires,
+        bool readsEveryNamespace = true)
     {
         SpecId = Compiled(specId);
         ContextId = Compiled(contextId);
         _inlineRequires = Compiled(inlineRequires);
         _blockRequires = Compiled(blockRequires);
+        ReadsEveryNamespace = readsEveryNamespace;
     }
+
+    /// <summary>
+    /// False for a HISTORICAL reading. A spec such a reading cannot name did not exist while
+    /// it was the rule, so the comparison skips it rather than calling it undeclared — without
+    /// this, the first date-minted spec anyone writes turns the comparison red, which is p0507
+    /// detonating on the first use of what p0507 shipped. The reading in force reads every
+    /// namespace, so a spec IT cannot name is still a spec that declares nothing.
+    /// </summary>
+    public bool ReadsEveryNamespace { get; }
 
     public Regex SpecId { get; }
 
