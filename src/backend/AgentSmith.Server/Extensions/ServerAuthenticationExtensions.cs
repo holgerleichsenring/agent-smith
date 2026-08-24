@@ -1,5 +1,8 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Hosting;
+using AgentSmith.Server.Services.Startup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +42,14 @@ internal static class ServerAuthenticationExtensions
         });
         services.AddSingleton<IAuthorizationHandler, PermissionRequirementHandler>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, PermissionAuthorizationResultHandler>();
+        // p0503e: handed THIS auth block rather than resolving one, because the registered
+        // TokenAuthorityConfig is read lazily from the environment — a probe built later
+        // can measure a different authority than the handler validates against, which is
+        // the one thing its finding must never be wrong about.
+        services.AddSingleton<IAuthorityReachability>(
+            sp => ActivatorUtilities.CreateInstance<AuthorityReachabilityProbe>(sp, auth));
+        services.AddSingleton<AuthorityAwareChallenge>();
+        services.AddHostedService<AuthorityProbeHostedService>();
         return services;
     }
 
@@ -84,6 +95,10 @@ internal static class ServerAuthenticationExtensions
             // change is attributed to, through one accessor rather than two lookups.
             NameClaimType = auth.NameClaim,
         };
+        // p0503e: the challenge, and nothing else on this event set — a sibling adding
+        // another handler assigns its own property rather than replacing this one.
+        (options.Events ??= new JwtBearerEvents()).OnChallenge = context => context.HttpContext
+            .RequestServices.GetRequiredService<AuthorityAwareChallenge>().WriteAsync(context);
     }
 
     private static bool IsLoopback(string authority) =>
