@@ -61,6 +61,10 @@ internal static class ServerAuthenticationExtensions
     private static void Configure(JwtBearerOptions options, TokenAuthorityConfig auth)
     {
         options.Authority = auth.Authority;
+        // p0517: a browser cannot set an Authorization header on a websocket handshake, so
+        // the hub's token arrives in the query string and this is where it is picked up.
+        options.Events ??= new JwtBearerEvents();
+        options.Events.OnMessageReceived = HubHandshakeAuthentication.Receive;
         // p0503d: OFF, or the role claim is invisible. The default inbound map rewrites
         // `roles` (and `role`) to the long WS-Federation role type, so a configured claim
         // name of `roles` finds ZERO claims — while `groups`, which is not in the map,
