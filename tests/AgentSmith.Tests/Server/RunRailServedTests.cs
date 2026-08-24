@@ -121,6 +121,25 @@ public sealed class RunRailServedTests : IDisposable
         rail[1].DisplayName.Should().Be("Fetch ticket");
     }
 
+    // p0507: the second id namespace reaches the rail. A date-minted phase is spliced
+    // into the step names exactly like a counter one, so the read path must split it
+    // back apart rather than leave the raw prefix in the label an operator reads.
+    [Fact]
+    public async Task StepLabel_DateMintedPhase_RendersWithoutTheRawPrefix()
+    {
+        await ProjectAsync(
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
+            new StepStartedEvent(
+                RunId, 0, "2026-08-24-8a3f: Generating the plan", 1, T,
+                "2026-08-24-8a3f: Generate plan", CommandNames.FetchTicket));
+
+        var rail = await ReadRailAsync();
+
+        rail[0].PhaseId.Should().Be("2026-08-24-8a3f");
+        rail[0].StepName.Should().Be("Generating the plan");
+        rail[0].DisplayName.Should().Be("Generate plan");
+    }
+
     // p0398: the read path classifies every row (old records by command name) and
     // decides whether a gate has something to say — a gate whose summary is one
     // of its known no-op sentences carries hasFinding=false, so the drawer's

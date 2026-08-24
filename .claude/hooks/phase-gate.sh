@@ -47,19 +47,26 @@ hook_cwd=$(printf '%s' "$cwd_b64" | base64 -d 2>/dev/null)
 hooks_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ledger="${PHASE_GATE_LOG:-$hooks_dir/../phase-gate.log}"
 
+# The phase marker a commit message carries, in either namespace: the closed counter
+# id, e.g. (p0272) / (p73a), or a p0507 date-minted id, e.g. (2026-08-24-8a3f). The
+# ledger and the gating decision below read this ONE definition — a marker recognised
+# by one and not the other would gate a commit it never records, or record one it
+# never gated.
+phase_marker='\((p[0-9]+[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})\)'
+
 # One line per recognised phase commit: when, what the gate decided, the phase id,
 # the tree it gated and the commit the new one will sit on. That last field is what
 # ties a ledger line to a commit afterwards — it is the commit's parent.
 record() {
   local verdict=$1 tree=$2 detail=$3 phase parent
-  phase=$(printf '%s' "${message:-}" | grep -Eo '\(p[0-9]+[a-z]?\)' | head -1 | tr -d '()')
+  phase=$(printf '%s' "${message:-}" | grep -Eo "$phase_marker" | head -1 | tr -d '()')
   parent=$(git -C "$tree" rev-parse --short HEAD 2>/dev/null || echo none)
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$verdict" \
     "${phase:-unknown}" "$tree" "$parent" "$detail" >>"$ledger" 2>/dev/null || true
 }
 
 # Only gate an actual `git commit` invocation (command word at start or after a
-# shell separator) whose message names a phase, e.g. (p0272) / (p73a). This
+# shell separator) whose message names a phase in either namespace. This
 # deliberately ignores commands that merely *mention* git commit (grep, echo,
 # this script's own tests).
 printf '%s' "$cmd" | grep -Eq '(^|[;&|]|&&)[[:space:]]*git[[:space:]]+commit\b' || exit 0
@@ -73,7 +80,7 @@ printf '%s' "$cmd" | grep -Eq '(^|[;&|]|&&)[[:space:]]*git[[:space:]]+commit\b' 
 # because that is the one case with a human sitting in front of it.
 resolver="$hooks_dir/commit-message.py"
 if message=$(printf '%s' "$cmd" | python3 "$resolver" "${hook_cwd:-${CLAUDE_PROJECT_DIR:-.}}"); then
-  if ! printf '%s' "$message" | grep -Eq '\(p[0-9]+[a-z]?\)'; then
+  if ! printf '%s' "$message" | grep -Eq "$phase_marker"; then
     # `-m "$(cat message.txt)"` reaches the resolver unexpanded: the shell, not the
     # command line, supplies the text. Finding no marker in `$(cat message.txt)`
     # proves nothing about the message the commit will carry, so say so instead of
