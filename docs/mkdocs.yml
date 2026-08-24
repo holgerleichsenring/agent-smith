@@ -172,6 +172,7 @@ nav:
       - Bootstrap:       reference/skills/bootstrap.md
       - Air-gap installs: reference/skills/airgap.md
       - Local iteration: reference/skills/local-iteration.md
+      - Your own skills:  reference/skills/your-own-skills.md
     - CI/CD integration:
       - reference/cicd/index.md
       - Azure DevOps:   reference/cicd/azure-devops.md
