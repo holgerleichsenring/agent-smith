@@ -1,0 +1,34 @@
+# p0516: the gate for content that never met a working copy.
+#
+# The pre-commit hook covers what is committed locally; this covers a direct
+# push and anything committed on a machine where core.hooksPath was never set.
+# The pattern list is a repository secret - a committed list would itself be
+# the leak it exists to prevent.
+name: Customer fingerprints
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan added content in the pushed range
+        env:
+          AGENTSMITH_CUSTOMER_FINGERPRINTS: ${{ secrets.AGENTSMITH_CUSTOMER_FINGERPRINTS }}
+        run: |
+          if [ -z "${AGENTSMITH_CUSTOMER_FINGERPRINTS}" ]; then
+            echo "::warning::No fingerprint list configured - gate inert." \
+                 "Add the AGENTSMITH_CUSTOMER_FINGERPRINTS secret to arm it."
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head="${{ github.sha }}"
+          case "$base" in ''|0000000*) base=$(git rev-list --max-parents=0 HEAD | tail -1) ;; esac
+          python3 hooks/customer-name-gate.py --range "$base" "$head"
