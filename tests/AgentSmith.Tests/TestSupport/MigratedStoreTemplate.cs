@@ -40,6 +40,21 @@ internal static class MigratedStoreTemplate
         return fresh;
     }
 
+    /// <summary>
+    /// The same migrated schema, restored into a database ON DISK — for a case that hands a
+    /// connection STRING to something that opens its own connection, such as a booted server.
+    /// </summary>
+    internal static void CopyToFile(string path)
+    {
+        using var file = new SqliteConnection($"Data Source={path}");
+        file.Open();
+        lock (Gate) Template.Value.BackupDatabase(file);
+    }
+
+    /// <summary>How many times the migration set was applied in this process. One, or the
+    /// template stopped being shared — which is the whole cost this class exists to remove.</summary>
+    internal static int TimesMigrated => _timesMigrated;
+
     /// <summary>A context over a store this class opened — the same shape the tests used inline.</summary>
     internal static AgentSmithDbContext Context(SqliteConnection connection) =>
         new(new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(connection).Options);
@@ -50,6 +65,9 @@ internal static class MigratedStoreTemplate
         connection.Open();
         using var ctx = Context(connection);
         ctx.Database.Migrate();
+        Interlocked.Increment(ref _timesMigrated);
         return connection;
     }
+
+    private static int _timesMigrated;
 }

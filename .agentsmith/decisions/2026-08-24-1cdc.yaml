@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-24-1cdc
+
+decisions:
+  - category: Architecture
+    chose: "Substitute the transport in the container; keep the dead address for the ONE case whose subject is the wait"
+    over: "Leaving every boot pointed at 127.0.0.1:1, or removing the Redis composition from the test boot entirely"
+    reason: |
+      Measured before building, and the measurement decided it. Of the nine
+      StartupResilience cases, eight took 22-34 seconds and one took 1.26 — and the
+      fast one is the only one that does NOT point at 127.0.0.1:1 (an unparseable
+      REDIS_URL falls back to the default endpoint). The whole cost is the dead
+      address: the socket is refused in microseconds, but the multiplexer connects
+      synchronously while the hosted services are constructed, RedisProbe then spends
+      its full ten-second budget on the same endpoint, and every request whose handler
+      touches the queue pays a reconnect. Removing the composition instead of
+      substituting it would test a server nobody deploys; the substitute answers, so
+      the probe records nothing and the boot builds the graph production builds.
+      Only Startup_RedisUnreachable_ServerStartsAndReportsIt keeps the dead address,
+      because that wait IS its subject. It is now the slowest test in the group at
+      12.1 seconds, and it is one test rather than nineteen.
+  - category: Implementation
+    chose: "One optional Action<IServiceCollection> on ServerHostFactory.CreateAsync, invoked immediately before Build()"
+    over: "An ambient static hook, a second CreateAsync overload, or a test-only WebApplicationFactory"
+    reason: |
+      There was no seam at all: BootedServer called CreateAsync([]) and every
+      registration was already fixed by the time it got a container back. A container
+      cannot have an AddHostedService registration removed after it is built, so the
+      hook has to be on the collection, and the collection only exists inside the
+      factory. An optional parameter defaulting to null changes no production
+      behaviour — Program.cs passes nothing and builds the graph it always built —
+      and it costs three lines, which mattered: ServerHostFactory.cs sat at 116 of the
+      ratchet's hard 120 and is now 119. An ambient static would have made the boot
+      depend on invisible state; a second overload cost more lines than the file had.
+  - category: Testing
+    chose: "The product's own hosted services are removed by owning assembly, and a case adds back the ones it names"
+    over: "Filtering by a name list, or keeping all fifteen and relying on the transport substitute alone"
+    reason: |
+      A name list cannot work: five of the fifteen are registered through factory
+      lambdas whose ServiceDescriptor.ImplementationType is null, so there is nothing
+      to match a name against. The owning assembly is readable in every case
+      (ImplementationType, ImplementationInstance, or the factory delegate's declaring
+      type). The filter deliberately keeps the framework's own GenericWebHostService —
+      that is the listener, not a service a case chooses, and removing it would leave
+      no server to assert against. The transport substitute alone would not have been
+      enough either: the host resolves EVERY hosted service before it starts any, so
+      one constructor reaching for a connection makes the whole boot wait.
+  - category: Testing
+    chose: "Assert the composition and the server's answer; never a stopwatch"
+    over: "Asserting that a boot completes within a time bound"
+    reason: |
+      Rig_ABootedCaseWithNoRedisAssertion_PerformsNoBlockingConnect is the test that
+      invites a timing assertion, and a timing assertion is what this suite must not
+      grow: three of them went red under load on the day this was written, and a rig
+      that is only fast on an idle machine has fixed nothing. "No blocking connect" is
+      observable structurally — the resolved IConnectionMultiplexer is not a real
+      ConnectionMultiplexer (a real one IS the socket), and the findings document names
+      no redis subsystem, which is only possible if the transport answered the probe.
+      Verified by mutation: with the substitutions disabled, three of the four rig
+      tests fail and the two booted ones go back to 34 seconds each.
+  - category: Testing
+    chose: "A golden of every assertion the booted tests made at the base commit"
+    over: "Trusting the green suite, or writing two tests that assert nothing"
+    reason: |
+      The spec names StartupResilience_EveryExistingAssertion_HoldsUnchanged and
+      Auth_EveryExistingAssertion_HoldsUnchanged, and the failure mode they guard is
+      real and specific: a suite can always be made faster by asserting less, and a
+      green run cannot tell that apart from a correct one. The 144 assertion lines are
+      read out of the base commit with git show, not out of the post-change files, so
+      the golden proves something about THIS change rather than merely fixing the
+      future. Adding an assertion passes; removing or rewording one fails. Verified by
+      mutation on NoAuthBlockTests: the ratchet named the exact line that vanished.
+  - category: Implementation
+    chose: "MigratedStoreTemplate gains CopyToFile, and StartupResilienceTests' seed stops calling Database.Migrate"
+    over: "Building a new shared-schema mechanism for the booted cases"
+    reason: |
+      The spec's premise that each boot migrates was half wrong and worth stating: the
+      SERVER never migrates itself, so the auth fixtures were never paying a migration
+      at all. Only the five seeded StartupResilience cases were, and p0432 had already
+      built the mechanism — one migrated in-memory template, copied per caller. It only
+      lacked a way to serve a case that hands a connection STRING to something that
+      opens its own connection, which is exactly what a booted server does. BackupDatabase
+      into a file connection is the same engine page copy, so the count of migration runs
+      stays one for the process, which is what the rig test asserts.

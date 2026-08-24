@@ -20,9 +20,6 @@ namespace AgentSmith.Tests.Server.Auth;
 /// </summary>
 public sealed class BootedServer : IAsyncDisposable
 {
-    /// <summary>Deliberately dead: no case here has a Redis, and none may need one.</summary>
-    public const string NoRedis = "127.0.0.1:1";
-
     private const string DashboardGateVar = "AGENTSMITH_UI_API_ENABLED";
 
     private readonly WebApplication _app;
@@ -41,15 +38,21 @@ public sealed class BootedServer : IAsyncDisposable
         Client = new HttpClient { BaseAddress = new Uri(BaseUrl(app)) };
     }
 
-    public static async Task<BootedServer> StartAsync(
-        string configPath, string redisUrl = NoRedis, bool dashboardApi = true)
+    public static Task<BootedServer> StartAsync(string configPath) =>
+        StartAsync(new BootPlan(configPath));
+
+    /// <summary>
+    /// Boots the plan. What the plan does NOT name, this boot does not have: no absent
+    /// infrastructure to wait on, and none of the product's hosted services.
+    /// </summary>
+    public static async Task<BootedServer> StartAsync(BootPlan plan)
     {
         var restore = Set(
-            ("CONFIG_PATH", configPath),
-            ("REDIS_URL", redisUrl),
-            (DashboardGateVar, dashboardApi ? "true" : "false"));
+            ("CONFIG_PATH", plan.ConfigPath),
+            ("REDIS_URL", plan.RedisUrl),
+            (DashboardGateVar, plan.DashboardApi ? "true" : "false"));
 
-        var app = await ServerHostFactory.CreateAsync([]);
+        var app = await ServerHostFactory.CreateAsync([], BootSubstitutions.For(plan));
         try
         {
             app.Urls.Add("http://127.0.0.1:0");
