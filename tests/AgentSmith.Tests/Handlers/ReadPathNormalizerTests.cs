@@ -20,11 +20,11 @@ public sealed class ReadPathNormalizerTests
     [Fact]
     public void ReadPathNormalizer_PrefixedRelativeAndBare_NormalizeAndMatch()
     {
-        var readSet = new[] { "default/sample.portal.API/Program.cs" };
+        var readSet = new[] { "default/Sample.Api/Program.cs" };
 
         // exact-relative variant, suffix variant, and bare-basename variant all match
-        ReadPathNormalizer.WasRead(readSet, "default/sample.portal.API/Program.cs").Should().BeTrue();
-        ReadPathNormalizer.WasRead(readSet, "sample.portal.API/Program.cs").Should().BeTrue("segment-suffix");
+        ReadPathNormalizer.WasRead(readSet, "default/Sample.Api/Program.cs").Should().BeTrue();
+        ReadPathNormalizer.WasRead(readSet, "Sample.Api/Program.cs").Should().BeTrue("segment-suffix");
         ReadPathNormalizer.WasRead(readSet, "Program.cs").Should().BeTrue("basename");
         ReadPathNormalizer.WasRead(readSet, "./Program.cs").Should().BeTrue("normalized basename");
     }

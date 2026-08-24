@@ -63,12 +63,12 @@ public sealed class CommandElisionTests
     public void PhaseCommandLog_TheSameSearchInTwoRepositories_NamesEachRepositoryItRanIn()
     {
         var log = new PhaseCommandLog();
-        log.Record("Sample.Server", WolverineSearch, "exit_code: 1\n\nstdout:\n");
-        log.Record("Sample.Worker", WolverineSearch, "exit_code: 1\n\nstdout:\n");
+        log.Record("Sample.Distribution.Server", WolverineSearch, "exit_code: 1\n\nstdout:\n");
+        log.Record("Sample.Distribution.Worker", WolverineSearch, "exit_code: 1\n\nstdout:\n");
 
         log.Evidence().Should().SatisfyRespectively(
-            first => first.Should().StartWith("Sample.Server: ").And.Contain("exited 1"),
-            second => second.Should().StartWith("Sample.Worker: ").And.Contain("exited 1"));
+            first => first.Should().StartWith("Sample.Distribution.Server: ").And.Contain("exited 1"),
+            second => second.Should().StartWith("Sample.Distribution.Worker: ").And.Contain("exited 1"));
     }
 
     [Fact]
@@ -111,11 +111,11 @@ public sealed class CommandElisionTests
     {
         var search = "grep -RInE 'MassTransit|InvokeAsync|ListenTo|LocalQueue' --include='*.cs' "
             + "--include='*.csproj' --exclude-dir=bin --exclude-dir=obj --exclude-dir=.git "
-            + "/work/Sample.distribution.Server/src /work/Sample.distribution.Worker/src";
+            + "/work/Sample.Distribution.Server/src /work/Sample.Distribution.Worker/src";
 
         var kept = CommandElision.Shorten(search, 200).Split('…')[1];
 
-        kept.Should().Be("/work/Sample.distribution.Worker/src",
+        kept.Should().Be("/work/Sample.Distribution.Worker/src",
             "one whole path fits and half of another would read as a path it is not");
     }
 

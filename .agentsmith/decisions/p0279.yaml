@@ -32,8 +32,8 @@ decisions:
       suffix OR same basename, case-insensitive.
     over: "the prior exact OrdinalIgnoreCase string match."
     reason: |
-      Read paths are repo/sandbox-prefixed (default/sample.portal.API/Program.cs); a
-      finding's file is free-form (Program.cs / sample.portal.API/Program.cs / src/...).
+      Read paths are repo/sandbox-prefixed (default/Sample.Api/Program.cs); a
+      finding's file is free-form (Program.cs / Sample.Api/Program.cs / src/...).
       Exact match false-downgrades legitimate findings (reviewer point #4). The risk to
       avoid is a false DOWNGRADE, not a rare false preserve — so the match leans lenient
       (basename fallback). Segment-suffix is '/'-aligned, not a substring match.
