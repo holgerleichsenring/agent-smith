@@ -100,13 +100,33 @@ persistence:
 #
 # The environment wins over this file, per field:
 #   AGENTSMITH_AUTH_AUTHORITY / AGENTSMITH_AUTH_AUDIENCE / AGENTSMITH_AUTH_ENFORCE
+#   AGENTSMITH_AUTH_ROLE_CLAIM / AGENTSMITH_AUTH_GROUP_CLAIM / AGENTSMITH_AUTH_NAME_CLAIM
 #
 # Set an authority with enforce false first: tokens are validated, nothing is refused,
 # and you find out whether your issuer works before anyone can be locked out.
+#
+# WHO holds a role is decided at the identity provider — an app-role assignment or a
+# group membership. WHAT a role means is decided here. Nothing in agent-smith grants a
+# person a role, and there is no screen for it.
+#
+# A directory that nests its roles (realm roles under realm_access.roles) cannot be read
+# by a flat claim name at all; map its groups instead. AGENTSMITH_ADMIN_GRANT is the way
+# back in while none of this is configured yet — see .env.example.
 # auth:
 #   authority: https://login.example.com/realms/agentsmith
 #   audience: agent-smith
 #   enforce: false
+#   role_claim: roles                 # the claim carrying role NAMES, read verbatim
+#   group_claim: groups               # the claim carrying group values, mapped below
+#   name_claim: sub                   # what names a caller on the identity page + audit trail
+#   group_roles:                      # group value -> the roles it grants (union across groups)
+#     "00000000-0000-0000-0000-000000000000":
+#       - operator
+#     platform-admins:                # a group PATH's leading slash is normalised away
+#       - admin
+#   roles:                            # roles this installation adds to the built-in three
+#     config-viewer:                  # additive: a built-in name is never replaced, and a
+#       - config.read                 # permission outside the catalog is dropped, not granted
 
 # ────────────────────────────────────────────────────────────────────────
 #  Agents catalog

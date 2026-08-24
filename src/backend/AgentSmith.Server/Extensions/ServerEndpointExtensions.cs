@@ -43,6 +43,7 @@ internal static class ServerEndpointExtensions
         app.MapConfigStudioEndpoints(); // p0345: config studio CRUD + audit/revert
         app.MapProjectInitEndpoints(); // p0489: start init-project for a configured project
         app.MapDiagnosticsEndpoints();
+        app.MapIdentityEndpoints(); // p0503d: what this caller's token carried
         app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
         app.MapGet("/api/openapi.json", () => Results.Redirect("/api/openapi/v1.json", permanent: false))
            .ExcludeFromDescription()

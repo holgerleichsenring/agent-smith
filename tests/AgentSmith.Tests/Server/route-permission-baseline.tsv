@@ -27,6 +27,7 @@ GET	/api/config/settings	config.read
 GET	/api/config/settings/{type}	config.read
 GET	/api/config/trackers	config.read
 GET	/api/diagnostics/connections	diagnostics.read
+GET	/api/identity	identity.read
 GET	/api/openapi.json	anonymous
 GET	/api/pull-requests	runs.read
 GET	/api/runs	runs.read
