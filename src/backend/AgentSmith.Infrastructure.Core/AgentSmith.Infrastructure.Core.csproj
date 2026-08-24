@@ -17,6 +17,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- p0518: the master-description cap is ONE declaration. The packaging gate
+         and this assembly's parse-time gate compile the same source file rather
+         than each carrying a literal; a project reference is impossible because
+         the packaging tool must build before the runtime projects (see above). -->
+    <Compile Include="..\AgentSmith.SkillsPackaging\SkillDescriptionRule.cs"
+             Link="Services\SkillDescriptionRule.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />

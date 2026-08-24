@@ -1,3 +1,4 @@
+using AgentSmith.Skills;
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
@@ -7,19 +8,16 @@ namespace AgentSmith.SkillsPackaging;
 
 /// <summary>
 /// p0325: validates master SKILL.md descriptions inside a skills release
-/// tarball at packaging time. Mirrors the runtime rule in
-/// <c>NewFormatSkillValidator</c> (AgentSmith.Infrastructure.Core): a master
-/// description over the loader limit is silently dropped by pre-p0324 loaders
-/// (the v3.16.0 incident) — here it becomes a build failure instead.
+/// tarball at packaging time. p0518: the rule it applies is
+/// <see cref="SkillDescriptionRule"/> — the same source file the runtime gate
+/// compiles — so a description that passes packaging cannot fail the loader.
+/// A master over the cap is silently dropped by pre-p0324 loaders (the v3.16.0
+/// incident); here it becomes a build failure instead.
 /// </summary>
 public sealed partial class MasterDescriptionValidator
 {
-    /// <summary>
-    /// Must match <c>NewFormatSkillValidator.MaxDescriptionChars</c>. Not
-    /// referenced directly: this tool builds BEFORE the runtime projects, so
-    /// depending on AgentSmith.Infrastructure.Core would be a build cycle.
-    /// </summary>
-    public const int MaxDescriptionChars = 200;
+    /// <summary>The one cap, declared by <see cref="SkillDescriptionRule"/>.</summary>
+    public const int MaxDescriptionChars = SkillDescriptionRule.MaxChars;
 
     [GeneratedRegex(@"(^|/)skills/_masters/(?<master>[^/]+)/SKILL\.md$")]
     private static partial Regex MasterSkillPath();
@@ -32,16 +30,26 @@ public sealed partial class MasterDescriptionValidator
     {
         var violations = new List<MasterDescriptionViolation>();
         var masters = 0;
+        string? declaredCap = null;
         using var gz = new GZipStream(tarGzStream, CompressionMode.Decompress, leaveOpen: true);
         using var tar = new TarReader(gz);
         while (tar.GetNextEntry() is { } entry)
         {
-            var match = MasterSkillPath().Match(entry.Name);
-            if (!match.Success || entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile))
+            if (entry.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile))
                 continue;
+            if (CatalogDeclaredCap.Matches(entry.Name))
+            {
+                declaredCap = ReadEntry(entry);
+                continue;
+            }
+            var match = MasterSkillPath().Match(entry.Name);
+            if (!match.Success) continue;
             masters++;
             ValidateMaster(match.Groups["master"].Value, ReadEntry(entry), violations);
         }
+
+        if (CatalogDeclaredCap.Violation(declaredCap) is { } disagreement)
+            violations.Add(new MasterDescriptionViolation("(catalog)", disagreement));
 
         if (masters == 0)
             violations.Add(new MasterDescriptionViolation(
@@ -52,15 +60,11 @@ public sealed partial class MasterDescriptionValidator
     private static void ValidateMaster(string master, string content, List<MasterDescriptionViolation> violations)
     {
         var description = ReadDescription(master, content, violations);
-        if (description is null)
-            return;
-        if (string.IsNullOrWhiteSpace(description))
-            violations.Add(new MasterDescriptionViolation(master, "description is missing or empty"));
-        else if (description.Length > MaxDescriptionChars)
+        if (description is not null && SkillDescriptionRule.Violation(description) is { } reason)
             violations.Add(new MasterDescriptionViolation(
                 master,
-                $"description is {description.Length} chars; the loader limit is {MaxDescriptionChars} — " +
-                "over-limit masters are silently dropped by pre-p0324 loaders (v3.16.0 incident)"));
+                reason + " — an unusable description drops the master silently at load time "
+                       + "(the v3.16.0 incident), so packaging refuses it instead"));
     }
 
     private static string? ReadDescription(string master, string content, List<MasterDescriptionViolation> violations)
