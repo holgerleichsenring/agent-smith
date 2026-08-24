@@ -22,6 +22,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class VerifyStageResolver(
     DotnetEntryPointDiscovery dotnetDiscovery,
+    ProfileCommandPresence presence,
     ILogger<VerifyStageResolver> logger)
 {
     public async Task<IReadOnlyList<VerifyStage>> ResolveAsync(
@@ -35,7 +36,7 @@ public sealed class VerifyStageResolver(
         if (declared.Count > 0) return declared;
 
         if (map is null || !IsDotnet(map))
-            return FromProfiles(key, profiles);
+            return await FromProfilesAsync(key, sandbox, profiles, ct);
 
         return await dotnetDiscovery.DiscoverAsync(key, sandbox, workdir, resolutionFindings, ct);
     }
@@ -61,7 +62,12 @@ public sealed class VerifyStageResolver(
     // p0504: the profile's ordered command list, filtered by the same CanFail rule a
     // declared command passes — a profile author is no more trusted to write a real
     // gate than the analyzer was.
-    private List<VerifyStage> FromProfiles(string key, IReadOnlyList<DomainProfileStages> profiles)
+    // p0513: and filtered by what each command SAYS IT NEEDS. One domain word covers
+    // repositories of different shapes; a command whose files are absent is skipped,
+    // because a red it was never measured for would hide the gates behind it.
+    private async Task<List<VerifyStage>> FromProfilesAsync(
+        string key, ISandbox sandbox, IReadOnlyList<DomainProfileStages> profiles,
+        CancellationToken ct)
     {
         var stages = new List<VerifyStage>();
         foreach (var profile in profiles)
@@ -74,6 +80,9 @@ public sealed class VerifyStageResolver(
                     + "fail — dropping it", key, profile.Profile.Name, command.Stage, command.Command);
                 continue;
             }
+            if (!await presence.IsSatisfiedAsync(
+                    key, profile.Profile.Name, command, sandbox, profile.Workdir, ct))
+                continue;
             stages.Add(new VerifyStage(command.Stage, command.Command, profile.Workdir));
         }
         if (stages.Count == 0)
