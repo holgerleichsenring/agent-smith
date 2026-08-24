@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0507
+
+decisions:
+  - category: Architecture
+    chose: "A date-minted id is {yyyy-MM-dd}-{4 hex}, the shape RunIdGenerator already mints"
+    over: "{date}-{nr}, a database allocator, or continuing the four-digit counter"
+    reason: |
+      A counter needs an answer to "how many were taken", which a worktree cut this
+      morning cannot give and a sandboxed agent cannot give at all. {date}-{nr} only
+      shrinks the unknowable from forever to a day, and the evidence that motivated
+      this phase was six specs written in one session on one day. RunIdGenerator has
+      minted `2026-05-20T22-27-43-8a3f` offline since the beginning — a UTC stamp plus
+      four hex from Random.Shared, absorbing same-second collisions in a 16-bit
+      keyspace, with no server and no count. An earlier draft cited a database
+      allocator as the precedent; that allocator does not exist. The mechanism this
+      system already trusts is the one the draft declined to adopt.
+  - category: Architecture
+    chose: "The counter namespace CLOSES; nothing that shipped is renamed"
+    over: "Migrating every id to the new shape"
+    reason: |
+      Measured on the branch this was built from: 18,289 phase-id citations across
+      3,990 tracked files, 1,051 commit messages, 592 records in context.yaml, 534
+      decision files, 729 specs — and outside the repository, open pull requests,
+      unpushed branches, the operator's notes and the presentation material. Commit
+      messages cannot move without a third history rewrite. So both namespaces are
+      valid forever, the counter branch of every pattern keeps its meaning, and this
+      phase is a cut point rather than a migration. An earlier draft claimed 6,503
+      citations across 2,423 files; the real figures are nearly threefold, which only
+      strengthens the conclusion.
+  - category: Implementation
+    chose: "The counter branch is bounded at SIX digits — p\\d{4,6}[a-z]?"
+    over: "Tightening it to four digits, as the spec originally prescribed"
+    reason: |
+      This reverses a decision that would have broken the live path, and the builder
+      refused to implement it. PhaseIdFactory mints a counter id from a TICKET number:
+      it keeps up to six digits and pads to four, so p19106a and p482913a are shapes
+      this system produces today, and its own tests assert both. SpecDraftValidator
+      checks every design-partner draft against the EMBEDDED spec schema, so a
+      four-digit bound would make the deployed server reject every spec derived from a
+      five- or six-digit ticket — the operator's real tickets among them — and would
+      re-introduce exactly the truncation p0509 was written to stop. The original
+      premise was dead as well: p0509's Whole pattern already reads `p20260822a` whole,
+      so the collapse the tightening existed to prevent no longer happens. Six digits
+      still rejects the eight-digit year-prefixed shape.
+  - category: Implementation
+    chose: "The four-hex suffix's FIXED WIDTH marks where the id ends"
+    over: "A separator convention between the id and the descriptive tail"
+    reason: |
+      The `p` prefix did that work for the counter. Without a fixed-width suffix every
+      reader would have to guess where `2026-08-24-8a3f-the-slug` stops being an id,
+      and readers that guess differently is the failure class p0509 documented. The
+      width is stated in the schema pattern so every reader implements one rule. It
+      also keeps the date branch from colliding with a run id: a run id carries a `T`
+      and a time where this one carries the suffix.
+  - category: Testing
+    chose: "No test asserts the plugin's schemas match this repository's"
+    over: "A cross-repository test reading the plugin checkout"
+    reason: |
+      The first attempt read the plugin's working tree and went red because the change
+      lived in a worktree. Fixing the staleness would have kept the real defect: a test
+      that reads another repository is red for anyone who has not cloned it and
+      meaningless in CI. So the coupling is removed and the truth is stated instead —
+      the byte-identical sync between the two repositories is a convention enforced by
+      NOTHING, which this phase proved by finding the plugin's spec schema had already
+      diverged to `^p\d+[a-z]?$` with no descriptive tail. What remains is
+      Schema_BothSchemasInThisRepository_StateOneIdenticalRule, which pins the two
+      schemas that do live together. A done criterion claiming a check that does not
+      exist is worse than an admitted gap.
+  - category: Implementation
+    chose: "Both step-label readers are taught the shape"
+    over: "Teaching only RunStepsReader, as every draft of the spec said"
+    reason: |
+      The dashboard carries its own copy of the split at src/dashboard/src/lib/runStepRail.ts.
+      No draft named it, and no .NET test would have caught it: the backend suite would
+      have gone green while the run rail rendered the raw prefix in the browser. It is
+      covered by the dashboard's own vitest project, which is not part of the solution.
+  - category: Scope
+    chose: "A deferred successor is named by slug in prose, not reserved as an id"
+    over: "Pre-minting the successor's id so requires: can point at it"
+    reason: |
+      A random suffix cannot be reserved in advance. This is a real loss and is
+      recorded as one: a dangling `requires:` goes red, while "the successor *a profile
+      can install what its image lacks*" is checked by nothing. An earlier draft
+      claimed prose served the no-silent-defer rule better. It does not — it reads
+      better and enforces less. `requires:` continues to name only phases that exist.
+  - category: Scope
+    chose: "The gate's marker is defined once and read by both the gating decision and the ledger"
+    over: "Widening the two patterns independently"
+    reason: |
+      phase-gate.sh matched the id twice — once to decide whether to gate, once to
+      write the ledger line. A marker recognised by one and not the other would gate a
+      commit it never records, or record one it never gated, and p0511 exists precisely
+      because a silent pass and an absent run must not look alike.

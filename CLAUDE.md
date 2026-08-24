@@ -38,16 +38,40 @@ one line per memory, content never in the index.
   memory records a transferable FACT or RULE. Never duplicate one into the
   other.
 
+## Minting a Phase Id
+
+A phase id is minted from the clock, never from a count: **today's UTC date plus four
+random hex digits** — `{yyyy-MM-dd}-{xxxx}`, e.g. `2026-08-24-8a3f`. Read the date off
+the machine you are on and take the four digits at random. Nothing else is consulted.
+
+Minting therefore needs no knowledge of what anyone else has taken. A worktree cut this
+morning, a sandboxed agent with no network, and two agents working in parallel all mint
+safely — the four hex digits give a 16-bit keyspace against a same-day collision.
+"What is the highest number so far?" is a question none of them can answer, and
+answering it wrongly is how two phases end up sharing one id.
+
+The suffix's **fixed width** marks where the id ends and the slug begins:
+`.agentsmith/phases/planned/2026-08-24-8a3f-a-phase-id-can-be-minted-offline.yaml`.
+
+**Counter ids (`p0042`, `p0057a`, `p0131c-pre`) are a closed namespace.** Every one of
+them stays valid forever and none is ever renamed — every `requires:` naming one, every
+record entry and every commit message citing one keeps working exactly as it did. The
+namespace is closed to NEW ids only. Counter ids run four to six digits, six because
+ids minted from a ticket number (`p19106a`) live in the same namespace.
+
+A deferred successor is named in prose by what it does — a random suffix cannot be
+reserved in advance, so `requires:` names only phases that already exist.
+
 ## Implementation Workflow (follow this order for every phase)
 
-1. **Write phase spec first** — create `.agentsmith/phases/planned/p{NNNN}-slug.yaml` with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions.
+1. **Write phase spec first** — create `.agentsmith/phases/planned/{id}-slug.yaml` with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a phase id** below.
 2. **Move to active** — move the phase file from `planned/` to `active/` when starting work.
 3. **Plan first** — explore codebase, design approach, get user approval before coding.
 4. **Implement step by step** — contracts/models first, then implementation, then wiring, then tests.
 5. **Build after each step** — fix errors immediately, don't accumulate them.
 6. **Run ALL tests** — ensure zero failures before moving on.
-7. **Log decisions** — one YAML per phase at `.agentsmith/decisions/p{NNNN}.yaml`; each entry: what was chosen, what alternatives existed, and why.
-8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `PhaseRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/phases/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/p{NNNN}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
+7. **Log decisions** — one YAML per phase at `.agentsmith/decisions/{id}.yaml`; each entry: what was chosen, what alternatives existed, and why.
+8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `PhaseRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/phases/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
 9. **Move to done** — move the phase file from `active/` to `done/`.
 10. **Commit** — one commit per phase, descriptive message.
 
