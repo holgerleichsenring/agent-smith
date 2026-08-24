@@ -54,17 +54,24 @@ public sealed class LocalTokenIssuer : IAsyncDisposable
         return new LocalTokenIssuer(app, key, authority);
     }
 
-    /// <summary>A token this authority signed. Every argument is a way to make it wrong.</summary>
+    /// <summary>
+    /// A token this authority signed. Every argument is a way to make it wrong.
+    /// p0503d: <paramref name="extra"/> is how a test states what the DIRECTORY said —
+    /// role and group claims, under whatever names the auth block configured.
+    /// </summary>
     public string Token(
         string? audience,
         IEnumerable<string>? permissions = null,
         string? issuer = null,
-        TimeSpan? lifetime = null)
+        TimeSpan? lifetime = null,
+        IEnumerable<Claim>? extra = null,
+        string subject = "test-caller")
     {
         var expires = DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(10));
         var claims = (permissions ?? [])
             .Select(p => new Claim(PermissionClaimType, p))
-            .Append(new Claim(JwtRegisteredClaimNames.Sub, "test-caller"))
+            .Concat(extra ?? [])
+            .Append(new Claim(JwtRegisteredClaimNames.Sub, subject))
             .ToList();
 
         var token = new JwtSecurityToken(
