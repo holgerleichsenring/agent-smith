@@ -26,6 +26,8 @@ RESOLVER_PATH = HOOKS_DIR / "commit-message.py"
 GATE_PATH = HOOKS_DIR / "phase-gate.sh"
 GATE_ENTERED = "nothing to gate"
 MARKER_MESSAGE = "feat: something (p9999)"
+# p0507: the second id namespace — a date and a four-hex random suffix.
+MINTED_MARKER_MESSAGE = "feat: something (2026-08-24-8a3f)"
 
 _GIT_IDENTITY = ["-c", "user.email=gate@example.invalid", "-c", "user.name=Phase Gate"]
 _resolver_module = None
@@ -236,6 +238,33 @@ def Gate_UnresolvableMessage_IsRecordedAsNotGated():
         ledger = pathlib.Path(elsewhere) / "phase-gate.log"
         _run_gate("git commit -F -", repo, ledger)
         assert [line[1] for line in _ledger(ledger)] == ["not-gated"], _ledger(ledger)
+
+
+def Gate_CommitCarryingADateMintedId_Gates():
+    """A p0507 id must reach the gate exactly as a counter id does. It would not have:
+    the marker pattern required a `p`, so a date-minted phase commit exited 0 unchecked —
+    a skip indistinguishable from a pass, since both are silent."""
+    with _repository("seed") as repo:
+        completed = _run_gate(f'git commit -m "{MINTED_MARKER_MESSAGE}"', repo)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_DateMintedIdIsRecordedInTheLedger():
+    """The ledger must name the phase, not "unknown" — a phase commit with no line never
+    met the gate, so the id has to survive into the record as well as into the decision."""
+    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        _run_gate(f'git commit -m "{MINTED_MARKER_MESSAGE}"', repo, ledger)
+        lines = _ledger(ledger)
+        assert [line[2] for line in lines] == ["2026-08-24-8a3f"], lines
+
+
+def Gate_MalformedDateMintedMarker_PassesThrough():
+    """Widening must not turn any parenthesised text into a phase marker."""
+    with _repository("seed") as repo:
+        completed = _run_gate('git commit -m "chore: nightly (2026-13-99-zzzz)"', repo)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
 
 
 def _cases():
