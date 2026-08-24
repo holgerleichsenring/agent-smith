@@ -61,6 +61,9 @@ public static class ServiceCollectionExtensions
         // server's own rule objects.
         services.AddSingleton<Services.Configuration.Studio.ConfigDraftRules>();
         services.AddSingleton<ConfigDocumentAssembler>();
+        // p0503b: the auth block reaches the bootstrap from the environment as well as
+        // the file, so the reader takes the overlay that decides which wins per field.
+        services.AddSingleton<AuthEnvironmentOverlay>();
         services.AddSingleton<BootstrapConfigReader>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();

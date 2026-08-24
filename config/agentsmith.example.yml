@@ -92,6 +92,22 @@ persistence:
   # provider: sqlserver
   # connection_string: "Server=mssql,1433;Database=agentsmith;User Id=agentsmith;Password=${db_password};Encrypt=True;TrustServerCertificate=True"
 
+# --- Who may call this server (SERVER only; bootstrap, never stored in the DB) ---
+# One OIDC authority validates every bearer token presented to the server. Every
+# route declares the permission a caller needs; `enforce` decides whether a missing
+# one refuses. Leave the block out entirely and nothing authenticates, which is what
+# every installation did before this existed.
+#
+# The environment wins over this file, per field:
+#   AGENTSMITH_AUTH_AUTHORITY / AGENTSMITH_AUTH_AUDIENCE / AGENTSMITH_AUTH_ENFORCE
+#
+# Set an authority with enforce false first: tokens are validated, nothing is refused,
+# and you find out whether your issuer works before anyone can be locked out.
+# auth:
+#   authority: https://login.example.com/realms/agentsmith
+#   audience: agent-smith
+#   enforce: false
+
 # ────────────────────────────────────────────────────────────────────────
 #  Agents catalog
 # ────────────────────────────────────────────────────────────────────────
