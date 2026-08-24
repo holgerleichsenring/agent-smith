@@ -136,6 +136,33 @@ spec:
                   name: agentsmith-secrets
                   key: auth-enforce
                   optional: true
+            # p0503d: the claim names role resolution reads, and the admin grant
+            # that keeps a wrong mapping from locking every human out. optional:true
+            # for the same reason as above — an older Secret must not stop the pod.
+            - name: AGENTSMITH_AUTH_ROLE_CLAIM
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-role-claim
+                  optional: true
+            - name: AGENTSMITH_AUTH_GROUP_CLAIM
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-group-claim
+                  optional: true
+            - name: AGENTSMITH_AUTH_NAME_CLAIM
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: auth-name-claim
+                  optional: true
+            - name: AGENTSMITH_ADMIN_GRANT
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: admin-grant
+                  optional: true
             - name: K8S_NAMESPACE
               valueFrom:
                 fieldRef:

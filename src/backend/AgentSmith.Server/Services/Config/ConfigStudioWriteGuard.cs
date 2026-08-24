@@ -7,18 +7,25 @@ namespace AgentSmith.Server.Services.Config;
 
 /// <summary>
 /// p0510: the one copy of the config studio's write ceremony. Every studio surface
-/// — entity CRUD, import, revert, settings — reads the same <c>X-Actor</c>
-/// attribution, translates the same two validation exceptions into 409/400, and
-/// emits the same post-commit reload signal. Split out of ConfigStudioEndpoints so
-/// the per-surface route files share it instead of each carrying a copy.
+/// — entity CRUD, import, revert, settings — takes the same attribution,
+/// translates the same two validation exceptions into 409/400, and emits the same
+/// post-commit reload signal. Split out of ConfigStudioEndpoints so the per-surface
+/// route files share it instead of each carrying a copy.
 /// </summary>
 internal static class ConfigStudioWriteGuard
 {
-    internal static ChangeAttribution Attribution(HttpContext ctx)
-    {
-        var actor = ctx.Request.Headers["X-Actor"].FirstOrDefault();
-        return new ChangeAttribution(string.IsNullOrWhiteSpace(actor) ? "dashboard" : actor!);
-    }
+    /// <summary>
+    /// p0503d: the audit trail names the PRINCIPAL, or nobody. This used to read an
+    /// <c>X-Actor</c> request header — a client-supplied string, written verbatim into the
+    /// change record — and the dashboard never sent it, so every installation already got
+    /// the default and the header was pure forgery surface. Deleting the read closes it for
+    /// every caller at once rather than only for authenticated ones, and changes nothing
+    /// for anyone. <c>Identity.Name</c> is the claim the auth block configures.
+    /// </summary>
+    internal static ChangeAttribution Attribution(HttpContext ctx) =>
+        new(ctx.User.Identity is { IsAuthenticated: true, Name: { Length: > 0 } name }
+            ? name
+            : "dashboard");
 
     // p0353: run a config WRITE, and on success bump the config epoch + publish a
     // ConfigChangedEvent so the poller leader and settings enforcers pick the change

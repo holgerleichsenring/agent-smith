@@ -61,6 +61,12 @@ internal static class ServerAuthenticationExtensions
     private static void Configure(JwtBearerOptions options, TokenAuthorityConfig auth)
     {
         options.Authority = auth.Authority;
+        // p0503d: OFF, or the role claim is invisible. The default inbound map rewrites
+        // `roles` (and `role`) to the long WS-Federation role type, so a configured claim
+        // name of `roles` finds ZERO claims — while `groups`, which is not in the map,
+        // survives untouched. That asymmetry fails in production and passes in any unit
+        // test that builds a ClaimsPrincipal directly, so it is pinned here.
+        options.MapInboundClaims = false;
         // The discovery document of a loopback authority is served over plain HTTP; a
         // deployed one is not, and demanding metadata over HTTPS there is not optional.
         options.RequireHttpsMetadata = !IsLoopback(auth.Authority!);
@@ -73,6 +79,10 @@ internal static class ServerAuthenticationExtensions
             ValidAudience = auth.Audience,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2),
+            // p0503d: the claim a caller is NAMED by, so ClaimsPrincipal.Identity.Name is
+            // the configured one — which is what the identity page shows and what a config
+            // change is attributed to, through one accessor rather than two lookups.
+            NameClaimType = auth.NameClaim,
         };
     }
 
