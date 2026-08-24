@@ -20,7 +20,7 @@ internal static class BuiltInRoles
 
     private static readonly string[] ReaderBundle =
     [
-        Permissions.RunsRead, Permissions.CatalogRead,
+        Permissions.RunsRead, Permissions.RunsWatch, Permissions.CatalogRead,
         Permissions.DiagnosticsRead, Permissions.IdentityRead,
     ];
 
