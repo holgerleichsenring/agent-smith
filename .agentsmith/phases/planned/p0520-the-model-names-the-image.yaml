@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0520
+goal: "The model names the toolchain image. The code checks facts and contracts, never names."
+
+applies_to: backend
+
+requires:
+  - p0265
+  - p0268
+
+scope:
+  in: "stack.image mandatory and enforced where context.yaml is written; git presence probed instead of pattern-matched; registry policy moved from the binary to operator config."
+  out: "Sandbox sizing (p0320a) and the spawner itself."
+
+decisions:
+  - key: |
+      THREE GATES DECIDE WHAT THE MODEL ALREADY KNOWS. LanguageImages guesses an image from lang
+      and knows four ecosystems. GitBearingImagePatterns accepts an image by the SHAPE OF ITS NAME.
+      IsTrustedRegistry allows only mcr, ghcr and Docker Hub library repos. Measured: terraform,
+      dbt, databricks and salesforce images each fail at least one gate and land on the generic
+      image [[feedback_no_language_specific_parsers]].
+  - key: |
+      A NAME IS NOT EVIDENCE. The git regex misses both ways — it rejects a valid image and accepts
+      a -bookworm tag someone stripped git from. SandboxRoundTripProbe already spawns a real sandbox
+      and runs a step; `git --version` is the same mechanism and returns a fact.
+  - key: |
+      THE ALLOWLIST IS OPERATOR POLICY, COMPILED IN. Safety in the API means the MECHANISM is
+      structural, not that the LIST is fixed at build time. Whoever onboards a platform knows its
+      registry; a binary shipped months earlier cannot [[feedback_safety_in_api_not_process]].
+  - key: |
+      NOTHING CHECKS THE WRITTEN context.yaml. bootstrap.schema.json validates the model's
+      SELF-REPORT (status, files_written, open_questions) and never the file; context.schema.json is
+      applied nowhere in code and is not shipped to the target repo; every ContextYamlDocument field
+      is nullable, so a document missing stack AND state deserialises cleanly. Observed on a
+      terraform repo: meta, arch, quality, behavior — no stack, no state, hence no image.
+  - key: |
+      THE TOOL ALREADY DEMANDS IT. WriteContextYamlToolHost states "stack.image is REQUIRED whenever
+      a stack is present" and declares stack itself optional. The model satisfied the rule by
+      omitting the block. A rule stated in prose and enforced nowhere is the recurring shape.
+
+steps:
+  - id: the-write-path-validates
+    action: "WriteContextYamlToolHost validates against context.schema.json and rejects a missing stack, state or stack.image, naming the defect so the model rewrites it."
+  - id: git-is-probed-not-guessed
+    action: "Replace GitBearingImagePatterns with a probe running `git --version` in the image, cached per digest."
+  - id: registries-are-configured
+    action: "Move IsTrustedRegistry to sandbox.allowed_registries, current list as default."
+  - id: the-table-retires
+    action: "LanguageImages serves only context.yaml files written before this phase, on a baseline that may only shrink."
+  - id: the-schema-ships
+    action: "init-project writes context.schema.json into the target repo."
+
+tests:
+  - "ContextYaml_MissingStackOrState_IsRejectedWithTheDefect"
+  - "ContextYaml_StackWithoutImage_IsRejected"
+  - "Image_WithoutGit_FailsTheProbe"
+  - "Image_UnknownEcosystem_IsAcceptedWhenTheRegistryIsAllowed"
+  - "LanguageImages_HasNoNewEntry"
+
+done:
+  - "a context.yaml without stack, state or image cannot be written"
+  - "an image is judged by what it contains, not by its name"
+  - "a new ecosystem needs no code change"
