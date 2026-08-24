@@ -69,8 +69,10 @@ public sealed class SkillsCatalogCheck(
         {
             return PreflightCheckResult.Fail(
                 $"skill catalog failed to load: {ex.Message}",
-                "Fix the SKILL.md named above. Master descriptions must stay at or under 200 characters — "
-                + "an over-limit description drops the master at load time and the run dies later with "
+                // p0518: the failure already names the cap it broke, and the cap is
+                // declared once — a second copy here would be the next number to drift.
+                "Fix the SKILL.md named above; the failure names the limit it broke. "
+                + "An over-limit description drops the master at load time and the run dies later with "
                 + "'Prompt resource not found' (the v3.16.0 incident).");
         }
     }

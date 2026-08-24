@@ -1,4 +1,5 @@
 using AgentSmith.Infrastructure.Core.Exceptions;
+using AgentSmith.Skills;
 
 namespace AgentSmith.Infrastructure.Core.Services;
 
@@ -23,8 +24,6 @@ internal sealed class NewFormatSkillValidator
     {
         "verify_hint", "survey", "verify_diff",
     };
-
-    private const int MaxDescriptionChars = 200;
 
     public void Validate(SkillMdFrontmatter meta, string body, string skillFilePath)
     {
@@ -57,13 +56,12 @@ internal sealed class NewFormatSkillValidator
                 path, $"role must be one of {{producer, investigator, judge, filter}}; got '{meta.Role}'");
     }
 
+    // p0518: the cap and the shape both come from SkillDescriptionRule, the same
+    // source file the packaging gate compiles — the two used to declare 200 apart.
     private static void ValidateDescription(SkillMdFrontmatter meta, string path)
     {
-        if (string.IsNullOrWhiteSpace(meta.Description))
-            throw new SkillFormatException(path, "description is required and must be non-empty");
-        if (meta.Description.Length > MaxDescriptionChars)
-            throw new SkillFormatException(
-                path, $"description must be at most {MaxDescriptionChars} chars; got {meta.Description.Length}");
+        if (SkillDescriptionRule.Violation(meta.Description) is { } reason)
+            throw new SkillFormatException(path, reason);
     }
 
     private static void ValidateActivatesWhen(SkillMdFrontmatter meta, string path)

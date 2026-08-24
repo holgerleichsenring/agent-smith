@@ -30,7 +30,8 @@ public sealed class SkillsCatalogCheckTests
 
         result.Status.Should().Be(PreflightStatus.Fail);
         result.Message.Should().Contain("description must be at most 200 chars");
-        result.FixHint.Should().Contain("200").And.Contain("Prompt resource not found");
+        result.FixHint.Should().Contain("Prompt resource not found")
+            .And.NotContain("200", "p0518: the cap is declared once — the failure above carries the number");
     }
 
     [Fact]
