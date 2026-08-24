@@ -1,6 +1,8 @@
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Hubs;
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Extensions;
@@ -20,11 +22,19 @@ internal static class DashboardApiExtensions
     internal static IServiceCollection AddDashboardApi(this IServiceCollection services)
     {
         services.AddDashboardCors();
-        // p0367: raise the per-connection parallel-invocation cap. The dashboard opens
-        // several concurrent hub invocations on one socket (SubscribeRun + GetTrail +
-        // ExpandSandbox); the default of 1 serialised them, so a slow trail read blocked
-        // the next subscribe on the same connection and read as a hung connection.
-        services.AddSignalR(o => o.MaximumParallelInvocationsPerClient = 4);
+        // p0517: the filter that refuses an invocation the caller lacks the permission
+        // for. Registered unconditionally and silent while the enforce switch is off, so
+        // it READS that switch rather than owning a second copy of it.
+        services.AddSingleton<HubPermissionFilter>();
+        services.AddSignalR(o =>
+        {
+            // p0367: raise the per-connection parallel-invocation cap. The dashboard opens
+            // several concurrent hub invocations on one socket (SubscribeRun + GetTrail +
+            // ExpandSandbox); the default of 1 serialised them, so a slow trail read blocked
+            // the next subscribe on the same connection and read as a hung connection.
+            o.MaximumParallelInvocationsPerClient = 4;
+            o.AddFilter<HubPermissionFilter>();
+        });
         services.AddSingleton<SandboxExpansionRegistry>();
         services.AddSingleton<JobsBroadcaster>();
         services.AddHostedService(sp => sp.GetRequiredService<JobsBroadcaster>());

@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0517
+
+decisions:
+  - category: Security
+    chose: "An IHubFilter registered once in AddSignalR, reading p0503c's table by HubMethodName"
+    over: "[Authorize] on the eleven hub methods, or a check written into each method"
+    reason: |
+      SignalR's dispatcher evaluates a hub method's own IAuthorizeData itself, through
+      IAuthorizationService, on every invocation — outside the middleware pipeline and
+      outside the enforce switch — so an attribute refuses the moment it lands, whatever
+      the switch says. A filter sees HubInvocationContext.HubMethodName and can be silent.
+      Measured rather than assumed: the dispatcher builds that context from the hub
+      method's own MethodInfo, so HubMethodName is MethodInfo.Name and matches the table
+      keys p0503c's enumeration test derives from exactly the same reflection. A check
+      inside each method was never available — JobsHub.cs sits at its baselined 164 lines
+      and the ratchet makes it shrink-only.
+  - category: Security
+    chose: "The filter reads TokenAuthorityConfig.Enforce, the same value the fallback policy hangs off"
+    over: "A switch of its own, or hanging the filter's registration off the authority"
+    reason: |
+      A second model of the switch is the collision the p0503b/p0503c split was made to
+      avoid: a filter that decided independently would refuse hub invocations on an
+      installation whose routes are still open, which is the worst of both states. The
+      registration is unconditional and the DECISION is switched, so the filter exists on
+      every boot — including one with no auth block, where TokenAuthorityConfig comes from
+      p0503d's unconditional AddCallerIdentity with Enforce false.
+  - category: Security
+    chose: "A method the table does not name is refused"
+    over: "Letting it through, on the grounds that p0503c's test makes the gap impossible"
+    reason: |
+      The enumeration test makes an unnamed method a BUILD failure, so the runtime branch
+      should be unreachable — which is exactly the argument for making it fail closed. A
+      twelfth method added without a table entry then costs a refused invocation somebody
+      notices, not a silent hole nobody does. The refusal names HubMethodPermissions, so
+      the person who hits it is told where the entry goes.
+  - category: Security
+    chose: "One assignment of OnMessageReceived on p0503b's JwtBearer registration"
+    over: "A separate middleware that moves the token into an Authorization header"
+    reason: |
+      p0503c shipped HubHandshakeToken.Read as a pure function over HttpContext precisely
+      so this would be one line; MessageReceivedContext.Token is the handler's own hook for
+      a credential that did not arrive in the header, and setting it is what makes the
+      handler validate it. A middleware would have to run before UseAuthentication, and
+      UseAuthentication is registered after the map calls for the CORS reason p0503b
+      documents — so its position is not free to choose. The two statements are written
+      apart from the events object's construction so the phase editing OnChallenge in the
+      same method merges without a conflict over one initialiser.
+  - category: Testing
+    chose: "Driving real invocations through SignalR's long-polling transport with an HttpClient"
+    over: "Adding Microsoft.AspNetCore.SignalR.Client, or unit-testing the filter alone"
+    reason: |
+      The claim that matters is that the SERVER's dispatcher names a method the way the
+      table does, and that the filter is actually registered on the hub the dashboard
+      talks to — neither of which a filter invoked directly can answer. Long polling is
+      plain HTTP: negotiate, POST the handshake and the invocation, poll for the
+      completion. That needs no package the test project does not have, runs against the
+      real booted composition, and was verified to go red when the AddFilter call is
+      removed. The one branch it cannot reach — a method absent from the table — is the
+      only one tested through a hand-built HubInvocationContext, because on the real hub
+      no such method exists.
+  - category: Testing
+    chose: "The switch-off case asserts that no completion NAMES a permission"
+    over: "Asserting that no completion carries an error"
+    reason: |
+      The booted server deliberately has no Redis, so several hub methods fail on their
+      own. A handler failing is the hub working; the filter speaking would be the defect,
+      and the catalogued permission names are what distinguishes the two. All eleven
+      methods are invoked with no token at all, which is the state every installation is
+      in today and stays in until the phase that gives the dashboard a way to sign in.
