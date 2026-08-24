@@ -24,7 +24,8 @@ public static class ServerHostFactory
     private const string ConfigPathEnvVar = "CONFIG_PATH";
     private const string DefaultConfigPath = "/app/config/agentsmith.yml";
 
-    public static async Task<WebApplication> CreateAsync(string[] args)
+    public static async Task<WebApplication> CreateAsync(
+        string[] args, Action<IServiceCollection>? substitutions = null)
     {
         var builder = WebApplication.CreateBuilder(args);
         var auth = TokenAuthority();
@@ -34,6 +35,8 @@ public static class ServerHostFactory
             builder.Configuration,
             LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
         builder.Services.AddServerPreflight().AddStartupProbes();
+        // A test substitutes an absent dependency here; production passes nothing.
+        substitutions?.Invoke(builder.Services);
 
         var app = builder.Build();
         app.MapServerEndpoints();
