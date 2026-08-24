@@ -1,95 +1,102 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0503c
-goal: "The live hub reads the token the handshake carries, every hub method names the permission it needs without SignalR enforcing it early, and the token stops surviving in the one log sink this repository can reach."
+goal: "Every hub method names the permission it needs, the handshake token can be lifted out of the query string and dropped from the request, and the token stops surviving the one log sink this repository can reach."
 
-applies_to: "backend (JobsHub method-permission table, hub authorization filter, the handshake token read, console formatters in server and sandbox agent)"
+applies_to: "backend (JobsHub method-permission table, the handshake token reader, console formatters in server and sandbox agent)"
 
 requires:
   - p0503a
 
 scope:
   in: >
-    Reading the access token out of the handshake query string and dropping it from the
-    request afterwards, a permission named for each of the eleven public hub methods,
-    an IHubFilter that enforces those permissions only when the enforce switch is on, and
-    redaction of an access token in both copies of the compact console formatter.
+    A permission named for each of the eleven public hub methods, a pure handshake-token
+    reader that lifts access_token off the hub path and rewrites the query string without
+    it, redaction of an access token in both copies of the compact console formatter, and
+    a characterization test for the cross-viewer expansion refcount.
   out: >
-    Authorizing a hub method's ARGUMENT — a permission on SubscribeRun says nothing about
-    which run, and that is *the caller has a scope*. The dashboard attaching a token to the
-    connection, and the flip of the enforce default — *the dashboard signs in*; until that
-    phase lands, a switch turned on refuses every hub method because no browser sends a token.
-    Fixing the sandbox-expansion refcount, and changing any access log outside this repository.
+    ENFORCEMENT. The IHubFilter that refuses an invocation, the enforce switch it reads and
+    the call that installs the reader in the authentication pipeline are p0517, which
+    requires p0503b — see the ordering decision below. Authorizing a hub method's ARGUMENT —
+    a permission on SubscribeRun says nothing about which run, and that is *the caller has a
+    scope*. The dashboard attaching a token to the connection — *the dashboard signs in*.
+    Fixing the expansion refcount, and changing any access log outside this repository.
 
 decisions:
   - key: |
-      THE PREVIOUS DRAFT WOULD HAVE TAKEN THE DASHBOARD DARK ON THE COMMIT THAT LANDED IT, AND
-      THAT IS WHY THE ANNOTATION IS NOT AN AuthorizeAttribute. Per-method authorization on a hub
-      is NOT governed by the middleware and has no relation to any enforce switch: SignalR's hub
-      dispatcher collects a method's AuthorizeAttributes into the method descriptor at discovery
-      and evaluates them itself through IAuthorizationService on every invocation — no
-      UseAuthentication, no UseAuthorization, no fallback policy in that path. Only a CLASS-level
-      attribute reaches endpoint metadata, which is what p0503a's hub-level declaration relies on.
-      Annotating the eleven methods with [Authorize] would therefore refuse (unauthenticated
-      principal) or throw (no IAuthorizationService, unknown policy name) the moment the commit
-      landed, taking the run viewer, the system drawer and the sandbox drawer down with no switch
-      to bring them back.
+      THE ENFORCEMENT HALF LEFT THIS PHASE BECAUSE THE TWO SPECS POINTED AT EACH OTHER. p0503b's
+      scope says "the hub handshake — p0503c"; the previous draft of this phase said the read
+      lives "in OnMessageReceived", which exists only inside p0503b's AddJwtBearer. Measured at
+      this base commit: grep for UseAuthentication|AddAuthentication|AddJwtBearer|AddAuthorization|IHubFilter
+      across src/ returns ZERO hits, and Microsoft.AspNetCore.Authentication.JwtBearer is absent
+      from the .NET 10 ref pack and from the server csproj — MessageReceivedContext cannot compile
+      here. The enforce switch is likewise a NEW artifact of p0503b, so a filter reading it would
+      have invented a second model of it and produced exactly the merge collision the split was
+      meant to avoid.
   - key: |
-      THE PERMISSION IS A TABLE IN ITS OWN FILE, NOT AN ATTRIBUTE ON THE METHOD, AND THE FILE
-      LENGTH SAYS SO SECOND. The first reason is the one above — nothing on a hub method may be
-      IAuthorizeData. The second is arithmetic: JobsHub.cs is 164 lines and sits at 164 in
-      tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:92, which
+      THE HANDSHAKE READ IS A PURE FUNCTION OVER HttpContext, WHICH IS WHAT MAKES BOTH HALVES
+      PARALLEL. HubHandshakeToken.Read takes an HttpContext, returns the access_token value when
+      the path is the hub path, and rewrites Request.QueryString without it, leaving every other
+      parameter untouched. It needs no authentication package, is testable over a bare
+      DefaultHttpContext, and p0517 calls it from OnMessageReceived in one line. The four
+      Handshake_* tests survive verbatim because they were always tests of this behaviour and
+      never of the JwtBearer event that triggers it.
+  - key: |
+      NOTHING ON A HUB METHOD MAY BE IAuthorizeData, AND THIS IS THE REASON THE PERMISSION IS A
+      TABLE. SignalR's hub dispatcher collects a method's AuthorizeAttributes at discovery and
+      evaluates them itself through IAuthorizationService on every invocation — no
+      UseAuthentication, no UseAuthorization, no fallback policy in that path. Annotating the
+      eleven methods with [Authorize] would refuse (unauthenticated principal) or throw (no
+      IAuthorizationService, unknown policy) the moment the commit landed, taking the run viewer,
+      the system drawer and the sandbox drawer down with no switch to bring them back. Only a
+      CLASS-level attribute reaches endpoint metadata, which is what p0503a's hub-level
+      declaration relies on.
+  - key: |
+      THE FILE LENGTH SAYS THE SAME THING SECOND. JobsHub.cs is 164 lines and sits at 164 in
+      tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv, which
       FileLengthRatchetTests.NoBaselineFile_GrewSinceTheRatchetWasInstalled makes shrink-only.
       Eleven attributes plus a using is +12 on a file with zero headroom, and an attribute has
-      exactly one place it can live, so there is no call site to move it to. A static
-      method-name-to-permission table adds nothing to JobsHub.cs, is what the filter reads
-      anyway, and carries the same guarantee p0503a's route guard carries: a test enumerates the
-      hub's public methods and fails on one the table does not name.
+      exactly one place it can live. A static method-name-to-permission table adds nothing to
+      JobsHub.cs, is what p0517's filter reads anyway, and carries the same guarantee p0503a's
+      route guard carries: a test enumerates the hub's public methods and fails on one the table
+      does not name.
   - key: |
-      p0503a FACES THE SAME 164 LINES AND HAS AN ESCAPE THIS PHASE DOES NOT. Its hub-level
-      declaration is one class attribute, and a class attribute on a hub is equivalent to
-      metadata at the MapHub call site — src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:27.
-      Whichever of the two it chooses, JobsHub.cs must not grow, and this phase does not grow it.
+      ELEVEN PUBLIC METHODS, NINE OF THEM TAKING A RUN ID — COUNTED, NOT ESTIMATED, AND
+      RE-COUNTED BY THE REVIEWER. JobsHub.cs lines 32, 61, 88, 100, 106, 117, 126, 135, 144, 153,
+      162. SubscribeOverview and SubscribeSystem take no argument; the other nine take a run id
+      and nothing in this phase looks at its value. An earlier draft said eight, which would have
+      left one method silently out of the table.
   - key: |
-      ELEVEN PUBLIC METHODS, NINE OF THEM TAKING A RUN ID — COUNTED, NOT ESTIMATED. JobsHub.cs
-      lines 32, 61, 88, 100, 106, 117, 126, 135, 144, 153, 162. SubscribeOverview and
-      SubscribeSystem take no argument; the other nine take a run id and nothing in this phase
-      looks at its value. An earlier draft said eight, which would have left one method silently
-      out of the table.
+      THE SANDBOX PAIR TAKES A NEW READ-TIER PERMISSION, runs.watch, AND THE OPEN QUESTION IS
+      CLOSED. The pair is a cross-viewer mutation: SandboxExpansionRegistry is a process-global
+      singleton (DashboardApiExtensions.cs:28) over a ConcurrentDictionary<string,int> refcount
+      (SandboxExpansionRegistry.cs:13); Collapse (:18-21) decrements a counter ANOTHER connection
+      incremented, and RunEventRouter.cs:48 gates SandboxOutput fan-out on the result. But
+      runs.control is the wrong answer: the live drawer is most of what a reader watches a run
+      for, and a reader who loses it loses the phase's own product. So a distinct permission,
+      granted to the reader bundle by default, which still lets an operator withhold the
+      cross-viewer mutation without withholding the run view. This adds one constant and one
+      bundle entry to p0503a's catalog — code from a shipped phase, whose spec is not touched.
   - key: |
-      THE SANDBOX EXPANSION PAIR IS A CROSS-VIEWER MUTATION, NOT MERELY "A WRITE".
-      SandboxExpansionRegistry is a process-global singleton (DashboardApiExtensions.cs:28) over
-      a ConcurrentDictionary<string,int> refcount (SandboxExpansionRegistry.cs:13); Collapse
-      (:18-21) decrements a counter ANOTHER connection incremented, and RunEventRouter.cs:48
-      gates SandboxOutput fan-out on the result. One caller can therefore silence a different
-      operator's live drawer. That is the reason ExpandSandbox and CollapseSandbox are not reads.
+      THE REFCOUNT LEAK IS PINNED HERE AND FIXED NOWHERE, VISIBLY. JobsHub has no
+      OnDisconnectedAsync, so a closed tab never decrements and fan-out stays pinned on for the
+      life of the process; and JobsHubClient.ts:312 replays the ExpandSandbox rejoin thunk after
+      every automatic reconnect, incrementing again with no Collapse for the connection that was
+      lost. A characterization test pins the behaviour so a successor has a red starting point.
+      Authorization does not repair a counter, and the operator decides when the counter's phase
+      is written — see the open question below.
   - key: |
-      THE REFCOUNT LEAK IS NAMED HERE AND FIXED NOWHERE — IT IS AN OPEN QUESTION BELOW, NOT A
-      SILENT DEFER. JobsHub has no OnDisconnectedAsync, so a closed tab never decrements and
-      fan-out stays pinned on for the life of the process; and JobsHubClient.ts:312 replays the
-      ExpandSandbox rejoin thunk after every automatic reconnect, incrementing again with no
-      Collapse for the connection that was lost. A characterization test pins the behaviour so
-      the successor has a red starting point. Authorization does not repair a counter.
-  - key: |
-      THE HANDSHAKE READ AND THE QUERY REWRITE ARE ONE CHANGE, BECAUSE A BROWSER CANNOT SET A
-      HANDSHAKE HEADER. The token riding in the query string is the standard shape and is not the
-      defect; the defect is what the query string outlives. OnMessageReceived reads access_token
-      for the hub path and then REWRITES HttpContext.Request.QueryString without it, so every
-      consumer after authentication — scopes, exception messages that embed the request, the
-      EventSource copy of a post-auth line — sees a clean query. One assignment instead of a
-      pattern applied in eleven futures.
-  - key: |
-      THE REWRITE DOES NOT REACH THE ONE LINE THAT ACTUALLY CARRIES THE QUERY TODAY, WHICH IS WHY
+      THE QUERY REWRITE DOES NOT REACH THE ONE LINE THAT CARRIES THE QUERY TODAY, WHICH IS WHY
       THE FORMATTER SCRUB STAYS. Microsoft.AspNetCore.Hosting.Diagnostics writes "Request
-      starting … {Path}{QueryString}" BEFORE the authentication middleware runs, so no rewrite
+      starting ... {Path}{QueryString}" BEFORE the authentication middleware runs, so no rewrite
       can precede it. It is silent today only because appsettings.json:11 pins that category to
       Warning — a level any operator may raise while debugging, which is exactly when they paste
       the output somewhere. The scrub is applied to the COMPOSED line in CompactConsoleFormatter,
-      not to the message alone, because AppendExceptionChain (:92 in both copies) writes
-      exception messages verbatim and an identity-model exception can embed the artifact.
+      not to the message alone, because AppendExceptionChain (:92 in both copies) writes exception
+      messages verbatim and an identity-model exception can embed the artifact.
   - key: |
       THE SANDBOX AGENT'S COPY IS EDITED FOR LOCKSTEP AND CHANGES NOTHING THERE. Its header
       (src/backend/AgentSmith.Sandbox.Agent/Services/CompactConsoleFormatter.cs:13-16) demands
-      both copies move together, and they are line-for-line identical at 102 lines each. But that
+      both copies move together, and they are identical in code at 102 lines each. But that
       project is Microsoft.NET.Sdk with three packages and one project reference — no Web SDK, no
       Kestrel, no HttpContext — so it can never format a request path. Nobody should read this
       phase and conclude the sandbox agent leaks tokens today. Both files have 18 lines of
@@ -105,32 +112,21 @@ decisions:
       ServerCompositionBuilder.cs:73-79 adds the compact console without ClearProviders, so no
       formatter change touches it. And the browser keeps the URL.
   - key: |
-      SAY THE SIZE OF WHAT SHIPS. With the enforce switch off — its state on the day this lands —
-      the permission table and the filter change no behaviour at all, and only the redaction
-      delivers anything: the server's console, one of at least three sinks the token reaches, in
-      one of the processes it traverses. That is worth doing and it is not a solved problem.
+      SAY THE SIZE OF WHAT SHIPS. With enforcement moved to p0517, the table and the reader change
+      no behaviour at all on the day this lands, and only the redaction delivers anything: the
+      server's console, one of at least three sinks the token reaches, in one of the processes it
+      traverses. That is worth doing, it is not a solved problem, and it is smaller than the title.
   - key: |
       THE TEST LIST IS WHAT THE TREE CAN ACTUALLY COMPILE, AND THE MISSING RIG IS NAMED RATHER
-      THAN ASSUMED. There is no end-to-end handshake test here because
+      THAN ASSUMED. There is no end-to-end handshake test because
       tests/AgentSmith.Tests/AgentSmith.Tests.csproj carries no Microsoft.AspNetCore.SignalR.Client
-      package and no test in the tree references JobsHub at all — the only hit for the type is
-      tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:92. There is no subscribe test
-      through the booted host because StartupResilienceTests.cs:32 binds REDIS_URL to the dead
-      address 127.0.0.1:1, so SubscribeRun would go red for Redis and prove nothing about
-      authorization. And "both formatters redact identically" cannot be one test: AgentSmith.Tests
-      has no project reference to AgentSmith.Sandbox.Agent, whose formatter is internal with
-      InternalsVisibleTo AgentSmith.Sandbox.Agent.Tests. It is two tests in two projects, and the
-      lockstep is a convention the header states, not something a compiler checks. Everything that
-      remains is a plain unit test: reflection over the hub type, the filter through its own
-      contract, MessageReceivedContext over a DefaultHttpContext, and a formatter writing to a
-      StringWriter.
-  - key: |
-      OPEN QUESTION, NOT A DECISION — WHICH PERMISSION THE SANDBOX PAIR TAKES. No permission in
-      p0503a's catalog fits a write on the hub. If ExpandSandbox takes runs.control, a reader
-      loses the live sandbox drawer, which is most of what a reader watches a run for. If a new
-      permission is minted, p0503a's catalog and its per-permission counts change and that phase
-      must be edited before this one starts. This is a product decision about what "reader" means
-      and the operator answers it; the implementer does not pick one quietly.
+      package and no test in the tree references JobsHub at all. There is no subscribe test through
+      the booted host because StartupResilienceTests.cs:32 binds REDIS_URL to the dead address
+      127.0.0.1:1, so SubscribeRun would go red for Redis and prove nothing. And "both formatters
+      redact identically" cannot be one test: AgentSmith.Tests has no project reference to
+      AgentSmith.Sandbox.Agent, whose formatter is internal with InternalsVisibleTo
+      AgentSmith.Sandbox.Agent.Tests. It is two tests in two projects, and the lockstep is a
+      convention the header states, not something a compiler checks.
   - key: |
       OPEN QUESTION, NOT A DECISION — WHETHER THE REFCOUNT GETS ITS OWN PHASE NOW. A drawer that
       closes with its connection needs OnDisconnectedAsync and per-connection ownership rather
@@ -138,22 +134,21 @@ decisions:
       this one. The operator says whether it is written before or after the auth series.
   - key: |
       OPEN QUESTION, NOT A DECISION — WHETHER THE QUERY SHOULD CARRY A BEARER TOKEN AT ALL. Since
-      no change in this repository can redact an ingress access log, the alternative is to put a
-      short-lived single-use handshake ticket in the query string and exchange it for the
-      connection's identity, so what leaks into nginx expires in seconds. That is a larger design
-      than this phase and it would change what *the dashboard signs in* has to build.
+      no change in this repository can redact an ingress access log, the alternative is a
+      short-lived single-use handshake ticket exchanged for the connection's identity, so what
+      leaks into nginx expires in seconds. That is a larger design than this phase and it would
+      change what *the dashboard signs in* has to build.
 
 steps:
   - id: a-hub-method-names-its-permission
-    action: "Add the method-name-to-permission table for the eleven public JobsHub methods, drawn from p0503a's catalog, with the sandbox expansion pair marked as writes."
+    action: "Add the method-name-to-permission table for the eleven public JobsHub methods, drawn from p0503a's catalog, with the sandbox expansion pair taking the new read-tier watch permission."
     new:
+      - "the watch permission constant and its reader-bundle entry in p0503a's catalog"
       - "HubMethodPermissions: the eleven method names and the permission each needs, in its own file so JobsHub.cs does not grow"
-  - id: the-filter-enforces-and-the-switch-decides
-    action: "Add an IHubFilter that resolves the invoked method's permission from the table and refuses the invocation when the caller lacks it, doing nothing at all while the enforce switch is off."
+  - id: the-handshake-token-can-be-lifted-and-forgotten
+    action: "Add a pure reader that returns the access_token value for the hub path and rewrites Request.QueryString without it, leaving every other parameter untouched, with no dependency on an authentication package."
     new:
-      - "HubPermissionFilter: reads the table by method name, checks the connection's principal, gated on the same enforce switch the fallback policy uses"
-  - id: the-handshake-reads-the-token-and-then-forgets-it
-    action: "Read access_token from the query string for the hub path in OnMessageReceived, then rewrite Request.QueryString without it, leaving every other parameter untouched."
+      - "HubHandshakeToken: the read-and-rewrite, taking an HttpContext, called by p0517"
   - id: a-formatted-token-does-not-reach-the-console
     action: "Redact an access token value in the composed output line of both copies of CompactConsoleFormatter, covering the message, the scopes and the exception chain."
   - id: the-drawer-defect-is-pinned-not-fixed
@@ -162,12 +157,9 @@ steps:
 tests:
   - "HubPermissions_EveryPublicHubMethod_IsNamedInTheTable"
   - "HubPermissions_TheTableNamesOnlyCataloguedPermissions"
-  - "HubPermissions_TheSandboxPair_IsNotAReadPermission"
+  - "HubPermissions_TheSandboxPair_TakesTheWatchPermission"
+  - "HubPermissions_TheWatchPermission_IsHeldByTheReaderBundle"
   - "HubMethods_CarryNoAuthorizeData_SoTheDispatcherEnforcesNothing"
-  - "Enforce_SwitchOff_HubMethodsBehaveAsBefore"
-  - "Enforce_SwitchOn_CallerLacksThePermission_TheInvocationIsRefused"
-  - "Enforce_SwitchOn_CallerHoldsThePermission_TheInvocationProceeds"
-  - "Enforce_SwitchOn_MethodMissingFromTheTable_IsRefusedRatherThanAllowed"
   - "Handshake_TokenInTheQueryStringOnTheHubPath_IsRead"
   - "Handshake_TokenOnANonHubPath_IsNotRead"
   - "Handshake_AfterTheRead_TheQueryStringNoLongerCarriesTheToken"
@@ -181,11 +173,10 @@ tests:
 
 done:
   - "no hub method carries an IAuthorizeData attribute, proven by a test, so SignalR's dispatcher enforces nothing"
-  - "with the enforce switch off every hub method behaves exactly as it does today"
+  - "every hub method behaves exactly as it does today — this phase enforces nothing"
   - "all eleven public hub methods are named in the permission table and a twelfth would fail the build"
-  - "the handshake reads the token and the request no longer carries it afterwards"
+  - "the handshake token can be read and removed from the request by a call that needs no authentication package"
   - "an access token does not survive either copy of the console formatter, message or exception chain"
   - "the ingress access log, the Next.js proxy hop, the EventSource provider and the browser URL are named in writing as sinks this phase does not reach"
   - "the expansion refcount defect is pinned by a test and fixed by nobody"
-  - "no hub method argument is claimed to be authorized"
   - "build green, full suite green"
