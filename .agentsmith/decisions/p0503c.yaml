@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0503c
+
+decisions:
+  - category: Security
+    chose: "A static method-name-to-permission table, HubMethodPermissions"
+    over: "[Authorize(Policy = ...)] on each of the eleven hub methods"
+    reason: |
+      SignalR's dispatcher collects a hub method's AuthorizeAttributes at discovery and
+      evaluates them itself through IAuthorizationService on every invocation — outside
+      the middleware pipeline, outside any fallback policy and outside any switch. At
+      this base commit no AddAuthorization, AddAuthentication or AddJwtBearer exists
+      anywhere in src/, so an attribute would refuse (unauthenticated principal) or
+      throw (no IAuthorizationService) the moment it landed, taking the run viewer, the
+      system drawer and the sandbox drawer down with no way to turn it back off. Only a
+      CLASS-level attribute reaches endpoint metadata, which is what the route-level
+      declaration of *the route table states what a caller needs* relies on. The file
+      length says the same thing second: JobsHub.cs is 164 lines and sits at 164 in the
+      length baseline, which the ratchet makes shrink-only, so eleven attributes plus a
+      using had nowhere to live. A test enumerates the hub's public methods and fails on
+      one the table does not name, which is the guarantee the attribute would have given.
+  - category: Security
+    chose: "A new read-tier permission, runs.watch, for the sandbox expansion pair, granted to the reader bundle"
+    over: "runs.control, or folding the pair into runs.read"
+    reason: |
+      ExpandSandbox/CollapseSandbox is a cross-viewer MUTATION, not a read:
+      SandboxExpansionRegistry is a process-global singleton over a per-(run, repo)
+      refcount, Collapse decrements a counter another connection incremented, and
+      RunEventRouter gates sandbox fan-out on the result. runs.read would hand a reader
+      the ability to silence another viewer's drawer with no separate name for it.
+      runs.control is the opposite error: the live drawer is most of what a reader
+      watches a run for, so a reader who loses it loses the phase's own product. A
+      distinct permission held by the reader bundle by default changes no shipped role
+      and still lets an installation withhold the mutation without withholding the run
+      view. This adds one constant and one bundle entry to the existing catalog.
+  - category: Security
+    chose: "SubscribeSystem takes diagnostics.read"
+    over: "runs.read, the permission the hub route itself declares"
+    reason: |
+      The system feed is the installation talking about itself — tracker polls,
+      connection state — not a run, and the closest REST neighbour
+      (GET /api/diagnostics/connections) already carries diagnostics.read. Both
+      permissions sit in the reader bundle, so no shipped role sees a difference; what
+      changes is that an installation withholding diagnostics can withhold the poller
+      feed without withholding the run view.
+  - category: Architecture
+    chose: "The handshake read is a pure function over HttpContext, HubHandshakeToken.Read"
+    over: "Putting the read inside the JwtBearer OnMessageReceived event"
+    reason: |
+      MessageReceivedContext lives in Microsoft.AspNetCore.Authentication.JwtBearer,
+      which is absent from the .NET 10 ref pack and from the server csproj, so the read
+      could not have compiled in this phase at all — the previous draft of this spec
+      placed it there and a reviewer refused to build it. As a function over HttpContext
+      it needs no authentication package, is testable over a bare DefaultHttpContext,
+      and the successor calls it from OnMessageReceived in one line once the package
+      exists. The enforcement half — the IHubFilter, the enforce switch it reads and the
+      pipeline wiring — moved out to *the hub refuses what the caller may not do*, which
+      requires both this phase and the authentication phase being built in parallel.
+  - category: Architecture
+    chose: "Match the hub path by segment prefix (/hub) rather than the exact mapped route"
+    over: "Matching /hub/jobs exactly"
+    reason: |
+      SignalR's own negotiate hop is POST /hub/jobs/negotiate, so an exact match would
+      read the token on the websocket upgrade and miss it on the negotiate — the request
+      that actually establishes the connection. StartsWithSegments("/hub") covers both
+      and matches how the ingress and the dashboard proxy already route the prefix.
+  - category: Security
+    chose: "Redact the COMPOSED output line in both copies of CompactConsoleFormatter"
+    over: "Redacting only the formatted message, or rewriting the request earlier"
+    reason: |
+      The query rewrite cannot reach the line that carries the query today: hosting
+      diagnostics writes \"Request starting ... {Path}{QueryString}\" before any
+      authentication middleware runs. It is silent only because appsettings pins that
+      category to Warning — a level an operator raises precisely when they are about to
+      paste the output somewhere. Scrubbing the composed line rather than the message
+      covers the exception chain too, because AppendExceptionChain writes exception
+      messages verbatim and an identity-model exception can quote the artifact it
+      rejected. The sandbox agent's copy is edited for the lockstep its own header
+      demands; that project has no web host and can never format a request path, so
+      nothing changes there.
+  - category: Testing
+    chose: "The expansion refcount defect is PINNED by a characterization test and fixed by nobody"
+    over: "Fixing it here, or leaving it undocumented"
+    reason: |
+      JobsHub has no OnDisconnectedAsync, so a closed tab never decrements and fan-out
+      stays pinned on for the life of the process; and the dashboard hub client replays
+      the ExpandSandbox rejoin thunk after every automatic reconnect, incrementing again
+      with no Collapse for the connection that was lost. A drawer that closes with its
+      connection needs per-connection ownership rather than a global counter, and a
+      reconnect must not double-count — that is a phase, and authorization does not
+      repair a counter. Two tests assert the wrong behaviour as it stands, labelled
+      CHARACTERIZATION, so the successor starts red instead of starting from scratch.
+  - category: Architecture
+    chose: "Say in writing which sinks this phase does not reach"
+    over: "Shipping the redaction as if the token were now contained"
+    reason: |
+      The ingress routes /hub straight to the server and its access log records the
+      request line including the query; log-format is a controller-wide ConfigMap no
+      annotation in this repository can change. In compose the hop is the dashboard's
+      own Next.js rewrite instead. The EventSource logging provider registered by the
+      host builder still carries the raw message, since the compact console is added
+      without ClearProviders. And the browser keeps the URL. With enforcement moved out,
+      the table and the reader change no behaviour on the day this lands and only the
+      redaction delivers anything: one process's console, one of at least three sinks.
+      Naming that is the difference between a mitigation and a claim.
