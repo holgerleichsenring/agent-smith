@@ -24,7 +24,7 @@ public sealed partial class RunStepsReader(
     // p0466: a step now STATES its phase in its own column, so this pattern is the
     // fallback for pre-p0466 rows ONLY. Those rows are deliberately not backfilled —
     // writing a parsed prefix into the new column would launder a guess into a fact.
-    [GeneratedRegex(@"^(p\d+[a-z]?): (.+)$")]
+    [GeneratedRegex(@"^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4})): (.+)$")]
     private static partial Regex PhaseQualifiedRegex();
 
     public async Task<IReadOnlyList<RunStepView>> ReadAsync(string runId, CancellationToken ct)
