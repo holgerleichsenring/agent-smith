@@ -19,4 +19,6 @@ internal sealed class CheckedInSkillsCatalogPath : ISkillsCatalogPath
     }
 
     public string Root { get; }
+
+    public string Origin => $"fixture at {Root}";
 }

@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0504
+
+decisions:
+  - category: Architecture
+    chose: "A declared stack.image ALWAYS wins over the profile's, and a mismatch is a loud warning"
+    over: "Refusing the run when the declared image is absent from the profile's compatible list"
+    reason: |
+      The spec's step *an-incompatible-image-refuses-before-the-sandbox* was overridden by the
+      operator's standing rule: the image named in the repository's context.yaml is the image
+      that gets used. Refusal is a third outcome that rule excludes — under it neither side
+      wins and the run stops. The profile still declares compatible_images, so the
+      disagreement is REPORTED from the file (ContextDomainResolver names both images and the
+      profile) instead of being discovered as "command not found" three minutes into a
+      sandbox. That keeps the failure mode this phase exists to remove visible without
+      contradicting the ruling. The named test moved with it:
+      Compatibility_DomainAndAnUnknownImage_KeepsTheContextImageAndWarnsNamingBoth.
+  - category: Architecture
+    chose: "The profile image sits between the LLM-named stack.image and the language table, and REFUSES when it fails the gate"
+    over: "Falling back to the language table like an LLM-named image does"
+    reason: |
+      Measured order in SandboxImageChain (extracted from SandboxSpecBuilder): project
+      toolchain_image, the p0245 per-language operator table, the p0265 context stack.image,
+      the profile, the language table, the generic fallback. An LLM-named image that fails the
+      trusted-registry or git-bearing check falls through because a guess that fails is just a
+      guess. A profile image that fails is a catalog defect, and falling back would run the
+      profile's commands in an image that never carried them — the exact failure the profile
+      exists to prevent. ConfigurationException, before any pod.
+  - category: Architecture
+    chose: "The profile lives in agent-smith-skills under profiles/<name>/profile.yaml"
+    over: "Carrying it in agentsmith.yml, or compiling it into the binary"
+    reason: |
+      In agentsmith.yml it would be copied into every client project and drift within a month;
+      in the binary every new domain would need a release. Two mechanical consequences were
+      confirmed against the code: package.sh's SOURCES was (patterns principles references
+      skills) and would not have shipped a profiles/ directory at all, and validate-skills.sh
+      is 211 lines of grep with no YAML parser, so validating a profile is new capability
+      there. Both were added. This phase ships the MECHANISM and profiles/README.md only — no
+      profile definition, because the shapes a real profile must gate are what p0505 measured
+      and its successor will write.
+  - category: Architecture
+    chose: "meta.domain, not stack.domain"
+    over: "A field under the stack block next to lang and image"
+    reason: |
+      WriteContextYamlToolHost rejects any context.yaml carrying a stack block without
+      stack.image. Under stack:, a repository declaring a domain would be FORCED to name an
+      image and the profile's image would be unreachable for every repository agent-smith
+      initialised itself — the branch would never execute. Under meta: a context may declare a
+      domain and no stack block at all, and the mandatory-image rule now learns that a domain
+      supplies one. A context naming its own image is untouched.
+  - category: Architecture
+    chose: "Refuse an unknown domain in PipelineSandboxCoordinator, and answer the same question in doctor"
+    over: "Refusing at config load, or at run admission"
+    reason: |
+      The config loader is synchronous, runs on dozens of poll and webhook paths, and cannot
+      see the catalog — which is resolved FROM the config one line later. At run admission no
+      repository has been read. The coordinator is the one site every preset passes with
+      discoveries in hand and no pod created: the resolution sits between ApplyScopedContexts
+      and the spec build. ContextDomainCheck answers it with no run at all, reading each
+      configured repository remotely.
+  - category: TradeOff
+    chose: "A stale pin refuses exactly like a typo, and the message carries the catalog's origin"
+    over: "Degrading a domain the catalog does not carry to 'no domain'"
+    reason: |
+      Degrading would silently drop the gate this phase installs. What makes the refusal
+      survivable is the message: the value read, the repository and context that carried it,
+      and the catalog's resolved source and version. With four source modes "the pin" names
+      nothing an operator can go and look at, so ISkillsCatalogPath gained Origin — set from
+      the CatalogResolution the bootstrap already had, e.g. "embedded v4.6.0 at /var/cache/...".
+      It never throws, because a refusal must be able to name the catalog even when the
+      catalog is what is missing.
+  - category: Implementation
+    chose: "Resolve verify stages from the profile INSIDE the skip branch, reading the per-sandbox context list"
+    over: "Adding the profile after .NET entry-point discovery, or reading the grouped representative"
+    reason: |
+      Measured: VerifyStageResolver runs declared ci commands, then the skip for a repository
+      that is null-mapped or not .NET, and only THEN .NET discovery. Placing the profile after
+      discovery would put it in a branch a data repository can never reach. The coordinator
+      groups discoveries by resolved image and keeps ONE representative, so two contexts
+      sharing an image collapse into one sandbox and reading the representative would make
+      honouring a domain depend on discovery order; DomainProfileStagesResolver reads
+      ContextKeys.SandboxContexts, the full per-sandbox list, and pairs each profile with that
+      context's own in-sandbox workdir.
+  - category: Implementation
+    chose: "A profile command is filtered by VerificationCommand.CanFail, exactly like a declared one"
+    over: "Trusting a catalog author's command list"
+    reason: |
+      A profile author is no more trusted to write a real gate than the analyzer was when it
+      emitted `echo Build command placeholder` as a repository's build stage (p0451). Fail-fast
+      is unchanged: a repository still stops at the first non-zero exit, so one red run
+      surfaces one gate. Widening that is a separate behavioural decision and was not smuggled in.
+  - category: Implementation
+    chose: "Six extractions first, behaviour unchanged, before any feature landed"
+    over: "Adding baseline entries or growing the touched files"
+    reason: |
+      All seven files the phase touches sat at their exact file-length ratchet baseline and may
+      only shrink. ToolchainImageCatalog and SandboxImageChain came out of SandboxSpecBuilder
+      (241 -> 68, off the baseline); VerifyStageResolver, DotnetEntryPointDiscovery and
+      SandboxWorkdir out of VerifyPhaseHandler (335 -> 241); ContextYamlReadShape out of
+      ContextYamlSerializer (139 -> 108, off the baseline); SandboxRequiringCommands out of
+      PipelineSandboxCoordinator (314 -> 304); ContextNameGuard out of WriteContextYamlToolHost
+      (193 -> 168). ToolchainImageCatalog and SandboxRequiringCommands are immutable lookup
+      data and were classified in NoStaticStateRuleTests rather than left as unexplained
+      static state.
+  - category: Scope
+    chose: "No profile definition, and no profile text in any master"
+    over: "Shipping a first domain profile alongside the mechanism"
+    reason: |
+      p0505 measured what the candidate commands actually do against three repository shapes;
+      writing a profile before that table is read would ship a guess as a gate. The catalog
+      change here is strictly additive — profiles/README.md, package.sh SOURCES, a validator
+      rule — so the pinned catalog the operator's live system runs keeps working unchanged. No
+      master and no skill description was touched, and no profile text reaches a master prompt.
+  - category: Scope
+    chose: "Left the spec's done-item 'the packaged masters assert the new domain wording' unbuilt"
+    over: "Adding domain wording to a master so a PackagedMaster test could assert it"
+    reason: |
+      It contradicts the same spec's 'no profile text reaches the master prompt' and the
+      instruction that catalog changes stay additive. No master gains domain wording, so there
+      is nothing for a packaged-master assertion to find. The buildable equivalent is
+      Packaging_ProfilesDirectory_IsInTheTarball, armed at catalog 4.7.0: while the pin
+      predates profiles/ it asserts the pinned tarball still reads, and the moment the pin
+      moves it asserts profiles/ ships. The offline half of the same guarantee is in the
+      catalog itself — validate-skills.sh fails when profiles/ exists and package.sh's SOURCES
+      does not name it.

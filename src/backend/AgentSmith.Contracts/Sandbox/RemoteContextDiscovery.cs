@@ -26,4 +26,7 @@ namespace AgentSmith.Contracts.Sandbox;
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
     string? ToolchainImage = null, ContextYamlStackResources? Resources = null,
-    string? Purpose = null);
+    string? Purpose = null,
+    // p0504: `meta.domain:` — the one word that brings a toolchain image and an
+    // ordered verify-command list from the catalog's profile of that name.
+    string? Domain = null);
