@@ -9,6 +9,7 @@ using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Models;
 using AgentSmith.Tests.Server.Auth;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,7 +46,10 @@ public sealed class StartupResilienceTests : IDisposable
     {
         var configPath = WriteConfig(Bootstrap("sqlite", $"Data Source={NewDbPath()}"));
 
-        var findings = await BootAndReadFindingsAsync(configPath);
+        // The ONE case whose subject is the wait itself: it names the dead address on
+        // purpose, and pays for it. No other case inherits that choice.
+        var findings = await BootAndReadFindingsAsync(
+            configPath, unreachableRedis: BootPlan.NothingAnswers);
 
         findings.Findings.Should().Contain(f =>
             f.Severity == "blocking" && f.Subsystem == "redis" && f.Reason.Contains("queue"));
@@ -127,7 +131,7 @@ public sealed class StartupResilienceTests : IDisposable
         // never covered this: the endpoint was not down, it was absent.
         var configPath = WriteConfig(Bootstrap("sqlite", $"Data Source={NewDbPath()}"));
 
-        var findings = await BootAndReadFindingsAsync(configPath, redisUrl: "");
+        var findings = await BootAndReadFindingsAsync(configPath, unreachableRedis: "");
 
         findings.Findings.Should().Contain(f =>
             f.Severity == "blocking" && f.Subsystem == "redis" && f.Field == "REDIS_URL");
@@ -170,9 +174,10 @@ public sealed class StartupResilienceTests : IDisposable
     // Every case above boots the whole server: /health answering is the claim under test,
     // and the findings body is how the server says what it is missing.
     private static async Task<StartupFindingsResponse> BootAndReadFindingsAsync(
-        string configPath, string redisUrl = BootedServer.NoRedis)
+        string configPath, string? unreachableRedis = null)
     {
-        await using var server = await BootedServer.StartAsync(configPath, redisUrl);
+        await using var server = await BootedServer.StartAsync(
+            new BootPlan(configPath) { UnreachableRedis = unreachableRedis });
 
         var health = await server.Client.GetAsync("/health");
         health.StatusCode.Should().Be(HttpStatusCode.OK, "a degraded server must still answer");
@@ -306,6 +311,7 @@ public sealed class StartupResilienceTests : IDisposable
 
     private static void Seed(string dbPath, string configPath)
     {
+        MigratedStoreTemplate.CopyToFile(dbPath);
         var services = new ServiceCollection();
         services.AddDbContext<AgentSmithDbContext>(
             b => b.UseSqlite($"Data Source={dbPath}"), ServiceLifetime.Scoped);
@@ -314,9 +320,6 @@ public sealed class StartupResilienceTests : IDisposable
         services.AddSingleton<ConfigDocumentAssembler>();
         services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
         using var provider = services.BuildServiceProvider();
-
-        using (var scope = provider.CreateScope())
-            scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
 
         var raw = new RawConfigYaml().Deserialize(File.ReadAllText(configPath));
         var writes = provider.GetRequiredService<ConfigDocumentAssembler>().Decompose(raw)
