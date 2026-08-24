@@ -16,6 +16,13 @@ namespace AgentSmith.Server.Security;
 internal static class Permissions
 {
     internal const string RunsRead = "runs.read";
+
+    // p0503c: the LIVE sandbox drawer, which is a cross-viewer mutation rather than a
+    // read: the expansion refcount is process-global, so one viewer collapsing turns the
+    // fan-out off for another. A reader holds it by default, because the live drawer is
+    // most of what watching a run is for; it is separable so an installation can withhold
+    // the mutation without withholding the run view.
+    internal const string RunsWatch = "runs.watch";
     internal const string RunsControl = "runs.control";
     internal const string RunsDelete = "runs.delete";
     internal const string ProjectsInit = "projects.init";
@@ -39,7 +46,7 @@ internal static class Permissions
 
     internal static IReadOnlyList<string> All { get; } =
     [
-        RunsRead, RunsControl, RunsDelete, ProjectsInit, CatalogRead,
+        RunsRead, RunsWatch, RunsControl, RunsDelete, ProjectsInit, CatalogRead,
         DiagnosticsRead, DiagnosticsProbe, ConfigRead, ConfigWrite, ConfigExport,
         ConfigImport, SecretsRead, SecretsWrite, IdentityRead,
     ];
