@@ -143,6 +143,12 @@ services:
       # AZDO_WEBHOOK_SECRET and JIRA_WEBHOOK_SECRET — arrive through env_file (../.env,
       # see .env.example). Set one and an unsigned delivery for that platform is refused;
       # leave it unset and that platform stays open.
+      # p0503b: the token authority. No authority means nothing authenticates, which is
+      # what every installation before this did. An authority with ENFORCE unset validates
+      # a presented token and refuses nothing.
+      - AGENTSMITH_AUTH_AUTHORITY=${AGENTSMITH_AUTH_AUTHORITY:-}
+      - AGENTSMITH_AUTH_AUDIENCE=${AGENTSMITH_AUTH_AUDIENCE:-}
+      - AGENTSMITH_AUTH_ENFORCE=${AGENTSMITH_AUTH_ENFORCE:-false}
     ports:
       - "${SERVER_PORT:-8081}:8081"
     volumes:
