@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-24-1cdc
+
+goal: "A test that boots the server substitutes its infrastructure instead of pointing at a dead address, so the boot costs milliseconds rather than tens of seconds and the phase gate finishes in minutes."
+
+applies_to: "tests (the booted-server rig, the composition seams it needs)"
+
+scope:
+  in: "An in-memory substitute for the message transport a booted test does not have, one shared migrated database connection, and starting only the hosted services a test actually asserts on."
+  out: "Changing what the SERVER does at boot — that is the production phase, and this one must be true whether or not it lands. Any test's assertions. The Docker tier."
+
+decisions:
+  - key: |
+      THE RIG POINTS AT A DEAD ADDRESS ON PURPOSE, AND THAT IS THE WHOLE COST. BootedServer
+      declares `NoRedis = "127.0.0.1:1"` with the comment "Deliberately dead: no case here has a
+      Redis, and none may need one". Nothing is wrong with the intent — a test should not need a
+      Redis. But "absent" was implemented as "unreachable", and unreachable costs a timeout every
+      time: RedisExtensions calls ConnectionMultiplexer.Connect, a SYNCHRONOUS blocking connect,
+      during hosted-service construction; RedisProbe then spends its ten-second budget on the same
+      address. The reference implementation this repository is measured against substitutes an
+      in-memory transport instead, instantiates it fully in every test, and still runs many tests
+      per second. Substitution, not absence, is the difference.
+  - key: |
+      THE COST IS NOT MYSTERIOUS AND DOES NOT NEED MORE PROFILING. Reading the boot path answers
+      it: a synchronous Redis connect against a dead endpoint, five startup probes each bounded at
+      ten seconds, and fifteen hosted services the host constructs and starts before Kestrel binds
+      — reapers, pollers, an orphan detector, retention, a trail flusher, a capacity pump, repo
+      discovery, catalog reload. Every booted test pays all of it. An earlier draft of this work
+      proposed measuring first and produced a confounded A/B; the code was the better instrument.
+  - key: |
+      THIS IS SEPARATE FROM THE PRODUCTION PHASE AND MUST STAND ALONE. p0391a already ruled that
+      every startup dependency becomes a probe that records a finding rather than throwing, and
+      the boot path still reaches out before it binds — that is a real defect and it has its own
+      phase. But a test rig that waits on absent infrastructure is a test defect, it is fixable
+      without touching a line the server runs in production, and it must not be held hostage to
+      the larger change.
+  - key: |
+      A TEST STARTS THE HOSTED SERVICES IT ASSERTS ON, NOT ALL FIFTEEN. A routing assertion, an
+      authorization assertion and a findings assertion need none of the reapers or pumps. The host
+      resolves EVERY hosted service before it starts any, so one that drags a connection into its
+      constructor makes the whole boot wait — which is why the substitution above is necessary but
+      not sufficient. The rig gains a way to say which ones a case needs; the default is the ones
+      that case asserts on.
+  - key: |
+      ONE MIGRATED DATABASE, REUSED, RATHER THAN ONE PER BOOT. The tests already run SQLite. What
+      they do not do is share the migrated schema: each boot pays the migration again. The
+      reference caches a single connection and hands out contexts over it, which is the same
+      trick and is measured in milliseconds.
+  - key: |
+      THE CASES THAT ASSERT ON ABSENCE KEEP THEIR DEAD ADDRESS, DELIBERATELY. StartupResilience
+      asserts that an unreachable Redis produces a blocking finding and the server still answers.
+      Those cases MUST keep pointing at nothing — their subject is the timeout. They stay slow,
+      they stay few, and the rig makes that a stated choice per case rather than the default for
+      every case.
+  - key: |
+      THE GATE'S BUDGET IS THE ACCEPTANCE CRITERION, NOT A NICE-TO-HAVE. The phase gate runs the
+      full suite on every phase commit and its hook budget is nine hundred seconds; a recent phase
+      commit produced no ledger line at all because the run exceeded it, and a timeout is
+      indistinguishable from a pass. A suite that finishes inside the budget is what makes the
+      gate trustworthy again.
+
+steps:
+  - id: an-absent-transport-is-substituted-not-unreachable
+    action: "Give the booted-server rig an in-memory message transport for cases that do not assert on a broken one, so no boot performs a blocking connect to an address nothing answers."
+    new:
+      - "the in-memory transport substitute and the seam that installs it"
+  - id: a-case-starts-what-it-asserts-on
+    action: "Let a booted case state which hosted services it needs, defaulting to none, so a routing or authorization assertion does not start reapers, pollers and pumps."
+  - id: one-migrated-schema-serves-every-case
+    action: "Share one migrated in-memory database across the cases that need one instead of migrating per boot."
+  - id: the-cases-that-test-absence-say-so
+    action: "Mark the cases whose subject IS an unreachable dependency so they keep the dead address by explicit choice, and no other case inherits it."
+
+tests:
+  - "Rig_ABootedCaseWithNoRedisAssertion_PerformsNoBlockingConnect"
+  - "Rig_ABootedCase_StartsOnlyTheHostedServicesItNames"
+  - "Rig_TwoBootedCases_ShareOneMigratedSchema"
+  - "Rig_ACaseThatAssertsOnAnUnreachableDependency_StillPointsAtNothing"
+  - "StartupResilience_EveryExistingAssertion_HoldsUnchanged"
+  - "Auth_EveryExistingAssertion_HoldsUnchanged"
+
+done:
+  - "no booted case waits on an address nothing answers unless its subject is that wait"
+  - "a booted case starts only the hosted services it names"
+  - "one migrated schema serves every case that needs one"
+  - "every existing assertion in the booted-server tests holds unchanged"
+  - "the full suite finishes inside the phase gate's hook budget, with room to spare"
+  - "build green, full suite green"

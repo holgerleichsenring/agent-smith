@@ -1,0 +1,149 @@
+# Every assertion the booted-server tests made before the rig was made fast, one per line,
+# read out of the base commit. Speeding a suite up by asserting less is the one failure mode
+# this phase had, and a line that disappears from here is what that looks like. Adding an
+# assertion is fine; changing or dropping one listed here is not.
+# file (relative to tests/AgentSmith.Tests)	assertion
+Server/Auth/AdminGrantTests.cs	identity.Roles.Should().Equal(BuiltInRoles.Admin);
+Server/Auth/AdminGrantTests.cs	identity.Permissions.Should().Contain(Permissions.SecretsWrite);
+Server/Auth/AdminGrantTests.cs	identity.Roles.Should().BeEquivalentTo([BuiltInRoles.Reader, BuiltInRoles.Admin]);
+Server/Auth/AdminGrantTests.cs	asked.Should().ContainSingle("the delegate the composition root captured is the only "
+Server/Auth/AdminGrantTests.cs	.Which.Should().Be(AdminGrant.EnvVar);
+Server/Auth/AdminGrantTests.cs	grant.Holds([], Subject).Should().BeTrue();
+Server/Auth/AdminGrantTests.cs	identity.Roles.Should().BeEmpty();
+Server/Auth/AdminGrantTests.cs	identity.Findings.Should().ContainSingle().Which.Should().Contain(Subject);
+Server/Auth/AuthBootstrapReadTests.cs	auth!.Authority.Should().Be("https://the-environment-said-this");
+Server/Auth/AuthBootstrapReadTests.cs	auth.Audience.Should().Be("from-the-file", "only the field that was set is overridden");
+Server/Auth/AuthBootstrapReadTests.cs	auth.Enforce.Should().BeTrue();
+Server/Auth/AuthBootstrapReadTests.cs	Read().Auth!.Authority.Should().Be("https://only-the-environment-said-this");
+Server/Auth/AuthBootstrapReadTests.cs	Read().Auth.Should().BeNull("absent and unusable are different states");
+Server/Auth/AuthorityReachabilityProbeTests.cs	_findings.All.Should().BeEmpty();
+Server/Auth/AuthorityReachabilityProbeTests.cs	probe.IsUnreachable.Should().BeTrue();
+Server/Auth/AuthorityReachabilityProbeTests.cs	var finding = _findings.All.Should().ContainSingle().Subject;
+Server/Auth/AuthorityReachabilityProbeTests.cs	finding.Subsystem.Should().Be(StartupSubsystems.Auth);
+Server/Auth/AuthorityReachabilityProbeTests.cs	finding.Project.Should().BeNull("an authority nobody can reach is not one project's fault");
+Server/Auth/AuthorityReachabilityProbeTests.cs	finding.Reason.Should().Contain(DeadAuthority);
+Server/Auth/AuthorityReachabilityProbeTests.cs	_findings.All.Should().NotBeEmpty("the first pass must fail for the second to mean anything");
+Server/Auth/AuthorityReachabilityProbeTests.cs	_findings.All.Should().BeEmpty();
+Server/Auth/AuthorityReachabilityProbeTests.cs	probe.IsUnreachable.Should().BeFalse();
+Server/Auth/AuthorityReachabilityProbeTests.cs	_findings.All.Single().Severity.Should().Be(StartupFindingSeverity.Blocking);
+Server/Auth/AuthorityReachabilityProbeTests.cs	finding.Severity.Should().Be(StartupFindingSeverity.Advisory,
+Server/Auth/AuthorityReachabilityProbeTests.cs	finding.Reason.Should().Contain("no route is refused");
+Server/Auth/AuthorityReachabilityProbeTests.cs	_findings.Blocking().Should().NotBeEmpty("the finding has to be blocking for this to bite");
+Server/Auth/AuthorityReachabilityProbeTests.cs	_findings.IsTriggerBlocked("any-project", "github_trigger").Should().BeFalse();
+Server/Auth/ConfigAttributionTests.cs	ConfigStudioWriteGuard.Attribution(Context(Authenticated())).Actor.Should().Be(Caller);
+Server/Auth/ConfigAttributionTests.cs	ConfigStudioWriteGuard.Attribution(forged).Actor.Should().Be(Caller);
+Server/Auth/ConfigAttributionTests.cs	ConfigStudioWriteGuard.Attribution(anonymousForged).Actor.Should().Be("dashboard");
+Server/Auth/ConfigAttributionTests.cs	.Actor.Should().Be("dashboard");
+Server/Auth/ConfigExportAuthTests.cs	exported.Should().NotContain("auth:");
+Server/Auth/ConfigExportAuthTests.cs	exported.Should().NotContain("an-authority-that-is-really-configured");
+Server/Auth/CustomRoleTests.cs	identity.Roles.Should().Equal("config-viewer");
+Server/Auth/CustomRoleTests.cs	identity.Permissions.Should().Contain(Permissions.ConfigRead);
+Server/Auth/CustomRoleTests.cs	identity.Permissions.Should().NotContain(Permissions.SecretsRead);
+Server/Auth/CustomRoleTests.cs	identity.Permissions.Should().NotContain(Permissions.ConfigWrite);
+Server/Auth/CustomRoleTests.cs	identity.Permissions.Should().Contain(Permissions.ConfigRead);
+Server/Auth/CustomRoleTests.cs	identity.Permissions.Should().NotContain("config.approve");
+Server/Auth/CustomRoleTests.cs	identity.Findings.Should().ContainSingle()
+Server/Auth/CustomRoleTests.cs	.Which.Should().Contain("config.approve").And.Contain("half-right");
+Server/Auth/CustomRoleTests.cs	identity.Permissions.Should().Contain(Permissions.SecretsWrite,
+Server/Auth/CustomRoleTests.cs	identity.Findings.Should().ContainSingle().Which.Should().Contain(BuiltInRoles.Admin);
+Server/Auth/EnforceSwitchOffTests.cs	refused.Should().BeEmpty("the enforce switch is what refuses, and it is off");
+Server/Auth/EnforceSwitchOffTests.cs	valid.Succeeded.Should().BeTrue("the scheme is registered and the authority answered");
+Server/Auth/EnforceSwitchOffTests.cs	wrongAudience.Succeeded.Should().BeFalse(
+Server/Auth/GroupOverageTests.cs	caller.FindFirst("_claim_names")!.Value.Should().StartWith("{",
+Server/Auth/GroupOverageTests.cs	identity.GroupClaimValues.Should().BeEmpty();
+Server/Auth/GroupOverageTests.cs	identity.Findings.Should().HaveCount(2);
+Server/Auth/GroupOverageTests.cs	identity.Findings.Should().OnlyContain(finding => finding.Contains("too many groups"));
+Server/Auth/GroupOverageTests.cs	identity.Findings.Should().ContainSingle().Which.Should().Contain("hasgroups");
+Server/Auth/HubEnforceSwitchOffTests.cs	refused.Should().BeEmpty(
+Server/Auth/HubEnforcementTests.cs	completion.Should().Contain("\"error\"")
+Server/Auth/HubEnforcementTests.cs	completion.Should().NotContain("\"error\"");
+Server/Auth/HubEnforcementTests.cs	completion.Should().NotContain("\"error\"",
+Server/Auth/HubHandshakeAuthenticationTests.cs	onTheHub.Succeeded.Should().BeTrue("the hub's token arrives in the query string");
+Server/Auth/HubHandshakeAuthenticationTests.cs	onARoute.Succeeded.Should().BeFalse(
+Server/Auth/HubHandshakeAuthenticationTests.cs	negotiate.StatusCode.Should().Be(HttpStatusCode.OK,
+Server/Auth/HubHandshakeAuthenticationTests.cs	withoutToken.StatusCode.Should().Be(HttpStatusCode.Unauthorized,
+Server/Auth/HubHandshakeAuthenticationTests.cs	result.Succeeded.Should().BeTrue();
+Server/Auth/HubHandshakeAuthenticationTests.cs	request.Should().NotContain(token, "nothing downstream of authentication needs it");
+Server/Auth/HubHandshakeAuthenticationTests.cs	request.Should().Be("?negotiateVersion=1", "and every other parameter survives");
+Server/Auth/HubPermissionFilterTests.cs	refusal.Should().BeOfType<HubException>()
+Server/Auth/HubPermissionFilterTests.cs	.Which.Message.Should().Contain(nameof(HubMethodPermissions));
+Server/Auth/HubPermissionFilterTests.cs	invoked.Should().BeFalse("an unclassified method is refused, not waved through");
+Server/Auth/HubPermissionFilterTests.cs	invoked.Should().BeTrue("the switch is what refuses, and it is off");
+Server/Auth/IdentityEndpointTests.cs	identity.RoleClaimValues.Should().Equal(BuiltInRoles.Reader);
+Server/Auth/IdentityEndpointTests.cs	identity.Roles.Should().ContainSingle(
+Server/Auth/IdentityEndpointTests.cs	.Which.Should().Be(BuiltInRoles.Reader);
+Server/Auth/IdentityEndpointTests.cs	response.StatusCode.Should().Be(HttpStatusCode.OK,
+Server/Auth/IdentityEndpointTests.cs	identity.Roles.Should().BeEmpty();
+Server/Auth/IdentityEndpointTests.cs	identity.GroupClaimValues.Should().Equal("a-group-nobody-mapped");
+Server/Auth/IdentityEndpointTests.cs	identity.GroupClaim.Should().Be("groups", "the claim that was looked in is named too");
+Server/Auth/IdentityEndpointTests.cs	identity.Subject.Should().NotBeNullOrEmpty();
+Server/Auth/IdentityEndpointTests.cs	identity.Issuer.Should().Be(fixture.Issuer.Authority);
+Server/Auth/IdentityEndpointTests.cs	identity.Permissions.Should().Equal(Permissions.IdentityRead);
+Server/Auth/IdentityEndpointTests.cs	identity.Roles.Should().Equal(BuiltInRoles.Operator);
+Server/Auth/IdentityEndpointTests.cs	identity.Permissions.Should().Contain([Permissions.RunsControl, Permissions.ProjectsInit]);
+Server/Auth/IdentityEndpointTests.cs	identity.Permissions.Should().NotContain(Permissions.ConfigWrite);
+Server/Auth/IdentityEndpointTests.cs	response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+Server/Auth/IdentityEndpointTests.cs	body!.MissingPermissions.Should().Equal(Permissions.SecretsRead);
+Server/Auth/IdentityEndpointTests.cs	response.StatusCode.Should().Be(HttpStatusCode.OK);
+Server/Auth/NoAuthBlockTests.cs	response!.Findings.Should().NotContain(f => f.Subsystem == StartupSubsystems.Auth);
+Server/Auth/ReachableAuthorityChallengeTests.cs	response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+Server/Auth/ReachableAuthorityChallengeTests.cs	response.Headers.WwwAuthenticate.Should().ContainSingle().Which
+Server/Auth/ReachableAuthorityChallengeTests.cs	.Parameter.Should().Contain("invalid_token",
+Server/Auth/RoleResolutionTests.cs	identity.Roles.Should().Equal(BuiltInRoles.Operator);
+Server/Auth/RoleResolutionTests.cs	identity.Permissions.Should().Contain(Permissions.RunsControl);
+Server/Auth/RoleResolutionTests.cs	identity.Permissions.Should().NotContain(Permissions.ConfigWrite);
+Server/Auth/RoleResolutionTests.cs	identity.Roles.Should().ContainSingle("the claim name is configuration, so a claim "
+Server/Auth/RoleResolutionTests.cs	+ "nobody configured grants nothing").Which.Should().Be(BuiltInRoles.Reader);
+Server/Auth/RoleResolutionTests.cs	identity.Permissions.Should().Contain(Permissions.SecretsWrite,
+Server/Auth/RoleResolutionTests.cs	identity.Roles.Should().BeEmpty("an opaque identifier is compared ordinally");
+Server/Auth/RoleResolutionTests.cs	identity.GroupClaimValues.Should().ContainSingle("and it is still shown, unmapped");
+Server/Auth/RoleResolutionTests.cs	identity.Roles.Should().Equal(BuiltInRoles.Operator);
+Server/Auth/RoleResolutionTests.cs	identity.Roles.Should().BeEquivalentTo([BuiltInRoles.Reader, BuiltInRoles.Operator]);
+Server/Auth/RoleResolutionTests.cs	identity.Permissions.Should().Contain([Permissions.RunsRead, Permissions.RunsControl]);
+Server/Auth/RoleResolutionTests.cs	identity.Roles.Should().Equal(BuiltInRoles.Reader);
+Server/Auth/RoleResolutionTests.cs	identity.GroupClaimValues.Should().HaveCount(2, "both are reported, one is mapped");
+Server/Auth/TokenAuthorityEnforcementTests.cs	.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+Server/Auth/TokenAuthorityEnforcementTests.cs	.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+Server/Auth/TokenAuthorityEnforcementTests.cs	.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+Server/Auth/TokenAuthorityEnforcementTests.cs	.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+Server/Auth/TokenAuthorityEnforcementTests.cs	(await GetAsync(TokenWith("config.read"))).StatusCode.Should().Be(HttpStatusCode.OK);
+Server/Auth/TokenAuthorityEnforcementTests.cs	response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+Server/Auth/TokenAuthorityEnforcementTests.cs	(await Missing(response)).Should().Equal("config.read");
+Server/Auth/TokenAuthorityEnforcementTests.cs	response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+Server/Auth/TokenAuthorityEnforcementTests.cs	(await Missing(response)).Should().Equal("secrets.read");
+Server/Auth/TokenAuthorityEnforcementTests.cs	refused.Should().BeEmpty("p0503a declared these anonymous and the fallback policy "
+Server/Auth/TokenAuthorityEnforcementTests.cs	.Should().BeTrue("the control for the anonymous-route case: the same boot, "
+Server/Auth/TokenAuthorityEnforcementTests.cs	response.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized,
+Server/Auth/TokenAuthorityEnforcementTests.cs	response.Headers.Should().ContainKey("Access-Control-Allow-Origin");
+Server/Auth/UnreachableAuthorityChallengeTests.cs	response.StatusCode.Should().Be(HttpStatusCode.OK);
+Server/Auth/UnreachableAuthorityChallengeTests.cs	response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+Server/Auth/UnreachableAuthorityChallengeTests.cs	var challenge = response.Headers.WwwAuthenticate.Should().ContainSingle().Subject;
+Server/Auth/UnreachableAuthorityChallengeTests.cs	challenge.Scheme.Should().Be("Bearer", "a caller still has to recognise the scheme");
+Server/Auth/UnreachableAuthorityChallengeTests.cs	challenge.Parameter.Should().NotContain("invalid_token",
+Server/Auth/UnreachableAuthorityChallengeTests.cs	challenge.Parameter.Should().Contain("temporarily_unavailable")
+Server/Auth/UnusableAuthBlockTests.cs	finding.Should().NotBeNull("a misspelled key must not be silence");
+Server/Auth/UnusableAuthBlockTests.cs	finding!.Severity.Should().Be("advisory",
+Server/Auth/UnusableAuthBlockTests.cs	finding!.Project.Should().BeNull();
+Server/Auth/UnusableAuthBlockTests.cs	finding.Trigger.Should().BeNull();
+Server/Auth/UnusableAuthBlockTests.cs	findings.All.Should().Contain(f => f.Subsystem == StartupSubsystems.Auth,
+Server/Auth/UnusableAuthBlockTests.cs	findings.IsTriggerBlocked("any-project", "github_trigger").Should().BeFalse();
+Server/StartupResilienceTests.cs	findings.Degraded.Should().BeTrue();
+Server/StartupResilienceTests.cs	findings.Findings.Should().Contain(f =>
+Server/StartupResilienceTests.cs	findings.Findings.Should().Contain(f =>
+Server/StartupResilienceTests.cs	findings.Degraded.Should().BeTrue();
+Server/StartupResilienceTests.cs	findings.Findings.Should().Contain(f =>
+Server/StartupResilienceTests.cs	blocking.Should().ContainSingle(f =>
+Server/StartupResilienceTests.cs	findings.Findings.Should().NotContain(f => f.Project == "beta");
+Server/StartupResilienceTests.cs	finding.Subsystem.Should().Be("configuration");
+Server/StartupResilienceTests.cs	finding.Trigger.Should().Be("github_trigger");
+Server/StartupResilienceTests.cs	finding.Field.Should().Be("needs_clarification_status");
+Server/StartupResilienceTests.cs	finding.Severity.Should().Be("blocking");
+Server/StartupResilienceTests.cs	finding.Reason.Should().Contain("needs_clarification_status");
+Server/StartupResilienceTests.cs	findings.Findings.Should().Contain(f =>
+Server/StartupResilienceTests.cs	findings.Findings.Should().Contain(f =>
+Server/StartupResilienceTests.cs	findings.Findings.Should().Contain(f =>
+Server/StartupResilienceTests.cs	findings.Findings.Should().NotContain(f => f.Project == "healthy");
+Server/StartupResilienceTests.cs	findings.Findings.Should().NotContain(f => f.Field == "configuration");
+Server/StartupResilienceTests.cs	health.StatusCode.Should().Be(HttpStatusCode.OK, "a degraded server must still answer");
+Server/StartupResilienceTests.cs	parsed.Should().NotBeNull($"/api/config/findings must return a findings document — got: {raw}");
+Server/StartupResilienceTests.cs	parsed!.Findings.Should().NotBeNull($"the document must carry a findings array — got: {raw}");
