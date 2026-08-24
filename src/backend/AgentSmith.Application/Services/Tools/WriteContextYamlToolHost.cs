@@ -28,8 +28,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
     // RemoteContextInventory), + the default repo's name, so context_name is constrained
     // to what discovery actually resolved. Null / empty for a repo => genuine bootstrap,
     // any name allowed.
-    private readonly IReadOnlyDictionary<string, IReadOnlyList<string>>? _discoveredContexts;
-    private readonly string? _defaultRepoName;
+    private readonly ContextNameGuard _nameGuard;
 
     public WriteContextYamlToolHost(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
@@ -41,8 +40,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _sandboxes = sandboxes;
         _defaultRepo = defaultRepo;
         _serializer = serializer;
-        _discoveredContexts = discoveredContexts;
-        _defaultRepoName = defaultRepoName;
+        _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
@@ -62,10 +60,13 @@ public sealed class WriteContextYamlToolHost : IToolHost
         string repo,
         [Description("Context name, e.g. 'default' or 'api'. Becomes the directory under .agentsmith/contexts/.")]
         string context_name,
-        [Description("Document object: { meta: { workdir, project?, version?, type?, purpose? }, " +
+        [Description("Document object: { meta: { workdir, project?, version?, type?, purpose?, domain? }, " +
                      "stack?: { lang?, image?, resources?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
                      "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
+                     "meta.domain is OPTIONAL: one word naming a profile that supplies this context's " +
+                     "toolchain image and verification commands; a context declaring one may omit " +
+                     "stack.image. " +
                      "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker " +
                      "image whose runtime can BOTH build " +
                      "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
@@ -94,7 +95,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         // 'default') when real contexts exist is rejected, or redirected when there is
         // exactly one real context. A genuine bootstrap (no discovered contexts) is
         // unaffected.
-        if (!TryGuardContextName(repo, ref context_name, out var guardError))
+        if (!_nameGuard.TryResolve(repo, ref context_name, out var guardError))
             return guardError!;
 
         ContextYamlDocument typed;
@@ -118,12 +119,17 @@ public sealed class WriteContextYamlToolHost : IToolHost
         // not left to the weaker language→image fallback table. Fail loud so the
         // agent re-emits with an exact image rather than silently shipping a
         // context.yaml the resolver has to guess an image for.
-        if (typed.Stack is not null && string.IsNullOrWhiteSpace(typed.Stack.Image))
+        // p0504: a declared meta.domain SUPPLIES an image from its catalog profile, so a
+        // context of a known domain may describe its stack without naming one. Without a
+        // domain the rule is unchanged.
+        if (typed.Stack is not null && string.IsNullOrWhiteSpace(typed.Stack.Image)
+            && string.IsNullOrWhiteSpace(typed.Meta?.Domain))
             return "Error: stack.image is required — name the exact toolchain Docker image whose "
                  + "runtime can BOTH build AND run this stack's tests (e.g. "
                  + "mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm). Pick a git-bearing tag "
                  + "(full -bookworm/-bullseye, an mcr .../sdk tag, or buildpack-deps:...-scm — "
-                 + "never -slim/-alpine).";
+                 + "never -slim/-alpine). A context that declares meta.domain is exempt: its "
+                 + "profile brings an image.";
 
         if (!TryResolveSandbox(repo, out var sandbox, out var err))
             return err!;
@@ -135,37 +141,6 @@ public sealed class WriteContextYamlToolHost : IToolHost
         return result.ExitCode != 0
             ? $"Error: write failed — {result.ErrorMessage ?? "unknown"}"
             : $"context.yaml written: {(string.IsNullOrEmpty(repo) ? string.Empty : repo + "/")}{path}";
-    }
-
-    // p0341c: validate context_name against the target repo's discovered context keys.
-    // Returns false (with an error) when the name is invented and cannot be safely
-    // redirected; may REWRITE context_name to the single discovered context.
-    private bool TryGuardContextName(string repo, ref string contextName, out string? error)
-    {
-        error = null;
-        if (_discoveredContexts is null || _discoveredContexts.Count == 0) return true; // bootstrap
-
-        var repoName = string.IsNullOrEmpty(repo) ? (_defaultRepoName ?? string.Empty) : repo;
-        if (!_discoveredContexts.TryGetValue(repoName, out var keys) || keys is null || keys.Count == 0)
-            return true; // no discovery for this repo => genuine bootstrap, any name allowed
-
-        var requested = contextName; // ref params cannot be captured in a lambda
-        if (keys.Any(k => string.Equals(k, requested, StringComparison.OrdinalIgnoreCase)))
-            return true; // the model named a real discovered context
-
-        if (keys.Count == 1)
-        {
-            // Exactly one real context — redirect the invented name to it rather than
-            // authoring a stray sibling.
-            contextName = keys[0];
-            return true;
-        }
-
-        error = $"Error: context_name '{contextName}' is not a discovered context for repo "
-            + $"'{(string.IsNullOrEmpty(repoName) ? "(default)" : repoName)}'. Use one of the "
-            + $"resolved contexts: [{string.Join(", ", keys)}]. Do not invent a new context name "
-            + "(e.g. the example 'default') when real contexts exist.";
-        return false;
     }
 
     private bool TryResolveSandbox(string repo, out ISandbox? sandbox, out string? error)

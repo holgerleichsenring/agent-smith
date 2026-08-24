@@ -57,6 +57,12 @@ public sealed class NoStaticStateRuleTests
         typeof(ConfigDocumentTaxonomy),
         typeof(ConfigSettingsAccess),
         typeof(AgentSmith.Infrastructure.Persistence.Extensions.PersistenceOptionsExtensions),
+        // p0504: the language→image convention table and the git-bearing tag patterns —
+        // fixed lookup data, so which image a language resolves to is one fact in one place.
+        typeof(AgentSmith.Application.Services.Sandbox.ToolchainImageCatalog),
+        // p0504: the command names that cannot run without a pod — a fixed list of
+        // literals, extracted so the lifecycle that provisions one does not also hold it.
+        typeof(AgentSmith.Application.Services.Sandbox.SandboxRequiringCommands),
     ];
 
     private static readonly string[] TargetAssemblies =

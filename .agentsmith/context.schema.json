@@ -76,6 +76,12 @@
         "repo": {
           "type": "string",
           "description": "Repository URL (optional)"
+        },
+        "domain": {
+          "type": "string",
+          "description": "p0504: one word naming a profile in the skills catalog (profiles/<name>/profile.yaml). The profile supplies the toolchain image this context's sandbox runs in when stack.image is absent, and the ordered verification commands the repository is gated by. An unknown domain refuses the run before any sandbox is created.",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "examples": ["data-warehouse", "mobile"]
         }
       }
     },
