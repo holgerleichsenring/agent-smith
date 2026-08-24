@@ -49,7 +49,10 @@ public static class ServerCompositionBuilder
             .AddTeamsAdapter()
             .AddIntentHandlers()
             .AddWebhookHandlers()
-            .AddLongRunningServices();
+            .AddLongRunningServices()
+            // p0503d: role resolution is registered whether or not an authority is
+            // configured — the route table is enumerated without one.
+            .AddCallerIdentity();
 
         // p0349: the SERVER reads its config from the DB entity-document store (the
         // studio's source of truth), not the file. Override the core's file loader
