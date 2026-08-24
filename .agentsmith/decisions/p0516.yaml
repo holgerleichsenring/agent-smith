@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0516
+
+decisions:
+  - category: Architecture
+    chose: "Cover the ways content ARRIVES, not the ways a name is spelled"
+    over: "Adding the missing pattern and calling it fixed"
+    reason: |
+      The list was indeed incomplete - it held one of the two product names and not
+      the other, so even a plain Write of the second would have passed. But three of
+      the four findings arrived by paths no pattern could have caught: a file written
+      through Bash, a file vendored in and staged, and a compiled cache no tool wrote.
+      Fixing the list alone would have restored the illusion of coverage.
+  - category: Implementation
+    chose: "Judge a Bash call by whether it WRITES, and only inside this repository"
+    over: "Scanning every Bash command that mentions a fingerprint"
+    reason: |
+      Two false positives would have made the guard unusable and would have been
+      discovered by removing it. `grep -ri <name>` is how this leak was found in the
+      first place, so a guard that blocks reading makes the repository un-auditable.
+      And the operator works in the customer's own repositories, where these names are
+      the correct content - scoping by the call's cwd keeps that work untouched
+      [[feedback_safety_in_api_not_process]].
+  - category: Implementation
+    chose: "The fingerprint list defaults to ~/.config/agent-smith/, outside every repository"
+    over: "The gitignored in-repo hooks/customer-fingerprints.txt the script offered"
+    reason: |
+      A gitignored file is one `git add -f` away from being the leak it prevents, and
+      that is not hypothetical: a compiled __pycache__ of this very script was committed
+      to the public repo carrying the fingerprints as constants. The list must not live
+      where the repository can reach it, not even ignored.
+  - category: Implementation
+    chose: "hooks/pre-commit chains to git-secrets, and the two displaced hooks are recreated"
+    over: "Pointing core.hooksPath at hooks/ and accepting the loss"
+    reason: |
+      core.hooksPath replaces .git/hooks wholesale, so installing this gate would have
+      silently retired the git-secrets pre-commit, commit-msg and prepare-commit-msg
+      hooks. Today they are inert (no patterns configured), which is exactly why the
+      loss would never have been noticed.
+  - category: Scope
+    chose: "A CI job scanning the pushed range, warning loudly when no secret is set"
+    over: "Trusting that every machine has core.hooksPath configured"
+    reason: |
+      The hook is per-clone local configuration and nothing propagates it. CI is the
+      only layer that sees a push from a machine where nobody ran the git config line.
+      It fails open by design - a fork without the secret must not fail - but says so
+      as a warning rather than passing silently.
