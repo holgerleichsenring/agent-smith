@@ -28,10 +28,10 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
     public ContextYamlParseResult Parse(string yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml)) return ContextYamlParseResult.Empty();
-        ReadShape? doc;
+        ContextYamlReadShape? doc;
         try
         {
-            doc = _yamlDeserializer.Deserialize<ReadShape>(yaml);
+            doc = _yamlDeserializer.Deserialize<ContextYamlReadShape>(yaml);
         }
         catch (YamlException ex)
         {
@@ -56,7 +56,10 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 doc.Stack?.Image?.Trim(),
                 MapResources(doc.Stack?.Resources),
                 // p0331: meta.purpose feeds the ScopeRepos ticket→repo classifier.
-                doc.Meta.Purpose?.Trim()));
+                doc.Meta.Purpose?.Trim(),
+                // p0504: meta.domain names the catalog profile that brings this
+                // context's toolchain image and its verification commands.
+                doc.Meta.Domain?.Trim()));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the
@@ -64,7 +67,8 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
     // all-or-none) and either maps the block to ResourceLimits or rejects it whole.
     // Returning null when the block is entirely empty keeps "no resources" distinct
     // from "a present block" so the resolver only warns on a present-but-invalid one.
-    private static ContextYamlStackResources? MapResources(ResourcesBlock? block)
+    private static ContextYamlStackResources? MapResources(
+        ContextYamlReadShape.ResourcesBlock? block)
     {
         if (block is null) return null;
         var mapped = new ContextYamlStackResources(
@@ -100,40 +104,5 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
     {
         var lines = yaml.Split('\n');
         return line >= 1 && line <= lines.Length ? lines[line - 1].TrimEnd('\r') : null;
-    }
-
-    private sealed class ReadShape
-    {
-        public MetaBlock? Meta { get; set; }
-        public StackBlock? Stack { get; set; }
-        public string? Prerequisites { get; set; }
-    }
-
-    private sealed class MetaBlock
-    {
-        public string? Workdir { get; set; }
-        // p0331: what this context is for — surfaced for the scope classifier.
-        public string? Purpose { get; set; }
-    }
-
-    private sealed class StackBlock
-    {
-        public string? Lang { get; set; }
-        // p0265: the analyzer/context-generator LLM names the exact toolchain Docker
-        // image here (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm). It wins
-        // over the language→image convention table — so any framework/version works
-        // without a table row, and a net8 repo gets the 8.0 runtime that runs its tests.
-        public string? Image { get; set; }
-        // p0268: LLM-authored k8s CPU/memory for this stack's sandbox. Read via the
-        // shared UnderscoredNamingConvention (cpu_request, memory_limit, …).
-        public ResourcesBlock? Resources { get; set; }
-    }
-
-    private sealed class ResourcesBlock
-    {
-        public string? CpuRequest { get; set; }
-        public string? CpuLimit { get; set; }
-        public string? MemoryRequest { get; set; }
-        public string? MemoryLimit { get; set; }
     }
 }
