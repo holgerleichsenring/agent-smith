@@ -181,6 +181,13 @@ public static class PipelineHandlersExtensions
         services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
         services.AddTransient<VerifyCommandRunner>(); // p0419
+        // p0504: the image ordering, the domain declaration, which commands verify a
+        // repo, and which of those a domain profile brings — each its own type.
+        services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
+        services.AddSingleton<AgentSmith.Application.Services.Sandbox.ContextDomainResolver>();
+        services.AddTransient<DotnetEntryPointDiscovery>();
+        services.AddTransient<VerifyStageResolver>();
+        services.AddTransient<DomainProfileStagesResolver>();
         // p0420: delivery is accounted for against the branch, not inferred from the run.
         services.AddTransient<DeliveryDiff>();
         services.AddTransient<Specs.SpecAccountCall>();
