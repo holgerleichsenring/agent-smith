@@ -33,7 +33,7 @@ public sealed class SkillsCatalogResolver(
                     $"No SkillsSourceHandler registered for source '{config.Source}'");
 
             var resolution = await handler.ResolveAsync(config, cancellationToken);
-            catalogPath.Set(resolution.Root);
+            catalogPath.Set(resolution);
             logger.LogDebug(
                 "Skill catalog ready at {Root} (source: {Source}, version: {Version}, fromCache: {FromCache})",
                 resolution.Root, config.Source, resolution.Version, resolution.FromCache);

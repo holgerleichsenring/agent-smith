@@ -94,5 +94,6 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
         AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
         AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
         new NoOpSandboxLivenessSupervisor(),
+            AgentSmith.Tests.TestHelpers.TestDomainProfiles.Resolver(),
         NullLogger<PipelineSandboxCoordinator>.Instance);
 }
