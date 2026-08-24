@@ -79,6 +79,12 @@ add_literal "gitlab-webhook-token"  "${GITLAB_WEBHOOK_TOKEN:-}"
 add_literal "azdo-webhook-secret"   "${AZDO_WEBHOOK_SECRET:-}"
 add_literal "jira-webhook-secret"   "${JIRA_WEBHOOK_SECRET:-}"
 
+# p0503b: the token authority. Empty authority = nothing authenticates, which is
+# what the deployment does without these keys.
+add_literal "auth-authority" "${AGENTSMITH_AUTH_AUTHORITY:-}"
+add_literal "auth-audience"  "${AGENTSMITH_AUTH_AUDIENCE:-}"
+add_literal "auth-enforce"   "${AGENTSMITH_AUTH_ENFORCE:-}"
+
 # Redis URL for K8s Jobs: the in-cluster Redis service name.
 # Override via REDIS_URL in .env if your Redis runs elsewhere.
 add_literal "redis-url" "${REDIS_URL:-redis:6379}"

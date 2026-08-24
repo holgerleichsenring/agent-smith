@@ -63,7 +63,8 @@ public sealed class UnconfiguredBootTests : IDisposable
         var materializer = new RawConfigMaterializer(
             new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(),
             new ConfigCatalogResolver(), new AgentSmithPaths());
-        var bootstrap = new BootstrapConfigReader(new FixedLocation(bootstrapPath), new RawConfigYaml());
+        var bootstrap = new BootstrapConfigReader(
+            new FixedLocation(bootstrapPath), new RawConfigYaml(), new AuthEnvironmentOverlay());
         return new DbConfigurationLoader(_h.DocStore, _h.Assembler, materializer, bootstrap);
     }
 

@@ -8,11 +8,8 @@ using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Models;
-using AgentSmith.Server.Services.Startup;
+using AgentSmith.Tests.Server.Auth;
 using FluentAssertions;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,12 +25,7 @@ namespace AgentSmith.Tests.Server;
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class StartupResilienceTests : IDisposable
 {
-    private const string UnreachableEndpoint = "127.0.0.1:1";
-    private const string HealthyRedisPlaceholder = "127.0.0.1:1";
-
     private readonly List<string> _tempFiles = [];
-    private readonly string? _configPathBefore = Environment.GetEnvironmentVariable("CONFIG_PATH");
-    private readonly string? _redisUrlBefore = Environment.GetEnvironmentVariable("REDIS_URL");
 
     [Fact]
     public async Task Startup_DatabaseUnreachable_ServerStartsAndReportsIt()
@@ -177,55 +169,24 @@ public sealed class StartupResilienceTests : IDisposable
 
     // Every case above boots the whole server: /health answering is the claim under test,
     // and the findings body is how the server says what it is missing.
-    private async Task<StartupFindingsResponse> BootAndReadFindingsAsync(
-        string configPath, string redisUrl = HealthyRedisPlaceholder)
+    private static async Task<StartupFindingsResponse> BootAndReadFindingsAsync(
+        string configPath, string redisUrl = BootedServer.NoRedis)
     {
-        Environment.SetEnvironmentVariable("CONFIG_PATH", configPath);
-        Environment.SetEnvironmentVariable("REDIS_URL", redisUrl);
+        await using var server = await BootedServer.StartAsync(configPath, redisUrl);
 
-        var app = await ServerHostFactory.CreateAsync([]);
-        var started = false;
-        try
-        {
-            app.Urls.Add("http://127.0.0.1:0");
-            await app.StartAsync();
-            started = true;
-            using var client = NewClient(app);
+        var health = await server.Client.GetAsync("/health");
+        health.StatusCode.Should().Be(HttpStatusCode.OK, "a degraded server must still answer");
 
-            var health = await client.GetAsync("/health");
-            health.StatusCode.Should().Be(HttpStatusCode.OK, "a degraded server must still answer");
-
-            // The `!` here used to assert non-null and lie: when the endpoint answered with
-            // something that did not deserialize, every caller got a null Findings list and
-            // blew up later as an opaque "ArgumentNullException: source" with no clue what the
-            // server had actually said. This failure mode is currently CI-only (green on macOS
-            // in Debug and Release, filtered and full-suite), so the next red run has to carry
-            // its own diagnosis.
-            var raw = await client.GetStringAsync("/api/config/findings");
-            var parsed = JsonSerializer.Deserialize<StartupFindingsResponse>(
-                raw, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            parsed.Should().NotBeNull($"/api/config/findings must return a findings document — got: {raw}");
-            parsed!.Findings.Should().NotBeNull($"the document must carry a findings array — got: {raw}");
-            return parsed;
-        }
-        finally
-        {
-            // Only stop what actually started. Host.StopAsync reverses its hosted-service
-            // list, and that list is null when StartAsync never completed — so an unstarted
-            // host threw "ArgumentNullException: source" out of this finally block and
-            // REPLACED the real startup exception with a meaningless one. That is why these
-            // tests were undiagnosable in CI: the failure we were reading was the cleanup's,
-            // not the run's.
-            if (started) await app.StopAsync();
-            await app.DisposeAsync();
-        }
-    }
-
-    private static HttpClient NewClient(WebApplication app)
-    {
-        var baseUrl = app.Services.GetRequiredService<IServer>()
-            .Features.Get<IServerAddressesFeature>()!.Addresses.First();
-        return new HttpClient { BaseAddress = new Uri(baseUrl) };
+        // The `!` here used to assert non-null and lie: when the endpoint answered with
+        // something that did not deserialize, every caller got a null Findings list and
+        // blew up later as an opaque "ArgumentNullException: source" with no clue what the
+        // server had actually said.
+        var raw = await server.Client.GetStringAsync("/api/config/findings");
+        var parsed = JsonSerializer.Deserialize<StartupFindingsResponse>(
+            raw, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        parsed.Should().NotBeNull($"/api/config/findings must return a findings document — got: {raw}");
+        parsed!.Findings.Should().NotBeNull($"the document must carry a findings array — got: {raw}");
+        return parsed;
     }
 
     private static string Bootstrap(string provider, string connectionString) => $"""
@@ -383,8 +344,6 @@ public sealed class StartupResilienceTests : IDisposable
 
     public void Dispose()
     {
-        Environment.SetEnvironmentVariable("CONFIG_PATH", _configPathBefore);
-        Environment.SetEnvironmentVariable("REDIS_URL", _redisUrlBefore);
         foreach (var file in _tempFiles)
             if (File.Exists(file)) File.Delete(file);
     }

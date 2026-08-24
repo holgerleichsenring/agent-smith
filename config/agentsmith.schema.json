@@ -56,7 +56,17 @@
     },
     "sandbox": { "type": "object" },
     "orchestrator": { "type": "object" },
-    "primary_provider": { "type": "string" }
+    "primary_provider": { "type": "string" },
+    "auth": {
+      "type": "object",
+      "description": "p0503b: the single OIDC authority a bearer token is validated against, and the switch that lets the permission a route declares refuse a caller. Bootstrap-only \u2014 read from this file and from AGENTSMITH_AUTH_* before the config store exists, and never stored in it, so an export can never emit a block the installation does not have.",
+      "additionalProperties": false,
+      "properties": {
+        "authority": { "type": "string", "description": "The OIDC issuer. Absent means nothing authenticates." },
+        "audience": { "type": "string", "description": "The audience a token must carry. Absent means the audience is not checked." },
+        "enforce": { "type": "boolean", "default": false, "description": "Whether a missing permission refuses the call. With an authority configured and this off, a presented token is still validated and no route is refused." }
+      }
+    }
   },
   "$defs": {
     "agent": {

@@ -33,6 +33,16 @@ public sealed class RawAgentSmithConfig
     public DialogueGlobalConfig Dialogue { get; set; } = new(); // p0327
     public PersistenceConfig Persistence { get; set; } = new();
 
+    /// <summary>
+    /// p0503b: the authority a presented token is validated against. NULLABLE and without
+    /// an initializer on purpose: an absent <c>auth:</c> key leaves it null, while a key
+    /// whose contents the loader could not match yields an instance with no authority —
+    /// and telling those two apart is what makes "present but unusable" reportable.
+    /// It carries no taxonomy descriptor, so the config store never stores it and no
+    /// export can emit one.
+    /// </summary>
+    public TokenAuthorityConfig? Auth { get; set; }
+
     /// <summary>p0423: whether a run records its conversation, not only its numbers.</summary>
     public TraceConfig Trace { get; set; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; set; } = new();
