@@ -27,13 +27,18 @@ internal sealed class PhaseIdReader
     private const string Counter = @"p\d{4}[a-z]?";
     private const string Whole = @"p\d{4,}[a-z]?(?:-[a-z][a-z0-9]*)?";
 
+    // p0507: the second namespace. A date-minted id is the UTC date plus a four-hex
+    // random suffix, and the suffix's FIXED WIDTH is what says where the id ends — so
+    // it reads correctly by prefix, exactly like Counter, whether or not a slug follows.
+    private const string Minted = @"\d{4}-\d{2}-\d{2}-[0-9a-f]{4}";
+
     /// <summary>The reading in force.</summary>
     public static PhaseIdReader Current { get; } = new(
-        specId: $@"^\s*phase:\s*""?(?<id>{Whole}(?=""?\s*$)|{Counter})",
+        specId: $@"^\s*phase:\s*""?(?<id>{Whole}(?=""?\s*$)|{Minted}|{Counter})",
         // The colon is the anchor here, so one widened branch says what two would.
-        contextId: $@"^    (?<id>{Whole}):",
-        inlineRequires: $@"{Whole}(?=\s*(?:""|'|,|\]|$))|{Counter}",
-        blockRequires: $@"^\s*-\s*(?<id>{Whole}(?=""?\s*$)|{Counter})");
+        contextId: $@"^    (?<id>{Whole}|{Minted}):",
+        inlineRequires: $@"{Whole}(?=\s*(?:""|'|,|\]|$))|{Minted}|{Counter}",
+        blockRequires: $@"^\s*-\s*(?<id>{Whole}(?=""?\s*$)|{Minted}|{Counter})");
 
     /// <summary>
     /// The four-digit reading exactly as it stood before p0509, kept so the widening can
