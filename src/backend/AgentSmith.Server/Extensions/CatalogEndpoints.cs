@@ -1,3 +1,4 @@
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Catalog;
 
 namespace AgentSmith.Server.Extensions;
@@ -12,9 +13,10 @@ internal static class CatalogEndpoints
     internal static WebApplication MapCatalogEndpoints(this WebApplication app)
     {
         app.MapGet("/api/catalog",
-            (CatalogContentsReader reader, CancellationToken ct) => reader.GetContentsAsync(ct));
+            (CatalogContentsReader reader, CancellationToken ct) => reader.GetContentsAsync(ct))
+           .Needs(Permissions.CatalogRead);
 
-        app.MapGet("/api/catalog/skills/{name}", GetSkillBodyAsync);
+        app.MapGet("/api/catalog/skills/{name}", GetSkillBodyAsync).Needs(Permissions.CatalogRead);
         return app;
     }
 

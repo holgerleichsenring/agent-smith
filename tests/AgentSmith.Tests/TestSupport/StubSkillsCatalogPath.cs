@@ -12,6 +12,8 @@ namespace AgentSmith.Tests.TestSupport;
 internal sealed class StubSkillsCatalogPath(string root = "") : ISkillsCatalogPath
 {
     public string Root { get; } = root;
+
+    public string Origin => $"test {Root}";
 }
 
 /// <summary>

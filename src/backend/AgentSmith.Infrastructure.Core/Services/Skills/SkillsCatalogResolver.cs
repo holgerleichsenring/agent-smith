@@ -18,6 +18,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Skills;
 /// </summary>
 public sealed class SkillsCatalogResolver(
     IEnumerable<ISkillsSourceHandler> handlers,
+    ISkillsOverlayMaterializer overlayMaterializer,
     SkillsCatalogPath catalogPath,
     ILogger<SkillsCatalogResolver> logger) : ISkillsCatalogResolver
 {
@@ -32,11 +33,17 @@ public sealed class SkillsCatalogResolver(
                 ?? throw new InvalidOperationException(
                     $"No SkillsSourceHandler registered for source '{config.Source}'");
 
-            var resolution = await handler.ResolveAsync(config, cancellationToken);
-            catalogPath.Set(resolution.Root);
+            var resolved = await handler.ResolveAsync(config, cancellationToken);
+            // p0514: the overlay is orthogonal to how the base arrived, so it lands
+            // AFTER dispatch rather than as a fifth source mode. Unconfigured, this
+            // returns the handler's binding unchanged.
+            var resolution = overlayMaterializer.Apply(resolved, config);
+            catalogPath.Set(resolution);
             logger.LogDebug(
-                "Skill catalog ready at {Root} (source: {Source}, version: {Version}, fromCache: {FromCache})",
-                resolution.Root, config.Source, resolution.Version, resolution.FromCache);
+                "Skill catalog ready at {Root} (source: {Source}, version: {Version}, "
+                + "overlay: {Overlay}, fromCache: {FromCache})",
+                resolution.Root, config.Source, resolution.Version,
+                resolution.Overlay ?? "(none)", resolution.FromCache);
             return resolution;
         }
         finally

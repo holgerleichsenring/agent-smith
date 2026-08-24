@@ -147,6 +147,8 @@ public sealed class PrinciplesTemplateContentTests
     {
         public string Root { get; } =
             Path.GetDirectoryName(TestSkillsRoot.Resolve()!.TrimEnd(Path.DirectorySeparatorChar))!;
+
+        public string Origin => Root;
     }
 
     private static string? PrinciplesDirectory()

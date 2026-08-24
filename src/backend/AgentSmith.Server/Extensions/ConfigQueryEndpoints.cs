@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Config;
 
 namespace AgentSmith.Server.Extensions;
@@ -22,7 +23,8 @@ internal static class ConfigQueryEndpoints
         // facts (configPath / fileModifiedAt / lastReadAt) for the config-reads
         // story — "is what runs what you configured".
         app.MapGet("/api/config", (AgentSmithConfig config, IConfigResolver resolver, IConfigurationLoader loader) =>
-            Results.Ok(ConfigSnapshotMapper.ToSnapshot(config, resolver, loader.LastRead)));
+            Results.Ok(ConfigSnapshotMapper.ToSnapshot(config, resolver, loader.LastRead)))
+           .Needs(Permissions.ConfigRead);
         return app;
     }
 }

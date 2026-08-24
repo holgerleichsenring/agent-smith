@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0515b
+
+goal: "Two spellings of one config name cannot be stored: the document store itself refuses the second, on every provider — where today two of four silently overwrite the first."
+
+requires: "p0515 — the catalogs must already resolve a name case-insensitively; otherwise a refusal at the store contradicts a loader that still treats the two spellings as two entities."
+
+applies_to: "backend (config document store + its two migration sets)"
+
+scope:
+  in: "A normalised id on the config document store with a unique index per entity type, both writers setting it, the document lookup resolving by it, an import refused before it writes, and a migration that adds the column and index with a C# backfill that stops on a pre-existing pair."
+  out: |
+    The loader's collision finding, which p0515 ships and which stays: a hand-written
+    agentsmith.yml never passes an index, and FileConfigStore is read-only
+    (FileConfigStore.cs:76-88), so the file path keeps needing a named finding rather than a
+    refusal. Re-casing an existing name stays delete-then-create — there is no rename
+    operation, a PUT forces the id from the route — which loses that entity's version history.
+
+decisions:
+  - key: |
+      THE STORE ALREADY LOSES CONFIGURATION ON TWO OF FOUR PROVIDERS. config_entity declares
+      (EntityType, EntityId) unique with no collation (ConfigEntityConfiguration.cs:21-22) and
+      Find compares in SQL (ConfigDocumentRepository.cs:68). Under the default MySQL and SQL
+      Server collations that lookup returns the differently cased twin, UpsertRow takes the
+      UPDATE branch, and one entity's document is overwritten by another's under the stored
+      spelling — with no concurrency error, because the in-process version map is ordinal and
+      misses (DbConfigStore.cs:23,128). On SQLite and Postgres both rows simply land. Same
+      code, two behaviours; a normalised key gives one.
+  - key: |
+      UNIQUENESS IS A PROPERTY OF THE STORE, NOT OF A PROCESS THAT HAPPENS TO CHECK.
+      A validator on the studio's upsert leaves three holes: the import writes through
+      ConfigImportRepository (ConfigTransferEndpoints.cs:44-53, ConfigCommand.cs:99-105) and
+      validates only secrets; Revert writes the doc directly (DbConfigStore.cs:110-124); and
+      two server replicas each pass an in-process check and both write. A unique index is the
+      same rule in the one place every write already goes through — and it covers every
+      entity type, not just projects.
+  - key: |
+      THE WRITE REFUSES A SECOND SPELLING RATHER THAN MERGING INTO THE FIRST. Lookup by the
+      normalised key finds the stored row whatever its casing: an exactly equal id updates it
+      as before, a differently cased one is refused naming the spelling already stored. That
+      is what makes the rule visible to the operator instead of destructive.
+  - key: |
+      THE NEW LOOKUP TOUCHES THE UPSERT AND NOTHING ELSE. Delete keeps exact-match semantics:
+      its referencing-edge guard and outgoing-edge removal are exact string matches
+      (ConfigEdgeWriter.cs:27-37) and config_ref's foreign key targets the (EntityType,
+      EntityId) alternate key, so resolving a delete through the normalised key would find the
+      row, see no referencing edges, skip the RESTRICT guard and orphan its edges — where
+      today that call is a harmless no-op. The version history likewise keeps the literal
+      spelling: append-only, queried exactly, and the next version comes off the live row. Its
+      consequence is stated rather than discovered — reverting across a re-casing is refused
+      like any other second spelling, as a plain 400.
+  - key: |
+      THE IMPORT IS REFUSED BEFORE IT WRITES, OR THE OPERATOR GETS A 500. A pair inside one
+      import file would otherwise surface as a DbUpdateException, which the write guard does
+      not map (ConfigStudioWriteGuard.cs:36-47 maps only StaleConfigVersionException to 409
+      and ConfigurationException to 400). The import also builds its rows directly
+      (ConfigImportRepository.InsertEntities), so it must set the normalised column itself —
+      two writers, one shared function.
+  - key: |
+      THE BACKFILL AND THE PRE-EXISTING-PAIR REFUSAL ARE C#, NOT SQL, BECAUSE ONE MIGRATION
+      FILE SERVES THREE DIALECTS. Only SqlServer has its own migrations assembly
+      (PersistenceOptionsExtensions.cs:26-35); the shared set runs against SQLite, Postgres AND
+      MySQL, and it is SQLite-shaped (TEXT/INTEGER column types, an Sqlite:Autoincrement
+      annotation). Neither set contains a single migrationBuilder.Sql today, and the statement
+      this needs cannot be written once: unquoted Pascal-cased table names fold to lowercase on
+      Postgres, double quotes are string literals on MySQL, and raising a named error is RAISE
+      EXCEPTION / SIGNAL SQLSTATE / trigger-only by provider. The migration adds the column and
+      the index; the backfill and the refusal run in C# beside where migrations are applied
+      (DatabaseCommand.cs:84 and CliRunRecordingSchema.cs:28), computing the key with the same
+      invariant-lowercase function the writers use — never SQL LOWER(), which is itself
+      collation-dependent on MySQL and SQL Server and would store keys the application can
+      never find again.
+  - key: |
+      A PAIR THAT PREDATES THE INDEX STOPS THE UPGRADE, LOUDLY, NAMING BOTH. Backfilling can
+      only collide where a case-sensitive provider already stored both spellings. Refusing is
+      right for a case nobody can resolve automatically: keeping one is a guess about which the
+      operator meant, and the guess runs a project against the other's repos.
+  - key: |
+      THE SHARED MIGRATION SET'S PORTABILITY IS AN ASSUMPTION, AND THIS PHASE IS THE FIRST TO
+      LEAN ON IT. No test or CI evidence says the SQLite-shaped set applies cleanly on Postgres
+      or MySQL. The column-and-index-only migration keeps that exposure as small as it can be,
+      and the C# backfill means no raw SQL is added to find out the hard way.
+
+steps:
+  - id: a-stored-name-carries-a-normalised-key
+    action:
+      - "Add a normalised id — invariant lowercase from one shared function — set by BOTH writers, the document upsert and the import's direct insert, and unique per entity type; keep the (EntityType, EntityId) alternate key the config_ref foreign key points at, and leave the version history untouched."
+      - "Resolve a document by the normalised id: an exactly equal id updates it, a differently cased one is refused naming the spelling already stored. Delete keeps exact-match semantics, and the store's in-process version map is keyed the way the lookup now resolves."
+  - id: an-import-that-carries-both-spellings-is-refused
+    action: "Check an import for two spellings of one name before anything is written, so the answer is the store's own refusal rather than a unique-index violation the write guard does not map."
+  - id: the-index-arrives-without-raw-sql
+    action: "Ship a migration in both migration sets that adds the column and the index only; backfill the key in C# where migrations are applied, and stop there naming both ids when a pre-existing pair makes the index impossible."
+
+tests:
+  - "ConfigStore_AnIdDifferingOnlyInCase_IsRefusedNamingTheStoredSpelling"
+  - "ConfigStore_TheSameIdExactly_StillUpdatesAndVersions"
+  - "ConfigStore_ADeleteByADifferentlyCasedId_ChangesNothing"
+  - "ConfigStore_ARevertAcrossARecasing_IsRefusedNotSwallowed"
+  - "ConfigStore_AnImportCarryingBothSpellings_IsRefusedWithoutWriting"
+  - "ConfigStore_AnImportedEntity_CarriesTheNormalisedKey"
+  - "Migration_ADatabaseThatAlreadyHoldsConfigDocuments_BackfillsTheKey"
+  - "Migration_ADatabaseHoldingTwoSpellingsOfOneName_StopsNamingBoth"
+
+done:
+  - "storing a second config name that differs from a stored one only in case is refused, naming the stored spelling, and no document is overwritten"
+  - "an import carrying both spellings is refused before it writes, as a 400 rather than a 500"
+  - "an entity written through either writer carries the normalised key"
+  - "a delete by a differently cased id still changes nothing"
+  - "build green, full suite green, and the migration applies to a database that already holds config documents — backfilled, or stopped naming both ids when it cannot"

@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
-# p0355: pre-commit gate — block staged customer fingerprints from entering the
-# opensource repo. Enable with:  git config core.hooksPath hooks
+# p0516: two gates, chained. Enable with:  git config core.hooksPath hooks
+#
+# Chaining matters: pointing core.hooksPath here retires .git/hooks, so the
+# git-secrets hooks installed there would silently stop running. A gate that
+# removes another gate to install itself is a net loss.
+set -uo pipefail
+
+command -v git-secrets >/dev/null 2>&1 && { git secrets --pre_commit_hook -- "$@" || exit $?; }
+
+# The fingerprint list lives OUTSIDE any repository by default. An in-repo list
+# is one `git add -f` from being the leak it exists to prevent - which is how a
+# compiled cache of this very script once carried the list into a public repo.
+export AGENTSMITH_CUSTOMER_FINGERPRINTS_FILE="${AGENTSMITH_CUSTOMER_FINGERPRINTS_FILE:-$HOME/.config/agent-smith/customer-fingerprints.txt}"
 exec python3 "$(dirname "$0")/customer-name-gate.py"

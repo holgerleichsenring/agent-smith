@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Commands;
 /// <para>
 /// Live run 587c. The analyzer wrote <c>echo Build command placeholder</c> as the
 /// BackgroundWorker's declared build stage. Verification executed it, it exited 0, and the
-/// mechanical gate reported "sample…BackgroundWorker [build+test] green" over a repository
+/// mechanical gate reported "Sample.Worker [build+test] green" over a repository
 /// nothing had compiled. The delivery account was the only thing that noticed — "the
 /// BackgroundWorker build command was a placeholder and does not demonstrate a migrated
 /// solution build" — and it was right while the gate was wrong.
@@ -35,7 +35,7 @@ public sealed class VerificationCommandTests
 
     [Theory]
     [InlineData("dotnet build")]
-    [InlineData("dotnet test sample.Sample.Tests")]
+    [InlineData("dotnet test Sample.Tests")]
     [InlineData("npm run build")]
     [InlineData("make check")]
     [InlineData("./gradlew assemble")]

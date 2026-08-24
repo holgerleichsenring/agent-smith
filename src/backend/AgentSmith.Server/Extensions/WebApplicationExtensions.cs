@@ -16,7 +16,8 @@ internal static class WebApplicationExtensions
             timestamp = DateTimeOffset.UtcNow,
             preflight = PreflightHealthSection.From(
                 ctx.RequestServices.GetService<PreflightReportStore>()),
-        }));
+        })).Anonymous(
+            "a liveness probe cannot authenticate, and a degraded server must still report itself");
         return app;
     }
 }

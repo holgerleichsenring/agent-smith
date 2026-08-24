@@ -5,7 +5,7 @@ goal: "Default a bare C#/.NET sandbox to the .NET 9 SDK (builds every supported 
 applies_to: "server"
 
 decisions:
-  - key: "Bare 'csharp'/'c#'/'dotnet'/'.net' resolve to sdk:9.0, not sdk:8.0. The .NET 9 SDK builds net8.0 AND net9.0 (and earlier), so latest-SDK-as-default is strictly safer than pinning 8 — a real solution can mix TFMs (sample estate has net8 projects + a net9 structvalidator). Explicit dotnet8/.net 8 still pin sdk:8.0; dotnet9/.net 9 stay sdk:9.0."
+  - key: "Bare 'csharp'/'c#'/'dotnet'/'.net' resolve to sdk:9.0, not sdk:8.0. The .NET 9 SDK builds net8.0 AND net9.0 (and earlier), so latest-SDK-as-default is strictly safer than pinning 8 — a real solution can mix TFMs (the reference estate has net8 projects + a net9 validator component). Explicit dotnet8/.net 8 still pin sdk:8.0; dotnet9/.net 9 stay sdk:9.0."
 
 steps:
   - id: bump-default
