@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-2103
+
+decisions:
+  - category: Architecture
+    chose: "The image build copies the methodology root's schemas as a SET"
+    over: "Adding context.schema.json to the two Dockerfiles' named copy lists"
+    reason: |
+      Naming the file fixes today's break and leaves the mechanism that produced it intact:
+      a hand-written list in two Dockerfiles that duplicates the embed list in one csproj,
+      with nothing holding the copies together. c9c7 embedded context.schema.json and
+      neither Dockerfile heard about it, so the compiler asked for a file that was not in
+      the build context and every image died at publish with CS1566 — while the checkout
+      built green, the suite passed and the phase gate said yes, because on a checkout the
+      file is simply on disk. A glob over the root closes that path for good: the next
+      schema embedded there needs no Dockerfile edit at all. The build context grows by
+      one small JSON file — decision.schema.json, which nothing embeds yet — which is the
+      whole cost.
+  - category: Testing
+    chose: "The rule asserts the PAIR — every embed reachable by some COPY in every Dockerfile that publishes the project"
+    over: "Asserting the Dockerfiles contain the glob, or listing the schema files a Dockerfile must name"
+    reason: |
+      Asserting the glob asserts the fix, not the property, and would pass a Dockerfile that
+      globs the root while a future embed lands somewhere the glob does not reach — exactly
+      the case a broader COPY hides. Listing the files is the duplicated list again, a third
+      copy to forget. So both sides are DISCOVERED: the embedded paths are read out of the
+      csproj, and the Dockerfiles are found by whether they name that project — a new image,
+      a new embed or a moved schema is judged the moment it exists. The coverage check
+      follows Docker's own COPY semantics (a trailing slash takes the tree; a wildcard
+      matches inside one segment), so what the test accepts is what the build accepts, and
+      an enumeration test refuses a vacuous pass if either discovery comes back empty.
+  - category: Testing
+    chose: "A test-time rule, not an image build in the phase gate"
+    over: "Making the gate build the images it is gating"
+    reason: |
+      The gate already runs the dashboard build, the backend build, the full suite, CLI
+      dry-runs and the harness presets; adding two multi-stage image builds would add
+      minutes to every phase commit to catch a class a regex catches in milliseconds. The
+      images are still built on every push — CI proves the real thing — and this rule moves
+      the failure from a registry job back to the checkout, where it is cheap.
