@@ -21,7 +21,8 @@ public static class SpecAccountPrompt
 {
     public static string For(
         IReadOnlyList<string> criteria, string diff, IReadOnlyList<string> commandResults,
-        IReadOnlyList<string>? searchable = null, CitedFileIndex? deliveryFiles = null)
+        IReadOnlyList<string>? searchable = null, CitedFileIndex? deliveryFiles = null,
+        IReadOnlyList<string>? baseSearchable = null)
     {
         ArgumentNullException.ThrowIfNull(criteria);
         ArgumentNullException.ThrowIfNull(commandResults);
@@ -37,6 +38,7 @@ public static class SpecAccountPrompt
         var body = diff ?? string.Empty;
         var list = string.Join("\n", criteria.Select(c => "- " + c));
         var absence = AccountEvidenceRules.Absence(searchable);
+        var baseRule = AccountEvidenceRules.Base(baseSearchable);
         var ran = commandResults.Count == 0
             ? "(no verification command ran for this phase)"
             : string.Join("\n", commandResults.Select(r => "- " + r));
@@ -54,6 +56,8 @@ public static class SpecAccountPrompt
             really ran against this branch: cite the command, not a file.
 
             {{absence}}
+
+            {{baseRule}}
 
             "citations" is a LIST and every element is ONE whole thing: one path from the
             file list, or one command copied VERBATIM from between the quotes on its line,
