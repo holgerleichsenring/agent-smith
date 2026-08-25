@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0342
-goal: "A coding run can call the tools of EXTERNAL MCP servers (Jira, GitHub, a DB, a filesystem MCP, …) that are explicitly allow-listed for its project — the master gets those tools in its agentic surface alongside the built-in ones AND is told in its prompt which servers it has, so a run reaches capabilities agent-smith does not hand-build. Remote transports first; the allow-list is the trust gate. Pulled through end to end: config + client + tool host + master prompt + skills release + embedded pin, so a master can actually reach an MCP tool the day this ships."
+goal: "A run can call the tools of EXTERNAL MCP servers (Jira, GitHub, a DB, a filesystem MCP, …) that are allow-listed for its project and categorized for its pipeline — EVERY master surface gets those tools alongside the built-in ones AND is told in its prompt which servers it has, so a run reaches capabilities agent-smith does not hand-build. Remote transports first. Trust is two explicit operator-set axes (which project may see a server, which pipelines it belongs to) plus a per-server tool allow-list. Pulled through end to end: config + client + tool host + master prompt + studio + skills release + embedded pin, so a master can actually reach an MCP tool the day this ships."
 
 applies_to: "backend (AgenticMasterHandler.ComposeMasterTools, config loader, a new Infrastructure MCP client) + dashboard (config studio) + skills catalog (coding master placeholder)"
 
@@ -14,7 +14,8 @@ decisions:
   - key: "Take ModelContextProtocol.CORE at EXACTLY 1.1.0 — the version choice is forced, not preferred. M.E.AI is pinned exact to [10.3.0] (p0185, Anthropic.SDK 5.10.0). MCP.Core 1.1.0 depends on M.E.AI.Abstractions 10.3.0; 1.2.0 wants 10.4.1 and 1.3.0+ want 10.5.2-10.8.3, all of which break the pin. `.Core` is the client-only package — the full ModelContextProtocol package drags in the ASP.NET server host we do not build here. Bump this together with the M.E.AI pin when tghamm/Anthropic.SDK#197 lands, never alone."
   - key: "REMOTE transports (SSE / streamable HTTP) first; stdio deferred to a named p0342b. In the spawned-orchestrator model the master runs in an ephemeral pod, so an stdio MCP server would need its binary baked into the runtime image (friction + image bloat); a remote server is just a URL the pod calls out to. Remote covers the common enterprise case (hosted Jira/GitHub/DB MCP) first."
   - key: "Trust lives in the ALLOW-LIST, in the type system — not a warning. An MCP tool is an arbitrary capability (run_command-class danger). A run sees ONLY the servers explicitly referenced by its project/agent; an unlisted server ref is REJECTED at resolve time, never implicitly mounted. No global/implicit MCP surface."
-  - key: "Coding master ONLY (ReadWriteWithHuman surface). Scan / spec-dialog keep their read-only contract and get no MCP tools. Sub-agents do NOT inherit MCP by default — keep the blast radius on the top-level master; widening is a later decision, not a default."
+  - key: "EVERY master surface gets MCP — coding, scan, spec-dialog, and sub-agents through the shared base surface. A feature only some skills can reach is not a capability, it is a special case. The earlier draft gated on master TYPE (coding only), which was a proxy for 'where may an arbitrary external capability go' and a bad one: it barred a scan from a read-only MCP while barring nothing a coding run does with a write-capable one. The pipeline category below is the same gate expressed precisely, so the type rule is REPLACED, not merely overridden."
+  - key: "PIPELINE CATEGORY is the second trust axis: mcp_servers.*.pipelines is a multi-select over PipelinePresets.Names (code / security-scan / api-security-scan / pr-review / init-project / mad-discussion / legal-analysis / spec-dialog), and an EMPTY list means every pipeline — the common case stays the cheap one. Effective set per run = the project's allow-list INTERSECT the servers categorized for the running pipeline INTERSECT each server's tool allow-list. All three are operator-declared; none is inferred. Comparison runs through PipelinePresets.Canonical() and is case-insensitive, because the preset registry carries aliases for retired names — a raw string compare would silently match nothing and drop the server without a word."
   - key: "FAIL-OPEN on an unreachable/erroring MCP server — mirror the web surface. A down MCP server LOGS a loud warning and the run proceeds with the tools it did get; an external dependency being offline must not kill an otherwise-good run. (A run that genuinely REQUIRES a tool fails later at the work itself, honestly, not at tool-mount.)"
   - key: "MCP tool names are NAMESPACED (server/tool) so an external tool can never shadow a built-in (write_file, run_command, update_progress, …). Collision with a framework tool is a correctness hazard, not a nicety. McpClientTool.WithName() renames without wrapping."
   - key: "DISCOVERY IS TWO LAYERS AND BOTH ARE BUILT. The tool array alone lets the model CALL an MCP tool (each McpClientTool is an AIFunction with name/description/schema in every turn) but never tells it that a Jira MCP exists FOR THIS PROJECT — so a plan is made without it. The master therefore also gets a rendered capability block naming the mounted servers and their tools, exactly like p0356's `## Sandbox toolchain` statement. Its contract is the probe's: only servers that ACTUALLY mounted appear — fail-open means an unreachable server is ABSENT, never a fabricated inventory."
@@ -25,11 +26,12 @@ steps:
   - id: mcp-config
     action: "Add the mcp_servers transport vocabulary + per-project allow-list refs; bind + validate at load"
     new:
-      - "McpTransport enum (Contracts, EnumMember wire names auto|sse|streamable_http) + McpServerConfig { Name, Transport, Url, AuthSecret, Tools? } materialized like agent/tracker/repo refs"
+      - "McpTransport enum (Contracts, EnumMember wire names auto|sse|streamable_http) + McpServerConfig { Name, Transport, Url, AuthSecret, Pipelines, Tools } materialized like agent/tracker/repo refs; both lists empty = unrestricted"
     modify:
       - "RawProjectEntry + ProjectEntity + ResolvedProject: an `mcp:` list of catalog refs (the allow-list)"
+      - "RawMcpServerEntry + McpServerEntity: `pipelines:` and `tools:` lists (both optional, empty = unrestricted)"
       - "ConfigReferentialValidator.ValidateProject: an unknown mcp ref is rejected, matched under ConfigNames.Comparer like every other ref"
-      - "ConfigStudioCapabilities: publish McpTransports from the enum + ValidateMcpServer (unknown transport / empty url rejected on write)"
+      - "ConfigStudioCapabilities: publish McpTransports from the enum + ValidateMcpServer (unknown transport, empty url, or a pipelines entry outside PipelinePresets.Names rejected on write — same shape as ValidateProjectResolution)"
       - "ConfigCatalogMapper / RawConfigPatch: carry the allow-list + the typed transport through the studio round-trip"
       - "config/agentsmith.schema.json + agentsmith.example.yml: declare mcp_servers and the project ref"
   - id: mcp-client
@@ -39,11 +41,12 @@ steps:
     modify:
       - "AgentSmith.Infrastructure.csproj: add ModelContextProtocol.Core 1.1.0 with the pin rationale next to the M.E.AI comment"
   - id: mcp-tool-host
-    action: "Expose the resolved MCP tools in the master surface as an IToolHost, coding masters only"
+    action: "Expose the resolved MCP tools on every master surface as an IToolHost"
     new:
-      - "McpToolHost (IToolHost): wraps IMcpToolProvider's AIFunctions (namespaced server/tool names); GetTools returns them for the ReadWrite surface"
+      - "McpToolHost (IToolHost): wraps IMcpToolProvider's AIFunctions (namespaced server/tool names); GetTools returns them on every surface"
+      - "McpServerScope: the effective-set resolver (project allow-list INTERSECT pipeline category INTERSECT tool allow-list), canonical + case-insensitive on the pipeline name"
     modify:
-      - "AgenticMasterHandler.ComposeMasterTools: mount McpToolHost for the coding master only (not scan/spec-dialog, not sub-agents by default), resolving the project's allow-listed servers"
+      - "AgenticMasterHandler.ComposeMasterTools: mount McpToolHost into the BASE surface, so scan / spec-dialog carry it and sub-agents inherit it with the rest of their surface; the effective set comes from McpServerScope against ContextKeys.PipelineName"
   - id: mcp-prompt
     action: "Tell the master what it got — the rendered capability block, from the tools that actually mounted"
     new:
@@ -56,8 +59,10 @@ steps:
     modify:
       - "EntityForm: transport TextField -> Select fed from capabilities.mcpTransports (no client-side vocabulary)"
       - "entities.ts: drop the hardcoded `transport: \"http\"` default — a new server starts on the first served transport"
+      - "EntityForm mcp card: `pipelines` multi-select over capabilities.pipelines (empty = every pipeline, stated in the form) + `tools` list field"
       - "EntityForm project card: multi-RefSelect over the mcp-servers catalog for the project's allow-list"
-      - "configApi.ts: StudioMcpServer.tools?, StudioProject.mcp, ConfigCapabilities.mcpTransports"
+      - "configApi.ts: StudioMcpServer.pipelines + .tools, StudioProject.mcp, ConfigCapabilities.mcpTransports"
+      - "EntityCard: show the categorized pipelines (or 'all pipelines') so the scoping is visible without opening the form"
   - id: mcp-skill
     action: "Ship the master half — the placeholder and the prose that frames external tools"
     modify:
@@ -69,12 +74,19 @@ tests:
   - "McpConfig_ParsesServersAndPerProjectAllowList"
   - "McpConfig_UnknownServerRef_FailsValidation"
   - "McpConfig_UnknownTransport_FailsValidation"
+  - "McpConfig_UnknownPipelineCategory_FailsValidation"
   - "McpCapabilities_PublishesEveryTransportWireName"
+  - "dashboard: the pipeline category renders as a multi-select over the served pipelines"
   - "McpToolProvider_ListsAllowListedTools_AsAIFunctions"
   - "McpToolProvider_UnreachableServer_FailsOpenWithWarning"
   - "McpToolProvider_PerServerToolAllowList_FiltersTools"
   - "McpToolHost_ExternalToolName_NamespacedToAvoidBuiltinCollision"
-  - "ComposeMasterTools_ScanMaster_HasNoMcpTools"
+  - "McpServerScope_ServerCategorizedForOtherPipeline_IsNotMounted"
+  - "McpServerScope_EmptyPipelines_MountsOnEveryPipeline"
+  - "McpServerScope_AliasedPipelineName_ResolvesCanonically"
+  - "ComposeMasterTools_ScanMaster_MountsMcpToolsForItsPipeline"
+  - "ComposeMasterTools_SpecDialog_MountsMcpToolsForItsPipeline"
+  - "ComposeMasterTools_SubAgent_InheritsMcpToolsFromBaseSurface"
   - "ComposeMasterTools_CodingMaster_MountsProjectAllowListedMcpTools"
   - "McpCapabilitySection_ListsOnlyMountedServers"
   - "McpCapabilitySection_NothingMounted_RendersEmpty"
@@ -83,11 +95,12 @@ tests:
   - "dashboard: a project's mcp allow-list picks from the catalog, never free text"
 
 done:
-  - "A coding run mounts the tools of the MCP servers allow-listed for its project (SSE / streamable HTTP) and the master can call them in its loop"
+  - "A run mounts the tools of the MCP servers allow-listed for its project AND categorized for its pipeline (SSE / streamable HTTP), and the master can call them in its loop"
   - "The coding master's prompt names the servers that actually mounted; nothing mounted renders nothing"
   - "An unlisted server is never mounted; an unreachable one fails open (loud warning, run proceeds) — proven by tests"
-  - "Scan / spec-dialog surfaces get no MCP tools; sub-agents get none by default; external tool names are namespaced so they cannot shadow a built-in"
-  - "Config parses + validates; transport is a closed enum served by /api/config/capabilities and rendered as a select — no magic string survives in the dashboard"
+  - "EVERY master surface reaches MCP — coding, scan, spec-dialog and sub-agents; external tool names are namespaced so they cannot shadow a built-in"
+  - "A server categorized for other pipelines is absent from this run; an uncategorized server reaches all of them — both proven by tests"
+  - "Config parses + validates; transport is a closed enum and the pipeline category a closed list, both served by /api/config/capabilities and rendered as select / multi-select — no magic string survives in the dashboard"
   - "MCP server auth flows through the existing secrets mechanism (env-NAME only, never a value)"
   - "The skills catalog carries the placeholder, is released, and the embedded pin points at that release — the section is live, not pending an operator step"
   - "Full backend suite + dashboard tests green; stdio transport is named as p0342b, not silently dropped"
