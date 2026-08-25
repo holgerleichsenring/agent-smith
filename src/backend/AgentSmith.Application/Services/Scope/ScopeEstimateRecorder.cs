@@ -21,18 +21,36 @@ public sealed class ScopeEstimateRecorder(
     ILogger<ScopeEstimateRecorder> logger)
 {
     /// <summary>
+    /// p0413a: record what the scope call estimated — both halves, in the order the run
+    /// needs them (the ceiling before the first big spend, the shape before the cut).
+    /// </summary>
+    public async Task ApplyAsync(
+        PipelineContext pipeline, ScopeEstimate estimate, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(estimate);
+        await ApplyTierAsync(pipeline, estimate.Tier, cancellationToken);
+        await RecordShapeAsync(pipeline, estimate.Shape, cancellationToken);
+    }
+
+    /// <summary>
     /// p0341c: map the estimated tier to this run's effective PipelineCostCap and apply it
     /// in place. The scope-classifier call ALSO created the PipelineCostTracker (it tracks
     /// its own call), so the tier cap must be applied on the live tracker AND published for
-    /// any tracker created later. Unknown tier => leave the static default untouched
+    /// any tracker created later. Unknown tier => leave the resolved cap untouched
     /// (fail-safe); the decision is recorded as a run artifact, never silent.
+    /// <para>
+    /// p0413a: the tier RAISES the cap the run resolved from configuration, never replaces
+    /// it. ForTier knows only the static default, so replacing would silently discard a
+    /// per-pipeline override — and an estimate, which is a guess, would overrule the
+    /// operator's instruction downwards.
+    /// </para>
     /// </summary>
-    public async Task ApplyTierAsync(
+    private async Task ApplyTierAsync(
         PipelineContext pipeline, ComplexityTier tier, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(pipeline);
         if (tier == ComplexityTier.Unknown) return;
-        var cap = config.PipelineCostCap.ForTier(tier);
+        var cap = ResolvedCap(pipeline).RaisedTo(config.PipelineCostCap.ForTier(tier));
         pipeline.Set("PipelineCostCap", cap);
         PipelineCostTracker.GetOrCreate(pipeline).ApplyCostCap(cap);
         Record(pipeline,
@@ -52,10 +70,9 @@ public sealed class ScopeEstimateRecorder(
     /// got the process it got. No shape stated => nothing recorded, and every
     /// consumer behaves exactly as it did before.
     /// </summary>
-    public async Task RecordShapeAsync(
+    private async Task RecordShapeAsync(
         PipelineContext pipeline, WorkShapeVerdict? shape, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(pipeline);
         if (shape is null) return;
         pipeline.Set(ContextKeys.WorkShape, shape);
         Record(pipeline, $"Work shape: {shape}");
@@ -65,6 +82,13 @@ public sealed class ScopeEstimateRecorder(
                 runId, shape.Name, shape.Reason, DateTimeOffset.UtcNow),
             cancellationToken);
     }
+
+    // The cap this run already resolved (ExecutePipelineUseCase wrote the per-pipeline
+    // override or the static default there); the static default when the run has none.
+    private CostCapValues ResolvedCap(PipelineContext pipeline) =>
+        pipeline.TryGet<CostCapValues>("PipelineCostCap", out var cap) && cap is not null
+            ? cap
+            : config.PipelineCostCap.Default;
 
     private void Record(PipelineContext pipeline, string record)
     {
