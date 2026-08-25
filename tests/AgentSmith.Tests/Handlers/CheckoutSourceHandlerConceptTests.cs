@@ -20,7 +20,7 @@ public sealed class CheckoutSourceHandlerConceptTests
     private readonly Mock<IHostSourceCloner> _clonerMock = new();
 
     private CheckoutSourceHandler CheckoutHandler() => new(
-        new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance),
+        new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
         RunStateConceptsTestFactory.Default,
         new SandboxTargets(), NullLogger<CheckoutSourceHandler>.Instance);
 
@@ -40,7 +40,7 @@ public sealed class CheckoutSourceHandlerConceptTests
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } }, new BranchName("main"), pipeline);
+            new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } }, new RunBranch(new BranchName("main"), ComposedFromTicket: true), pipeline);
 
         var result = await CheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 
@@ -61,7 +61,7 @@ public sealed class CheckoutSourceHandlerConceptTests
         // No sandbox set => Fail path; URL non-empty so we hit the sandbox guard.
         var context = new CheckoutSourceContext(
             new[] { new RepoConnection { Type = RepoType.GitHub, Url = "https://example.com/x.git" } },
-            new BranchName("main"), pipeline);
+            new RunBranch(new BranchName("main"), ComposedFromTicket: true), pipeline);
 
         var result = await CheckoutHandler().ExecuteAsync(context, CancellationToken.None);
 

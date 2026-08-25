@@ -22,7 +22,7 @@ public sealed class CheckoutSourceHandlerTests
     public CheckoutSourceHandlerTests()
     {
         _handler = new CheckoutSourceHandler(
-            new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance),
+            new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
             RunStateConceptsTestFactory.Default,
             new SandboxTargets(),
             NullLoggerFactory.Instance.CreateLogger<CheckoutSourceHandler>());
@@ -43,7 +43,7 @@ public sealed class CheckoutSourceHandlerTests
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } }, branch, pipeline);
+            new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } }, new RunBranch(branch, ComposedFromTicket: true), pipeline);
 
         var result = await _handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -65,7 +65,7 @@ public sealed class CheckoutSourceHandlerTests
 
         var pipeline = new PipelineContext();
         var context = new CheckoutSourceContext(
-            new[] { new RepoConnection { Type = RepoType.GitHub } }, new BranchName("feature/test"), pipeline);
+            new[] { new RepoConnection { Type = RepoType.GitHub } }, new RunBranch(new BranchName("feature/test"), ComposedFromTicket: false), pipeline);
 
         var act = async () => await _handler.ExecuteAsync(context, CancellationToken.None);
 

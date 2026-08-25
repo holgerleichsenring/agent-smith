@@ -66,7 +66,7 @@ public class CommitAndPRHandlerTests
             new SecretPatternScanner(),
             _events,
             new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
-                new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+                new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
                 new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
