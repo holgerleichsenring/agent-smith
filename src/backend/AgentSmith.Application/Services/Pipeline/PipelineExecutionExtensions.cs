@@ -42,7 +42,7 @@ public static class PipelineExecutionExtensions
         services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();
         // p0201: per-pipeline-run liveness supervisor. Default no-op so InProcess
         // / unit-test compositions stay quiet; Server composition overrides with
-        // SandboxLivenessSupervisor in SandboxBackendRegistrations.
+        // SandboxLivenessSupervisor in DockerSandboxRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddPipelineExecutor();
         // p0327: durable dialogue — the hybrid ask gate, checkpoint writer,

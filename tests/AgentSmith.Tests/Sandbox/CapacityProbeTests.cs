@@ -14,10 +14,14 @@ namespace AgentSmith.Tests.Sandbox;
 /// p0269a: the capacity probes decide whether a run's sandbox footprint fits before
 /// it is claimed. k8s reads the namespace ResourceQuota (pure hard-vs-used math,
 /// tested directly); Docker counts labelled containers against a configured cap;
-/// the Unbounded default always admits.
+/// the Unbounded default always admits. p0465: the Docker count is scoped to this
+/// liveness store's own sandboxes.
 /// </summary>
 public sealed class CapacityProbeTests
 {
+    private static readonly SandboxOwnerIdentity Owner = new("store-0123456789abcdef");
+    private static readonly DockerSandboxQuery Query = new(Owner);
+
     private static ResourceLimits SandboxSize() =>
         new(cpuRequest: "500m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "2Gi");
 
@@ -178,7 +182,7 @@ public sealed class CapacityProbeTests
     {
         var docker = DockerWithRunningSandboxes(count: 2);
         var probe = new DockerCapacityProbe(
-            docker.Object, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
+            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
             NullLogger<DockerCapacityProbe>.Instance);
 
         (await probe.HasCapacityAsync(Footprint(), CancellationToken.None))
@@ -190,7 +194,7 @@ public sealed class CapacityProbeTests
     {
         var docker = DockerWithRunningSandboxes(count: 1);
         var probe = new DockerCapacityProbe(
-            docker.Object, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
+            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
             NullLogger<DockerCapacityProbe>.Instance);
 
         (await probe.HasCapacityAsync(Footprint(), CancellationToken.None))
@@ -204,7 +208,7 @@ public sealed class CapacityProbeTests
         // needing 3 does not (1+3>3).
         var docker = DockerWithRunningSandboxes(count: 1);
         var probe = new DockerCapacityProbe(
-            docker.Object, new DockerSandboxOptions { MaxConcurrentSandboxes = 3 },
+            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 3 },
             NullLogger<DockerCapacityProbe>.Instance);
 
         var twoRepoRun = new RunFootprint(null, [SandboxSize(), SandboxSize()]);
@@ -217,12 +221,35 @@ public sealed class CapacityProbeTests
     }
 
     [Fact]
+    public async Task DockerProbe_CountsOnlyItsOwnStoresSandboxes()
+    {
+        // p0465: the cap is a small number (default 2). Counting a foreign server's
+        // containers turns "two instances kill each other" into "two instances starve
+        // each other" — the same defect wearing the other mask.
+        var docker = new Mock<IDockerClient>();
+        ContainersListParameters? asked = null;
+        var ops = new Mock<IContainerOperations>();
+        ops.Setup(c => c.ListContainersAsync(It.IsAny<ContainersListParameters>(), It.IsAny<CancellationToken>()))
+            .Callback((ContainersListParameters p, CancellationToken _) => asked = p)
+            .ReturnsAsync((IList<ContainerListResponse>)[]);
+        docker.SetupGet(d => d.Containers).Returns(ops.Object);
+        var probe = new DockerCapacityProbe(
+            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
+            NullLogger<DockerCapacityProbe>.Instance);
+
+        await probe.HasCapacityAsync(Footprint(), CancellationToken.None);
+
+        asked!.Filters["label"].Keys.Should().Contain(
+            $"{DockerContainerSpecBuilder.OwnerLabel}={Owner.Value}");
+    }
+
+    [Fact]
     public async Task DockerCapacityProbe_CapZero_AlwaysAdmits()
     {
         // No Docker call should even be needed — cap 0 short-circuits to admit.
         var docker = new Mock<IDockerClient>(MockBehavior.Strict);
         var probe = new DockerCapacityProbe(
-            docker.Object, new DockerSandboxOptions { MaxConcurrentSandboxes = 0 },
+            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 0 },
             NullLogger<DockerCapacityProbe>.Instance);
 
         (await probe.HasCapacityAsync(Footprint(), CancellationToken.None))
@@ -258,7 +285,11 @@ public sealed class CapacityProbeTests
             .Select(i => new ContainerListResponse
             {
                 ID = $"c{i}",
-                Labels = new Dictionary<string, string> { [DockerContainerSpecBuilder.JobIdLabel] = $"job{i}" },
+                Labels = new Dictionary<string, string>
+                {
+                    [DockerContainerSpecBuilder.JobIdLabel] = $"job{i}",
+                    [DockerContainerSpecBuilder.OwnerLabel] = Owner.Value,
+                },
             })
             .ToList();
 

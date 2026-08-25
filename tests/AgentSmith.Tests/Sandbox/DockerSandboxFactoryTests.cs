@@ -19,7 +19,7 @@ public sealed class DockerSandboxFactoryTests
 
     private static DockerSandboxFactory BuildFactory(
         Mock<IDockerClient> docker, DockerSandboxOptions options) =>
-        new(docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(), options,
+        new(docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-test")), options,
             new DockerPackageCaches(docker.Object, options, NullLogger<DockerPackageCaches>.Instance),
             new DockerImagePresence(docker.Object, NullLogger<DockerImagePresence>.Instance),
             DefaultSandboxOptions(), NullLoggerFactory.Instance);
