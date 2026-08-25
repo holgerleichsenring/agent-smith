@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +23,7 @@ public sealed class RunTerminalReconciler(
 {
     public async Task ReconcileAsync(RunFinishedEvent terminal, CancellationToken cancellationToken)
     {
-        if (terminal.Status is "queued" or "waiting_for_input") return;
+        if (RunStatuses.IsWaiting(terminal.Status)) return;
         using var scope = scopeFactory.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == terminal.RunId, cancellationToken);

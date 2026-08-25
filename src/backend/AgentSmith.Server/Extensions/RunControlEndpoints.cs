@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Services.Lifecycle;
 
 namespace AgentSmith.Server.Extensions;
@@ -102,12 +103,14 @@ internal static class RunControlEndpoints
         ICapacityQueue capacityQueue,
         CancelledTicketFinalizer ticketFinalizer,
         TimeProvider timeProvider,
+        CancelTerminalWriter terminalWriter,
         CancellationToken cancellationToken)
     {
         // p0320c: a QUEUED run has no executor and holds no lease — cancelling it
         // is a pure bookkeeping move: delete the queue entry and finish the row
         // 'cancelled' via the terminal event (no registry roundtrip).
-        if (await TryCancelQueuedAsync(runId, runs, capacityQueue, events, ticketFinalizer, cancellationToken))
+        if (await QueuedRunCancel.TryAsync(runId, runs, capacityQueue, events, ticketFinalizer,
+                terminalWriter, cancellationToken))
             return Results.Accepted();
 
         // p0330: SYNCHRONOUS persistence — the flag + kill deadline land on the
@@ -152,30 +155,6 @@ internal static class RunControlEndpoints
         await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, runId,
             "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator.",
             cancellationToken);
-    }
-
-    // Internal for the p0320c unit test (real repository over in-memory SQLite).
-    internal static async Task<bool> TryCancelQueuedAsync(
-        string runId, RunRepository runs, ICapacityQueue capacityQueue,
-        IEventPublisher events, CancelledTicketFinalizer ticketFinalizer,
-        CancellationToken cancellationToken)
-    {
-        var run = await runs.GetRunDetailAsync(runId, cancellationToken);
-        if (run is not { Status: "queued", FinishedAt: null }) return false;
-
-        await capacityQueue.RemoveAsync(run.Project, run.TicketId, cancellationToken);
-        await events.PublishAsync(
-            new RunFinishedEvent(
-                runId, "cancelled", null, "cancelled while queued (operator)",
-                DateTimeOffset.UtcNow),
-            cancellationToken);
-        // p0330: the queue entry alone is not durable — the ticket still sits in
-        // trigger_statuses and the next poll would re-claim it as a fresh run.
-        // Terminalize it via the failed_status chain (fail-soft inside).
-        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, runId,
-            "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator while queued.",
-            cancellationToken);
-        return true;
     }
 
     private static Task PublishStaleClearAsync(

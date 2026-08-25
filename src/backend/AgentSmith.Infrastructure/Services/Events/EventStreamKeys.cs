@@ -21,5 +21,17 @@ public static class EventStreamKeys
     /// </summary>
     public static readonly TimeSpan StreamTtl = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// 2026-08-24-ca23: the drain's position in a run's stream, kept across a WAIT so a
+    /// relaunched run continues instead of re-reading its history. Deliberately outlives
+    /// <see cref="StreamTtl"/>: a position is meaningless without its stream, so "no stored
+    /// position" implying "no stream to skip" is what makes starting from the beginning the
+    /// correct fallback rather than a lucky one. A position that outlives its stream is
+    /// harmless — stream ids are time-ordered, so a stale one precedes every new entry.
+    /// </summary>
+    public static readonly TimeSpan CursorTtl = TimeSpan.FromHours(48);
+
     public static string RunStream(string runId) => $"run:{runId}:events";
+
+    public static string RunCursor(string runId) => $"run:{runId}:cursor";
 }

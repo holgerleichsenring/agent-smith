@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Services.Events;
 using Microsoft.Extensions.Hosting;
@@ -22,37 +23,25 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
     ILogger<JobsBroadcaster> logger,
     EventEnvelopeSerializer envelopes,
     // p0378: cold-start terminal repair — null when relational persistence is off.
-    IRunTerminalReconciler? reconciler = null) : IHostedService, IAsyncDisposable
+    IRunTerminalReconciler? reconciler = null,
+    // 2026-08-24-ca23: the store's unfinished runs — a run that waited through a restart.
+    IUnfinishedRunSource? unfinishedRuns = null) : IHostedService, IAsyncDisposable
 {
     private const int RecentCapacity = EventStreamKeys.RecentRunsCap;
-    // p0175-fix: bumped from 500 → 10_000 to match the Redis system stream
-    // MAXLEN. The 500-cap was too tight for active trackers — one poller
-    // pushing ~94 events/cycle (started + finished + ~46 scanned + ~46
-    // skipped) exhausted the buffer in 5-6 cycles. The 24h rollup then
-    // diverged from the visible cycle list because the oldest
-    // PollCycleStarted got evicted while its matching Finished did not.
-    private const int SystemRecentCapacity = 10_000;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(200);
 
     private readonly ConcurrentDictionary<string, RunSnapshot> _active = new(StringComparer.Ordinal);
     private readonly RecentRunsRingBuffer _recent = new(RecentCapacity);
-    private readonly SystemRecentRingBuffer _systemRecent = new(SystemRecentCapacity);
-    private readonly ConcurrentDictionary<string, string> _streamCursors = new(StringComparer.Ordinal);
-    private string _systemCursor = "0-0";
+    private readonly RunStreamCursors _cursors = new();
+    private readonly SystemEventStream _system = new(fanout, envelopes);
     private CancellationTokenSource? _cts;
     private Task? _loop;
 
     public IReadOnlyDictionary<string, RunSnapshot> Active => _active;
     public IReadOnlyList<RunSnapshot> Recent => _recent.Snapshot();
-    public IReadOnlyList<SystemEvent> SystemRecent => _systemRecent.Snapshot();
+    public IReadOnlyList<SystemEvent> SystemRecent => _system.Recent;
+    public SystemActivitySnapshot GetSystemActivity() => _system.Activity();
 
-    /// <summary>
-    /// p0175-fix: 24h rolling aggregate computed from the in-memory system
-    /// ring buffer. Cheap O(N) over <see cref="SystemRecentCapacity"/>; called
-    /// on each subscribe and re-broadcast after every system event publish.
-    /// </summary>
-    public SystemActivitySnapshot GetSystemActivity() =>
-        SystemActivitySnapshot.Compute(_systemRecent.Snapshot(), DateTimeOffset.UtcNow);
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -90,37 +79,13 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             var db = redis.GetDatabase();
             await RehydrateActiveAsync(db, ct);
             await RehydrateRecentAsync(db, ct);
-            await RehydrateSystemRecentAsync(db, ct);
+            if (unfinishedRuns is not null) await _cursors.AnchorUnfinishedAsync(db, unfinishedRuns, ct);
+            await _system.RehydrateAsync(db, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "JobsBroadcaster cold start could not read Redis — starting empty");
         }
-    }
-
-    // p0173a: cold-start populates the system ring buffer from the newest
-    // SystemRecentCapacity entries of the stream so the dashboard /system
-    // view is immediately useful after a server restart.
-    private async Task RehydrateSystemRecentAsync(IDatabase db, CancellationToken ct)
-    {
-        if (!await db.KeyExistsAsync(SystemEventStreamKeys.Stream)) return;
-        var entries = await db.StreamRangeAsync(
-            SystemEventStreamKeys.Stream, "-", "+", SystemRecentCapacity, Order.Descending);
-        // Order.Descending returns newest-first; reverse to append chronologically.
-        for (var i = entries.Length - 1; i >= 0; i--)
-        {
-            ct.ThrowIfCancellationRequested();
-            var systemEvent = DeserializeSystemEntry(entries[i]);
-            if (systemEvent is null) continue;
-            _systemRecent.Append(systemEvent);
-        }
-        // p0258: anchor the live drain at the REAL last stream id (entries are
-        // newest-first, so entries[0] is it) — NOT the "$" sentinel. The drain
-        // converted "$" → "0-0" and re-read the whole stream from the beginning,
-        // re-fanning every historical event to SignalR on every restart (the
-        // "runs replay / läuft runter after recreate" bug). Reading after the real
-        // id means only genuinely new events fan out.
-        if (entries.Length > 0) _systemCursor = entries[0].Id.ToString();
     }
 
     private async Task RehydrateActiveAsync(IDatabase db, CancellationToken ct)
@@ -140,7 +105,7 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             // p0258: anchor at the real last id so the drain reads only NEW events
             // — not the "$" sentinel that converted to "0-0" and replayed the whole
             // stream through the fanout on every restart.
-            _streamCursors[runId] = rehydrated.Value.LastId;
+            _cursors.TrackAt(runId, rehydrated.Value.LastId);
             await ReconcileTerminalAsync(rehydrated.Value.Terminal, ct);
         }
     }
@@ -211,7 +176,7 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             {
                 await DiscoverNewRunsAsync(db, ct);
                 await DrainAsync(db, ct);
-                await DrainSystemAsync(db, ct);
+                await _system.DrainAsync(db, ct);
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
@@ -230,14 +195,15 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
         {
             ct.ThrowIfCancellationRequested();
             var runId = member.ToString();
-            _streamCursors.TryAdd(runId, "0-0");
+            // 2026-08-24-ca23: the ONE place a position is invented — so the restore is here.
+            if (!_cursors.IsTracked(runId)) await _cursors.TrackAsync(db, runId);
             _active.GetOrAdd(runId, RunSnapshot.Empty);
         }
     }
 
     private async Task DrainAsync(IDatabase db, CancellationToken ct)
     {
-        foreach (var (runId, cursor) in _streamCursors.ToArray())
+        foreach (var (runId, cursor) in _cursors.Tracked())
         {
             ct.ThrowIfCancellationRequested();
             var key = EventStreamKeys.RunStream(runId);
@@ -252,11 +218,17 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
                 // p0378: a processed RunFinished removed the run from tracking —
                 // stop here and never re-add its cursor (the pre-p0378 post-loop
                 // re-add resurrected every finished run as a leaked cursor).
-                if (runEvent?.Type == EventType.RunFinished) break;
+                // 2026-08-24-ca23: a pause keeps its position, an ending drops it.
+                if (runEvent?.Type == EventType.RunFinished)
+                {
+                    await _cursors.StopAtAsync(
+                        db, runId, entry.Id.ToString(), RunStatuses.IsPause(runEvent));
+                    break;
+                }
                 // p0378: advance per processed entry, so a mid-batch failure
                 // resumes after the last dispatched event instead of re-dispatching
                 // (and re-persisting) the whole batch.
-                _streamCursors[runId] = entry.Id.ToString();
+                _cursors.Advance(runId, entry.Id.ToString());
             }
         }
     }
@@ -279,7 +251,6 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
         {
             _active.TryRemove(runId, out _);
             _recent.Upsert(snapshot);
-            _streamCursors.TryRemove(runId, out _);
         }
     }
 
@@ -295,36 +266,4 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
         return null;
     }
 
-    private async Task DrainSystemAsync(IDatabase db, CancellationToken ct)
-    {
-        var entries = await db.StreamReadAsync(SystemEventStreamKeys.Stream, _systemCursor, count: 100);
-        if (entries.Length == 0) return;
-        var appended = false;
-        foreach (var entry in entries)
-        {
-            ct.ThrowIfCancellationRequested();
-            var systemEvent = DeserializeSystemEntry(entry);
-            if (systemEvent is null) continue;
-            _systemRecent.Append(systemEvent);
-            appended = true;
-            await fanout.ToSystemAsync(systemEvent, ct);
-        }
-        _systemCursor = entries[^1].Id.ToString();
-        // p0175-fix: one rollup broadcast per batch (not per event) keeps the
-        // SignalR overhead bounded under burst load while still keeping the
-        // /system KPI cards within ~200ms of true state (the loop interval).
-        if (appended) await fanout.ToSystemActivityAsync(GetSystemActivity(), ct);
-    }
-
-    private SystemEvent? DeserializeSystemEntry(StreamEntry entry)
-    {
-        foreach (var pair in entry.Values)
-        {
-            var payload = pair.Value.ToString();
-            if (string.IsNullOrEmpty(payload)) continue;
-            try { return envelopes.DeserializeSystem(payload); }
-            catch { return null; }
-        }
-        return null;
-    }
 }

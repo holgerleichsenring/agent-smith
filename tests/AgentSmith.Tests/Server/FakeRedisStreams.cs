@@ -18,6 +18,7 @@ public sealed class FakeRedisStreams
         SetupStreams(db);
         SetupSets(db);
         SetupLists(db);
+        SetupStrings(db);
         var redis = new Mock<IConnectionMultiplexer>();
         redis.Setup(r => r.GetDatabase(It.IsAny<int>(), It.IsAny<object?>())).Returns(db.Object);
         Connection = redis.Object;
@@ -43,6 +44,24 @@ public sealed class FakeRedisStreams
                 Task.FromResult(State.StreamRange(key.ToString(), count, order)));
         db.Setup(d => d.KeyExistsAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
             .Returns((RedisKey key, CommandFlags _) => Task.FromResult(State.KeyExists(key.ToString())));
+    }
+
+    // 2026-08-24-ca23: the drain's stored position. Without these the mock returns default
+    // for both — a null read and a swallowed write — so the drain would silently fall back to
+    // reading from the stream's beginning and every test would stay green over the defect.
+    private void SetupStrings(Mock<IDatabase> db)
+    {
+        db.Setup(d => d.StringSetAsync(It.IsAny<RedisKey>(), It.IsAny<RedisValue>(),
+                It.IsAny<TimeSpan?>(), It.IsAny<bool>(), It.IsAny<When>(), It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, RedisValue value, TimeSpan? _, bool _, When _, CommandFlags _) =>
+            {
+                State.StringSet(key.ToString(), value.ToString());
+                return Task.FromResult(true);
+            });
+        db.Setup(d => d.StringGetAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, CommandFlags _) => Task.FromResult(State.StringGet(key.ToString())));
+        db.Setup(d => d.KeyDeleteAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, CommandFlags _) => Task.FromResult(State.KeyDelete(key.ToString())));
     }
 
     private void SetupSets(Mock<IDatabase> db)

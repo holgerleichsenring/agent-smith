@@ -68,6 +68,25 @@ public sealed class FakeRedisState
             .Select(m => (RedisValue)m).ToArray();
     }
 
+    // 2026-08-24-ca23: the drain's stored position per run — a plain string key with a TTL
+    // the fake ignores, since no test outlives it.
+    private readonly Dictionary<string, string> _strings = new(StringComparer.Ordinal);
+
+    public void StringSet(string key, string value)
+    {
+        lock (_gate) _strings[key] = value;
+    }
+
+    public RedisValue StringGet(string key)
+    {
+        lock (_gate) return _strings.TryGetValue(key, out var v) ? v : RedisValue.Null;
+    }
+
+    public bool KeyDelete(string key)
+    {
+        lock (_gate) return _strings.Remove(key);
+    }
+
     public void ListLeftPush(string key, string value)
     {
         lock (_gate) Collection(_lists, key, () => new List<string>()).Insert(0, value);
