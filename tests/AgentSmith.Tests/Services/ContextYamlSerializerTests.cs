@@ -19,7 +19,7 @@ public sealed class ContextYamlSerializerTests
     public void Roundtrip_PreservesWorkdirAndLang()
     {
         var doc = new ContextYamlDocument(
-            new ContextYamlMeta(Workdir: "src/Server", Project: "Sample", Type: "service"),
+            new ContextYamlMeta(Workdir: "src/Server", Project: "Sample", Type: ["api"]),
             new ContextYamlStack(Lang: "C#", Runtime: ".NET 8"));
 
         var yaml = _sut.Serialize(doc);
