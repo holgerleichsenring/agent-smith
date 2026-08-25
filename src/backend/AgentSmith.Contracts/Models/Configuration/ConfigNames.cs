@@ -12,10 +12,10 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// an identifier is compared byte for byte with the case folded away.
 /// </para>
 /// <para>
-/// <see cref="Normalize"/> is that same rule expressed as a value, for the callers that need
-/// a grouping key rather than a comparison. It uppercases, because ordinal-ignore-case IS
-/// invariant uppercasing — lowercasing is a different equivalence and disagrees with the
-/// comparer on real code points (U+017F LATIN SMALL LETTER LONG S, U+212A KELVIN SIGN).
+/// There is deliberately no second form of the rule. A grouping key derived by uppercasing
+/// looks equivalent and is not: invariant uppercasing folds U+017F (LATIN SMALL LETTER LONG S)
+/// onto S while ordinal-ignore-case does not, so a detector keyed that way drops a pair the
+/// catalogs would have kept apart. Callers that need to group take <see cref="Comparer"/>.
 /// </para>
 /// </summary>
 public static class ConfigNames
@@ -25,12 +25,6 @@ public static class ConfigNames
 
     /// <summary>The same rule for a direct <see cref="string.Equals(string?, string?, StringComparison)"/>.</summary>
     public static StringComparison Comparison => StringComparison.OrdinalIgnoreCase;
-
-    /// <summary>
-    /// The grouping key of a configured name: two names share it exactly when
-    /// <see cref="Comparer"/> calls them equal.
-    /// </summary>
-    public static string Normalize(string name) => name.ToUpperInvariant();
 
     /// <summary>Whether two configured names denote the same entity.</summary>
     public static bool AreSame(string? left, string? right) =>

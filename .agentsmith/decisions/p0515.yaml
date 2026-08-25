@@ -104,3 +104,17 @@ decisions:
       the raw side would destroy the pair before anything could name it, and the finding
       is what keeps this phase honest until a successor can refuse the second spelling at
       the point of writing.
+  - category: Implementation
+    chose: "One rule only: grouping is done with the comparer, and the uppercasing normaliser is gone"
+    over: "Keeping a Normalize helper beside the comparer as a grouping key"
+    reason: |
+      The first implementation shipped both, and they did not agree. Invariant uppercasing folds
+      U+017F (LATIN SMALL LETTER LONG S) onto S; ordinal-ignore-case does not. So the collision
+      detector, which grouped by the normaliser, dropped both halves of a pair the catalogs would
+      have kept perfectly distinct — an over-report that blocks a valid configuration at boot. The
+      phase's own second decision demanded ONE definition precisely to stop this, and the
+      implementation reintroduced the second one anyway; its unit test then asserted the
+      disagreement under a name claiming the two matched. Found by p0515b, which consumed the
+      shared definition as instructed and could not reconcile the store's verdict with the
+      detector's. Both grouping sites now take the comparer, and there is no second form of the
+      rule to drift from.

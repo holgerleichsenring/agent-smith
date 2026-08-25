@@ -31,13 +31,15 @@ public static class ConfigNameCollisionGuard
     /// <summary>Refuses an imported set that carries two spellings of one name in one catalog.</summary>
     public static void WithinSet(IEnumerable<ConfigDocWrite> entities)
     {
-        var firstSpelling = new Dictionary<(string Type, string Name), string>();
+        var firstSpelling = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
         foreach (var entity in entities)
         {
-            var key = (entity.Type, ConfigNames.Normalize(entity.Id));
-            if (firstSpelling.TryGetValue(key, out var first) && IsTwin(first, entity.Id))
+            var perType = firstSpelling.TryGetValue(entity.Type, out var existing)
+                ? existing
+                : firstSpelling[entity.Type] = new Dictionary<string, string>(ConfigNames.Comparer);
+            if (perType.TryGetValue(entity.Id, out var first) && IsTwin(first, entity.Id))
                 throw Collision(entity.Type, first, entity.Id);
-            firstSpelling.TryAdd(key, entity.Id);
+            perType.TryAdd(entity.Id, entity.Id);
         }
     }
 
