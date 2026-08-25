@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-2c7c
+
+decisions:
+  - category: Architecture
+    chose: "Promote 2026-08-25-056d's test bridge to production as AgentSmith.Application.Services.Validation.YamlAsJson"
+    over: "Writing a second, production-only converter, or teaching the old pipeline to infer types"
+    reason: |
+      056d already wrote the right conversion and proved it against the two shipped
+      context files; it was scoped to the tests only because production was out of that
+      phase's reach. Promoting it — one `git mv`, one namespace — leaves exactly ONE
+      bridge, which is what this phase's second step asks for, and the arch tests that
+      already lean on it keep the same code under them instead of a copy that can drift.
+      The alternative that looked cheapest — YamlDotNet 16's
+      `WithAttemptingUnquotedStringTypeDeserialization()` — was rejected because it types
+      scalars for every reader at once: `OutcomeYamlReader.GetString` does `value as string`,
+      so a ticket titled `19106` would become a long and read back as MISSING. Typing
+      belongs at the JSON boundary where a schema reads it, not at the YAML boundary
+      where string fields are pulled out by hand.
+  - category: Implementation
+    chose: "A SchemaValidator.Validate overload over an already-parsed JsonNode"
+    over: "Serialising the bridge's node back to a JSON string for the existing overload"
+    reason: |
+      A JSON string round trip is a second place a value's type can be lost, and it
+      would be one more thing to keep honest. JsonSchema.Net evaluates a JsonNode
+      directly — ContextSchemaRule already does exactly that — so the draft path now
+      crosses one conversion and no serialisation. The string overload is untouched, so
+      the four skill-output validators (plan/diff/bootstrap/discovery) that feed it real
+      JSON keep their exact behaviour including the "not valid JSON" message.
+  - category: Implementation
+    chose: "Only a PLAIN scalar is typed; a quoted one stays a string"
+    over: "Typing every scalar that parses as a number"
+    reason: |
+      This is what keeps the true rejections working. The defect was a false REJECTION of
+      correct input, and a fix that over-corrects turns it into a false ACCEPTANCE: if
+      `"twenty"` or a quoted `"20"` were coerced, the `type: integer` rule would stop
+      catching the wrong values it exists for. YAML already draws the line — quoting is
+      the author saying "string" — so the bridge honours the quote style and nothing else.
+      Both directions are tested: `Validator_ADraftWithANumericLimit_IsAccepted` and
+      `Validator_ADraftWithAWrongTypeWhereANumberIsRequired_IsRejected`.
+  - category: Architecture
+    chose: "Leave the epic parser's YAML -> graph -> YAML round trip alone, and name it"
+    over: "Making OutcomeYamlReader type-aware in the same phase"
+    reason: |
+      EpicOutcomeParser reaches a draft validator by a different road: ReadMap
+      (`Deserialize<object?>`, every scalar a string) then ToYaml, which re-quotes a
+      numeric-looking string, so an epic CHILD's numbers are already gone before the
+      bridge sees them. It is a latent defect, not a live one — phase-spec.schema.json has
+      no integer, number or boolean rule anywhere, so nothing today reads a type that path
+      loses — and the cheap fix has the false-rejection cost recorded above. The successor
+      that earns its own phase: make the epic parser carry each child's YAML nodes instead
+      of a re-serialised string graph, so a child crosses the same single bridge the parent
+      does. Recorded here rather than fixed quietly.
