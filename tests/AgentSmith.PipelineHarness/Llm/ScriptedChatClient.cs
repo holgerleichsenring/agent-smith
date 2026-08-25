@@ -18,6 +18,7 @@ public sealed class ScriptedChatClient : IChatClient
     // e.g. an LLM-layer timeout) so tests can drive the failure paths too.
     private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
+    private readonly ScopeClassificationScript _scopeScript = new();
     private int _toolCallCounter;
 
     public int InvocationCount { get; private set; }
@@ -27,6 +28,16 @@ public sealed class ScriptedChatClient : IChatClient
     public ScriptedChatClient EnqueueText(string text)
     {
         _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
+        return this;
+    }
+
+    /// <summary>
+    /// p0413a: scripts the ScopeRepos classification call, which draws from its own
+    /// slot (see <see cref="ScopeClassificationScript"/>) instead of the FIFO.
+    /// </summary>
+    public ScriptedChatClient EnqueueScopeReply(string text)
+    {
+        _scopeScript.Enqueue(text);
         return this;
     }
 
@@ -70,6 +81,8 @@ public sealed class ScriptedChatClient : IChatClient
     {
         InvocationCount++;
         LastMessages = messages.ToList();
+        if (ScopeClassificationScript.Answers(LastMessages))
+            return Task.FromResult(_scopeScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());
         var next = _responses.Dequeue();
         if (next is Func<ChatResponse> deferred)
