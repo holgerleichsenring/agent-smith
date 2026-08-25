@@ -185,6 +185,20 @@ services:
       # target so the browser stays same-origin. In compose, the dashboard's
       # Next.js server reaches the backend via compose DNS.
       - AGENTSMITH_BACKEND_URL=http://server:8081
+      # 2026-08-25-21ae: read by the image entrypoint at start and written into a
+      # document the browser fetches, NOT compiled into the bundle — so changing
+      # one of these is a restart of this service, never a rebuild. Set none and
+      # the dashboard behaves exactly as it did before they existed.
+      # Nothing secret belongs here: the document is served to any browser that
+      # asks. A public client id and an authority are public values; a client
+      # secret is not.
+      # AUTHORITY and AUDIENCE are the same variables the server reads above, so
+      # one value serves both services and the two cannot drift apart.
+      - AGENTSMITH_AUTH_AUTHORITY=${AGENTSMITH_AUTH_AUTHORITY:-}
+      - AGENTSMITH_AUTH_CLIENT_ID=${AGENTSMITH_AUTH_CLIENT_ID:-}
+      - AGENTSMITH_AUTH_AUDIENCE=${AGENTSMITH_AUTH_AUDIENCE:-}
+      - AGENTSMITH_AUTH_SCOPES=${AGENTSMITH_AUTH_SCOPES:-}
+      - AGENTSMITH_AUTH_REDIRECT_PATH=${AGENTSMITH_AUTH_REDIRECT_PATH:-}
     depends_on:
       - server
     ports:
