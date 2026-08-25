@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-c9c7
+
+goal: "A context that describes a stack names the image that stack runs in, and an existing project can gain one without being re-bootstrapped."
+
+applies_to: "backend (the context write path and the re-initialisation route)"
+
+requires:
+  - 2026-08-25-056d
+
+scope:
+  in: "Closing the hole in the existing image rule, validating a written context against the now-reconciled schema, and giving an already-initialised repository a way to acquire the field."
+  out: "Registry policy and the git probe, which are the next phase. Language-name switches elsewhere in the product, named there as out of scope."
+
+decisions:
+  - key: |
+      THE RULE IS ENFORCED ALREADY; THE GUARD HAS A HOLE. The claim that the image requirement is
+      stated in prose and enforced nowhere is wrong — the write path checks it. What actually
+      happened is narrower: the model omitted the whole stack block, so the guard's first
+      condition was false and the check never applied. That is one clause, not a schema engine.
+  - key: |
+      THE EXEMPTION THAT ALREADY SHIPPED MUST SURVIVE. A context declaring a data domain is
+      deliberately exempt, because its profile brings the image. A blanket "reject a missing
+      image" would silently revert that, and a harness preset guards it — so the rule is: a stack
+      is mandatory unless a domain is declared.
+  - key: |
+      WITHOUT A WAY BACK IN, THE RULE REACHES NO EXISTING REPOSITORY. Discovery short-circuits when
+      any prior discovery exists, so an initialised project never re-writes its context and never
+      gains the field. This repository's own context has no image, and neither does the shipped
+      demo — both run on the fallback table. A write-path rule with no re-entry is a rule for new
+      projects only, and the fallback table can never retire. Either the phase provides the way
+      back in or it must say plainly that it does not.
+  - key: |
+      A REJECTION LOOP IS A REAL RISK AND NEEDS A BOUND. A schema error comes back as a tool result
+      and the model re-emits inside its agentic loop. With required fields the model has to invent,
+      that can spin to the iteration cap — the same shape as an earlier analyzer failure. The
+      rejection has to name the exact defect, and the retries have to be bounded.
+
+steps:
+  - id: a-stack-block-cannot-be-omitted-to-escape-the-rule
+    action: "Require a stack unless a domain is declared, so omitting the block no longer bypasses the image requirement while the profile exemption survives."
+  - id: a-written-context-is-checked-against-the-schema
+    action: "Validate a context being written against the reconciled schema and return the precise defect, so a rejection tells the model what to fix."
+  - id: a-rejected-write-cannot-spin
+    action: "Bound the reject-and-rewrite exchange so a context that cannot be made valid fails visibly instead of consuming the loop."
+  - id: an-existing-project-can-acquire-the-field
+    action: "Give an already-initialised repository a way to re-write its context, so the rule reaches more than newly bootstrapped projects."
+
+tests:
+  - "Write_AContextWithNoStackBlock_IsRejected"
+  - "Write_AContextDeclaringADomainAndNoImage_IsAccepted"
+  - "Write_AContextWithAStackAndNoImage_IsRejected"
+  - "Write_AnInvalidContext_TheRejectionNamesTheDefect"
+  - "Write_AContextThatCannotBeMadeValid_FailsVisiblyWithoutSpinning"
+  - "Reinit_AnExistingProject_CanRewriteItsContext"
+
+done:
+  - "a stack cannot be omitted to escape the image rule, and the domain exemption still holds"
+  - "a written context is judged against the schema and told exactly what is wrong"
+  - "a rejection cannot loop"
+  - "an already-initialised project has a way to gain the field"
+  - "build green, full suite green"
