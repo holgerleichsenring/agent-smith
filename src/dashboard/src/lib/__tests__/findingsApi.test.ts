@@ -29,7 +29,12 @@ describe("fetchFindings", () => {
     const { fetchFindings } = await import("@/lib/findingsApi");
     await fetchFindings();
 
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/config/findings?build=abc123");
+    // 2026-08-25-2de1: the settings document is read before the first API call,
+    // so the findings request is no longer the only thing this spy saw.
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/config/findings?build=abc123",
+      expect.anything(),
+    );
   });
 
   it("names no build when the bundle was never stamped", async () => {
@@ -38,6 +43,6 @@ describe("fetchFindings", () => {
     const { fetchFindings } = await import("@/lib/findingsApi");
     await fetchFindings();
 
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/config/findings");
+    expect(fetchMock).toHaveBeenCalledWith("/api/config/findings", expect.anything());
   });
 });

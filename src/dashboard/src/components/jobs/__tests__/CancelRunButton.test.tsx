@@ -30,9 +30,13 @@ describe("CancelRunButton", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
 
     fireEvent.click(button);
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      "/api/runs/2026-06-02T10-00-00-aaaa/cancel",
-      expect.objectContaining({ method: "POST" }),
+    // 2026-08-25-2de1: the sign-in loop settles before the first request goes
+    // out, so the call lands a tick after the click rather than inside it.
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/runs/2026-06-02T10-00-00-aaaa/cancel",
+        expect.objectContaining({ method: "POST" }),
+      ),
     );
     await waitFor(() => expect(screen.getByTestId("cancel-run-2026-06-02T10-00-00-aaaa"))
       .toHaveTextContent("cancelling…"));

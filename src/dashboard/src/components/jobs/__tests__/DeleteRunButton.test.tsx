@@ -26,9 +26,13 @@ describe("DeleteRunButton", () => {
 
     // Second click fires the DELETE.
     fireEvent.click(button);
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      "/api/runs/2026-07-14T10-00-00-aaaa",
-      expect.objectContaining({ method: "DELETE" }),
+    // 2026-08-25-2de1: the sign-in loop settles before the first request goes
+    // out, so the call lands a tick after the click rather than inside it.
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/runs/2026-07-14T10-00-00-aaaa",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
     );
     await waitFor(() => expect(onDeleted).toHaveBeenCalledOnce());
   });
