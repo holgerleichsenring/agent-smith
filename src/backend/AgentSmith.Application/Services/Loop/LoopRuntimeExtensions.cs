@@ -58,6 +58,11 @@ public static class LoopRuntimeExtensions
             return new SubAgentBudget(limits.MaxSubAgentsPerRun);
         });
         services.AddSingleton<JsonSchemaLoader>();
+        // 2026-08-25-c9c7: the gate write_context_yaml judges a context document with.
+        services.AddSingleton<ContextSchemaProvider>();
+        services.AddSingleton<ContextStackImageRule>();
+        services.AddSingleton<ContextSchemaRule>();
+        services.AddSingleton<ContextDocumentGate>();
         services.AddSingleton<PlanOutputValidator>();
         services.AddSingleton<DiffOutputValidator>();
         services.AddSingleton<BootstrapOutputValidator>();
