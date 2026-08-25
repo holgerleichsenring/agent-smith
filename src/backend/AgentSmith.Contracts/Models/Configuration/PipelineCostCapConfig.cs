@@ -32,8 +32,14 @@ public sealed class PipelineCostCapConfig
     public Dictionary<ComplexityTier, CostCapValues> PerTier { get; init; } = DefaultTierCaps();
 
     /// <summary>
-    /// p0341c: the effective cap for an estimated tier — the per-tier override when
-    /// present, else the static <see cref="Default"/> (fail-safe on an unmapped tier).
+    /// p0341c: the cap a tier alone would justify — the per-tier override when present,
+    /// else the static <see cref="Default"/> (fail-safe on an unmapped tier).
+    /// <para>
+    /// p0413a: this is the tier's own ceiling, NOT the run's. It knows nothing about
+    /// <see cref="PerPipeline"/>, so an estimate applied as a replacement would throw
+    /// away the cap the run already resolved. A tier sizes a run's ceiling UP —
+    /// <see cref="CostCapValues.RaisedTo"/> is how it is applied.
+    /// </para>
     /// </summary>
     public CostCapValues ForTier(ComplexityTier tier) =>
         PerTier.TryGetValue(tier, out var values) && values is not null ? values : Default;
@@ -73,4 +79,19 @@ public sealed class CostCapValues
 {
     public decimal Usd { get; init; } = 5.0m;
     public long Tokens { get; init; } = 500_000;
+
+    /// <summary>
+    /// p0413a: this cap enlarged to <paramref name="other"/> wherever that is bigger,
+    /// per dimension. An ESTIMATE may enlarge the ceiling configuration resolved for a
+    /// run; it may never shrink it, because the estimate is a guess and the
+    /// configuration is the operator's instruction. Returns this instance unchanged
+    /// when the estimate asks for nothing more.
+    /// </summary>
+    public CostCapValues RaisedTo(CostCapValues other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        return other.Usd <= Usd && other.Tokens <= Tokens
+            ? this
+            : new CostCapValues { Usd = Math.Max(Usd, other.Usd), Tokens = Math.Max(Tokens, other.Tokens) };
+    }
 }

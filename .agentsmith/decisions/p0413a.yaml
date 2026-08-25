@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0413a
+
+decisions:
+  - category: Architecture
+    chose: "The single-repo return moves BELOW the estimate, not the classifier above it"
+    over: "A second, estimate-only call for single-repo runs"
+    reason: |
+      There is exactly one classification call in the code (RepoScopeClassifier), and the
+      reply already answers both questions. Adding an estimate-only call would double the
+      cost of every scoped run to fix a run that made no call at all. So the ticket-null
+      guard stays first (no ticket, nothing to ask), the one call happens, the estimate is
+      recorded, and the single-repo return sits after it. Everything past that point —
+      repo narrowing, context scoping, expected_changes — stays off for one repository:
+      none of them is the estimate, and the operator's --repo override is not overridden.
+  - category: Architecture
+    chose: "A tier RAISES the cap configuration resolved; it never replaces it"
+    over: "Setting the cap to ForTier(tier), as p0341c did"
+    reason: |
+      ForTier consults PerTier and the static Default only — it has never seen PerPipeline.
+      ExecutePipelineUseCase resolves the run's cap through IConfigResolver.ResolveCostCap,
+      which DOES honour the per-pipeline override, and the recorder then overwrote it.
+      Extending the tier to single-repo runs would have turned that latent defect into the
+      common case: an ordinary bugfix, estimated 'small', would have had its ceiling cut
+      from $5 to $2 and any per_pipeline setting silently discarded. An estimate is a
+      guess and configuration is an instruction, so the guess may enlarge the ceiling and
+      never shrink it — CostCapValues.RaisedTo, applied per dimension, is that rule.
+      A consequence worth naming: with no per-pipeline override in play, trivial/small no
+      longer shrink a run below the $5 default. Downward sizing was never reachable
+      without overruling configuration, which is the thing this must not do.
+  - category: Implementation
+    chose: "The estimate is parsed on its own when the reply is not a repo verdict"
+    over: "Relaxing RepoScopeParser's repos-array contract"
+    reason: |
+      That contract is how the parser tells the classifier's verdict object apart from any
+      other JSON in the reply, and dropping it would let a stray object become a scope
+      decision. But it is the wrong gate for the estimate: a run with one repository has
+      nothing to scope, the model has no reason to emit a repos array, and the size and
+      shape it states are still the facts the run needs. ScopeEstimateParser therefore
+      reads tier and shape from the first object that states either, and the classifier
+      returns the two answers as separate fields (ScopeClassificationResult) because they
+      fail separately — an unusable scope verdict still carries a usable estimate.
+  - category: Testing
+    chose: "The scope-classifier call draws from its own slot in the harness, not the FIFO"
+    over: "Scripting the classifier reply first in every code-preset test"
+    reason: |
+      ScriptedChatClient is a strict FIFO and the default fixture has one repo, so the
+      moment the classifier runs on single-repo runs it would have eaten the reply every
+      preset wrote for the derivation and shifted every later slot by one — about three
+      dozen tests, each needing a line that says nothing about what it tests, and every
+      future one having to remember. The estimate call is a fixed prelude of the code
+      pipeline, not part of the conversation a preset scripts, so it gets a slot of its
+      own: EnqueueScopeReply for the presets that care, a benign "{}" for the rest, which
+      states no verdict and no estimate and leaves those runs behaving exactly as before.
+      The recognition is by the prompt constant itself (InternalsVisibleTo), not a copy of
+      its wording that would silently stop matching. Worker mode is the exception that
+      proves the point: there the worker answers every model call, so its script gained
+      the reply openly.
+  - category: Scope
+    chose: "The step's summary sentence is left exactly as it was"
+    over: "Reporting the estimate in the ScopeRepos summary"
+    reason: |
+      'Repo scoping skipped:' is still true — scoping WAS skipped, only the estimate was
+      not. The sentence is duplicated in two no-op tables (GateSilence and
+      CommandStepClasses.NoOpSummaries) with a coverage assertion over both, so changing
+      it costs three edits to say something the run already says: the tier and the shape
+      are recorded as scope decisions and published as run events on this path exactly as
+      they are on the scoped path.
