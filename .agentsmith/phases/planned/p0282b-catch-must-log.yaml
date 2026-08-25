@@ -8,6 +8,12 @@ requires:
   - p0282a
 
 decisions:
+  - key: |
+      STATE ON 2026-08-25, MEASURED: still open, and the debt is roughly where the phase found it —
+      about 35 bare or comment-only catch blocks in src/backend, and no rule test guarding the
+      rule. Its siblings moved on without it: p0282a and p0282c shipped as p0401/p0402 with
+      NoStaticStateRuleTests and FileLengthRatchetTests, which is the shape this one still needs —
+      a burn-down plus the ratchet that stops it growing back.
   - "Overlaps p0300b on 3 files (Nuclei/Spectral/DeliverFindings) — if p0300b shipped first those count as done; this phase covers the remaining ~30 incl. ExecutePipelineUseCase:249,281"
   - "Rule test is syntactic (Roslyn/analyzer over catch blocks) baselined to today; new silent catches fail the build"
 
