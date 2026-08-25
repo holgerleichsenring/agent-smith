@@ -1,6 +1,5 @@
 using AgentSmith.Contracts.Sandbox;
 using Docker.DotNet;
-using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Sandbox;
@@ -14,9 +13,14 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// containers (counted by the distinct job-id label). A cap of 0 means unbounded
 /// (admit always) — the historic behaviour. The resource quantities are ignored;
 /// Docker capacity is expressed as a count, not a cpu/memory budget.
+///
+/// p0465: only THIS liveness store's sandboxes are counted. The cap is a small
+/// number (default 2), so counting a foreign server's containers replaces one
+/// instance killing another with one instance starving another.
 /// </summary>
 public sealed class DockerCapacityProbe(
     IDockerClient docker,
+    DockerSandboxQuery query,
     DockerSandboxOptions options,
     ILogger<DockerCapacityProbe> logger) : ISandboxCapacityProbe
 {
@@ -50,15 +54,8 @@ public sealed class DockerCapacityProbe(
 
     private async Task<int> CountRunningSandboxesAsync(CancellationToken ct)
     {
-        var parameters = new ContainersListParameters
-        {
-            All = false, // running only — those are the ones consuming host resources
-            Filters = new Dictionary<string, IDictionary<string, bool>>
-            {
-                ["label"] = new Dictionary<string, bool> { [DockerContainerSpecBuilder.JobIdLabel] = true }
-            }
-        };
-        var containers = await docker.Containers.ListContainersAsync(parameters, ct);
+        // includeStopped: false — a running sandbox is what consumes host resources.
+        var containers = await docker.Containers.ListContainersAsync(query.Owned(includeStopped: false), ct);
         return containers
             .Select(c => LabelOrEmpty(c.Labels, DockerContainerSpecBuilder.JobIdLabel))
             .Where(v => !string.IsNullOrEmpty(v))
