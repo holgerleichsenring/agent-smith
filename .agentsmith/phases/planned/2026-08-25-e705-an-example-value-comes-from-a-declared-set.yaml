@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-e705
+
+goal: "Every example value this project ships comes from a declared set of neutral names, so a real one cannot be shipped by accident."
+
+applies_to: "repo tooling (an architecture rule over example values) + the local write guard"
+
+scope:
+  in: "The values this project ships as examples — form placeholders, sample configuration, test fixtures on the configuration surfaces — held to a declared set; and the local guard that judges a write, sourced from where the real names actually live instead of from a copy."
+  out: "Repairing history, which is a separate operation with its own backup. Values that are not examples: real dependency names, real registry hosts, real protocol strings."
+
+decisions:
+  - key: |
+      THE FORBIDDEN LIST CANNOT LIVE WHERE IT IS NEEDED, AND THAT IS THE WHOLE PROBLEM. A rule
+      that enumerates the names which must not appear cannot ship in a public repository — the
+      enumeration is itself the disclosure. So the list has lived in a local hook, maintained by
+      hand, and it has been exactly as current as its last edit. Three repository-history repairs
+      and a write guard did not prevent the fourth incident, because each of them defended against
+      the names from the incident before.
+  - key: |
+      SO INVERT IT: DECLARE WHAT IS ALLOWED, NOT WHAT IS FORBIDDEN. The set of acceptable example
+      values is small, public, and belongs in the open. A placeholder, a sample and a fixture on
+      the configuration surfaces come from that set or the suite fails. This needs no secret to
+      work, it ships with the product, and it covers what is ALREADY committed — which no write
+      guard can, because a write guard only sees writes.
+  - key: |
+      THE LOCAL GUARD KEEPS ITS JOB BUT STOPS KEEPING A COPY. It is still the thing that catches a
+      real name being typed, and it must stay local. What changes is where it gets its patterns:
+      the operator's own configuration already enumerates every project the system routes on, and
+      that file is the authority. Derived, it covers a project the day it is configured rather
+      than the day someone remembers to add it.
+  - key: |
+      THE LAST INCIDENT SHOWS WHICH SURFACE MATTERS MOST. What leaked was a form placeholder — a
+      string rendered to every user of the product, asserted by three tests, and past three
+      history repairs. Not a comment, not a note. Example values on the configuration surfaces are
+      where this rule earns its keep, so that is where it starts.
+  - key: |
+      A RULE WITH NO ESCAPE HATCH GETS DISABLED. Some example must occasionally be specific — a
+      real image reference, a real host in a documented default. The rule takes an explicit,
+      justified exception list rather than pretending the case does not exist, and an exception
+      that outlives its reason fails the same rule.
+
+steps:
+  - id: the-allowed-examples-are-declared-in-the-open
+    action: "Publish the small set of neutral names this project may use as example values, in the repository, with what each is for."
+  - id: an-example-on-a-configuration-surface-comes-from-that-set
+    action: "Fail the suite when a placeholder, sample or fixture on a configuration surface carries a value that is not from the declared set and not an explicit, justified exception."
+  - id: the-write-guard-reads-the-authority-instead-of-a-copy
+    action: "Source the local guard's patterns from the operator's own configuration, so a newly configured project is covered without anyone remembering to add it."
+  - id: an-exception-outlives-nothing
+    action: "Make an exception carry its reason and fail the rule once that reason no longer holds."
+
+tests:
+  - "Examples_EveryPlaceholderOnAConfigurationSurface_ComesFromTheDeclaredSet"
+  - "Examples_EverySampleAndFixtureValue_ComesFromTheDeclaredSet"
+  - "Examples_AValueOutsideTheSet_FailsTheRule"
+  - "Examples_AnExplicitException_IsAcceptedAndCarriesItsReason"
+  - "Examples_AnExceptionWhoseReasonIsGone_FailsTheRule"
+  - "Guard_APatternFromTheOperatorConfiguration_IsEnforced"
+  - "Guard_AProjectAddedToTheConfiguration_IsCoveredWithoutAnEdit"
+  - "Guard_NoConfigurationPresent_StillEnforcesTheDeclaredSet"
+
+done:
+  - "every example value on a configuration surface comes from a set declared in the open"
+  - "a value outside the set fails the suite, including one already committed"
+  - "the local guard derives its patterns from the operator's configuration rather than a maintained copy"
+  - "an exception states its reason and cannot outlive it"
+  - "no secret is needed for the repository half to work"
+  - "build green, full suite green"
