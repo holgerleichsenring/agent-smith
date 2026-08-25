@@ -3,6 +3,8 @@
 import { cn } from "@/lib/utils";
 import type { AcceptanceCriterion, RunAcceptance } from "@/types/hub-events";
 import type { VerifyFallbackView } from "./verifyFallback";
+import { CriterionJudgementControl } from "./CriterionJudgementControl";
+import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsApi";
 
 // p0344b: the Verify beat's surface. Preferred source is the run's PERSISTED
 // per-criterion acceptance dispositions (snapshot.acceptance — the p0340
@@ -42,13 +44,36 @@ const CROSS = (
 interface VerifySummaryProps {
   /** Persisted per-criterion dispositions; null/undefined on pre-p0344b runs. */
   acceptance: RunAcceptance | null | undefined;
+  /** 2026-08-25-e257: the operator's judgements of these dispositions, served with them. */
+  judgements?: CriterionJudgement[];
+  onRecordJudgement?: (
+    criterion: string,
+    machineStatus: CriterionDisposition,
+    humanStatus: CriterionDisposition,
+    reason: string,
+  ) => void;
+  onWithdrawJudgement?: (criterion: string) => void;
+  judgementBusy?: boolean;
   /** Event-derived legacy view — used ONLY when acceptance is absent. */
   fallback: VerifyFallbackView;
 }
 
-export function VerifySummary({ acceptance, fallback }: VerifySummaryProps) {
+export function VerifySummary({
+  acceptance,
+  fallback,
+  judgements,
+  onRecordJudgement,
+  onWithdrawJudgement,
+  judgementBusy,
+}: VerifySummaryProps) {
   return acceptance ? (
-    <AcceptanceVerify acceptance={acceptance} />
+    <AcceptanceVerify
+      acceptance={acceptance}
+      judgements={judgements}
+      onRecordJudgement={onRecordJudgement}
+      onWithdrawJudgement={onWithdrawJudgement}
+      judgementBusy={judgementBusy}
+    />
   ) : (
     <FallbackVerify view={fallback} />
   );
@@ -80,7 +105,19 @@ function badgeFor(acceptance: RunAcceptance): { cls: string; label: string } {
   return { cls: "neu", label: `${met} of ${total} proven` };
 }
 
-function AcceptanceVerify({ acceptance }: { acceptance: RunAcceptance }) {
+function AcceptanceVerify({
+  acceptance,
+  judgements,
+  onRecordJudgement,
+  onWithdrawJudgement,
+  judgementBusy,
+}: {
+  acceptance: RunAcceptance;
+  judgements?: CriterionJudgement[];
+  onRecordJudgement?: VerifySummaryProps["onRecordJudgement"];
+  onWithdrawJudgement?: VerifySummaryProps["onWithdrawJudgement"];
+  judgementBusy?: boolean;
+}) {
   const badge = badgeFor(acceptance);
   return (
     <section className="card" data-testid="verify-summary" data-source="acceptance">
@@ -133,6 +170,19 @@ function AcceptanceVerify({ acceptance }: { acceptance: RunAcceptance }) {
                       <div className="c-proof" data-testid="verify-criterion-citation">
                         cited: {criterion.citation}
                       </div>
+                    )}
+                    {onRecordJudgement && onWithdrawJudgement && (
+                      <CriterionJudgementControl
+                        criterion={criterion.text}
+                        machineStatus={criterion.status}
+                        judgement={judgements?.find((j) => j.criterion === criterion.text)}
+                        busy={judgementBusy}
+                        onRecord={(humanStatus, reason) =>
+                          onRecordJudgement(
+                            criterion.text, criterion.status, humanStatus, reason)
+                        }
+                        onWithdraw={() => onWithdrawJudgement(criterion.text)}
+                      />
                     )}
                   </div>
                   <div className="c-stat">{CRIT_STAT[criterion.status]}</div>
