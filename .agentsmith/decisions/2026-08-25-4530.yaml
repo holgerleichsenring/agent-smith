@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-4530
+
+decisions:
+  - category: Scope
+    chose: "The server's half was already shipped, and this phase consumed it rather than rebuilding it"
+    over: "Implementing the anonymous requirements route as part of this work"
+    reason: |
+      GET /api/auth/requirements, its response record and its three spec tests
+      (Requirements_NoAuthority_SaysEnforcementIsOff, Requirements_EnforcementOn_SaysSoAndNames-
+      TheAuthority, Requirements_Route_AnswersWithoutAToken) landed on this branch before the
+      dashboard work started. The step the-server-states-what-it-expects is therefore done, and
+      nothing in it was touched: `enforced` still reports what the server DOES rather than what
+      its switch says, which is what makes enforce-on-with-no-authority report false.
+  - category: Architecture
+    chose: "A refusal is a typed value classified at the single outgoing point"
+    over: "Every caller branching on res.status, or a global signed-out flag above the routes"
+    reason: |
+      readJson threw ApiResponseError on every non-ok status, so the moment an installation
+      enforces, each of the fifteen client modules dies with the words HTTP 401 — the one
+      message that tells an operator nothing about the one thing they must do. refusalOf()
+      classifies 401 and 403 into an ApiRefusal, which is deliberately NOT an ApiResponseError:
+      a signed-out person is not a fault of the installation, and everything that renders a
+      failure branches on that distinction. Everything else — 500, 502, a gateway's HTML — fails
+      byte for byte as it did before.
+      A global flag was rejected because a refusal belongs to the surface that was refused: a
+      caller can hold runs.read and not secrets.read, and one banner cannot say that.
+  - category: TradeOff
+    chose: "The refusal still travels as a throw, carrying the state"
+    over: "readJson returning a discriminated union so a 401 never rejects"
+    reason: |
+      The union is the shape the spec's test name asks for and it costs every one of the fifteen
+      client modules and their callers a signature change — a refactor larger than this phase,
+      landing in code paths that have nothing to do with sign-in. The classification function
+      resolves (that is what its test pins); the reader re-raises the value so today's callers
+      keep working unchanged, and every one of them immediately reports the refusal's own
+      sentence instead of a status code. What the throw does NOT buy is the sign-in BUTTON on a
+      surface that keeps only error.message — a component holding the Error object gets the full
+      refusal surface, and the rest inherit the sentence. Named as a limit rather than papered
+      over; converting the loaders is one phase's work whenever it is worth doing.
+  - category: Implementation
+    chose: "FailedSurface delegates to the refusal surface"
+    over: "Teaching every render boundary to branch on a refusal"
+    reason: |
+      The route boundary, the global boundary and every per-surface RenderBoundary already
+      render exactly one component for a failure. Branching there is one edit that makes all of
+      them say the right thing, and it also stops "could not be rendered" from being said about a
+      surface that rendered perfectly and was simply refused.
+  - category: Security
+    chose: "A missing permission is offered no sign-in, and no control is hidden"
+    over: "A sign-in button on every refusal, or hiding controls a caller lacks the permission for"
+    reason: |
+      Signing in again returns the same token carrying the same roles, so the button would be a
+      loop with a promise in it. The permission comes from the directory, and what the surface
+      owes the person is the NAME to take there — which is precisely why p0503b replaced ASP.NET's
+      forbid path, whose body is empty.
+      Nothing is hidden for the same reason: an explained refusal is honest, a vanished button
+      teaches nobody what they are missing, and a dashboard that hid controls would have to
+      resolve the whole permission set before rendering anything.
+  - category: Implementation
+    chose: "One React hook over the token store, and the identity read gated on holding a token"
+    over: "A provider owning the token, or every surface reading the store for itself"
+    reason: |
+      2026-08-25-2de1 left the hook unbuilt on purpose: the store is owned by plain modules
+      (apiFetch and the hub client cannot call a hook) and what React needs of it depends on what
+      React renders. useAccessToken subscribes and re-reads once the boot's silent sign-in
+      settles, so a surface mounted before the first token existed is not signed out forever.
+      useCallerIdentity takes an `enabled` flag because the rail and the identity page differ:
+      the rail must not spend a refused request on a person who is simply not signed in, and the
+      page must not call an endpoint on an installation where nothing can sign in at all.
+  - category: Architecture
+    chose: "The two halves are compared in the browser, and disagreement is a banner"
+    over: "A blocking page, or either half diagnosing the misconfiguration alone"
+    reason: |
+      Neither half can do it: the server never learns what the browser was given, and the browser
+      never learns what the server demands. The dashboard is the only place that holds both.
+      It stays a banner because p0391a already put "what is wrong with this installation" above
+      every route and p0503e measured a short-circuit to be either a lie or unreadable — the
+      routes underneath keep rendering whatever they can still reach.
+      Trailing slashes are normalised before the two authorities are compared: the same issuer
+      copied out of a discovery document and typed by hand differ by one character, and a banner
+      that called those two authorities different would be noise. Both halves agreeing and both
+      halves unconfigured — which is every installation today — show nothing.
+  - category: Implementation
+    chose: "The wire NAMES of the forbid body and the identity body are pinned by a server test"
+    over: "Trusting the existing cases, which deserialize through the server's own records"
+    reason: |
+      The dashboard now reads missingPermissions and the ten identity fields BY NAME. Every
+      existing case round-trips through ForbiddenPermissionResponse and CallerIdentity, so it
+      stays green under any naming policy while a renamed field reaches a browser that then
+      reports a refusal naming nothing. This is the same guard the requirements route already
+      carries, extended to the two shapes this phase made load-bearing.
