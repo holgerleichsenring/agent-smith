@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-8c97
+
+goal: "Server and dashboard each say which build they are, a mismatch is reported where an operator already looks, and it advises rather than blocks."
+
+applies_to: "backend (a build identity + the findings channel) + dashboard (the identity it sends and the banner that shows it) + the image build"
+
+requires:
+  - 2026-08-25-39ab
+
+scope:
+  in: "A build identity that actually differs between two builds, stamped into both images; the comparison; and its appearance on the surface that already reports what is wrong with an installation."
+  out: "Blocking. Judging whether two builds are CONTRACT-compatible, which is a generated contract's job and its own phase. The sandbox agent's protocol, which is the next phase."
+
+decisions:
+  - key: |
+      THE RELEASE VERSION CANNOT BE THE DISCRIMINATOR, AND THE INCIDENT PROVES IT. The version file
+      changes only on a release commit; images publish on every push to the trunk. Over sixty days
+      that is 51 version bumps against 749 commits — about 93% of builds carry the string their
+      predecessor carried. The two images in the incident would BOTH have reported the same
+      release and the check would have said they matched. The identity has to be the build
+      revision; the release version rides along for a human to read.
+  - key: |
+      THE VALUE IS ALREADY COMPUTED AND THROWN AWAY. The image build already derives a revision
+      label, and the workflow already resolves the release version — but the build step passes no
+      build arguments at all, so neither image can read either at runtime. This is a plumbing
+      change, not an invention.
+  - key: |
+      IT REPORTS ON THE CHANNEL THAT ALREADY EXISTS. There is a findings endpoint whose whole
+      purpose is "what is wrong with this installation, over HTTP", and a banner that polls it
+      every thirty seconds above every route. A mismatch IS such a finding. That costs one
+      comparison — against a per-request header on thirty-six call sites, which the hub could not
+      carry anyway, because a browser websocket cannot set request headers.
+  - key: |
+      ADVISORY, NEVER BLOCKING, AND THE ROLLOUT IS WHY. Both halves are separate deployments with
+      separately pinned tags, rolling updates, two replicas each. Old and new coexisting is the
+      normal state of an upgrade, not an exception. And a browser tab still runs the bundle it
+      downloaded: a hard refusal there converts a working tab into the blank page the previous
+      phase just abolished. A mismatch inside the rollout window is not alarming, and the only
+      action the banner offers is a reload.
+  - key: |
+      SAYING "DIFFERENT" IS NOT SAYING "INCOMPATIBLE", AND THE PHASE MUST NOT PRETEND OTHERWISE.
+      Two builds differing is a fact this phase can establish. Whether they can talk to each other
+      is a property of the contract between them, and the REST contract is not generated today —
+      the type stub is one path from May, generated into a file nothing imports. This phase
+      reports the fact and names the successor that makes the judgement possible.
+
+steps:
+  - id: both-images-carry-the-build-they-were-made-from
+    action: "Pass the build revision and the release version into both image builds and make them readable at runtime, so each half can say which build it is."
+  - id: the-mismatch-is-a-finding
+    action: "Compare the two identities and report a difference through the channel that already answers what is wrong with an installation."
+  - id: the-banner-says-what-to-do-about-it
+    action: "Render the mismatch where findings are already rendered, with a reload as its only action, and do not raise it inside a normal rolling-update window."
+
+tests:
+  - "BuildIdentity_TwoBuildsOfOneRelease_AreDistinguishable"
+  - "BuildIdentity_IsReadableAtRuntimeInBothImages"
+  - "Mismatch_IsReportedAsAFinding"
+  - "Mismatch_TheApiKeepsAnswering"
+  - "Mismatch_WithinTheRolloutWindow_IsNotRaised"
+  - "Match_ProducesNoFinding"
+  - "Banner_AMismatch_OffersAReload"
+  - "MissingIdentity_IsNotReportedAsAMismatch"
+
+done:
+  - "two builds of one release are distinguishable, and both halves say which they are"
+  - "a mismatch appears where an operator already looks for what is wrong"
+  - "nothing refuses to serve because of it, and a rolling update does not alarm"
+  - "the phase claims a difference and never claims compatibility"
+  - "build green, full suite green, dashboard tests green"
