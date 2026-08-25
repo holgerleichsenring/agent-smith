@@ -19,9 +19,19 @@ namespace AgentSmith.Application.Services.Sandbox;
 ///   5. the language convention table
 ///   6. the generic git-bearing fallback
 /// </para>
+/// <para>
+/// 2026-08-25-014d: the only thing an image is judged by here is where it comes
+/// from. What it CONTAINS is discovered where it is used — a sandbox clones into
+/// itself, so an image without git fails at the checkout, by name. The tag
+/// pattern that used to guess at git could only downgrade to a different image,
+/// silently, and guessed wrong for every ecosystem it had never heard of.
+/// </para>
 /// </summary>
-public sealed class SandboxImageChain(ILogger<SandboxImageChain>? logger = null)
+public sealed class SandboxImageChain(
+    ImageRegistryTrust? trust = null, ILogger<SandboxImageChain>? logger = null)
 {
+    private readonly ImageRegistryTrust _trust = trust ?? new ImageRegistryTrust();
+
     // Generic fallback when no language-specific image can be resolved.
     //
     // Requirements: glibc (the self-contained .NET 8 agent binary is glibc-linked
@@ -58,27 +68,19 @@ public sealed class SandboxImageChain(ILogger<SandboxImageChain>? logger = null)
             && !string.IsNullOrEmpty(kv.Value)).Value;
     }
 
-    // p0265: validate an LLM-named stack.image before trusting it as the sandbox
-    // toolchain. Returns the image when it clears both gates, else null (the chain
-    // continues) with a WARN so the rejection is visible.
+    // p0265: judge an LLM-named stack.image against the operator's registry policy
+    // before trusting it as the sandbox toolchain. Returns the image when it is
+    // inside the boundary, else null (the chain continues) with a WARN.
     private string? AcceptedContextImage(string? contextImage, string? language)
     {
         var trimmed = contextImage?.Trim();
         if (string.IsNullOrEmpty(trimmed)) return null;
-        if (!ToolchainImageCatalog.IsTrustedRegistry(trimmed))
+        if (!_trust.Accepts(trimmed))
         {
             logger?.LogWarning(
-                "p0265: context.yaml stack.image '{Image}' is not from a trusted registry "
-                + "(mcr.microsoft.com, ghcr.io, or a Docker Hub official library image). "
-                + "Falling back for lang={Lang}.", trimmed, language ?? "null");
-            return null;
-        }
-        if (!ToolchainImageCatalog.IsGitBearing(trimmed))
-        {
-            logger?.LogWarning(
-                "p0265: context.yaml stack.image '{Image}' does not match a git-bearing tag "
-                + "(a sandbox runs `git clone` inside it; -slim/-alpine/bare tags lack git). "
-                + "Falling back for lang={Lang}.", trimmed, language ?? "null");
+                "p0265: context.yaml stack.image '{Image}' is outside the trusted registries "
+                + "[{Trusted}]. Falling back for lang={Lang}.",
+                trimmed, _trust.Description, language ?? "null");
             return null;
         }
         logger?.LogInformation(
@@ -87,23 +89,18 @@ public sealed class SandboxImageChain(ILogger<SandboxImageChain>? logger = null)
         return trimmed;
     }
 
-    // p0504: a profile image that fails the gate REFUSES. Falling through to the
+    // p0504: a profile image outside the boundary REFUSES. Falling through to the
     // language table would run the profile's commands in an image that never
     // carried them — the failure this profile mechanism exists to prevent.
-    private static string? GatedProfileImage(string? profileImage)
+    private string? GatedProfileImage(string? profileImage)
     {
         var trimmed = profileImage?.Trim();
         if (string.IsNullOrEmpty(trimmed)) return null;
-        if (!ToolchainImageCatalog.IsTrustedRegistry(trimmed))
+        if (!_trust.Accepts(trimmed))
             throw new ConfigurationException(
-                $"Domain profile image '{trimmed}' is not from a trusted registry "
-                + "(mcr.microsoft.com, ghcr.io, or a Docker Hub official library image). "
-                + "Fix the profile in the skills catalog; no sandbox is started for it.");
-        if (!ToolchainImageCatalog.IsGitBearing(trimmed))
-            throw new ConfigurationException(
-                $"Domain profile image '{trimmed}' does not match a git-bearing tag — a sandbox "
-                + "runs `git clone` inside it. Fix the profile in the skills catalog; no sandbox "
-                + "is started for it.");
+                $"Domain profile image '{trimmed}' is outside the trusted registries "
+                + $"[{_trust.Description}]. Fix the profile in the skills catalog or widen the "
+                + "policy; no sandbox is started for it.");
         return trimmed;
     }
 }

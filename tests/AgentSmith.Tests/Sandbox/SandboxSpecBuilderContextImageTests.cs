@@ -9,8 +9,13 @@ namespace AgentSmith.Tests.Sandbox;
 /// context.yaml `stack.image`. It must win over the language→image convention
 /// table (so a net8 repo gets sdk:8.0 that can RUN its tests, and frameworks
 /// with no table row still get a working image) — but only after clearing the
-/// supply-chain + git-bearing gate. An invalid image falls back to the table.
+/// supply-chain gate. An image outside it falls back to the table.
 /// Operator override (Sandbox.ToolchainImage) still wins over everything.
+/// <para>
+/// 2026-08-25-014d: the gate is the registry boundary and nothing else. An image
+/// the boundary accepts is USED, whatever its tag looks like — the tag shapes the
+/// gate also weighed knew four ecosystems and could only answer a fifth wrongly.
+/// </para>
 /// </summary>
 public sealed class SandboxSpecBuilderContextImageTests
 {
@@ -42,8 +47,7 @@ public sealed class SandboxSpecBuilderContextImageTests
     [Theory]
     [InlineData("evil.example.com/pwn:latest")]   // untrusted registry
     [InlineData("someuser/dotnet-sdk:8.0")]       // not an official library image
-    [InlineData("node:20-alpine")]                // trusted but gitless
-    [InlineData("mcr.microsoft.com/dotnet/sdk")]  // no tag → not git-bearing pattern
+    [InlineData("a.host:5000/pwn:latest")]        // a port is not a tag, so this is no library image
     public void InvalidContextImage_FallsBackToLanguageTable(string contextImage)
     {
         var spec = NewSut().Build(
@@ -51,6 +55,17 @@ public sealed class SandboxSpecBuilderContextImageTests
 
         // csharp table entry, not the rejected LLM image.
         spec.ToolchainImage.Should().Be("mcr.microsoft.com/dotnet/sdk:9.0");
+    }
+
+    [Theory]
+    [InlineData("node:20-alpine")]                // inside the boundary; its contents are its own business
+    [InlineData("mcr.microsoft.com/dotnet/sdk")]  // untagged, and still from Microsoft
+    public void ContextImage_InsideTheBoundary_IsUsedWhateverItsTagLooksLike(string contextImage)
+    {
+        var spec = NewSut().Build(
+            new ResolvedProject(), language: "csharp", pipelineName: "fix-bug", contextImage: contextImage);
+
+        spec.ToolchainImage.Should().Be(contextImage);
     }
 
     [Fact]

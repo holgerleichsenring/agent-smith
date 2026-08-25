@@ -1,12 +1,15 @@
-using System.Text.RegularExpressions;
-
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// The convention knowledge a toolchain image is judged by: which image a
-/// language resolves to, and whether a named image may be trusted to run a
-/// sandbox at all. Extracted from SandboxSpecBuilder (p0504) so the resolution
-/// chain and the builder each keep one responsibility.
+/// The convention image a language resolves to when nothing more specific named
+/// one. Extracted from SandboxSpecBuilder (p0504) so the resolution chain and the
+/// builder each keep one responsibility.
+/// <para>
+/// 2026-08-25-014d: this table is the ONLY name-driven decision left here. Which
+/// registries an image may come from is the operator's, and lives in
+/// <see cref="ImageRegistryTrust"/>; whether an image carries git is discovered
+/// at the checkout that needs it, not guessed from its tag.
+/// </para>
 /// </summary>
 public static class ToolchainImageCatalog
 {
@@ -50,48 +53,11 @@ public static class ToolchainImageCatalog
         ["rust"] = "rust:1.79-bookworm"
     };
 
-    /// <summary>p0194: tests read this to pin every entry against a
-    /// git-bearing image allowlist. CheckoutSourceHandler clones inside the
-    /// sandbox, so a slim/alpine entry would break checkout silently.</summary>
+    /// <summary>p0194: tests read this to pin every entry against the bases this
+    /// repository has confirmed ship git. These are OUR curated values, so the
+    /// pin is an assertion about data we control — not a runtime guess about an
+    /// image somebody else named.</summary>
     public static IReadOnlyDictionary<string, string> KnownLanguages => LanguageImages;
-
-    // p0265: a sandbox runs `git clone` inside the toolchain image
-    // (CheckoutSourceHandler), so the image MUST bundle git. These patterns
-    // recognise git-bearing tags; a -slim / -alpine / bare tag matches none and
-    // is rejected. Single source of truth — the LanguageImages allowlist test
-    // (p0194), the LLM-named stack.image validation and the profile image gate
-    // (p0504) all read it.
-    public static readonly Regex[] GitBearingImagePatterns =
-    [
-        // Microsoft .NET SDK images include git in every tag.
-        new(@"^mcr\.microsoft\.com/dotnet/sdk:", RegexOptions.Compiled),
-        // Debian bookworm full base bundles git.
-        new(@":[^-]*-bookworm$", RegexOptions.Compiled),
-        // Debian bullseye full base bundles git.
-        new(@":[^-]*-bullseye$", RegexOptions.Compiled),
-        // The -scm suffix on buildpack-deps is explicitly source-control-tooling.
-        new(@"^buildpack-deps:[^-]+-scm$", RegexOptions.Compiled),
-    ];
-
-    /// <summary>Does this image carry git, judged by its tag?</summary>
-    public static bool IsGitBearing(string image) =>
-        GitBearingImagePatterns.Any(p => p.IsMatch(image));
-
-    // p0265: trusted registries an LLM-named stack.image may pull from. A
-    // supply-chain boundary (feedback_safety_in_api_not_process): the image
-    // string is LLM-authored, so we only accept official Microsoft, GitHub
-    // Container Registry, or Docker Hub *official library* images (single repo
-    // segment, no user namespace). Anything else falls back to the language table.
-    public static bool IsTrustedRegistry(string image)
-    {
-        if (image.StartsWith("mcr.microsoft.com/", StringComparison.Ordinal)) return true;
-        if (image.StartsWith("ghcr.io/", StringComparison.Ordinal)) return true;
-        // Docker Hub official "library" image: the repository part (before the
-        // tag) has no '/', e.g. node:20-bookworm, buildpack-deps:bookworm-scm.
-        // user/repo or other-registry.tld/... both contain a '/' and are rejected.
-        var repo = image.Split(':', 2)[0];
-        return !repo.Contains('/', StringComparison.Ordinal);
-    }
 
     /// <summary>The convention image for a language, or null when unknown.</summary>
     public static string? ForLanguage(string? language) =>
