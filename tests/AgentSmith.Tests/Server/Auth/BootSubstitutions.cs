@@ -19,8 +19,17 @@ internal static class BootSubstitutions
     internal static Action<IServiceCollection> For(BootPlan plan) => services =>
     {
         SubstituteTransport(plan, services);
+        SubstituteClock(plan, services);
         SelectHostedServices(plan, services);
     };
+
+    /// <summary>A case that asserts on a duration supplies the clock that measures it.</summary>
+    private static void SubstituteClock(BootPlan plan, IServiceCollection services)
+    {
+        if (plan.Clock is null) return;
+        services.RemoveAll<TimeProvider>();
+        services.AddSingleton(plan.Clock);
+    }
 
     /// <summary>
     /// A case that does not assert on a broken transport gets one that answers. A case that

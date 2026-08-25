@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { AppRail } from "@/components/shell/AppRail";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { DegradedBanner } from "@/components/shell/DegradedBanner";
+import { BuildMismatchBanner } from "@/components/shell/BuildMismatchBanner";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { RunBucketFilterProvider } from "@/lib/RunBucketFilter";
@@ -53,6 +54,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <main className="h-screen overflow-y-auto">
                   <RenderBoundary surface="installation health banner">
                     <DegradedBanner />
+                  </RenderBoundary>
+                  {/* 2026-08-25-8c97: the same findings document, read for the one
+                      finding whose remedy is a reload rather than an operator. */}
+                  <RenderBoundary surface="build identity banner">
+                    <BuildMismatchBanner />
                   </RenderBoundary>
                   {children}
                 </main>

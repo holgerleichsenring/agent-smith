@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchFindings, type StartupFindings } from "@/lib/findingsApi";
-
-const POLL_INTERVAL_MS = 30_000;
+import { useFindings } from "@/lib/useFindings";
 
 /**
  * p0391a: names what is down and why, above every route. The server no longer refuses to
@@ -39,32 +36,4 @@ export function DegradedBanner() {
 
 function unitOf(subsystem: string, project: string | null, trigger: string | null): string {
   return [subsystem, project, trigger].filter(Boolean).join(" / ");
-}
-
-function useFindings(): StartupFindings | null {
-  const [findings, setFindings] = useState<StartupFindings | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-    // A findings endpoint that cannot be reached says nothing — the banner reports the
-    // server's own account of itself, and has none to show when it cannot get one.
-    const load = async () => {
-      try {
-        const next = await fetchFindings(controller.signal);
-        if (!cancelled) setFindings(next);
-      } catch {
-        if (!cancelled) setFindings(null);
-      }
-    };
-    void load();
-    const timer = setInterval(() => void load(), POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      controller.abort();
-      clearInterval(timer);
-    };
-  }, []);
-
-  return findings;
 }
