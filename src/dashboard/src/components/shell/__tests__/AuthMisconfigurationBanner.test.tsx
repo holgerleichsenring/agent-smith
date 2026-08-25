@@ -17,6 +17,7 @@ const requirements = (over: Partial<AuthRequirements> = {}): AuthRequirements =>
   enforced: false,
   authority: null,
   audience: null,
+  tokenRefusal: null,
   ...over,
 });
 

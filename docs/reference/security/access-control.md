@@ -64,26 +64,29 @@ for.
 `roleClaim` and `groupClaim` say which claims were **looked in**; the two `…Values`
 arrays say what was **found there**. Those values are what a mapping is written from.
 
-**3. Write the mapping** into the `auth:` block of `agentsmith.yml` (see
-`config/agentsmith.example.yml`):
+If the page instead says **"This server did not accept your token"**, no mapping will
+help: the token was refused before any claim in it was read. The page names which check
+refused it — audience, issuer, signature, expiry — and shows the authority and audience
+this server expects, which is what the fix is written from.
 
-```yaml
-auth:
-  authority: https://login.example.com/realms/agentsmith
-  audience: agent-smith
-  enforce: false
-  group_roles:
-    "11111111-1111-1111-1111-111111111111":
-      - operator
-  roles:
-    config-viewer:
-      - config.read
-```
+**3. Write the mapping** in the Config Studio, under **Settings -> Roles & claims**. A
+role bundle is built by picking from the permission catalog — the catalog is closed, so
+there is nothing to type and nothing to misspell — and a group value is mapped onto the
+role names the installation knows.
 
-**4. Restart the server.** The auth block is *bootstrap* configuration: it is read from
-the file and the environment before the config store exists, because the authority that
-decides who may read the store cannot be read out of it. Unlike the Config Studio's
-settings, it does not reload live — a change costs one restart.
+**4. There is no step four.** A saved mapping applies to the next request. What a role
+MEANS is application configuration: it changes when a team does, so it lives in the
+config store like every other setting and reloads live.
+
+The *authority*, the *audience* and the *enforce* switch are different — they are
+bootstrap configuration, read from the file and the environment before the config store
+exists, because the authority that decides who may read the store cannot be read out of
+it. A change to those three costs one restart.
+
+An installation upgrading with `role_claim`, `group_claim`, `group_roles` or `roles`
+still in its `auth:` block has them **imported once**, on the first boot after the
+upgrade. Nothing is lost, and nothing has to be edited by hand. After that import the
+store is the single answer, and the file's copy is ignored.
 
 **5. Turn enforcement on** once `GET /api/identity` shows the roles you expect. Set an
 authority with `enforce: false` first: tokens are validated and nothing is refused, which

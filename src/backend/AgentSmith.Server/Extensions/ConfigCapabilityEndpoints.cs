@@ -23,7 +23,10 @@ internal static class ConfigCapabilityEndpoints
         // defined presets; agent providers from the REGISTERED chat-client
         // builders — the same index ChatClientFactory resolves against.
         app.MapGet("/api/config/capabilities", ([FromServices] IEnumerable<IChatClientBuilder> builders) =>
-            Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))))
+            // 2026-08-25-1806: the closed permission catalog and the role names it is
+            // already bundled under ride along, so the role-mapping form picks from them.
+            Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))
+                with { Permissions = Permissions.All, BuiltInRoles = [.. BuiltInRoles.All.Keys] }))
            .Needs(Permissions.ConfigRead);
 
         // p0392: what the server would say about a draft the operator has not saved.

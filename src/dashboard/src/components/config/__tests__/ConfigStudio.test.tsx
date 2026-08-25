@@ -54,6 +54,8 @@ vi.mock("@/lib/configApi", () => {
       connectionTypes: [{ type: "azure-devops", orgLabel: "organization", fields: [] }],
       agentProviders: ["openai", "anthropic"],
       resolutionStrategies: ["tag", "area_path"],
+      permissions: [],
+      builtInRoles: [],
       pipelines: ["feature", "api-scan"],
     }),
     fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
