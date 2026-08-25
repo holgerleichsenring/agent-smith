@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.135.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.134.1...v0.135.0) (2026-08-25)
+
+
+### Features
+
+* a claim becomes a role becomes a permission (p0503d) ([f077a41](https://github.com/holgerleichsenring/agent-smith/commit/f077a41080df82ca82786ad0888b5a7c0c254e8b))
+* a customer catalog adds to ours instead of replacing it (p0514) ([feff21a](https://github.com/holgerleichsenring/agent-smith/commit/feff21a9921d1d99265e8a4e8111032220168a01))
+* a domain is a profile, not a paragraph (p0504) ([b49f983](https://github.com/holgerleichsenring/agent-smith/commit/b49f98338bcdf42d1b8b8a59ef7f44c5f7449d20))
+* a phase id can be minted offline (p0507) ([b04c816](https://github.com/holgerleichsenring/agent-smith/commit/b04c816685cff8af8997837f6da9d32e2ae8c92f))
+* a token is validated against one authority (p0503b) ([44d705c](https://github.com/holgerleichsenring/agent-smith/commit/44d705c02b30eb6382215c6b828d922c6da9752a))
+* an authority that cannot be reached still answers (p0503e) ([71acc81](https://github.com/holgerleichsenring/agent-smith/commit/71acc81f6d0af4f5fac6427b28d99e4346eac4c7))
+* every route states the permission it needs (p0503a) ([da00da2](https://github.com/holgerleichsenring/agent-smith/commit/da00da2d029ef357e8ce0301f1fbe14ecdc14606))
+* **harness:** measure the data toolchain against three fixture shapes (p0505) ([bce4250](https://github.com/holgerleichsenring/agent-smith/commit/bce4250a71331058ebc0d00e3253d2c983d628fd))
+* **phase-gate:** a gated commit says so, and the gate says where it stops (p0511) ([4ced0c8](https://github.com/holgerleichsenring/agent-smith/commit/4ced0c8de7c7c4bbc66153d7652f9796f1a2312e))
+* refuse an unsigned webhook wherever a secret is configured (p0506) ([6e8ca40](https://github.com/holgerleichsenring/agent-smith/commit/6e8ca40d46ac32e7aa7ee06b21bf84b14d2b2ba8))
+* **security:** the hub names its permissions and the token leaves the console (p0503c) ([f7ff4a6](https://github.com/holgerleichsenring/agent-smith/commit/f7ff4a6a3e728c4e756dbd904c846983b613e62b))
+* the gate reads the message it is gating (p0508) ([b091fc4](https://github.com/holgerleichsenring/agent-smith/commit/b091fc4ea9161c06404d38ee35610e2ba88b1610))
+* the hub refuses what the caller may not do (p0517) ([c049a39](https://github.com/holgerleichsenring/agent-smith/commit/c049a391a278d3afd029613a4b3a4a847e22cedf))
+* the profile ships the gate that survived (p0513) ([5034539](https://github.com/holgerleichsenring/agent-smith/commit/503453946e8a4616d92528c8389d6e5c3568c7b3))
+* the record is an index, not an essay (p0512) ([d2c8a62](https://github.com/holgerleichsenring/agent-smith/commit/d2c8a62505f93d391faf4d5b5b66ebc6599e64ad))
+* twenty-three phases — access control, domain profiles, catalog overlay, offline phase ids, and a gate that finishes in two minutes ([5736246](https://github.com/holgerleichsenring/agent-smith/commit/5736246a6ce5348fd4c9f2290177afd482d3482e))
+
+
+### Bug Fixes
+
+* a verbatim citation of a shortened command resolves (p0494) ([8edcff3](https://github.com/holgerleichsenring/agent-smith/commit/8edcff3db3f47f74d640a7760e5ea37153f516eb))
+* a waiting run is not a finished run (2026-08-24-ca23) ([200f452](https://github.com/holgerleichsenring/agent-smith/commit/200f452c60b4cd67de360c3d048120880d90fdd3))
+* a waiting run is not a finished run (2026-08-24-ca23) ([fea5b46](https://github.com/holgerleichsenring/agent-smith/commit/fea5b46ad39bdbe15e5215e7fae226feb75ed767))
+* **phase-record:** a phase id is read to its end (p0509) ([348db78](https://github.com/holgerleichsenring/agent-smith/commit/348db786001bd4510a2ba8a1a5b0296d0afb599e))
+* the gate covers the paths a name actually takes (p0516) ([3754f69](https://github.com/holgerleichsenring/agent-smith/commit/3754f69199b20e8f6395bdeb89f53002427c4722))
+* the historical reading skips a namespace it never had (p0507) ([b9656ec](https://github.com/holgerleichsenring/agent-smith/commit/b9656ec1ef992de3b0dc4fedebf86d612d393c23))
+* the master-description cap is one number (p0518) ([d3ea909](https://github.com/holgerleichsenring/agent-smith/commit/d3ea909bd0930d5cc4ebe4d71f8338af07a1eb5f))
+
 ## [0.134.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.134.0...v0.134.1) (2026-08-21)
 
 
