@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,6 +26,8 @@ public sealed class CancelEnforcer(
     IEventPublisher events,
     IActiveRunLease lease,
     CancelledTicketFinalizer ticketFinalizer,
+    CancelTerminalWriter terminalWriter,
+    RunTerminator terminator,
     TimeProvider timeProvider,
     ILogger<CancelEnforcer> logger)
 {
@@ -44,6 +47,7 @@ public sealed class CancelEnforcer(
     /// shared with the projector (RunEventApplier), which stamps this same grace
     /// onto the deadline for a watchdog/wall-time cancel so it too gets enforced.</summary>
     public static readonly TimeSpan KillGrace = CancelPolicy.KillGrace;
+    public static TimeSpan TerminateRetryWindow => RunTerminator.RetryWindow;
     private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(15);
 
     public async Task RunAsync(CancellationToken ct)
@@ -117,14 +121,16 @@ public sealed class CancelEnforcer(
         // The kill must land BEFORE the row is finalized: a terminate failure
         // (k8s API down) leaves the row non-terminal so the next scan retries —
         // finalizing first would mark the run cancelled while the pod keeps billing.
-        if (!await TryTerminateAsync(run, ct)) return false;
+        if (!await terminator.TryTerminateAsync(run, ct)) return false;
 
         // p0355: the summary + ticket comment now reflect the TYPED reason on the row
         // (reap / wall-time / budget / operator …) instead of always reading "operator".
-        await events.PublishAsync(new RunFinishedEvent(
-            run.Id, "cancelled", null,
-            CancelReasonNarrator.Summary(run.CancelReason),
-            timeProvider.GetUtcNow()), ct);
+        // 2026-08-24-ca23: a paused run's stream is drained by nobody, so publishing alone
+        // never reached its row and the scan re-selected it every 15s — see CancelTerminalWriter.
+        var terminal = new RunFinishedEvent(run.Id, "cancelled", null,
+            CancelReasonNarrator.Summary(run.CancelReason), timeProvider.GetUtcNow());
+        await terminalWriter.FinalizeAsync(terminal, ct);
+        await events.PublishAsync(terminal, ct);
         // p0355/p0459: guard on current ownership — a run that a NEWER run has reclaimed
         // must neither release the lease nor finalize the ticket (run.Id names this run).
         await ReleaseLeaseAsync(run, ct);
@@ -132,47 +138,6 @@ public sealed class CancelEnforcer(
             CancelReasonNarrator.TicketComment(run.CancelReason), ct);
         return true;
     }
-
-    /// <summary>p0357 (p0330b): terminate retries are BOUNDED. Past this window after the
-    /// kill deadline, an unkillable pod (k8s API down, job 404/gone) no longer blocks the
-    /// finalize — the run must reach 'cancelled' in bounded time, never wedge in
-    /// 'cancelling'. A row with no persisted deadline has been wedged already: no window.</summary>
-    public static readonly TimeSpan TerminateRetryWindow = TimeSpan.FromMinutes(10);
-
-    private async Task<bool> TryTerminateAsync(Run run, CancellationToken ct)
-    {
-        if (string.IsNullOrEmpty(run.JobId)) return true; // in-process run: nothing spawned to kill
-        var spawner = services.GetService<IJobSpawner>();
-        if (spawner is null)
-        {
-            // No spawner in this composition — the job cannot exist here; finalize anyway
-            // rather than wedging the run in 'cancelling' forever.
-            logger.LogWarning("Run {RunId} has job {JobId} but no IJobSpawner is registered", run.Id, run.JobId);
-            return true;
-        }
-        try
-        {
-            await spawner.TerminateAsync(run.JobId!, ct);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            if (IsPastRetryWindow(run))
-            {
-                logger.LogError(ex,
-                    "Terminate failed for run {RunId} job {JobId} and the retry window elapsed — "
-                    + "finalizing 'cancelled' anyway so the run reaches terminal", run.Id, run.JobId);
-                return true;
-            }
-            logger.LogError(ex,
-                "Terminate failed for run {RunId} job {JobId} — will retry next scan", run.Id, run.JobId);
-            return false;
-        }
-    }
-
-    private bool IsPastRetryWindow(Run run) =>
-        run.CancelDeadlineAt is not { } deadline
-        || timeProvider.GetUtcNow() - deadline > TerminateRetryWindow;
 
     private async Task ReleaseLeaseAsync(Run run, CancellationToken ct)
     {

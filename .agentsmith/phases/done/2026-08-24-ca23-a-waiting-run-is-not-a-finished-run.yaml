@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-24-ca23
+
+goal: "A run that stops without ending — parked on a question or requeued for capacity — keeps its place in its own event stream and its trail sequence, so its relaunch appends to its history instead of replaying it, and a cancel can end it without a restart."
+
+applies_to: "backend (run event drain + relational projection, cancel enforcement)"
+
+requires:
+  - p0327
+  - p0330
+  - p0378
+
+scope:
+  in: "The waiting-status boundary wherever a terminal RunFinished is read as an ending: the drain's per-run stream position, its survival across a process restart, the projector's per-run trail sequence, and both paths by which a cancel must end a run that has no executor."
+  out: "Active-set membership, which is the sandbox reapers' rail and must keep meaning exactly what it means today. Trail row uniqueness and the repair of already-duplicated rows — the index cannot be created while the duplicates exist, so the two are one successor phase rather than a step here. The dialogue question's identity and the consumption of a delivered answer — a defect of its own with its own loop. The event-stream architecture and the checkpoint payload's shape."
+
+decisions:
+  - key: |
+      THE PARK PUBLISHES THE TERMINAL EVENT AND THREE CONSUMERS BELIEVE IT. ExecutePipelineUseCase
+      publishes RunFinished with a WAITING status for a state that is explicitly not an ending —
+      RunFinalizationProjection keeps FinishedAt null for exactly these statuses. Three consumers
+      switch on the event TYPE and never read the status: RedisEventPublisher.MaintainIndicesAsync
+      drops the run from the active set, JobsBroadcaster.ProcessEventAsync deletes its stream
+      cursor, RunDbProjector.ProjectAsync discards its trail buffer. One meaning at the writer,
+      three wrong meanings at the readers.
+  - key: |
+      THE CURSOR RESET IS THE DUPLICATION ENGINE AND IT IS FOUR LINES. DiscoverNewRunsAsync assumes
+      "no cursor means a new run" and seeds the stream's beginning. True for a cold start, false for
+      a relaunch: the run re-enters the active set with a full history and no cursor, so the drain
+      re-reads the ENTIRE stream and re-dispatches every historical event to the fanout AND to the
+      DB projector. It then meets the historical RunFinished, breaks, deletes the cursor again, and
+      the next poll starts over. The comment above the read states the invariant this breaks.
+  - key: |
+      NOT DELETING THE CURSOR IS NOT ENOUGH, AND THE NAIVE FORM IS WORSE THAN THE BUG. The drain
+      breaks on RunFinished BEFORE it advances the cursor past that entry — deliberate, because the
+      cursor was about to be deleted anyway. Retaining the cursor without advancing it leaves it
+      pointing at the entry before the waiting event, so every poll re-reads that event, re-projects
+      it and breaks again: the same engine at a fixed five hertz, starting at the park instead of at
+      the relaunch, for as long as the wait lasts — up to fourteen days for a master question. The
+      waiting terminal event must therefore advance the cursor past ITSELF and then stop the batch.
+  - key: |
+      THIS IS KEYED ON WAITING STATUS, NOT ON PARKING, AND THERE ARE EXACTLY TWO. RunFinalizationProjection,
+      RunEventApplier and RunTerminalReconciler already agree that "queued" and "waiting_for_input"
+      are one shape: both keep FinishedAt null, both relaunch onto the same row and the same run id.
+      A sweep of every run-status literal in the backend finds no third. ExecutePipelineUseCase
+      publishes RunFinished(queued) on a capacity TOCTOU, AFTER RunStarted has seeded the stream —
+      the identical treadmill on a path that fires far more often than a park.
+  - key: |
+      THE CURSOR'S STORE IS REDIS, AND ITS LIFETIME SETTLES THE FALLBACK BY CONSTRUCTION. The trail
+      row cannot supply the position: it records no stream entry id, and the mapper never sees one.
+      So the position needs a store of its own — a per-run Redis key, written when the drain
+      processes a waiting terminal event and dropped when it processes a real one, with a lifetime
+      at least that of the run stream. That choice answers the question "is starting from the
+      beginning ever correct?" with yes, exactly when the cursor is gone: a position is meaningless
+      without its stream, and if the stream outlived the cursor there is nothing to skip. A stale
+      position is harmless besides, because stream ids are time-ordered and an old one precedes
+      every new entry. A run-row column would work and would cost a migration in four providers to
+      buy a position that survives a Redis flush — into a stream that did not.
+  - key: |
+      THE RESTORE BELONGS WHERE THE FRESH START IS MINTED, OR IT LOSES THE RACE. There is exactly
+      one place a run's position is invented, and it runs on the same tick as the drain. A restore
+      anywhere else is beaten by it unconditionally. Reading the stored position there — only when
+      no position is held — makes the restore and the fallback the same decision, so there is no
+      ordering hazard to reason about and no extra read per run per tick.
+  - key: |
+      A COLD START MUST ENUMERATE FROM THE STORE, BECAUSE THE ACTIVE SET NO LONGER LISTS THE RUN.
+      A waiting run left the active set at its park, so cold-start rehydration cannot see it: after
+      a restart it is invisible to the drain until it relaunches, and a cancel published against it
+      in the meantime reaches the row but never the trail or the fanout. The store already answers
+      exactly the right question — the runs with no finish — and the drain already accepts an
+      optional persistence collaborator, so the enumeration needs no second membership key.
+  - key: |
+      THE SEQUENCE MUST COME FROM THE STORE, AND MUST BE RESOLVED BEFORE THE BUFFER IS PUBLISHED.
+      The trail buffer's counter is per-instance and restarts at zero whenever the buffer is
+      dropped, which is what makes replayed rows collide by value; a run alive across a restart
+      already re-uses sequences the previous process wrote. Seeding from the run's persisted
+      maximum fixes both, and makes it authoritative over merely keeping the buffer alive. Two
+      mechanics follow: the lookup is a range scan over the run, not a seek, because the existing
+      index leads with a different second column — one query per buffer, not per event; and the
+      buffer cannot be created inside a concurrent-dictionary factory that cannot await, so the
+      seed is resolved first and published second. The terminal reconciler mints its own maximum
+      plus one, so this phase names which of the two owns the number.
+  - key: |
+      THE ENFORCER MUST NOT HAND-ROLL A TERMINAL ROW. Writing status and finish time directly
+      would end the loop and leak two things: the capacity reservation a waiting run deliberately
+      keeps is released only on the projection's terminal path, and the cost total for an
+      enforcer-published ending comes only from that projection's fallback sum — the enforcer
+      publishes no cost. The later drained event would then find a finished row and return before
+      either. So the enforcer calls the projection that already owns every terminal transition,
+      synchronously, in its own scope: release and cost stay in one place, the drained event
+      becomes a no-op by that projection's own set-once guard, and the single-writer rule is
+      widened by one named caller rather than by a second implementation of "terminal".
+  - key: |
+      THERE ARE TWO CANCEL ENTRY POINTS AND THEY SPLIT BY WAITING STATUS. The endpoint
+      short-circuits a queued run itself and never involves the enforcer; a parked run falls
+      through to the enforcer. Both publish into a stream nobody is draining, so both have the
+      defect, and a fix worded around enforcement alone would leave the queued half broken. The
+      discriminator for skipping the terminate-retry window is likewise the waiting status on the
+      row and NOT an empty job id: a park never clears the job id, so a parked run carries a stale
+      one from a pod that died at park, and the window would be spent retrying a corpse.
+  - key: |
+      THE MEASUREMENT IS UNIFORM AND THE COST IT DISTORTS IS REAL. On the observed run the
+      publisher emitted LlmCallStarted 129 times and the store reports 5418 — 42.00x. All 1343
+      trail events exist exactly 42 times: the copies-per-event histogram has a SINGLE bucket, no
+      ragged edge, so the last pass completed before the cancel removed the run from the active
+      set. Three comparison runs that never waited show factor 1. The statistics endpoint claims
+      8.6 hours of model time inside a 37-minute run; divided by 42 it is 12.3 minutes. The run
+      truly cost about three dollars, which is what the live tracker reported, but the terminal
+      fallback summed the duplicated per-call rows and stamped forty-two times that onto the row,
+      where every cost rollup now reads it. The multiplier is wall-clock dependent and unbounded —
+      42 is what this run reached, not a constant.
+  - key: |
+      THE CAUSAL STORY WAS CORRECTED IN REVIEW AND THE DATA CONFIRMS THE CORRECTION. Seventeen
+      resume enqueues were first attributed to a re-park resetting the checkpoint. They cannot be:
+      the drain breaks at the FIRST terminal event in the stream, so no event of a later leg is
+      ever projected. What resets the checkpoint is the replay of the FIRST leg's own checkpoint
+      event, once per pass. The prediction that follows — every event of legs two onward is absent
+      from the trail — holds against the recorded run: its newest trail row is the park event,
+      while six relaunches ran twenty minutes later and left nothing. The cursor fix alone
+      therefore ends the observed loop, which is why the answer-consumption defect is a separate
+      phase rather than a step here.
+  - key: |
+      ONE REPLICA IS A STANDING ASSUMPTION AND THIS PHASE INHERITS IT. The drain is a plain hosted
+      service, not leader-gated like the enforcer and the sweeper, and the shipped manifest runs a
+      single replica. A persisted position becomes shared state between processes the moment that
+      changes — on top of the double projection two drains would already cause. Named here so a
+      future scale-out knows it must gate the drain, not discover this.
+
+steps:
+  - id: a-waiting-run-keeps-its-place-in-its-stream
+    action: "Release a run's stream position only when the run has truly ended: a terminal event carrying a waiting status advances the position past itself and stops the batch, so the waiting event is never reprocessed and a relaunch's drain continues where the previous leg stopped."
+  - id: a-position-survives-the-process
+    action: "Persist a waiting run's drain position under its own key with a lifetime at least that of the run stream, restore it at the one place a fresh start is otherwise minted, and enumerate the store's unfinished runs at cold start so a run that waited through a restart is drained again instead of being invisible."
+  - id: a-relaunched-run-continues-its-trail-sequence
+    action: "Seed a run's trail sequence from what the store already holds for that run rather than from zero, resolving the seed before the buffer is published so it cannot be raced, and name the single owner of that number so the terminal reconciler and the live buffer cannot both mint it."
+  - id: a-cancel-ends-a-waiting-run
+    action: "End a cancelled waiting run through the projection that owns every terminal transition, at both cancel entry points, so its capacity reservation is released and its cost total computed exactly once — and skip the terminate-retry window for a run whose waiting status says it holds nothing to terminate."
+
+tests:
+  - "Park_TheCursorAdvancesPastTheParkEventSoItIsNeverReprocessed"
+  - "Park_ManyPollsPass_TheParkEventIsProjectedExactlyOnce"
+  - "Park_ThenResume_TheDrainContinuesAfterTheParkEventInsteadOfRereadingTheStream"
+  - "Park_ThenResume_NoHistoricalEventIsWrittenToTheTrailTwice"
+  - "Park_ThenResume_TheResumedLegsOwnEventsReachTheTrail"
+  - "Park_TheRunLeavesTheActiveSetSoItsSandboxesStayReapable"
+  - "Queued_ThenRelaunch_TheDrainContinuesAndNoEventIsWrittenTwice"
+  - "Restart_DuringAWait_ThenResume_TheDrainResumesAtTheStoredPositionAndReplaysNothing"
+  - "Restart_DuringAWait_TheStoredPositionIsGone_TheDrainStartsFreshWithoutFailing"
+  - "Restart_DuringAWait_TheUnfinishedRunIsPickedUpWithoutWaitingForARelaunch"
+  - "Restart_DuringARun_TheTrailSequenceContinuesAboveWhatTheStoreHolds"
+  - "TrailSequence_AcrossManyLegs_IsStrictlyIncreasing"
+  - "TerminalReconciler_AndTheLiveBuffer_DoNotMintTheSameSequence"
+  - "Statistics_WithinOneLeg_ReportModelTimeThatFitsInsideThatLegsWallClock"
+  - "Cancel_ParkedRun_ReachesCancelledWithoutARestart"
+  - "Cancel_ParkedRun_ItsCapacityReservationIsReleasedAndItsCostTotalComputed"
+  - "Cancel_ParkedRun_IsEnforcedOnceAndWritesItsTicketOnce"
+  - "Cancel_ParkedRun_DoesNotSpendTheTerminateRetryWindowOnAStaleJobId"
+  - "Cancel_QueuedRun_ThroughTheEndpointsOwnPath_ReachesCancelledTheSameWay"
+  - "Cancel_TheTerminalEventArrivesLaterThroughTheDrain_TheRowIsNotWrittenTwice"
+
+done:
+  - "a waiting run keeps its stream position and the waiting event itself is processed exactly once"
+  - "a relaunched run's trail grows by its own new events only, proven by the row count before and after"
+  - "a waiting run is absent from the active set, so its sandboxes remain reapable"
+  - "a restart during a wait resumes the drain at the stored position, and a missing position starts fresh without failing"
+  - "the trail sequence is strictly increasing across legs and across restarts, with one named owner"
+  - "within a single leg, reported model time fits inside that leg's wall clock"
+  - "a cancelled waiting run reaches 'cancelled' from either entry point without a restart, releases its reservation, computes its cost once, and writes its ticket once"
+  - "build green, full suite green"

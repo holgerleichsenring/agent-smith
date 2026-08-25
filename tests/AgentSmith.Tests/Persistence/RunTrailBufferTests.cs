@@ -88,4 +88,23 @@ public sealed class RunTrailBufferTests
 
     private static SandboxCommandEvent Command() =>
         new(RunId, "default", "dotnet", 4, DateTimeOffset.UtcNow);
+
+    /// <summary>
+    /// 2026-08-24-ca23: a buffer created for a run that already has history — a relaunch after
+    /// a pause, or a run alive across a restart — must continue the store's sequence. Starting
+    /// at zero re-mints numbers the previous instance already wrote, which is what let replayed
+    /// rows collide by value instead of being recognisable as replays.
+    /// </summary>
+    [Fact]
+    public void Buffer_SeededFromTheStore_ContinuesTheSequenceInsteadOfRestarting()
+    {
+        var buffer = new RunTrailBuffer(startSeq: 42);
+
+        var flushed = buffer.Add(
+            new RunFinishedEvent("run-1", "success", null, "done", DateTimeOffset.UtcNow),
+            flushThreshold: 25, DateTimeOffset.UtcNow);
+
+        flushed.Should().NotBeNull();
+        flushed!.Single().Seq.Should().Be(42);
+    }
 }
