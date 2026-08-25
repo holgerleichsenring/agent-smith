@@ -66,7 +66,7 @@ public sealed class PhaseAccountingResilienceTests
     }
 
     private static PhaseAccounting Build(ISpecAccountant accountant) =>
-        new(new DeliveryDiff(NullLogger<DeliveryDiff>.Instance), accountant,
+        new(new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance), accountant,
             new AgentSmith.Application.Services.Handlers.SandboxTargets(),
             NullLogger<PhaseAccounting>.Instance);
 

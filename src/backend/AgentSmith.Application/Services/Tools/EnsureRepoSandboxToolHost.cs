@@ -118,10 +118,11 @@ public sealed class EnsureRepoSandboxToolHost(
             var created = mine.Where(kv => !before.Contains(kv.Key)).ToList();
             if (created.Count > 0)
             {
-                var repo = await cloner.CheckoutIntoSandboxesAsync(target, ResolveBranch(pipeline), created, ct);
-                if (repo is null)
+                var checkout = await cloner.CheckoutIntoSandboxesAsync(
+                    target, RunBranchResolver.Resolve(pipeline), created, ct);
+                if (checkout.Repository is null)
                     return $"Error: a sandbox for '{target.Name}' was created but the source checkout " +
-                           "failed — do not use this repo; continue without it.";
+                           $"failed ({checkout.Problem}) — do not use this repo; continue without it.";
             }
             GrowToolHost(target.Name, mine);
             return $"Sandbox ready for repo '{target.Name}' " +
@@ -137,14 +138,6 @@ public sealed class EnsureRepoSandboxToolHost(
             throw;
         }
     }
-
-    // Same branch resolution CheckoutSourceContextBuilder uses for the initial checkout.
-    private static BranchName? ResolveBranch(PipelineContext pipeline) =>
-        pipeline.TryGet<string>(ContextKeys.CheckoutBranch, out var b) && !string.IsNullOrWhiteSpace(b)
-            ? new BranchName(b)
-            : pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) && ticketId is not null
-                ? TicketBranchNamer.Compose(ticketId)
-                : null;
 
     private void GrowToolHost(string repoName, IEnumerable<KeyValuePair<string, ISandbox>> sandboxes)
     {

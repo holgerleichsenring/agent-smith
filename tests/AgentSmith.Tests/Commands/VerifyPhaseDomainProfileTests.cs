@@ -64,9 +64,9 @@ public sealed class VerifyPhaseDomainProfileTests
         new DomainProfileStagesResolver(new TestDomainProfiles(Profile)),
         new SandboxTargets(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
-        new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+        new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
         new PhaseAccounting(
-            new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+            new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
                 new ScriptedChatClientFactory(),
                 new SpecAccountCall(

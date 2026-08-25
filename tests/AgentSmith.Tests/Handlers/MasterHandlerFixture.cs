@@ -50,7 +50,7 @@ internal static class MasterHandlerFixture
                 new SandboxRepoCloner(
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
                     new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
-                    NullLogger<SandboxRepoCloner>.Instance),
+                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
                 new SandboxTargets()),
             WebTool,
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
