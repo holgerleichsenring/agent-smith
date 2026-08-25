@@ -37,6 +37,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<DialogueAnswerEntry> DialogueAnswers => Set<DialogueAnswerEntry>();
     // p0328: the ratified expectation per run (the acceptance contract).
     public DbSet<RunExpectation> RunExpectations => Set<RunExpectation>();
+    public DbSet<RunCriterionJudgement> RunCriterionJudgements => Set<RunCriterionJudgement>(); // e257
     // p0336: the per-run capacity footprint + reservation ledger.
     public DbSet<RunCapacity> RunCapacities => Set<RunCapacity>();
     // p0349: config as a DB entity-document store — the doc rows, the single audit
@@ -55,6 +56,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328
+        modelBuilder.ApplyConfiguration(new RunCriterionJudgementConfiguration()); // 2026-08-25-e257
         modelBuilder.ApplyConfiguration(new RunCapacityConfiguration()); // p0336
         modelBuilder.ApplyConfiguration(new ConfigEntityConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349

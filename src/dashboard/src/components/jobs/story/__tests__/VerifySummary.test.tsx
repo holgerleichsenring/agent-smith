@@ -33,6 +33,79 @@ const ACCEPTANCE: RunAcceptance = {
   ratifiedBy: "holger",
 };
 
+describe("VerifySummary (the operator's judgement)", () => {
+  // 2026-08-25-e257: a run that fails on a wrong criterion is indistinguishable from one
+  // that fails on a right one. This is where the difference gets written down — a label,
+  // never a control.
+  const ACCOUNTED = {
+    ...ACCEPTANCE,
+    source: "delivery_account" as const,
+    criteria: [{ text: "Explicit publish routes", status: "unmet" as const, reason: "no file" }],
+  };
+
+  const JUDGED = [
+    {
+      criterion: "Explicit publish routes",
+      machineStatus: "unmet" as const,
+      humanStatus: "met" as const,
+      reason: "the extension declares six",
+      author: "holger",
+      recordedAt: "2026-08-25T00:00:00Z",
+    },
+  ];
+
+  it("VerifySummary_NoJudgementHandlers_OffersNoControl", () => {
+    render(<VerifySummary acceptance={ACCOUNTED} fallback={fallback({})} />);
+    expect(screen.queryByTestId("criterion-judgement-open")).toBeNull();
+  });
+
+  it("VerifySummary_ACriterionWithNoJudgement_OffersToRecordOne", () => {
+    render(
+      <VerifySummary
+        acceptance={ACCOUNTED}
+        fallback={fallback({})}
+        judgements={[]}
+        onRecordJudgement={() => {}}
+        onWithdrawJudgement={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("criterion-judgement-open")).toHaveTextContent(
+      "this verdict is wrong",
+    );
+  });
+
+  it("VerifySummary_AnOverruledCriterion_ShowsBothTheMachineAndTheHumanVerdict", () => {
+    render(
+      <VerifySummary
+        acceptance={ACCOUNTED}
+        fallback={fallback({})}
+        judgements={JUDGED}
+        onRecordJudgement={() => {}}
+        onWithdrawJudgement={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("verify-criterion")).toHaveAttribute("data-status", "unmet");
+    const judgement = screen.getByTestId("criterion-judgement");
+    expect(judgement).toHaveTextContent("holger says: met");
+    expect(judgement).toHaveTextContent("the extension declares six");
+  });
+
+  it("VerifySummary_AnOverrule_CanBeWithdrawn", () => {
+    const withdrawn: string[] = [];
+    render(
+      <VerifySummary
+        acceptance={ACCOUNTED}
+        fallback={fallback({})}
+        judgements={JUDGED}
+        onRecordJudgement={() => {}}
+        onWithdrawJudgement={(criterion) => withdrawn.push(criterion)}
+      />,
+    );
+    screen.getByTestId("criterion-judgement-withdraw").click();
+    expect(withdrawn).toEqual(["Explicit publish routes"]);
+  });
+});
+
 describe("VerifySummary (the judge that decided)", () => {
   // 2026-08-25-7f5a: an independent read of the branch and the agent's report of its own
   // work are not the same evidence, and a page that shows them identically invites the

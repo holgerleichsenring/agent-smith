@@ -36,6 +36,9 @@ internal static class RunQueryEndpoints
         // p0423b: the story view's own surface — statistics folded from the trail
         // and the recorded conversation. Deliberately opened, never pushed.
         app.MapRunStoryEndpoints();
+        // 2026-08-25-e257: where the operator says a verdict was wrong. A label, not
+        // a control — nothing here moves the run.
+        app.MapCriterionJudgementEndpoints();
         return app;
     }
 
