@@ -93,4 +93,5 @@ done:
   - "a date-minted phase's goal is one sentence, judged here and not in the deployed schema"
   - "a long ticket title still produces a valid fallback spec"
   - "the generator, the rule and the authoring guidance name one number"
+  - "create-phase in the methodology plugin states the same bound and no longer tells an author to find the highest phase number — reconciled by hand, unverifiable from this repo"
   - "build green, full suite green"

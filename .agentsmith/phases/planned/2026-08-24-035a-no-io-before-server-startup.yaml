@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-08-24-035a
 
-goal: "No network call happens before the listener binds, so a slow or absent dependency costs a finding instead of the boot — the port opens in milliseconds, readiness stays honest, and a booted-server test stops costing forty seconds."
+goal: "No network call happens before the listener binds, so a slow or absent dependency costs a finding instead of the boot, and the port opens in milliseconds with readiness still honest."
 
 applies_to: "backend (host construction, the spawner registration, the startup probes) + deploy templates"
 

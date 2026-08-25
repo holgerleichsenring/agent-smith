@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-08-24-19d0
-goal: "A rate limit is waited on numbers of its own — and every number that decides whether a run survives a 429 is set where the operator works, means what it reads, and governs the next run without a redeploy."
+goal: "A rate limit is waited on numbers of its own, and every number that decides whether a run survives a 429 is set where the operator works and governs the next run without a redeploy."
 
 applies_to: "backend + dashboard"
 
