@@ -66,7 +66,7 @@ public sealed class TokenAuthorityEnforcementTests(EnforcingAuthorityFixture fix
     }
 
     [Fact]
-    public async Task Enforce_SwitchOn_TheTwelveAnonymousRoutesStayReachable()
+    public async Task Enforce_SwitchOn_TheThirteenAnonymousRoutesStayReachable()
     {
         // "Reachable" is asserted as "not refused by the auth pipeline", not as a status
         // code: several of these answer other systems and refuse an empty body or an absent
