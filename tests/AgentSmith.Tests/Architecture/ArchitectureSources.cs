@@ -14,6 +14,12 @@ internal static class ArchitectureSources
     /// <summary>p0512: the methodology tree, for the rules that judge the phase record.</summary>
     public static string AgentSmithRoot { get; } = Resolve(".agentsmith");
 
+    /// <summary>
+    /// 2026-08-25-5266: everything this repository compiles into the product, backend
+    /// and dashboard alike — the root the shipped sample projects live under.
+    /// </summary>
+    public static string SourceRoot { get; } = Resolve("src");
+
     public static IEnumerable<string> HandWrittenBackendFiles() =>
         Directory.EnumerateFiles(BackendRoot, "*.cs", SearchOption.AllDirectories)
             .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",

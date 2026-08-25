@@ -32,6 +32,10 @@ meta:
 stack:
   runtime: .NET 8
   lang: C#
+  # REQUIRED unless meta.domain is set: the exact toolchain image whose runtime
+  # can BOTH build and run this stack's tests, from a registry the operator
+  # trusts. It carries git — the repository is cloned inside it.
+  image: mcr.microsoft.com/dotnet/sdk:8.0
   # Add what applies:
   # frontend: [React, TypeScript]
   # infra: [Docker, K8s, Azure-AppService]
