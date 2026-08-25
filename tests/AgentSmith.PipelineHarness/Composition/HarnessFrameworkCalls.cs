@@ -89,7 +89,8 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
         string repoKey, IReadOnlyList<string> criteria, string diff,
         IReadOnlyList<string> commandResults, AgentConfig agent,
         BranchSearch? branchSearch,
-        PipelineCostTracker costTracker, CancellationToken cancellationToken)
+        PipelineCostTracker costTracker, CancellationToken cancellationToken,
+        int windowBudgetChars = DiffWindows.DefaultBudgetChars)
     {
         lock (_shown) _shown.AddRange(commandResults);
         string? withheld = null;

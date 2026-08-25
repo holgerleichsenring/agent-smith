@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-9749
+
+goal: "A criterion whose antecedent the base disproves is reported not applicable, carrying the base search that disproves it, and is neither outstanding nor a pass on its own."
+
+applies_to: "backend"
+
+requires:
+  - 2026-08-25-0eae
+
+scope:
+  in: "A third disposition on the account's row and everywhere that row is read; the citation rule that admits it; the merge precedence across windows; and the run-level rule that a phase satisfying nothing does not pass however much it calls not applicable."
+  out: "The full-reach pass, its own successor. Whether a particular antecedent SHOULD be disprovable — a judgement no type can make, which is why this phase ships the measurement that catches it being made wrongly rather than a rule pretending to prevent it."
+
+decisions:
+  - key: |
+      THE DEFAULT IS RIGHT FOR POSITIVE CLAIMS AND WRONG FOR CONDITIONALS. "A criterion you
+      cannot tie to a file is NOT satisfied" is what stops the account rubber-stamping, and it
+      stays. What is missing is a third answer: a conditional whose antecedent is false has to
+      be squeezed into false today, which is not merely unhelpful but untrue, and the run pays
+      a repair pass for it.
+  - key: |
+      A FALSELY OPEN CRITERION SETS TWO RATIFIED CRITERIA AGAINST EACH OTHER. The outstanding
+      list goes back to the coding master for one repair pass. Handed "the transport is not
+      configured" over a base that never had that transport, the master can obey by ADDING it —
+      which the same phase forbids in another criterion. A wrong no is not a wasted pass, it is
+      an instruction to build the wrong thing.
+  - key: |
+      THE ADMISSIBILITY RULE IS NOT MACHINE-CHECKABLE AND THIS PHASE SAYS SO OUT LOUD. That an
+      antecedent "names something the base must contain" cannot be distinguished by any check
+      from a prohibition or from a default with no token to find. Three concrete wrong licences
+      exist in one live run alone. So the phase enforces what CAN be enforced — the citation
+      resolves to a base search that ran and found nothing, and the answer states the antecedent
+      it takes to be false — and leaves the judgement itself to be MEASURED by the labelled
+      corpus. An unenforceable rule dressed as a check is worse than a stated limit.
+  - key: |
+      NOT APPLICABLE MUST NAME WHAT IT DISPROVES, in the answer, or a human auditing the corpus
+      cannot tell a vacuous conditional from a dodged one. This is the field the overrule label
+      is recorded against.
+  - key: |
+      PRECEDENCE ACROSS WINDOWS IS SATISFIED, THEN NOT APPLICABLE, THEN NOT SATISFIED. Satisfied
+      is positive evidence and monotone. Not applicable is a proof about the BASE, which no
+      window's slice can contradict, so it outranks one slice's failure to find a file. Not
+      satisfied is the absence of evidence and is the floor. The merge encodes only the first
+      rung today.
+  - key: |
+      AN ACCOUNT THAT SATISFIED NOTHING IS NOT A PASS, whatever it calls not applicable, or the
+      third disposition becomes a way to pass a phase having proven nothing. This rule has a
+      trap of its own: refusing while the outstanding list is empty produces a failure with no
+      criterion named and no repair possible, which is the shape the account was built to end.
+      It reports the criteria it declined to judge instead.
+  - key: |
+      TEN PLACES READ THE ROW AS A BOOL, and two of them are easy to miss because they are not
+      in the account's own file: the entry account that decides whether a phase runs at all,
+      and the run-level delivery gate. A type with a third state and ten bool readers is a
+      half-migration that will read "not satisfied" wherever it was not touched.
+  - key: |
+      THE THIRD STATE ALREADY EXISTS ON THE WIRE. The run-story acceptance vocabulary carries
+      not_applicable for the master's own dispositions, so this adds a state to one internal
+      type rather than to a contract.
+
+steps:
+  - id: the-row-carries-a-third-disposition
+    action: "Give the account's row a disposition of satisfied, not applicable or not satisfied, replacing the bool at every reader including the entry account and the run-level gate."
+  - id: not-applicable-is-admitted-by-its-base-search
+    action: "Accept not applicable only with a citation resolving to a base search that ran and found nothing, and only when the answer names the antecedent it takes to be false; otherwise it falls back to not satisfied."
+  - id: a-not-applicable-criterion-is-not-outstanding
+    action: "Keep a not-applicable criterion out of the outstanding list and out of the repair hand-back, and show it as its own state in the account, the verdict, the renderer, the log and the run record."
+  - id: the-merge-ranks-the-three-dispositions
+    action: "Union the windows by satisfied over not applicable over not satisfied."
+  - id: a-phase-that-satisfied-nothing-does-not-pass
+    action: "Refuse a phase in which no criterion is satisfied, naming the criteria it declined to judge so the refusal is actionable rather than empty."
+
+tests:
+  - "AccountRow_NotApplicableWithAResolvingBaseCitation_IsAccepted"
+  - "AccountRow_NotApplicableCitingABranchSearch_FallsBackToNotSatisfied"
+  - "AccountRow_NotApplicableWithoutANamedAntecedent_FallsBackToNotSatisfied"
+  - "AccountRow_NotApplicableWithNoBaseAvailable_FallsBackToNotSatisfied"
+  - "AccountWindowMerge_SatisfiedInOneWindow_BeatsNotApplicable"
+  - "AccountWindowMerge_NotApplicableInOneWindow_BeatsNotSatisfied"
+  - "SpecAccount_ANotApplicableCriterion_IsNotOutstanding"
+  - "SelectPhase_AnEntryAccountOfOnlyNotApplicable_DoesNotSkipThePhase"
+  - "RunDeliveryGate_ANotApplicableCriterion_IsNotAShortfall"
+  - "PhaseVerdict_ANotApplicableCriterion_IsNotHandedBackForRepair"
+  - "PhaseVerdict_EveryCriterionNotApplicable_IsNotAPass"
+  - "PhaseVerdict_ARefusalWithNothingOutstanding_NamesWhatItDeclinedToJudge"
+  - "SpecAccountRenderer_ANotApplicableRow_ReadsAsItsOwnState"
+
+done:
+  - "the account's row carries three dispositions and no reader still reads a bool"
+  - "not applicable is admitted only by a resolving base search and a named antecedent, and degrades to not satisfied otherwise"
+  - "a not-applicable criterion is neither outstanding nor handed back, and reads as its own state everywhere"
+  - "the window merge ranks satisfied over not applicable over not satisfied"
+  - "a phase satisfying nothing does not pass, and its refusal names what went unjudged"
+  - "the answer records the antecedent it declared false, so the corpus can be labelled against it"
+  - "build green, full suite green"

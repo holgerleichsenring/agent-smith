@@ -122,7 +122,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
             new DeliveryDiff(new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance), NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
                 ScriptedChatClientFactoryAdapter.Untraced(scripted),
-                new SpecAccountCall(ScriptedChatClientFactoryAdapter.Untraced(scripted), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
+                new AccountCalls(new SpecAccountCall(ScriptedChatClientFactoryAdapter.Untraced(scripted), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
                 NullLogger<SpecAccountant>.Instance),
             new AgentSmith.Application.Services.Handlers.SandboxTargets(),
             NullLogger<PhaseAccounting>.Instance);

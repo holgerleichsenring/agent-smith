@@ -1,0 +1,26 @@
+{
+  "id": "unmet-missing-dead-letter",
+  "class": "unmet",
+  "description": "A listening queue is declared without dead-letter handling. The criterion is genuinely unmet, and an account that passes it is a false positive — this fixture is the false-positive rate's denominator.",
+  "repositories": [
+    {
+      "name": "Sample.Worker",
+      "base": {
+        "src/Messaging/Installer.cs": "namespace Sample.Worker.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services) => services.AddLegacyBus();\n}\n"
+      },
+      "branch": {
+        "src/Messaging/Installer.cs": "namespace Sample.Worker.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddBroker();\n        services.AddBrokerExtension<BrokerExtension>();\n    }\n}\n\npublic sealed class BrokerExtension : IBrokerExtension\n{\n    public void Configure(BrokerOptions opts)\n    {\n        opts.UseQueueTransport(Connect);\n        opts.ListenToQueue(\"sample-worker-order-placed\");\n    }\n}\n"
+      }
+    }
+  ],
+  "criteria": [
+    {
+      "text": "Every listening queue has configured dead-letter handling.",
+      "truth": "unmet",
+      "because": "The only listener is declared with no dead-letter queue anywhere in the branch."
+    }
+  ],
+  "commands": [
+    "Sample.Worker: \"dotnet build\" exited 0"
+  ]
+}

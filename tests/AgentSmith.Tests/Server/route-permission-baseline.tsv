@@ -9,6 +9,7 @@ DELETE	/api/config/secrets/{id}	secrets.write
 DELETE	/api/config/trackers/{id}	config.write
 DELETE	/api/runs	runs.delete
 DELETE	/api/runs/{runId}	runs.delete
+DELETE	/api/runs/{runId}/judgements	runs.control
 GET	/api/auth/requirements	anonymous
 GET	/api/catalog	catalog.read
 GET	/api/catalog/skills/{name}	catalog.read
@@ -34,6 +35,7 @@ GET	/api/pull-requests	runs.read
 GET	/api/runs	runs.read
 GET	/api/runs/expectations/metrics	runs.read
 GET	/api/runs/{runId}	runs.read
+GET	/api/runs/{runId}/acceptance	runs.read
 GET	/api/runs/{runId}/decisions	runs.read
 GET	/api/runs/{runId}/phases	runs.read
 GET	/api/runs/{runId}/phases/{phaseId}	runs.read
@@ -59,6 +61,7 @@ POST	/api/diagnostics/connections/{name}/probe	diagnostics.probe
 POST	/api/projects/{name}/init	projects.init
 POST	/api/runs/{runId}/answer	runs.control
 POST	/api/runs/{runId}/cancel	runs.control
+POST	/api/runs/{runId}/judgements	runs.control
 POST	/api/runs/{runId}/retry	runs.control
 POST	/api/teams/messages	anonymous
 POST	/slack/commands	anonymous

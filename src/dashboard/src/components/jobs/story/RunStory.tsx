@@ -21,6 +21,7 @@ import { OutcomePanel } from "./OutcomePanel";
 import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
 import { useSpecMarkdown } from "@/hooks/useSpecMarkdown";
 import { ResultDocument } from "@/components/jobs/ResultTab";
+import { useRunJudgements } from "./useRunJudgements";
 
 // p0344b/p0343c: the run as a STORY with the run-viewer.html mock's
 // BEAT-SWITCHED STAGE. The storybar renders the SERVER-computed beats (a run
@@ -58,6 +59,9 @@ interface RunStoryProps {
 }
 
 export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryProps) {
+  // 2026-08-25-e257: only fetched where there is a verdict to judge. A run with no
+  // dispositions has nothing to be wrong about.
+  const judged = useRunJudgements(runId, Boolean(snapshot?.acceptance));
   const fallback = useMemo(() => buildVerifyFallback(events), [events]);
   const [picked, setPicked] = useState<BeatKey | null>(null);
 
@@ -138,7 +142,14 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
               </div>
             )}
             {selected === "verify" && (
-              <VerifySummary acceptance={snapshot?.acceptance ?? null} fallback={fallback} />
+              <VerifySummary
+                acceptance={snapshot?.acceptance ?? null}
+                fallback={fallback}
+                judgements={judged.judgements}
+                judgementBusy={judged.busy}
+                onRecordJudgement={judged.record}
+                onWithdrawJudgement={judged.withdraw}
+              />
             )}
             {selected === "outcome" && <OutcomePanel runId={runId} snapshot={snapshot} />}
           </div>
@@ -155,7 +166,14 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
               </div>
             </section>
           )}
-          <VerifySummary acceptance={snapshot?.acceptance ?? null} fallback={fallback} />
+          <VerifySummary
+                acceptance={snapshot?.acceptance ?? null}
+                fallback={fallback}
+                judgements={judged.judgements}
+                judgementBusy={judged.busy}
+                onRecordJudgement={judged.record}
+                onWithdrawJudgement={judged.withdraw}
+              />
           <p className="hint" data-testid="story-no-beats">
             This run predates server-computed story beats — the full step trace is in “Full
             pipeline” on the right.

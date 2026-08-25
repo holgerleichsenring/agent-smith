@@ -24,11 +24,13 @@ public sealed class SpecAccountCall(
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria, string diff,
         IReadOnlyList<string>? searchable,
         IReadOnlyList<string> commandResults, PipelineCostTracker costTracker, CancellationToken ct,
-        string? correction = null, IList<AITool>? tools = null)
+        string? correction = null, IList<AITool>? tools = null,
+        CitedFileIndex? deliveryFiles = null, IReadOnlyList<string>? baseSearchable = null)
     {
         // p0474: a correction is appended, never substituted — the second answer is judged
         // against the same evidence as the first, so it needs the same prompt behind it.
-        var prompt = SpecAccountPrompt.For(criteria, diff, commandResults, searchable)
+        var prompt = SpecAccountPrompt.For(
+                criteria, diff, commandResults, searchable, deliveryFiles, baseSearchable)
             + (correction is null ? string.Empty : "\n\n" + correction);
         try
         {

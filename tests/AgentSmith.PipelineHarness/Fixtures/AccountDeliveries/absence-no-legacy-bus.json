@@ -1,0 +1,28 @@
+{
+  "id": "absence-no-legacy-bus",
+  "class": "absence",
+  "description": "A criterion about something being ABSENT. The base referenced the legacy bus, the branch does not, anywhere. No diff can show what a repository does not contain, so this is settled by searching the branch — the class p0483 gave the account a tool for.",
+  "repositories": [
+    {
+      "name": "Sample.Server",
+      "base": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\nusing LegacyBus;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services) => services.AddLegacyBus();\n}\n",
+        "src/Orders/OrderService.cs": "namespace Sample.Server.Orders;\n\nusing LegacyBus;\n\npublic sealed class OrderService(ILegacyBus bus)\n{\n    public Task PlaceAsync(Order order) => bus.PublishAsync(new OrderPlaced(order.Id));\n}\n"
+      },
+      "branch": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services) => services.AddBroker();\n}\n",
+        "src/Orders/OrderService.cs": "namespace Sample.Server.Orders;\n\npublic sealed class OrderService(IMessageSender sender)\n{\n    public Task PlaceAsync(Order order) => sender.SendAsync(new OrderPlaced(order.Id));\n}\n"
+      }
+    }
+  ],
+  "criteria": [
+    {
+      "text": "No source file in the repository references the legacy bus library.",
+      "truth": "met",
+      "because": "Both references were removed and nothing else in the tree carries the name; a search of the branch returns nothing, which is the proof."
+    }
+  ],
+  "commands": [
+    "Sample.Server: \"dotnet build\" exited 0"
+  ]
+}

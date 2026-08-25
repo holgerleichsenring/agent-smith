@@ -97,7 +97,7 @@ public sealed class PhaseAccountingResilienceTests
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
+            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars) =>
             asCancellation
                 ? throw new OperationCanceledException(message)
                 : throw new InvalidOperationException(message);

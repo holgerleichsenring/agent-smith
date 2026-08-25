@@ -1,0 +1,43 @@
+{
+  "id": "universal-across-windows",
+  "class": "universal-across-windows",
+  "description": "A criterion universal over two hosts whose evidence falls in different accounting windows. Both hosts satisfy it in their own role, but no single window sees both, so no window can answer yes on its own. The window budget is declared small so a handful of files reproduces what took half a megabyte in production.",
+  "window_budget_chars": 900,
+  "repositories": [
+    {
+      "name": "Sample.Server",
+      "base": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services) => services.AddLegacyBus();\n}\n",
+        "src/Orders/OrderService.cs": "namespace Sample.Server.Orders;\n\npublic sealed class OrderService\n{\n    public Task PlaceAsync(Order order) => Task.CompletedTask;\n}\n",
+        "src/Orders/OrderValidator.cs": "namespace Sample.Server.Orders;\n\npublic sealed class OrderValidator\n{\n    public bool IsValid(Order order) => order.Id != Guid.Empty;\n}\n"
+      },
+      "branch": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddBroker();\n        services.AddBrokerExtension<BrokerExtension>();\n    }\n}\n\npublic sealed class BrokerExtension : IBrokerExtension\n{\n    public void Configure(BrokerOptions opts)\n    {\n        opts.Policies.DisableConventionalLocalRouting();\n        opts.UseQueueTransport(Connect);\n        opts.PublishMessage<OrderPlaced>().ToExchange(\"order-placed\");\n        opts.PublishMessage<OrderCancelled>().ToExchange(\"order-cancelled\");\n    }\n}\n",
+        "src/Orders/OrderService.cs": "namespace Sample.Server.Orders;\n\npublic sealed class OrderService(IMessageSender sender)\n{\n    public Task PlaceAsync(Order order) => sender.SendAsync(new OrderPlaced(order.Id));\n    public Task CancelAsync(Order order) => sender.SendAsync(new OrderCancelled(order.Id));\n}\n",
+        "src/Orders/OrderValidator.cs": "namespace Sample.Server.Orders;\n\npublic sealed class OrderValidator\n{\n    public bool IsValid(Order order) => order.Id != Guid.Empty && order.Lines.Count > 0;\n    public bool IsCancellable(Order order) => order.Status is OrderStatus.Placed;\n}\n"
+      }
+    },
+    {
+      "name": "Sample.Worker",
+      "base": {
+        "src/Messaging/Installer.cs": "namespace Sample.Worker.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services) => services.AddLegacyBus();\n}\n",
+        "src/Handlers/OrderPlacedHandler.cs": "namespace Sample.Worker.Handlers;\n\npublic sealed class OrderPlacedHandler\n{\n    public Task HandleAsync(OrderPlaced message) => Task.CompletedTask;\n}\n"
+      },
+      "branch": {
+        "src/Messaging/Installer.cs": "namespace Sample.Worker.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddBroker();\n        services.AddBrokerExtension<BrokerExtension>();\n    }\n}\n\npublic sealed class BrokerExtension : IBrokerExtension\n{\n    public void Configure(BrokerOptions opts)\n    {\n        opts.Policies.DisableConventionalLocalRouting();\n        opts.UseQueueTransport(Connect);\n        opts.BindExchange(\"order-placed\").ToQueue(\"sample-worker-order-placed\");\n        opts.ListenToQueue(\"sample-worker-order-placed\").DeadLetterQueueing(new DeadLetterQueue(\"sample-worker-order-placed-dlq\"));\n    }\n}\n",
+        "src/Handlers/OrderPlacedHandler.cs": "namespace Sample.Worker.Handlers;\n\npublic sealed class OrderPlacedHandler : IMessageConsumer<OrderPlaced>\n{\n    public Task ConsumeAsync(OrderPlaced message, CancellationToken ct) => Task.CompletedTask;\n}\n"
+      }
+    }
+  ],
+  "criteria": [
+    {
+      "text": "Each applicable host contains an explicit broker extension with conventional local routing disabled and topology appropriate to its publisher or consumer role.",
+      "truth": "met",
+      "because": "Both installers declare DisableConventionalLocalRouting; the server declares publish routes for what it publishes and the worker declares a binding and a listener for what it consumes. Neither host is missing anything its role requires."
+    }
+  ],
+  "commands": [
+    "Sample.Server: \"dotnet build\" exited 0",
+    "Sample.Worker: \"dotnet build\" exited 0"
+  ]
+}
