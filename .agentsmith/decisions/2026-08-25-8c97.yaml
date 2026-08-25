@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-8c97
+
+decisions:
+  - category: Architecture
+    chose: "The commit revision is the build identity; version.txt rides along as the human-readable label"
+    over: "Comparing version.txt, which both images already carry"
+    reason: |
+      version.txt moves only on a release-please release commit while every image publishes on
+      every push to the trunk — 51 bumps against 749 commits over sixty days, so about nine
+      published builds in ten carry the string their predecessor carried. In the incident that
+      motivated this phase, p0404/p0405 merged on 2026-08-13 while version.txt last changed on
+      08-03 and next changed on 08-17: both images would have reported 0.129.0 and the check
+      would have answered MATCH. A discriminator that cannot discriminate is worse than none,
+      because it is believed. BuildIdentity therefore compares Revision and nothing else, and
+      an unknown revision on either side is an absence rather than a difference.
+  - category: Implementation
+    chose: "github.sha passed as a build-arg on the existing build-push step, becoming an env var in the server image and a NEXT_PUBLIC_* inline in the dashboard bundle"
+    over: "Reading the metadata-action revision label out of the image at runtime, or a VERSION file per image"
+    reason: |
+      The value was already computed twice in that workflow and reached no container, because
+      the build step passed no build-args at all — this is plumbing, not invention. The two
+      halves need different carriers for a real reason: the server answers per request, so an
+      env var is exactly right, while the dashboard's half of the comparison has to survive the
+      pod that served it. Next.js substitutes a NEXT_PUBLIC_* literal at BUILD time, so the
+      revision travels inside the JavaScript the browser downloaded — a runtime env-var would
+      have reported whichever pod answered last, which is the other half of the comparison.
+      Verified by building the bundle with a stamped value and finding it in the emitted chunk.
+  - category: Architecture
+    chose: "The caller names its build in ?build= on the findings request, and the difference comes back as an advisory StartupFinding"
+    over: "A response header on every API call, or a new /api/version endpoint"
+    reason: |
+      A header would have meant editing thirty-six call sites, and it could never have covered
+      the hub at all: JobsHubClient connects with withUrl(hubUrl) and a browser WebSocket cannot
+      set request headers. A new endpoint would have needed a permission declaration, a
+      route-golden regeneration, an anonymous-route exemption so a stale client could still read
+      it, and a second poll. /api/config/findings already exists, is already anonymous, is
+      already polled every 30s above every route, and its stated purpose is "what is wrong with
+      this installation, over HTTP". A build difference IS such a finding. Cost: one query
+      parameter and one comparison. No route was added, so route-permission-baseline.tsv is
+      unchanged.
+  - category: Implementation
+    chose: "The per-caller finding is appended to the response, never recorded into IStartupFindings"
+    over: "Recording the mismatch into the shared findings list like every other producer"
+    reason: |
+      IStartupFindings is the installation's state, deduplicated by identity and cleared per
+      subsystem. A build difference is a property of ONE caller: recording it would accumulate
+      an entry per stale browser tab, would be shown to every other client, and nothing would
+      ever clear it. The endpoint composes findings.All with the comparison for this request and
+      the global list stays what it says it is.
+  - category: Architecture
+    chose: "Advisory only, withheld for ten minutes measured from this server process's own start"
+    over: "Blocking the request, refusing to render, or reporting the difference immediately"
+    reason: |
+      Server and dashboard are separate Deployments with separately pinned tags, RollingUpdate,
+      two replicas each — old and new coexisting is what an upgrade looks like from the inside,
+      not a fault. And a browser tab still runs the bundle it downloaded, so a hard refusal in
+      the dashboard would convert a working tab into the blank page 2026-08-25-39ab just
+      abolished. The window is anchored on the process's own start because that is the only
+      rollout a process can observe: a pod minutes old is itself the new half, while one that
+      has served for hours facing a caller from another build is facing a tab nobody replaced,
+      and a reload fixes that. Ten minutes is a wide multiple of the real thing — readiness
+      admits a pod ~15s in (initialDelay 5s, period 10s) and two replicas plus an image pull put
+      a normal roll at seconds to low minutes — while still short enough that a genuinely stale
+      tab hears about it during the same sitting. It is a named constant on the detector, not
+      configuration: nothing in this phase needs an operator to tune it.
+  - category: Architecture
+    chose: "Report that the builds are DIFFERENT and stop; never say compatible or incompatible"
+    over: "Deriving a compatibility verdict from the two identities"
+    reason: |
+      Whether two builds can talk is a property of the contract between them, and the REST
+      contract is not generated from the server today — openapi.stub.json is 756 bytes from May
+      describing one path, and src/types/api.ts is gitignored and imported by nobody. A verdict
+      built on that would be a guess wearing an authority it has not earned. Two unit cases and
+      one dashboard case assert the word "incompat" appears in neither the reason nor the banner,
+      so the restraint cannot erode by rewording.
+  - category: Implementation
+    chose: "A second banner beside the degraded one, both reading the same findings document through a shared useFindings hook"
+    over: "Extending DegradedBanner to render advisory build findings, or a module-level shared poller"
+    reason: |
+      The two say different things and offer different actions: "running degraded, N blocking
+      findings, everything else still runs" versus "this page came from another build, reload".
+      Folding them into one component would give it two responsibilities and one voice for both.
+      The polling loop moved out of DegradedBanner into lib/useFindings so the second reader
+      duplicates no logic; each component still owns its own poll, which costs one extra request
+      per thirty seconds against an in-memory list. A module-level shared poller would have
+      saved that request and bought hidden cross-test state in exchange — the wrong trade for
+      two consumers of a trivial endpoint.
+  - category: Testing
+    chose: "BootPlan gained an optional Clock, so the served cases can pass the rollout window"
+    over: "Making the window configurable so a test could set it to zero, or asserting only that the API keeps answering"
+    reason: |
+      A duration that exists only to be turned off in tests is not the duration that ships. The
+      boot rig already parameterises what a case has and does without; a clock is the same kind
+      of statement, and it is what lets BuildIdentityServedTests prove the whole path — env var
+      to DI to query parameter to advisory finding in the response body — on the real
+      composition rather than on the detector alone.

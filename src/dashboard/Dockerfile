@@ -31,6 +31,15 @@ ENV AGENTSMITH_BACKEND_URL=$AGENTSMITH_BACKEND_URL
 COPY --from=deps /repo/src/dashboard/node_modules ./node_modules
 COPY DESIGN.md /repo/DESIGN.md
 COPY tools/build-tokens.mjs /repo/tools/build-tokens.mjs
+# 2026-08-25-8c97: which build this bundle was made from. Next.js inlines a
+# NEXT_PUBLIC_* variable at BUILD time, so the browser keeps the revision of the bundle it
+# downloaded even after the pod that served it is gone — which is exactly the half of the
+# comparison a stale tab has to be able to state. It must be set before the bundle is
+# compiled, or the inlining has nothing to inline.
+ARG AGENTSMITH_BUILD_REVISION
+ARG AGENTSMITH_RELEASE_VERSION
+ENV NEXT_PUBLIC_BUILD_REVISION=$AGENTSMITH_BUILD_REVISION
+ENV NEXT_PUBLIC_RELEASE_VERSION=$AGENTSMITH_RELEASE_VERSION
 COPY src/dashboard/ ./
 RUN OPENAPI_SOURCE=./openapi.stub.json pnpm build
 
