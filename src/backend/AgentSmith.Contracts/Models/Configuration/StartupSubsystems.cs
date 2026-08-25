@@ -13,6 +13,9 @@ public static class StartupSubsystems
     public const string Redis = "redis";
     public const string Spawner = "spawner";
 
+    /// <summary>2026-08-25-8c97: which build a half of the product came from.</summary>
+    public const string Build = "build";
+
     /// <summary>p0503b: the token authority a caller is validated against.</summary>
     public const string Auth = "auth";
 }
