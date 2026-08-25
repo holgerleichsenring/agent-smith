@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.136.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.135.0...v0.136.0) (2026-08-25)
+
+
+### Features
+
+* a context that describes a stack names its image (2026-08-25-c9c7) ([2dab08b](https://github.com/holgerleichsenring/agent-smith/commit/2dab08b5ceedd51a6728330551e131c5c8a9c17d))
+* a name that collides with a stored one is refused (p0515b) ([f13ce3e](https://github.com/holgerleichsenring/agent-smith/commit/f13ce3e990d639f7fcad4dd15a402b657d40c6c1))
+* a number in a draft is validated as a number (2026-08-25-2c7c) ([8764175](https://github.com/holgerleichsenring/agent-smith/commit/8764175ce3e4bd02418409e9a0214d2ce75cc2c3))
+* a phase name fits a line and states something (p0521) ([668935e](https://github.com/holgerleichsenring/agent-smith/commit/668935e3f57dbf3d298d4e6a11e45f2973aba221))
+* a question asked twice has two identities (2026-08-25-a508) ([9c72b79](https://github.com/holgerleichsenring/agent-smith/commit/9c72b79590da8b29f021c0ecd3219645df184937))
+* a reaper only reaps what its own server spawned (p0465) ([8785591](https://github.com/holgerleichsenring/agent-smith/commit/878559111e08cf77f2ed8b64723d16b9a2592dcf))
+* a reused work branch learns what its base learned (p0496) ([273639c](https://github.com/holgerleichsenring/agent-smith/commit/273639c0d3e981fb723ba813cf4ffd9339f37d61))
+* a trail row cannot be written twice (2026-08-25-61f1) ([87c4f4b](https://github.com/holgerleichsenring/agent-smith/commit/87c4f4b4db42df88db9ce2a11d06b381aae37ca4))
+* **account:** the delivery account searches the base ref (2026-08-25-0eae) ([711de28](https://github.com/holgerleichsenring/agent-smith/commit/711de280e29403d8c59e061a81dcffe1b626e96a))
+* an image is judged by what it contains (2026-08-25-014d) ([a39903f](https://github.com/holgerleichsenring/agent-smith/commit/a39903f3b2216267d8e0fc1bedd2493e3e4b9bd5))
+* both halves say which build they are (2026-08-25-8c97) ([d0e7b70](https://github.com/holgerleichsenring/agent-smith/commit/d0e7b70a449ff99e212c59471f5ffe166e130504))
+* config identity ignores case (p0515) ([f7342e4](https://github.com/holgerleichsenring/agent-smith/commit/f7342e4e058735364116db6a97c3c81d18eba3a8))
+* **dashboard:** a browser signs in and carries the token (2026-08-25-2de1) ([5e25388](https://github.com/holgerleichsenring/agent-smith/commit/5e253885c39c72f6afe754f68a01e383d06ea51d))
+* **dashboard:** a setting changes without a rebuild (2026-08-25-21ae) ([77e249a](https://github.com/holgerleichsenring/agent-smith/commit/77e249adc9c3cf408b6054b9b744d1dd9ddea16d))
+* **dashboard:** a signed-out dashboard says so instead of failing (2026-08-25-4530) ([4986ee0](https://github.com/holgerleichsenring/agent-smith/commit/4986ee05d82b9878a4c723038e7704e05ddde892))
+* **evals:** the delivery account is scored against fixture deliveries (2026-08-25-7035) ([bdb7b37](https://github.com/holgerleichsenring/agent-smith/commit/bdb7b370facd934e6748945b8a9eb9133e962f68))
+* **runs:** the operator overrules a criterion verdict (2026-08-25-e257) ([f95ba08](https://github.com/holgerleichsenring/agent-smith/commit/f95ba08f5c6f96b04fdf4dc6a14d2971bc26f586))
+* **runs:** the verify card shows the delivery account (2026-08-25-7f5a) ([fede74e](https://github.com/holgerleichsenring/agent-smith/commit/fede74eba0c3c7605304a56a83db65a4b46cb338))
+* **server:** the server states what it expects of a caller ([6092306](https://github.com/holgerleichsenring/agent-smith/commit/60923066cfec03882a9d62ca907590c8535f7765))
+* sixteen phases — ten reviewed, all re-cut, all built ([2ba2b63](https://github.com/holgerleichsenring/agent-smith/commit/2ba2b635b785ec67015ddddf354ce1fdfecc28d6))
+* the dashboard signs in, and says so when it cannot ([b915c44](https://github.com/holgerleichsenring/agent-smith/commit/b915c44866eb5f0205353c09cc8358fb3be8df85))
+* the dashboard survives a payload it does not know (2026-08-25-39ab) ([ff66a11](https://github.com/holgerleichsenring/agent-smith/commit/ff66a1195c1ae0c52f406dbefc6a8f9bf27eae77))
+* the delivery account becomes measurable ([baa6ee0](https://github.com/holgerleichsenring/agent-smith/commit/baa6ee0d796247c539ffd77aea01b1cc6f0a2d0e))
+* the estimate does not depend on repo count (p0413a) ([41c9616](https://github.com/holgerleichsenring/agent-smith/commit/41c961626c38c85d54d2366407d3ad56008dfd84))
+* the sandbox says which protocol it speaks (2026-08-25-0d01) ([3cc67e4](https://github.com/holgerleichsenring/agent-smith/commit/3cc67e4ee93e2ae10c7507b56cd9e603e11b7563))
+* the schema describes the file it validates (2026-08-25-056d) ([871588b](https://github.com/holgerleichsenring/agent-smith/commit/871588bb595f76b0428fa55f23662fd19d3a145d))
+* the shipped samples pass the rules we ship (2026-08-25-5266) ([8a1c7fb](https://github.com/holgerleichsenring/agent-smith/commit/8a1c7fb934f064e8ef84796d830106897c122315))
+
+
+### Bug Fixes
+
+* a customer project name leaves the shipped dashboard ([810e924](https://github.com/holgerleichsenring/agent-smith/commit/810e924b589ab061888eb148fe280f494b5cdea5))
+* a step page knows which step it is (2026-08-25-5d7a) ([087e8e2](https://github.com/holgerleichsenring/agent-smith/commit/087e8e2760e7ec81ab86a5a480d25d028a7a0f05))
+* **account:** every window sees the whole delivery's file list (2026-08-25-1360) ([5430fa6](https://github.com/holgerleichsenring/agent-smith/commit/5430fa62c48dac49a2100c4a8c6b70036a07a404))
+* **dashboard:** wait for the name, not for the element that will carry it ([4a01056](https://github.com/holgerleichsenring/agent-smith/commit/4a010563f8cf08733ebae1c24c6d74bef05f7bdb))
+* one rule for a configured name, and record p0515b (p0515) ([6c66f7b](https://github.com/holgerleichsenring/agent-smith/commit/6c66f7b690bbeb2dd54691857c5316b57331df81))
+* the image build copies what the binary embeds (2026-08-25-2103) ([5469674](https://github.com/holgerleichsenring/agent-smith/commit/54696742827d2f72dd49184529c2b553c375de93))
+
+
+### Performance Improvements
+
+* **evals:** a fixture delivery is built once and copied (2026-08-25-7035) ([43d856b](https://github.com/holgerleichsenring/agent-smith/commit/43d856b6dc2cca5b472599575ac5b1dcd51b0257))
+
 ## [0.135.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.134.1...v0.135.0) (2026-08-25)
 
 
