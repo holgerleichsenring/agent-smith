@@ -89,14 +89,14 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();
         services.AddSingleton<ActiveRunReaper>();
 
-        // p0330: cancel is persistent state — the DB-backed flag reader feeds the
-        // pre-start gates (queue consumer + capacity pump), and the enforcer
-        // (hosted under the housekeeping leader) force-kills flagged runs whose
-        // durable deadline elapsed. Ticket terminalization is shared with the
-        // queued-cancel endpoint path.
+        // p0330: cancel is persistent state — the DB-backed flag reader feeds the pre-start
+        // gates (queue consumer + capacity pump); the enforcer, under the housekeeping leader,
+        // acts on flagged runs whose durable deadline elapsed and RunTerminator does the
+        // killing. Ticket terminalization is shared with the queued-cancel endpoint path.
         services.RemoveAll<IRunCancelStateReader>();
         services.AddSingleton<IRunCancelStateReader, DbRunCancelStateReader>();
         services.AddSingleton<Services.Lifecycle.CancelledTicketFinalizer>();
+        services.AddSingleton<Services.Lifecycle.RunTerminator>();
         services.AddSingleton<Services.Lifecycle.CancelEnforcer>();
 
         // p0320c: the persistent FIFO capacity queue + its dequeue pump. The

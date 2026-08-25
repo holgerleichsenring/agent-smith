@@ -1,141 +1,106 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0515
 
-goal: "Config identity ignores case: a configured name resolves to the same entity however it is capitalised, at every lookup and on both sides of the editor — and the run that used to hang on the mismatch fails visibly instead."
+goal: "One configured name is one entity however it is capitalised — at every lookup, in the editor and in the store — and a launch that cannot resolve a name fails visibly instead of leaving a run row nobody finishes."
 
-applies_to: "backend (config catalog resolution + the studio's referential validator + pipeline execution entry point)"
+applies_to: "backend (config catalog resolution, the raw materializer, the studio's referential validator, and the launch paths that turn a name into a database key)"
 
 scope:
-  in: "Case-insensitive resolution across the five catalogs the runtime resolves — projects, repos, trackers, connections, agents — with the contradicting lowercasing removed and project references resolved the same way in the studio's validator; a pair of keys differing only in case named as a finding; and a terminal event for every launch that fails before RunStarted."
-  out: |
-    Storing that guarantee — the config document store cannot yet REFUSE a second spelling,
-    only the loader names one. That is p0515b, which this phase does not cover and which
-    carries every provider and migration risk. No schema change ships here.
-    The run row already stuck in the operator's deployment is not migrated: it is cleared by
-    one cancel on that run. The ticket lease on a prologue failure: releasing it removes the
-    only backoff a repeating configuration error has, and a pre-attach release needs
-    different arguments than the post-attach one — today's reaper behaviour stands, named.
+  in: "One shared definition of what makes two configured names the same, applied to the five catalogs the runtime resolves; the raw reads that happen BEFORE resolution; a pair of names differing only in case named as a blocking finding rather than dropped in silence; and canonicalisation at the boundary where an operator's spelling becomes a persisted key."
+  out: "A tracker's lifecycle_status_names and extra_fields, which are provider-owned names and stay ordinal. Any schema change — the store-side refusal is p0515b. Repairing run rows already written under a different spelling, which needs no repair only because canonicalisation lands with this phase."
 
 decisions:
   - key: |
-      TWO LOOKUP RULES FOR ONE NAME, AND THE LAUNCHER USED THE OTHER ONE. Measured on the
-      operator's deployment: the init endpoint accepted a project whose configured key
-      carries capitals, because InitRunLauncher matches the key exactly; the queue consumer
-      then failed with "Project '<lowercased name>' not found in configuration", because
-      ExecutePipelineUseCase.cs:403 lowercases before looking up a catalog built as an
-      ordinal Dictionary (ConfigCatalogResolver.cs:71). Every configured project until now
-      was written in lowercase, so the contradiction had never been reachable.
+      THE COMPARER IS NAMED, AND IT IS ORDINAL. CurrentCultureIgnoreCase makes "ID" and "id"
+      different under a Turkish culture, which a container's LANG can set — a project that
+      resolves on the laptop and not in the cluster. InvariantCultureIgnoreCase is Turkish-safe
+      but linguistic: an ignorable code point makes two visibly different names equal, which is
+      wrong for an identity. StringComparer.OrdinalIgnoreCase is culture-invariant and
+      non-linguistic, is the codebase's only idiom already, and is what the half-fix in
+      RepoGlobExpander reached for on its own.
   - key: |
-      IT IS NOT THE ONLY INSTANCE, IT IS THE ONLY ONE THAT WAS REACHED. RepoGlobExpander
-      groups connection refs with StringComparer.OrdinalIgnoreCase (RepoGlobExpander.cs:25)
-      and then looks that group key up in an ordinal connections dictionary (:32) — the same
-      two rules for one name, in one method, already shipped. The fix is a rule about
-      identity, not a patch on one throw.
+      ONE DEFINITION, NOT TWO, BECAUSE THE SUCCESSOR ENFORCES IT IN A DIFFERENT PLACE.
+      OrdinalIgnoreCase is defined by invariant UPPERcasing; normalising with lowercase is a
+      DIFFERENT equivalence, and the two disagree on real code points. If this phase compares one
+      way and p0515b stores the other, the store admits a pair the loader blocks. So this phase
+      ships one small public thing — a name comparer and a matching normaliser, together — and
+      p0515b uses the normaliser rather than choosing its own.
   - key: |
-      THE COMPARER MOVES TO THE CATALOG, THE LOWERCASING GOES AWAY. The readers at risk are
-      the ones whose name comes from OUTSIDE the catalog: RunControlEndpoints.cs:57 and
-      CapacityQueuePump.cs:71 (a name read back from the database), CachedTicketSearch.cs:46
-      (an HTTP query value), RunCommand.cs:53 (--project), ExecutePipelineUseCase.cs:415
-      (--agent), and the dialogue and intent handlers. The nine config.Projects[name] indexer
-      reads in the poller and webhook handlers are NOT at risk — each keys on a name it just
-      read out of the catalog.
+      A RAW READ BEFORE RESOLUTION IS THE HOLE, AND IT IS THE DANGEROUS ONE. The materializer
+      looks a project's tracker up in the RAW dictionary, keyed, before the catalogs are built,
+      and a miss returns silently. Making resolution case-insensitive without fixing that turns a
+      loud refusal into a project that materialises with NO tracker workflow: with the shorthand
+      it never triggers at all and carries no finding, and with an explicit trigger block it holds
+      an empty status list — which the poller reads as "every status matches", so the project
+      claims every ticket the tracker returns, in any state, with nothing to terminalise them.
+      A phase that removes a loud failure must not leave a silent one behind it.
   - key: |
-      FIVE NAMED CONSTRUCTION SITES, NOT EVERY DICTIONARY IN THOSE FILES.
-      ConfigCatalogResolver.cs:71, RepoCatalogBuilder.cs:14, TrackerCatalogBuilder.cs:14 and
-      ConnectionCatalogBuilder.cs:15 take the comparer as a constructor argument; the agents
-      catalog is a raw pass-through and needs a copy. The nested maps a tracker also carries
-      — LifecycleStatusNames, ExtraFields — stay ordinal: they are keyed by provider-defined
-      status and field names, whose case is not this configuration's to normalise.
+      A NAME BECOMES A DATABASE KEY, AND THE DATABASE DOES NOT IGNORE CASE. Today ordinal
+      resolution forces the operator's spelling and the configured one to be identical, so run
+      rows, leases and queue entries are consistent by accident. The moment they may differ, the
+      double-start guard, the lease attach and the lease release compare spellings in SQL — case
+      sensitive on SQLite and Postgres, insensitive elsewhere. Two capitalisations of one project
+      would admit two concurrent runs with two capacity reservations, and a release that misses
+      leaves the ticket leased. Canonicalising to the configured name at the moment resolution
+      succeeds is what keeps every persisted name consistent, and it must ship in this phase.
   - key: |
-      THE AGENTS COPY IS BUILT ONCE AND HANDED TO BOTH CONSUMERS. raw.Agents reaches
-      ResolvedProjectBuilder.TryBuild (ConfigCatalogResolver.cs:96) as well as Compose (:114).
-      Giving the comparer only to Compose would leave ResolveAgent and ResolvePipelines
-      resolving against the ordinal raw dictionary: the studio would accept a differently
-      cased agent ref that the boot then refuses — the editor-versus-runtime split this phase
-      exists to remove, reproduced inside it.
+      A COLLISION DROPS BOTH HALVES AND SAYS SO, TWICE IF THERE ARE TWO. Two spellings of one name
+      cannot be resolved to either, so both leave the catalog and a blocking finding names them.
+      That finding's identity must carry the catalog AND the colliding name: identity today is
+      subsystem, project, trigger and field, so two collisions in one catalog would collapse into
+      one finding, the operator would fix one and boot would still refuse with nothing new to
+      read. The agents catalog needs the same rule built key by key — a dictionary copy under a
+      case-insensitive comparer THROWS on a collision, and an unhandled boot crash is exactly the
+      outcome the drop-one-project-keep-the-rest design exists to prevent.
   - key: |
-      THE STUDIO VALIDATOR MOVES WITH THEM, AND THAT IS ALL THE RUNTIME NEEDS.
-      ResolvedProjectBuilder already resolves every project reference through the built
-      catalogs (ResolvedProjectBuilder.cs:100,113 and ResolveRepos), so the runtime side comes
-      free with the comparer; only the four comparisons in ConfigReferentialValidator.cs:20,
-      23,26-27 need touching for the editor to agree with it.
+      THE EDITOR MUST LEARN THE SAME RULE, OR THE SPLIT THIS PHASE CLOSES REOPENS. Give the
+      referential validator the comparer alone and it accepts a reference matching either half of
+      a colliding pair while the loader drops both: green in the studio, refused at boot. The
+      validator therefore gets the collision rule too, not just the comparison.
   - key: |
-      THE RAW DICTIONARIES STAY ORDINAL, BECAUSE THAT IS WHAT MAKES A COLLISION DETECTABLE.
-      Every raw read is an enumeration, never a keyed lookup. Collapsing the raw side too
-      would hide a pair before anyone could name it — and once the resolved catalogs are
-      case-insensitive, ResolveProjects' result[name] = resolved (ConfigCatalogResolver.cs:75)
-      silently drops one half of a pair. The finding is what keeps this phase honest on its
-      own, before p0515b can refuse the pair at the point of writing.
-  - key: |
-      A COLLISION FINDING CARRIES THE CATALOG, NOT A PROJECT NAME. The only factory today is
-      ProjectFindings.Blocking (ProjectFindings.cs:12-15) and a finding's identity is
-      Subsystem|Project|Trigger|Field (StartupFinding.cs:23), which StartupFindings.Record
-      dedupes on. Putting a colliding repo or tracker name in the Project slot would silence
-      a real project of that name — BlockingReason matches it case-insensitively
-      (StartupFindingsQueries.cs:23-24) and ProjectResolver.IsBlocked refuses its triggers
-      (ProjectResolver.cs:85-92); leaving Project null would collapse two collisions in
-      different catalogs into one entry. The finding names the catalog and both spellings.
-  - key: |
-      DROPPING BOTH HALVES CASCADES, AND THE CASCADE IS THE POINT. For projects the drop is
-      the whole effect. For a repo, tracker or connection the referencing projects then each
-      fail their own resolution and raise their own findings — one collision finding plus N
-      project findings, which is what an operator needs to see: the collision, and everything
-      it took down.
-  - key: |
-      THE PROLOGUE GETS THE GUARD THE BODY ALREADY HAS, PUBLISHES EXACTLY ONCE, AND OWNS THE
-      RUN ROW ONLY. p0175-fix wrapped everything after PublishRunStarted so an escaping
-      exception publishes RunFinished(failed) and rethrows; everything BEFORE that publish had
-      no guard, which is why this failure left a queued row and no reason. The new guard ends
-      where the existing one begins — a failure after RunStarted must still produce one
-      terminal event, not two — and it does not finalize the ticket: the failure class here is
-      project resolution itself, where there is no resolved project to finalize against.
-  - key: |
-      THE PROLOGUE GUARD PUBLISHES ONLY FOR A LAUNCH THAT RESERVED A RUN ID. A terminal event
-      for an unknown run is a no-op in the database (RunFinalizationProjection.cs:28) but NOT
-      in the live fold: JobsBroadcaster.cs:268-283 folds it onto RunSnapshot.Empty and upserts
-      it into Recent, so a poller-path prologue failure would post a card with no project,
-      pipeline or repos. Init, capacity-queue and resume launches carry request.RunId and own
-      a row; those are exactly the launches that can hang.
-  - key: |
-      THE STUCK ROW IS NOT COSMETIC, IT BLOCKS THE PROJECT AND HOLDS COMPUTE.
-      InitRunRepository.FindLiveRunIdAsync counts any row with FinishedAt null as live, so
-      every later click answers 409 already-running and opens the dead run; and
-      RunFinalizationProjection releases the capacity reservation only on a terminal event,
-      so each failed launch keeps the footprint it reserved at admission. One terminal event
-      clears both — for the next launch. The one already stuck needs a cancel.
+      NOTHING HANGS, AND THE WORD MATTERS. Resolution throws before the run-started event; the
+      consumer catches it, logs and releases. No thread, task or lease is stuck. What persists is
+      the ROW: a queued row was already written, no terminal event follows, so the reconciler
+      never repairs it, the project stays 409-blocked and its reservation stays held. Calling that
+      a hang sends an implementer hunting a deadlock that does not exist.
 
 steps:
-  - id: every-configured-name-is-matched-one-way
-    action:
-      - "Give the four catalog construction sites a case-insensitive comparer, and build the agents catalog once with the same comparer, handing that one instance to both the project builder and the composed config."
-      - "Remove the lowercasing in ExecutePipelineUseCase's project resolution, so a request's project name is looked up as configured."
-      - "Resolve a project's agent/tracker/repo/connection references the same way in the studio's referential validator, so the editor and the boot agree."
+  - id: one-definition-of-when-two-names-are-the-same
+    action: "Publish a single shared name comparer and its matching normaliser, so this phase's comparison and the store-side refusal that follows it cannot define equality differently."
+  - id: every-catalog-resolves-by-that-definition
+    action: "Resolve the five runtime catalogs by the shared comparer and remove the contradicting lowercasing, keeping provider-owned names ordinal."
+  - id: the-reads-that-happen-before-resolution-obey-it-too
+    action: "Make the pre-resolution raw reads resolve a reference the same way the catalogs will, so a case-mismatched tracker reference merges its workflow instead of silently leaving a project with none."
   - id: a-pair-of-keys-is-named-and-neither-half-runs
-    action: "When two keys of one catalog differ only in case, drop both and record one blocking finding that names the catalog and both spellings — and let the referencing projects raise their own findings on top."
-  - id: a-launch-that-dies-before-it-starts-is-terminal
-    action: "Guard the work before RunStarted: on failure, publish RunFinished(failed) with the reason when the request carries a reserved run id, then rethrow so the queue consumer's log path is unchanged — and leave a post-RunStarted failure publishing exactly one terminal event."
-  - id: the-incident-is-a-test
-    action: "Cover the measured failure: a capitalised project name resolves, an unknown project leaves a failed run instead of a queued one, and a project can be launched again after its failed launch was finalized."
+    action: "Drop both halves of a colliding pair and record a blocking finding that names the catalog and the name, so two collisions in one catalog are two findings, and build the agents catalog key by key so a collision cannot crash the boot."
+  - id: the-editor-refuses-what-the-loader-would-refuse
+    action: "Give the referential validator the same comparison and the same collision rule, so a configuration that saves is a configuration that boots."
+  - id: a-resolved-name-is-the-configured-name
+    action: "Canonicalise to the configured spelling the moment resolution succeeds, before the name reaches a run row, a lease or a queue entry, so two capitalisations cannot become two runs."
+  - id: an-unresolvable-launch-leaves-nothing-behind
+    action: "Fail an unresolvable launch visibly and leave no unfinished row holding a reservation."
 
 tests:
-  - "LoadConfig_ACatalogKeyWithCapitals_IsFoundUnderAnyCasing"
-  - "LoadConfig_AnAgentRefDifferingOnlyInCase_ResolvesInTheProjectBuilder"
-  - "LoadConfig_ATrackerStatusMap_StaysCaseSensitive"
-  - "LoadConfig_TwoKeysDifferingOnlyInCase_DropBothAndTheFindingNamesTheCatalogAndBoth"
+  - "LoadConfig_AProjectRequestedInADifferentCaseThanConfigured_ResolvesTheProject"
+  - "LoadConfig_UnderATurkishCulture_ACapitalIStillResolves"
+  - "LoadConfig_ATrackerRefDifferingOnlyInCase_StillMergesTheTrackerWorkflow"
+  - "LoadConfig_ATrackerRefThatResolvesToNothing_RecordsABlockingFinding"
+  - "LoadConfig_ACollisionInOneCatalog_DropsBothHalvesAndNamesThem"
+  - "LoadConfig_TwoCollisionsInOneCatalog_ProducesTwoFindings"
   - "LoadConfig_ACollisionInTwoCatalogs_ProducesTwoFindings"
-  - "ValidateProject_ARefDifferingOnlyInCase_IsAccepted"
-  - "ExecuteAsync_AProjectNamedWithCapitals_ResolvesTheProject"
-  - "ExecuteAsync_AnUnknownProjectOnAReservedRun_PublishesRunFinishedFailed"
-  - "ExecuteAsync_AnUnknownProjectWithoutAReservedRun_PublishesNothing"
-  - "ExecuteAsync_AFailureAfterRunStarted_PublishesExactlyOneTerminalEvent"
-  - "InitLauncher_AfterAFailedLaunchWasFinalized_ASecondLaunchIsAdmitted"
+  - "LoadConfig_AnAgentCollision_IsAFindingAndNotAnUnhandledThrow"
+  - "Validator_AReferenceMatchingOneHalfOfACollidingPair_IsRefused"
+  - "Comparer_AndTheNormaliser_AgreeOnEveryPairTheyJudge"
+  - "InitLauncher_TwoLaunchesDifferingOnlyInCase_TheSecondIsRefused"
+  - "Lease_AttachedAndReleasedUnderDifferentSpellings_IsStillReleased"
+  - "RunRow_WrittenAfterACaseInsensitiveResolve_CarriesTheConfiguredSpelling"
+  - "Launch_AnUnresolvableProject_LeavesNoUnfinishedRunRow"
 
 done:
-  - "a project whose configured key carries capitals resolves at the pipeline entry point instead of throwing"
-  - "a reference that differs only in case resolves in the editor and in the project builder alike"
-  - "two keys of one catalog differing only in case drop both halves and produce one finding naming the catalog and both spellings, plus the findings that drop cascades into"
-  - "a tracker's status and field maps still compare case-sensitively"
-  - "a launch that fails before RunStarted leaves a failed run carrying the reason and no queued row"
-  - "a launch that fails after RunStarted still produces exactly one terminal event"
-  - "a second init launch on that project is admitted rather than answered 409 by a dead row"
+  - "a configured name resolves however it is capitalised, in the runtime and in the editor, under any culture"
+  - "a reference read before the catalogs are built resolves the same way the catalogs will"
+  - "two spellings of one name are refused as a named finding, one per collision, and never crash the boot"
+  - "a persisted name is the configured spelling, so one project cannot launch twice under two capitalisations"
+  - "an unresolvable launch fails visibly and holds no reservation"
+  - "the comparison this phase makes and the normalisation its successor stores agree by construction"
   - "build green, full suite green"

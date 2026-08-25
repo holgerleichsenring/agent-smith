@@ -17,6 +17,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using StackExchange.Redis;
 
+using AgentSmith.Infrastructure.Persistence.Services;
+using Microsoft.Extensions.DependencyInjection;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 namespace AgentSmith.Tests.Server;
 
 /// <summary>
@@ -58,7 +61,7 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         var result = await RunControlEndpoints.CancelAsync(
             "run-1", _registry, NewBroadcaster(), _events, NewRepository(),
             Mock.Of<ICapacityQueue>(), NewFinalizer(), TimeProvider.System,
-            CancellationToken.None);
+            NewTerminalWriter(), CancellationToken.None);
 
         result.Should().BeOfType<Microsoft.AspNetCore.Http.HttpResults.Accepted>();
         // The flag is on the ROW already — no projector drain happened here.
@@ -81,7 +84,7 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         await RunControlEndpoints.CancelAsync(
             "run-2", _registry, NewBroadcaster(), _events, NewRepository(),
             Mock.Of<ICapacityQueue>(), NewFinalizer(), TimeProvider.System,
-            CancellationToken.None);
+            NewTerminalWriter(), CancellationToken.None);
 
         // Pre-p0330 this published a synthetic RunFinished(cancelled) that marked
         // the row terminal while the pod ran on — the enforcer would then skip it.
@@ -102,7 +105,7 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         await RunControlEndpoints.CancelAsync(
             "run-3", _registry, NewBroadcaster(), _events, NewRepository(),
             Mock.Of<ICapacityQueue>(), NewObservableFinalizer(ticketProvider), TimeProvider.System,
-            CancellationToken.None);
+            NewTerminalWriter(), CancellationToken.None);
 
         ticketProvider.Verify(p => p.FinalizeAsync(
             new AgentSmith.Domain.Models.TicketId("42"), It.IsAny<string>(), "Rejected",
@@ -115,7 +118,7 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         var result = await RunControlEndpoints.CancelAsync(
             "run-unknown", _registry, NewBroadcaster(), _events, NewRepository(),
             Mock.Of<ICapacityQueue>(), NewFinalizer(), TimeProvider.System,
-            CancellationToken.None);
+            NewTerminalWriter(), CancellationToken.None);
 
         result.Should().BeOfType<Microsoft.AspNetCore.Http.HttpResults.NotFound>();
         _published.Should().BeEmpty();
@@ -185,4 +188,15 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
+
+    private CancelTerminalWriter NewTerminalWriter() => new(WriterServices());
+
+    private ServiceProvider WriterServices()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddSingleton<QueuedRunProjection>();
+        services.AddSingleton<RunFinalizationProjection>();
+        return services.BuildServiceProvider();
+    }
 }

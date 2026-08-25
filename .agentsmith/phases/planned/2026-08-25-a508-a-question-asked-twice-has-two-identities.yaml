@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-a508
+
+goal: "A question asked twice is two questions: each ask carries its own identity, and the answer that resumed a run cannot answer the next one."
+
+applies_to: "backend (the ticket master's clarification tool, the durable answer inbox, the resume sweeper)"
+
+requires:
+  - p0327
+  - 2026-08-24-ca23
+
+scope:
+  in: "The identity a mid-run question is asked under, and what consuming an answer means for the inbox row the ticket poll relies on for its idempotence — including what a run does when its second question can no longer be delivered an answer."
+  out: "What a master asks or how it words a question. The park and resume machinery itself, repaired by 2026-08-24-ca23. The dashboard's answer affordance, which needs no change."
+
+decisions:
+  - key: |
+      THE IDENTITY IS A CONSTANT, AND THAT IS THE WHOLE DEFECT. TicketClarificationToolHost asks
+      every question of every run of every project under the literal id "1". The sibling path that
+      the gate's own ask_human uses mints a fresh identity per ask, so the codebase already knows
+      the right shape — the ticket-run master, the path that actually parks, is the one that does
+      not.
+  - key: |
+      THE INBOX SLOT IS UNIQUE PER JOB AND QUESTION, SO A CONSTANT ID MEANS ONE ANSWERABLE
+      QUESTION PER RUN, FOR EVER. The second question's answer loses to the unique index on the
+      first question's row. The run then parks on a question no operator can answer, and waits out
+      its full patience — fourteen days for a master question — before a default applies.
+  - key: |
+      CONSUMING AN ANSWER AND KEEPING TICKET-POLL IDEMPOTENCE ARE IN TENSION, AND THE SPEC MUST
+      SETTLE IT RATHER THAN DISCOVER IT. ParkedTicketDialogue states in its own documentation that
+      the inbox's unique row IS its idempotence anchor — a re-read comment is dropped by the index
+      rather than by a cursor that could disagree with it. So deleting a consumed row frees the
+      slot and breaks that anchor, while merely flagging it consumed keeps the anchor and leaves
+      the slot occupied. Fixing the identity first is what dissolves the tension: with an identity
+      per ask, each question has its own slot, and consumption stops being the mechanism that has
+      to free one.
+  - key: |
+      THE TWO KEYS INTO THE INBOX MUST BE RECONCILED. MasterQuestionCheckpoint passes the run id as
+      the dialogue job id while the ask gate prefers the progress reporter's job id — two different
+      keys into one table. Whatever "spent" comes to mean, it has to be keyed on the one a resume
+      actually reads back, or an answer will be delivered into a slot nobody looks at.
+  - key: |
+      THIS IS NOT WHAT DROVE THE OBSERVED RELAUNCHES, AND SAYING SO IS PART OF THE SPEC. The
+      seventeen resume enqueues of run 331a were first attributed to this defect. Adversarial
+      review disproved it: the drain broke at the first terminal event, so no later leg's
+      checkpoint was ever projected, and what re-armed the sweeper was the replay of the FIRST
+      leg's checkpoint event. The recorded run confirms it — its newest trail row is the park.
+      This phase fixes a real second-question defect that has not yet been seen in production,
+      which is why it is scoped small and separately.
+
+steps:
+  - id: an-ask-carries-its-own-identity
+    action: "Give each mid-run question of the ticket master an identity of its own, the way the sibling ask path already does, so two questions of one run never share a slot."
+  - id: an-answer-belongs-to-the-question-it-answered
+    action: "Make an answer usable by the ask it was given for and not by a later one, keyed on the identity a resume actually reads back, with the ticket poll's idempotence preserved rather than traded away."
+  - id: a-run-whose-answer-cannot-arrive-says-so
+    action: "Surface the case where a question cannot be answered as a finding on the run rather than as a silent wait, so a fourteen-day patience is never spent on a delivery that could not have happened."
+
+tests:
+  - "Question_AskedTwiceInOneRun_TheAsksCarryDifferentIdentities"
+  - "Answer_ToTheFirstQuestion_DoesNotResumeTheSecond"
+  - "SecondQuestion_Answered_ResumesTheRun"
+  - "TicketComment_ReadTwiceForOneQuestion_IsDeliveredOnce"
+  - "TicketComment_AfterASecondAsk_IsDeliveredToTheSecondQuestion"
+  - "Sweeper_AParkedRunWhoseAnswerWasAlreadyUsed_EnqueuesNothing"
+  - "DialogueIdentity_TheKeyWrittenAndTheKeyReadBack_AreTheSame"
+  - "UndeliverableAnswer_IsReportedAsAFindingRatherThanWaitedOut"
+
+done:
+  - "two questions of one run carry two identities and two answerable slots"
+  - "an answer resumes the ask it was given for and no later one"
+  - "an answer written on the ticket is delivered once per question, and a second ask can still receive one"
+  - "a question that cannot be answered is a finding, not a silent wait"
+  - "build green, full suite green"

@@ -1,109 +1,78 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0515b
 
-goal: "Two spellings of one config name cannot be stored: the document store itself refuses the second, on every provider — where today two of four silently overwrite the first."
+goal: "The config store refuses to write a name that collides with one it already holds, instead of overwriting the entity that was there."
 
-requires: "p0515 — the catalogs must already resolve a name case-insensitively; otherwise a refusal at the store contradicts a loader that still treats the two spellings as two entities."
+applies_to: "backend (config document store write path, and the import that bypasses it)"
 
-applies_to: "backend (config document store + its two migration sets)"
+requires:
+  - p0515
 
 scope:
-  in: "A normalised id on the config document store with a unique index per entity type, both writers setting it, the document lookup resolving by it, an import refused before it writes, and a migration that adds the column and index with a C# backfill that stops on a pre-existing pair."
-  out: |
-    The loader's collision finding, which p0515 ships and which stays: a hand-written
-    agentsmith.yml never passes an index, and FileConfigStore is read-only
-    (FileConfigStore.cs:76-88), so the file path keeps needing a named finding rather than a
-    refusal. Re-casing an existing name stays delete-then-create — there is no rename
-    operation, a PUT forces the id from the route — which loses that entity's version history.
+  in: "The write-time refusal: a save or an import whose name matches a stored one under the shared name definition, but is not the same spelling, is refused with both spellings named — and nothing is overwritten."
+  out: "A unique index, a normalised column, a migration and a backfill. Those are a successor phase because they cannot ship without repairing the rows they would reject, and because the data loss this phase stops is entirely in code. Case-insensitive RESOLUTION, which is p0515."
 
 decisions:
   - key: |
-      THE STORE ALREADY LOSES CONFIGURATION ON TWO OF FOUR PROVIDERS. config_entity declares
-      (EntityType, EntityId) unique with no collation (ConfigEntityConfiguration.cs:21-22) and
-      Find compares in SQL (ConfigDocumentRepository.cs:68). Under the default MySQL and SQL
-      Server collations that lookup returns the differently cased twin, UpsertRow takes the
-      UPDATE branch, and one entity's document is overwritten by another's under the stored
-      spelling — with no concurrency error, because the in-process version map is ordinal and
-      misses (DbConfigStore.cs:23,128). On SQLite and Postgres both rows simply land. Same
-      code, two behaviours; a normalised key gives one.
+      THE DATA LOSS IS CODE, NOT SCHEMA, SO THE FIX NEEDS NO MIGRATION. The lookup finds the
+      case-twin, the upsert takes its UPDATE branch, and the save passes no expected version for
+      an id its version map never held — so the stale check that would have caught it never runs.
+      A guard that compares the stored spelling to the incoming one ordinally, and refuses when
+      they differ, ends the overwrite completely. No column, no index, no backfill, no deploy risk.
   - key: |
-      UNIQUENESS IS A PROPERTY OF THE STORE, NOT OF A PROCESS THAT HAPPENS TO CHECK.
-      A validator on the studio's upsert leaves three holes: the import writes through
-      ConfigImportRepository (ConfigTransferEndpoints.cs:44-53, ConfigCommand.cs:99-105) and
-      validates only secrets; Revert writes the doc directly (DbConfigStore.cs:110-124); and
-      two server replicas each pass an in-process check and both write. A unique index is the
-      same rule in the one place every write already goes through — and it covers every
-      entity type, not just projects.
+      A UNIQUE INDEX CANNOT SHIP IN THIS PHASE, BECAUSE OF WHERE MIGRATIONS RUN. The server never
+      migrates itself: an init container runs the migration, and a non-zero exit means the pod
+      never reaches its server container. A refusal raised there is not "the upgrade stops
+      loudly" — it is the installation down, with the only tool that can delete one of the two
+      spellings locked inside the server that will not start. The index also cannot be ordered
+      correctly: migrations apply in one call, so a backfill runs either before the column exists
+      or after the index is built. Both fail.
   - key: |
-      THE WRITE REFUSES A SECOND SPELLING RATHER THAN MERGING INTO THE FIRST. Lookup by the
-      normalised key finds the stored row whatever its casing: an exactly equal id updates it
-      as before, a differently cased one is refused naming the spelling already stored. That
-      is what makes the rule visible to the operator instead of destructive.
+      THE FOUR-PROVIDER FRAMING IS WRONG AND MUST NOT BE REPEATED. The store's migration is
+      scaffolded for SQLite; only SQL Server opts into its own assembly, so Postgres and MySQL
+      inherit that set — and MySQL cannot apply it at all, because a TEXT column needs a prefix
+      length to be part of a key. A working store exists on SQLite and SQL Server, and only SQL
+      Server, under a case-insensitive collation chosen at install time, loses data today.
   - key: |
-      THE NEW LOOKUP TOUCHES THE UPSERT AND NOTHING ELSE. Delete keeps exact-match semantics:
-      its referencing-edge guard and outgoing-edge removal are exact string matches
-      (ConfigEdgeWriter.cs:27-37) and config_ref's foreign key targets the (EntityType,
-      EntityId) alternate key, so resolving a delete through the normalised key would find the
-      row, see no referencing edges, skip the RESTRICT guard and orphan its edges — where
-      today that call is a harmless no-op. The version history likewise keeps the literal
-      spelling: append-only, queried exactly, and the next version comes off the live row. Its
-      consequence is stated rather than discovered — reverting across a re-casing is refused
-      like any other second spelling, as a plain 400.
+      THE REFUSAL BELONGS WHERE BOTH ENTRY POINTS PASS. The import wipes the current rows before
+      writing, so checking the incoming file alone is sufficient — and the one place both the
+      server endpoint and the CLI reach it maps the refusal correctly already: the endpoint
+      returns 400 through its write guard, the CLI exits non-zero on the same exception type.
+      Putting the check at the two call sites instead would leave whichever one is added next
+      unguarded.
   - key: |
-      THE IMPORT IS REFUSED BEFORE IT WRITES, OR THE OPERATOR GETS A 500. A pair inside one
-      import file would otherwise surface as a DbUpdateException, which the write guard does
-      not map (ConfigStudioWriteGuard.cs:36-47 maps only StaleConfigVersionException to 409
-      and ConfigurationException to 400). The import also builds its rows directly
-      (ConfigImportRepository.InsertEntities), so it must set the normalised column itself —
-      two writers, one shared function.
+      IT USES THE PREDECESSOR'S NORMALISER RATHER THAN CHOOSING ITS OWN. Comparing one way here
+      and another way in the loader would let the store accept a pair the loader refuses. p0515
+      ships the definition; this phase consumes it.
   - key: |
-      THE BACKFILL AND THE PRE-EXISTING-PAIR REFUSAL ARE C#, NOT SQL, BECAUSE ONE MIGRATION
-      FILE SERVES THREE DIALECTS. Only SqlServer has its own migrations assembly
-      (PersistenceOptionsExtensions.cs:26-35); the shared set runs against SQLite, Postgres AND
-      MySQL, and it is SQLite-shaped (TEXT/INTEGER column types, an Sqlite:Autoincrement
-      annotation). Neither set contains a single migrationBuilder.Sql today, and the statement
-      this needs cannot be written once: unquoted Pascal-cased table names fold to lowercase on
-      Postgres, double quotes are string literals on MySQL, and raising a named error is RAISE
-      EXCEPTION / SIGNAL SQLSTATE / trigger-only by provider. The migration adds the column and
-      the index; the backfill and the refusal run in C# beside where migrations are applied
-      (DatabaseCommand.cs:84 and CliRunRecordingSchema.cs:28), computing the key with the same
-      invariant-lowercase function the writers use — never SQL LOWER(), which is itself
-      collation-dependent on MySQL and SQL Server and would store keys the application can
-      never find again.
-  - key: |
-      A PAIR THAT PREDATES THE INDEX STOPS THE UPGRADE, LOUDLY, NAMING BOTH. Backfilling can
-      only collide where a case-sensitive provider already stored both spellings. Refusing is
-      right for a case nobody can resolve automatically: keeping one is a guess about which the
-      operator meant, and the guess runs a project against the other's repos.
-  - key: |
-      THE SHARED MIGRATION SET'S PORTABILITY IS AN ASSUMPTION, AND THIS PHASE IS THE FIRST TO
-      LEAN ON IT. No test or CI evidence says the SQLite-shaped set applies cleanly on Postgres
-      or MySQL. The column-and-index-only migration keeps that exposure as small as it can be,
-      and the C# backfill means no raw SQL is added to find out the hard way.
+      THE OPERATOR MUST BE ABLE TO GET OUT. p0515 drops both halves of a colliding pair from the
+      catalog, so neither is listed in the studio and there is no row to click. The refusal
+      message therefore has to name both spellings exactly, because they are the only handle the
+      operator has — export, edit, force-import is the recovery, and it works because the import
+      clears the rows before it writes.
 
 steps:
-  - id: a-stored-name-carries-a-normalised-key
-    action:
-      - "Add a normalised id — invariant lowercase from one shared function — set by BOTH writers, the document upsert and the import's direct insert, and unique per entity type; keep the (EntityType, EntityId) alternate key the config_ref foreign key points at, and leave the version history untouched."
-      - "Resolve a document by the normalised id: an exactly equal id updates it, a differently cased one is refused naming the spelling already stored. Delete keeps exact-match semantics, and the store's in-process version map is keyed the way the lookup now resolves."
-  - id: an-import-that-carries-both-spellings-is-refused
-    action: "Check an import for two spellings of one name before anything is written, so the answer is the store's own refusal rather than a unique-index violation the write guard does not map."
-  - id: the-index-arrives-without-raw-sql
-    action: "Ship a migration in both migration sets that adds the column and the index only; backfill the key in C# where migrations are applied, and stop there naming both ids when a pre-existing pair makes the index impossible."
+  - id: a-save-that-would-overwrite-a-twin-is-refused
+    action: "Refuse a write whose stored match is a different spelling of the incoming name, naming both spellings, so the entity that was there is never replaced."
+  - id: an-import-is-refused-before-it-writes
+    action: "Apply the same refusal to an imported set, at the one place both the server and the CLI reach it, so a file carrying two spellings of one name cannot clear the store and land."
+  - id: the-refusal-says-how-to-get-out
+    action: "Make the message name both spellings and the catalog, since a colliding pair is invisible in the editor and those names are the operator's only handle on it."
 
 tests:
-  - "ConfigStore_AnIdDifferingOnlyInCase_IsRefusedNamingTheStoredSpelling"
-  - "ConfigStore_TheSameIdExactly_StillUpdatesAndVersions"
-  - "ConfigStore_ADeleteByADifferentlyCasedId_ChangesNothing"
-  - "ConfigStore_ARevertAcrossARecasing_IsRefusedNotSwallowed"
-  - "ConfigStore_AnImportCarryingBothSpellings_IsRefusedWithoutWriting"
-  - "ConfigStore_AnImportedEntity_CarriesTheNormalisedKey"
-  - "Migration_ADatabaseThatAlreadyHoldsConfigDocuments_BackfillsTheKey"
-  - "Migration_ADatabaseHoldingTwoSpellingsOfOneName_StopsNamingBoth"
+  - "Save_ANameDifferingOnlyInCaseFromAStoredOne_IsRefused"
+  - "Save_ANameDifferingOnlyInCase_LeavesTheStoredEntityUnchanged"
+  - "Save_TheSameSpelling_StillUpdatesInPlace"
+  - "Import_ASetCarryingTwoSpellingsOfOneName_IsRefusedBeforeAnythingIsCleared"
+  - "Import_ThroughTheCli_FailsWithTheSameRefusal"
+  - "Import_ThroughTheEndpoint_AnswersFourHundred"
+  - "Refusal_NamesBothSpellingsAndTheCatalog"
+  - "Refusal_UsesTheSameNameDefinitionAsTheLoader"
 
 done:
-  - "storing a second config name that differs from a stored one only in case is refused, naming the stored spelling, and no document is overwritten"
-  - "an import carrying both spellings is refused before it writes, as a 400 rather than a 500"
-  - "an entity written through either writer carries the normalised key"
-  - "a delete by a differently cased id still changes nothing"
-  - "build green, full suite green, and the migration applies to a database that already holds config documents — backfilled, or stopped naming both ids when it cannot"
+  - "a write that would replace a differently-spelled twin is refused, and the stored entity is untouched"
+  - "an import carrying a colliding pair is refused before it clears anything, from both the server and the CLI"
+  - "the refusal names both spellings, so an operator can fix a pair the editor cannot show"
+  - "the store and the loader judge two names the same way"
+  - "no migration ships in this phase"
+  - "build green, full suite green"

@@ -1,0 +1,141 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-24-ca23
+
+decisions:
+  - category: Architecture
+    chose: "Keep the drain's per-run position across a WAIT, and advance it past the waiting event itself"
+    over: "Keeping the run in the Redis active set so the drain finds it again, or rebuilding the position from the trail"
+    reason: |
+      The active set is not the drain's private index. Three other consumers read it as
+      "do not touch": the sandbox orphan reaper, the Kubernetes corpse reaper, and the
+      sandbox agent's own idle loop, which resets its counter and keeps waiting while
+      the run is a member. A master question waits up to fourteen days, so parking a run
+      inside that set would mean a fortnight in which no leftover container or pod of
+      that run can be reaped and a surviving agent bills on. It is also unnecessary: the
+      drain iterates its own cursor map, not the set. Rebuilding from the trail is not
+      possible either — the trail row records no stream entry id and the mapper never
+      sees one. What remained was the position itself, and the ONE thing that made
+      keeping it dangerous: the drain breaks on a terminal event BEFORE it advances,
+      deliberately, because the position was about to be deleted anyway. Retaining it
+      without advancing would have left it pointing at the entry before the pause and
+      re-read that event every 200ms for the whole wait — the same engine at five hertz,
+      starting earlier than the defect it replaced. The review caught this; the first
+      draft of the phase would have shipped it.
+  - category: Implementation
+    chose: "A per-run Redis key for the position, with a lifetime deliberately longer than the run stream's"
+    over: "A column on the run row, or no persistence at all"
+    reason: |
+      The lifetime is the design. A position is meaningless without the stream it points
+      into, so making the position outlive the stream turns "no stored position" into
+      "no stream to skip" — which makes starting from the beginning correct by
+      construction rather than by luck, and answers the one question the fallback raises.
+      The reverse case is harmless on its own terms: a position that outlives its stream
+      is a stale id, and stream ids are time-ordered, so it precedes every entry of the
+      fresh stream a relaunch creates. A run-row column would survive a Redis flush and
+      buy nothing, because what it would survive into is a stream that did not — at the
+      cost of a migration in every provider.
+  - category: Implementation
+    chose: "Restore the stored position at the single place a fresh start is minted"
+    over: "Restoring it at cold start, or anywhere else in the drain loop"
+    reason: |
+      There is exactly one line that invents a run's position, and it runs on the drain's
+      own tick. A restore anywhere else is beaten by it unconditionally — it would win
+      the race only by accident. Reading the stored position there, and only when no
+      position is held, makes the restore and the fallback the same decision: no ordering
+      to reason about, and no extra read per active run per tick.
+  - category: Architecture
+    chose: "Enumerate the store's unfinished runs at cold start"
+    over: "A second Redis membership for waiting runs, or accepting that a restart loses them"
+    reason: |
+      A waiting run left the active set at its pause, so neither existing rehydrate can
+      see it: after a restart it is invisible to the drain until it relaunches, and
+      anything published against it meanwhile — a cancel, most importantly — reaches the
+      row but never the trail or the fanout. The store already answers exactly the right
+      question with the runs that have no finish, and the drain already accepts an
+      optional persistence collaborator, so this needed no new key and no new index. A
+      second membership would have been a third meaning for a set-shaped thing, which is
+      the mistake this phase exists to undo.
+  - category: Implementation
+    chose: "Seed the trail sequence from the store, resolved before the buffer is published"
+    over: "Only keeping the buffer alive across a pause"
+    reason: |
+      Keeping the buffer fixes the in-process case and leaves the restart case: a run
+      alive across a server restart already gets a fresh buffer that re-mints sequences
+      the previous process wrote. Seeding from the run's persisted maximum fixes both and
+      is therefore the authoritative mechanism, with the retained buffer merely saving
+      the query. Two mechanics forced the shape: the value factory of a concurrent
+      dictionary cannot await the seed query and is not guaranteed to run once, so the
+      buffer is resolved under a gate and published after; and the lookup is a range scan
+      over the run rather than a seek, because the trail's index leads with a different
+      second column — which is why it happens once per buffer and not per event.
+  - category: Architecture
+    chose: "The cancel path finalizes the row through the projection that owns terminal transitions"
+    over: "Writing status and finish time directly onto the row"
+    reason: |
+      Writing directly would have ended the loop and leaked two things. A waiting run
+      deliberately keeps its capacity reservation, and that reservation is released only
+      on the projection's terminal path; and the cost total for an enforcer-published
+      ending comes only from that projection's fallback sum, because the enforcer
+      publishes no cost. A hand-written row would then make the later drained event find
+      a finished row and return before either. Calling the projection synchronously keeps
+      release and cost in one place, makes the drained event a no-op by that projection's
+      own set-once guard, and widens the single-writer rule by a named caller instead of
+      by a second implementation of "terminal".
+  - category: Implementation
+    chose: "Skip the terminate-retry window on the run's waiting STATUS, not on an empty job id"
+    over: "Treating a missing job id as 'nothing to kill'"
+    reason: |
+      A pause never clears the job id, so a parked run still names the pod that died when
+      it parked. Keying on the job id would attempt a terminate against that corpse and,
+      when it failed, grant it the full ten-minute retry window before finalizing — for a
+      run that provably has no executor. The status is the honest discriminator.
+  - category: Architecture
+    chose: "Both cancel entry points, not only the enforcer"
+    over: "Fixing enforcement alone"
+    reason: |
+      A queued run is cancelled by the endpoint itself and never reaches the enforcer. It
+      has the identical defect for the identical reason — it left the active set at its
+      own waiting event, so nothing drains the stream its terminal event goes into. A fix
+      worded around enforcement would have left the commoner half broken while its own
+      test claimed otherwise.
+  - category: Architecture
+    chose: "Key every change on the waiting STATUS, and give that predicate one home"
+    over: "Wording the phase around parking"
+    reason: |
+      Three sites already agreed that queued and waiting-for-input are one shape, each by
+      repeating the pair as a literal. The capacity path publishes its waiting event after
+      the stream has been seeded, exactly like a park, and fires far more often. Naming
+      the pair once and having the four new sites plus the three old ones ask it is what
+      makes "a waiting run is not a finished run" a rule rather than a coincidence
+      repeated seven times.
+  - category: Architecture
+    chose: "Four extractions, because the line ratchet refused the additions and was right to"
+    over: "Adding a baseline entry, or spreading the change thinner across the same files"
+    reason: |
+      The rule is that a file already over the limit may only get shorter, so every line this
+      phase wanted had to be paid for by a responsibility leaving. Each payment turned out to be
+      one that should have been made anyway. RunStreamCursors now owns where the drain stands in
+      each run's stream — the exact subject of this phase, previously a bare dictionary and four
+      scattered call sites. SystemEventStream took the system ring, its cursor and its fanout out
+      of the run broadcaster, which had been carrying two unrelated streams and could not take a
+      third responsibility; that alone moved the broadcaster from 405 lines to 269. RunTerminator
+      separates deciding a run is cancelled from killing what it left running, which is where the
+      new waiting-status guard belongs. CancelTerminalWriter exists because BOTH cancel entry
+      points need the same thing, and a shared need with two callers is a class, not a copy.
+      The test-side split of harness from cases was not forced — the ratchet reads only
+      src/backend — but it was worth keeping for the same reason.
+  - category: Process
+    chose: "Cut the trail's uniqueness and the answer-consumption defect out of this phase"
+    over: "Shipping all five symptoms of the diagnosis together, as the first draft did"
+    reason: |
+      Adversarial review killed both. The unique index cannot be created while the
+      duplicate rows it would forbid still exist, so it and the repair of already-recorded
+      runs are one successor phase; and it would not have contained the symptom that
+      mattered anyway, because the inflated cost is summed from per-call rows the index
+      would not cover. The answer-consumption loop turned out not to be the observed
+      cause at all: the drain breaks at the FIRST terminal event, so no later leg's
+      checkpoint was ever projected, and what re-armed the sweeper was the replay of the
+      first leg's own checkpoint event. The recorded run confirms it — its newest trail
+      row is the park, and six relaunches twenty minutes later left nothing. That defect
+      is real, needs the question identity brought into scope to be fixable at all, and
+      gets its own phase.

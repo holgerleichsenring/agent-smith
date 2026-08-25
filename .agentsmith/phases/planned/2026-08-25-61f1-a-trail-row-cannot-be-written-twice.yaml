@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-61f1
+
+goal: "A run's recorded facts cannot be written twice: the store refuses a duplicate instead of accepting it, and the rows an earlier replay already duplicated are repaired so the constraint can exist at all."
+
+applies_to: "backend (relational persistence: trail, per-call and step rows, plus a repair path)"
+
+requires:
+  - 2026-08-24-ca23
+
+scope:
+  in: "Idempotent recording for the rows a replay duplicated — the trail keyed by run and sequence, and the per-call and per-step rows whose totals the duplicates distorted — together with the one-time repair that makes the constraint applicable to a store that already holds duplicates, across every provider the store supports."
+  out: "The cause, which 2026-08-24-ca23 fixed: a waiting run no longer loses its stream position, so nothing is replaying today. The dialogue question's identity. Retention and deletion policy."
+
+decisions:
+  - key: |
+      THIS IS CONTAINMENT, NOT THE FIX, AND IT IS WORTH HAVING ANYWAY. The replay that produced
+      the duplicates is gone. What remains is that the store accepted 42 identical rows without a
+      single complaint, and would accept them again from any future path — a restart racing a
+      drain, a second replica, a bug not yet written. The cause is fixed once; the guard is what
+      makes the NEXT one cost an exception instead of a silent multiplier on every number the
+      store reports.
+  - key: |
+      THE INDEX CANNOT BE CREATED WHILE THE DUPLICATES EXIST, WHICH IS WHY REPAIR IS IN THIS PHASE
+      AND NOT A FOLLOW-UP. A unique index over a table that already violates it fails at migration
+      time, on the operator's database, at deploy. The two are one piece of work: decide what the
+      surviving row is, remove the rest, then add the constraint. Sequencing them across two
+      phases would ship a migration that cannot run.
+  - key: |
+      THE TRAIL ALONE DOES NOT CONTAIN THE DAMAGE. The number that reached the operator was a
+      cost — forty-two times the truth — and it came from summing per-call rows, which a trail
+      index does not cover. A guard that protects only the trail would leave the reported cost
+      exactly as wrong as before while looking like it had been addressed.
+  - key: |
+      REFUSING MUST NOT MEAN LOSING. The projector drains its buffer before it writes, so a batch
+      that throws is already gone from memory and never retried, and the drain loop treats the
+      failure as transient and moves on. So the write has to be idempotent at the row level —
+      insert-if-absent — rather than an exception the caller is expected to survive. A duplicate
+      must be a no-op that says so, not a lost batch.
+  - key: |
+      THE REPAIR NEEDS A RULE FOR WHAT SURVIVES, AND THE ROWS DISAGREE. Duplicates of one event
+      share their payload and sequence but not their insert-time stamps — the observed run's
+      decision rows carry timestamps seconds apart, because each replay stamped its own. Keeping
+      the earliest is the only choice that reconstructs the run as it happened.
+
+steps:
+  - id: a-recorded-fact-is-written-once
+    action: "Make the recording of a run's trail, per-call and per-step rows idempotent per run and identity, so a second write of the same fact is a no-op the writer can observe rather than an exception it loses a batch to."
+  - id: the-store-refuses-what-it-should-never-hold
+    action: "Add the uniqueness the idempotent write relies on, on every provider the store supports, with the migration and its backfill written so it cannot run before the rows it would reject are gone."
+  - id: an-already-duplicated-run-is-repaired
+    action: "Collapse the duplicate rows an earlier replay left behind to the earliest of each set, and recompute the run totals that were summed from them, so the numbers the store reports become the numbers that happened."
+  - id: the-repair-says-what-it-changed
+    action: "Report what the repair removed and which runs' totals moved, so an operator can reconcile a cost rollup that was wrong before it ran."
+
+tests:
+  - "TrailRow_WrittenTwiceForOneRunAndSequence_IsRecordedOnce"
+  - "TrailRow_WrittenTwice_TheWriterKeepsItsBatchAndDoesNotThrowAway"
+  - "LlmCallRow_WrittenTwiceForOneCall_IsRecordedOnce"
+  - "StepRow_WrittenTwiceForOneStep_IsRecordedOnce"
+  - "Migration_OnAStoreHoldingDuplicates_RepairsBeforeItConstrains"
+  - "Migration_OnEveryProvider_AppliesAndIsReversible"
+  - "Repair_ASetOfDuplicates_KeepsTheEarliestAndRemovesTheRest"
+  - "Repair_ARunWhoseTotalWasSummedFromDuplicates_ReportsTheTrueTotalAfterwards"
+  - "Repair_AStoreWithNoDuplicates_ChangesNothingAndSaysSo"
+  - "Repair_ReportsWhatItRemovedAndWhichRunsMoved"
+
+done:
+  - "a fact recorded twice occupies one row, on every provider, and the writer keeps its batch"
+  - "the store refuses a duplicate rather than accepting it, and the migration installing that refusal runs on a store that currently holds duplicates"
+  - "an already-duplicated run reports the totals that actually happened"
+  - "the repair names what it removed and which runs' totals changed"
+  - "build green, full suite green"

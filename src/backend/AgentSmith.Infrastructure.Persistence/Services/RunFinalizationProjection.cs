@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -48,7 +49,7 @@ public sealed class RunFinalizationProjection(
         // in the active set (FinishedAt null) until it launches or is cancelled.
         // p0327: "waiting_for_input" is the same shape — parked on a question,
         // no lease, no sandbox, resumed onto this very row.
-        run.FinishedAt = e.Status is "queued" or "waiting_for_input" ? null : e.Timestamp;
+        run.FinishedAt = RunStatuses.IsWaiting(e.Status) ? null : e.Timestamp;
         run.Summary = e.Summary;
         // p0355: cost must be TRUE on revisit. The run-end total (RunFinishedEvent.
         // CostUsd) is authoritative when present, but older/leaking producers emit

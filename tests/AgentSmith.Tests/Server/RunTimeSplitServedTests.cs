@@ -70,7 +70,8 @@ public sealed class RunTimeSplitServedTests : IDisposable
     {
         var clock = new MutableTimeProvider { Now = T };
         var projector = new RunDbProjector(
-            _scopes, new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()), clock);
+            _scopes, new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()),
+            new RunTrailBuffers(_scopes), clock);
         foreach (var ev in SerialCommandRun()) await projector.ProjectAsync(ev, CancellationToken.None);
         clock.Now = clock.Now.AddSeconds(5);
         await projector.FlushStaleAsync(CancellationToken.None);

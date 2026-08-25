@@ -1,5 +1,6 @@
-using System.Collections.Concurrent;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,6 +16,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 public sealed class RunDbProjector(
     IServiceScopeFactory scopeFactory,
     RunEventApplier applier,
+    RunTrailBuffers buffers,
     TimeProvider timeProvider)
 {
     private const int FlushThreshold = 25;
@@ -22,7 +24,6 @@ public sealed class RunDbProjector(
     // this long, so the UI trail surfaces within ~a second instead of staying dark
     // until 25 events accumulate. RunTrailFlusherHostedService ticks FlushStaleAsync.
     private static readonly TimeSpan MaxBufferAge = TimeSpan.FromMilliseconds(750);
-    private readonly ConcurrentDictionary<string, RunTrailBuffer> _buffers = new();
 
     public async Task ProjectAsync(AgentSmith.Contracts.Events.RunEvent runEvent, CancellationToken cancellationToken)
     {
@@ -32,10 +33,14 @@ public sealed class RunDbProjector(
         using (var scope = scopeFactory.CreateScope())
             await applier.ApplyAsync(Uow(scope), runEvent, cancellationToken);
 
-        var buffer = _buffers.GetOrAdd(runEvent.RunId, _ => new RunTrailBuffer());
+        var buffer = await buffers.ForAsync(runEvent.RunId, cancellationToken);
         var toFlush = buffer.Add(runEvent, FlushThreshold, timeProvider.GetUtcNow());
         if (toFlush is not null) await FlushAsync(runEvent.RunId, toFlush, cancellationToken);
-        if (runEvent.Type == EventType.RunFinished) _buffers.TryRemove(runEvent.RunId, out _);
+        // 2026-08-24-ca23: only a real ending releases the buffer. A waiting status relaunches
+        // onto this same run id, and dropping the buffer restarts its sequence at zero.
+        if (runEvent.Type == EventType.RunFinished
+            && runEvent is RunFinishedEvent finished && !RunStatuses.IsWaiting(finished.Status))
+            buffers.Release(runEvent.RunId);
     }
 
     /// <summary>
@@ -48,7 +53,7 @@ public sealed class RunDbProjector(
     public async Task FlushStaleAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
-        foreach (var (runId, buffer) in _buffers)
+        foreach (var (runId, buffer) in buffers.All())
         {
             var toFlush = buffer.DrainIfOlderThan(MaxBufferAge, now);
             if (toFlush is not null) await FlushAsync(runId, toFlush, cancellationToken);
@@ -62,7 +67,7 @@ public sealed class RunDbProjector(
     /// </summary>
     public async Task FlushAllAsync(CancellationToken cancellationToken)
     {
-        foreach (var (runId, buffer) in _buffers)
+        foreach (var (runId, buffer) in buffers.All())
         {
             var toFlush = buffer.DrainIfOlderThan(TimeSpan.Zero, timeProvider.GetUtcNow());
             if (toFlush is not null) await FlushAsync(runId, toFlush, cancellationToken);

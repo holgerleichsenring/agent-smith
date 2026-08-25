@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,6 +26,11 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunClassificationProjection>();
         // p0466: the run's terminal transition, and the phase as a thing of its own.
         services.AddSingleton<RunFinalizationProjection>();
+        // 2026-08-24-ca23: ending a run whose terminal event nobody drains, and the unfinished
+        // runs a cold start must anchor because a pause removed them from the active set.
+        services.AddSingleton<RunTrailBuffers>();
+        services.AddSingleton<CancelTerminalWriter>();
+        services.AddSingleton<IUnfinishedRunSource, UnfinishedRunSource>();
         services.AddSingleton<RunPhaseProjection>();
         return services;
     }
