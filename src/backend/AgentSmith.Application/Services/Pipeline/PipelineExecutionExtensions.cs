@@ -40,13 +40,13 @@ public static class PipelineExecutionExtensions
         services.AddTransient<IPipelineStepRunner, PipelineStepRunner>();
         services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
         services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();
-        // p0201: per-pipeline-run liveness supervisor. Default no-op so InProcess
-        // / unit-test compositions stay quiet; Server composition overrides with
-        // SandboxLivenessSupervisor in SandboxBackendRegistrations.
+        // p0201: per-pipeline-run liveness supervisor. Default no-op so InProcess /
+        // unit-test compositions stay quiet; Server overrides in SandboxBackendRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddPipelineExecutor();
-        // p0327: durable dialogue — the hybrid ask gate, checkpoint writer,
-        // context (de)serializer, resume reader, and the queue-riding resumer.
+        // p0327: durable dialogue — the hybrid ask gate, checkpoint writer, context
+        // (de)serializer, resume reader, queue-riding resumer, and (a508) the one identity.
+        services.AddTransient<IDialogueJobIdentity, Resume.DialogueJobIdentity>();
         services.AddTransient<IPipelineContextSerializer, Resume.PipelineContextSerializer>();
         services.AddTransient<IDialogueCheckpointWriter, Resume.DialogueCheckpointWriter>();
         services.AddTransient<IDialogueAskGate, Resume.DialogueAskGate>();

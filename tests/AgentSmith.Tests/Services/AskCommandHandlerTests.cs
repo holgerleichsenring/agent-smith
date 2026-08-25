@@ -31,7 +31,7 @@ public sealed class AskCommandHandlerTests
     // p0327: the handler routes through the real DialogueAskGate — these tests
     // pin the end-to-end handler behavior, not gate internals.
     private DialogueAskGate BuildGate(IProgressReporter reporter) => new(
-        _transport.Object, _trail, _checkpointWriter.Object, reporter,
+        _transport.Object, _trail, _checkpointWriter.Object, new DialogueJobIdentity(reporter),
         NullLogger<DialogueAskGate>.Instance);
 
     [Fact]
