@@ -19,17 +19,15 @@ public sealed class ResolvedProjectBuilder(IConnectionRepoUrlBuilder urlBuilder)
     public ResolvedProject? TryBuild(
         string name,
         RawProjectEntry raw,
-        Dictionary<string, AgentConfig> agents,
-        Dictionary<string, TrackerConnection> trackers,
-        Dictionary<string, RepoConnection> repos,
-        Dictionary<string, ResolvedConnection> connections,
+        ConfigCatalogs catalogs,
         RepoGlobExpander? globExpander,
         List<StartupFinding> findings)
     {
-        var agent = ResolveAgent(name, raw.Agent, agents, findings);
-        var tracker = ResolveTracker(name, raw.Tracker, trackers, findings);
-        var repoList = ResolveRepos(name, raw.Repos, repos, connections, globExpander, findings);
-        var pipelines = ResolvePipelines(name, raw.Pipelines, agents, findings);
+        var agent = ResolveAgent(name, raw.Agent, catalogs.Agents, findings);
+        var tracker = ResolveTracker(name, raw.Tracker, catalogs.Trackers, findings);
+        var repoList = ResolveRepos(
+            name, raw.Repos, catalogs.Repos, catalogs.Connections, globExpander, findings);
+        var pipelines = ResolvePipelines(name, raw.Pipelines, catalogs.Agents, findings);
 
         if (agent is null || tracker is null || repoList is null || pipelines is null) return null;
 
