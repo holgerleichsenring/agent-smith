@@ -60,7 +60,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         string repo,
         [Description("Context name, e.g. 'default' or 'api'. Becomes the directory under .agentsmith/contexts/.")]
         string context_name,
-        [Description("Document object: { meta: { workdir, project?, version?, type?, purpose?, domain? }, " +
+        [Description("Document object: { meta: { workdir, project?, version?, type?: [archetype,…], purpose?, domain? }, " +
                      "stack?: { lang?, image?, resources?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
                      "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
