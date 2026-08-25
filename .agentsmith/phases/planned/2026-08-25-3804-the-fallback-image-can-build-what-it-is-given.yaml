@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-3804
+
+goal: "A context that names no image gets a toolchain that can actually build it, and the table stops claiming a currency it does not have."
+
+applies_to: "backend (the language-to-image fallback table)"
+
+requires:
+  - 2026-08-25-5266
+
+scope:
+  in: "What the fallback table hands a context that names no image, and the claim its own documentation makes about that choice."
+  out: "The write-path rule that a new context must name an image — that shipped. Retiring the table, which cannot happen while contexts written before the rule still rely on it."
+
+decisions:
+  - key: |
+      THE TABLE IS NOT MERELY UNSPECIFIC, IT IS WRONG. It maps this project's own language to an
+      SDK one major version behind what the project targets — an SDK that cannot build it at all.
+      That was invisible because the failure lands inside a sandbox as a build error, where it
+      reads as the run's problem rather than the toolchain's. It was found only by asking what
+      this repository actually runs on rather than what its context claimed.
+  - key: |
+      THE COMMENT IS THE DEEPER DEFECT. The table documents its choice as "the latest SDK, a
+      strictly safer default". That sentence was true when written and is false now, and nothing
+      could have told anyone: a comment claiming currency ages silently, and the next reader
+      trusts it exactly as much as the first. A claim about the outside world either gets a test
+      or stops being made.
+  - key: |
+      IT CANNOT BE FIXED BY BUMPING A NUMBER, BECAUSE THE NUMBER WILL AGE AGAIN. Either the table
+      states plainly what it pins and why, with no claim of being current — which is honest and
+      goes stale visibly — or something checks the claim. The phase has to choose, and say which,
+      rather than moving the version and leaving the sentence.
+
+steps:
+  - id: the-fallback-builds-what-this-project-targets
+    action: "Bring the language table's entries to versions that can build what a project of that language plausibly targets today, starting with the one this repository proves wrong."
+  - id: the-table-stops-claiming-what-it-cannot-know
+    action: "Replace the currency claim with what the table actually is — a pinned floor with a stated reason — or with a check that keeps the claim true, and say in the phase which was chosen and why."
+
+tests:
+  - "Fallback_ForThisRepositorysLanguage_ResolvesAnImageThatCanBuildIt"
+  - "Fallback_EveryLanguageEntry_ResolvesToATrustedRegistry"
+  - "Table_MakesNoClaimAboutCurrencyThatNothingChecks"
+
+done:
+  - "a context naming no image gets a toolchain that can build the project it is for"
+  - "the table's documentation says only what is true and checkable"
+  - "build green, full suite green"
