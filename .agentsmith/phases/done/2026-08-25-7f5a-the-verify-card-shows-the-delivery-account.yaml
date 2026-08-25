@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-7f5a
+
+goal: "The run detail shows the account the gate actually decided on, one row per criterion, instead of an empty card whenever the run had no negotiated expectation."
+
+applies_to: "backend + dashboard"
+
+scope:
+  in: "The delivery account reaching the run row and the run detail: snapshotted whenever one exists, served with each criterion's disposition, citation and reason, and rendered as the Verify card. The legacy expectation view stays for a run that has no account."
+  out: "Recording that a disposition was wrong — the phase that follows, which needs this one to have something to point at. The two paths that skip the finalizer tail entirely (the execution-cap bailout and operator cancel), named in prose and left as they are."
+
+decisions:
+  - key: |
+      THE CARD IS WIRED TO THE OTHER JUDGE. The acceptance snapshot is built only when a
+      negotiated expectation exists, while the gate has decided on the phase spec's own
+      criteria since p0393a. A live run showed both at once: the failure named three ratified
+      criteria and the card said "No ratified acceptance contract on this run yet". Nothing is
+      missing from the run — the page is reading the wrong one of two judges.
+  - key: |
+      THE ACCOUNT DOES REACH THE WRITER, and that was worth checking before assuming a
+      persistence problem. The finalizer tail runs after a failed step and the accounts are
+      recorded before the failing verdict, so a run that dies at Verify still carries them.
+      One hole is real: the story event is not published when both payloads are null, so a run
+      with an account and no expectation publishes nothing at all.
+  - key: |
+      THE SNAPSHOT CARRIES WHAT A HUMAN NEEDS TO JUDGE THE JUDGE — the criterion, the
+      disposition, the citation and the note. Not the diff: the median delivery diff is 205k
+      characters and the largest measured is 5.2M, and this payload travels the event stream
+      onto a run row. What a replay needs is a different problem with a different answer, and
+      pretending otherwise here would put a megabyte on the broker.
+  - key: |
+      ONE CARD, TWO SOURCES, EXPLICIT PRECEDENCE. The account is what refused the run, so it
+      wins where both exist. The expectation view stays for every run that never had a phase
+      account, which is most of the history.
+
+steps:
+  - id: the-account-is-snapshotted-whenever-one-exists
+    action: "Build the run's acceptance snapshot from the delivery account where there is one, fall back to the master's dispositions where there is not, and publish the story event whenever either exists."
+  - id: the-snapshot-says-which-judge-it-came-from
+    action: "Mark the snapshot with its source so the page and a later reader can tell an independent account from a self-reported disposition."
+  - id: the-card-renders-the-account
+    action: "Render the delivery account on the run detail as one row per criterion with its disposition, citation and reason, keeping the legacy view for a run without one."
+
+tests:
+  - "RunStory_ADeliveryAccountExists_IsSnapshottedOverTheMasterDispositions"
+  - "RunStory_NoDeliveryAccount_StillSnapshotsTheMasterDispositions"
+  - "RunStory_AnAccountAndNoExpectation_StillPublishesTheStoryEvent"
+  - "RunStory_NeitherPayload_PublishesNothing"
+  - "RunStory_TheSnapshot_NamesTheJudgeItCameFrom"
+  - "VerifySummary_ADeliveryAccount_RendersOneRowPerCriterion"
+  - "VerifySummary_ADeliveryAccount_ShowsItsCitationAndReason"
+  - "VerifySummary_NoDeliveryAccount_FallsBackToTheLegacyView"
+
+done:
+  - "a run with a delivery account snapshots it rather than the master's dispositions"
+  - "the snapshot names which judge produced it"
+  - "a run with an account and no negotiated expectation still publishes its story"
+  - "the run detail renders the account one row per criterion with citation and reason"
+  - "a run without an account shows exactly what it showed before"
+  - "build green, dashboard build and tests green, full suite green"

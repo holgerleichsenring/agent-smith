@@ -590,6 +590,10 @@ export interface AcceptanceCriterion {
   text: string;
   status: "met" | "unmet" | "not_applicable" | "unproven";
   reason: string | null;
+  /** 2026-08-25-7f5a: what the disposition was decided on — a path in the delivery, a
+   *  command that ran, or a pattern the account searched for. Absent on runs written
+   *  before the account reached this page. */
+  citation?: string | null;
 }
 
 /** p0344b: the run's persisted acceptance dispositions (p0340 keystone). */
@@ -597,6 +601,11 @@ export interface RunAcceptance {
   criteria: AcceptanceCriterion[];
   outcome: string | null;
   ratifiedBy: string | null;
+  /** 2026-08-25-7f5a: which judge decided these. `delivery_account` is the independent
+   *  read of the branch the gate refuses a run on; `master_verification` is the agent's
+   *  own report of its own work. Absent on every run written before the distinction
+   *  existed. */
+  source?: "delivery_account" | "master_verification" | null;
 }
 
 /**

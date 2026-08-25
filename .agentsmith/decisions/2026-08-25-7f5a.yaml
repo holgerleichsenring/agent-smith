@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-7f5a
+
+decisions:
+  - category: Architecture
+    chose: "The delivery account wins the acceptance snapshot where one exists"
+    over: "Showing both judges, or leaving the page on the master's dispositions"
+    reason: |
+      The snapshot was built only from a negotiated expectation and the master's own
+      dispositions, while the gate has refused runs on the phase spec's criteria since
+      p0393a. A live run showed both at once: the failure named three ratified criteria and
+      the card said "No ratified acceptance contract on this run yet". Nothing was missing
+      from the run — the page was reading the wrong one of two judges, and there was
+      therefore nothing on it for an operator to overrule. The account is what refused the
+      run, so it is what the page shows; the expectation view stays for the runs that never
+      had a phase account, which is most of the history.
+  - category: Architecture
+    chose: "The snapshot names which judge produced it, and the card says so in words"
+    over: "Rendering both sources identically"
+    reason: |
+      An independent read of the branch and the agent's report of its own work are not the
+      same evidence. A page that shows them identically invites the second to be read as the
+      first, which is exactly the confusion the account was built to end. The field is
+      nullable and absent on every run written before this, so no history is retro-labelled
+      with a distinction it never made.
+  - category: Architecture
+    chose: "The row carries its citation"
+    over: "Carrying the note alone, as the master's dispositions do"
+    reason: |
+      The account's whole mechanical guarantee is that a claim names a file, a command or a
+      searched pattern that really exists — that is what separates a citation from a
+      fabrication. Showing the verdict without it asks the reader to trust the thing the
+      design refuses to trust. It is also what the phase after this one records a judgement
+      against: a label on a verdict nobody can check is not worth having.
+  - category: Architecture
+    chose: "An account that could not be TAKEN is unproven and says why"
+    over: "Reporting it as unmet"
+    reason: |
+      A red build leaves a phase with no account at all, and reporting that as unmet blames
+      the delivery for a question nobody asked. "Unproven" already exists in the vocabulary
+      for exactly this, and the reason carries the problem the account recorded.
+  - category: Refactoring
+    chose: "Split AcceptanceSnapshot out of RunStorySnapshotBuilder, and the two vocabularies out of RunStoryContracts"
+    over: "Baselining both files against the length rules"
+    reason: |
+      The builder gained a second SOURCE, which is a different question from how a run's
+      story is snapshotted — and the contracts file is baselined, so it may only shrink.
+      Moving the two vocabulary classes out is what made room, and they read better next to
+      each other than buried under the records they describe.
+  - category: Architecture
+    chose: "The failure path is claimed only as far as it is proven"
+    over: "Asserting in the record that a run failing at Verify carries its account"
+    reason: |
+      The path was verified by READING — the finalizer tail runs after a failed step and the
+      accounts are recorded before the failing verdict — not by a test, and the two paths
+      that skip the tail entirely (the execution-cap bailout and operator cancel) are
+      untouched. The definition of done says what the tests prove. An unproven claim in a
+      record is the same defect this whole line of work is about.

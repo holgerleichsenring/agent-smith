@@ -60,6 +60,58 @@ public sealed class PhaseNameRuleTests
                 $"a phase name states something — at least {MinSlugWords} words. A topic "
                 + "label names the area and leaves the claim unwritten.");
 
+    /// <summary>
+    /// A name that can be minted twice is not a name. The reachable failure is the
+    /// INSIGHT-style name: a principle can be arrived at again by changing something else,
+    /// which is how <c>the-account-sees-what-the-agent-ran</c> came to name both p0452 and
+    /// p0469. CLAUDE.md states the subject-and-predicate rule that prevents it; this is the
+    /// number that fails a build.
+    /// </summary>
+    /// <remarks>
+    /// A new name is judged against BOTH namespaces. The closed one is never renamed, but it
+    /// is exactly what a new name collides with — scoping the comparison to the open
+    /// namespace would leave the only collision that has actually happened unreachable.
+    /// </remarks>
+    [Fact]
+    public void PhaseSlug_ADateMintedPhase_IsNotAlreadyTaken()
+    {
+        var bySlug = PhaseSpecFile.All()
+            .Where(file => file.Slug.Length > 0)
+            .GroupBy(file => file.Slug, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
+
+        var taken = PhaseSpecFile.All()
+            .Where(file => file.IsDateMinted)
+            .Where(file => bySlug[file.Slug]
+                .Any(other => !string.Equals(other.PhaseId, file.PhaseId, StringComparison.Ordinal)))
+            .Select(file => $"{file.PhaseId}: {file.Slug} — also names "
+                + string.Join(", ", bySlug[file.Slug]
+                    .Where(other => !string.Equals(other.PhaseId, file.PhaseId, StringComparison.Ordinal))
+                    .Select(other => other.PhaseId)))
+            .OrderBy(text => text, StringComparer.Ordinal)
+            .ToList();
+
+        taken.Should().BeEmpty(
+            "a phase name is a subject and what changed it, so no two phases can carry the "
+            + "same one. A name that fits twice states an insight and names nothing.\n  "
+            + string.Join("\n  ", taken));
+    }
+
+    /// <summary>
+    /// The exemption is real, not vacuous: the closed namespace holds duplicate slugs and
+    /// keeps every one of them, and the rule above is green anyway.
+    /// </summary>
+    [Fact]
+    public void PhaseSlug_ACounterNamespaceDuplicate_IsKept() =>
+        PhaseSpecFile.All()
+            .Where(file => !file.IsDateMinted && file.Slug.Length > 0)
+            .GroupBy(file => file.Slug, StringComparer.Ordinal)
+            .Where(group => group.Select(file => file.PhaseId)
+                .Distinct(StringComparer.Ordinal).Count() > 1)
+            .Should().NotBeEmpty(
+                "the closed namespace holds names minted twice — the-account-sees-what-the-"
+                + "agent-ran among them — and none is ever rewritten");
+
     [Fact]
     public void PhaseGoal_ADateMintedPhase_FitsOneSentence() =>
         Offenders(PhaseNameBaseline.GoalLength,

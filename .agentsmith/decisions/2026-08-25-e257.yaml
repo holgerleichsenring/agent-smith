@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-e257
+
+decisions:
+  - category: Architecture
+    chose: "A judgement lives in its own row, keyed by run and a digest of the criterion text"
+    over: "A field inside the acceptance snapshot, or a row keyed by criterion position"
+    reason: |
+      The story applier assigns the acceptance payload wholesale on every publish, so a
+      resume, a retry or a repair pass would silently destroy anything stored inside it — a
+      judgement about a snapshot has to outlive the snapshot. Position is the other trap: the
+      criteria of a re-derived phase can reorder, and a label that quietly moved to a
+      different criterion is worse than no label at all. The key is a digest of the
+      whitespace-normalised text, because whitespace is not a different criterion and wording
+      is — deciding otherwise is a judgement no index should make.
+  - category: Architecture
+    chose: "The overrule is a LABEL and moves nothing"
+    over: "A control that also re-opens the gate or re-runs the phase"
+    reason: |
+      A button that shipped things would be pressed for reasons that have nothing to do with
+      whether the account was right, and the corpus would then measure impatience rather than
+      correctness. Recording a judgement is a statement about the past. The run's state, its
+      verdict and its pull request are untouched, and the form says so where it is used.
+  - category: Architecture
+    chose: "A reason is required, an author is recorded, and an overrule must disagree"
+    over: "Accepting whatever the caller sends"
+    reason: |
+      A label nobody can audit later is worse than no label — the whole point is that someone
+      reads it months from now and can tell a real refutation from a shrug. An author matters
+      because a corpus of judgements nobody signed cannot be weighted, questioned or
+      withdrawn. And an overrule that AGREES with the account is not a correction; it is noise
+      that would read as a labelled disagreement in whatever scores the corpus.
+  - category: Architecture
+    chose: "One read surface serves the acceptance and its judgements together"
+    over: "Two endpoints the page combines"
+    reason: |
+      Fetched apart there is a window in which the page shows a verdict whose correction has
+      not landed — and the entire point of the correction is that the verdict on its own was
+      misleading. Both writes return the whole set for the same reason: the page never has to
+      guess what the server now holds.
+  - category: Architecture
+    chose: "The control is wired into the run story, not left as an optional prop"
+    over: "Shipping the component and the endpoints and wiring them later"
+    reason: |
+      An unwired mechanism is the failure this whole line of work is about: p0483's tool would
+      have shipped inert had its prompt rule not landed with it. The hook fetches only where
+      there are dispositions to judge, and a failed write leaves the previous set standing and
+      reports the error — a label that silently did not land is worse than a visible refusal,
+      because the operator would believe it was recorded.
+  - category: Testing
+    chose: "Narrowed IdentityRouteTests' absolute row count to a floor"
+    over: "Updating 78 to 81"
+    reason: |
+      The count fails for every route anyone adds and says nothing about identity, so moving
+      the number would just reset the same trap. What it was guarding — a golden regenerated
+      wholesale and short — survives as a floor, and RoutePermissionGuardTests already
+      compares the whole table against the live route set, which is the stronger check.

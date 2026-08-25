@@ -33,6 +33,134 @@ const ACCEPTANCE: RunAcceptance = {
   ratifiedBy: "holger",
 };
 
+describe("VerifySummary (the operator's judgement)", () => {
+  // 2026-08-25-e257: a run that fails on a wrong criterion is indistinguishable from one
+  // that fails on a right one. This is where the difference gets written down — a label,
+  // never a control.
+  const ACCOUNTED = {
+    ...ACCEPTANCE,
+    source: "delivery_account" as const,
+    criteria: [{ text: "Explicit publish routes", status: "unmet" as const, reason: "no file" }],
+  };
+
+  const JUDGED = [
+    {
+      criterion: "Explicit publish routes",
+      machineStatus: "unmet" as const,
+      humanStatus: "met" as const,
+      reason: "the extension declares six",
+      author: "holger",
+      recordedAt: "2026-08-25T00:00:00Z",
+    },
+  ];
+
+  it("VerifySummary_NoJudgementHandlers_OffersNoControl", () => {
+    render(<VerifySummary acceptance={ACCOUNTED} fallback={fallback({})} />);
+    expect(screen.queryByTestId("criterion-judgement-open")).toBeNull();
+  });
+
+  it("VerifySummary_ACriterionWithNoJudgement_OffersToRecordOne", () => {
+    render(
+      <VerifySummary
+        acceptance={ACCOUNTED}
+        fallback={fallback({})}
+        judgements={[]}
+        onRecordJudgement={() => {}}
+        onWithdrawJudgement={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("criterion-judgement-open")).toHaveTextContent(
+      "this verdict is wrong",
+    );
+  });
+
+  it("VerifySummary_AnOverruledCriterion_ShowsBothTheMachineAndTheHumanVerdict", () => {
+    render(
+      <VerifySummary
+        acceptance={ACCOUNTED}
+        fallback={fallback({})}
+        judgements={JUDGED}
+        onRecordJudgement={() => {}}
+        onWithdrawJudgement={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("verify-criterion")).toHaveAttribute("data-status", "unmet");
+    const judgement = screen.getByTestId("criterion-judgement");
+    expect(judgement).toHaveTextContent("holger says: met");
+    expect(judgement).toHaveTextContent("the extension declares six");
+  });
+
+  it("VerifySummary_AnOverrule_CanBeWithdrawn", () => {
+    const withdrawn: string[] = [];
+    render(
+      <VerifySummary
+        acceptance={ACCOUNTED}
+        fallback={fallback({})}
+        judgements={JUDGED}
+        onRecordJudgement={() => {}}
+        onWithdrawJudgement={(criterion) => withdrawn.push(criterion)}
+      />,
+    );
+    screen.getByTestId("criterion-judgement-withdraw").click();
+    expect(withdrawn).toEqual(["Explicit publish routes"]);
+  });
+});
+
+describe("VerifySummary (the judge that decided)", () => {
+  // 2026-08-25-7f5a: an independent read of the branch and the agent's report of its own
+  // work are not the same evidence, and a page that shows them identically invites the
+  // second to be read as the first.
+  it("VerifySummary_ADeliveryAccount_SaysTheGateDecidedOnIt", () => {
+    render(
+      <VerifySummary
+        acceptance={{ ...ACCEPTANCE, source: "delivery_account" }}
+        fallback={fallback({})}
+      />,
+    );
+    expect(screen.getByTestId("verify-source")).toHaveTextContent("what the gate decided on");
+    expect(screen.getByTestId("verify-source")).toHaveTextContent("no account of the work");
+  });
+
+  it("VerifySummary_AMasterVerification_SaysItIsTheAgentsOwnReport", () => {
+    render(
+      <VerifySummary
+        acceptance={{ ...ACCEPTANCE, source: "master_verification" }}
+        fallback={fallback({})}
+      />,
+    );
+    expect(screen.getByTestId("verify-source")).toHaveTextContent("reported on its own");
+    expect(screen.getByTestId("verify-source")).toHaveTextContent("not the independent read");
+  });
+
+  it("VerifySummary_ACitedCriterion_ShowsWhatItWasDecidedOn", () => {
+    render(
+      <VerifySummary
+        acceptance={{
+          ...ACCEPTANCE,
+          source: "delivery_account",
+          criteria: [
+            {
+              text: "Every host declares explicit publish routes",
+              status: "met",
+              reason: "the extension declares six",
+              citation: "src/Messaging/Installer.cs",
+            },
+          ],
+        }}
+        fallback={fallback({})}
+      />,
+    );
+    expect(screen.getByTestId("verify-criterion-citation")).toHaveTextContent(
+      "src/Messaging/Installer.cs",
+    );
+  });
+
+  it("VerifySummary_ACriterionWithoutACitation_ShowsNoCitationRow", () => {
+    render(<VerifySummary acceptance={ACCEPTANCE} fallback={fallback({})} />);
+    expect(screen.queryByTestId("verify-criterion-citation")).toBeNull();
+  });
+});
+
 describe("VerifySummary (persisted acceptance)", () => {
   it("VerifySummary_Acceptance_RendersPerCriterionDispositions", () => {
     render(<VerifySummary acceptance={ACCEPTANCE} fallback={fallback({})} />);

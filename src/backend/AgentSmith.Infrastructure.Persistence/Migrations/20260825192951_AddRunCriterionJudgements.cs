@@ -1,0 +1,50 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace AgentSmith.Infrastructure.Persistence.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddRunCriterionJudgements : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "RunCriterionJudgements",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    RunId = table.Column<string>(type: "TEXT", maxLength: 191, nullable: false),
+                    CriterionKey = table.Column<string>(type: "TEXT", maxLength: 191, nullable: false),
+                    CriterionText = table.Column<string>(type: "TEXT", nullable: false),
+                    MachineStatus = table.Column<string>(type: "TEXT", maxLength: 191, nullable: false),
+                    HumanStatus = table.Column<string>(type: "TEXT", maxLength: 191, nullable: false),
+                    Reason = table.Column<string>(type: "TEXT", nullable: false),
+                    Author = table.Column<string>(type: "TEXT", maxLength: 191, nullable: false),
+                    RecordedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RunCriterionJudgements", x => x.Id);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RunCriterionJudgements_RunId_CriterionKey",
+                table: "RunCriterionJudgements",
+                columns: new[] { "RunId", "CriterionKey" },
+                unique: true);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "RunCriterionJudgements");
+        }
+    }
+}
