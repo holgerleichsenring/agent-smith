@@ -158,7 +158,7 @@ public sealed class AccountEvalMechanicsTests
         var factory = new AccountEvalChatFactory(client, "scripted");
         var accountant = new SpecAccountant(
             factory,
-            new SpecAccountCall(factory, new EvalRunContext(), NullLogger<SpecAccountCall>.Instance),
+            new AccountCalls(new SpecAccountCall(factory, new EvalRunContext(), NullLogger<SpecAccountCall>.Instance)),
             NullLogger<SpecAccountant>.Instance);
 
         return await new AccountEvalHarness(accountant, NullLoggerFactory.Instance).RunAsync(

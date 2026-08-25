@@ -27,7 +27,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecAccountant(
     IChatClientFactory chatClientFactory,
-    SpecAccountCall call,
+    AccountCalls calls,
     ILogger<SpecAccountant> logger) : ISpecAccountant
 {
     public async Task<SpecAccount> AccountAsync(
@@ -55,16 +55,19 @@ public sealed class SpecAccountant(
 
         // A diff too large for one call is SPLIT, never cut: evidence is monotone, so a
         // criterion satisfied by one window is satisfied, and the windows' answers union.
-        var windows = DiffWindows.Split(diff, windowBudgetChars);
-        if (windows.Count > 1)
+        // 2026-08-25-1360: derived ONCE, from the whole delivery, and handed to every call.
+        // A window's own files are not the branch's files, and the heading says complete.
+        var deliveryFiles = CitedFileIndex.FromDiff(diff);
+        var split = DiffWindows.Split(diff, windowBudgetChars);
+        if (split.Count > 1)
             logger.LogInformation(
                 "{Repo}: the delivery diff spans {Windows} windows — accounting for each and "
                 + "taking a criterion as satisfied where any window shows it",
-                repoKey, windows.Count);
+                repoKey, split.Count);
 
-        var answer = await AskEveryWindowAsync(
-            chat, repoKey, criteria, windows, commandResults, searchable, tools,
-            costTracker, cancellationToken);
+        var answer = await calls.AskEveryAsync(
+            chat, repoKey, criteria, split, commandResults, searchable, tools,
+            deliveryFiles, costTracker, cancellationToken);
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
@@ -80,11 +83,14 @@ public sealed class SpecAccountant(
         logger.LogInformation(
             "{Repo}: {Count} criterion(s) cited something that resolves against nothing — asking once more",
             repoKey, unresolved.Count);
-        var second = await call.AskAsync(
+        // The correction demands a path copied exactly as the FILE LIST prints it, so it
+        // needs the same complete list. Shown windows[0]'s list, a criterion whose file
+        // lives in a later window was being asked to comply with a list that cannot hold it.
+        var second = await calls.AskCorrectionAsync(
             chat, repoKey, [.. unresolved.Select(u => u.Criterion)],
-            windows.Count > 0 ? windows[0] : string.Empty,
-            searchable, commandResults, costTracker, cancellationToken,
-            AccountReAsk.Message(unresolved), tools);
+            split.Count > 0 ? split[0] : string.Empty,
+            searchable, commandResults, tools, deliveryFiles,
+            AccountReAsk.Message(unresolved), costTracker, cancellationToken);
         return new SpecAccount(repoKey, AccountSecondPass.Merge(
             rows, unresolved, second, repoKey, reader,
             AccountTools.ResolverOver(diff, commandResults, branchSearch)));
@@ -92,24 +98,4 @@ public sealed class SpecAccountant(
 
     private const string RoleName = "spec-accountant";
 
-    /// <summary>
-    /// Every window is asked; <see cref="AccountWindowMerge"/> decides what their answers
-    /// mean together. A window that could not see the evidence is a statement about that
-    /// slice, never about the branch.
-    /// </summary>
-    private async Task<IReadOnlyList<AccountRow>?> AskEveryWindowAsync(
-        IChatClient chat, string repoKey, IReadOnlyList<string> criteria,
-        IReadOnlyList<string> windows, IReadOnlyList<string> commandResults,
-        IReadOnlyList<string>? searchable, IList<AITool>? tools,
-        PipelineCostTracker costTracker, CancellationToken ct)
-    {
-        var answers = new List<IReadOnlyList<AccountRow>>();
-        foreach (var window in windows.Count == 0 ? [string.Empty] : windows)
-        {
-            var rows = await call.AskAsync(
-                chat, repoKey, criteria, window, searchable, commandResults, costTracker, ct, tools: tools);
-            if (rows is not null) answers.Add(rows);
-        }
-        return answers.Count == 0 ? null : AccountWindowMerge.Of(answers);
-    }
 }
