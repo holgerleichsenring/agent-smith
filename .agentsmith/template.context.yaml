@@ -13,6 +13,7 @@ meta:
   version: 1.0.0                   # current version
   type: [crud, api, ui]            # pick 1-3 from the list below
   purpose: "One sentence. What it does, for whom."
+  workdir: "."                     # REQUIRED — sub-tree this context covers; "." = repo root
 
   # Archetypes (pick what fits):
   #   crud      – Records, transactions, data management
@@ -56,8 +57,10 @@ arch:
 # --- What does the system DO? ----------------------------------------------
 # Include only the sections that apply to your project.
 # The key under "behavior" is your archetype — use the same word from meta.type.
+# Uncomment `behavior:` together with at least one section under it — an empty
+# `behavior:` is not a block, it is null, and the schema rejects it.
 
-behavior:
+# behavior:
 
   # --- API endpoints (for: api, crud) ---
   # api:
