@@ -256,3 +256,48 @@ describe("RunSideRail", () => {
     expect(screen.queryByTestId("side-rail-time-split")).not.toBeInTheDocument();
   });
 });
+
+// 2026-08-25-39ab: the rail reads the widest slice of the snapshot, so it is the
+// surface most likely to meet a payload it does not know. `compute!` was asserted
+// non-null three times over; the status was lowercased unguarded.
+describe("RunSideRail tolerates a payload it does not know", () => {
+  it("SideRail_ASnapshotWithoutCompute_RendersInsteadOfThrowing", () => {
+    // A liveCompute object the server sent WITHOUT its pod list — the shape the
+    // non-null assertions could not survive.
+    renderRail({
+      footprint: FOOTPRINT,
+      liveCompute: {} as unknown as RunSnapshot["liveCompute"],
+    });
+
+    expect(screen.getByTestId("run-side-rail")).toBeInTheDocument();
+    // No live pods means the reservation is still pending, honestly stated.
+    expect(screen.getByTestId("side-rail-compute-v")).toHaveTextContent("calculating…");
+  });
+
+  it("SideRail_ASnapshotWithoutAStatus_RendersInsteadOfThrowing", () => {
+    const partial: Record<string, unknown> = { ...snap({ footprint: FOOTPRINT }) };
+    delete partial.status;
+    delete partial.repos;
+
+    render(
+      <RunSideRail
+        snapshot={partial as RunSnapshot}
+        hasDialogue={false}
+        onOpenDialogue={noop}
+        onOpenTrace={noop}
+        traceSteps={0}
+      />,
+    );
+
+    expect(screen.getByTestId("side-rail-state")).toHaveTextContent("unknown");
+    expect(screen.getByTestId("side-rail-cost")).toBeInTheDocument();
+  });
+
+  it("SideRail_ASnapshotCarryingAnUnknownField_RendersWithoutThrowing", () => {
+    renderRail({
+      ...({ verdict: "green", retriesRemaining: 2 } as unknown as Partial<RunSnapshot>),
+    });
+
+    expect(screen.getByTestId("run-side-rail")).toBeInTheDocument();
+  });
+});

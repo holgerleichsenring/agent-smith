@@ -5,18 +5,18 @@
 // so the list survives a process restart AND a Redis flush.
 
 import type { RunSnapshot } from "@/types/hub-events";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch, getJson, readJson } from "@/lib/apiResponse";
 
 export interface RunsResponse {
   active: RunSnapshot[];
   recent: RunSnapshot[];
 }
 
+// 2026-08-25-39ab: a list the server answers without one of its halves is a list
+// with that half empty, not a page that throws while reading `.length`.
 export async function fetchRuns(signal?: AbortSignal): Promise<RunsResponse> {
-  const res = await fetch(`${API_BASE}/api/runs`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as RunsResponse;
+  const body = await getJson<Partial<RunsResponse>>(`/api/runs`, signal);
+  return { active: body.active ?? [], recent: body.recent ?? [] };
 }
 
 // p0355: page OLDER runs than a cursor for the runs-list "load more". Newest-
@@ -30,9 +30,7 @@ export async function fetchRunsBefore(
   signal?: AbortSignal,
 ): Promise<RunSnapshot[]> {
   const params = new URLSearchParams({ before: beforeIso, limit: String(limit) });
-  const res = await fetch(`${API_BASE}/api/runs?${params.toString()}`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data: unknown = await res.json();
+  const data = await getJson<unknown>(`/api/runs?${params.toString()}`, signal);
   if (Array.isArray(data)) return data as RunSnapshot[];
   if (data && typeof data === "object") {
     const env = data as { recent?: RunSnapshot[] };
@@ -42,8 +40,8 @@ export async function fetchRunsBefore(
 }
 
 export async function fetchRun(runId: string, signal?: AbortSignal): Promise<RunSnapshot | null> {
-  const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}`, { signal });
+  const path = `/api/runs/${encodeURIComponent(runId)}`;
+  const res = await apiFetch(path, { signal });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as RunSnapshot;
+  return readJson<RunSnapshot>(res, path);
 }

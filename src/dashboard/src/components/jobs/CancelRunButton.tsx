@@ -19,7 +19,7 @@ interface Props {
   cancelRequested: boolean;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch } from "@/lib/apiResponse";
 
 export function CancelRunButton({ runId, cancelRequested }: Props) {
   const [armed, setArmed] = useState(false);
@@ -36,7 +36,7 @@ export function CancelRunButton({ runId, cancelRequested }: Props) {
     setPending(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}/cancel`, {
+      const res = await apiFetch(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
         method: "POST",
       });
       if (!res.ok && res.status !== 202) {

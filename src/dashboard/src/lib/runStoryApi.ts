@@ -5,7 +5,7 @@
 // Every number here is a fold over the run's recorded trail (p0423). Nothing is counted
 // while the run happens, so nothing here can drift from the events it describes.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { getJson } from "@/lib/apiResponse";
 
 /** The fold over a slice of the trail — the same shape for a run and for one phase. */
 export interface RunCallStatistics {
@@ -123,8 +123,3 @@ export async function fetchRunTraceEntry(
   return body.content ?? "";
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as T;
-}

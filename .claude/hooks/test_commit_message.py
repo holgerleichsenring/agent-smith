@@ -17,6 +17,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import traceback
@@ -265,6 +266,105 @@ def Gate_MalformedDateMintedMarker_PassesThrough():
         completed = _run_gate('git commit -m "chore: nightly (2026-13-99-zzzz)"', repo)
         assert completed.returncode == 0, completed
         assert completed.stderr == "", completed.stderr
+
+
+@contextlib.contextmanager
+def _dashboard_repository(dashboard_exit=0):
+    """A throwaway repository shaped like THIS one — it carries an AgentSmith.sln, so
+    the gate runs the solution checks, and a src/dashboard whose pnpm is a stub that
+    exits as told. The dashboard step runs first, so a failing stub blocks the phase
+    commit before a single .NET command is reached."""
+    with _repository("seed") as repo:
+        root = pathlib.Path(repo)
+        (root / "AgentSmith.sln").write_text("# not a real solution\n")
+        (root / "src" / "dashboard").mkdir(parents=True)
+        (root / "src" / "dashboard" / "package.json").write_text('{"name":"dashboard"}\n')
+        stub_dir = root / "stub-bin"
+        stub_dir.mkdir()
+        pnpm = stub_dir / "pnpm"
+        pnpm.write_text(
+            "#!/usr/bin/env bash\n"
+            'echo "pnpm $*" >>"$PNPM_TRACE"\n'
+            f"exit {dashboard_exit}\n")
+        pnpm.chmod(0o755)
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "chore: a dashboard to gate on")
+        yield repo, stub_dir
+
+
+def _run_gate_with_stub_pnpm(command, repo, stub_dir, trace, ledger=None):
+    """Drive the gate with the stub pnpm ahead of anything real on PATH."""
+    payload = json.dumps({"tool_input": {"command": command}, "cwd": repo})
+    environment = _environment()
+    environment["PHASE_GATE_LOG"] = str(ledger) if ledger else os.devnull
+    environment["PATH"] = f"{stub_dir}{os.pathsep}{environment['PATH']}"
+    environment["PNPM_TRACE"] = str(trace)
+    return subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=repo,
+                          env=environment, capture_output=True, text=True)
+
+
+def Gate_RunsTheDashboardBuildAndTests():
+    """2026-08-25-39ab: the dashboard workflow is path-filtered, so a backend-only payload
+    change never ran a dashboard test. The gate has to run them itself — and it runs them
+    FIRST, so a red dashboard blocks before the .NET checks are reached."""
+    with _dashboard_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "pnpm.trace"
+        trace.write_text("")
+        completed = _run_gate_with_stub_pnpm(
+            f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace)
+        invoked = trace.read_text()
+        assert "pnpm install --frozen-lockfile" in invoked, invoked
+        assert "pnpm test" in invoked, invoked
+        assert "pnpm build" in invoked, invoked
+        assert "1/5 dashboard build + tests" in completed.stderr, completed.stderr
+
+
+def Gate_TheDashboardTestsFail_BlocksTheCommit():
+    """A red dashboard is a blocked phase commit, named as such — not a warning."""
+    with _dashboard_repository(dashboard_exit=1) as (repo, stub_dir), \
+            tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "pnpm.trace"
+        trace.write_text("")
+        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        completed = _run_gate_with_stub_pnpm(
+            f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace, ledger)
+        assert completed.returncode == 2, completed
+        assert "dashboard: pnpm install" in completed.stderr, completed.stderr
+        assert [line[1] for line in _ledger(ledger)] == ["blocked"], _ledger(ledger)
+
+
+# Everything the gate itself shells out to. A PATH assembled from exactly these —
+# and nothing else — is a PATH with no pnpm on it, on any machine.
+_GATE_TOOLS = ["bash", "python3", "git", "grep", "sed", "head", "tail", "tr", "date",
+               "mktemp", "base64", "cat", "dirname", "env", "uname"]
+
+
+@contextlib.contextmanager
+def _path_without_pnpm():
+    """A bin directory holding a symlink to each tool the gate needs, and nothing more."""
+    with tempfile.TemporaryDirectory() as bin_dir:
+        for tool in _GATE_TOOLS:
+            resolved = shutil.which(tool)
+            if resolved:
+                os.symlink(resolved, os.path.join(bin_dir, tool))
+        assert shutil.which("pnpm", path=bin_dir) is None, bin_dir
+        yield bin_dir
+
+
+def Gate_NoPnpmForADashboardThatExists_FailsLoudlyInsteadOfSkipping():
+    """A missing toolchain leaves the dashboard unproven, and an unproven commit must not
+    look like a passing one — the gate blocks and says what is missing."""
+    with _dashboard_repository() as (repo, _stub_dir), _path_without_pnpm() as bin_dir:
+        payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
+                              "cwd": repo})
+        environment = _environment()
+        environment["PHASE_GATE_LOG"] = os.devnull
+        environment["PATH"] = bin_dir
+        completed = subprocess.run([os.path.join(bin_dir, "bash"), str(GATE_PATH)],
+                                   input=payload, cwd=repo, env=environment,
+                                   capture_output=True, text=True)
+        assert completed.returncode == 2, completed
+        assert "pnpm" in completed.stderr, completed.stderr
 
 
 def _cases():

@@ -12,6 +12,7 @@ import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection"
 import { RunDetailHeader, statusSpill } from "@/components/jobs/RunDetailHeader";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { RunSideRail } from "@/components/jobs/RunSideRail";
+import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { RunStory } from "@/components/jobs/story/RunStory";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { PaneResizeHandle } from "@/components/execution/PaneResizeHandle";
@@ -181,13 +182,19 @@ function RunDetail({ runId }: { runId: string }) {
           }
           sidebox={
             snapshot ? (
-              <RunSideRail
-                snapshot={snapshot}
-                hasDialogue={!!pendingQuestion}
-                onOpenDialogue={() => setDialogueOpen(true)}
-                onOpenTrace={() => setTraceOpen(true)}
-                traceSteps={snapshot.totalSteps}
-              />
+              // 2026-08-25-39ab: the rail reads the widest slice of the snapshot
+              // (status, compute, footprint, budget, PRs), so it is the most
+              // likely surface to meet a payload it does not know. Losing it must
+              // not cost the pipeline the operator came to watch.
+              <RenderBoundary surface="run side rail">
+                <RunSideRail
+                  snapshot={snapshot}
+                  hasDialogue={!!pendingQuestion}
+                  onOpenDialogue={() => setDialogueOpen(true)}
+                  onOpenTrace={() => setTraceOpen(true)}
+                  traceSteps={snapshot.totalSteps}
+                />
+              </RenderBoundary>
             ) : undefined
           }
         />
@@ -479,12 +486,12 @@ function StepDetail({
 }
 
 // p0259: a cancelled run is not a failure — it gets its own neutral banner.
-function isFailureStatus(s: string | undefined): boolean {
+function isFailureStatus(s: string | null | undefined): boolean {
   return !!s && s !== "running" && s !== "success" && s !== "cancelled"
     && s !== "queued" && s !== "waiting_for_input";
 }
 
-function mapResultStatus(status: string | undefined): NodeStatus {
+function mapResultStatus(status: string | null | undefined): NodeStatus {
   if (status === "success") return "ok";
   if (status === "running") return "run";
   if (status === "cancelled") return "cancel";

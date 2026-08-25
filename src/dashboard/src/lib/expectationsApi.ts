@@ -3,7 +3,7 @@
 // expectationHitRate = verbatim / human-ratified (null before any human
 // ratification); firstPrAcceptance = (verbatim+edited) / all negotiated runs.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { getJson } from "@/lib/apiResponse";
 
 export interface OutcomeCounts {
   total: number;
@@ -33,7 +33,5 @@ export interface ExpectationMetrics {
 }
 
 export async function fetchExpectationMetrics(signal?: AbortSignal): Promise<ExpectationMetrics> {
-  const res = await fetch(`${API_BASE}/api/runs/expectations/metrics`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as ExpectationMetrics;
+  return getJson<ExpectationMetrics>(`/api/runs/expectations/metrics`, signal);
 }
