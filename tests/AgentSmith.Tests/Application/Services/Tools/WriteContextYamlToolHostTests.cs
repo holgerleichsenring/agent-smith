@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Services;
 using AgentSmith.Sandbox.Wire;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Moq;
 
@@ -82,7 +83,10 @@ public sealed class WriteContextYamlToolHostTests
     public async Task WriteContextYaml_UnknownRepo_ReturnsError()
     {
         var sut = BuildHost();
-        var document = JsonDocument.Parse("""{ "meta": { "workdir": "." } }""").RootElement;
+        // 2026-08-25-c9c7: a valid document, so the refusal under test is the repo's.
+        var document = JsonDocument.Parse("""
+            { "meta": { "workdir": "." }, "stack": { "image": "node:20-bookworm" } }
+            """).RootElement;
 
         var result = await sut.WriteContextYaml(repo: "missing", context_name: "default", document);
 
@@ -97,8 +101,8 @@ public sealed class WriteContextYamlToolHostTests
             {
               "meta": { "workdir": ".", "project": "Listener" },
               "stack": { "lang": "C#", "image": "mcr.microsoft.com/dotnet/sdk:8.0" },
-              "arch": { "style": "Worker Service", "patterns": ["Mediator", "Generic Host"] },
-              "quality": { "lang": "C#" }
+              "arch": { "style": ["Layered"], "patterns": ["Mediator"], "hosting": "Generic Host" },
+              "quality": { "lang": "english-only" }
             }
             """).RootElement;
 
@@ -115,7 +119,7 @@ public sealed class WriteContextYamlToolHostTests
 
         result.Should().StartWith("context.yaml written:");
         captured!.Content.Should().NotContain("value_kind", "arch/quality values must serialize as real content");
-        captured.Content.Should().Contain("Worker Service");
+        captured.Content.Should().Contain("Generic Host", "a freeform arch key survives verbatim");
         captured.Content.Should().Contain("Mediator");
     }
 
@@ -150,7 +154,8 @@ public sealed class WriteContextYamlToolHostTests
         {
             ["client"] = _sandboxMock.Object,
         };
-        return new WriteContextYamlToolHost(sandboxes, defaultRepo: "client", _serializer);
+        return new WriteContextYamlToolHost(
+            sandboxes, defaultRepo: "client", _serializer, ContextGates.Build());
     }
 
     private static bool Capture(Step step, out Step? captured)
