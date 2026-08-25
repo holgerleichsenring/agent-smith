@@ -3,5 +3,8 @@ meta:
   project: demo-sample
 stack:
   lang: csharp
-ci:
-  test_command: dotnet test tests/Sample.Tests/Sample.Tests.csproj
+  runtime: .NET 10
+  # The toolchain image that can BOTH build and test this stack: both csproj
+  # files target net10.0, so the .NET 10 SDK is the one that can.
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  testing: [xUnit]
