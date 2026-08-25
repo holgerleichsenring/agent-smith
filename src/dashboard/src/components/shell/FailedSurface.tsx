@@ -1,5 +1,8 @@
 "use client";
 
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "./RefusalSurface";
+
 // 2026-08-25-39ab: what a render failure looks like. A blank page is worse than
 // a wrong number, and it is also worse than an ugly one: an operator watching a
 // run needs to know WHICH surface stopped and what it said, so the panel names
@@ -16,6 +19,13 @@ interface Props {
 }
 
 export function FailedSurface({ surface, error, onRetry }: Props) {
+  // 2026-08-25-4530: a refusal is not a failure of this surface, and "could not
+  // be rendered" is the wrong sentence for it. Branching here rather than in each
+  // boundary is what makes every boundary — route, global and per-surface — say
+  // the right thing about a signed-out or under-permissioned caller.
+  const refusal = refusalIn(error);
+  if (refusal) return <RefusalSurface refusal={refusal} surface={surface} />;
+
   return (
     <div
       role="alert"
