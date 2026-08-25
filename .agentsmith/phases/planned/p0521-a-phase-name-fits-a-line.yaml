@@ -1,56 +1,96 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0521
-goal: "A phase is named in a few words and stated in one sentence, enforced where phases are written."
 
-applies_to: "repo tooling (schema, architecture tests) + methodology skill"
+goal: "A phase is named in a short sentence that states something, and its goal is one sentence — bounded where phases are written, and not where the deployed product reads the same schema."
+
+applies_to: "repo tooling (architecture rules, CLAUDE.md) + the methodology skill that teaches phase authoring"
 
 requires:
   - p0430
+  - p0507
+  - p0512
 
 scope:
-  in: "A bound on the goal and on the file slug, enforced by a ratchet over the repo's own phases; the same bound stated in CLAUDE.md and in create-phase."
-  out: "The 400-character context-record cap, which already holds (p0512)."
+  in: "A bound on the file slug and on the goal, for the date-minted namespace only, enforced by a rule test over the repo's own phases; the same bound stated where phases are authored; and the repairs the rule needs to be green at all."
+  out: "The embedded phase schema's own limits, which are a product contract the deployed validator reads — a repo convention must not narrow them. The record-entry cap, which p0512 already owns."
 
 decisions:
   - key: |
-      MEASURED DRIFT, NOT AN IMPRESSION. Mean slug length by era: 31 characters at p00xx, 36 at
-      p03xx, 46 at p04xx, 54 at p05xx. The names became sentences. Goals: median 251, p90 823,
-      longest 3631.
+      THE CUTOFF IS A NAMESPACE, NOT AN ORDERING, BECAUSE IDS NO LONGER ORDER. Since the counter
+      namespace closed, a new id is date-minted, and the two shapes are alternatives rather than
+      one sequence: compared as text a date-minted id sorts BELOW every counter id. A rule scoped
+      by "at or above this id" would therefore exempt every phase minted from now on — it would
+      ship green and govern nothing, permanently, while its own exemption test passed. In scope:
+      every date-minted id. Out of scope by construction: the closed counter namespace.
   - key: |
-      THE SCHEMA IS ENFORCED ON DRAFTS, NEVER ON THE REPO. SpecDraftValidator and PhaseSpecExtraction
-      validate LLM-authored specs at runtime; nothing validates .agentsmith/phases/**. Two committed
-      phases exceed the schema's own 2000-character goal cap and no test noticed.
+      THE SCHEMA IS A PRODUCT CONTRACT AND MUST NOT CARRY THE REPO'S TASTE. The phase schema is an
+      embedded resource the deployed server evaluates on every model-authored draft, and the
+      single-phase fallback THROWS on an invalid document — it has no second chance. Narrowing
+      the goal limit there would make a ticket whose title is long enough crash a path that
+      cannot fail today, in a customer's installation, over a house style. The bound belongs in
+      the rule test that judges this repo's own phases.
   - key: |
-      THE FILE NAME IS IN NO SCHEMA AT ALL. `phase:` has a pattern; the slug that becomes the file
-      name has nothing. It is the first thing a reader sees and the only unbounded one.
+      FIFTY, BECAUSE THAT IS WHAT THE PRODUCT ALREADY MINTS. The slug generator already caps a
+      machine-made slug at fifty; a repo rule tighter than the generator would ship a product that
+      breaks its own rule in every customer repository. Measured against the record: of 734
+      slugs, six exceed fifty. The bound costs almost nothing and still forbids the runaway.
   - key: |
-      A CUTOFF, NOT A RATCHET. 175 of 727 slugs exceed 32 characters and 425 of 726 goals exceed 200,
-      and none of them will ever be fixed: a finished spec is not edited
-      [[feedback_phase_versioning]], so a baseline that may only shrink would never shrink. The rule
-      applies from the next id onward and says so; older phases are out of scope by construction,
-      with no list to carry.
+      A NAME MUST SAY SOMETHING, AND WORD COUNT IS THE ONLY HONEST PROXY FOR IT. Length alone does
+      not separate a claim from a label: "mcp-tools-call" is short and says nothing about what
+      changes, while "a-waiting-run-is-not-a-finished-run" states the whole phase. The record
+      splits cleanly — 361 slugs of three words or fewer are the old topic-label era, 218 of five
+      or more are the assertive sentences that came later. A floor of four words is a crude test
+      of a real distinction, and it binds only the new namespace, where the convention already
+      holds. It cannot judge whether a sentence is TRUE; it can refuse a bare noun.
   - key: |
-      THE BOUND BELONGS WHERE PHASES ARE WRITTEN. The rule already exists as
-      [[feedback_phase_specs_terse]] and was followed less every quarter. Three places state it and
-      one enforces it: schema, CLAUDE.md, create-phase, ratchet.
+      THE RULE CANNOT BE GREEN UNTIL THE REPAIRS SHIP, SO THEY ARE STEPS AND NOT FOLLOW-UPS. A
+      whole-file validation of the repo's phases fails today on 76 committed files: 73 carry
+      decisions as plain strings where the schema demands objects — a shape the schema's own
+      description already claims to accept — two exceed the existing goal limit, and one is not
+      parseable YAML at all because a quoted scalar contains an unescaped quote. Every one is in
+      done/, which is not edited. So the schema widens to accept the shape it says it accepts,
+      the unparseable file is repaired, and the two long goals are baselined.
+  - key: |
+      IT LANDS LAST, AND THAT IS PART OF THE PHASE. Seven of the phases in flight violate the
+      bound, two of them by one and four characters. Landing first turns independent phases into
+      spec rewrites plus edits to the one file that conflicts on every merge. Nothing degrades
+      while it waits: the drift is measured in characters per quarter.
+  - key: |
+      THE AUTHORING SIDE IS TAUGHT IN TWO PLACES AND ONLY ONE IS HERE. The methodology skill lives
+      in another repository on its own release cycle, so nothing in this repo can verify it —
+      that is already the established ruling for the phase-id rules. Its working tree also
+      already carries a draft of this bound, uncommitted, and its first step still tells an
+      author to find the highest phase number, which the closed namespace abolished. Both get
+      reconciled in the same pass rather than overwritten.
 
 steps:
-  - id: the-schema-bounds-the-goal
-    action: "goal maxLength 2000 -> 200 in phase-spec.schema.json."
-  - id: the-ratchet-holds-the-line
-    action: "An architecture test validates every phase against the schema, and caps slug and goal for ids at or above the declared cutoff."
-  - id: the-rule-is-where-it-is-read
-    action: "CLAUDE.md states both bounds in one line."
-  - id: the-skill-says-it-too
-    action: "create-phase names the bounds in the format block, so a spec written elsewhere meets them."
+  - id: the-schema-accepts-the-shape-it-says-it-accepts
+    action: "Widen the phase schema to admit the decision shape its own description already claims, repair the one phase file that is not parseable, and baseline the two goals that predate any limit — so a whole-file validation can be green."
+  - id: a-new-phase-name-fits-a-line-and-states-something
+    action: "Bound a date-minted phase's slug by length and by a floor on how many words it uses, so a name is a short sentence rather than a label or a paragraph, and leave the closed namespace untouched."
+  - id: a-new-phase-goal-is-one-sentence
+    action: "Bound a date-minted phase's goal in the rule that judges this repo's phases, and leave the embedded schema's limit where the deployed validator reads it."
+  - id: the-generator-and-the-rule-say-one-number
+    action: "Pin the slug bound and the generator's own cap to the same number, so the product cannot mint a name the rule refuses."
+  - id: the-authoring-guidance-says-the-same-thing
+    action: "State the bound where phases are authored, reconciling the draft already in the methodology skill's working tree and correcting its instruction to look for the highest phase number."
 
 tests:
   - "PhaseSpec_EveryFile_ValidatesAgainstTheSchema"
-  - "PhaseSpec_ANewSlug_FitsTheCap"
-  - "PhaseSpec_ANewGoal_FitsTheCap"
-  - "PhaseSpec_APhaseBelowTheCutoff_IsNotJudgedOnLength"
+  - "PhaseSlug_ADateMintedPhase_FitsTheLengthBound"
+  - "PhaseSlug_ADateMintedPhase_UsesEnoughWordsToStateSomething"
+  - "PhaseSlug_ACounterNamespacePhase_IsNotJudged"
+  - "PhaseGoal_ADateMintedPhase_FitsOneSentence"
+  - "PhaseGoal_ACounterNamespacePhase_IsNotJudged"
+  - "PhaseSchema_TheEmbeddedLimit_IsUnchanged"
+  - "PhaseSchema_ALongTicketTitle_StillProducesAValidFallbackSpec"
+  - "SlugGenerator_AndTheRule_AgreeOnOneNumber"
+  - "Guidance_AndTheRule_StateTheSameNumber"
 
 done:
-  - "a new phase cannot be committed with a sentence for a name or a paragraph for a goal"
-  - "the repo's own phases are validated against the schema they carry"
-  - "the bound is stated where a phase is written, not only where it is reviewed"
+  - "every phase file in the repo validates against the schema"
+  - "a date-minted phase's name fits a line and reads as a statement, not a label"
+  - "a date-minted phase's goal is one sentence, judged here and not in the deployed schema"
+  - "a long ticket title still produces a valid fallback spec"
+  - "the generator, the rule and the authoring guidance name one number"
+  - "build green, full suite green"
