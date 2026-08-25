@@ -79,8 +79,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker " +
                      "image whose runtime can BOTH build " +
                      "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
-                     "name it from a trusted hub and pick a git-bearing tag (full -bookworm/-bullseye, an " +
-                     "mcr .../sdk tag, or buildpack-deps:...-scm — never -slim/-alpine). " +
+                     "it must come from a registry the operator trusts and must carry git, because the " +
+                     "repository is cloned inside it. " +
                      // p0332: resources demoted to the exception — the defaults fit
                      // almost every stack; agents must stop sizing every context.yaml.
                      "stack.resources is NORMALLY OMITTED — the platform defaults fit almost every " +

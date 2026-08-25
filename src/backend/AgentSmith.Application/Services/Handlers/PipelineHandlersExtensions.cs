@@ -181,6 +181,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<VerifyCommandRunner>(); // p0419
         // p0504: the image ordering, the domain declaration, which commands verify a
         // repo, and which of those a domain profile brings — each its own type.
+        // 2026-08-25-014d: the registry boundary reads configuration, so it is a service.
+        services.AddSingleton<AgentSmith.Application.Services.Sandbox.ImageRegistryTrust>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.ContextDomainResolver>();
         services.AddTransient<DotnetEntryPointDiscovery>();

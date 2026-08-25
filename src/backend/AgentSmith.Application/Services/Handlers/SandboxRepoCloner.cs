@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -48,9 +49,7 @@ public sealed class SandboxRepoCloner(
         foreach (var (key, sandbox) in sandboxes)
         {
             var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config), null, ct);
-            if (clone.ExitCode != 0)
-                return FailWith(
-                    $"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
+            if (clone.ExitCode != 0) return FailWith(CloneProblem(key, clone), config);
             // p0496: the identity comes BEFORE the branch switch. A base merge writes a
             // merge commit, and a sandbox with no committing user cannot make one — a
             // fast-forward passed without it and a three-way merge did not.
@@ -70,6 +69,15 @@ public sealed class SandboxRepoCloner(
         foreach (var (_, sandbox) in sandboxes)
             await identity.EnsureConfiguredAsync(sandbox, ct);
     }
+
+    // 2026-08-25-014d: no part of the product judges an image by its name any more, so
+    // the image that turns out to carry no git is discovered right here — and says so,
+    // instead of leaving an operator to read `exit=-1` as a broken repository.
+    private static string CloneProblem(string key, StepResult clone) =>
+        MissingGitInImage.Explains(clone)
+            ? $"git clone into sandbox '{key}' could not start: {MissingGitInImage.Cause} "
+              + $"(exit={clone.ExitCode}: {clone.ErrorMessage})"
+            : $"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}";
 
     private RepoCheckout FailWith(string message, RepoConnection config)
     {
