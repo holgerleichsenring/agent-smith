@@ -72,7 +72,8 @@ public sealed class SandboxEventDrainTests
         var multiplexer = new Mock<IConnectionMultiplexer>();
         multiplexer.Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(db.Object);
         return new SandboxRedisChannel(
-            multiplexer.Object, "job-p0491", NullLogger<SandboxRedisChannel>.Instance);
+            multiplexer.Object, "job-p0491", NullLogger<SandboxRedisChannel>.Instance,
+            Mock.Of<IWireProtocolWatcher>());
     }
 
     private static RedisValue Result() => JsonSerializer.Serialize(

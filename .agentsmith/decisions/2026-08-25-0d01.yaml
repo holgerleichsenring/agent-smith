@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-0d01
+
+decisions:
+  - category: Architecture
+    chose: "The agent tag is derived from the server's own release version; an explicit pin remains and is reported"
+    over: "Keeping sandbox.agent_version mandatory and range-checking it (p0364's alternative), or forbidding the override outright"
+    reason: |
+      p0364 ruled that two independently declarable versions that MUST match are the
+      configuration bug, and that the class should be removed rather than detected. It was
+      right about the accident: the field was mandatory, its own error text told the
+      operator to pin a tag "matching the agent-smith release in use", and nothing on earth
+      enforced that. Deriving it removes the whole class for everyone who does not opt out.
+      It was wrong about the override. An air-gapped mirror carrying one release and a
+      developer bisecting an agent regression both need it, and removing it would trade a
+      silent mismatch for a hard wall. So the override survives as the ONLY way to get a
+      difference — which is exactly what makes reporting it meaningful, because every
+      remaining difference was chosen by somebody.
+  - category: Architecture
+    chose: "The release version is the derivation source; the wire protocol version is the compatibility judgement"
+    over: "Judging compatibility from the release tags, i.e. treating a version difference as a compatibility verdict"
+    reason: |
+      version.txt is 0.135.0, a service config pins deployment.version 0.121.0, the compose
+      default is 0.131.4, the k8s templates say 0.129.0 and the harness fixtures pin 0.74.1
+      and 0.0.0-harness. Skew between the halves is this product's normal state, not a
+      fault, and a rule built on release equality would fire on every installation while
+      proving nothing. What actually has to match is the wire, and two releases that share
+      it can talk however far apart their tags are. So the tag decides which image to pull;
+      the protocol decides whether the pull can talk. Following 2026-08-25-8c97, the pin
+      finding says the two are DIFFERENT and never says they are incompatible — a tag is not
+      evidence about a protocol, and three unit cases assert the word "incompat" never
+      appears in the reason.
+  - category: Implementation
+    chose: "The schema version that already rides on all three wire records got a reader and a stated window (WireProtocol)"
+    over: "Adding a protocol-version field beside the unused one, or comparing the two halves' build revisions across the sandbox seam"
+    reason: |
+      Step, StepResult and StepEvent each declared CurrentSchemaVersion = 1, written at
+      about forty construction sites and read at NONE — three copies of a number that
+      guarded nothing and would eventually disagree. All three now read WireProtocol.Current
+      and an architecture test fails any record that writes its own literal, so "one place"
+      is a mechanism rather than a convention. The window's owner is whoever changes the
+      wire, in the same change; a second test asserts the Wire project reads no environment
+      variable, because an operator cannot make two builds agree by editing a value and the
+      knob would only let them declare a compatibility that is not true.
+  - category: Implementation
+    chose: "Tolerating an unknown enum value comes FIRST, and the agent answers with a result naming the protocol it speaks"
+    over: "Checking the schema version on arrival and refusing, or catching the parse failure and staying silent"
+    reason: |
+      The wire registered a plain JsonStringEnumConverter, which throws on a string it does
+      not know. That throw came out of RedisJobBus.WaitForStepAsync, escaped a JobLoop
+      catching only Redis faults, exited the container with code 3, and reached the operator
+      through SandboxLivenessWatcher as "sandbox vanished" — an old agent meeting a new
+      message kind reported a DEATH, not a protocol difference, and cancelled the whole run.
+      No check placed inside that message could ever have run. StepKind and StepEventKind
+      gained an explicit Unknown and a tolerant converter; Step.Validate answers an Unknown
+      kind with the window this build speaks, which travels back on the result channel the
+      server already reads. Two formatting preferences (GrepOutputMode, DirectorySortBy)
+      fall back to their own defaults instead: a nicety has a safe substitute, and refusing
+      a whole message over one would be theatre.
+  - category: Implementation
+    chose: "Two readers on two channels: a startup probe for the pin, and the live result channel for the protocol"
+    over: "One check at spawn time, or recording the protocol finding from the agent side"
+    reason: |
+      They are different kinds of fact and only one of them is knowable in advance. A pin is
+      a property of the CONFIGURATION, so PinnedAgentProbe walks the projects at boot beside
+      ConfigurationProbe and publishes one advisory finding per pinned project. The protocol
+      is a property of what an agent ACTUALLY answers, so WireProtocolWatcher reads
+      StepResult.SchemaVersion in SandboxRedisChannel — every step produces exactly one
+      result, so that is the single place that hears from every agent that talks at all. The
+      agent itself has no findings channel; what it can do is answer, and it does.
+  - category: TradeOff
+    chose: "The protocol finding is reported once per process and never cleared"
+    over: "Clearing it when the next in-window message arrives, the way the authority probe clears"
+    reason: |
+      Per-project pins mean one installation can legitimately run agents of several releases
+      at once, so clearing on the next good message would make the banner flap between two
+      sandboxes rather than describe the installation. A run that already spoke to an
+      unreadable agent is a fact, and a later good message does not un-happen it.
+  - category: Scope
+    chose: "The pin finding names deployment.version as well as sandbox.agent_version, and says the orchestrator still needs one"
+    over: "Advising the operator to delete the pin"
+    reason: |
+      The adversarial review named sandbox.agent_version as the only skew route. It is not
+      the one the repo's own deployments use: p0281c's DeploymentDefaultsApplier fills
+      sandbox.agent_version from the one-knob deployment.version whenever it is unset, and
+      that is what config/agentsmith.service1.k8s.yml sets. So most real pins arrive through
+      deployment.version — and that same knob pins the ORCHESTRATOR image, which has no
+      derived default and still throws without one. "Delete the pin" would therefore have
+      been wrong advice, and the finding names the way out precisely instead. The
+      orchestrator's own derivation is not this phase's subject.
+  - category: Implementation
+    chose: "The sandbox-agent image declares the build ARGs 8c97 started passing"
+    over: "Leaving BuildKit's unconsumed-build-arg warning on that matrix leg"
+    reason: |
+      2026-08-25-8c97 added build-args to the shared build-push step, so every leg receives
+      them and a leg that does not declare them warns. Declaring them turns the warning into
+      an answer: the carrier image is the one the derived tag names, and an agent that can
+      say which build it is can be matched against the server that spawned it. Unset when
+      built by hand, which BuildIdentity already treats as an absence rather than a
+      difference.

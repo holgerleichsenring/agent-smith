@@ -16,6 +16,7 @@ public sealed partial class KubernetesSandboxFactory(
     PodSpecBuilder podSpecBuilder,
     KubernetesSandboxOptions options,
     IOptions<SandboxGlobalConfig> sandboxConfig,
+    IWireProtocolWatcher protocol,
     ILoggerFactory loggerFactory) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
@@ -45,7 +46,8 @@ public sealed partial class KubernetesSandboxFactory(
         await watcher.WaitForReadyAsync(podName, options.Namespace,
             TimeSpan.FromSeconds(spec.TimeoutSeconds), cancellationToken);
 
-        var channel = new SandboxRedisChannel(redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>());
+        var channel = new SandboxRedisChannel(
+            redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);
         return new KubernetesSandbox(client, options.Namespace, podName, jobId, channel,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,

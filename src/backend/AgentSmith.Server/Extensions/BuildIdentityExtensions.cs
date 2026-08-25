@@ -16,9 +16,7 @@ internal static class BuildIdentityExtensions
     internal static IServiceCollection AddBuildIdentity(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
-        services.AddSingleton(new BuildIdentity(
-            Environment.GetEnvironmentVariable(BuildIdentity.RevisionVariable),
-            Environment.GetEnvironmentVariable(BuildIdentity.VersionVariable)));
+        services.AddSingleton(BuildIdentity.FromEnvironment());
         services.AddSingleton<IBuildMismatchDetector, BuildMismatchDetector>();
         return services;
     }

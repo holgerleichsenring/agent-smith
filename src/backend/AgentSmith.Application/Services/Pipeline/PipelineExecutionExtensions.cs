@@ -85,7 +85,7 @@ public static class PipelineExecutionExtensions
         // no orchestrator pod). The Server composition replaces it with the
         // JobSpawnerOptions-backed resolver.
         services.TryAddSingleton<IOrchestratorResourceResolver, NullOrchestratorResourceResolver>();
-        services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
+        services.AddAgentImageResolution();
         services.AddSingleton<ISandboxSecretsResolver, SandboxSecretsResolver>();
         services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();
         // p0270a: the single config resolution pass — owns timeout + cost-cap

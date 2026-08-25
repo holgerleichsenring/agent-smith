@@ -75,7 +75,8 @@ internal static class Program
         var grepHandler = new GrepStepHandler(processRunner, loggerFactory.CreateLogger<GrepStepHandler>());
         var treeHandler = new DirectoryTreeStepHandler(loggerFactory.CreateLogger<DirectoryTreeStepHandler>());
         var executor = new StepExecutor(processRunner, fileHandler, grepHandler, treeHandler, loggerFactory.CreateLogger<StepExecutor>());
-        var loop = new JobLoop(bus, executor, heartbeat, loggerFactory.CreateLogger<JobLoop>(), runId);
+        var steps = new ToleratedStepReader(bus, loggerFactory.CreateLogger<ToleratedStepReader>());
+        var loop = new JobLoop(bus, steps, executor, heartbeat, loggerFactory.CreateLogger<JobLoop>(), runId);
         return await loop.RunAsync(jobId, cts.Token);
     }
 

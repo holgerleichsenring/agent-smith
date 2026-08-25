@@ -22,6 +22,16 @@ public sealed record BuildIdentity(string? Revision, string? Version)
 
     private const int ShortRevisionLength = 12;
 
+    /// <summary>
+    /// The identity as the image stamped it. 2026-08-25-0d01 moved the environment read
+    /// here because a second composition needs the same answer: the sandbox agent's image
+    /// tag is DERIVED from <see cref="Version"/>, so the server's own release has to be
+    /// readable wherever an image reference is resolved, not only where findings are served.
+    /// </summary>
+    public static BuildIdentity FromEnvironment() => new(
+        Environment.GetEnvironmentVariable(RevisionVariable),
+        Environment.GetEnvironmentVariable(VersionVariable));
+
     /// <summary>A half that was not stamped says nothing, and silence is not a mismatch.</summary>
     public bool IsKnown => !string.IsNullOrWhiteSpace(Revision);
 
