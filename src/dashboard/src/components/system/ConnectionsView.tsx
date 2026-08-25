@@ -13,6 +13,8 @@ import { StatusPill } from "./StatusPill";
 import type { ProviderStatus } from "@/hooks/useSystemStatus";
 import { PageHead } from "./PageHead";
 import { cn } from "@/lib/utils";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0292/p0293: the System → Connections view. The static ConfigView answers "how
 // is it wired"; this answers "does it actually work right now". Every runtime
@@ -39,7 +41,7 @@ const CATEGORY_GROUPS: Array<{ key: string; label: string; note?: string }> = [
 
 export function ConnectionsView() {
   const [data, setData] = useState<ConnectionDiagnostics | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [results, setResults] = useState<Record<string, ConnectionStatus>>({});
   const [probing, setProbing] = useState<Record<string, boolean>>({});
 
@@ -48,7 +50,7 @@ export function ConnectionsView() {
     fetchConnections(controller.signal)
       .then(setData)
       .catch((e: Error) => {
-        if (e.name !== "AbortError") setError(e.message);
+        if (e.name !== "AbortError") setError(e);
       });
     return () => controller.abort();
   }, []);
@@ -73,6 +75,8 @@ export function ConnectionsView() {
     await Promise.all(data.connections.map((c) => probe(c.name)));
   }, [data, probe]);
 
+  const refusal = refusalIn(error);
+
   return (
     <div data-testid="connections-view">
       <PageHead
@@ -92,9 +96,11 @@ export function ConnectionsView() {
         }
       />
 
-      {error ? (
+      {refusal ? (
+        <RefusalSurface refusal={refusal} surface="the connections" />
+      ) : error ? (
         <div className="stateline err" data-testid="connections-error">
-          Failed to load connections: {error}
+          Failed to load connections: {error.message}
         </div>
       ) : !data ? (
         <div className="stateline" data-testid="connections-loading">

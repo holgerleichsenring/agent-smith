@@ -1,5 +1,7 @@
 "use client";
 
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { useRunStatistics } from "@/hooks/useRunStatistics";
 import { useRunDetailSnapshot } from "@/hooks/useRunDetailSnapshot";
 import { VerifySummary } from "@/components/jobs/story/VerifySummary";
@@ -21,16 +23,21 @@ import { RunWhyHeader } from "./RunWhyHeader";
 export function RunWhy({ runId }: { runId: string }) {
   const snapshot = useRunDetailSnapshot(runId, null);
   const { statistics, loading, error } = useRunStatistics(runId);
+  const refusal = refusalIn(error);
 
   return (
     <div className="mock-shell mock-viewer">
       <main className="wrap" data-testid="run-why-root">
         <RunWhyHeader runId={runId} snapshot={snapshot} />
 
-        {error && (
-          <p className="hint" data-testid="run-why-error">
-            The run&rsquo;s record could not be read: {error}
-          </p>
+        {refusal ? (
+          <RefusalSurface refusal={refusal} surface="this run&rsquo;s record" />
+        ) : (
+          error && (
+            <p className="hint" data-testid="run-why-error">
+              The run&rsquo;s record could not be read: {error.message}
+            </p>
+          )
         )}
         {loading && !statistics && <p className="hint">Reading the run&rsquo;s record…</p>}
 

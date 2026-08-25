@@ -8,6 +8,8 @@ import { PrButton } from "@/components/jobs/PrButton";
 import type { PullRequest } from "@/types/hub-events";
 import { cn } from "@/lib/utils";
 import { hasPullRequest, isOpenPullRequest, pullRequestStatusLabel } from "@/lib/prStatus";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0347: agent-smith's OUTPUT gets its own surface. The Pull Requests page lists
 // every PR the agent opened — per repo, so multi-repo runs keep all their PRs —
@@ -49,15 +51,16 @@ function withinDays(iso: string, days: number): boolean {
 
 export default function PullRequestsPage() {
   const [prs, setPrs] = useState<PullRequest[] | null>(null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchPullRequests(controller.signal)
       .then((rows) => setPrs(rows))
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(true);
-        void e;
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted) {
+          setError(e instanceof Error ? e : new Error(String(e)));
+        }
       });
     return () => controller.abort();
   }, []);
@@ -71,6 +74,7 @@ export default function PullRequestsPage() {
     [prs],
   );
 
+  const refusal = refusalIn(error);
   const stillOpen = opened.filter((p) => isOpenPullRequest(p.status));
   const openToday = stillOpen.filter((p) => isToday(p.openedAt)).length;
   const openWeek = stillOpen.filter((p) => withinDays(p.openedAt, 7)).length;
@@ -99,7 +103,9 @@ export default function PullRequestsPage() {
         </div>
 
         {prs === null ? (
-          error ? (
+          refusal ? (
+            <RefusalSurface refusal={refusal} surface="the pull requests" />
+          ) : error ? (
             <div className="rows" data-testid="pr-error">
               <div className="rrow" style={{ cursor: "default", justifyContent: "center", display: "flex" }}>
                 Couldn’t load pull requests. Retry from the rail once the API is reachable.
