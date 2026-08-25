@@ -62,6 +62,20 @@ ids minted from a ticket number (`p19106a`) live in the same namespace.
 A deferred successor is named in prose by what it does — a random suffix cannot be
 reserved in advance, so `requires:` names only phases that already exist.
 
+## Naming a Phase
+
+The slug is at most **50 characters** and at least **4 words**, and the `goal:` is one
+sentence of at most **200 characters**. A name states what changes
+(`a-phase-id-can-be-minted-offline`), not the area it changes (`mcp-tools-call`) — length
+alone does not tell the two apart, which is what the word floor is for. The reasoning goes
+in `decisions:`, and 50 is the same number `PhaseIdFactory.Slug` mints against, so the
+product cannot generate a name the rule refuses.
+
+`PhaseNameRuleTests` enforces both bounds over the DATE-MINTED namespace. The closed
+counter namespace is out of scope by construction — those phases are finished and are not
+renamed — and the scoping is a namespace rather than an ordering, because a date-minted id
+sorts below every counter id as text.
+
 ## Implementation Workflow (follow this order for every phase)
 
 1. **Write phase spec first** — create `.agentsmith/phases/planned/{id}-slug.yaml` with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a phase id** below.
