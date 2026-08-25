@@ -48,6 +48,8 @@ public sealed class AuthRequirementsRouteTests(EnforcingAuthorityFixture fixture
             await fixture.Server.Client.GetStringAsync(Route));
 
         document.RootElement.EnumerateObject().Select(p => p.Name).Should()
-            .BeEquivalentTo("enforced", "authority", "audience");
+            // 2026-08-25-1806: tokenRefusal is the fourth — null here, because this
+            // caller presented no token for the server to refuse.
+            .BeEquivalentTo("enforced", "authority", "audience", "tokenRefusal");
     }
 }

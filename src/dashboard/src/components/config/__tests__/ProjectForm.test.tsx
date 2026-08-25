@@ -35,6 +35,8 @@ const capabilities: ConfigCapabilities = {
   connectionTypes: [],
   agentProviders: ["azure-openai"],
   resolutionStrategies: ["tag", "area_path", "repo", "to_address"],
+  permissions: [],
+  builtInRoles: [],
   pipelines: ["feature-implementation", "api-scan"],
   roles: [],
 };

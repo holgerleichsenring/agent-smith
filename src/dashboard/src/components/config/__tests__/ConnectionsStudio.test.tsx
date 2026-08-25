@@ -67,6 +67,8 @@ vi.mock("@/lib/configApi", () => {
       ],
       agentProviders: ["azure-openai"],
       resolutionStrategies: ["tag"],
+      permissions: [],
+      builtInRoles: [],
       pipelines: ["feature-implementation"],
     }),
     fetchConnectionRepos: vi.fn().mockResolvedValue({

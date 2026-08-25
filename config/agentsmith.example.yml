@@ -123,9 +123,15 @@ persistence:
 #   authority: https://login.example.com/realms/agentsmith
 #   audience: agent-smith
 #   enforce: false
+#   name_claim: sub                   # what names a caller on the identity page + audit trail
+#
+#   # 2026-08-25-1806: the four keys below are the migration SEED, not what runs. What a
+#   # role MEANS is application configuration — it changes when a team does — so it lives
+#   # in the config store and is edited under Settings -> Roles & claims, applying without
+#   # a restart. An installation that still declares them here has them imported ONCE, on
+#   # the first boot after the upgrade; after that the store is the only answer.
 #   role_claim: roles                 # the claim carrying role NAMES, read verbatim
 #   group_claim: groups               # the claim carrying group values, mapped below
-#   name_claim: sub                   # what names a caller on the identity page + audit trail
 #   group_roles:                      # group value -> the roles it grants (union across groups)
 #     "00000000-0000-0000-0000-000000000000":
 #       - operator

@@ -102,29 +102,63 @@ export function MultiRefSelect({
   onChange: (v: string[]) => void;
   testId?: string;
 }) {
+  return (
+    <MultiPickField
+      label={label}
+      values={values}
+      options={options.map((o) => o.id)}
+      onChange={onChange}
+      testId={testId}
+      help="pick from the catalog"
+      empty="no entries in catalog"
+    />
+  );
+}
+
+// 2026-08-25-1806: the pick set over a CLOSED list of plain names — the same DOM the
+// catalog picker emits, without a catalog entity behind each option. It is what a role
+// bundle is built with: the permission catalog is closed, so a bundle is chosen from it
+// and a name that is not in it cannot be entered at all.
+export function MultiPickField({
+  label,
+  values,
+  options,
+  onChange,
+  testId,
+  help,
+  empty,
+}: {
+  label: string;
+  values: string[];
+  options: string[];
+  onChange: (v: string[]) => void;
+  testId?: string;
+  help?: string;
+  empty?: string;
+}) {
   const toggle = (id: string) =>
     onChange(values.includes(id) ? values.filter((v) => v !== id) : [...values, id]);
   return (
     <div className="field" data-testid={testId}>
       <label>
-        {label} <span className="help">pick from the catalog</span>
+        {label} <span className="help">{help ?? "pick from the catalog"}</span>
       </label>
       <div className="picks">
-        {options.length === 0 && <span className="help">no entries in catalog</span>}
-        {options.map((o) => {
-          const on = values.includes(o.id);
+        {options.length === 0 && <span className="help">{empty ?? "nothing to pick from"}</span>}
+        {options.map((option) => {
+          const on = values.includes(option);
           return (
             <button
-              key={o.id}
+              key={option}
               type="button"
-              data-testid={`${testId}-option-${o.id}`}
+              data-testid={testId && `${testId}-option-${option}`}
               data-selected={on ? "true" : "false"}
               aria-pressed={on}
-              onClick={() => toggle(o.id)}
+              onClick={() => toggle(option)}
               className={cn("pick", on && "on")}
             >
               <span className="pk">{on ? "✓" : ""}</span>
-              {o.id}
+              {option}
             </button>
           );
         })}

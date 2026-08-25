@@ -37,5 +37,5 @@ internal sealed record ConfigDocDescriptor(
             Read: raw => [(DefaultId, getter(raw)!)],
             Write: (raw, _, el) => setter(raw, el.Deserialize<T>(new ConfigDocJson().Options)!));
 
-    public const string DefaultId = "default";
+    public const string DefaultId = ConfigDocTypes.SingletonId;
 }
