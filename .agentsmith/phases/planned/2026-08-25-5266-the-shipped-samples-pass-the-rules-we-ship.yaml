@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-5266
+
+goal: "The context files this project ships pass the rules this project enforces on everyone else's."
+
+applies_to: "backend (the demo sample project) + this repository's own context"
+
+requires:
+  - 2026-08-25-c9c7
+
+scope:
+  in: "The two context files that ship — the demo sample handed to every evaluator, and this repository's own — brought to what the writer now produces and the schema now demands."
+  out: "Changing either rule. If a shipped file cannot satisfy a rule, that is a finding about the rule and gets said, not worked around."
+
+decisions:
+  - key: |
+      A SAMPLE THAT FAILS THE PRODUCT'S OWN GATE TEACHES THE WRONG THING. The demo project is what
+      an evaluator opens first. It carries no image, and it declares a top-level block the schema
+      does not know — so the file shipped as an example of a context is a file the writer would
+      now refuse to produce. That is worse than an inconsistency; it is a worked example of the
+      thing being forbidden.
+  - key: |
+      THIS REPOSITORY'S OWN CONTEXT IS THE OTHER ONE, AND IT IS NOT COSMETIC. It has no image
+      either, so every sandbox this project spawns for itself resolves through the fallback table
+      the image rule exists to retire. As long as that is true the table cannot go.
+  - key: |
+      NEITHER FILE IS REACHED BY THE GATE, WHICH IS WHY THIS IS A PHASE AND NOT A FIX. The write
+      path judges what a model writes; these are checked-in files nobody writes through the tool.
+      A test is the only thing that can hold them to the same rule.
+
+steps:
+  - id: the-shipped-sample-passes-the-schema-and-the-image-rule
+    action: "Bring the demo sample context to what the writer now produces, so the example an evaluator reads first is one the product would accept."
+  - id: this-repository-names-its-own-image
+    action: "Give this project's own context the image it runs on, so it stops depending on the fallback the rule exists to retire."
+  - id: a-shipped-context-is-held-to-the-shipped-rule
+    action: "Assert every context file this project ships against the same schema and image rule the write path enforces, so the two cannot drift again."
+
+tests:
+  - "ShippedContext_TheDemoSample_PassesTheSchema"
+  - "ShippedContext_TheDemoSample_NamesAnImageOrADomain"
+  - "ShippedContext_ThisRepository_PassesTheSchema"
+  - "ShippedContext_ThisRepository_NamesAnImage"
+  - "ShippedContext_EveryOneInTheRepo_IsCoveredByThisRule"
+
+done:
+  - "every context file this project ships passes the schema it ships"
+  - "every one names an image or declares a domain"
+  - "a test holds them there, so the sample and the rule cannot drift apart again"
+  - "build green, full suite green"
