@@ -130,12 +130,15 @@ public sealed class RoutePermissionGuardTests
     }
 
     [Fact]
-    public void RouteGuard_TheTwelveAnonymousRoutes_AreExactlyTheDeclaredSet()
+    public void RouteGuard_TheThirteenAnonymousRoutes_AreExactlyTheDeclaredSet()
     {
         var anonymous = WholeTable().Where(fact => fact.AnonymousReason is not null).ToList();
 
         anonymous.Select(fact => fact.Pattern).Should().BeEquivalentTo([
             "/health", "/api/config/findings", "/api/openapi.json",
+            // 2026-08-25-4530: what the server expects of a caller, read by a caller who
+            // has nothing to present — which is the state this route explains.
+            "/api/auth/requirements",
             "/slack/events", "/slack/interact", "/slack/commands", "/slack/options",
             "/api/teams/messages",
             "/webhook", "/webhook/github", "/webhook/gitlab", "/webhook/jira",
@@ -152,7 +155,7 @@ public sealed class RoutePermissionGuardTests
         gated.Select(fact => fact.Pattern).Should().NotContain("/api/runs");
         gated.Select(fact => fact.Pattern).Should().Contain("/health");
         gated.Should().OnlyContain(fact => fact.AnonymousReason != null);
-        gated.Should().HaveCount(11, "everything left with the dashboard off is a machine caller or a probe");
+        gated.Should().HaveCount(12, "everything left with the dashboard off is a machine caller or a probe");
     }
 
     // The seam resolves nothing: poisoning the configuration loader would throw for any
