@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Infrastructure.Persistence.Models;
 
 namespace AgentSmith.Infrastructure.Persistence.Services;
 
@@ -28,15 +29,21 @@ public sealed class RunTrailBuffer(long startSeq = 0)
     private long _seq = startSeq;
     private DateTimeOffset _firstPendingAt;
 
-    public IReadOnlyList<(long Seq, RunEvent Event)>? Add(RunEvent runEvent, int flushThreshold, DateTimeOffset now)
+    /// <summary>
+    /// 2026-08-25-61f1: returns the position assigned to this event as well as the batch it
+    /// completed. The position is the event's identity for every row it produces, so the
+    /// caller has to learn it here — it is minted under this lock and nowhere else.
+    /// </summary>
+    public TrailAddition Add(RunEvent runEvent, int flushThreshold, DateTimeOffset now)
     {
         lock (_gate)
         {
             if (_pending.Count == 0) _firstPendingAt = now;
-            _pending.Add((_seq++, runEvent));
+            var seq = _seq++;
+            _pending.Add((seq, runEvent));
             if (_pending.Count < flushThreshold && runEvent.Type != EventType.RunFinished)
-                return null;
-            return Drain();
+                return new TrailAddition(seq, null);
+            return new TrailAddition(seq, Drain());
         }
     }
 

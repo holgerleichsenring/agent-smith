@@ -191,8 +191,7 @@ public sealed class RunPhasesServedTests : IDisposable
 
     private async Task ApplyAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
-        var applier = new RunEventApplier(
-            new(), new(), new(), new(), new(), new(), new(), new(new()), new());
+        var applier = RunEventAppliers.Default();
         foreach (var ev in events)
         {
             await using var ctx = new AgentSmithDbContext(Options());

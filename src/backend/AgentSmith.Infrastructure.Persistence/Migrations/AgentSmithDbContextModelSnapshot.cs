@@ -578,6 +578,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -602,6 +605,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique();
 
                     b.ToTable("RunDecisions");
                 });
@@ -651,6 +657,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "Seq")
+                        .IsUnique();
 
                     b.HasIndex("RunId", "StepIndex", "Seq");
 
@@ -727,6 +736,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<long>("DurationMs")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Model")
                         .HasColumnType("TEXT");
 
@@ -759,6 +771,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique();
 
                     b.ToTable("RunLlmCalls");
                 });
@@ -923,6 +938,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("REAL");
 
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("LlmMs")
                         .HasColumnType("INTEGER");
 
@@ -960,6 +978,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique();
 
                     b.ToTable("RunSteps");
                 });

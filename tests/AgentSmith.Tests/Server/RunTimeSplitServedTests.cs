@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -70,7 +71,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
     {
         var clock = new MutableTimeProvider { Now = T };
         var projector = new RunDbProjector(
-            _scopes, new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()),
+            _scopes, RunEventAppliers.Default(),
             new RunTrailBuffers(_scopes), clock);
         foreach (var ev in SerialCommandRun()) await projector.ProjectAsync(ev, CancellationToken.None);
         clock.Now = clock.Now.AddSeconds(5);
@@ -214,7 +215,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
 
     private async Task ApplyAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
-        var applier = new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new());
+        var applier = RunEventAppliers.Default();
         foreach (var ev in events)
         {
             await using var uow = new AgentSmithDbContext(Options());
