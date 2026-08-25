@@ -1,0 +1,15 @@
+# p0521: phases already over a name or goal bound when the rule was installed.
+# From here a listed phase may only get SHORTER, a new phase may not join, and a phase
+# that now fits must LEAVE this list — the test fails either way. Every row is in done/,
+# which is not edited: the file name of a done phase is a pointer the record carries.
+#
+#   slug         file-name tail over 50 characters (date-minted namespace)
+#   goal         goal over 200 characters (date-minted namespace)
+#   schema-goal  goal over the embedded schema's own 2000, which the whole-file check reads
+#
+# rule	value	phase id
+slug	61	2026-08-24-1cdc
+goal	252	2026-08-24-ca23
+goal	201	2026-08-25-61f1
+schema-goal	2244	p0201
+schema-goal	3631	p0176
