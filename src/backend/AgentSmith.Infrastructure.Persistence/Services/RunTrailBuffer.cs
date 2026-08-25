@@ -14,12 +14,18 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// background flusher drain a partial buffer once its oldest pending event has
 /// waited too long, so the UI trail stays live without giving up batched inserts
 /// on the hot path.
+///
+/// <para>2026-08-24-ca23: the sequence STARTS where the store already ended for this run.
+/// The counter is per-instance, so a buffer created for a run that already has history — a
+/// relaunch after a pause, or a run alive across a server restart — used to restart at zero
+/// and mint sequences the previous instance had already written, which is what let replayed
+/// rows collide by value instead of being recognised.</para>
 /// </summary>
-public sealed class RunTrailBuffer
+public sealed class RunTrailBuffer(long startSeq = 0)
 {
     private readonly object _gate = new();
     private readonly List<(long Seq, RunEvent Event)> _pending = new();
-    private long _seq;
+    private long _seq = startSeq;
     private DateTimeOffset _firstPendingAt;
 
     public IReadOnlyList<(long Seq, RunEvent Event)>? Add(RunEvent runEvent, int flushThreshold, DateTimeOffset now)

@@ -149,6 +149,72 @@ public sealed class CancelEnforcementTests : IDisposable
         _published.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// 2026-08-24-ca23: a PARKED run has no drain reading its stream, so publishing a terminal
+    /// event never reached its row — the scan re-selected the same run every 15 seconds and
+    /// rewrote its work item each time. Live evidence: 95 enforcement passes and 138 ticket
+    /// writes over 24 minutes, ended only by a restart. The row must be terminal when the
+    /// enforcement returns, with no event round-trip in between.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_ParkedRun_ReachesCancelledWithoutTheEventRoundTrip()
+    {
+        await SeedRunAsync("run-parked", jobId: "cccc00000000",
+            cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddSeconds(-1),
+            status: "waiting_for_input");
+
+        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
+
+        enforced.Should().Be(1);
+        using var check = new AgentSmithDbContext(Options());
+        var run = check.Runs.Single(r => r.Id == "run-parked");
+        run.Status.Should().Be("cancelled", "no drain will deliver this run's own terminal event");
+        run.FinishedAt.Should().NotBeNull();
+    }
+
+    /// <summary>
+    /// 2026-08-24-ca23: and having finalized it, the scan must not select it again — the
+    /// candidate set is CancelRequested AND no finish, which a parked run met by design.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_ParkedRun_IsEnforcedOnceAndWritesItsTicketOnce()
+    {
+        await SeedRunAsync("run-parked-twice", jobId: "dddd00000000",
+            cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddSeconds(-1),
+            status: "waiting_for_input");
+        var enforcer = NewEnforcer();
+
+        var first = await enforcer.RunOnceAsync(CancellationToken.None);
+        var second = await enforcer.RunOnceAsync(CancellationToken.None);
+
+        first.Should().Be(1);
+        second.Should().Be(0, "a finalized run leaves the candidate set");
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            new TicketId("42"), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// 2026-08-24-ca23: a pause never clears the job id, so the row still names the pod that
+    /// died when it parked. Keying "nothing to kill" on the job id would spend the whole
+    /// ten-minute retry window terminating a corpse; the waiting status is the honest test.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_ParkedRun_DoesNotSpendTheTerminateRetryWindowOnAStaleJobId()
+    {
+        _spawner.Setup(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("that pod died at the park"));
+        await SeedRunAsync("run-parked-stale", jobId: "eeee00000000",
+            cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddSeconds(-1),
+            status: "waiting_for_input");
+
+        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
+
+        enforced.Should().Be(1, "a parked run holds nothing to terminate");
+        _spawner.Verify(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     // p0348: a spawned run that outran the wall-time ceiling (never registered in
     // the in-memory watchdog) is flagged cancel-requested with a kill deadline by
     // the DB-backed scan, then enters the normal enforcement path.
@@ -228,7 +294,7 @@ public sealed class CancelEnforcementTests : IDisposable
             .ThrowsAsync(new InvalidOperationException("job gone (404)"));
         await SeedRunAsync("run-unkillable", jobId: "dead00000000",
             cancelRequested: true,
-            deadline: DateTimeOffset.UtcNow - CancelEnforcer.TerminateRetryWindow - TimeSpan.FromMinutes(1));
+            deadline: DateTimeOffset.UtcNow - RunTerminator.RetryWindow - TimeSpan.FromMinutes(1));
 
         var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
 
@@ -284,9 +350,15 @@ public sealed class CancelEnforcementTests : IDisposable
             .Returns(() => new AgentSmithConfig { Orchestrator = _orchestrator });
         services.AddSingleton(loader.Object);
         services.AddSingleton(new ServerContext("test.yml"));
+        // 2026-08-24-ca23: the enforcer finalizes through the projection that owns terminal
+        // transitions instead of writing the row itself.
+        services.AddSingleton<QueuedRunProjection>();
+        services.AddSingleton<RunFinalizationProjection>();
         var provider = services.BuildServiceProvider();
         return new CancelEnforcer(
             provider, _events, _lease.Object, NewFinalizer(),
+            new CancelTerminalWriter(provider),
+            new RunTerminator(provider, TimeProvider.System, NullLogger<RunTerminator>.Instance),
             TimeProvider.System, NullLogger<CancelEnforcer>.Instance);
     }
 
@@ -321,13 +393,14 @@ public sealed class CancelEnforcementTests : IDisposable
     }
 
     private async Task SeedRunAsync(
-        string runId, string? jobId, bool cancelRequested, DateTimeOffset? deadline)
+        string runId, string? jobId, bool cancelRequested, DateTimeOffset? deadline,
+        string status = "running")
     {
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
             Id = runId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
-            Platform = "github", Status = "running", StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
+            Platform = "github", Status = status, StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
             CancelRequested = cancelRequested, CancelReason = "operator",
             CancelDeadlineAt = deadline, JobId = jobId,
         });
