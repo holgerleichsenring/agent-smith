@@ -3,20 +3,28 @@ using System.Text.Json.Nodes;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
-namespace AgentSmith.Tests.Architecture;
+namespace AgentSmith.Application.Services.Validation;
 
 /// <summary>
-/// 2026-08-25-056d: reads a YAML file into the JSON node a schema is evaluated against,
-/// keeping YAML's core-schema scalar types.
+/// 2026-08-25-2c7c: reads a YAML document into the JSON node a schema is evaluated
+/// against, keeping YAML's core-schema scalar types. The one bridge every draft
+/// validator crosses.
 /// <para>
 /// The obvious bridge — deserialize to <c>object</c>, re-serialize with
 /// <c>JsonCompatible()</c> — turns every plain scalar into a string, so a correct
 /// <c>class-lines: 120</c> is reported as failing <c>type: integer</c>. A rule that
-/// misreads its own input invents failures and hides real ones.
+/// misreads its own input invents failures and hides real ones: every integer and
+/// boolean constraint behind that bridge is unenforceable, and the failure mode is a
+/// false rejection of correct input, so nobody reports it.
+/// </para>
+/// <para>
+/// Only a PLAIN scalar is typed. A quoted <c>"20"</c> is what the author wrote — a
+/// string — and stays one, which is how a genuinely wrong type is still caught.
 /// </para>
 /// </summary>
 internal static class YamlAsJson
 {
+    /// <summary>Throws <see cref="YamlException"/> when the text is not valid YAML.</summary>
     public static JsonNode? Convert(string yaml)
     {
         var stream = new YamlStream();

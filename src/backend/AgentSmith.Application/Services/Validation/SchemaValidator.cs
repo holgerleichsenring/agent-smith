@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentSmith.Application.Services.Loop;
 using Json.Schema;
 
@@ -26,13 +27,24 @@ internal static class SchemaValidator
 
         using (document)
         {
-            var result = schema.Evaluate(document.RootElement,
-                new EvaluationOptions { OutputFormat = OutputFormat.List });
-            return result.IsValid
-                ? ValidationResult.Valid()
-                : ValidationResult.Invalid(FormatErrors(result, schemaName));
+            return Judge(schema.Evaluate(document.RootElement, ListOutput()), schemaName);
         }
     }
+
+    /// <summary>
+    /// 2026-08-25-2c7c: the same evaluation over an already-parsed document, so a YAML
+    /// draft crosses <see cref="YamlAsJson"/> once instead of being re-serialised to a
+    /// JSON string that no longer knows which scalars were numbers.
+    /// </summary>
+    public static ValidationResult Validate(JsonNode? document, JsonSchema schema, string schemaName) =>
+        Judge(schema.Evaluate(document, ListOutput()), schemaName);
+
+    private static EvaluationOptions ListOutput() => new() { OutputFormat = OutputFormat.List };
+
+    private static ValidationResult Judge(EvaluationResults result, string schemaName) =>
+        result.IsValid
+            ? ValidationResult.Valid()
+            : ValidationResult.Invalid(FormatErrors(result, schemaName));
 
     private static string FormatErrors(EvaluationResults results, string schemaName)
     {
