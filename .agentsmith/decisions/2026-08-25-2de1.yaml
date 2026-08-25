@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-2de1
+
+decisions:
+  - category: Architecture
+    chose: "oidc-client-ts, a generic OIDC client that discovers the authority"
+    over: "MSAL or another directory-specific client, or a hand-written PKCE flow"
+    reason: |
+      p0503b validates a bearer token against ONE OIDC authority and the server's own
+      configuration comments name a Keycloak realm as a first-class case. A client written for a
+      single directory would make the dashboard work against a subset of the authorities the
+      server already accepts, and the mismatch would surface as a customer's issuer simply not
+      working. The library is chosen for speaking discovery and PKCE and for nothing else: one
+      dependency, Apache-2.0, no directory assumptions anywhere in its surface.
+      Writing the flow by hand would mean owning the code challenge, the state check, the nonce
+      check, the discovery cache and the silent-renew iframe — five places to be subtly wrong in
+      the one part of the dashboard where being subtly wrong is a security defect.
+  - category: Architecture
+    chose: "A module-level token store, with the React side reading the same singleton"
+    over: "React state, a context, or a store owned by a provider"
+    reason: |
+      The two outgoing points are apiFetch and JobsHubClient. Neither is a component and neither
+      can call a hook, so a token that lives in React state is a token they cannot read. The
+      store is therefore a plain module singleton — the same shape loadRuntimeSettings already
+      has — and it exposes subscribe() so a React surface can render off it without becoming its
+      owner. The next phase's sign-in button reads the same store the hub reads.
+  - category: Implementation
+    chose: "The token is held in memory and never in web storage"
+    over: "localStorage or sessionStorage, which is what the library defaults to"
+    reason: |
+      This token is equivalent to run control, the config store and every secret the config store
+      guards. Anything that achieves script execution in the page can read web storage; it cannot
+      read a closure. Held in memory the token dies with the tab, and the authority's own session
+      — which is what a directory exists to hold — makes the next load a silent redirect nobody
+      sees. The library's default user store is sessionStorage, so this is a configuration
+      choice that had to be made explicitly, and a test pins it rather than trusting it.
+      The PKCE verifier and the anti-forgery state are the one exception, and deliberately so:
+      they have to survive the navigation to the authority and back, which is exactly what memory
+      cannot do. Neither is a credential and both are worthless without the authorization code
+      they were minted for. They go in sessionStorage — per tab, dropped with it — rather than the
+      library's default of localStorage, which outlives the tab.
+  - category: Implementation
+    chose: "The store schedules its own renewal a minute before expiry and EMPTIES when it fails"
+    over: "The library's automaticSilentRenew, or renewing after the first 401"
+    reason: |
+      A tab open longer than a token lives has to keep working, and a renewal that starts after
+      the first refusal has already cost the operator a failed call they did not cause. The
+      library would renew on the same schedule, but a renewal it cannot complete leaves the
+      refused token in place — and a token the server refuses fails every call in a way that
+      reads as a server fault rather than as being signed out. Owning the timer is also what
+      makes both halves testable without an iframe.
+  - category: Implementation
+    chose: "Boot attempts a SILENT sign-in only; the visible one is signIn(), which nothing calls yet"
+    over: "An interactive redirect on boot when no token is held"
+    reason: |
+      An automatic interactive redirect on boot is a redirect loop waiting to happen, and it would
+      take over a dashboard whose server enforces nothing by default. Silent succeeds against a
+      live directory session and is invisible; when it fails the person stays signed out and every
+      surface keeps working exactly as it does today. The button that calls signIn() is the next
+      phase, so signIn is exported and uncalled.
+  - category: Implementation
+    chose: "Every outgoing call awaits the sign-in loop before it is issued"
+    over: "Reading the store synchronously and letting the loop settle in the background"
+    reason: |
+      Not awaiting would make the first render of every page load a burst of requests carrying no
+      token — which, the moment an installation enforces, is a burst of 401s nobody caused. The
+      loop resolves once per tab and the settings document behind it is already fetched at boot
+      by the provider, so the cost is one shared promise rather than one wait per call. Six
+      existing tests asserted a fetch synchronously inside a click handler and now wait for it;
+      that is the behaviour change, stated rather than worked around.
+  - category: Implementation
+    chose: "A token FACTORY on the hub, never a captured token"
+    over: "Reading the token once and passing it into withUrl"
+    reason: |
+      SignalR asks again on every reconnect. A token frozen at connect time is a connection that
+      reconnects forever an hour later without ever saying why. The factory returns the empty
+      string when nothing is held, which is the value SignalR already treats as "no token" — it
+      appends neither the query parameter p0503c reads nor an Authorization header — so an
+      installation with no authority makes byte-identically the handshake it makes today.
+  - category: Implementation
+    chose: "The callback route waits for the one boot rather than starting a second exchange"
+    over: "A callback page that calls signinRedirectCallback itself"
+    reason: |
+      The boot already has to decide what this load is: on the redirect path the code exchange IS
+      this load's sign-in, so a silent attempt beside it would be a second sign-in against the
+      same directory session. Putting the branch in the boot leaves the route with the one thing
+      it actually owes the person — the way back to where they were, and a visible reason when the
+      authority refused. It is a client component because the shell is prerendered and an
+      authorization code exists only in a browser's URL.
+  - category: Implementation
+    chose: "Sign-out ends the local session and asks the authority to end its own where it publishes one"
+    over: "Dropping the in-memory token, or failing when no end-session endpoint exists"
+    reason: |
+      Dropping only the token leaves the authority's session standing, so the next silent renewal
+      signs the same person straight back in and the button looks broken. An authority that
+      publishes no end-session endpoint is not an error — the local session still ends, and the
+      metadata lookup that finds nothing is a debug line rather than a throw.

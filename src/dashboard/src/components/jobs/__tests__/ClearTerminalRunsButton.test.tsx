@@ -23,9 +23,13 @@ describe("ClearTerminalRunsButton", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
 
     fireEvent.click(button);
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      "/api/runs?state=terminal",
-      expect.objectContaining({ method: "DELETE" }),
+    // 2026-08-25-2de1: the sign-in loop settles before the first request goes
+    // out, so the call lands a tick after the click rather than inside it.
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/runs?state=terminal",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
     );
     await waitFor(() => expect(button).toHaveTextContent("clear finished"));
   });

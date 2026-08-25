@@ -10,6 +10,8 @@
 // interface. What it does is give that check somewhere to go once the REST
 // contract is generated from the server: one function, one edit.
 
+import { currentAccessToken } from "@/lib/auth/session";
+
 /** The API origin every request is composed against. Empty means same-origin. */
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -36,8 +38,20 @@ export class ApiResponseError extends Error {
 
 /** One fetch, composed against the API origin. No status check — the caller
  *  that branches on 404/409 needs the response, not an exception. */
-export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(apiUrl(path), init);
+export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  return fetch(apiUrl(path), await authorized(init));
+}
+
+// 2026-08-25-2de1: this being the ONE outgoing point is what makes the bearer one
+// line rather than fifteen. No token held returns the caller's init untouched, so
+// an installation with no authority sends the request it has always sent, header
+// for header.
+async function authorized(init?: RequestInit): Promise<RequestInit | undefined> {
+  const token = await currentAccessToken();
+  if (!token) return init;
+  const headers = new Headers(init?.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+  return { ...init, headers };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import {
   ApiResponseError,
   apiFetch,
@@ -12,6 +12,15 @@ import {
 // their own body with a bare `as`. These cases pin what the one reader owes its
 // callers — a message that names the surface, and a single place to change when
 // the shape does.
+
+// 2026-08-25-2de1: apiFetch's contract towards the sign-in loop is exactly "send
+// whatever the accessor says, or nothing at all" — the loop itself is pinned by
+// its own cases, so it is stubbed here rather than booted.
+const auth = vi.hoisted(() => ({ token: null as string | null }));
+
+vi.mock("@/lib/auth/session", () => ({
+  currentAccessToken: async () => auth.token,
+}));
 
 function response(init: {
   ok?: boolean;
@@ -27,9 +36,18 @@ function response(init: {
   } as unknown as Response;
 }
 
+beforeEach(() => {
+  auth.token = null;
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/** The RequestInit apiFetch actually sent. */
+function sentInit(fetchMock: ReturnType<typeof vi.fn>): RequestInit {
+  return fetchMock.mock.calls[0][1] as RequestInit;
+}
 
 describe("apiUrl", () => {
   it("apiUrl_NoConfiguredOrigin_ComposesASameOriginPath", () => {
@@ -106,5 +124,43 @@ describe("getJson and sendJson", () => {
     const res = await apiFetch("/api/runs/nope");
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("apiFetch and the bearer header", () => {
+  it("ApiFetch_StoreEmpty_SendsNoAuthorizationHeader", async () => {
+    // An installation with no authority configured sends the request this client
+    // has always sent — the caller's init, untouched.
+    const fetchMock = vi.fn().mockResolvedValue(response({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiFetch("/api/runs", { method: "GET" });
+
+    expect(sentInit(fetchMock)).toEqual({ method: "GET" });
+  });
+
+  it("ApiFetch_StoreHoldsAToken_SendsItAsABearer", async () => {
+    auth.token = "at-1";
+    const fetchMock = vi.fn().mockResolvedValue(response({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiFetch("/api/runs");
+
+    const headers = new Headers(sentInit(fetchMock).headers);
+    expect(headers.get("Authorization")).toBe("Bearer at-1");
+  });
+
+  it("ApiFetch_ExistingHeaders_ArePreserved", async () => {
+    auth.token = "at-1";
+    const fetchMock = vi.fn().mockResolvedValue(response({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendJson("POST", "/api/config/agents", { id: "a" });
+
+    const init = sentInit(fetchMock);
+    const headers = new Headers(init.headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("Authorization")).toBe("Bearer at-1");
+    expect(init.body).toBe(JSON.stringify({ id: "a" }));
   });
 });
