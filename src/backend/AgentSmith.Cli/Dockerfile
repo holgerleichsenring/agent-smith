@@ -19,10 +19,11 @@ COPY src/backend/AgentSmith.SkillsPackaging/AgentSmith.SkillsPackaging.csproj sr
 RUN dotnet restore src/backend/AgentSmith.Cli/AgentSmith.Cli.csproj
 
 # Schemas embedded into AgentSmith.Application via Link (p0128a, p0315b).
-# csproj references ../../.agentsmith/schemas/*.json and
-# ../../.agentsmith/phase-spec.schema.json relative to the project dir.
+# 2026-08-25-2103: the root schemas are copied as a SET, not as named files. c9c7 embedded
+# context.schema.json and this list did not hear about it, so every image failed at publish
+# with CS1566 while the checkout built green. ImageBuildCopiesEmbedsTests holds the pair.
 COPY .agentsmith/schemas/ .agentsmith/schemas/
-COPY .agentsmith/phase-spec.schema.json .agentsmith/
+COPY .agentsmith/*.schema.json .agentsmith/
 
 # Copy source and publish
 COPY src/ src/

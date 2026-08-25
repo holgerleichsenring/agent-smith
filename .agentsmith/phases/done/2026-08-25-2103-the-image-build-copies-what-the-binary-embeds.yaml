@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-2103
+
+goal: "Every file the binary embeds is a file the image build copies, and a test says so before the registry does."
+
+applies_to: "backend (the image builds and the architecture rules over them)"
+
+scope:
+  in: "The two Dockerfiles that publish the Application project, and the rule that holds their copy list to what that project embeds."
+  out: "What is embedded, and where the schemas live. Both are settled; only the build's knowledge of them was stale."
+
+decisions:
+  - key: |
+      THE CSPROJ GREW A SCHEMA AND THE BUILD DID NOT HEAR ABOUT IT. c9c7 embedded
+      .agentsmith/context.schema.json so the binary carries the file this repository validates its
+      own contexts against. The Dockerfiles copy .agentsmith/schemas/ and one named file at the
+      root — a list written by hand, once, and never revisited. So the compiler asked for a file
+      that is not in the build context and every image failed at publish with CS1566.
+  - key: |
+      LOCAL GREEN PROVED NOTHING ABOUT THE IMAGE. On a checkout every one of those files is on
+      disk, so build, tests and the phase gate all pass while the image cannot be produced at all.
+      The gate does not build images, and it should not — a rule that reads the Dockerfile costs
+      milliseconds and catches the same class.
+  - key: |
+      THE COPY LIST STOPS BEING A LIST. A root-level schema glob covers today's two files and every
+      one added later, so the next embed needs no Dockerfile edit at all — the failure mode this
+      phase is fixing cannot recur through the root.
+  - key: |
+      AND THE RULE JUDGES THE PAIR, NOT THE GLOB. A Dockerfile that publishes the Application
+      project must copy every .agentsmith path that project embeds. That is the actual invariant:
+      it still holds if a future embed lands somewhere no glob covers, which is exactly the case a
+      broader COPY would silently hide.
+
+steps:
+  - id: the-image-build-copies-every-root-schema
+    action: "Both image builds copy the schemas at the methodology root, not one named file, so what the binary embeds is present when it compiles."
+  - id: the-copy-list-is-held-to-the-embed-list
+    action: "A rule reads the embedded-resource paths out of the project and asserts every Dockerfile that publishes it copies each one, so the two cannot drift apart unnoticed again."
+
+tests:
+  - "ImageBuild_EveryEmbeddedMethodologyFile_IsCopiedByEveryDockerfileThatPublishesIt"
+  - "ImageBuild_TheEnumeration_FindsBothTheEmbedsAndTheDockerfiles"
+
+done:
+  - "the server and CLI images build again"
+  - "a test fails the moment an embedded methodology file is not in the image build's context"
+  - "build green, full suite green"
