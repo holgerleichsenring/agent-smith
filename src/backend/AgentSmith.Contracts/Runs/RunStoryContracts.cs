@@ -77,24 +77,21 @@ public static class LedgerTransitionCauses
 /// the master reported no disposition for it). Outcome/RatifiedBy carry the
 /// ratification facts (verbatim / edited / unratified, and who ratified).
 /// </summary>
+/// <param name="Source">2026-08-25-7f5a: which judge decided these — see
+/// <see cref="AcceptanceSources"/>. Null on every run written before the distinction.</param>
 public sealed record AcceptanceView(
     IReadOnlyList<AcceptanceCriterionView> Criteria,
     string Outcome,
-    string RatifiedBy);
+    string RatifiedBy,
+    string? Source = null);
 
+/// <param name="Citation">2026-08-25-7f5a: what the disposition was decided on — a path, a
+/// command, or a searched pattern. A verdict nobody can check is a verdict nobody checks.</param>
 public sealed record AcceptanceCriterionView(
     string Text,
     string Status,
-    string? Reason);
-
-/// <summary>Criterion-status vocabulary of <see cref="AcceptanceCriterionView"/>.</summary>
-public static class AcceptanceCriterionStatuses
-{
-    public const string Met = "met";
-    public const string Unmet = "unmet";
-    public const string NotApplicable = "not_applicable";
-    public const string Unproven = "unproven";
-}
+    string? Reason,
+    string? Citation = null);
 
 /// <summary>
 /// p0344b: one (de)serializer for the run-story JSON persisted on the run row

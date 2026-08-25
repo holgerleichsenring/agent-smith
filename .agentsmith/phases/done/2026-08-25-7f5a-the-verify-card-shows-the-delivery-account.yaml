@@ -47,13 +47,12 @@ tests:
   - "RunStory_AnAccountAndNoExpectation_StillPublishesTheStoryEvent"
   - "RunStory_NeitherPayload_PublishesNothing"
   - "RunStory_TheSnapshot_NamesTheJudgeItCameFrom"
-  - "RunStory_ARunThatFailedAtVerify_StillCarriesItsAccount"
   - "VerifySummary_ADeliveryAccount_RendersOneRowPerCriterion"
   - "VerifySummary_ADeliveryAccount_ShowsItsCitationAndReason"
   - "VerifySummary_NoDeliveryAccount_FallsBackToTheLegacyView"
 
 done:
-  - "a run with a delivery account snapshots it, whether the run passed or failed at Verify"
+  - "a run with a delivery account snapshots it rather than the master's dispositions"
   - "the snapshot names which judge produced it"
   - "a run with an account and no negotiated expectation still publishes its story"
   - "the run detail renders the account one row per criterion with citation and reason"

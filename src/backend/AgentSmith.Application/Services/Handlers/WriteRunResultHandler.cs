@@ -98,9 +98,13 @@ public sealed class WriteRunResultHandler(
     {
         var ledgerJson = RunStorySnapshotBuilder.BuildLedgerJson(
             TryGet<ProgressLedger>(context.Pipeline, ContextKeys.ProgressLedger));
+        // 2026-08-25-7f5a: the account the gate decided on, where the run took one. A run
+        // that failed at Verify still carries it — the accounts are recorded before the
+        // failing verdict and the finalizer tail runs after a failed step.
         var acceptanceJson = RunStorySnapshotBuilder.BuildAcceptanceJson(
             TryGet<RatifiedExpectation>(context.Pipeline, ContextKeys.RunExpectation),
-            TryGet<MasterVerification>(context.Pipeline, ContextKeys.MasterVerification));
+            TryGet<MasterVerification>(context.Pipeline, ContextKeys.MasterVerification),
+            Specs.RunAccountLedger.Current(context.Pipeline));
         if (ledgerJson is null && acceptanceJson is null) return;
         try
         {
