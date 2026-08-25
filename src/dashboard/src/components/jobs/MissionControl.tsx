@@ -12,6 +12,7 @@ import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
 import { NeedsYouCard } from "./mission/NeedsYouCard";
 import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
+import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { cn } from "@/lib/utils";
 
 // p0343: mission control — the home screen ranks tickets-worked-as-jobs by what
@@ -112,7 +113,9 @@ export function MissionControl() {
           emptyLine={EMPTY_LINE["needs-you"]}
         >
           {buckets.needsYou.map((run) => (
-            <NeedsYouCard key={run.runId} snapshot={run} />
+            <RenderBoundary key={run.runId} surface={`run ${run.runId}`}>
+              <NeedsYouCard snapshot={run} />
+            </RenderBoundary>
           ))}
         </Section>
       )}
@@ -179,11 +182,16 @@ export function MissionControl() {
   );
 }
 
+// 2026-08-25-39ab: one boundary per row. A run whose snapshot this build cannot
+// render costs its own row a named error and nothing else — every other run in
+// the bucket, and the rest of the home screen, keeps rendering.
 function RowList({ runs }: { runs: Parameters<typeof RunRow>[0]["snapshot"][] }) {
   return (
     <div className="rows">
       {runs.map((run) => (
-        <RunRow key={run.runId} snapshot={run} />
+        <RenderBoundary key={run.runId} surface={`run ${run.runId}`}>
+          <RunRow snapshot={run} />
+        </RenderBoundary>
       ))}
     </div>
   );

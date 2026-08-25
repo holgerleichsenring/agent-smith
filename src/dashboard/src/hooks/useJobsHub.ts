@@ -132,9 +132,12 @@ function isDebugMode(): boolean {
  * surfaces under ?debug=1 for devs.
  */
 export function isPreSpawnZombie(snapshot: RunSnapshot): boolean {
-  if (snapshot.repos.length > 0) return false;
+  // 2026-08-25-39ab: a snapshot without repos or without a status is not a
+  // zombie — it is a snapshot the server answered without those fields, and the
+  // filter reads them as absent instead of dereferencing them.
+  if ((snapshot.repos ?? []).length > 0) return false;
   if (snapshot.totalSteps > 0 || snapshot.stepIndex > 0) return false;
-  return snapshot.status.toLowerCase() === "running";
+  return (snapshot.status ?? "").toLowerCase() === "running";
 }
 
 export function applySnapshotFilters(snapshot: OverviewSnapshot, debug: boolean): OverviewSnapshot {

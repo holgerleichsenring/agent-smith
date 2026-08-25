@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AppRail } from "@/components/shell/AppRail";
+import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { DegradedBanner } from "@/components/shell/DegradedBanner";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
@@ -39,12 +40,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <EventStoreProvider>
           <ConfigCatalogProvider>
             <RunBucketFilterProvider>
+              {/* 2026-08-25-39ab: the layout sits ABOVE the route boundary, so a
+                  throw in the rail or the banner escapes error.tsx and blanks the
+                  document. Each gets its own boundary: the rail failing must not
+                  cost the operator the run they were reading. */}
               <div className="grid min-h-screen grid-cols-[230px_1fr]">
-                <AppRail />
+                <RenderBoundary surface="navigation rail">
+                  <AppRail />
+                </RenderBoundary>
                 {/* p0391a: the server always starts, so "it came up" no longer means
                     "it is fine" — the banner names what is down, above every route. */}
                 <main className="h-screen overflow-y-auto">
-                  <DegradedBanner />
+                  <RenderBoundary surface="installation health banner">
+                    <DegradedBanner />
+                  </RenderBoundary>
                   {children}
                 </main>
               </div>
