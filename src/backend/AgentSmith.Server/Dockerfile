@@ -62,6 +62,15 @@ COPY --from=build /app/publish .
 # pulled image actually carries the fix they expected.
 COPY version.txt /app/version.txt
 
+# 2026-08-25-8c97: which build this image was made from. The release version above moves
+# only on a release commit while this image publishes on every push to the trunk, so the
+# revision is the only value that actually tells two builds apart. Unset when the image is
+# built by hand, and an image that does not know its build claims no identity at all.
+ARG AGENTSMITH_BUILD_REVISION
+ARG AGENTSMITH_RELEASE_VERSION
+ENV AGENTSMITH_BUILD_REVISION=$AGENTSMITH_BUILD_REVISION
+ENV AGENTSMITH_RELEASE_VERSION=$AGENTSMITH_RELEASE_VERSION
+
 # Config is NOT baked into the image (p0107a). Mount agentsmith.yml at
 # /app/config/agentsmith.yml via a K8s ConfigMap volume or a Docker bind-mount.
 # If the file is missing, Server fails fast at startup with a clear error.

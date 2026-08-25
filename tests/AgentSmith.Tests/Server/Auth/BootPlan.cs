@@ -30,6 +30,14 @@ public sealed record BootPlan(string ConfigPath)
     /// </summary>
     public IReadOnlyList<Type> HostedServices { get; init; } = [];
 
+    /// <summary>
+    /// 2026-08-25-8c97: the clock this case asserts on, or null for the system one. Named
+    /// only by a case whose subject is a duration the server measures — a build difference
+    /// is withheld for as long as a rolling update could still be in flight, and no test
+    /// can wait that out.
+    /// </summary>
+    public TimeProvider? Clock { get; init; }
+
     /// <summary>What REDIS_URL is set to for the boot — the dead address either way, so a
     /// substituted case can never reach a Redis that happens to run on the machine.</summary>
     public string RedisUrl => UnreachableRedis ?? NothingAnswers;
