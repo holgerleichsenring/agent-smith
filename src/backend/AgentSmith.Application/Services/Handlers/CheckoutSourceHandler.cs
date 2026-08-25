@@ -49,12 +49,15 @@ public sealed class CheckoutSourceHandler(
         {
             var config = context.Configs[i];
             logger.LogInformation("Checking out {Repo} into its sandbox(es) at /work...", config.Name);
-            var repo = await cloner.CheckoutIntoSandboxesAsync(
+            var checkout = await cloner.CheckoutIntoSandboxesAsync(
                 config, context.Branch,
                 sandboxTargets.SandboxesForRepo(context.Pipeline, config), ct);
-            if (repo is null)
-                return CommandResult.Fail($"Checkout failed for repo '{config.Name}'.");
-            if (i == 0) primary = repo;
+            // p0496: the reason travels with the failure. Returning before
+            // ContextKeys.Repository is set is also what keeps the finalizer's
+            // PersistWorkBranch from staging and force-pushing this tree.
+            if (checkout.Repository is null)
+                return CommandResult.Fail($"Checkout failed for repo '{config.Name}': {checkout.Problem}");
+            if (i == 0) primary = checkout.Repository;
         }
         context.Pipeline.Set(ContextKeys.Repository, primary!);
         return CommandResult.Ok($"Checked out {context.Configs.Count} repo(s)");

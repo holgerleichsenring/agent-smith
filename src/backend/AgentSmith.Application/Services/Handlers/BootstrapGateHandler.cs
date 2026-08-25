@@ -58,14 +58,19 @@ public sealed class BootstrapGateHandler(
             "Bootstrap gate aborts pipeline: missing in repos {Missing} (context.yaml all-present={Context}, principles all-present={Principles})",
             missingList, contextYamlPresent, principlesPresent);
         await PublishGateAsync(runId, passed: false, $"missing in {missingList}", cancellationToken);
-        // p0355: name the rename hypothesis — a scoped repo that is unexpectedly
-        // empty/new (an operator rename the trigger didn't flag) presents exactly
-        // as missing bootstrap, and the operator should check the repo name first.
+        // p0496: state what was READ. The old text guessed ("the repo may be empty or newly
+        // renamed"), which sent an operator to verify a repository name that was correct
+        // while the file sat one branch away. The entries are sandbox keys, not repo names.
         return CommandResult.Fail(
-            $"Pipeline aborted: missing bootstrap in repos: {missingList}. " +
-            "The repo may be empty or newly renamed — verify the scoped repo name. " +
-            "Run init-project first.");
+            $"Pipeline aborted: missing bootstrap in repos: {missingList} (sandbox keys). " +
+            $"{Probed(context.Pipeline)}Run init-project first.");
     }
+
+    private static string Probed(PipelineContext pipeline) =>
+        pipeline.TryGet<BootstrapProbeReport>(ContextKeys.BootstrapProbeReport, out var report)
+        && report is not null
+            ? $"{report.Describe()} "
+            : string.Empty;
 
     private Task PublishGateAsync(string? runId, bool passed, string reason, CancellationToken ct)
     {
