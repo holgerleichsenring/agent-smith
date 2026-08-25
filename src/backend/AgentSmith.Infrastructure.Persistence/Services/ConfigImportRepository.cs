@@ -21,6 +21,10 @@ public sealed class ConfigImportRepository(AgentSmithDbContext db)
                 "Config store is not empty; pass --force to overwrite it (versions are bumped, history kept).");
         foreach (var entity in entities)
             SecretValueGuard.Validate(entity.Type, entity.Id, entity.Doc);
+        // p0515b: the force path clears the current rows, so the incoming file is the whole
+        // truth — and it is checked before the transaction opens, so a colliding pair cannot
+        // wipe a store it was never going to replace.
+        ConfigNameCollisionGuard.WithinSet(entities);
 
         using var tx = db.Database.BeginTransaction();
         if (force) ClearCurrent();
