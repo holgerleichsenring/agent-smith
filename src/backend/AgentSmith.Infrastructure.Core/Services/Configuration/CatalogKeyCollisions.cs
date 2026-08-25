@@ -21,7 +21,7 @@ public sealed class CatalogKeyCollisions
         string catalog, IEnumerable<string> keys, List<StartupFinding> findings)
     {
         var dropped = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var group in keys.GroupBy(ConfigNames.Normalize, StringComparer.Ordinal))
+        foreach (var group in keys.GroupBy(k => k, ConfigNames.Comparer))
         {
             var spellings = group.OrderBy(k => k, StringComparer.Ordinal).ToList();
             if (spellings.Count < 2) continue;

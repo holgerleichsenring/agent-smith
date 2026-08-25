@@ -32,13 +32,14 @@ public sealed class ConfigNamesTests
     }
 
     [Fact]
-    public void Normalize_MatchesTheComparer_OnTheCodePointsLowercasingGetsWrong()
+    public void Grouping_ByTheComparer_AgreesWithTheComparer_OnTheCodePointsUppercasingGetsWrong()
     {
-        // Ordinal-ignore-case IS invariant uppercasing. Lowercasing is a different
-        // equivalence: 'ſ' (U+017F) lowercases to itself but uppercases to 'S'.
+        // The trap a second form of the rule sets: invariant uppercasing folds 'ſ' (U+017F) onto
+        // 'S', ordinal-ignore-case does not. A detector keyed by an uppercased name would drop a
+        // pair the catalogs keep apart, so grouping is done with the comparer itself.
         ConfigNames.AreSame("ſ", "S").Should().BeFalse();
-        ConfigNames.Normalize("Demo").Should().Be(ConfigNames.Normalize("DEMO"));
-        ConfigNames.Normalize("Demo").Should().Be("DEMO");
+        new[] { "ſ", "S" }.GroupBy(k => k, ConfigNames.Comparer).Should().HaveCount(2);
+        new[] { "Demo", "DEMO" }.GroupBy(k => k, ConfigNames.Comparer).Should().HaveCount(1);
     }
 
     [Fact]
