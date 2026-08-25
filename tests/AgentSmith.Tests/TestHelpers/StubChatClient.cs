@@ -12,10 +12,14 @@ namespace AgentSmith.Tests.TestHelpers;
 /// </summary>
 internal sealed class StubChatClient(Queue<string> responses) : IChatClient
 {
+    /// <summary>How many model calls the code under test actually spent.</summary>
+    public int InvocationCount { get; private set; }
+
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        InvocationCount++;
         var text = responses.Count > 0 ? responses.Dequeue() : "[]";
         return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
     }

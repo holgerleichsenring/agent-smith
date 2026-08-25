@@ -37,6 +37,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="AgentSmith.Tests" />
     <InternalsVisibleTo Include="AgentSmith.Cli" />
+    <!-- p0413a: the harness's scripted chat client recognises the scope-classifier
+         call by its system prompt, from the prompt constant itself rather than a
+         copy of its wording that would silently stop matching. -->
+    <InternalsVisibleTo Include="AgentSmith.PipelineHarness" />
   </ItemGroup>
 
   <ItemGroup>
