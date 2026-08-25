@@ -31,12 +31,43 @@ async function begin(): Promise<AuthSession | null> {
   const session = new AuthSession(client, getAccessTokenStore());
   // On the callback route the code exchange IS this load's sign-in. A silent
   // attempt beside it would be a second one against the same directory session.
-  await (isCallback(auth.redirectPath) ? session.complete() : session.restore());
+  if (isCallback(auth.redirectPath)) {
+    await session.complete();
+    forgetAuthorityAnswer();
+  } else {
+    await session.restore();
+  }
   return session;
 }
 
+// An authorization code is single-use, and after the exchange it is spent. Left
+// in the address bar it survives into history and into whatever the person
+// copies out of it, and the next reload of that URL exchanges it a second time —
+// which the authority refuses, emptying a store that was correctly filled a
+// moment ago. Only the authority's own parameters go; a route's own query is
+// none of this function's business.
+const AUTHORITY_ANSWER = ["code", "state", "session_state", "error", "error_description", "iss"];
+
+function forgetAuthorityAnswer(): void {
+  const url = new URL(window.location.href);
+  if (!AUTHORITY_ANSWER.some((key) => url.searchParams.has(key))) return;
+  for (const key of AUTHORITY_ANSWER) url.searchParams.delete(key);
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+// The path alone does not settle it. An authority whose reply URL is registered
+// WITHOUT a path returns to "/", and a dashboard that read every visit to its own
+// home page as a callback would run the code exchange against a URL carrying no
+// code — which fails, records a refusal and empties the store, so the silent
+// restore that should have happened there never runs and the tab is permanently
+// signed out. The authority's own answer is what marks the arrival: an
+// authorization code, or the error it sends instead.
 function isCallback(redirectPath: string): boolean {
-  return window.location.pathname === new URL(redirectPath, window.location.origin).pathname;
+  if (window.location.pathname !== new URL(redirectPath, window.location.origin).pathname) {
+    return false;
+  }
+  const answer = new URLSearchParams(window.location.search);
+  return answer.has("code") || answer.has("error");
 }
 
 /** The token an outgoing call carries, once the loop has settled. */
