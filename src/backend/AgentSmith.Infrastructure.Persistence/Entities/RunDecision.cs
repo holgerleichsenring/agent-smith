@@ -5,6 +5,14 @@ public sealed class RunDecision : EntityBase
 {
     public long Id { get; set; }
     public string RunId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 2026-08-25-61f1: the trail position of the event that produced this row. The store
+    /// holds at most one row per (RunId, EventSeq), so a decision projected twice is
+    /// recorded once. Null on rows written before this phase.
+    /// </summary>
+    public long? EventSeq { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string? Reason { get; set; }
 

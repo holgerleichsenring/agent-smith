@@ -37,6 +37,7 @@ public static class RunRecordingExtensions
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
+        services.AddRunStoreRepair();
         // Last binding wins over the NoOp default the core chain registers.
         services.AddSingleton<IEventPublisher, ProjectingEventPublisher>();
         return services;

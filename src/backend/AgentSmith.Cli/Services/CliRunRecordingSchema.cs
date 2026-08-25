@@ -1,5 +1,5 @@
 using AgentSmith.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Cli.Services;
@@ -18,14 +18,16 @@ namespace AgentSmith.Cli.Services;
 /// goes on unrecorded.</para>
 /// </summary>
 public sealed class CliRunRecordingSchema(
-    AgentSmithDbContext db, ILogger<CliRunRecordingSchema> logger)
+    AgentSmithDbContext db, RunStoreMigrator migrator, ILogger<CliRunRecordingSchema> logger)
 {
     public async Task<bool> EnsureAsync(bool isLocalSqlite, CancellationToken cancellationToken)
     {
         if (!isLocalSqlite) return true;
         try
         {
-            await db.Database.MigrateAsync(cancellationToken);
+            // 2026-08-25-61f1: through the migrator, so the local store gets the same
+            // repair-then-constrain order the deployment entry point gets.
+            await migrator.MigrateAsync(db, cancellationToken);
             return true;
         }
         catch (Exception ex)
