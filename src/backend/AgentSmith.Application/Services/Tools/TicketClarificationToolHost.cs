@@ -17,6 +17,15 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public sealed class TicketClarificationToolHost : IToolHost
 {
+    /// <summary>
+    /// The ticket's label for the master's one mid-run question — the "Q1:" its comment
+    /// asks the operator to answer with, and the anchor the reply parser matches. It is a
+    /// LABEL and not an identity: two asks of one run legitimately share it, so the
+    /// answerable slot's identity is minted per ask by MasterQuestionCheckpoint
+    /// (2026-08-25-a508).
+    /// </summary>
+    private const string TicketQuestionLabel = "1";
+
     /// <summary>The first question the master asked this run, if any.</summary>
     public PlanOpenQuestion? Captured { get; private set; }
 
@@ -41,7 +50,7 @@ public sealed class TicketClarificationToolHost : IToolHost
 
         var text = string.IsNullOrWhiteSpace(context) ? question : $"{question}\n\n{context}";
         Captured = new PlanOpenQuestion(
-            "1", text, choices?.Select(c => c.label).ToList() ?? []);
+            TicketQuestionLabel, text, choices?.Select(c => c.label).ToList() ?? []);
         return "This run cannot receive a live answer. Your question will be posted to the "
             + "ticket and the run pauses until the operator answers; the answer re-triggers "
             + "a fresh run. STOP now: make no further changes, emit no verdict, and end your "

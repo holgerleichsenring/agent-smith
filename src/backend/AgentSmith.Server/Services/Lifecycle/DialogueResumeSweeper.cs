@@ -21,6 +21,7 @@ public sealed class DialogueResumeSweeper(
     IDialogueAnswerInbox inbox,
     IRunResumer runResumer,
     IParkedTicketDialogue ticket,
+    UnanswerableParkReporter unanswerableParks,
     TimeProvider timeProvider,
     ILogger<DialogueResumeSweeper> logger)
 {
@@ -56,6 +57,9 @@ public sealed class DialogueResumeSweeper(
             }
             if (await TryResumeAsync(checkpoint, ct)) resumed++;
         }
+        // a508: a park with no checkpoint is invisible to the loop above — it has nothing
+        // to wait ON, so it is reported rather than waited out.
+        await unanswerableParks.ReportAsync(ct);
         return resumed;
     }
 

@@ -77,6 +77,32 @@ public sealed class AnAnswerOnTheTicketReachesTheRunTests
         inbox.Delivered.Should().ContainSingle();
     }
 
+    /// <summary>
+    /// 2026-08-25-a508: the run asked again, so the ticket's next reply answers the SECOND
+    /// question. Under one identity per run there was one answerable slot for ever: the reply
+    /// lost to the first question's row and the run waited out its patience on a question
+    /// nobody could answer.
+    /// </summary>
+    [Fact]
+    public async Task TicketComment_AfterASecondAsk_IsDeliveredToTheSecondQuestion()
+    {
+        var inbox = new RecordingInbox();
+        var askedAgain = Asked.AddHours(2);
+        var sut = Build(inbox, [
+            Reply("jane", Asked.AddMinutes(5), "option-a"),
+            Reply("jane", askedAgain.AddMinutes(5), "option-b"),
+        ]);
+
+        (await sut.TryCollectAnswerAsync(Checkpoint(), CancellationToken.None)).Should().BeTrue();
+        var secondAsk = Checkpoint() with { QuestionId = "ask-2", AskedAt = askedAgain };
+        (await sut.TryCollectAnswerAsync(secondAsk, CancellationToken.None)).Should().BeTrue();
+
+        inbox.Delivered.Should().HaveCount(2);
+        inbox.Delivered[1].QuestionId.Should().Be("ask-2");
+        inbox.Delivered[1].Answer.Should().Be("option-b",
+            "the reply written after the second ask answers the second ask");
+    }
+
     [Fact]
     public async Task ATrackerWithNoPoll_IsLeftToItsWebhooks()
     {
@@ -89,9 +115,14 @@ public sealed class AnAnswerOnTheTicketReachesTheRunTests
     }
 
     private static ParkedTicketDialogue Build(
-        RecordingInbox inbox, TicketComment comment, TrackerType type = TrackerType.AzureDevOps)
+        RecordingInbox inbox, TicketComment comment, TrackerType type = TrackerType.AzureDevOps) =>
+        Build(inbox, [comment], type);
+
+    private static ParkedTicketDialogue Build(
+        RecordingInbox inbox, IReadOnlyList<TicketComment> comments,
+        TrackerType type = TrackerType.AzureDevOps)
     {
-        var (factory, _) = ParkedTicketFixture.Provider(comments: [comment]);
+        var (factory, _) = ParkedTicketFixture.Provider(comments);
         return new ParkedTicketDialogue(
             ParkedTicketFixture.Loader(type), ParkedTicketFixture.Context, factory, inbox,
             NullLogger<ParkedTicketDialogue>.Instance);

@@ -28,6 +28,7 @@ namespace AgentSmith.Application.Services.Triage;
 /// </summary>
 public sealed class MasterQuestionCheckpoint(
     IDialogueCheckpointWriter writer,
+    IDialogueJobIdentity jobIdentity,
     ILogger<MasterQuestionCheckpoint> logger)
 {
     /// <summary>
@@ -42,13 +43,15 @@ public sealed class MasterQuestionCheckpoint(
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(questions);
         if (questions.Count == 0) return false;
-        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
+        var jobId = jobIdentity.Resolve(pipeline);
+        if (jobId is null)
         {
-            logger.LogWarning("Mid-run question cannot be checkpointed — the run has no id");
+            logger.LogWarning("Mid-run question cannot be checkpointed — the run has no identity");
             return false;
         }
 
-        var written = await writer.TryCheckpointAsync(pipeline, Compose(questions), runId!, ct);
+        var question = Compose(questions, MintAskId());
+        var written = await writer.TryCheckpointAsync(pipeline, question, jobId, ct);
         if (!written)
             logger.LogWarning(
                 "Mid-run question was posted to the ticket but not checkpointed — it can only "
@@ -57,10 +60,19 @@ public sealed class MasterQuestionCheckpoint(
     }
 
     /// <summary>
+    /// 2026-08-25-a508: an ask carries its own identity, minted here because this is where
+    /// one ask becomes one answerable slot. The master's own question id is the TICKET's
+    /// label ("Q1:", the ordinal the operator replies with) and is the same on every leg of
+    /// every run — as the inbox key it gave a run exactly one answerable question for ever,
+    /// so a second ask's answer lost to the first ask's row.
+    /// </summary>
+    private static string MintAskId() => Guid.NewGuid().ToString("N");
+
+    /// <summary>
     /// One question carries the master's ask. Several are rendered as one text because the
     /// operator answers them together, in one reply, exactly as the ticket comment asks.
     /// </summary>
-    internal static DialogQuestion Compose(IReadOnlyList<PlanOpenQuestion> questions)
+    internal static DialogQuestion Compose(IReadOnlyList<PlanOpenQuestion> questions, string askId)
     {
         var first = questions[0];
         var text = questions.Count == 1
@@ -70,7 +82,7 @@ public sealed class MasterQuestionCheckpoint(
             ? questions[0].Options.Select(o => new DialogChoice(o, o)).ToList()
             : null;
         return new DialogQuestion(
-            first.Id, choices is null ? QuestionType.FreeText : QuestionType.Choice,
+            askId, choices is null ? QuestionType.FreeText : QuestionType.Choice,
             text, Context: null, choices, DefaultAnswer: null, Patience);
     }
 }
