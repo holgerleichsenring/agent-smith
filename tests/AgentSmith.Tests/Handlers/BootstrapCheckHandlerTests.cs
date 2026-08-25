@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Sandbox.Wire;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,6 +23,12 @@ public sealed class BootstrapCheckHandlerTests
     public BootstrapCheckHandlerTests()
     {
         _readerFactoryMock.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(_readerMock.Object);
+        // p0496: the probe report asks the clone for its base branch; this sandbox has no git.
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, 128, false, 0.0, "not a git repository")));
     }
 
     [Fact]
@@ -102,7 +109,8 @@ public sealed class BootstrapCheckHandlerTests
     }
 
     private BootstrapCheckHandler Handler() => new(
-        _readerFactoryMock.Object,
+        new BootstrapContextProbe(_readerFactoryMock.Object, NullLogger<BootstrapContextProbe>.Instance),
+        AgentSmith.Tests.TestHelpers.TestGit.BaseBranch,
         RunStateConceptsTestFactory.Default,
         new SandboxTargets(), NullLogger<BootstrapCheckHandler>.Instance);
 }

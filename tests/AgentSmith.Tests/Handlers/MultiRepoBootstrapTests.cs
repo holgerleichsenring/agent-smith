@@ -11,6 +11,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Activation;
+using AgentSmith.Sandbox.Wire;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -177,6 +178,12 @@ public sealed class MultiRepoBootstrapTests
         {
             _repos.Add(new RepoConnection { Name = name, Type = RepoType.GitHub, Url = $"https://x/{name}.git" });
             _sandboxes[name] = new Mock<ISandbox>();
+            // p0496: the probe report asks the clone for its base branch; this sandbox has no git.
+            _sandboxes[name].Setup(s => s.RunStepAsync(
+                    It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+                .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                    Task.FromResult(new StepResult(
+                        StepResult.CurrentSchemaVersion, step.StepId, 128, false, 0.0, "not a git repository")));
             // After p0161a each sandbox is keyed by sandbox-key (= repo name in
             // multi-repo single-context). Bootstrap probes the per-context MetaDir.
             _exists[(name, $"/work/.agentsmith/contexts/default/context.yaml")] = contextYaml;
@@ -197,7 +204,9 @@ public sealed class MultiRepoBootstrapTests
                     kv => new RemoteContextDiscovery("default", ".", null),
                     StringComparer.Ordinal));
             var handler = new BootstrapCheckHandler(
-                _readerFactoryMock.Object,
+                new BootstrapContextProbe(
+                    _readerFactoryMock.Object, NullLogger<BootstrapContextProbe>.Instance),
+                TestGit.BaseBranch,
                 RunStateConceptsTestFactory.Default,
                 new SandboxTargets(), NullLogger<BootstrapCheckHandler>.Instance);
             return handler.ExecuteAsync(new BootstrapCheckContext(Pipeline), CancellationToken.None);
