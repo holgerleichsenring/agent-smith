@@ -9,6 +9,7 @@ DELETE	/api/config/secrets/{id}	secrets.write
 DELETE	/api/config/trackers/{id}	config.write
 DELETE	/api/runs	runs.delete
 DELETE	/api/runs/{runId}	runs.delete
+GET	/api/auth/requirements	anonymous
 GET	/api/catalog	catalog.read
 GET	/api/catalog/skills/{name}	catalog.read
 GET	/api/config	config.read

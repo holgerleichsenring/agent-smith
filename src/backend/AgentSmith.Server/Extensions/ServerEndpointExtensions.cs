@@ -23,6 +23,9 @@ internal static class ServerEndpointExtensions
     {
         app.MapHealthEndpoints()
            .MapStartupFindingsEndpoints()
+           // 2026-08-25-4530: unconditional for the findings route's reason — it explains
+           // an installation whose dashboard cannot reach anything else.
+           .MapAuthRequirementsEndpoints()
            .MapSlackEndpoints()
            .MapTeamsEndpoints()
            .MapWebhookEndpoints();
