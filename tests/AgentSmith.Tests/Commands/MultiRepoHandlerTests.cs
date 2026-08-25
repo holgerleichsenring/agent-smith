@@ -75,10 +75,11 @@ public sealed class MultiRepoHandlerTests
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
 
-        var cloner = new SandboxRepoCloner(factory.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance);
+        var cloner = new SandboxRepoCloner(factory.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance);
         var sandboxes = new[] { new KeyValuePair<string, ISandbox>("server", sandbox.Object) };
 
-        await cloner.CheckoutIntoSandboxesAsync(config, ticket, sandboxes, CancellationToken.None);
+        await cloner.CheckoutIntoSandboxesAsync(
+            config, new RunBranch(ticket, ComposedFromTicket: true), sandboxes, CancellationToken.None);
 
         sandbox.Verify(s => s.RunStepAsync(
             It.Is<Step>(st => st.Command == "git"
@@ -168,11 +169,11 @@ public sealed class MultiRepoHandlerTests
         private readonly List<RepoConnection> _repos = new();
         private readonly Dictionary<string, Mock<ISandbox>> _sandboxes = new(StringComparer.Ordinal);
         private readonly Mock<ISourceProviderFactory> _factoryMock = new();
-        private readonly BranchName? _branch;
+        private readonly RunBranch? _branch;
 
         public CheckoutHarness(string? branch = null)
         {
-            _branch = branch is null ? null : new BranchName(branch);
+            _branch = branch is null ? null : new RunBranch(new BranchName(branch), ComposedFromTicket: true);
         }
 
         public Mock<ISandbox> GetSandbox(string repoName) => _sandboxes[repoName];
@@ -218,7 +219,7 @@ public sealed class MultiRepoHandlerTests
                 ContextKeys.Sandboxes,
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CheckoutSourceHandler(
-                new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance),
+                new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
                 RunStateConceptsTestFactory.Default,
                 new SandboxTargets(), NullLogger<CheckoutSourceHandler>.Instance);
             return handler.ExecuteAsync(new CheckoutSourceContext(_repos, _branch, Pipeline), CancellationToken.None);
@@ -288,7 +289,7 @@ public sealed class MultiRepoHandlerTests
                 new SecretPatternScanner(),
                 EventTestStubs.NoOp,
                 new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
-                new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+                new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
                 new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),

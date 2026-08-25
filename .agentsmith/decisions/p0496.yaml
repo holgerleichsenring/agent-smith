@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0496
+
+decisions:
+  - category: Architecture
+    chose: "Merge only when the run composed the branch from its own ticket, carried as RunBranch(Name, ComposedFromTicket)"
+    over: "Merging whenever a checkout of an existing branch succeeds, or matching the agent-smith/ name prefix"
+    reason: |
+      SandboxRepoCloner receives a branch that may be a contributor's pull-request head
+      (the three PR/MR webhook handlers set ContextKeys.CheckoutBranch to it), a scan target,
+      or agentsmith/init — and both the PrReview and SecurityScan presets go through
+      CheckoutSource. GitBranchPusher force-pushes with a lease, so a merge written into one
+      of those lands in somebody else's branch. A name prefix would not help either: a review
+      run on agent-smith's OWN pull request presents with exactly that prefix while still
+      being a branch this run did not compose. The distinction is structural — the branch came
+      from ContextKeys.CheckoutBranch or from TicketBranchNamer.Compose — so it is carried as
+      a type, resolved once in RunBranchResolver, and the two call sites that used to duplicate
+      the resolution now share it.
+  - category: Implementation
+    chose: "git merge --no-edit origin/<base>, fast-forward allowed, preceded by git merge-base --is-ancestor"
+    over: "--no-ff, a plain <base> ref, matching git's 'Already up to date.' text, or a git fetch first"
+    reason: |
+      The remote-tracking ref is the one that is guaranteed fresh from the clone; the local
+      branch of the same name may not exist at all after a checkout of the work branch.
+      --no-edit is what keeps git from opening an editor for the merge message in a sandbox
+      that has none. Fast-forward is left ON: it only happens when the work branch carries
+      nothing of its own, and moving the pointer forward is exactly the additive result --no-ff
+      would dress up as a merge commit. The up-to-date question is answered by exit code from
+      merge-base --is-ancestor (0 ancestor, 1 not, anything else unreadable) rather than by
+      matching git's English, which is locale- and version-dependent — the same bug class that
+      p0322c fixed in the commit path. No fetch: the clone is full (no --depth, no
+      --single-branch) so origin/<base> is already local, and BuildCheckoutStep carries no
+      credentials — only BuildCloneStep does — so a fetch would pass every test and fail in
+      production.
+  - category: Architecture
+    chose: "A conflicting merge is aborted inside the merger, then stops the run through a null Repository"
+    over: "Leaving the conflicted tree for the operator to inspect, or continuing half-merged"
+    reason: |
+      On failure PipelineExecutor still runs the finalizer tail, and PersistWorkBranch does
+      git add -A and force-pushes. A tree carrying conflict markers must therefore never
+      outlive the merge attempt, so git merge --abort runs before the result is returned and
+      every outcome leaves a clean tree. The run stop rides on the existing guard:
+      CheckoutSourceHandler returns Fail before it sets ContextKeys.Repository, and
+      PersistWorkBranchHandler bails on that key's absence. That guard was accidental and
+      untested; ConflictedCheckoutStopsThePushTests pins it end to end.
+  - category: Implementation
+    chose: "The identity is configured per sandbox between the clone and the branch switch"
+    over: "Leaving EnsureIdentityAsync after the loop as it was"
+    reason: |
+      A fast-forward merge needs no committer and would have passed; a three-way merge writes
+      a merge commit and fails with 'Author identity unknown'. The old order established the
+      identity only after every sandbox had already switched branches, so the defect would have
+      appeared only on the runs that most needed the merge. It cannot move before the clone —
+      git config with no --global has no repository to write to until then.
+  - category: Implementation
+    chose: "SandboxBaseBranch, extracted from DeliveryDiff, is the single answer to 'what is the base'"
+    over: "Reading RepoConnection.DefaultBranch, asking ISourceProvider, or a second origin/HEAD read"
+    reason: |
+      DefaultBranch is an optional override and is usually null; ISourceProvider has no such
+      question on its contract. The clone already knows, and DeliveryDiff has been asking it
+      via git symbolic-ref refs/remotes/origin/HEAD since p0420. A third implementation of the
+      same read is how the delivery account and the merge would come to disagree about which
+      branch the work is measured against.
+  - category: Implementation
+    chose: "BootstrapCheckHandler publishes a BootstrapProbeReport and the gate quotes it"
+    over: "Composing the refusal from ContextKeys.MissingBootstrapRepos alone, as before"
+    reason: |
+      The probed paths were computed in BootstrapCheckHandler and never left it, so the gate
+      had nothing to state and guessed instead: 'the repo may be empty or newly renamed —
+      verify the scoped repo name'. That sent an operator to check a repository name that was
+      correct while the file sat one branch away. The report carries what was actually read —
+      the branch, the base it was cut from, the paths — and BootstrapPaths composes those paths
+      once so the probe and the refusal cannot name different ones. The base is resolved only
+      when something is missing, so the happy path pays no git call. The 'repos' in the list
+      are sandbox keys and the message now says so; the substring PriorRunTrustGate classifies
+      on ('missing bootstrap in repos') is left intact.
+  - category: Scope
+    chose: "ensure_repo_sandbox keeps returning a string to the model on a failed checkout"
+    over: "Making the mid-run escalation stop the run the way CheckoutSource does"
+    reason: |
+      That path has ContextKeys.Repository already set, so the finalizer guard does not apply
+      there and changing its stop semantics is a different decision about how a mid-run tool
+      failure is surfaced. It is safe as it stands because the conflict is aborted before the
+      result reaches it: the sandbox it declines to use holds a clean tree. It now carries the
+      reason into the answer instead of dropping it in a log line.
+  - category: Implementation
+    chose: "BranchStateCheck counts with --no-merges and stops advising a branch deletion"
+    over: "Leaving the count and the advice as they were"
+    reason: |
+      The count is by author email, and the base merge now commits under the same framework
+      identity — so every reconciled re-run would inflate its own 'commits from an earlier run'
+      figure. Merge commits are this run's bookkeeping, not delivered work. The closing advice
+      ('delete the branch to start from a clean base') was the workaround this phase replaces,
+      and following it discards the earlier run's commits and closes the pull request hanging
+      off them; the warning now says that instead. Its doc comment also claimed the sandbox
+      clone is shallow and single-branch, which it is not.
