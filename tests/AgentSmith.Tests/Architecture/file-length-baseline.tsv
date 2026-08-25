@@ -64,7 +64,7 @@
 187	AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs
 184	AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs
 183	AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketStatusTransitioner.cs
-183	AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs
+166	AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs
 182	AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs
 181	AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs
 181	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs
@@ -116,7 +116,6 @@
 148	AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs
 147	AgentSmith.Contracts/Providers/ITicketProvider.cs
 147	AgentSmith.Infrastructure/Services/Security/SessionProvider.cs
-146	AgentSmith.Server/Services/Sandbox/SandboxOrphanReaper.cs
 144	AgentSmith.Infrastructure/Services/Security/SourceFileEnumerator.cs
 144	AgentSmith.Server/Services/Events/RunBeatsComputer.cs
 143	AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs
@@ -143,7 +142,7 @@
 132	AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs
 132	AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs
 131	AgentSmith.Server/Services/LlmIntentParser.cs
-131	AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs
+128	AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs
 129	AgentSmith.Cli/ServiceProviderFactory.cs
 129	AgentSmith.Infrastructure/Services/SensitiveToolHistoryScrubChatClient.cs
 128	AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs
