@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Resume;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
@@ -8,6 +9,7 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Specs;
 
@@ -48,9 +50,52 @@ public sealed class MidRunQuestionIsAnswerableTests
         writer.Questions.Should().BeEmpty();
     }
 
-    private static MasterOpenQuestionsHandler Handler(RecordingWriter writer) =>
+    /// <summary>
+    /// 2026-08-25-a508: two questions of one run are two questions. A run parks, is answered,
+    /// resumes and asks again — and the second ask must own a slot of its own. Under one
+    /// shared identity the second answer lost to the first ask's row, so the run parked on a
+    /// question no operator could answer until its fourteen-day patience ran out.
+    /// </summary>
+    [Fact]
+    public async Task Question_AskedTwiceInOneRun_TheAsksCarryDifferentIdentities()
+    {
+        var writer = new RecordingWriter();
+
+        await Handler(writer).ExecuteAsync(Context(asked: true), CancellationToken.None);
+        await Handler(writer).ExecuteAsync(Context(asked: true), CancellationToken.None);
+
+        writer.Questions.Should().HaveCount(2);
+        writer.Questions[0].QuestionId.Should().NotBe(writer.Questions[1].QuestionId,
+            "one answerable slot per run, for ever, is what a constant identity buys");
+    }
+
+    /// <summary>
+    /// 2026-08-25-a508: the mid-run question wrote the RUN id while the ask gate resolved the
+    /// progress reporter's job id — two keys into one inbox, so an answer could be delivered
+    /// into a slot nobody reads back. Both paths now ask the same resolver.
+    /// </summary>
+    [Fact]
+    public async Task DialogueIdentity_TheKeyWrittenAndTheKeyReadBack_AreTheSame()
+    {
+        var writer = new RecordingWriter();
+        var reporter = new Mock<IProgressReporter>();
+        reporter.Setup(r => r.JobId).Returns("job-9");
+        var identity = new DialogueJobIdentity(reporter.Object);
+        var context = Context(asked: true);
+
+        await Handler(writer, identity).ExecuteAsync(context, CancellationToken.None);
+
+        writer.JobIds.Should().ContainSingle().Which.Should().Be(
+            identity.Resolve(context.Pipeline),
+            "the key a checkpoint is written under is the key a resume reads back");
+    }
+
+    private static MasterOpenQuestionsHandler Handler(
+        RecordingWriter writer, IDialogueJobIdentity? identity = null) =>
         new(new NoOpPoster(), new FixedParkStatus(),
-            new MasterQuestionCheckpoint(writer, NullLogger<MasterQuestionCheckpoint>.Instance),
+            new MasterQuestionCheckpoint(
+                writer, identity ?? new DialogueJobIdentity(new Mock<IProgressReporter>().Object),
+                NullLogger<MasterQuestionCheckpoint>.Instance),
             NullLogger<MasterOpenQuestionsHandler>.Instance);
 
     private static MasterOpenQuestionsContext Context(bool asked)
@@ -71,10 +116,13 @@ public sealed class MidRunQuestionIsAnswerableTests
     {
         public List<DialogQuestion> Questions { get; } = [];
 
+        public List<string> JobIds { get; } = [];
+
         public Task<bool> TryCheckpointAsync(
             PipelineContext pipeline, DialogQuestion question, string dialogueJobId, CancellationToken ct)
         {
             Questions.Add(question);
+            JobIds.Add(dialogueJobId);
             return Task.FromResult(true);
         }
     }
