@@ -99,10 +99,9 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<Services.Lifecycle.RunTerminator>();
         services.AddSingleton<Services.Lifecycle.CancelEnforcer>();
 
-        // p0320c: the persistent FIFO capacity queue + its dequeue pump. The
-        // no-op default (DispatcherExtensions) is replaced by the DB-backed
-        // queue whose UNIQUE(Project,TicketId) makes "one entry, one queued
-        // run row per ticket" a database guarantee.
+        // p0320c: the persistent FIFO capacity queue + its dequeue pump. The no-op default
+        // (DispatcherExtensions) is replaced by the DB-backed queue whose
+        // UNIQUE(Project,TicketId) makes "one entry, one queued run row per ticket" a guarantee.
         services.AddScoped<QueuedTicketRepository>();
         services.RemoveAll<ICapacityQueue>();
         services.AddSingleton<ICapacityQueue, DbCapacityQueue>();
@@ -117,10 +116,9 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<ICapacityBudget, DbCapacityBudget>();
 
         // p0327: durable dialogue. Checkpoints + the answer inbox are relational
-        // (SpecDialogSession precedent — Redis is a channel, never the authority);
-        // the transport decorator writes answers durable-first; the resume
-        // sweeper (housekeeping leader) turns answered/expired checkpoints into
-        // capacity-queue resume entries the pump launches.
+        // (SpecDialogSession precedent — Redis is a channel, never the authority); the
+        // transport decorator writes answers durable-first; the resume sweeper (housekeeping
+        // leader) turns answered/expired checkpoints into capacity-queue resume entries.
         // p0393a: the work-spec pointer — carrying repo + last revision sha + hand-back
         // counters. Replaces the DB-free in-memory default so a re-trigger in another
         // process can still tell its own last revision from a reviewer's edit.
@@ -145,11 +143,14 @@ internal static class RelationalPersistenceExtensions
         // p0461: the ticket end of a parked run — an answer written on the work item, and
         // the status move back once the run picks up.
         services.AddSingleton<IParkedTicketDialogue, Services.Lifecycle.ParkedTicketDialogue>();
+        // a508: a park that holds no answerable question is reported, not waited out.
+        services.AddScoped<ParkedRunRepository>();
+        services.AddSingleton<Services.Lifecycle.UnanswerableParkReporter>();
         services.AddSingleton<Services.Lifecycle.DialogueResumeSweeper>();
 
-        // p0246c: the server-side event projector + read store + retention. The
-        // projector is resolved optionally by CompositeRunEventFanout (Program.cs).
-        // p0403: the applier's projections are services it owns, not statics it calls.
+        // p0246c: the server-side event projector + read store + retention, resolved
+        // optionally by CompositeRunEventFanout (Program.cs). p0403: the applier's
+        // projections are services it owns, not statics it calls.
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
@@ -158,18 +159,17 @@ internal static class RelationalPersistenceExtensions
         // beyond the tail-anchored drain cursor is persisted from the stream itself.
         services.AddSingleton<IRunTerminalReconciler, RunTerminalReconciler>();
         services.AddScoped<RunRepository>();
-        // p0337: single-run + bulk-terminal delete. RunDeletionRepository clears
-        // the run and its non-cascading satellites in one transaction; RunDeleter
-        // force-clears a live run (p0330 kill + lease release + queue removal)
-        // before the record delete.
+        // p0337: RunDeletionRepository clears the run and its non-cascading satellites in
+        // one transaction; RunDeleter force-clears a live run (p0330 kill + lease release +
+        // queue removal) before the record delete.
         services.AddScoped<RunDeletionRepository>();
         services.AddScoped<Services.Lifecycle.RunDeleter>();
         // p0329: ratification outcomes → expectation-metrics read surface.
         services.AddScoped<ExpectationMetricsRepository>();
         services.AddScoped<RunRetentionService>();
 
-        // p0246e: mirror the durable markdown slots into the DB so result.md /
-        // plan.md survive a process restart AND a Redis flush.
+        // p0246e: mirror the durable markdown slots into the DB so result.md / plan.md
+        // survive a process restart AND a Redis flush.
         Decorate<IRunArtifactStore>(services, (inner, sp) =>
             new DbRunArtifactStore(inner, sp.GetRequiredService<IServiceScopeFactory>()));
 
