@@ -14,9 +14,10 @@ import { fetchSetting, saveSetting } from "@/lib/configApi";
 export interface UseSetting<K extends SettingKey> {
   value: SettingShapes[K] | null;
   loading: boolean;
-  error: string | null;
+  /** The thrown value, not its message — the pane renders a refusal as a state. */
+  error: Error | null;
   saving: boolean;
-  saveError: string | null;
+  saveError: Error | null;
   reload: () => Promise<void>;
   save: (value: SettingShapes[K]) => Promise<void>;
 }
@@ -24,9 +25,9 @@ export interface UseSetting<K extends SettingKey> {
 export function useSetting<K extends SettingKey>(key: K): UseSetting<K> {
   const [value, setValue] = useState<SettingShapes[K] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<Error | null>(null);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -36,7 +37,7 @@ export function useSetting<K extends SettingKey>(key: K): UseSetting<K> {
         setValue(await fetchSetting(key, signal));
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
-        setError((err as Error).message);
+        setError(err as Error);
       } finally {
         setLoading(false);
       }
@@ -59,7 +60,7 @@ export function useSetting<K extends SettingKey>(key: K): UseSetting<K> {
       try {
         setValue(await saveSetting(key, next));
       } catch (err) {
-        setSaveError((err as Error).message);
+        setSaveError(err as Error);
         throw err;
       } finally {
         setSaving(false);

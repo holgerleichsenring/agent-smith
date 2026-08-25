@@ -8,6 +8,8 @@ import {
   type ProjectExpectationMetrics,
 } from "@/lib/expectationsApi";
 import { SystemMetricStrip, type MetricCell } from "@/components/system/SystemMetricStrip";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0329: the System → Expectations rollup — expectation-hit-rate and
 // first-PR-acceptance per project, derived from production ratification
@@ -22,23 +24,27 @@ import { SystemMetricStrip, type MetricCell } from "@/components/system/SystemMe
 
 export function ExpectationMetricsView() {
   const [data, setData] = useState<ExpectationMetrics | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchExpectationMetrics(controller.signal)
       .then(setData)
       .catch((e: Error) => {
-        if (e.name !== "AbortError") setError(e.message);
+        if (e.name !== "AbortError") setError(e);
       });
     return () => controller.abort();
   }, []);
 
+  const refusal = refusalIn(error);
+
   return (
     <div data-testid="expectations-view">
-      {error ? (
+      {refusal ? (
+        <RefusalSurface refusal={refusal} surface="the expectation metrics" />
+      ) : error ? (
         <div className="stateline err" data-testid="expectations-error">
-          Failed to load expectation metrics: {error}
+          Failed to load expectation metrics: {error.message}
         </div>
       ) : !data ? (
         <div className="stateline" data-testid="expectations-loading">

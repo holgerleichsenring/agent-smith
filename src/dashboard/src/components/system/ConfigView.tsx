@@ -7,6 +7,8 @@ import { ProjectSelect } from "./ProjectSelect";
 import { ProjectDetailPanel } from "./ProjectDetailPanel";
 import { SubsystemDetail } from "./SubsystemDetail";
 import type { SubsystemActivity } from "@/hooks/useSubsystemActivity";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0271: the System → Config view; p0343d: parity re-dress.
 // p0345c: the page now answers "is what RUNS what you CONFIGURED":
@@ -20,7 +22,7 @@ import type { SubsystemActivity } from "@/hooks/useSubsystemActivity";
 
 export function ConfigView({ activity }: { activity: SubsystemActivity }) {
   const [config, setConfig] = useState<ConfigSnapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [selected, setSelected] = useState<string>("");
   const [streamOpen, setStreamOpen] = useState(false);
 
@@ -32,13 +34,14 @@ export function ConfigView({ activity }: { activity: SubsystemActivity }) {
         setSelected(snapshot.projects[0]?.name ?? "");
       })
       .catch((e: Error) => {
-        if (e.name !== "AbortError") setError(e.message);
+        if (e.name !== "AbortError") setError(e);
       });
     return () => controller.abort();
   }, []);
 
   const selectedProject = config?.projects.find((p) => p.name === selected) ?? null;
   const drift = hasDrift(config);
+  const refusal = refusalIn(error);
 
   return (
     <div data-testid="config-view">
@@ -68,9 +71,11 @@ export function ConfigView({ activity }: { activity: SubsystemActivity }) {
           </span>
         </div>
 
-        {error ? (
+        {refusal ? (
+          <RefusalSurface refusal={refusal} surface="the resolved configuration" />
+        ) : error ? (
           <div className="stateline err" data-testid="config-view-error">
-            Failed to load config: {error}
+            Failed to load config: {error.message}
           </div>
         ) : !config ? (
           <div className="stateline" data-testid="config-view-loading">

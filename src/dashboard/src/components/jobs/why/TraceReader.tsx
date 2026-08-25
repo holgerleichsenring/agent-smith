@@ -60,7 +60,7 @@ export function TraceReader({ runId }: { runId: string }) {
 
 function TraceEntryBody({ runId, entry }: { runId: string; entry: RunTraceEntryHeader | null }) {
   const [content, setContent] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     setContent(null);
@@ -70,7 +70,7 @@ function TraceEntryBody({ runId, entry }: { runId: string; entry: RunTraceEntryH
     fetchRunTraceEntry(runId, entry.sequence, entry.label, ctrl.signal)
       .then(setContent)
       .catch((err: unknown) => {
-        if (!ctrl.signal.aborted) setError(err instanceof Error ? err.message : String(err));
+        if (!ctrl.signal.aborted) setError(err instanceof Error ? err : new Error(String(err)));
       });
     return () => ctrl.abort();
   }, [runId, entry]);
@@ -82,7 +82,7 @@ function TraceEntryBody({ runId, entry }: { runId: string; entry: RunTraceEntryH
       </p>
     );
   }
-  if (error) return <p className="hint">Could not read that entry: {error}</p>;
+  if (error) return <p className="hint">Could not read that entry: {error.message}</p>;
 
   return (
     <div data-testid="trace-entry-body" data-sequence={entry.sequence}>

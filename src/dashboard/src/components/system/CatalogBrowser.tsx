@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { fetchCatalogContents, fetchSkillBody, type CatalogContents } from "@/lib/catalogApi";
 import { CatalogBrowserView } from "./CatalogBrowserView";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0221: catalog browser container — the System "Skill catalog & vocabulary"
 // page. Fetches the resolved catalog's contents once on mount; the view fetches
@@ -10,24 +12,27 @@ import { CatalogBrowserView } from "./CatalogBrowserView";
 
 export function CatalogBrowser() {
   const [contents, setContents] = useState<CatalogContents | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchCatalogContents(controller.signal)
       .then(setContents)
       .catch((e: Error) => {
-        if (e.name !== "AbortError") setError(e.message);
+        if (e.name !== "AbortError") setError(e);
       });
     return () => controller.abort();
   }, []);
+
+  const refusal = refusalIn(error);
+  if (refusal) return <RefusalSurface refusal={refusal} surface="the skill catalog" />;
 
   // p0343d: states in the parity vocabulary — quiet .stateline for loading /
   // errors, the mock .empty state for a catalog that has not bound yet.
   if (error) {
     return (
       <div className="stateline err" data-testid="catalog-browser-error">
-        Failed to load catalog: {error}
+        Failed to load catalog: {error.message}
       </div>
     );
   }

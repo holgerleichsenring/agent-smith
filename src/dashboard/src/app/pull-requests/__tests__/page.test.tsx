@@ -1,6 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import PullRequestsPage from "../page";
+import { ApiRefusal, ApiResponseError } from "@/lib/apiResponse";
 import { fetchPullRequests } from "@/lib/pullRequestsApi";
 import type { PullRequest } from "@/types/hub-events";
 
@@ -10,6 +11,8 @@ import type { PullRequest } from "@/types/hub-events";
 
 vi.mock("@/lib/pullRequestsApi", () => ({ fetchPullRequests: vi.fn() }));
 const mockFetch = vi.mocked(fetchPullRequests);
+
+vi.mock("@/lib/auth/session", () => ({ signIn: vi.fn() }));
 
 function pr(over: Partial<PullRequest> = {}): PullRequest {
   return {
@@ -26,7 +29,9 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
   };
 }
 
-beforeEach(() => mockFetch.mockReset());
+beforeEach(() => {
+  mockFetch.mockReset();
+});
 
 describe("PullRequestsPage", () => {
   it("PullRequestsPage_OpenedHeadline_AttemptsMutedBelow", async () => {
@@ -105,5 +110,29 @@ describe("PullRequestsPage", () => {
     expect(screen.queryByTestId("pr-opened-section")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pr-attempts-section")).not.toBeInTheDocument();
     expect(screen.getByTestId("pr-metric-total")).toHaveTextContent("0");
+  });
+
+  // 2026-08-25-3277: this page used to keep a BOOLEAN, so a refused caller read
+  // "retry once the API is reachable" about an API that was reachable and had
+  // answered. Holding the thrown value is what puts the sign-in control here.
+  it("PullRequestsPage_A401_OffersTheSignInControl", async () => {
+    mockFetch.mockRejectedValue(new ApiRefusal("/api/pull-requests", 401, "sign-in", []));
+    render(<PullRequestsPage />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("refusal-surface")).toHaveAttribute("data-refusal", "sign-in"),
+    );
+    expect(screen.getByTestId("refusal-sign-in")).toBeInTheDocument();
+    expect(screen.queryByTestId("pr-error")).not.toBeInTheDocument();
+  });
+
+  it("PullRequestsPage_AServerError_StillSaysWhatItSaysToday", async () => {
+    mockFetch.mockRejectedValue(new ApiResponseError("/api/pull-requests", 500, "HTTP 500"));
+    render(<PullRequestsPage />);
+
+    expect(await screen.findByTestId("pr-error")).toHaveTextContent(
+      "Couldn’t load pull requests",
+    );
+    expect(screen.queryByTestId("refusal-surface")).not.toBeInTheDocument();
   });
 });

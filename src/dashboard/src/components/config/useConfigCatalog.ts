@@ -49,14 +49,15 @@ const EMPTY: ConfigCatalog = {
 export interface UseConfigCatalog {
   catalog: ConfigCatalog;
   loading: boolean;
-  error: string | null;
+  /** The thrown value, not its message — the studio renders a refusal as a state. */
+  error: Error | null;
   reload: () => Promise<void>;
 }
 
 export function useConfigCatalog(): UseConfigCatalog {
   const [catalog, setCatalog] = useState<ConfigCatalog>(EMPTY);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -74,7 +75,7 @@ export function useConfigCatalog(): UseConfigCatalog {
       setCatalog({ agents, trackers, connections, repos, projects, "mcp-servers": mcp, secrets });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      setError((err as Error).message);
+      setError(err as Error);
     } finally {
       setLoading(false);
     }
