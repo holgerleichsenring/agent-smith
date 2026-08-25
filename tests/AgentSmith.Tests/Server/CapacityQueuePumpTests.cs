@@ -117,7 +117,7 @@ public sealed class CapacityQueuePumpTests : IDisposable
 
     private async Task ApplyAsync(RunEvent ev)
     {
-        await new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()).ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
+        await RunEventAppliers.Default().ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
     }
 
     private sealed class Harness

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
@@ -166,7 +167,7 @@ public sealed class RunPlannedStepsServedTests : IDisposable
 
     private async Task ApplyAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
-        var applier = new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new());
+        var applier = RunEventAppliers.Default();
         foreach (var ev in events)
         {
             await using var uow = new AgentSmithDbContext(Options());

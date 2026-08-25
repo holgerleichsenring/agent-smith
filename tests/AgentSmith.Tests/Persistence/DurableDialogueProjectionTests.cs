@@ -129,5 +129,5 @@ public sealed class DurableDialogueProjectionTests : IDisposable
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
     private async Task ApplyAsync(RunEvent ev) =>
-        await new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()).ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
+        await RunEventAppliers.Default().ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
 }
