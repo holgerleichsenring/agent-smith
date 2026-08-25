@@ -78,9 +78,16 @@ reserved in advance, so `requires:` names only phases that already exist.
 ## Phase Gate — what it covers
 
 `.claude/hooks/phase-gate.sh` runs as a PreToolUse hook on every Bash call and gates a
-`git commit` whose message names a phase: build, full suite, CLI dry-runs and harness
-presets must be green, or the commit is blocked. Read this before a definition of done
-leans on it.
+`git commit` whose message names a phase: the dashboard's own build and tests, the
+backend build, the full suite, CLI dry-runs and harness presets must be green, or the
+commit is blocked. Read this before a definition of done leans on it.
+
+- **The dashboard runs first.** `pnpm install --frozen-lockfile`, `pnpm test` and
+  `pnpm build` in `src/dashboard`, before any .NET check — its own CI workflow is
+  path-filtered on `src/dashboard/**`, so a backend-only payload change never proved the
+  half that renders it. A tree with no `src/dashboard/package.json` has nothing to check
+  and says so; a tree that has one and no `pnpm` **blocks**, because a silent skip is
+  indistinguishable from a pass.
 
 - **One copy serves everyone.** `$CLAUDE_PROJECT_DIR` is the launching session's project
   directory, so a subagent in its own worktree runs the *shared checkout's* script — an

@@ -25,7 +25,7 @@ export function TopologyCard({ runId, snapshot, events }: Props) {
           <span className="text-sm font-normal text-stone-500">{runId}</span>
         </h2>
         <p className="mt-1 text-xs text-stone-500">
-          {snapshot?.repos.join(", ") || "no repos"}
+          {snapshot?.repos?.join(", ") || "no repos"}
           {snapshot?.totalSteps ? ` · step ${snapshot.stepIndex}/${snapshot.totalSteps}` : ""}
         </p>
         {failureSummary && (
@@ -43,7 +43,7 @@ export function TopologyCard({ runId, snapshot, events }: Props) {
 // "success", "failed", "error", or transient "running". Treat anything
 // outside running/success as a failure surface so error / failed /
 // cancelled all light up.
-function isFailureStatus(status: string | undefined): boolean {
+function isFailureStatus(status: string | null | undefined): boolean {
   if (!status) return false;
   return status !== "running" && status !== "success";
 }

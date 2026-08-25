@@ -30,8 +30,8 @@ const STATUS_LABEL: Record<string, string> = {
   waiting_for_input: "waiting for your input",
 };
 
-function statusTone(status: string): BadgeTone {
-  const s = status.toLowerCase();
+function statusTone(status: string | null | undefined): BadgeTone {
+  const s = (status ?? "").toLowerCase();
   if (s === "success") return "green";
   if (s === "failed" || s === "error") return "rose";
   // p0269a: queued is a calm waiting state (amber), not a failure.
@@ -62,11 +62,14 @@ function formatElapsed(startedAt: string, finishedAt: string | null): string {
 }
 
 export function RunCard({ snapshot }: Props) {
-  const reposLabel = snapshot.repos.length === 0
+  // 2026-08-25-39ab: read what the server sent, not what the type promised. A
+  // snapshot answered without repos or without a status renders the absence.
+  const repos = snapshot.repos ?? [];
+  const reposLabel = repos.length === 0
     ? "no repos"
-    : snapshot.repos.length === 1
-      ? snapshot.repos[0]
-      : `${snapshot.repos.length} repos`;
+    : repos.length === 1
+      ? repos[0]
+      : `${repos.length} repos`;
   return (
     <Link
       href={`/jobs/${encodeURIComponent(snapshot.runId)}`}
@@ -93,7 +96,7 @@ export function RunCard({ snapshot }: Props) {
             cancelRequested={snapshot.cancelRequested}
           />
           <Badge tone={statusTone(snapshot.status)} className="flex-none">
-            {STATUS_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status}
+            {STATUS_LABEL[(snapshot.status ?? "").toLowerCase()] ?? snapshot.status ?? "unknown"}
           </Badge>
         </span>
       </div>

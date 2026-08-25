@@ -122,12 +122,14 @@ function ActivityLine({ snapshot, status }: { snapshot: RunSnapshot; status: Nod
     const summary = formatRunSummary(snapshot.summary);
     return <div className="act" title={summary}>{summary}</div>;
   }
+  // 2026-08-25-39ab: absent repos read as none, never as a dereference.
+  const repos = snapshot.repos ?? [];
   if (status !== "queued" && snapshot.pipeline) {
     return (
       <div className="act">
         {snapshot.pipeline}
-        {snapshot.repos.length > 0 ? (
-          <> · {snapshot.repos.length === 1 ? snapshot.repos[0] : `${snapshot.repos.length} repos`}</>
+        {repos.length > 0 ? (
+          <> · {repos.length === 1 ? repos[0] : `${repos.length} repos`}</>
         ) : null}
       </div>
     );

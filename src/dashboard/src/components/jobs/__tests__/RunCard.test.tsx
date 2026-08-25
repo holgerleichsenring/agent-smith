@@ -111,3 +111,48 @@ describe("RunCard", () => {
     expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
   });
 });
+
+// 2026-08-25-39ab: the payload the dashboard does not know. The API is entitled
+// to answer a snapshot without `status` or `repos`, and to answer it with fields
+// this build has never heard of. Neither may cost the card — let alone the page.
+describe("RunCard tolerates a payload it does not know", () => {
+  // What the wire really carries: a snapshot minus the fields the type used to
+  // declare required. Cast because the point is that the CLIENT must survive a
+  // shape TypeScript cannot police at runtime.
+  const withoutFields = (drop: string[]): RunSnapshot => {
+    const partial: Record<string, unknown> = { ...baseSnapshot };
+    for (const field of drop) delete partial[field];
+    return partial as RunSnapshot;
+  };
+
+  it("Snapshot_MissingARequiredField_RendersWithoutThrowing", () => {
+    render(<RunCard snapshot={withoutFields(["repos"])} />);
+    expect(screen.getByText("no repos")).toBeInTheDocument();
+    expect(screen.getByRole("heading")).toHaveTextContent("fix-bug");
+  });
+
+  it("RunCard_ASnapshotWithoutAStatus_RendersInsteadOfThrowing", () => {
+    render(<RunCard snapshot={withoutFields(["status"])} />);
+    // The absence is rendered as an absence — never guessed into a state.
+    expect(screen.getByText("unknown")).toBeInTheDocument();
+    expect(screen.getByText("step 3/10")).toBeInTheDocument();
+  });
+
+  it("Snapshot_CarryingAnUnknownField_RendersWithoutThrowing", () => {
+    const fromANewerServer = {
+      ...baseSnapshot,
+      verdict: { kind: "green", reason: "all gates passed" },
+      retriesRemaining: 2,
+    } as unknown as RunSnapshot;
+
+    render(<RunCard snapshot={fromANewerServer} />);
+    expect(screen.getByRole("heading")).toHaveTextContent("fix-bug");
+    expect(screen.getByText("running")).toBeInTheDocument();
+  });
+
+  it("RunCard_ASnapshotWithNeitherStatusNorRepos_StillRenders", () => {
+    render(<RunCard snapshot={withoutFields(["status", "repos"])} />);
+    expect(screen.getByText("unknown")).toBeInTheDocument();
+    expect(screen.getByText("no repos")).toBeInTheDocument();
+  });
+});
