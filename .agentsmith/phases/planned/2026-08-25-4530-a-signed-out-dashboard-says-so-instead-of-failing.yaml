@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-4530
+
+goal: "A caller the server refuses reads why and what to do, a signed-in one sees what their token carried, and a half-configured installation names the missing half instead of rendering nothing."
+
+applies_to: "dashboard (refusal handling, identity surface, the misconfiguration banner) + backend (one anonymous route stating what the server expects)"
+
+requires:
+  - 2026-08-25-2de1
+  - p0503d
+  - p0391a
+
+scope:
+  in: "A 401 read as a sign-in state rather than a failure, a 403 that names the permission the server said was missing, the identity surface p0503d's endpoint was built for, sign-in state in the app rail, and an anonymous route stating what the server expects so the two halves disagreeing is visible."
+  out: "Hiding or disabling controls a caller lacks the permission for — a refusal that is explained is honest, and a control that vanishes teaches nobody what they are missing. Editing the role mapping from the dashboard: the directory decides who holds a role, and p0503d already refused to build that screen."
+
+decisions:
+  - key: |
+      A 401 IS A SIGN-IN STATE AND TODAY IT IS AN EXCEPTION. readJson throws ApiResponseError on
+      any non-ok status, so the moment an installation turns enforcement on, every page that
+      loads without a token dies inside a render with the words "HTTP 401" — the one message
+      that tells an operator nothing about the one thing they must do. The 401 is separated at
+      the single outgoing point and becomes a state the application can render.
+  - key: |
+      THE 403 BODY IS ALREADY RIGHT AND NOBODY READS IT. p0503b replaced the authorization result
+      handler specifically so a refusal names every permission the caller lacked, because
+      ASP.NET's own forbid path writes an empty body. The dashboard currently discards that body
+      and reports the status code. Reading it is the whole of this decision, and it is why that
+      handler was built.
+  - key: |
+      THE MISCONFIGURATION IS THE FAILURE MODE WORTH BUILDING FOR. An installation whose server
+      enforces and whose dashboard has no authority configured answers 401 to every call and
+      renders nothing — no error, no banner, no clue, and the settings that would explain it are
+      on two different machines. Neither half can diagnose this alone: the server does not know
+      what the dashboard was configured with, and the dashboard does not know what the server
+      demands. So the server states what it expects on an ANONYMOUS route — a caller with no
+      token is exactly who needs to read it — and the dashboard, the only place that holds both
+      halves, compares them and names the one that is missing.
+  - key: |
+      THE ROUTE IS ANONYMOUS AND CARRIES NOTHING SECRET. It answers whether enforcement is on and
+      which authority tokens are validated against. Both are already public: the authority is
+      published in the discovery document any browser can read, and enforcement announces itself
+      with the first 401. It joins the twelve routes p0503a declared anonymous, for the reason
+      the findings channel gives — a caller who cannot authenticate must still be able to read
+      why.
+  - key: |
+      THE BANNER, NOT A BLOCKING PAGE. p0391a already put "what is wrong with this installation"
+      above every route and p0503e explicitly measured a short-circuit to be either a lie or
+      unreadable. A half-configured installation is a finding on the channel the operator already
+      watches; the routes underneath still render whatever they can reach.
+
+steps:
+  - id: the-server-states-what-it-expects
+    action: "Add the anonymous route answering whether enforcement is on and which authority is configured, beside the existing anonymous findings route."
+    new:
+      - "the auth requirements route and its response"
+  - id: a-refusal-is-a-state-not-a-throw
+    action: "Separate 401 from the error path at the single outgoing point so it resolves to a sign-in state, and read the 403 body so the refusal carries the permissions the server named."
+  - id: a-refusal-is-rendered
+    action: "Render the sign-in state and the named-permission refusal in place of the surface that was refused, each with the one action that resolves it."
+    new:
+      - "the refusal surface"
+  - id: a-caller-can-read-their-own-token
+    action: "Add the identity surface over the existing identity endpoint — the claim that was looked in, the values that arrived, and the roles and permissions they resolved to — reachable from the app rail with the signed-in name and sign-out."
+    new:
+      - "the identity view"
+  - id: the-halves-are-compared
+    action: "Compare the server's stated expectation against the runtime settings and raise a banner naming the missing half, on the surface the degraded banner already occupies."
+    new:
+      - "the auth misconfiguration banner"
+
+tests:
+  - "Requirements_NoAuthority_SaysEnforcementIsOff"
+  - "Requirements_EnforcementOn_SaysSoAndNamesTheAuthority"
+  - "Requirements_Route_AnswersWithoutAToken"
+  - "Get_401_ResolvesToASignInStateRatherThanThrowing"
+  - "Get_403_CarriesThePermissionsTheServerNamed"
+  - "Get_403_WithAnUnreadableBody_StillNamesTheRefusal"
+  - "Get_500_StillThrowsAsItDoesToday"
+  - "Refusal_SignInState_OffersSignIn"
+  - "Refusal_MissingPermission_NamesItAndOffersNoSignIn"
+  - "Identity_SignedInWithNoRoles_ShowsTheClaimAndTheValuesThatArrived"
+  - "Identity_SignedIn_ShowsTheResolvedRolesAndPermissions"
+  - "Rail_SignedIn_ShowsTheNameAndSignOut"
+  - "Rail_NoAuthorityConfigured_ShowsNeither"
+  - "Banner_ServerEnforcesAndDashboardHasNoAuthority_NamesTheDashboardHalf"
+  - "Banner_DashboardHasAnAuthorityAndServerHasNone_NamesTheServerHalf"
+  - "Banner_TheTwoAuthoritiesDiffer_NamesBoth"
+  - "Banner_BothHalvesAgree_ShowsNothing"
+
+done:
+  - "a 401 renders as a sign-in state and a 403 names the permission the server said was missing"
+  - "a caller with no roles can read what their token actually carried"
+  - "the app rail states who is signed in and offers sign-out, and shows neither when unconfigured"
+  - "an installation configured on one side only says which side, above every route"
+  - "an installation configured on neither side is unchanged and silent"
+  - "dashboard build green, dashboard tests green, backend build green, full suite green"
