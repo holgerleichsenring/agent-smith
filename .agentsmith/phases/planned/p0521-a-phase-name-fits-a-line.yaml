@@ -24,9 +24,11 @@ decisions:
       THE FILE NAME IS IN NO SCHEMA AT ALL. `phase:` has a pattern; the slug that becomes the file
       name has nothing. It is the first thing a reader sees and the only unbounded one.
   - key: |
-      RATCHET, NOT A SWEEP. 175 of 727 slugs exceed 32 characters and 425 of 726 goals exceed 200.
-      Rewriting them would edit specs that are finished [[feedback_phase_versioning]]. The existing
-      list may only shrink; a new phase meets the bound.
+      A CUTOFF, NOT A RATCHET. 175 of 727 slugs exceed 32 characters and 425 of 726 goals exceed 200,
+      and none of them will ever be fixed: a finished spec is not edited
+      [[feedback_phase_versioning]], so a baseline that may only shrink would never shrink. The rule
+      applies from the next id onward and says so; older phases are out of scope by construction,
+      with no list to carry.
   - key: |
       THE BOUND BELONGS WHERE PHASES ARE WRITTEN. The rule already exists as
       [[feedback_phase_specs_terse]] and was followed less every quarter. Three places state it and
@@ -36,7 +38,7 @@ steps:
   - id: the-schema-bounds-the-goal
     action: "goal maxLength 2000 -> 200 in phase-spec.schema.json."
   - id: the-ratchet-holds-the-line
-    action: "An architecture test validates .agentsmith/phases/** against the schema and caps slug at 32 characters, with a baseline of today's overruns that may only shrink."
+    action: "An architecture test validates every phase against the schema, and caps slug and goal for ids at or above the declared cutoff."
   - id: the-rule-is-where-it-is-read
     action: "CLAUDE.md states both bounds in one line."
   - id: the-skill-says-it-too
@@ -46,7 +48,7 @@ tests:
   - "PhaseSpec_EveryFile_ValidatesAgainstTheSchema"
   - "PhaseSpec_ANewSlug_FitsTheCap"
   - "PhaseSpec_ANewGoal_FitsTheCap"
-  - "PhaseSpec_ABaselineEntry_MayOnlyShrink"
+  - "PhaseSpec_APhaseBelowTheCutoff_IsNotJudgedOnLength"
 
 done:
   - "a new phase cannot be committed with a sentence for a name or a paragraph for a goal"
