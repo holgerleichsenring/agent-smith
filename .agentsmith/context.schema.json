@@ -4,12 +4,9 @@
   "title": "Compact Context Specification",
   "description": "Token-efficient project context for AI assistants. Drop a .context.yaml in your repo root.",
   "type": "object",
+  "$comment": "2026-08-25-056d: only meta is required, because meta is the only block the typed writer (ContextYamlDocument) always emits — and inside it only workdir, the one field the runtime genuinely enforces. state is written by the methodology, never by the writer, so requiring it would refuse every freshly bootstrapped context.",
   "required": [
-    "meta",
-    "stack",
-    "arch",
-    "quality",
-    "state"
+    "meta"
   ],
   "additionalProperties": false,
   "properties": {
@@ -17,10 +14,6 @@
       "type": "object",
       "description": "Project identity",
       "required": [
-        "project",
-        "version",
-        "type",
-        "purpose",
         "workdir"
       ],
       "additionalProperties": false,
@@ -85,13 +78,28 @@
         }
       }
     },
+    "methodology": {
+      "type": "object",
+      "description": "Which release of the Specification-First methodology this context was bootstrapped against. Written by bootstrap-project and read by update-project to decide whether the templates need syncing.",
+      "required": [
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Plugin version from .claude-plugin/plugin.json (semver)",
+          "pattern": "^\\d+\\.\\d+\\.\\d+",
+          "examples": [
+            "2.1.0"
+          ]
+        }
+      }
+    },
     "stack": {
       "type": "object",
       "description": "Technology choices",
-      "required": [
-        "runtime",
-        "lang"
-      ],
+      "$comment": "2026-08-25-056d: nothing here is required. ContextYamlStack models every field as nullable, so a stack the writer emits may name an image and a language and no runtime at all.",
       "additionalProperties": false,
       "properties": {
         "runtime": {
@@ -172,6 +180,24 @@
               "description": "Kubernetes memory limit (OOM cap), e.g. '4Gi' (heavy build) or '512Mi' (passive scan).",
               "examples": ["512Mi", "2Gi", "4Gi"]
             }
+          }
+        },
+        "frameworks": {
+          "type": "array",
+          "description": "Application frameworks this stack is built on. Emitted by the typed writer (ContextYamlStack.Frameworks) since p0193 and declared here only in 2026-08-25-056d — for everything in between, a context that named its frameworks failed the schema its own writer emits. Third field to drift this way after p0265's stack.image and p0272's prerequisites.",
+          "items": {
+            "type": "string",
+            "examples": [
+              "ASP.NET-Core",
+              "Spring-Boot",
+              "Django",
+              "FastAPI",
+              "Express",
+              "NestJS",
+              "Rails",
+              "Laravel",
+              "Gin"
+            ]
           }
         },
         "frontend": {
@@ -351,11 +377,8 @@
     "arch": {
       "type": "object",
       "description": "Architecture and code organization",
-      "required": [
-        "style",
-        "layers"
-      ],
-      "additionalProperties": false,
+      "$comment": "2026-08-25-056d: the writer models arch as a freeform map (ContextYamlDocument.Arch), exactly like quality and behavior, so neither a required key nor a closed key set can be honoured by anything that emits one. The properties below stay as the shape worth writing; they are guidance, not a gate.",
+      "additionalProperties": true,
       "properties": {
         "style": {
           "type": "array",
@@ -787,7 +810,8 @@
           },
           "does": {
             "type": "string",
-            "maxLength": 80
+            "description": "One line: what this integration is for.",
+            "maxLength": 120
           },
           "providers": {
             "type": "array",
@@ -858,10 +882,10 @@
       "properties": {
         "done": {
           "type": "object",
-          "description": "Completed work. Key = version/phase, value = one-line summary (max 80 chars)",
+          "description": "Completed work. Key = version/phase, value = an index line: what shipped, in what area, and the pointer into phases/done/. The cap is 400 characters, ratcheted per entry by PhaseRecordLengthRatchetTests; 3000 is the absolute ceiling no entry may exceed, baselined or not.",
           "additionalProperties": {
             "type": "string",
-            "maxLength": 80
+            "maxLength": 3000
           }
         },
         "active": {
@@ -900,10 +924,10 @@
         },
         "planned": {
           "type": "object",
-          "description": "Future work. Key = version/phase, value = one-line intent",
+          "description": "Future work. Key = version/phase, value = the intent, held to the same 3000-character ceiling as a done entry.",
           "additionalProperties": {
             "type": "string",
-            "maxLength": 80
+            "maxLength": 3000
           }
         }
       }
