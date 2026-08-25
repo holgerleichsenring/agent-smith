@@ -1,56 +1,94 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0465
-goal: "A sandbox is reaped only by the server that spawned it, so a second instance on the same Docker daemon cannot destroy the first one's runs."
 
-applies_to: "backend"
+goal: "A sandbox is reaped only by a deployment that could have spawned it, so a second server on the same host or namespace cannot kill the first's containers — and a reaper that cannot tell does not run."
+
+applies_to: "backend (both sandbox spawners, both reapers, and the capacity probe that asks the same question)"
+
+requires:
+  - p0242
+  - p0355
+
+scope:
+  in: "The ownership term added to what a reaper asks for, on Docker and on Kubernetes; the identity it is derived from and why that identity survives a restart; the fate of a sandbox spawned before the term existed; and the condition under which a reaper is allowed to run at all."
+  out: "How a reaper decides a container is dead once it is listed — the liveness rails are p0242's and stay as they are. The securityContext work that edits the same two builder methods, which is sequenced against this rather than merged into it."
 
 decisions:
   - key: |
-      THE REAPER IDENTIFIES SANDBOXES BY LABEL ALONE AND HAS NO CONCEPT OF OWNERSHIP.
-      SandboxOrphanReaper.ListLabelledAsync filters containers on JobIdLabel across the WHOLE
-      daemon, then decides liveness against ITS OWN Redis active-set and ITS OWN DB lease. A second
-      server on the same socket therefore sees every sandbox of the first as an orphan the moment it
-      passes the 60-second age rail, and force-removes it. The victim's own reaper is behaving
-      perfectly and logging SKIP for the same containers.
+      OWNERSHIP IS THE IDENTITY OF THE LIVENESS STORE, NOT OF THE PROCESS, AND THAT CHOICE IS THE
+      WHOLE PHASE. A per-process identity — a fresh guid, a hostname, a pod name — makes a
+      server's own containers foreign to it the moment it restarts, so they are never reaped
+      again: precisely the case a reaper exists for, and the happy path already cleans up without
+      it. A constant leaves the incident unchanged. An operator-set variable breaks silently the
+      day someone forgets it. The store the reaper judges against is restart-stable, is what
+      actually differed between the two servers in the incident, and the container already
+      carries it as the address it was handed at spawn.
   - key: |
-      OBSERVED, NOT THEORISED. 2026-08-19: a documentation-screenshot server was started with
-      SANDBOX_TYPE=docker against the operator's shared OrbStack daemon. Two live runs on ticket
-      19213 died with "sandbox vanished", state=Gone (DockerContainerNotFoundException, so removed
-      rather than exited) at container ages of roughly 77 and 81 seconds, which is the first foreign
-      scan window after the age rail opens. AutoRemove is false for sandboxes, and the owning
-      server's own reaper had logged SKIP age-rail and SKIP active-run for both.
+      A SHARED STORE MUST STILL MEAN SHARED CLEANUP, OR THIS REPEALS A SHIPPED PHASE. Two replicas
+      of one deployment are supposed to clean up after each other — that is why the corpse reaper
+      exists, so a lingering pod stops holding the namespace quota when its replica is gone.
+      Keying ownership on the process would forbid exactly that. Keying it on the store they
+      share keeps it true.
   - key: |
-      OWNERSHIP IS A LABEL, NOT A HEURISTIC. The spawner stamps an instance id on every container it
-      creates and the reaper filters on it in the SAME ListContainers call, so a foreign container is
-      never a candidate and no rail has to save it. Deriving ownership from the active-run set is
-      what already failed; the fix belongs in the query, not in the decision.
-      See [[feedback_no_heuristic_for_missing_data]] — the missing field IS the fix.
+      A WAITING RUN MAKES THE RESTART CASE REAL, NOT HYPOTHETICAL. A run parked on a question
+      leaves the active set by design and can wait for days. If a restart in that window made its
+      sandboxes foreign, they would leak for the whole wait. The restart-stable identity is what
+      keeps that guarantee true.
   - key: |
-      THIS IS THE FOREIGN-INSTANCE SIBLING OF p0238. p0238 covers the empty-Redis variant, where a
-      volatile store makes a server reap its OWN live sandboxes. Same reaper, same missing concept,
-      and both are the reaper trusting a liveness store to answer a question about identity.
+      KUBERNETES IS NOT A FOLLOW-UP; IT IS THE WORSE HALF. Its reaper selects on the shared
+      application label across the whole namespace, so two deployments in one namespace have the
+      same defect — and it reaps a pod carrying no run-id label at all, so a foreign sandbox is
+      killed more eagerly there than on Docker. It also runs when capacity is claimed, not only
+      on a timer, so the foreign kill is immediate rather than one scan away. The identity must
+      be a legal label value by construction, which the Docker side does not constrain.
   - key: |
-      THE OPT-OUT IS PART OF THE FIX. A second instance that only needs the API, for screenshots or a
-      local read-only UI, cannot switch the reaper off today: RegisterDocker adds it as a hosted
-      service unconditionally. An explicit disable is the difference between a safe parallel instance
-      and a destructive one.
+      A FILTER THAT REQUIRES THE TERM STRANDS EVERYTHING SPAWNED BEFORE IT. A sandbox created by
+      the previous binary carries no ownership label, so it is never listed and never reaped —
+      including the ones already leaked. That fate has to be chosen and named, not discovered.
+  - key: |
+      THE CAPACITY PROBE ASKS THE SAME QUESTION AND MUST GET THE SAME ANSWER. It counts running
+      labelled containers across the whole daemon against a default limit of two. Fix the reaper
+      alone and two servers stop killing each other and start starving each other instead —
+      the same defect wearing different clothes.
+  - key: |
+      THE SWITCH IS INVERTED, BECAUSE AN OPT-OUT YOU MUST REMEMBER IS NOT SAFETY. The incident
+      server never opted into Docker at all — the backend is auto-detected from the socket, so
+      every developer machine arms the reaper by default. And an off reaper does not merely waste
+      disk: two leaked running sandboxes reach the default concurrency cap and the instance stops
+      admitting runs, permanently. So the reaper runs only where it holds a liveness store that
+      can answer, says at startup when it is not running, and an operator can still force it.
 
 steps:
-  - id: a-spawned-container-says-who-spawned-it
-    action: "Stamp an instance id label in DockerContainerSpecBuilder, sourced from a stable per-server identity."
-  - id: the-reaper-asks-only-for-its-own
-    action: "Add the instance-id label to the reaper's ListContainers filter so foreign containers are never listed."
-  - id: the-reaper-can-be-switched-off
-    action: "Gate the hosted-service registration on an explicit setting for API-only instances."
-  - id: a-foreign-container-is-proven-safe
-    action: "Test that a container carrying a different instance id survives a scan that would otherwise reap it on both rails."
+  - id: a-deployment-has-a-name-that-survives-a-restart
+    action: "Derive one deployment identity from the liveness store the reaper judges against, legal as a label value on both backends, overridable by an operator who needs to say otherwise."
+  - id: a-spawned-sandbox-says-which-deployment-owns-it
+    action: "Stamp that identity onto a sandbox at spawn, in both the container and the pod path."
+  - id: each-reaper-asks-only-for-its-own
+    action: "Add the ownership term to what each reaper asks the daemon and the namespace for, so a foreign sandbox is never listed and never judged."
+  - id: the-capacity-probe-asks-the-same-question
+    action: "Count only this deployment's sandboxes against the concurrency limit, so two deployments on one host neither kill nor starve each other."
+  - id: a-sandbox-from-before-has-a-named-fate
+    action: "Give a sandbox spawned without the ownership term an explicit outcome, so the upgrade window is a decision rather than a leak."
+  - id: a-reaper-runs-only-where-it-can-answer
+    action: "Start a reaper only where a liveness store can answer for a run, say plainly at startup when it is not running and what stops being cleaned up, and let an operator override."
 
 tests:
-  - "a container labelled with a foreign instance id is not returned by the reaper's query and is not removed, with both rails otherwise satisfied"
-  - "a container carrying this instance's id and no live run is still reaped, so the fix does not disable the feature"
-  - "the reaper is absent from the hosted services when the disable setting is on"
+  - "Restart_TheSameDeploymentStillReapsItsOwnOrphans"
+  - "TwoReplicas_SharingOneStore_CanReapEachOthersCorpses"
+  - "ForeignDeployment_ItsContainerIsNotEvenListed"
+  - "ForeignDeployment_ItsPodIsNotEvenListed"
+  - "DeploymentIdentity_IsALegalKubernetesLabelValue"
+  - "DeploymentIdentity_IsStableAcrossTwoProcessesOfOneDeployment"
+  - "CapacityProbe_CountsOnlyThisDeploymentsSandboxes"
+  - "PreOwnershipSandbox_HasTheDocumentedFate"
+  - "Reaper_WithoutALivenessStore_DoesNotRunAndSaysSo"
+  - "Reaper_ForcedByAnOperator_RunsAnyway"
+  - "ParkedRun_ThenRestart_ItsSandboxesAreStillReapable"
 
 done:
-  - "two servers on one Docker daemon cannot remove each other's sandboxes"
-  - "an API-only instance can run with the reaper switched off"
-  - "the p0238 empty-Redis variant is referenced from this spec so the pair is legible"
+  - "a server that restarts still reaps the sandboxes it left behind"
+  - "two replicas sharing one store still clean up after each other"
+  - "a foreign sandbox is never listed by either reaper and never counted by the capacity probe"
+  - "a sandbox spawned before this phase has an outcome someone chose"
+  - "a reaper that cannot judge does not run, and the operator is told"
+  - "build green, full suite green"
