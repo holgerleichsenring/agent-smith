@@ -25,7 +25,9 @@ public sealed record Step(
     DirectorySortBy SortBy = DirectorySortBy.Name,
     IReadOnlyList<string>? ExcludeGlobs = null)
 {
-    public const int CurrentSchemaVersion = 1;
+    /// <summary>The protocol version stamped on every step this build sends. Stated once in
+    /// <see cref="WireProtocol"/> so three records cannot disagree about what "current" is.</summary>
+    public const int CurrentSchemaVersion = WireProtocol.Current;
     public const int DefaultTimeoutSeconds = 600;
 
     public static Step Shutdown(Guid id) =>
@@ -50,6 +52,13 @@ public sealed record Step(
             StepKind.DirectoryTree => string.IsNullOrEmpty(Path)
                 ? (false, "DirectoryTree step requires non-empty Path")
                 : (true, null),
+            // 2026-08-25-0d01: a kind this build cannot name is a report, not a crash. The
+            // answer travels back on the result channel the server already reads, naming the
+            // protocol this build speaks so the difference is legible at the other end.
+            StepKind.Unknown => (false,
+                $"This sandbox agent speaks wire protocol {WireProtocol.Window} and does not "
+                + $"know the step kind it was sent (schema version {SchemaVersion}). Nothing "
+                + "was executed."),
             _ => (false, $"Unknown StepKind: {Kind}")
         };
     }
