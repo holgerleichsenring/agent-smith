@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
@@ -24,7 +25,7 @@ public sealed class SandboxRepoClonerIdentityTests
 
         await cloner.CheckoutIntoSandboxesAsync(
             new RepoConnection { Name = "server", Type = RepoType.GitHub, Url = "https://host/org/repo.git" },
-            new BranchName("feature/x"),
+            new RunBranch(new BranchName("feature/x"), ComposedFromTicket: true),
             [new KeyValuePair<string, ISandbox>("server", sandbox)],
             CancellationToken.None);
 
@@ -60,7 +61,7 @@ public sealed class SandboxRepoClonerIdentityTests
         return new SandboxRepoCloner(
             factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
-            NullLogger<SandboxRepoCloner>.Instance);
+            AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance);
     }
 
     private sealed class RecordingSandbox : ISandbox

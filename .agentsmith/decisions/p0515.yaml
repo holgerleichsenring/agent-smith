@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0515
+
+decisions:
+  - category: Architecture
+    chose: "One comparer for every configured name, published as ConfigNames in AgentSmith.Contracts"
+    over: "StringComparer.OrdinalIgnoreCase written out at each of the five construction sites"
+    reason: |
+      The bug this phase fixes IS two rules for one name. Writing the rule out five
+      times reproduces the failure mode at a smaller scale: the sixth catalog someone
+      adds gets whichever comparer they remember. ConfigNames.Comparer is that one
+      rule, and the loader, the studio validator and the pre-catalog tracker lookup
+      all read it from there. It lives in Contracts because the studio validator lives
+      there too — a rule the editor and the loader must share cannot sit in either.
+  - category: Implementation
+    chose: "ConfigNames.Normalize uppercases (ToUpperInvariant)"
+    over: "ToLowerInvariant, the lowercasing the entry point already did"
+    reason: |
+      Ordinal-ignore-case IS defined by invariant UPPERCASING. Lowercasing is a
+      different equivalence and disagrees with the comparer on real code points:
+      U+017F LATIN SMALL LETTER LONG S uppercases to 'S' but lowercases to itself, and
+      U+212A KELVIN SIGN lowercases to 'k'. A normaliser that disagreed with the
+      comparer would put the collision detector and the catalog into the same
+      disagreement this phase exists to remove.
+  - category: Architecture
+    chose: "A collision drops BOTH halves and raises one finding keyed by catalog + first spelling"
+    over: "Last-write-wins (the dictionary's own behaviour), or a throw"
+    reason: |
+      Once a catalog is case-insensitive, two colliding keys are one key and the second
+      write silently wins — a reference to either would resolve to whichever the YAML
+      happened to list last. Dropping both is the only answer that never guesses. It
+      cannot be a throw: this code runs on the server's configuration path, where
+      p0391a's ruling and StartupThrowInventoryTests make a dead process the worse
+      outcome. The finding's Field carries "{catalog}:{first spelling}" and its Project
+      stays null, because StartupFinding.Identity is Subsystem|Project|Trigger|Field and
+      the findings list dedupes on it: a colliding repo named like a project would have
+      silenced that project's triggers (ProjectResolver.IsBlocked), while a null Field
+      would have collapsed two collisions in different catalogs into one line.
+  - category: Implementation
+    chose: "The agents catalog is copied key by key, not through the dictionary copy constructor"
+    over: "new Dictionary<string, AgentConfig>(raw.Agents, ConfigNames.Comparer)"
+    reason: |
+      The copy constructor throws ArgumentException on a case collision. On the boot
+      path that is an unhandled crash for a configuration fault the operator can read
+      and fix — exactly the outcome the finding exists to replace. The same reasoning
+      shapes ConfigNames.KeyedByName, whose contract says the last spelling wins and
+      which is documented as a lookup whose collisions are reported elsewhere.
+  - category: Implementation
+    chose: "The pre-catalog tracker lookup in RawConfigMaterializer gets the same comparer"
+    over: "Leaving it ordinal, since the catalog build reports an unresolved tracker anyway"
+    reason: |
+      ApplyEffectiveTriggers does a KEYED lookup on the raw trackers map before any
+      catalog exists, and a miss is swallowed by EffectiveTriggerBuilder's first line
+      with no finding. Left ordinal, a capitalised tracker ref would resolve at catalog
+      build and merge NO workflow here — and a project carrying an explicit trigger
+      block would keep an empty trigger_statuses, which TrackerPoller reads as "every
+      status matches". No extra finding was added for a genuine miss: the project
+      builder already raises one and drops the project, so a second line would report
+      one mistake twice.
+  - category: Architecture
+    chose: "The validator gains the collision rule, not only the comparer"
+    over: "Matching references case-insensitively and stopping there"
+    reason: |
+      A reference matching one half of a colliding pair would be accepted by the editor
+      and dropped by the loader — the editor-versus-runtime split this phase exists to
+      close, reproduced inside the fix. A reference now has to match EXACTLY one catalog
+      entry: zero is "unknown", more than one is "ambiguous".
+  - category: Implementation
+    chose: "The pre-RunStarted work is extracted as BuildPrologueAsync and guarded there"
+    over: "Wrapping the existing inline block in a try/catch"
+    reason: |
+      ExecutePipelineUseCase is on the file-length ratchet and may only get shorter, and
+      a 110-line try block inside an already-long method is not a guard anyone can read.
+      The prologue is a genuine unit — everything that must succeed before the run
+      announces itself — so it became a method returning a RunPrologue, and the guard has
+      something to wrap. The room came from extracting ConceptVocabularyLoader, whose
+      "where does the vocabulary come from" is not "how is a run executed".
+  - category: Implementation
+    chose: "The prologue guard publishes only when request.RunId is set, then rethrows"
+    over: "Publishing for every failed launch, or swallowing the exception"
+    reason: |
+      A terminal event for a run nobody reserved is a no-op in the database but not in
+      the live fold: JobsBroadcaster folds RunFinished onto RunSnapshot.Empty and upserts
+      it into Recent, so a poller-path failure would post a card with no project, pipeline
+      or repos. Init, capacity-queue and resume launches carry request.RunId and own a
+      row — exactly the launches that could hang. The rethrow keeps PipelineQueueConsumer's
+      log path unchanged, and the guard ends where p0175-fix's begins, so a failure after
+      RunStarted still produces exactly one terminal event.
+  - category: Implementation
+    chose: "The lease and the init guard speak the CONFIGURED spelling of the project"
+    over: "Continuing to pass request.ProjectName / the route's spelling through"
+    reason: |
+      InitRunLauncher guarded on the operator's spelling while writing project.Name, and
+      InitRunRepository compares in SQL — case-sensitively on SQLite and Postgres. Two
+      capitalisations were two live inits of one project. ExecutePipelineUseCase attached
+      and released the ticket lease under request.ProjectName for the same reason. Both
+      now key on projectConfig.Name, so a name canonicalises before it becomes a key.
+  - category: Architecture
+    chose: "The RAW dictionaries stay ordinal"
+    over: "Deserializing straight into case-insensitive maps"
+    reason: |
+      Every raw read is an enumeration, never a keyed lookup — except the tracker lookup
+      above, which gets a case-insensitive VIEW rather than a re-keyed source. Collapsing
+      the raw side would destroy the pair before anything could name it, and the finding
+      is what keeps this phase honest until a successor can refuse the second spelling at
+      the point of writing.
+  - category: Implementation
+    chose: "One rule only: grouping is done with the comparer, and the uppercasing normaliser is gone"
+    over: "Keeping a Normalize helper beside the comparer as a grouping key"
+    reason: |
+      The first implementation shipped both, and they did not agree. Invariant uppercasing folds
+      U+017F (LATIN SMALL LETTER LONG S) onto S; ordinal-ignore-case does not. So the collision
+      detector, which grouped by the normaliser, dropped both halves of a pair the catalogs would
+      have kept perfectly distinct — an over-report that blocks a valid configuration at boot. The
+      phase's own second decision demanded ONE definition precisely to stop this, and the
+      implementation reintroduced the second one anyway; its unit test then asserted the
+      disagreement under a name claiming the two matched. Found by p0515b, which consumed the
+      shared definition as instructed and could not reconcile the store's verdict with the
+      detector's. Both grouping sites now take the comparer, and there is no second form of the
+      rule to drift from.

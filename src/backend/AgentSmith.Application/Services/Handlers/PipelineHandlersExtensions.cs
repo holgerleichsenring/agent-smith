@@ -112,10 +112,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<GitBranchPusher>(); // p0422
         services.AddTransient<SandboxGitOperations>();
-        // p0411: the framework-owned sandbox facts — the committing identity (set at
-        // checkout) and the working tree's changed paths (carried in the state block).
-        services.AddTransient<Sandbox.SandboxGitIdentity>();
-        services.AddTransient<Sandbox.SandboxWorkingTreeReader>();
+        services.AddSandboxGitServices(); // p0411 identity + tree, p0496 base branch
         services.AddTransient<RepoWorkPusher>(); // p0437: puts one repo's work on the branch
         services.AddTransient<RunWorkCheckpointer>(); // p0360: mid-run work durability
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
@@ -147,6 +144,7 @@ public static class PipelineHandlersExtensions
         services.AddSingleton<ActivationSkillFilter>();
         services.AddSingleton<ActivationSpecificityScorer>();
         AddConceptPublishingHandler<PipelineNameInitializerHandler, PipelineNameInitializerContext>(services);
+        services.AddTransient<BootstrapContextProbe>(); // p0496
         AddConceptPublishingHandler<BootstrapCheckHandler, BootstrapCheckContext>(services);
         services.AddTransient<ICommandHandler<BootstrapGateContext>, BootstrapGateHandler>();
         AddConceptPublishingHandler<PublishProjectLanguageHandler, PublishProjectLanguageContext>(services);
@@ -183,6 +181,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<VerifyCommandRunner>(); // p0419
         // p0504: the image ordering, the domain declaration, which commands verify a
         // repo, and which of those a domain profile brings — each its own type.
+        // 2026-08-25-014d: the registry boundary reads configuration, so it is a service.
+        services.AddSingleton<AgentSmith.Application.Services.Sandbox.ImageRegistryTrust>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.ContextDomainResolver>();
         services.AddTransient<DotnetEntryPointDiscovery>();

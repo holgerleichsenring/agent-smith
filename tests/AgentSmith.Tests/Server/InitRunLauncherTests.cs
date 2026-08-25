@@ -123,6 +123,52 @@ public sealed class InitRunLauncherTests : IDisposable
     }
 
     [Fact]
+    public async Task InitLauncher_AProjectNamedWithCapitals_GuardsUnderTheConfiguredSpelling()
+    {
+        // p0515: the guard read the operator's spelling off the route while the row it
+        // guards is written under the CONFIGURED one — and the comparison happens in SQL,
+        // case-sensitively on SQLite and Postgres. Two capitalisations, two live inits.
+        var first = await NewLauncher().LaunchAsync("SAMPLE", AutoComplete, CancellationToken.None);
+
+        first.Outcome.Should().Be(InitLaunchOutcome.Started);
+        using (var ctx = new AgentSmithDbContext(Options()))
+            ctx.Runs.Single().Project.Should().Be(Project, "the row carries the configured spelling");
+
+        var second = await NewLauncher().LaunchAsync("Sample", AutoComplete, CancellationToken.None);
+
+        second.Outcome.Should().Be(InitLaunchOutcome.AlreadyRunning);
+        second.RunId.Should().Be(first.RunId);
+        _enqueued.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task InitLauncher_AfterAFailedLaunchWasFinalized_ASecondLaunchIsAdmitted()
+    {
+        // p0515: a launch that died before RunStarted used to leave its row queued forever,
+        // so every later click answered 409 and opened the dead run. The prologue guard's
+        // terminal event finalizes the row; the next launch is then admitted normally.
+        var failed = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        Finalize(failed.RunId!);
+
+        var second = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+
+        second.Outcome.Should().Be(InitLaunchOutcome.Started);
+        second.RunId.Should().NotBe(failed.RunId);
+        _enqueued.Should().HaveCount(2);
+    }
+
+    // What the terminal RunFinished(failed) leaves behind once its projection has run.
+    private void Finalize(string runId)
+    {
+        using var ctx = new AgentSmithDbContext(Options());
+        var run = ctx.Runs.Single(r => r.Id == runId);
+        run.Status = "failed";
+        run.FinishedAt = TimeProvider.System.GetUtcNow();
+        run.Summary = "Project not found in configuration.";
+        ctx.SaveChanges();
+    }
+
+    [Fact]
     public async Task InitLauncher_UnknownProject_IsRefused()
     {
         var result = await NewLauncher().LaunchAsync("not-configured", AutoComplete, CancellationToken.None);
@@ -247,7 +293,9 @@ public sealed class InitRunLauncherTests : IDisposable
     {
         var config = new AgentSmithConfig
         {
-            Projects = new Dictionary<string, ResolvedProject>
+            // p0515: keyed the way ConfigCatalogResolver keys the real catalog, so the
+            // launcher is exercised against the identity rule it actually runs under.
+            Projects = new Dictionary<string, ResolvedProject>(ConfigNames.Comparer)
             {
                 [Project] = new()
                 {

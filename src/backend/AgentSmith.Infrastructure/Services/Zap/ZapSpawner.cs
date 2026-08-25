@@ -14,6 +14,14 @@ public sealed class ZapSpawner(
     ToolRunnerConfig toolRunnerConfig,
     ILogger<ZapSpawner> logger) : IZapScanner
 {
+    /// <summary>
+    /// The scanner image, compiled in like the other tool-runner images and outside
+    /// <c>sandbox.allowed_registries</c> for the reason recorded on
+    /// <see cref="ToolRunnerConfig.Images"/>. Named rather than inlined so the test
+    /// that pins the compiled-in set can see it (2026-08-25-014d).
+    /// </summary>
+    public const string ScannerImage = "ghcr.io/zaproxy/zaproxy:stable";
+
     public async Task<ZapResult> ScanAsync(
         ZapScanRequest request, CancellationToken cancellationToken)
     {
@@ -36,7 +44,7 @@ public sealed class ZapSpawner(
             : null;
 
         var toolRequest = new ToolRunRequest(
-            "ghcr.io/zaproxy/zaproxy:stable", arguments, inputFiles,
+            ScannerImage, arguments, inputFiles,
             OutputFileName: "zap-report.json",
             ExtraHosts: extraHosts,
             TimeoutSeconds: request.TimeoutSeconds > 0 ? request.TimeoutSeconds : config.ContainerTimeout,

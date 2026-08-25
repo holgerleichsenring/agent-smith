@@ -19,10 +19,10 @@ public sealed class DockerSandboxFactoryTests
 
     private static DockerSandboxFactory BuildFactory(
         Mock<IDockerClient> docker, DockerSandboxOptions options) =>
-        new(docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(), options,
+        new(docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-test")), options,
             new DockerPackageCaches(docker.Object, options, NullLogger<DockerPackageCaches>.Instance),
             new DockerImagePresence(docker.Object, NullLogger<DockerImagePresence>.Instance),
-            DefaultSandboxOptions(), NullLoggerFactory.Instance);
+            DefaultSandboxOptions(), Mock.Of<IWireProtocolWatcher>(), NullLoggerFactory.Instance);
 
     [Fact]
     public async Task CreateAsync_CreatesTwoVolumes_RunsLoaderToCompletion_StartsToolchain()

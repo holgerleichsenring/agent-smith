@@ -1,9 +1,10 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.Models;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -22,21 +23,22 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class SandboxRepoCloner(
     ISourceProviderFactory factory,
     SandboxGitIdentity identity,
+    SandboxWorkBranchCheckout branchCheckout,
     ILogger<SandboxRepoCloner> logger)
 {
-    /// <summary>Returns the checked-out Repository, or null on failure (logged).</summary>
-    public async Task<Repository?> CheckoutIntoSandboxesAsync(
-        RepoConnection config, BranchName? branch,
+    /// <summary>Returns the checked-out Repository, or the reason it cannot be used.</summary>
+    public async Task<RepoCheckout> CheckoutIntoSandboxesAsync(
+        RepoConnection config, RunBranch? branch,
         IReadOnlyList<KeyValuePair<string, ISandbox>> sandboxes, CancellationToken ct)
     {
         var provider = factory.Create(config);
-        var resolved = await provider.CheckoutAsync(branch, ct);
+        var resolved = await provider.CheckoutAsync(branch?.Name, ct);
         var repo = new Repository(resolved.CurrentBranch, resolved.RemoteUrl);
 
         if (provider.ProviderType.Equals("Local", StringComparison.OrdinalIgnoreCase))
         {
             await EnsureIdentityAsync(sandboxes, ct);
-            return repo;
+            return RepoCheckout.Ready(repo);
         }
 
         if (sandboxes.Count == 0)
@@ -47,13 +49,15 @@ public sealed class SandboxRepoCloner(
         foreach (var (key, sandbox) in sandboxes)
         {
             var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config), null, ct);
-            if (clone.ExitCode != 0)
-                return FailWith(
-                    $"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
-            await MaybeSwitchBranchAsync(sandbox, branch, ct);
+            if (clone.ExitCode != 0) return FailWith(CloneProblem(key, clone), config);
+            // p0496: the identity comes BEFORE the branch switch. A base merge writes a
+            // merge commit, and a sandbox with no committing user cannot make one — a
+            // fast-forward passed without it and a three-way merge did not.
+            await identity.EnsureConfiguredAsync(sandbox, ct);
+            var problem = await branchCheckout.SwitchAsync(sandbox, branch, ct);
+            if (problem is not null) return FailWith($"sandbox '{key}': {problem}", config);
         }
-        await EnsureIdentityAsync(sandboxes, ct);
-        return repo;
+        return RepoCheckout.Ready(repo);
     }
 
     // A fresh clone has no committing identity, so every path that produces a
@@ -66,38 +70,18 @@ public sealed class SandboxRepoCloner(
             await identity.EnsureConfiguredAsync(sandbox, ct);
     }
 
-    private Repository? FailWith(string message, RepoConnection config)
+    // 2026-08-25-014d: no part of the product judges an image by its name any more, so
+    // the image that turns out to carry no git is discovered right here — and says so,
+    // instead of leaving an operator to read `exit=-1` as a broken repository.
+    private static string CloneProblem(string key, StepResult clone) =>
+        MissingGitInImage.Explains(clone)
+            ? $"git clone into sandbox '{key}' could not start: {MissingGitInImage.Cause} "
+              + $"(exit={clone.ExitCode}: {clone.ErrorMessage})"
+            : $"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}";
+
+    private RepoCheckout FailWith(string message, RepoConnection config)
     {
         logger.LogWarning("{Repo}: {Message}", config.Name, message);
-        return null;
-    }
-
-    // Check out the ticket branch's EXISTING content on a re-run (build on the
-    // prior run's committed work), falling back to creating it from the clone's
-    // default HEAD on a first run. The full `git clone` fetches every branch, so
-    // `git checkout <ticket-branch>` finds origin/<branch> and lands its content.
-    // No early-out on "requested == resolved": CheckoutAsync only ECHOES the
-    // requested branch back as CurrentBranch, so that guard was always true and
-    // silently skipped the switch — the sandbox stayed on the default and the
-    // prior run's work was ignored (then force-pushed over). `git checkout` on the
-    // branch we are already on is a harmless no-op, so the switch is unconditional.
-    private async Task MaybeSwitchBranchAsync(
-        ISandbox sandbox, BranchName? requested, CancellationToken ct)
-    {
-        if (requested is null)
-            return;
-        var branch = requested.Value;
-
-        var existing = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(branch), null, ct);
-        if (existing.ExitCode == 0)
-        {
-            logger.LogInformation("git checkout {Branch} (existing)", branch);
-            return;
-        }
-        var created = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCreateBranchStep(branch), null, ct);
-        if (created.ExitCode != 0)
-            logger.LogWarning(
-                "git checkout -b {Branch} failed (exit={Exit}): {Err}",
-                branch, created.ExitCode, created.ErrorMessage);
+        return RepoCheckout.Failed(message);
     }
 }

@@ -25,7 +25,7 @@ public class JobLoopTests
             .ReturnsAsync((Step s, Func<IReadOnlyList<StepEvent>, Task> _, CancellationToken _) =>
                 new StepResult(StepResult.CurrentSchemaVersion, s.StepId, 0, false, 0.1, null));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk);
@@ -45,7 +45,7 @@ public class JobLoopTests
             .ReturnsAsync((Step s, Func<IReadOnlyList<StepEvent>, Task> _, CancellationToken _) =>
                 new StepResult(StepResult.CurrentSchemaVersion, s.StepId, -1, true, 1.0, "timed out"));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk);
@@ -62,7 +62,7 @@ public class JobLoopTests
         bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => queue.Count > 0 ? queue.Dequeue() : null);
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk);
@@ -78,7 +78,7 @@ public class JobLoopTests
         bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Step?)null);
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitIdleTimeout);
@@ -101,7 +101,7 @@ public class JobLoopTests
             .ReturnsAsync(false);
 
         var loop = new JobLoop(
-            bus.Object, executor.Object, NullStepInFlightMarker.Instance,
+            bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance,
             NullLogger<JobLoop>.Instance, runId: "run-1");
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
@@ -123,7 +123,7 @@ public class JobLoopTests
             .ThrowsAsync(new InvalidOperationException("redis down"));
 
         var loop = new JobLoop(
-            bus.Object, executor.Object, NullStepInFlightMarker.Instance,
+            bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance,
             NullLogger<JobLoop>.Instance, runId: "run-1");
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
@@ -144,7 +144,7 @@ public class JobLoopTests
                 return null;
             });
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var act = () => loop.RunAsync("job-1", cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
@@ -163,7 +163,7 @@ public class JobLoopTests
             .ThrowsAsync(new RedisTimeoutException("Timeout awaiting response", CommandStatus.Unknown))
             .ReturnsAsync(Step.Shutdown(Guid.NewGuid()));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk, "a 6.5s Redis stall during idle wait must leave the agent alive");
@@ -180,7 +180,7 @@ public class JobLoopTests
             .ThrowsAsync(new RedisConnectionException(ConnectionFailureType.SocketFailure, "connection lost"))
             .ReturnsAsync(Step.Shutdown(Guid.NewGuid()));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk);
@@ -196,7 +196,7 @@ public class JobLoopTests
         bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new RedisTimeoutException("Timeout awaiting response", CommandStatus.Unknown));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitIdleTimeout);
@@ -212,11 +212,14 @@ public class JobLoopTests
         bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("wire schema drift"));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, Reader(bus), executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var act = () => loop.RunAsync("job-1", CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    private static ToleratedStepReader Reader(Mock<IRedisJobBus> bus) =>
+        new(bus.Object, NullLogger<ToleratedStepReader>.Instance);
 
     private static Step MakeRunStep(string command, params string[] args) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, command, args, "/", null, 10);

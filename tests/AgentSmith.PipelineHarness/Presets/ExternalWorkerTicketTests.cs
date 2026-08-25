@@ -25,11 +25,18 @@ namespace AgentSmith.PipelineHarness.Presets;
 [Trait("Category", "PipelineHarness")]
 public sealed class ExternalWorkerTicketTests
 {
+    private const string ScopeEstimateReply =
+        """{"repos":[{"name":"csharp-fixture","affected":true,"confidence":0.95}],"complexity":"small","shape":"deterministic","shape_reason":"one guard clause, checked by building and testing"}""";
+
     private const string GreenVerdict =
         """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""";
 
     private static ScriptedWorkerProcessRunner MechanicalTicketWorker() =>
         new ScriptedWorkerProcessRunner()
+            // p0413a: ScopeRepos estimates every ticketed run — one repository has
+            // nothing to scope, but its size and shape are still asked for, and in
+            // worker mode the worker answers that call like every other.
+            .EnqueueText(ScopeEstimateReply)
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")

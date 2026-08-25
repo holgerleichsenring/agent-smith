@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-a508
+
+decisions:
+  - category: Architecture
+    chose: "Mint the ask's identity where the answerable slot is created — MasterQuestionCheckpoint — and leave the master's question id as the TICKET's label"
+    over: "Minting a GUID in TicketClarificationToolHost, the way the sibling ask path mints one"
+    reason: |
+      The review named TicketClarificationToolHost's literal "1" as the defect, and it is
+      right about the damage: that string is the inbox key, and UNIQUE(DialogueJobId,
+      QuestionId) then gives a run exactly one answerable question for ever. But it is
+      not only the inbox key. The same id is the ticket's LABEL: the open-questions
+      comment renders "**Q1:** …" and instructs the operator to reply "Q1: option-a",
+      and PlanAnswerParser matches that reply back by exactly that id. A GUID there
+      would ask a human to type "Q3f2a9c…: yes" and would break the reply convention on
+      every tracker. So the two roles were separated rather than merged: "1" stays the
+      label, and the identity — the thing the inbox, the checkpoint, the dashboard and
+      the ticket poll all key on — is minted once per ask where the DialogQuestion is
+      composed. One WriteAsync is one ask, so a run that parks twice gets two slots,
+      which is the whole behaviour the phase asked for.
+  - category: Architecture
+    chose: "Nothing needs to become 'spent'. The identity fix removes the need for a consumption marker on the inbox row"
+    over: "Deleting a consumed answer row, or flagging it consumed"
+    reason: |
+      The spec named the tension and predicted its own resolution, and the code agrees.
+      ParkedTicketDialogue relies on the inbox's unique row as its idempotence anchor: a
+      comment re-read on the next scan is dropped by the index rather than by a cursor.
+      Deleting the row frees the slot and breaks that anchor; flagging it consumed keeps
+      the anchor and leaves the slot occupied. With one identity per ask neither is
+      needed — the second question has a slot of its own, and the first question's row
+      stays exactly where it is, still doing the only job it had. Consumption of the
+      CHECKPOINT already exists and is unchanged (RunCheckpointRecord.ResumedAt), which
+      is the marker the sweeper actually reads. So "spent" ended up meaning: the
+      checkpoint is spent, the answer row is permanent, and the two are not the same
+      fact.
+  - category: Architecture
+    chose: "One resolver, IDialogueJobIdentity, owns the dialogue job id for every ask path"
+    over: "Making the mid-run question use the run id, or making the gate use it"
+    reason: |
+      MasterQuestionCheckpoint passed the run id while DialogueAskGate preferred the
+      progress reporter's job id and fell back to the run id. Each path was internally
+      consistent — the sweeper and the dashboard both read checkpoint.DialogueJobId back
+      — so the defect only bites where the paths MEET: a question checkpointed by the
+      master under the run id, then re-asked through the gate on the resumed leg, would
+      be waited for under the job id and never see the row the operator's answer landed
+      in. Picking either id as the winner would have left two producers free to drift
+      again. A resolver both inject cannot: the key written is the key read back because
+      there is only one expression of it.
+  - category: Implementation
+    chose: "A resumed answer is consumed only by the ask the run parked on — matched by question id, or by the checkpointed question's text when the id was re-minted"
+    over: "Keeping p0327's unconditional re-key to whatever question the resumed run meets first"
+    reason: |
+      The re-key exists because Approval mints its question id per execution, so a
+      deterministic re-execution reaches the same ask under a new id. That is right for
+      the ask that parked and wrong for any other: a second, genuinely different question
+      would inherit the first answer and never be put to the operator at all. The
+      checkpointed question is staged by the resume reader, so it is available as the
+      reference; its text identifies the ask when its id could not. When no checkpointed
+      question is staged there is nothing to compare against and p0327's behaviour stands
+      — that case is a hand-built context, never a real resume.
+  - category: Implementation
+    chose: "Report an unanswerable park on IStartupFindings from the server, keyed on the run"
+    over: "Recording the finding where the checkpoint write fails (inside the run), or inventing a run-level findings surface"
+    reason: |
+      The natural place to notice "this question cannot be answered" is
+      MasterQuestionCheckpoint, which already logs a warning when the write is skipped —
+      but that code runs inside the run container, whose findings never reach the
+      server's /api/config/findings. So the detection was moved to where it is visible:
+      a run in waiting_for_input with no checkpoint row at all. That is precisely the
+      state the operator sees as "Question unavailable — open the run to answer", with
+      nothing to answer and no clock running, and it is server-side by construction. The
+      picture is republished every scan and cleared by subsystem first, so a park that
+      becomes answerable, resumes or is cancelled stops being reported without anyone
+      clearing it by hand.
+  - category: Implementation
+    chose: "A new ParkedRunRepository for the waiting-run query"
+    over: "Adding the query to RunRepository"
+    reason: |
+      RunRepository sits in the file-length baseline at 143 lines and may only get
+      shorter. The query is also its own responsibility — the runs stopped on a question,
+      which no reaper and no terminal path lists — so a type of its own is what the
+      principles ask for rather than a workaround.

@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-056d
+
+decisions:
+  - category: Architecture
+    chose: "The schema yields where the WRITER is the authority, the writer yields where the SHIPPED FILES are"
+    over: "Editing one side only, or declaring the schema aspirational and enforcing nothing"
+    reason: |
+      The two sides disagreed in both directions, so a one-sided edit could only move
+      the contradiction. The rule used to decide each case: whoever already produces
+      the artifact wins. ContextYamlDocument is what every agent-written context.yaml
+      comes out of, so the schema learned `stack.frameworks` and `methodology`, dropped
+      the required blocks no writer can emit, and opened `arch` to the freeform map the
+      document actually models it as. In the one case where BOTH shipped files and the
+      schema agreed and only the typed record disagreed — `meta.type`, an array of
+      archetypes everywhere except `ContextYamlMeta.Type`, a `string?` — the record
+      yielded. Measured before: 632 errors on this repository's own context, 2 on the
+      template. After: 0 and 0.
+  - category: Architecture
+    chose: "Only `meta` is required, and inside it only `workdir`"
+    over: "Keeping required: [meta, stack, arch, quality, state]"
+    reason: |
+      `state` has no field on ContextYamlDocument at all — it is a human phase index
+      this repository keeps and the bootstrap skill seeds; the parser, the serialiser
+      and the summary never mention it. Requiring it would make a freshly bootstrapped
+      project declare history it does not have. Everything else on the document is
+      nullable, so `workdir` — the one field ContextYamlSerializer.Serialize throws
+      without, and the one the sandbox coordinator genuinely needs — is the only
+      honest requirement. The proof is a test: the smallest document the writer can
+      emit is serialised and validated.
+  - category: Implementation
+    chose: "A record entry may be 3000 characters in the schema, not 80"
+    over: "Keeping 80, or writing today's longest entry (2974) into the schema"
+    reason: |
+      80 had not been honoured in months — 572 of 600 `state.done` entries and 58 of 58
+      `state.planned` entries broke it, which is a limit nobody has ever been measured
+      against. 3000 is not invented either: it is PhaseRecordLengthRatchetTests'
+      CompressionCeiling, the one bound in this codebase that no entry may exceed
+      "baselined or not". The real target stays 400, ratcheted per entry by that test,
+      and the schema's description says so. Two rules, one number each, neither
+      pretending to be the other. `integrations.*.does` moved 80 -> 120 for the same
+      reason: one entry measured 109.
+  - category: Tooling
+    chose: "A YAML->JSON bridge that keeps YAML's scalar types (YamlAsJson)"
+    over: "SpecDraftValidator's Deserialize<object> + JsonCompatible() pipeline"
+    reason: |
+      That pipeline turns every plain scalar into a string, so a perfectly correct
+      `quality.limits.method-lines: 20` was reported as failing `type: integer` — the
+      first run of the new tests failed on exactly that, in both shipped files. A rule
+      that misreads its own input invents failures and hides real ones, so the
+      conversion reads the representation model and resolves plain scalars by YAML's
+      core schema. Only the test bridge was changed; SpecDraftValidator carries the
+      same weakness and is out of this phase's scope.
+  - category: Tooling
+    chose: "A reflection rule over the typed document, alongside the two file checks"
+    over: "Only asserting that the two shipped files validate"
+    reason: |
+      `frameworks` was the THIRD field shipped without its schema entry (p0265's
+      `image` and p0272's `prerequisites` were the first two, each recorded at the
+      time) and the oldest: it has been on ContextYamlStack since p0193 created the
+      typed writer, and nobody noticed because no shipped file happened to use it.
+      A rule that walks ContextYamlDocument, ContextYamlMeta,
+      ContextYamlStack, ContextYamlStackResources and ContextYamlRegistryAuth through
+      the same UnderscoredNamingConvention the serialiser uses catches the fourth on
+      the build that adds it, because a field the shipped files happen not to use is
+      invisible to a file check.

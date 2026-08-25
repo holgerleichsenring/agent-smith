@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0496
+
+goal: "A re-run that reuses the work branch it created brings its base branch's newer commits with it, and a merge it cannot complete stops the run instead of continuing on a tree nobody reconciled."
+
+applies_to: "backend (sandbox checkout and branch handling, and the bootstrap refusal that reports what it read)"
+
+requires:
+  - p0411
+  - p0420
+  - p0421
+  - p0422
+  - p0428
+  - p0500
+
+scope:
+  in: "The branch this run composed from its own ticket, when a previous run already created it: reconciling it with its base before any work begins, stopping cleanly when that cannot be done, and saying what was read when the bootstrap probe then finds nothing."
+  out: "Any branch this run did not compose — a pull request's head branch, a scan's target branch, an init branch. A run that reaches this code with an operator-supplied branch reconciles nothing. The escalation path that spawns a sandbox mid-run keeps its own stop semantics, named here and not changed."
+
+decisions:
+  - key: |
+      THE TRIGGER IS THE BRANCH THIS RUN COMPOSED, AND NOTHING ELSE — THIS IS THE WHOLE SAFETY
+      ARGUMENT. The branch handed to the checkout is an operator-supplied one first and the
+      ticket-composed one only as a fallback, and the operator-supplied case includes a
+      contributor's pull-request head branch and a release branch being scanned. Merging a base
+      into those would make a review report on code the pull request does not contain and a scan
+      report on code the release does not contain — and because the branch is later pushed with a
+      lease-checked force, the framework would write a merge into somebody else's branch. The
+      merge therefore happens only when the branch is the one this run composed from its ticket.
+  - key: |
+      MERGE, NOT REBASE. The branch is published and force-pushed with a lease; rewriting its
+      history under a reviewer is worse than a merge commit. This was already the spec's choice
+      and it is right — what was missing is which reference, which is the base read the way the
+      delivery account already reads it, and that no fetch is issued.
+  - key: |
+      NO FETCH, AND THAT IS A CONSTRAINT NOT AN OPTIMISATION. The sandbox clone is full and
+      current, so the base ref is already local. The checkout step carries no credentials — only
+      the clone step does — so an implementer who adds a fetch before the merge gets a green test
+      and an authentication failure in production.
+  - key: |
+      THE IDENTITY HAS TO EXIST BEFORE THE MERGE, AND TODAY IT DOES NOT. The branch switch runs
+      before the git identity is configured. A fast-forward needs no commit and passes; a real
+      three-way merge — the only case this phase exists for — fails for want of a committer. That
+      is a defect that would ship as "works in the test, fails on the run that matters".
+  - key: |
+      A CONFLICT MUST ABORT, NOT JUST FAIL. A conflicted merge leaves markers and a merge head in
+      the tree, and two paths downstream will add everything and force-push it. One accidental
+      guard saves the main path today — the checkout fails before it publishes the repository, so
+      the branch persister bails — and that guard is invisible, unpinned by any test, and does
+      not cover the second caller. The merge is aborted explicitly and the step fails naming the
+      conflicting paths, the branch and the base.
+  - key: |
+      A CONFLICT IS NOT A QUESTION TO PARK ON. The resolution happens in git, outside the run; no
+      operator answer changes the outcome. A parked run re-enters at its cursor and would simply
+      re-park, for as long as the question's lifetime allows.
+  - key: |
+      THE BASE HAS EXACTLY ONE OWNER. The configured default branch is an optional override that
+      is usually unset, and the source provider exposes no way to ask. The answer already exists
+      in the sandbox, proven, in the way the delivery account resolves the remote head — so that
+      resolution is extracted and shared rather than invented a third time.
+  - key: |
+      THE MERGE MOVES WHAT THE DELIVERY ACCOUNT MEASURES, AND THAT MUST BE PINNED. The delivery
+      diff is taken against the base, and phase selection skips a phase whose criteria that diff
+      already satisfies. Today a stale branch's diff carries the reversal of everything the base
+      gained, so the merge improves it — but it moves the boundary of "already delivered" on
+      every re-run, and a load-bearing side effect with no test is how a later change breaks it.
+  - key: |
+      THE ADVICE THAT CONTRADICTS THIS PHASE HAS TO GO. The branch-state check ends its warning
+      with "delete the branch to start from a clean base" — the workaround this phase replaces.
+      Its commit count is also taken by author, so the merge commit and any framework-authored
+      commits arriving from the base inflate it: the warning would get louder on the runs where
+      less was delivered.
+
+steps:
+  - id: only-a-branch-this-run-composed-is-reconciled
+    action: "Reconcile a reused branch only when it is the one this run composed from its ticket, leaving an operator-supplied branch — a pull request's head, a scan target, an init branch — untouched."
+  - id: the-identity-exists-before-the-merge
+    action: "Configure the git identity before the branch is switched, so a merge that needs a commit has a committer."
+  - id: base-resolution-has-one-owner
+    action: "Extract the remote-head resolution the delivery account already uses, so the merge and the diff agree on what the base is and no third resolution appears."
+  - id: a-reused-branch-takes-its-base-with-it
+    action: "Merge the already-local base reference into the reused branch before any work begins, without issuing a fetch."
+  - id: a-conflict-aborts-and-stops
+    action: "Abort a conflicted merge and fail the checkout naming the conflicting paths, the branch and the base, so no run continues on an unreconciled tree and nothing is pushed."
+  - id: the-probe-publishes-what-it-read
+    action: "Publish the paths the bootstrap probe actually read, per sandbox, so the refusal can name them instead of guessing."
+  - id: the-refusal-names-what-it-read
+    action: "Name the branch, the base when one was resolved, and the probed paths in the bootstrap refusal, and say contexts where it says repos."
+  - id: the-branch-report-stops-recommending-the-workaround
+    action: "Update the branch-state warning so it no longer advises deleting the branch, and correct its shallow-clone premise."
+
+tests:
+  - "PullRequestHeadBranch_IsNotMerged"
+  - "ScanTargetBranch_IsNotMerged"
+  - "InitBranch_IsNotMerged"
+  - "ComposedBranch_ReusedWithANewerBase_TakesTheBaseCommits"
+  - "ComposedBranch_FreshlyCreated_IsUnaffected"
+  - "Merge_RunsAfterTheIdentityIsConfigured"
+  - "Merge_UsesTheAlreadyLocalBase_AndIssuesNoFetch"
+  - "MergeConflict_AbortsTheMerge_TheTreeCarriesNoConflictMarkers"
+  - "MergeConflict_TheCheckoutFailsBeforeTheRepositoryIsPublished"
+  - "MergeConflict_NothingIsPushed"
+  - "MergeConflict_TheFailureNamesThePathsTheBranchAndTheBase"
+  - "MultiRepo_EachRepositoryMergesItsOwnBase"
+  - "DeliveryDiff_AfterTheMerge_MeasuresAgainstTheSameBase"
+  - "BootstrapRefusal_NamesTheProbedPathsAndTheBranch"
+
+done:
+  - "a reused branch this run composed carries its base's newer commits before any work begins"
+  - "a branch this run did not compose is never merged into and never force-pushed with a merge"
+  - "a merge that needs a committer has one"
+  - "a conflict aborts, stops the run, pushes nothing, and names what conflicted"
+  - "the bootstrap refusal names the paths it read and the branch it read them on"
+  - "no advice in the run tells the operator to delete the branch this phase now reconciles"
+  - "build green, full suite green"

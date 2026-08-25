@@ -18,8 +18,8 @@ public sealed class KubernetesSandboxCorpseReaperTests
 
     private static V1Pod Pod(string name, string? runId, TimeSpan age)
     {
-        var labels = new Dictionary<string, string> { ["app"] = PodSpecBuilder.AppLabel };
-        if (runId is not null) labels[PodSpecBuilder.RunIdLabel] = runId;
+        var labels = new Dictionary<string, string> { ["app"] = SandboxPodLabels.AppLabel };
+        if (runId is not null) labels[SandboxPodLabels.RunIdLabel] = runId;
         return new V1Pod
         {
             Metadata = new V1ObjectMeta

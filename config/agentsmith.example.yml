@@ -22,12 +22,19 @@
 #   - Repos:     github | gitlab | azure_devops | local
 #   - Trackers:  github | gitlab | azure_devops | jira
 
-# --- Deployment image pin (REQUIRED for K8s/Docker spawners) ---
+# --- Deployment image pin (required by the ORCHESTRATOR image) ---
 # p0281c: ONE registry + version feeds BOTH the orchestrator container and the
 # sandbox-agent image — they ship from the same agent-smith release, so there is
 # one knob to bump per upgrade instead of two kept in sync. The legacy per-image
 # blocks (`sandbox: { agent_version }` / `orchestrator: { registry, version }`)
 # still load and win field-by-field when present.
+#
+# 2026-08-25-0d01: the SANDBOX-AGENT half no longer needs this. Left unset there,
+# its tag is DERIVED from the release the running server is, so the two cannot
+# drift apart by being forgotten. Setting it here (or in `sandbox.agent_version`)
+# still pins it deliberately — the server then reports the difference as an
+# advisory finding and refuses nothing. The orchestrator image has no derived
+# default and still needs a version, from here or from `orchestrator.version`.
 deployment:
   registry: holgerleichsenring
   version: 0.129.0

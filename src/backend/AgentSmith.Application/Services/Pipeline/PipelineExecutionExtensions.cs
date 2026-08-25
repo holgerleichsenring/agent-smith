@@ -40,13 +40,13 @@ public static class PipelineExecutionExtensions
         services.AddTransient<IPipelineStepRunner, PipelineStepRunner>();
         services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
         services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();
-        // p0201: per-pipeline-run liveness supervisor. Default no-op so InProcess
-        // / unit-test compositions stay quiet; Server composition overrides with
-        // SandboxLivenessSupervisor in SandboxBackendRegistrations.
+        // p0201: per-pipeline-run liveness supervisor. Default no-op so InProcess /
+        // unit-test compositions stay quiet; Server overrides in DockerSandboxRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddPipelineExecutor();
-        // p0327: durable dialogue — the hybrid ask gate, checkpoint writer,
-        // context (de)serializer, resume reader, and the queue-riding resumer.
+        // p0327: durable dialogue — the hybrid ask gate, checkpoint writer, context
+        // (de)serializer, resume reader, queue-riding resumer, and (a508) the one identity.
+        services.AddTransient<IDialogueJobIdentity, Resume.DialogueJobIdentity>();
         services.AddTransient<IPipelineContextSerializer, Resume.PipelineContextSerializer>();
         services.AddTransient<IDialogueCheckpointWriter, Resume.DialogueCheckpointWriter>();
         services.AddTransient<IDialogueAskGate, Resume.DialogueAskGate>();
@@ -85,7 +85,7 @@ public static class PipelineExecutionExtensions
         // no orchestrator pod). The Server composition replaces it with the
         // JobSpawnerOptions-backed resolver.
         services.TryAddSingleton<IOrchestratorResourceResolver, NullOrchestratorResourceResolver>();
-        services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
+        services.AddAgentImageResolution();
         services.AddSingleton<ISandboxSecretsResolver, SandboxSecretsResolver>();
         services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();
         // p0270a: the single config resolution pass — owns timeout + cost-cap
@@ -99,13 +99,13 @@ public static class PipelineExecutionExtensions
         // a process-wide fact.
         services.AddSingleton<Metrics.AgentSmithMetrics>();
         services.AddSingleton<ProjectResolver>();
-        services.AddSingleton<IEnvelopeProjectResolver>(
-            sp => sp.GetRequiredService<ProjectResolver>());
+        services.AddSingleton<IEnvelopeProjectResolver>(sp => sp.GetRequiredService<ProjectResolver>());
         services.AddTransient<Polling.ITrackerDiscoveryQueryBuilder, Polling.TrackerDiscoveryQueryBuilder>();
         // NB: ISpawnPipelineRunsUseCase is NOT registered here — it depends on
         // ITicketClaimService, a Server-only service (webhook + poller fan-out).
         // Registering it in this shared extension made it unconstructable in the
         // CLI graph; it lives in the Server composition (DispatcherExtensions).
+        services.AddTransient<ConceptVocabularyLoader>();
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         // Safe default lease so ExecutePipelineUseCase resolves in EVERY composition

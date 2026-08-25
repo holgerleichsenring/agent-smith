@@ -20,13 +20,20 @@ namespace AgentSmith.Application.Services.Scope;
 /// Standard chat plumbing (factory + call scope + cost tracking).
 /// Never throws: an LLM/transport failure returns an error string
 /// so the handler falls back to all repos, exactly like a parse failure.
+/// <para>
+/// p0413a: the one call answers TWO questions — which repositories the ticket
+/// touches, and what the ticket is (size + shape). They are returned separately
+/// because they fail separately: a reply that is no usable repo verdict can
+/// still carry a usable estimate, and a run with nothing to scope asks the
+/// second question alone.
+/// </para>
 /// </summary>
 public sealed class RepoScopeClassifier(
     IChatClientFactory chatClientFactory,
     IRunContextAccessor runContext,
     ILogger<RepoScopeClassifier> logger)
 {
-    public async Task<(RepoScopeClassification? Classification, string? Error)> ClassifyAsync(
+    public async Task<ScopeClassificationResult> ClassifyAsync(
         Ticket ticket, IReadOnlyList<TicketComment>? comments,
         IReadOnlyList<RepoConnection> repos,
         IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>> inventory,
@@ -54,13 +61,20 @@ public sealed class RepoScopeClassifier(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Repo scope classification call failed — keeping all repos");
-            return (null, $"classifier call failed ({ex.GetType().Name}: {ex.Message})");
+            return new ScopeClassificationResult(
+                null, ScopeEstimate.None, $"classifier call failed ({ex.GetType().Name}: {ex.Message})");
         }
 
         var classification = RepoScopeParser.TryParse(text);
+        // p0413a: the estimate is read from the verdict when the reply is one, and
+        // read on its own when it is not — the repos-array contract gates SCOPING,
+        // and must not take the size and shape down with it.
         return classification is null
-            ? (null, "classifier reply had no parseable {\"repos\": …} object")
-            : (classification, null);
+            ? new ScopeClassificationResult(
+                null, ScopeEstimateParser.Parse(text),
+                "classifier reply had no parseable {\"repos\": …} object")
+            : new ScopeClassificationResult(
+                classification, new ScopeEstimate(classification.Tier, classification.Shape), null);
     }
 
     private static string BuildUserPrompt(

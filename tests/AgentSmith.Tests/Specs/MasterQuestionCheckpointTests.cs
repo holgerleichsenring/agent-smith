@@ -26,19 +26,20 @@ public sealed class MasterQuestionCheckpointTests
     public void OneQuestionWithOptions_ReachesTheOperatorAsAChoice()
     {
         var composed = MasterQuestionCheckpoint.Compose(
-            [new PlanOpenQuestion("q1", "May I raise the shared package?", ["yes", "no"])]);
+            [new PlanOpenQuestion("1", "May I raise the shared package?", ["yes", "no"])], "ask-1");
 
         composed.Type.Should().Be(QuestionType.Choice);
         composed.Text.Should().Be("May I raise the shared package?");
         composed.Choices.Should().HaveCount(2);
-        composed.QuestionId.Should().Be("q1", "the answer is matched back by the master's own id");
+        composed.QuestionId.Should().Be("ask-1",
+            "the answer is matched back by the identity of the ASK, not by the ticket's label");
     }
 
     [Fact]
     public void AQuestionWithoutOptions_IsAnsweredInWords()
     {
         var composed = MasterQuestionCheckpoint.Compose(
-            [new PlanOpenQuestion("q1", "Which transport is authoritative?", [])]);
+            [new PlanOpenQuestion("1", "Which transport is authoritative?", [])], "ask-1");
 
         composed.Type.Should().Be(QuestionType.FreeText);
         composed.Choices.Should().BeNull();
@@ -53,9 +54,9 @@ public sealed class MasterQuestionCheckpointTests
     public void SeveralQuestions_ArePresentedAsTheOneReplyTheCommentAsksFor()
     {
         var composed = MasterQuestionCheckpoint.Compose([
-            new PlanOpenQuestion("q1", "Raise the pins?", ["yes"]),
-            new PlanOpenQuestion("q2", "Upgrade the tooling?", ["yes"]),
-        ]);
+            new PlanOpenQuestion("1", "Raise the pins?", ["yes"]),
+            new PlanOpenQuestion("2", "Upgrade the tooling?", ["yes"]),
+        ], "ask-1");
 
         composed.Text.Should().Contain("Q1: Raise the pins?").And.Contain("Q2: Upgrade the tooling?");
         composed.Type.Should().Be(QuestionType.FreeText, "one reply answers them together");
@@ -68,9 +69,9 @@ public sealed class MasterQuestionCheckpointTests
     [Fact]
     public void TheQuestionWaitsForTheOperator_NotForAClock()
     {
-        MasterQuestionCheckpoint.Compose([new PlanOpenQuestion("q1", "Well?", [])])
+        MasterQuestionCheckpoint.Compose([new PlanOpenQuestion("1", "Well?", [])], "ask-1")
             .Timeout.Should().BeGreaterThan(TimeSpan.FromDays(7));
-        MasterQuestionCheckpoint.Compose([new PlanOpenQuestion("q1", "Well?", [])])
+        MasterQuestionCheckpoint.Compose([new PlanOpenQuestion("1", "Well?", [])], "ask-1")
             .DefaultAnswer.Should().BeNull("nothing may answer a mid-run question on the operator's behalf");
     }
 }

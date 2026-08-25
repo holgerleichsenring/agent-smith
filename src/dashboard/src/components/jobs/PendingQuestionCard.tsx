@@ -12,7 +12,7 @@ import type { PendingQuestionInfo } from "@/types/hub-events";
 // with the green "Send & resume run" button. Used inline on the home screen's
 // .need cards AND inside the run viewer's dialogue drawer.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch } from "@/lib/apiResponse";
 
 interface Props {
   runId: string;
@@ -36,7 +36,7 @@ export function PendingQuestionCard({ runId, question, answered, onAnswered }: P
     if (!answer.trim() || sent) return;
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}/answer`, {
+      const res = await apiFetch(`/api/runs/${encodeURIComponent(runId)}/answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answer: answer.trim() }),

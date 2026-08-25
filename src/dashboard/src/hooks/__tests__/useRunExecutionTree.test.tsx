@@ -134,6 +134,100 @@ describe("useRunExecutionTree", () => {
     expect(nodes[1].children![0].status).toBe("ok");
   });
 
+  // 2026-08-25-5d7a: a step longer than one page is opened at its NEWEST page, so
+  // the page carries no StepStarted for the step it belongs to. The reader names
+  // the step instead of leaving the composer to infer one.
+  it("useRunExecutionTree_PageWithoutStepStarted_ComposesTheAnchoredStep", () => {
+    const page: RunEvent[] = [
+      {
+        type: EventType.SandboxCommand,
+        runId: RUN_ID,
+        timestamp: ts(400),
+        repo: "repo-a",
+        command: "ReadFile",
+        argsLength: 12,
+        summary: "src/Program.cs",
+      },
+      {
+        type: EventType.SandboxResult,
+        runId: RUN_ID,
+        timestamp: ts(401),
+        repo: "repo-a",
+        command: "ReadFile",
+        exitCode: 0,
+        durationMs: 254,
+      },
+    ];
+    const anchored = renderHook(() => useRunExecutionTree(page, SNAPSHOT, RUN_ID, 7));
+    expect(anchored.result.current.nodes).toHaveLength(1);
+    expect(anchored.result.current.nodes[0].id).toBe("step-7");
+    expect(anchored.result.current.nodes[0].body).not.toBeNull();
+    // Without the anchor the same page composes nothing — which is the defect.
+    const unanchored = renderHook(() => useRunExecutionTree(page, SNAPSHOT, RUN_ID));
+    expect(unanchored.result.current.nodes).toHaveLength(0);
+  });
+
+  it("useRunExecutionTree_AnchoredPage_AttachesSubAgentsToTheAnchoredStep", () => {
+    const page: RunEvent[] = [
+      {
+        type: EventType.SubAgentSpawned,
+        runId: RUN_ID,
+        timestamp: ts(500),
+        subAgentId: "sa-9",
+        name: "Reviewer",
+        activity: "review the changes",
+        parentSubAgentId: null,
+        inheritedContextHash: "h",
+      },
+      {
+        type: EventType.SubAgentCompleted,
+        runId: RUN_ID,
+        timestamp: ts(510),
+        subAgentId: "sa-9",
+        status: "success",
+        observationsCount: 0,
+        findingsCount: 0,
+        filesWrittenCount: 0,
+        toolCalls: 0,
+        costUsd: 0,
+      },
+    ];
+    const { result } = renderHook(() => useRunExecutionTree(page, SNAPSHOT, RUN_ID, 4));
+    const node = result.current.nodes[0];
+    expect(node.id).toBe("step-4");
+    expect(node.children).toHaveLength(1);
+    expect(node.children![0].label).toBe("sub-agent: Reviewer");
+  });
+
+  // The anchor is a fallback, never an override: a page that DOES carry the
+  // step's opening event still takes its identity from that event.
+  it("useRunExecutionTree_PageWithStepStarted_KeepsTheStepsOwnIdentity", () => {
+    const page: RunEvent[] = [
+      {
+        type: EventType.StepStarted,
+        runId: RUN_ID,
+        timestamp: ts(0),
+        stepIndex: 3,
+        stepName: "RunMasterSkill",
+        totalSteps: 5,
+        displayName: "Run master skill",
+      },
+      {
+        type: EventType.StepFinished,
+        runId: RUN_ID,
+        timestamp: ts(9),
+        stepIndex: 3,
+        status: "success",
+        durationMs: 9000,
+        reason: "11 files changed",
+      },
+    ];
+    const { result } = renderHook(() => useRunExecutionTree(page, SNAPSHOT, RUN_ID, 3));
+    expect(result.current.nodes).toHaveLength(1);
+    expect(result.current.nodes[0].label).toBe("Run master skill");
+    expect(result.current.nodes[0].status).toBe("ok");
+  });
+
   it("useRunExecutionTree_StepFailureMapsToFailStatus", () => {
     const events: RunEvent[] = [
       RUN_STARTED,

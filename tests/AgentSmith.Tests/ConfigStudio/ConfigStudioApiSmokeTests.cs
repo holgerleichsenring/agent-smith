@@ -278,6 +278,43 @@ public sealed class ConfigStudioApiSmokeTests
         }
     }
 
+    // p0515b LIVE SMOKE: a file carrying two spellings of one name is a CLIENT error on the
+    // import route — 400 through the write guard, with both spellings in the body, not a 500
+    // and not a store that was cleared for a config that never landed.
+    [Fact]
+    public async Task ConfigStudioApi_Import_ACollidingPair_AnswersFourHundred()
+    {
+        const string collidingYaml = """
+            agents:
+              claude-default: { type: claude, model: sonnet-4 }
+            repos:
+              Service.Api: { type: github, url: https://x, auth: token }
+              service.api: { type: github, url: https://y, auth: token }
+            trackers:
+              test-ado: { type: github, auth: token }
+            """;
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-collide-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, "agents: {}"); // placeholder; the store boots EMPTY (seed: false)
+        try
+        {
+            await using var app = await StartAppAsync(path, seed: false);
+            using var http = NewClient(app);
+
+            var refused = await http.PostAsync("/api/config/import", YamlBody(collidingYaml));
+
+            refused.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            (await refused.Content.ReadAsStringAsync()).Should()
+                .Contain("Service.Api").And.Contain("service.api");
+            (await http.GetStringAsync("/api/config/agents")).Trim().Should().Be("[]");
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
     // p0353 LIVE SMOKE: the global SETTINGS singletons over the wire — the type list,
     // a typed GET, a PUT that persists + shows in Changes, and an unknown type as 404.
     // This is the exact seam the studio's Settings forms use.

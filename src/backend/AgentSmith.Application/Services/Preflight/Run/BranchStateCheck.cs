@@ -49,7 +49,9 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
                 Name,
                 $"{BranchLabel(pipeline)} already carries commits from an earlier run "
                 + $"({string.Join(", ", carried)}, last {HistoryDepth} inspected) — that work counts as "
-                + "delivered, so those phases will be skipped; delete the branch to start from a clean base");
+                + "delivered, so those phases will be skipped. The base branch's newer commits are "
+                + "merged in on checkout (p0496); deleting the branch would discard the earlier "
+                + "run's work and close the pull request hanging off it");
     }
 
     private static string BranchLabel(PipelineContext pipeline) =>
@@ -59,10 +61,14 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
             : "the checked-out branch";
 
     /// <summary>
-    /// Commits authored by the framework identity in the branch's recent history. The
-    /// identity is the signal that needs no base branch: a shallow, single-branch clone
-    /// cannot be diffed against a base it never fetched, and "commits ahead of origin"
-    /// would be the kind of sometimes-answerable question a gate must not ask.
+    /// Commits authored by the framework identity in the branch's recent history — the
+    /// signal that needs no comparison against a base ref, so it reads the same in a
+    /// sandbox clone and in a host checkout.
+    /// <para>
+    /// p0496: <c>--no-merges</c>, because checkout now merges the base branch in under the
+    /// same identity. Those merge commits are this run's own bookkeeping, and counting them
+    /// would report an earlier run's work that does not exist.
+    /// </para>
     /// </summary>
     private async Task<int> CountFrameworkCommitsAsync(ISandbox sandbox, CancellationToken ct)
     {
@@ -70,7 +76,8 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
         {
             var step = new Step(
                 Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: ["log", "--format=%ae", "-n", HistoryDepth.ToString()],
+                Command: "git",
+                Args: ["log", "--no-merges", "--format=%ae", "-n", HistoryDepth.ToString()],
                 TimeoutSeconds: TimeoutSeconds);
             var result = await sandbox.RunStepAsync(step, null, ct);
             if (result.ExitCode != 0) return 0;

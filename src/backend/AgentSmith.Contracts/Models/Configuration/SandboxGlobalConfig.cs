@@ -16,12 +16,12 @@ public sealed class SandboxGlobalConfig
     public string AgentRegistry { get; set; } = AgentSmith.Contracts.Constants.AgentImageDefaults.DefaultRegistry;
 
     /// <summary>
-    /// Sandbox agent image tag (e.g. <c>0.48.0</c>). No default — operators MUST set this
-    /// in agentsmith.yml under either the top-level <c>sandbox:</c> block or a
-    /// per-project <c>projects.&lt;name&gt;.sandbox:</c> override. Empty value triggers a
-    /// fail-loud at sandbox-spawn time so a misconfigured deployment is caught
-    /// before the first ticket lands instead of producing an ErrImagePull at the
-    /// pod level.
+    /// Sandbox agent image tag (e.g. <c>0.48.0</c>). 2026-08-25-0d01: an OVERRIDE, not a
+    /// requirement — left empty (and with no <c>deployment.version</c> filling it), the tag
+    /// is DERIVED from the release the running server is, so the two cannot drift apart by
+    /// being forgotten. Set it to pin a different published tag deliberately: an air-gapped
+    /// mirror carrying one release, or a bisecting developer. A deliberate pin is reported
+    /// as an advisory finding, never refused.
     /// </summary>
     public string AgentVersion { get; set; } = string.Empty;
 
@@ -51,6 +51,30 @@ public sealed class SandboxGlobalConfig
     /// outlive the step cap.
     /// </summary>
     public int RunCommandTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// 2026-08-25-014d: the registries a sandbox toolchain image may be pulled from,
+    /// as reference prefixes (<c>mcr.microsoft.com/</c>, <c>ghcr.io/</c>, a private
+    /// mirror's host). The image string is model-authored or profile-authored, so
+    /// this is the supply-chain boundary the run is held to. EMPTY means the built-in
+    /// default, which is exactly what shipped before this field existed.
+    /// </summary>
+    public List<string> AllowedRegistries { get; set; } = [];
+
+    /// <summary>
+    /// 2026-08-25-014d: whether the Docker Hub official <em>library</em> namespace is
+    /// trusted — <c>node:20-bookworm</c>, <c>buildpack-deps:bookworm-scm</c>. This is a
+    /// repository SHAPE (no namespace segment), not a registry, so it carries its own
+    /// switch: folding it into <see cref="AllowedRegistries"/> as a host entry would
+    /// admit every user repository on that host instead.
+    /// <para>
+    /// NULL follows the registries. With none named the shape is trusted, so an unset
+    /// configuration is the pre-existing policy unchanged; once a registry list IS
+    /// named the shape is refused unless this says otherwise, because a named list is
+    /// a narrowing and keeping the shape would silently widen it back open.
+    /// </para>
+    /// </summary>
+    public bool? AllowDockerHubLibrary { get; set; }
 
     // p0270a: the per-project override arithmetic that lived here
     // (ResolveStepTimeout / ResolveRunCommandTimeout) moved into the single

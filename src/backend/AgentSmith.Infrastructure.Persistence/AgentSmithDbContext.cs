@@ -64,6 +64,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         // p0388a: applied AFTER the child loop so the per-step trail index is
         // added alongside — not instead of — the uniform RunId index.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
+        new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-25-61f1
     }
 
     // Run children carry a plain indexed RunId — NOT an enforced FK. A child

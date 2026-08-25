@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-056d
+
+goal: "The context schema and the document the writer emits are one shape, so the schema can be enforced without refusing every write."
+
+applies_to: "backend (the context schema, the typed context document, and the methodology template)"
+
+scope:
+  in: "Reconciling the declared schema with what the typed document can actually express and with what the repo's own contexts contain, in both directions, and proving it with the two files that ship."
+  out: "Enforcing the schema on a write, which is the phase this one exists to make possible. Anything about images or registries."
+
+decisions:
+  - key: |
+      THE SCHEMA IS NOT A CONTRACT TODAY, IT IS DEAD TEXT THAT ROTTED. Validated against this
+      repository's own context file it produces 632 errors — an undeclared top-level block, and
+      roughly six hundred record entries longer than a limit nobody has honoured in months. The
+      methodology template that ships to new projects fails it too, on the one field the runtime
+      genuinely enforces.
+  - key: |
+      IT CONTRADICTS THE WRITER IN BOTH DIRECTIONS, WHICH IS WHY THIS CANNOT BE A ONE-SIDED EDIT.
+      The schema demands a top-level block the typed document has no field for, and demands
+      required sub-fields the model has to guess because the document models them as a freeform
+      map. Meanwhile the document emits a stack field the schema does not declare at all — so a
+      context that names its frameworks fails a schema that was written before frameworks existed.
+      That is the third recorded instance of the same drift: two earlier phases each shipped a
+      field without the schema, and each recorded it.
+  - key: |
+      A BLOCK THE WRITER CANNOT EMIT MUST NOT BE REQUIRED. The state block exists only in this
+      repository, as a human phase index; the parser and the serialiser do not know it and the
+      summary never reads it. Requiring it would make a freshly bootstrapped project declare
+      history it does not have.
+  - key: |
+      THE PROOF IS THE TWO FILES THAT SHIP. A schema is reconciled when the repository's own
+      context and the template handed to every new project both validate against it. Anything
+      less is an assertion.
+
+steps:
+  - id: the-schema-declares-what-the-writer-emits
+    action: "Declare the blocks and fields the typed document actually produces, so a valid context stops failing its own schema."
+  - id: the-schema-stops-requiring-what-the-writer-cannot-express
+    action: "Drop or re-shape the requirements no writer can satisfy, so a bootstrapped context is not asked for history it does not have."
+  - id: the-limits-match-the-record
+    action: "Bring the schema's limits to what the shipped files actually contain, so the record does not fail the rule the moment it is enforced."
+  - id: the-template-passes-its-own-schema
+    action: "Fix the methodology template so the file handed to every new project validates."
+
+tests:
+  - "Schema_ThisRepositorysOwnContext_Validates"
+  - "Schema_TheMethodologyTemplate_Validates"
+  - "Schema_EveryBlockTheWriterCanEmit_IsDeclared"
+  - "Schema_EveryRequiredField_CanBeExpressedByTheWriter"
+  - "Schema_AContextNamingItsFrameworks_Validates"
+
+done:
+  - "this repository's own context validates against the schema"
+  - "the template shipped to new projects validates against the schema"
+  - "every block the writer can emit is declared, and nothing required is inexpressible"
+  - "build green, full suite green"

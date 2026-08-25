@@ -54,23 +54,24 @@ public sealed class SandboxImageChainProfileTests
     }
 
     [Fact]
-    public void Profile_ImageFailsTheGitBearingGate_RefusesRatherThanFallingBack()
-    {
-        var act = () => _sut.Resolve(
-            new ResolvedProject(), "python", contextImage: null, profileImage: "python:3.12-slim");
-
-        act.Should().Throw<ConfigurationException>()
-            .WithMessage("*python:3.12-slim*git-bearing*");
-    }
-
-    [Fact]
     public void Profile_ImageFromAnUntrustedRegistry_RefusesRatherThanFallingBack()
     {
         var act = () => _sut.Resolve(
             new ResolvedProject(), "python", contextImage: null,
             profileImage: "example.invalid/tools/data:1-bookworm");
 
-        act.Should().Throw<ConfigurationException>().WithMessage("*trusted registry*");
+        act.Should().Throw<ConfigurationException>().WithMessage("*trusted registries*");
+    }
+
+    [Fact]
+    public void Profile_ImageWithASlimTag_IsUsedRatherThanRefusedOnItsName()
+    {
+        // 2026-08-25-014d: a profile brings its own image BECAUSE the profile's commands
+        // live in it. Refusing it over a tag shape decided, from the name alone, that the
+        // catalog was wrong about its own toolchain — and the run never started. If it
+        // really carries no git, the checkout says so, in that image.
+        _sut.Resolve(new ResolvedProject(), "python", contextImage: null, profileImage: "python:3.12-slim")
+            .Should().Be("python:3.12-slim");
     }
 
     [Fact]

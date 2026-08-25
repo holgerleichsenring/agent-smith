@@ -11,7 +11,8 @@ namespace AgentSmith.Tests.Sandbox;
 /// </summary>
 public sealed class PodSpecBuilderSecretsTests
 {
-    private static readonly PodSpecBuilder Builder = new();
+    private static readonly PodSpecBuilder Builder =
+        new(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")));
 
     private static SandboxSpec SpecWith(ResolvedSandboxSecrets? secrets) => new(
         ToolchainImage: "node:20-bookworm",

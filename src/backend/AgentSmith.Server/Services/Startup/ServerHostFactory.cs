@@ -34,7 +34,7 @@ public static class ServerHostFactory
         await builder.Services.AddJobSpawnerAsync(
             builder.Configuration,
             LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
-        builder.Services.AddServerPreflight().AddStartupProbes();
+        builder.Services.AddServerPreflight().AddStartupProbes().AddBuildIdentity();
         // A test substitutes an absent dependency here; production passes nothing.
         substitutions?.Invoke(builder.Services);
 

@@ -35,6 +35,8 @@ internal sealed class ContextYamlReadShape
         // image here (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm). It wins
         // over the language→image convention table — so any framework/version works
         // without a table row, and a net8 repo gets the 8.0 runtime that runs its tests.
+        // 2026-08-25-014d: what the image may be is a registry question (operator policy,
+        // ImageRegistryTrust); what it contains is discovered where it is used.
         public string? Image { get; set; }
 
         // p0268: LLM-authored k8s CPU/memory for this stack's sandbox. Read via the

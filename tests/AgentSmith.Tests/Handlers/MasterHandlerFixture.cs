@@ -33,6 +33,7 @@ internal static class MasterHandlerFixture
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+            AgentSmith.Tests.TestHelpers.ContextGates.Build(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
@@ -50,7 +51,7 @@ internal static class MasterHandlerFixture
                 new SandboxRepoCloner(
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
                     new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
-                    NullLogger<SandboxRepoCloner>.Instance),
+                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
                 new SandboxTargets()),
             WebTool,
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),

@@ -37,6 +37,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="AgentSmith.Tests" />
     <InternalsVisibleTo Include="AgentSmith.Cli" />
+    <!-- p0413a: the harness's scripted chat client recognises the scope-classifier
+         call by its system prompt, from the prompt constant itself rather than a
+         copy of its wording that would silently stop matching. -->
+    <InternalsVisibleTo Include="AgentSmith.PipelineHarness" />
   </ItemGroup>
 
   <ItemGroup>
@@ -53,6 +57,9 @@
     <!-- p0315b: the methodology's phase-spec schema — a design-partner draft must
          validate against the SAME schema operators author phases with. -->
     <EmbeddedResource Include="..\..\..\.agentsmith\phase-spec.schema.json" Link="Services\Validation\Schemas\phase-spec.schema.json" />
+    <!-- 2026-08-25-c9c7: the context schema now gates the write path, so the binary
+         carries the same file this repository validates its own contexts against. -->
+    <EmbeddedResource Include="..\..\..\.agentsmith\context.schema.json" Link="Services\Validation\Schemas\context.schema.json" />
     <!-- p0390: the work-spec schema is emitted NEXT TO the specs it describes in the
          target repo, so a reviewer editing spec.yaml in the PR gets the same validation
          the writer applies. Embedded here because the writer ships it. -->

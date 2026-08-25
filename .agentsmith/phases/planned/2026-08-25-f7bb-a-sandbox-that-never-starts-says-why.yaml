@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-f7bb
+
+goal: "A sandbox that never comes up names the reason, instead of expiring as a readiness timeout that says nothing."
+
+applies_to: "backend (sandbox startup and its liveness watcher) + the sandbox agent's first act"
+
+requires:
+  - 2026-08-25-0d01
+
+scope:
+  in: "The window between spawning a sandbox and its first useful signal: what the agent says when it starts, what the server concludes when it hears nothing, and what an operator is told in either case."
+  out: "The protocol window and the version derivation, which 0d01 shipped. Refusing a run on any of it."
+
+decisions:
+  - key: |
+      EVERYTHING THAT REPORTS TODAY REPORTS ONLY AFTER THE AGENT TALKS. The protocol watcher reads
+      a result, the pin probe reads configuration — both are silent about an agent that never
+      reaches either. An image that cannot start, a mirror that cannot be pulled, an entrypoint
+      that exits: all of them arrive as the same expiring wait, naming neither cause nor fix. That
+      is the symptom that cost an operator a debugging session, and it is the one thing the
+      version work did not touch.
+  - key: |
+      THERE IS NO REGISTRATION HANDSHAKE TO HANG THIS ON, AND THAT IS THE WORK. The server mints a
+      sandbox id and waits on the container platform's readiness, not on the agent's own word. The
+      agent's first act is to poll for work. So the agent has to say something when it comes up,
+      and the server has to distinguish "not up yet" from "up and mute" from "never coming".
+  - key: |
+      THE DIAGNOSIS MUST COME FROM WHAT THE PLATFORM ALREADY KNOWS. A pull failure, an exited
+      container and a crash loop are all visible to the spawner before any timeout expires.
+      Reporting them is cheaper and truer than inferring from silence, and it is what turns a
+      timeout into a sentence an operator can act on.
+
+steps:
+  - id: an-agent-says-it-is-up
+    action: "Have a starting agent announce itself once, so the server can tell an agent that is late from one that will never arrive."
+  - id: the-wait-reports-what-the-platform-already-knows
+    action: "Read the container's own failure — an unpullable image, an exited entrypoint, a crash loop — and report that as the cause instead of letting the wait expire silently."
+  - id: a-timeout-that-remains-a-timeout-still-says-what-it-waited-for
+    action: "When nothing more precise is available, name the image, the sandbox and how long it waited, so the message is a starting point rather than a dead end."
+
+tests:
+  - "Sandbox_AnAgentThatStarts_AnnouncesItselfOnce"
+  - "Sandbox_AnUnpullableImage_ReportsThePullFailureNotATimeout"
+  - "Sandbox_AnEntrypointThatExits_ReportsTheExitNotATimeout"
+  - "Sandbox_AnAgentThatIsMerelySlow_IsNotReportedAsFailed"
+  - "Sandbox_ATimeoutWithNoPlatformSignal_NamesTheImageAndTheWait"
+
+done:
+  - "a sandbox that cannot start reports why, from what the platform already knows"
+  - "a slow agent is not mistaken for a dead one"
+  - "a timeout that stays a timeout still names the image and the wait"
+  - "build green, full suite green"

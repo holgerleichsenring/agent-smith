@@ -20,7 +20,8 @@ public sealed class SandboxRedisChannelDisposeTests
         var multiplexer = new Mock<IConnectionMultiplexer>();
         multiplexer.Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(db.Object);
 
-        var channel = new SandboxRedisChannel(multiplexer.Object, "job-abc", NullLogger<SandboxRedisChannel>.Instance);
+        var channel = new SandboxRedisChannel(multiplexer.Object, "job-abc",
+            NullLogger<SandboxRedisChannel>.Instance, Mock.Of<IWireProtocolWatcher>());
 
         await channel.DisposeAsync();
 
@@ -41,7 +42,8 @@ public sealed class SandboxRedisChannelDisposeTests
         var multiplexer = new Mock<IConnectionMultiplexer>();
         multiplexer.Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(db.Object);
 
-        var channel = new SandboxRedisChannel(multiplexer.Object, "job-abc", NullLogger<SandboxRedisChannel>.Instance);
+        var channel = new SandboxRedisChannel(multiplexer.Object, "job-abc",
+            NullLogger<SandboxRedisChannel>.Instance, Mock.Of<IWireProtocolWatcher>());
 
         var act = async () => await channel.DisposeAsync();
 

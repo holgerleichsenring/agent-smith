@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.PipelineHarness.Presets;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Server.Services.Sandbox;
@@ -219,11 +220,13 @@ public sealed class SandboxHeartbeatTests(ITestOutputHelper output)
         var sandboxConfig = Options.Create(new SandboxGlobalConfig { StepTimeoutSeconds = 60 });
         var factory = new DockerSandboxFactory(
             docker, multiplexer,
-            new DockerContainerSpecBuilder(),
+            new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-harness")),
             options,
             new DockerPackageCaches(docker, options, loggerFactory.CreateLogger<DockerPackageCaches>()),
             new DockerImagePresence(docker, loggerFactory.CreateLogger<DockerImagePresence>()),
-            sandboxConfig, loggerFactory);
+            sandboxConfig,
+            new WireProtocolWatcher(new StartupFindings(), loggerFactory.CreateLogger<WireProtocolWatcher>()),
+            loggerFactory);
         return (docker, multiplexer, factory, options);
     }
 

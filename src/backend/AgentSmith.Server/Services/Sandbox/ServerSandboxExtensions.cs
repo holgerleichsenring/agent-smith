@@ -17,7 +17,8 @@ namespace AgentSmith.Server.Extensions;
 /// Server sandbox composition: auto-detected backend factory (SANDBOX_TYPE &gt;
 /// KUBERNETES_SERVICE_HOST &gt; /var/run/docker.sock &gt; InProcess fallback),
 /// sandbox/orchestrator global config + options bindings, IOrchestratorResourceResolver.
-/// Per-backend service-registration helpers live in <see cref="SandboxBackendRegistrations"/>.
+/// Per-backend service-registration helpers live in <see cref="DockerSandboxRegistrations"/>
+/// and <see cref="KubernetesSandboxRegistrations"/>.
 /// </summary>
 internal static class ServerSandboxExtensions
 {
@@ -57,10 +58,14 @@ internal static class ServerSandboxExtensions
     internal static IServiceCollection AddSandbox(this IServiceCollection services)
     {
         var backend = ResolveBackend();
+        // 2026-08-25-0d01: the reader for the protocol version every wire record has always
+        // carried. Registered for every backend, because the in-process one is the only one
+        // that cannot skew and the other two both talk to an image with its own release.
+        services.AddSingleton<IWireProtocolWatcher, WireProtocolWatcher>();
         switch (backend)
         {
-            case SandboxBackend.Kubernetes: SandboxBackendRegistrations.RegisterKubernetes(services); break;
-            case SandboxBackend.Docker: SandboxBackendRegistrations.RegisterDocker(services); break;
+            case SandboxBackend.Kubernetes: KubernetesSandboxRegistrations.Register(services); break;
+            case SandboxBackend.Docker: DockerSandboxRegistrations.Register(services); break;
             case SandboxBackend.InProcess: services.AddSingleton<ISandboxFactory, InProcessSandboxFactory>(); break;
         }
         services.AddSingleton(new SandboxBackendInfo(backend));

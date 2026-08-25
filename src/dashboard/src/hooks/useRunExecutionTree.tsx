@@ -28,6 +28,7 @@ import {
   ingestStepStarted,
   resolveRunEndMs,
   resolveRunStartMs,
+  seedAnchorStep,
   seedPlannedSteps,
   statusFromString,
   type StepBucket,
@@ -52,18 +53,30 @@ export interface RunExecutionTree {
   totalSeconds: number;
 }
 
+/**
+ * 2026-08-25-5d7a: `anchorStepIndex` is the step a BOUNDED page belongs to. The
+ * whole-run fold passes nothing and reads every step's identity off the stream,
+ * as it always has. A step page passes the index it was fetched with, because
+ * the page can start anywhere inside the step — including well past the
+ * StepStarted event the fold used to depend on.
+ */
 export function useRunExecutionTree(
   events: RunEvent[],
   snapshot: RunSnapshot | null,
   runId: string | null = null,
+  anchorStepIndex: number | null = null,
 ): RunExecutionTree {
-  return useMemo(() => buildTree(events, snapshot, runId), [events, snapshot, runId]);
+  return useMemo(
+    () => buildTree(events, snapshot, runId, anchorStepIndex),
+    [events, snapshot, runId, anchorStepIndex],
+  );
 }
 
 function buildTree(
   events: RunEvent[],
   snapshot: RunSnapshot | null,
   runId: string | null,
+  anchorStepIndex: number | null = null,
 ): RunExecutionTree {
   if (events.length === 0) return { nodes: [], totalSeconds: 1 };
 
@@ -79,7 +92,12 @@ function buildTree(
     | (RunEvent & { plannedSteps?: string[] | null })
     | undefined;
   if (started?.plannedSteps?.length) seedPlannedSteps(steps, started.plannedSteps, runStartMs);
-  ingestEvents(events, steps, subAgents);
+  // The anchored step exists before the first event is read, so a page that
+  // starts mid-step has somewhere to put every row it carries.
+  if (anchorStepIndex !== null) {
+    seedAnchorStep(steps, anchorStepIndex, Date.parse(events[0].timestamp));
+  }
+  ingestEvents(events, steps, subAgents, anchorStepIndex ?? -1);
 
   const totalMs = Math.max(1, (runEndMs ?? nowFallbackMs) - runStartMs);
   const totalSeconds = totalMs / 1000;
@@ -99,8 +117,9 @@ function buildTree(
 
 function ingestEvents(
   events: RunEvent[], steps: Map<number, StepBucket>, subAgents: Map<string, SubAgentBucket>,
+  initialStepIndex: number,
 ): void {
-  let activeStepIndex = -1;
+  let activeStepIndex = initialStepIndex;
   for (const e of events) {
     switch (e.type) {
       case EventType.StepStarted: activeStepIndex = ingestStepStarted(steps, e); break;
