@@ -450,7 +450,13 @@ function StepDetail({
   const page = useRunStepEvents(runId, stepIndex, isRunLive(snapshot?.status));
   // The step's page is a bounded event list — the same composer that used to
   // fold the whole run now composes exactly one step from exactly its events.
-  const { nodes: composed } = useRunExecutionTree(page.events, snapshot, runId);
+  //
+  // 2026-08-25-5d7a: and it is TOLD which step, because the page starts at the
+  // step's newest row. A step longer than one page keeps its StepStarted event
+  // out of reach, and a composer left to infer the step from that event dropped
+  // every row the page carried — the pane read "no sub-events" and walking back
+  // through history changed nothing on screen.
+  const { nodes: composed } = useRunExecutionTree(page.events, snapshot, runId, stepIndex);
   const body = composed[0]?.body;
   const children = composed[0]?.children ?? [];
   const node = railNode ? { ...railNode, body } : null;

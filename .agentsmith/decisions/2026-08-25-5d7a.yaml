@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-5d7a
+
+decisions:
+  - category: Architecture
+    chose: "The step pane TELLS the composer which step its page belongs to"
+    over: "Making the server include the step's StepStarted event in every page, or having the client keep walking back until it finds one"
+    reason: |
+      The composer opens with no active step and adopts one only when a StepStarted event
+      goes past — a rule written for the whole run's stream, where every step begins inside
+      the window. A step PAGE is anchored at the step's newest row (p0388d, deliberately),
+      so a step longer than the 100-row page keeps its opening event out of reach and every
+      row the page carries is dropped into no bucket at all. The pane then reported "no
+      sub-events" about a step with 174 LLM calls, and "load older events" — which fetched,
+      prepended and re-composed exactly as designed — changed nothing on screen, so a
+      working control read as a dead button. Both alternatives fix the symptom by feeding
+      the inference more input: the server would have to prepend a row that is not part of
+      the page's range, breaking the contiguity the cursor walk depends on, and a client
+      that walks back "until it finds one" is the unbounded read p0388b removed, paying the
+      whole step's history to learn a number the caller passed in when it fetched. The
+      reader knows the step index — it is in the URL it called. Passing it is one argument.
+  - category: Architecture
+    chose: "The anchor is a SEED the stream overwrites, not an override"
+    over: "Forcing the anchored index for the page's whole ingest"
+    reason: |
+      The seeded bucket carries no identity of its own — the rail row supplies label, status,
+      cost and duration, and always has. A page that DOES contain the step's StepStarted (any
+      step short enough to fit) must still take name, displayName and start time from that
+      event, exactly as the whole-run fold does, so the two paths compose the same step the
+      same way. Seeding therefore reuses the shape planned-step seeding (p0275) already
+      established: the seed exists so events have somewhere to land, and live data wins.
+  - category: Testing
+    chose: "The test asserts the anchored AND the unanchored composition of the same page"
+    over: "Asserting only that the anchored page renders"
+    reason: |
+      One page, two calls: with the anchor it composes step-7 with a body, without it composes
+      nothing. That contrast IS the defect, pinned in place — a later change that quietly makes
+      the unanchored fold adopt some step would otherwise pass unnoticed, and the whole-run
+      fold's "events before any StepStarted belong to no step" rule is load-bearing for the
+      rail.
