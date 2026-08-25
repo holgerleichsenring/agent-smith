@@ -40,7 +40,11 @@ public sealed class InitRunLauncher(
         if (!config.Projects.TryGetValue(projectName, out var project))
             return InitLaunchResult.UnknownProject(projectName);
 
-        var live = await runs.FindLiveRunIdAsync(projectName, PipelineName, ct);
+        // p0515: the double-start guard reads the row the launch WRITES, and that row
+        // carries project.Name — the configured spelling. Guarding on the route's spelling
+        // made "Demo" and "demo" two independent runs of one project on SQLite/Postgres,
+        // where the comparison happens in SQL.
+        var live = await runs.FindLiveRunIdAsync(project.Name, PipelineName, ct);
         if (live is not null) return InitLaunchResult.AlreadyRunning(live);
 
         return await AdmitAndEnqueueAsync(project, autoCompletePullRequests, ct);
