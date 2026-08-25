@@ -119,9 +119,11 @@ public sealed class PhaseSequenceTests
     // phase is entered the way it always was. PhaseEntryAccountTests owns the account.
     private static Application.Services.Specs.PhaseEntryAccount NoEntryAccount() =>
         new(new Application.Services.DeliveryDiff(
+                AgentSmith.Tests.TestHelpers.TestGit.BaseBranch,
                 NullLogger<Application.Services.DeliveryDiff>.Instance),
             new Application.Services.Specs.PhaseAccounting(
                 new Application.Services.DeliveryDiff(
+                    AgentSmith.Tests.TestHelpers.TestGit.BaseBranch,
                     NullLogger<Application.Services.DeliveryDiff>.Instance),
                 null!, new SandboxTargets(),
                 NullLogger<Application.Services.Specs.PhaseAccounting>.Instance),
