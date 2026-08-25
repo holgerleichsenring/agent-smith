@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-1806
+
+goal: "What a role means is application configuration that changes when a team does, so it lives in the config store and is edited in the studio, not in a file a pod has to restart to read."
+
+applies_to: "backend (role resolution reads the config store, its migration, live reload) + dashboard (the studio surface, the identity page's refused case)"
+
+requires:
+  - 2026-08-25-4530
+  - p0349
+  - p0353
+
+scope:
+  in: "roles, group_roles, role_claim and group_claim move from the bootstrap block into the config store; an installation's existing file values migrate rather than vanish; a change takes effect without a restart; the Config Studio edits them; and the identity page stops showing a REFUSED caller what a role-less one sees."
+  out: "authority, audience and enforce, which the authentication pipeline needs before the database exists and therefore stay bootstrap. The admin grant, which stays an environment variable BECAUSE it is the way back in — a lockout escape reached through the surface it rescues is not one. Assigning a person a role: the directory decides that and there is still no user store."
+
+decisions:
+  - key: |
+      THE BOOTSTRAP ARGUMENT WAS TRUE FOR THREE FIELDS AND WAS APPLIED TO SEVEN. p0503b's
+      reasoning — read before the database exists — holds for authority, audience and enforce,
+      because AddServerAuthentication registers the whole pipeline at startup and the fallback
+      policy either exists or does not. It does not hold for the mapping: RoleCatalog is a
+      singleton that CallerIdentityResolver asks PER REQUEST, and CallerRoleReader reads the
+      claim names per request too. Nothing about them needs the file, and p0503d had already
+      written "operator-editable mappings through the Config Studio" into its out-of-scope
+      list as a debt this phase settles.
+  - key: |
+      THE USABILITY ARGUMENT IS THE STRONGER ONE. A role mapping changes when a team does. An
+      installation that has to edit a mounted file and restart a pod for that — while p0349 put
+      the configuration in the database and p0353 made it apply live — is a step backwards
+      inside its own product.
+  - key: |
+      A MIGRATION, NOT A CUT-OVER: AN EXISTING MAPPING MUST NOT VANISH ON UPGRADE. An
+      installation with roles and group_roles in its file has a working mapping today, and a
+      release that silently stops reading it locks out everyone that mapping let in. The file
+      values are imported once into the store, and the file keeps being read as the seed for an
+      installation that has not migrated — but the store, once it holds a mapping, is the one
+      answer.
+  - key: |
+      THE IDENTITY PAGE CURRENTLY SHOWS A REFUSED CALLER WHAT A ROLE-LESS ONE SEES. A token the
+      server rejected resolves to an anonymous identity, which renders as "nothing arrived"
+      against every field — indistinguishable from a token that was accepted and carried no
+      role. Those two states have opposite remedies: one is a mapping to write, the other is an
+      audience or issuer that does not match. The page exists to tell an operator which
+      situation they are in, so it has to name the refusal.
+
+steps:
+  - id: the-mapping-has-a-home-in-the-store
+    action: "Model the role mapping and the two claim names as config-store entities alongside the existing config entities, and read them there."
+    new:
+      - "the role mapping entity and its store reader"
+  - id: an-existing-mapping-survives-the-move
+    action: "Import the file's roles, group_roles, role_claim and group_claim into the store once when the store holds none, leaving the file as the seed for an installation that has not migrated."
+  - id: a-change-applies-without-a-restart
+    action: "Resolve the mapping per request through the config epoch rather than from a value captured at startup, so a save takes effect on the next call."
+  - id: the-studio-edits-it
+    action: "Add the Config Studio surface for the role mapping and the claim names, listing the closed permission catalog rather than free text, and showing the findings the catalog already reports for a bad bundle."
+    new:
+      - "the role mapping studio surface"
+  - id: a-refused-caller-is-told-so
+    action: "Distinguish a refused token from an accepted one carrying no role on the identity page, naming what the server refused it for."
+
+tests:
+  - "Store_HoldsAMapping_ItIsWhatResolves"
+  - "Store_HoldsNoMapping_TheFileSeedsIt"
+  - "Migration_FileHasAMapping_ItIsImportedOnce"
+  - "Migration_StoreAlreadyHasOne_TheFileDoesNotOverwriteIt"
+  - "Mapping_Saved_AppliesToTheNextRequestWithoutARestart"
+  - "Mapping_CustomRoleNamesABuiltIn_IsReportedAndIgnoredAsBefore"
+  - "Mapping_CustomRoleNamesAnUnknownPermission_IsReportedAndDropped"
+  - "Studio_ARoleBundle_OffersTheCatalogRatherThanFreeText"
+  - "Bootstrap_AuthorityAudienceAndEnforce_StayInTheFileAndTheEnvironment"
+  - "AdminGrant_StaysAnEnvironmentVariable"
+  - "Identity_TokenRefused_SaysSoRatherThanShowingAnEmptyMapping"
+  - "Identity_TokenAcceptedWithNoRole_StillShowsWhatArrived"
+
+done:
+  - "a role mapping is edited in the Config Studio and applies without a restart"
+  - "an installation upgrading with a mapping in its file keeps that mapping"
+  - "the closed permission catalog is what a bundle is built from, not free text"
+  - "authority, audience and enforce stay bootstrap, and the admin grant stays an env var"
+  - "a refused token and a role-less one read differently on the identity page"
+  - "dashboard build green, dashboard tests green, backend build green, full suite green"
