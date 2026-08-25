@@ -10,6 +10,8 @@ import { RepoInventory } from "./RepoInventory";
 import { blankEntity, ENTITY_ICON, ENTITY_LABEL, ENTITY_SINGULAR, ENTITY_SUBTITLE } from "./entities";
 import { useCapabilities } from "./useCapabilities";
 import { useConfigCatalogContext } from "./ConfigCatalogProvider";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0345: the Configuration studio — the catalog of the editable entity kinds
 // plus the Changes audit view. It loads the whole catalog once (the FK pickers
@@ -36,6 +38,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
   // feeds every type/provider/strategy dropdown in the drawer forms.
   const { capabilities } = useCapabilities();
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
+  const refusal = refusalIn(error);
 
   const openNew = (kind: ConfigEntityKind) =>
     setDrawer({ kind, initial: blankEntity(kind), isNew: true });
@@ -76,10 +79,14 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
 
         <ThesisNote reload={reload} />
 
-        {error && (
-          <p data-testid="config-load-error" className="msub" style={{ color: "var(--bad)" }}>
-            Failed to load configuration: {error}
-          </p>
+        {refusal ? (
+          <RefusalSurface refusal={refusal} surface="the configuration catalog" />
+        ) : (
+          error && (
+            <p data-testid="config-load-error" className="msub" style={{ color: "var(--bad)" }}>
+              Failed to load configuration: {error.message}
+            </p>
+          )
         )}
 
         {section === "changes" ? (
@@ -115,10 +122,10 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
 // DB store (guarded: a non-empty store confirms an overwrite first).
 function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
   const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<Error | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<Error | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const onExport = async () => {
@@ -133,7 +140,7 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setExportError((err as Error).message);
+      setExportError(err as Error);
     } finally {
       setExporting(false);
     }
@@ -166,7 +173,7 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
         }
       }
     } catch (err) {
-      setImportError((err as Error).message);
+      setImportError(err as Error);
     } finally {
       setImporting(false);
     }
@@ -181,12 +188,12 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
       </div>
       {exportError && (
         <span data-testid="config-export-error" style={{ color: "var(--bad)" }}>
-          export failed: {exportError}
+          export failed: {exportError.message}
         </span>
       )}
       {importError && (
         <span data-testid="config-import-error" style={{ color: "var(--bad)" }}>
-          import failed: {importError}
+          import failed: {importError.message}
         </span>
       )}
       {importMsg && (

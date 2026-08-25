@@ -7,6 +7,8 @@ import { useSetting } from "./useSetting";
 import { useCapabilities } from "./useCapabilities";
 import { SETTING_ICON, SETTING_LABEL, SETTING_SUBTITLE } from "./settings";
 import { settingRefusal } from "./settingsRefusal";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0353: the Settings pane — one typed form per global settings singleton, sitting
 // inside the config studio shell next to the entity catalog. It loads the doc, edits
@@ -29,6 +31,7 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
   // p0495: a draft the server would only ever contradict is refused here, in both its
   // numbers, instead of being saved and silently outranked at the sandbox boundary.
   const refusal = draft === null ? null : settingRefusal(settingKey, draft);
+  const loadRefusal = refusalIn(error);
 
   async function onSave() {
     if (draft === null || refusal !== null) return;
@@ -63,10 +66,14 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
           </button>
         </div>
 
-        {error && (
-          <p data-testid="settings-load-error" className="msub" style={{ color: "var(--bad)" }}>
-            Failed to load these settings: {error}
-          </p>
+        {loadRefusal ? (
+          <RefusalSurface refusal={loadRefusal} surface="these settings" />
+        ) : (
+          error && (
+            <p data-testid="settings-load-error" className="msub" style={{ color: "var(--bad)" }}>
+              Failed to load these settings: {error.message}
+            </p>
+          )
         )}
         {refusal && (
           <p data-testid="settings-refusal" className="msub" style={{ color: "var(--bad)" }}>
@@ -75,7 +82,7 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
         )}
         {saveError && (
           <p data-testid="settings-save-error" className="msub" style={{ color: "var(--bad)" }}>
-            Save failed: {saveError}
+            Save failed: {saveError.message}
           </p>
         )}
 
