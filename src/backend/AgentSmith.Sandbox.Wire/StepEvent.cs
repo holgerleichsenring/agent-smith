@@ -7,5 +7,6 @@ public sealed record StepEvent(
     string Line,
     DateTimeOffset Timestamp)
 {
-    public const int CurrentSchemaVersion = 1;
+    /// <summary>Stated once in <see cref="WireProtocol"/>.</summary>
+    public const int CurrentSchemaVersion = WireProtocol.Current;
 }

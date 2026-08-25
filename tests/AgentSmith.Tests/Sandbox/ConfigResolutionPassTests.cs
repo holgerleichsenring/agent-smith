@@ -104,9 +104,12 @@ public sealed class ConfigResolutionPassTests
     [Fact]
     public void Materialize_ImageVersionMissing_CapturesErrorInsteadOfThrowing()
     {
-        // Real AgentImageResolver throws on an empty agent version — Materialize
-        // must capture that per project, never crash the server / dashboard.
-        var throwing = new AgentImageResolver(Options.Create(new SandboxGlobalConfig()));
+        // 2026-08-25-0d01: with nothing declared AND a server that cannot name its own
+        // release, there is nothing left to derive from and the real resolver still throws.
+        // Materialize must capture that per project, never crash the server / dashboard.
+        var empty = Options.Create(new SandboxGlobalConfig());
+        var throwing = new AgentImageResolver(
+            empty, new AgentVersionResolver(empty, new BuildIdentity(null, null)));
         var config = new AgentSmithConfig
         {
             Projects = new() { ["p"] = new ResolvedProject { Name = "p" } },
