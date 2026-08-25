@@ -73,6 +73,7 @@ integrations:
 
 state:
   done:
+    p0515: "ONE NAME IS ONE ENTITY HOWEVER CAPITALISED (config resolution + launch). A lowercasing loader over ordinal catalogs made a capitalised name unresolvable and left a queued row nobody finished. Now one shared ignore-case rule, the raw pre-resolution lookup fixed, collisions named, names canonicalised before they key a row. -> .agentsmith/phases/done/p0515-case-insensitive-config-identity.yaml"
     p0413a: "EVERY RUN IS ESTIMATED (scope handler, cost cap, harness). A single-repo run returned before its tier was recorded and derived blind on the default cap. The estimate now rides the one classification call it owns, survives a reply with no repo list, and a tier RAISES the resolved cap instead of replacing it. -> .agentsmith/phases/done/p0413a-the-estimate-does-not-depend-on-repo-count.yaml"
     p0282c: "SUPERSEDED (2026-08-25) by p0402, which shipped the 120-line class bound as FileLengthRatchetTests over a baseline. Moved to done/ unimplemented under this id. -> .agentsmith/phases/done/p0282c-god-class-decomposition.yaml"
     p0282a: "SUPERSEDED (2026-08-25) by p0401/p0402, which shipped the static-to-service conversion and its NoStaticStateRuleTests guard. p0401a carries the named remainder (four codec statics). Moved to done/ unimplemented under this id. -> .agentsmith/phases/done/p0282a-eliminate-static-services.yaml"
