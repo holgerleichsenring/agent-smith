@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-61f1
+
+decisions:
+  - category: Architecture
+    chose: "The event's TRAIL POSITION is the identity of every row that event produces"
+    over: "A per-table natural key (step index, decision name, per-call content)"
+    reason: |
+      The per-call table has no natural identity at all — no call id, nothing that
+      distinguishes two calls a model happened to answer identically — and the step
+      table's apparent one is not safe: the applier already leaves a second row behind
+      for one index, which is why the time projection reads the LATEST row rather than
+      the only one. The trail position is the one identity every projected row can
+      share, it already exists, and it is minted in exactly one place. So RunStep,
+      RunLlmCall and RunDecision each gained an EventSeq column and a unique
+      (RunId, EventSeq), and the trail itself gained the unique (RunId, Seq) that the
+      whole scheme rests on. The rule reads as one sentence: a run event at position N
+      is recorded once.
+  - category: Implementation
+    chose: "The position is minted BEFORE the typed facts are applied"
+    over: "Assigning it at flush time, where the trail row is written"
+    reason: |
+      The projector applied typed facts first and buffered afterwards, so the position
+      did not exist yet when the rows that must carry it were written. Moving the mint
+      ahead of the apply is a two-line reordering that writes nothing earlier — the
+      batch still flushes after the typed facts, in the same order as before — and it
+      is what lets the buffer stay the single minter. The buffer therefore returns the
+      position alongside the batch instead of only the batch.
+  - category: Implementation
+    chose: "Insert-if-absent everywhere, checked by the writer, backed by the constraint"
+    over: "Letting the unique index throw and expecting the caller to survive it"
+    reason: |
+      RunTrailBuffer.Add DRAINS before RunDbProjector.FlushAsync writes, and
+      JobsBroadcaster.RunLoopAsync catches anything the drain throws as a transient
+      warning and sleeps. A throwing duplicate would therefore discard a whole batch of
+      trail rows, unretried, once every 25 events — refusing would mean losing. So the
+      flush drops the positions the store already holds and writes the rest, and each
+      inserting projection asks before it inserts. The constraint stays as the store's
+      own refusal; the writer's check is what makes the refusal observable instead of
+      destructive. The per-call check does double duty: it also suppresses the LIVE cost
+      accumulation onto the run row, which is a second multiplier the index cannot see.
+  - category: Architecture
+    chose: "Cover the per-call, per-step and decision rows, not the trail alone"
+    over: "Constraining the trail and calling the symptom addressed"
+    reason: |
+      The number that reached the operator was a cost, and a cost is summed from the
+      per-call rows by RunFinalizationProjection.SumLlmCostAsync — a table an index over
+      the trail never touches. A guard on the trail alone would have left every reported
+      total exactly as wrong while looking like the defect had been fixed. The applier's
+      three inserting paths therefore became three projections that own their table's
+      row and its identity, which is also what paid for the change under the line
+      ratchet: RunEventApplier went from 244 lines to 159.
+  - category: Implementation
+    chose: "The repair runs before MigrateAsync, reading only columns that predate this phase"
+    over: "Migrating to a named migration, repairing, then migrating the rest"
+    reason: |
+      Both orders work; this one costs nothing. A targeted migrate would have hard-coded
+      a migration name in the two places that migrate, forever, to buy the ability to
+      read the new column — which the repair does not need, because it identifies
+      duplicates by trail position and by content, never by the identity this phase adds.
+      Restricting every read to columns that have existed since InitialCreate makes the
+      repair valid on whatever schema the store is actually on, which is the only
+      schema it is ever going to meet. RunStoreMigrator owns the order so it is a
+      property of the code rather than of a runbook, and both entry points — the
+      deployment's `database migrate` and the CLI's local store — go through it.
+  - category: Implementation
+    chose: "Only runs whose TRAIL holds two rows at one position are repaired at all"
+    over: "Collapsing look-alike rows wherever they are found"
+    reason: |
+      Two trail rows at one position is objective: a position is minted once per event,
+      so a position held twice can only be a second projection of that event. Inside such
+      a run, content equality is then sound evidence of a copy. Outside one it would be a
+      guess, and a guess that deletes rows. The bound is what makes a content-based rule
+      acceptable — and it also gives the honest answer for a healthy store, which is that
+      nothing is touched and the report says so.
+  - category: Implementation
+    chose: "The earliest row of a duplicate set survives"
+    over: "The newest, or an arbitrary one"
+    reason: |
+      Duplicates of one event share their payload and their position but not their
+      insert stamps: the observed run's rows carry timestamps seconds apart because each
+      replay pass stamped its own. The earliest is the one the run actually wrote. Row id
+      breaks a tie so the answer is identical on every provider and on every re-run.
+  - category: Implementation
+    chose: "A repaired run's cost is only ever moved DOWN, to the sum of the surviving calls"
+    over: "Recomputing it unconditionally from the surviving rows"
+    reason: |
+      The stored total has two possible sources: the run-end event's own figure, which is
+      authoritative, and the per-call sum that is used when the event carried none — plus
+      the live accumulation that a replay also multiplied. Nothing on the row says which
+      one it was. Deflating toward the surviving calls can only correct a total that was
+      inflated by copies; it can never invent a new number for a run that was already
+      right, because a correct total is at or below the sum it was derived from.
+  - category: TradeOff
+    chose: "SQL Server gets a FILTERED unique index, driven by the provider name in the model"
+    over: "A sentinel value backfilled onto pre-phase rows so the column can be NOT NULL"
+    reason: |
+      Rows written before this phase carry no position, and SQL Server is the one
+      supported provider that treats two NULLs as equal in a unique index — there, every
+      legacy row of one run would collide with the next. The alternative was to make the
+      column non-nullable and stamp legacy rows with something unique, which means
+      writing a value that is not a position into a column that means "position", and
+      doing it in raw SQL that has to be portable across SQLite, Postgres and MySQL in
+      one shared migration. Asking the provider by NAME in OnModelCreating keeps both
+      model snapshots truthful about their own provider and needs no package reference.
+      Stated plainly: the SQL Server half is generated and reviewed but not executed by
+      the suite — the test project does not reference that migrations assembly.
+  - category: Scope
+    chose: "Repair row COUNTS and the run's cost total; leave the per-pass accumulators alone"
+    over: "Reconstructing every number a replay inflated"
+    reason: |
+      RunStep.LlmMs / ThrottleWaitMs / SandboxMs and the run's metrics JSON are folds: each
+      replay pass added to them, and what they hold is not recoverable from the rows that
+      survive — the throttle share, for one, is never persisted per call. Deriving them
+      would mean inventing them. They stay as the replay left them, and the cost total,
+      which IS recoverable and is the number that reached the operator, is corrected.

@@ -603,6 +603,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -627,6 +630,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique()
+                        .HasFilter("[EventSeq] IS NOT NULL");
 
                     b.ToTable("RunDecisions");
                 });
@@ -678,6 +685,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "Seq")
+                        .IsUnique();
 
                     b.HasIndex("RunId", "StepIndex", "Seq");
 
@@ -758,6 +768,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<long>("DurationMs")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Model")
                         .HasColumnType("nvarchar(max)");
 
@@ -790,6 +803,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique()
+                        .HasFilter("[EventSeq] IS NOT NULL");
 
                     b.ToTable("RunLlmCalls");
                 });
@@ -962,6 +979,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("float");
 
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("LlmMs")
                         .HasColumnType("bigint");
 
@@ -999,6 +1019,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique()
+                        .HasFilter("[EventSeq] IS NOT NULL");
 
                     b.ToTable("RunSteps");
                 });

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -72,7 +73,7 @@ public sealed class QueuedRunCancelTests : IDisposable
         finished.Status.Should().Be("cancelled");
 
         // Project the terminal event — the queued row is finished as cancelled.
-        await new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()).ApplyAsync(
+        await RunEventAppliers.Default().ApplyAsync(
             new AgentSmithDbContext(Options()), finished, CancellationToken.None);
         using var check = new AgentSmithDbContext(Options());
         var run = check.Runs.Single(r => r.Id == reserved);
