@@ -20,11 +20,24 @@ namespace AgentSmith.PipelineHarness.Evals;
 /// base — the delivery diff asks the clone, and a fixture that answered differently would
 /// take its diff against something no run ever compares against.
 /// </para>
+/// <para>
+/// Each fixture is BUILT once per test run and COPIED thereafter, the same trade
+/// <see cref="AgentSmith.Tests"/>' migrated-store template makes for its schema: building a
+/// repository costs eight git subprocesses, copying one costs a directory walk. That lesson
+/// was learned the expensive way — on a two-core runner a burst of process spawns starves
+/// async continuations, and the first casualty is whichever test elsewhere asserts a
+/// wall-clock bound. This suite is not entitled to spend that on nine identical rebuilds.
+/// </para>
 /// </summary>
 public sealed class AccountFixtureRepositories : IAsyncDisposable
 {
     public const string BaseBranch = "main";
     public const string WorkBranch = "work";
+
+    // Built once per fixture id, copied per use. Guarded because xUnit runs classes in
+    // parallel and two builders of one template would race on the same directory.
+    private static readonly Lock TemplateGate = new();
+    private static readonly Dictionary<string, string> Templates = new(StringComparer.Ordinal);
 
     private readonly List<ISandbox> _sandboxes = [];
     private readonly string _root;
@@ -40,6 +53,7 @@ public sealed class AccountFixtureRepositories : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(fixture);
         ArgumentNullException.ThrowIfNull(loggerFactory);
 
+        var template = await TemplateAsync(fixture, ct);
         var root = Path.Combine(Path.GetTempPath(), "account-eval-" + Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(root);
         var built = new AccountFixtureRepositories(root);
@@ -48,8 +62,7 @@ public sealed class AccountFixtureRepositories : IAsyncDisposable
         foreach (var repo in fixture.Repositories)
         {
             var path = Path.Combine(root, repo.Name);
-            Directory.CreateDirectory(path);
-            await BuildAsync(path, repo, ct);
+            CopyTree(Path.Combine(template, repo.Name), path);
             var sandbox = new InProcessSandbox(
                 $"{fixture.Id}:{repo.Name}", path, ownsWorkDir: false,
                 loggerFactory.CreateLogger<InProcessSandbox>());
@@ -59,6 +72,45 @@ public sealed class AccountFixtureRepositories : IAsyncDisposable
 
         built.Sandboxes = sandboxes;
         return built;
+    }
+
+    /// <summary>
+    /// The built repositories for this fixture, made once. The template is never written to —
+    /// every caller works on its own copy, because a copy is not a share.
+    /// </summary>
+    private static async Task<string> TemplateAsync(AccountFixture fixture, CancellationToken ct)
+    {
+        lock (TemplateGate)
+        {
+            if (Templates.TryGetValue(fixture.Id, out var existing)) return existing;
+        }
+
+        var root = Path.Combine(
+            Path.GetTempPath(), "account-eval-template-" + Guid.NewGuid().ToString("n"));
+        foreach (var repo in fixture.Repositories)
+        {
+            var path = Path.Combine(root, repo.Name);
+            Directory.CreateDirectory(path);
+            await BuildAsync(path, repo, ct);
+        }
+
+        lock (TemplateGate)
+        {
+            // Another class may have built it while this one was working; theirs is as good,
+            // and keeping one means the loser's tree is simply never read again.
+            if (Templates.TryGetValue(fixture.Id, out var raced)) return raced;
+            Templates[fixture.Id] = root;
+            return root;
+        }
+    }
+
+    private static void CopyTree(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+        foreach (var directory in Directory.EnumerateDirectories(from, "*", SearchOption.AllDirectories))
+            Directory.CreateDirectory(Path.Combine(to, Path.GetRelativePath(from, directory)));
+        foreach (var file in Directory.EnumerateFiles(from, "*", SearchOption.AllDirectories))
+            File.Copy(file, Path.Combine(to, Path.GetRelativePath(from, file)), overwrite: true);
     }
 
     private static async Task BuildAsync(
