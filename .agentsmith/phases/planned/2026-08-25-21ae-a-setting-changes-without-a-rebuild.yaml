@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-21ae
+
+goal: "A dashboard setting an operator has to change per installation is read when the container starts, not compiled into the bundle, so changing it is a restart rather than a rebuild."
+
+applies_to: "dashboard (runtime configuration read, its provider) + dashboard image entrypoint + deploy templates"
+
+requires:
+  - p0503b
+
+scope:
+  in: "An entrypoint that writes one non-secret settings document from the environment before the server starts, a client that reads it once before the first render, an absent document meaning every setting keeps its built-in default, and the settings that describe an authority for the sign-in loop that follows."
+  out: "The sign-in loop itself and anything that consumes an access token — *a browser signs in and carries the token*. Moving an EXISTING build-time variable onto this channel; NEXT_PUBLIC_BUILD_REVISION deliberately stays inlined, because a stale tab must keep stating the revision it was built from."
+
+decisions:
+  - key: |
+      A DOCUMENT WRITTEN AT START, NOT AN INLINED VARIABLE, BECAUSE NEXT BAKES THE VARIABLE
+      INTO THE BUNDLE. The image's own Dockerfile states it about NEXT_PUBLIC_BUILD_REVISION:
+      "Next.js inlines a NEXT_PUBLIC_* variable at BUILD time". That is correct FOR a build
+      revision and wrong for everything an operator sets per installation — an authority that
+      needs a rebuild to change is not a setting. The entrypoint writes the document from the
+      environment into the served static root before the server starts, and the browser fetches
+      it on boot. One image serves every installation.
+  - key: |
+      AN ABSENT DOCUMENT IS THE OFF STATE, NOT AN ERROR — IT IS WHAT MAKES THIS SWITCHABLE.
+      `next dev` runs no entrypoint, so a developer's tree has no document at all; a 404 there
+      must mean "every setting keeps its built-in default", which is the behaviour every
+      installation has today. A missing document that threw would make the dev server the one
+      environment the dashboard cannot run in, and would turn a deployment mistake into a blank
+      page rather than a running dashboard with the feature off.
+  - key: |
+      READ ONCE, ABOVE THE ROUTES, BECAUSE TWO READS ARE TWO ANSWERS. Every consumer resolving
+      the document itself gives the application a window in which one component believes a
+      setting is on and another does not. It is fetched once in a provider above the route
+      boundary — the layer that already holds the event store and the config catalog — and
+      every consumer reads the resolved value.
+  - key: |
+      NOTHING SECRET GOES IN IT, AND THE FILE SAYS SO. This document is served to any browser
+      that asks; it is public by construction. An OAuth public client's identifier and its
+      authority are public values and belong here — a client secret, a token or a connection
+      string never does, and there is no code path that could tell the difference. The comment
+      in the entrypoint and the schema note are the only guard that scales.
+  - key: |
+      NO-STORE, OR A REDEPLOY IS INVISIBLE. A document fetched from the static root is cached
+      like any other static asset, so a browser that has one would keep answering from the old
+      installation's settings after the pod that served it is gone. It is requested with cache
+      disabled, which is affordable exactly once per boot.
+
+steps:
+  - id: the-entrypoint-writes-what-the-environment-says
+    action: "Add an entrypoint script to the dashboard image that writes the settings document into the served static root from the environment and then execs the existing server, replacing the direct ENTRYPOINT."
+    new:
+      - "the dashboard image entrypoint"
+  - id: the-document-has-one-reader
+    action: "Add the client that fetches the document once with caching disabled and resolves it to a typed value, treating 404 and an unreadable body alike as every setting at its default."
+    new:
+      - "the runtime settings client and its type"
+  - id: every-consumer-reads-the-same-answer
+    action: "Add the provider that holds the resolved settings above the route boundary in the root layout, beside the existing providers, and the hook consumers read it through."
+    new:
+      - "the runtime settings provider and hook"
+  - id: the-settings-reach-a-deployment
+    action: "Add the variables to the compose example, the k8s dashboard deployment and the env example, each defaulting to empty so an installation that sets none behaves exactly as it does today."
+
+tests:
+  - "Settings_DocumentAbsent_EveryValueIsItsDefault"
+  - "Settings_DocumentUnreadable_EveryValueIsItsDefault"
+  - "Settings_DocumentPresent_ValuesAreTheOnesItCarries"
+  - "Settings_Requested_WithCachingDisabled"
+  - "Settings_ReadTwice_FetchesOnce"
+  - "Entrypoint_NoVariablesSet_WritesADocumentWithEmptyValues"
+  - "Entrypoint_VariablesSet_WritesThemVerbatim"
+  - "Entrypoint_AfterWriting_ExecsTheServer"
+
+done:
+  - "a setting changes by restarting the container, with no rebuild and no second image"
+  - "an installation that sets nothing behaves exactly as it does today, dev server included"
+  - "the document is fetched once per boot and never served from cache"
+  - "the variables exist in the compose example, the k8s deployment and the env example"
+  - "dashboard build green, dashboard tests green, full suite green"
