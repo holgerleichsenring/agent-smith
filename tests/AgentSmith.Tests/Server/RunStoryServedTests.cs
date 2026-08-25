@@ -101,7 +101,11 @@ public sealed class RunStoryServedTests : IDisposable
         // The exact camelCase wire contract the dashboard reads.
         var wire = JsonSerializer.Serialize(snap, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         wire.Should().Contain("\"progressLedger\":[{\"id\":\"1\",\"activity\":\"Add the endpoint\",\"status\":\"done\",\"target\":\"src/Api/Endpoint.cs\",\"note\":\"returns 200 with the slim DTO\"}");
-        wire.Should().Contain("\"acceptance\":{\"criteria\":[{\"text\":\"The endpoint returns 200\",\"status\":\"met\",\"reason\":\"Endpoint.cs\"}");
+        wire.Should().Contain("\"acceptance\":{\"criteria\":[{\"text\":\"The endpoint returns 200\","
+            + "\"status\":\"met\",\"reason\":\"Endpoint.cs\",\"citation\":null}");
+        // 2026-08-25-7f5a: the wire says WHICH judge decided. A master verification and an
+        // independent account of the branch are not the same evidence.
+        wire.Should().Contain("\"source\":\"master_verification\"");
         wire.Should().Contain("\"outcome\":\"verbatim\"").And.Contain("\"ratifiedBy\":\"operator\"");
         wire.Should().Contain("\"beats\":{\"ticket\":");
     }

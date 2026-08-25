@@ -91,9 +91,18 @@ function AcceptanceVerify({ acceptance }: { acceptance: RunAcceptance }) {
         </span>
       </div>
       <div className="card-b">
-        <div className="hint" style={{ marginBottom: 6 }}>
-          Each criterion the requester agreed to — checked against the <b>real diff and test
-          run</b>, not the agent’s say-so.
+        <div className="hint" style={{ marginBottom: 6 }} data-testid="verify-source">
+          {acceptance.source === "master_verification" ? (
+            <>
+              Each criterion the requester agreed to, as <b>the agent reported on its own
+              work</b>. This is not the independent read the gate uses.
+            </>
+          ) : (
+            <>
+              Each ratified criterion, checked against the <b>real diff and test run</b> by a
+              reader with no account of the work — this is what the gate decided on.
+            </>
+          )}
         </div>
         {acceptance.criteria.length === 0 ? (
           <p className="hint" data-testid="verify-empty">
@@ -118,6 +127,11 @@ function AcceptanceVerify({ acceptance }: { acceptance: RunAcceptance }) {
                     {criterion.reason && (
                       <div className="c-proof" data-testid="verify-criterion-reason">
                         {criterion.reason}
+                      </div>
+                    )}
+                    {criterion.citation && (
+                      <div className="c-proof" data-testid="verify-criterion-citation">
+                        cited: {criterion.citation}
                       </div>
                     )}
                   </div>
