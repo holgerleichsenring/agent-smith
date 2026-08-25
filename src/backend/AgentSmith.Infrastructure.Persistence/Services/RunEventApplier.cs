@@ -93,7 +93,7 @@ public sealed class RunEventApplier(
         {
             // p0327: a resumed run re-launches on its waiting_for_input row the
             // same way a capacity-queued run launches on its queued row.
-            if (existing.Status is not ("queued" or "waiting_for_input")) return; // duplicate replay
+            if (!RunStatuses.IsWaiting(existing.Status)) return; // duplicate replay
             await queuedRuns.PromoteToRunningAsync(uow, existing, e, ct);
             return;
         }
