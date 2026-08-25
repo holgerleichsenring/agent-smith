@@ -191,7 +191,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<DomainProfileStagesResolver>();
         // p0420: delivery is accounted for against the branch, not inferred from the run.
         services.AddTransient<DeliveryDiff>();
-        services.AddTransient<Specs.SpecAccountCall>();
+        services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
         services.AddTransient<Specs.PhaseAccounting>();
         services.AddTransient<Specs.PhaseEntryAccount>();

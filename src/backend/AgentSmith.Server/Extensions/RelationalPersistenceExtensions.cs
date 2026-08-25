@@ -165,7 +165,7 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<RunDeletionRepository>();
         services.AddScoped<Services.Lifecycle.RunDeleter>();
         // p0329: ratification outcomes → expectation-metrics read surface.
-        services.AddScoped<ExpectationMetricsRepository>();
+        services.AddScoped<ExpectationMetricsRepository>().AddScoped<CriterionJudgementRepository>();
         services.AddScoped<RunRetentionService>();
 
         // p0246e: mirror the durable markdown slots into the DB so result.md / plan.md

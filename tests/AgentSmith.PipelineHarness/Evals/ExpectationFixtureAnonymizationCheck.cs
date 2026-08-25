@@ -41,10 +41,23 @@ public static class ExpectationFixtureAnonymizationCheck
     {
         var violations = new List<string>();
         CheckAttestation(fixture, violations);
+        violations.AddRange(CheckText(rawJson, denyListDirectory));
+        return violations;
+    }
+
+    /// <summary>
+    /// 2026-08-25-7035: the same fingerprint sweep over any fixture text, for a fixture that
+    /// is not an expectation and carries no attestation of its own. The patterns are the
+    /// gate; the attestation is a property of a HARVESTED fixture, and an authored one has
+    /// nobody to attest.
+    /// </summary>
+    public static IReadOnlyList<string> CheckText(string rawText, string? denyListDirectory)
+    {
+        var violations = new List<string>();
         foreach (var (pattern, reason) in GenericChecks)
-            CheckPattern(rawJson, pattern, reason, violations);
+            CheckPattern(rawText, pattern, reason, violations);
         foreach (var deny in LoadDenyPatterns(denyListDirectory))
-            CheckPattern(rawJson, deny, $"deny-list pattern '{deny}'", violations);
+            CheckPattern(rawText, deny, $"deny-list pattern '{deny}'", violations);
         return violations;
     }
 

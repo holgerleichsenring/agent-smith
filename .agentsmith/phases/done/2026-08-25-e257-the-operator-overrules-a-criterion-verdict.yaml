@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-e257
+
+goal: "The operator records that a criterion's disposition was wrong and what the truth was, in a row of its own that no later snapshot can overwrite."
+
+applies_to: "backend + dashboard"
+
+requires:
+  - 2026-08-25-7f5a
+
+scope:
+  in: "One human judgement per criterion of a run's delivery account: what the account said, what was true, why, and who said so. Stored apart from the snapshot it corrects, served with it, and changing nothing else about the run."
+  out: "Scoring the account against those judgements, which is the phase after this one. Re-running or resuming a run from a verdict."
+
+decisions:
+  - key: |
+      A FALSE NEGATIVE IS INVISIBLE AND THEREFORE UNPRICED. A run that fails on a wrong
+      criterion is indistinguishable from one that fails on a right one — same state, same
+      colour, same cost. Fourteen phases went into this account, each tuned on a single failed
+      run, because the only failures that announce themselves are mechanical ones. The
+      operator already knows which verdicts were wrong. Nothing has ever asked.
+  - key: |
+      THE OVERRULE IS A LABEL, NOT A CONTROL. It does not re-open the gate, re-run the phase or
+      move the run's state. A control that changed the outcome would be pressed to ship things,
+      and the label would then measure impatience rather than correctness.
+  - key: |
+      ITS OWN ROW, BECAUSE THE SNAPSHOT IS OVERWRITTEN. The story event's applier assigns the
+      acceptance payload wholesale on every publish, so a resume, a retry or a repair pass would
+      silently destroy labels stored inside it. A judgement about a snapshot must outlive the
+      snapshot.
+  - key: |
+      PER CRITERION AND WITH A REASON. "That run was wrong" is not a fixture; "this criterion was
+      reported unmet, it was met, here is the file" is one. The reason is required because a
+      label without one cannot be audited later, and an unauditable label is worse than none.
+  - key: |
+      IT RECORDS WHO. The ratification facts already carry a name, and a corpus of judgements
+      with no author cannot be weighted, questioned or withdrawn.
+
+steps:
+  - id: an-overrule-is-stored-in-its-own-row
+    action: "Store one judgement per run and criterion — what the account said, what was true, the reason and the author — outside the acceptance snapshot, in every persistence provider."
+  - id: an-overrule-survives-a-resnapshot
+    action: "Keep a judgement when the run's story is published again, and pair it back to its criterion by identity rather than by position."
+  - id: the-operator-records-one-from-the-card
+    action: "Let the operator mark a criterion's disposition wrong from the run detail, with a required reason, and change it back."
+  - id: an-overrule-is-served-with-the-account
+    action: "Serve the judgements with the account so a reader sees the machine's disposition and the human's beside it."
+  - id: an-overrule-moves-no-outcome
+    action: "Leave the run's state, its gate verdict and its pull request untouched, and say so where the judgement is recorded."
+
+tests:
+  - "Overrule_ACriterionMarkedWrong_IsStoredAgainstTheRun"
+  - "Overrule_WithoutAReason_IsRefused"
+  - "Overrule_ForAnUnknownCriterion_IsRefused"
+  - "Overrule_Twice_ReplacesRatherThanAppends"
+  - "Overrule_AfterAResnapshot_Survives"
+  - "Overrule_WhenTheCriteriaReorder_StaysWithItsCriterion"
+  - "Overrule_Recorded_LeavesRunStateAndVerdictUnchanged"
+  - "Overrule_Recorded_CarriesItsAuthor"
+  - "RunDetail_AnAccountAndItsOverrules_AreServedTogether"
+  - "VerifySummary_AnOverruledCriterion_ShowsBothTheMachineAndTheHumanVerdict"
+  - "VerifySummary_AnOverrule_CanBeWithdrawn"
+
+done:
+  - "one judgement per run and criterion is stored outside the snapshot, in every persistence provider"
+  - "a judgement survives the run's story being published again and stays with its criterion"
+  - "the operator records and withdraws one from the run detail, with a required reason and an author"
+  - "the judgements are served with the account and shown beside the machine's disposition"
+  - "no run state, verdict or pull request changes because a judgement was recorded"
+  - "build green, dashboard build and tests green, full suite green"

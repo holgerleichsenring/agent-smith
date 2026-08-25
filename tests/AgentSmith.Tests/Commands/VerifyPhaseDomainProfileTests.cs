@@ -69,9 +69,9 @@ public sealed class VerifyPhaseDomainProfileTests
             new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
                 new ScriptedChatClientFactory(),
-                new SpecAccountCall(
+                new AccountCalls(new SpecAccountCall(
                     new ScriptedChatClientFactory(), new AsyncLocalRunContextAccessor(),
-                    NullLogger<SpecAccountCall>.Instance),
+                    NullLogger<SpecAccountCall>.Instance)),
                 NullLogger<SpecAccountant>.Instance),
             new SandboxTargets(),
             NullLogger<PhaseAccounting>.Instance),

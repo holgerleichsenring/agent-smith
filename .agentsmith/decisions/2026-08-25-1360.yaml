@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-1360
+
+decisions:
+  - category: Architecture
+    chose: "The file list is a separate argument, derived once from the whole delivery and handed to every call"
+    over: "Deriving it inside the prompt from whatever diff text that call was given"
+    reason: |
+      The prompt derived the list from its diff argument, and the accountant passes one
+      WINDOW as that argument. So in every multi-window run the account read a partial list
+      under the heading "EVERY FILE THIS BRANCH CHANGED (complete, never truncated)", then
+      "a file's absence from the DIFF BODY says nothing — check the list", then "a criterion
+      you cannot tie to a file is NOT satisfied". It was instructed to refuse a criterion
+      over files it had been told did not exist. This is not an edge case: the budget is
+      400k characters and a live two-repo migration produced 480k, so a delivery large
+      enough to split is exactly the delivery whose criteria span the split. The citation
+      RESOLVER was already built over the whole diff, which is why the fix is prompt-only —
+      a citation from another window already resolved; the account was simply never told the
+      file existed.
+  - category: Architecture
+    chose: "The same phase states what a listed file proves"
+    over: "Shipping the complete list and leaving the reading rule as it was"
+    reason: |
+      The prompt says a criterion about a file EXISTING is answered by the list alone, and
+      the window merge takes the first window that says satisfied. Widening the list
+      therefore widens what any single window may close on the strength of a name it never
+      read, multiplied by the window count — and the resolver accepts the citation, because
+      the file really is in the delivery. Repairing a false negative by arming a false
+      positive is not a repair. The rule now separates the two: a listed file proves the file
+      CHANGED, and a criterion about content is settled from a body that shows it or by
+      searching for it.
+  - category: Architecture
+    chose: "The correction pass gets the same complete list"
+    over: "Leaving it on windows[0], which is what it had"
+    reason: |
+      The correction demands a path copied exactly as the FILE LIST prints it. Shown the
+      first window's list, a criterion whose file lives in a later window was being asked to
+      comply with a list that cannot contain it — an instruction impossible to satisfy, on
+      the one pass that exists to rescue a citation. "Every window" does not reach this call,
+      because it is not a window; it had to be named separately or it would have been missed.
+  - category: Refactoring
+    chose: "Split the standing rules out of the prompt (AccountEvidenceRules) and the call structure out of the accountant (AccountCalls)"
+    over: "Adding a baseline row to the file-length ratchet for both files"
+    reason: |
+      Both files crossed 120 lines with this change and the rule says to extract rather than
+      baseline. The seams it forced are real ones: what the account is TOLD moves when the
+      account reasons wrongly, what it is SHOWN moves when it is handed the wrong evidence,
+      and how many CALLS a delivery becomes moves when the delivery is too large. AccountCalls
+      then absorbed the correction call too — it is the type that decides what a call is
+      handed, and the correction is a call. Registered rather than constructed, because a
+      static class taking a collaborator is what the no-static-state rule refuses, and it was
+      right to.

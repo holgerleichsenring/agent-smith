@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-7035
+
+decisions:
+  - category: Architecture
+    chose: "A fixture is a DELIVERY — a base tree and a branch tree made into real git repositories at test time"
+    over: "Replaying the account's recorded input from live runs (the corpus the phase was originally written around)"
+    reason: |
+      The obvious corpus cannot work, and the adversarial review of the spec is what
+      established it before any of this was built. Two independent reasons. First, the
+      input is not there: the delivery diff is a local buffer inside PhaseAccounting that
+      is discarded at method exit, the resolved base ref is read only into a failure
+      string, ContextKeys.DiffJson has a reader and no producer anywhere, and the median
+      delivery diff measured over 245 real calls is 205k characters with a largest of
+      5.2M — a payload that would have to travel the event stream onto a run row. Second,
+      and fatally: since p0483 the account is a TOOL-USING call that searches live
+      sandboxes. Replaying it with no sandbox scores a component that is not the one in
+      production, and it would score best exactly on the criteria that need looking most.
+      A materialised delivery has neither problem. The search tool answers real patterns
+      against a real tree, including patterns a future prompt invents — so the corpus does
+      not go stale when the thing under test changes, which a recording always would.
+  - category: Architecture
+    chose: "Two rates, each over its own denominator, both populations printed in the report"
+    over: "One accuracy number, or two rates over the whole criterion population"
+    reason: |
+      The failure has two directions and they are not symmetric in cost or in visibility.
+      A false negative refuses delivered work and is invisible — it looks exactly like a
+      correct refusal, which is why fourteen phases of tuning were each driven by a single
+      anecdote. A false positive is the rubber stamp the whole account exists to prevent.
+      A single number lets one be traded for the other silently, which is precisely how a
+      judge oscillates between too strict and too lax. Printing both populations is not
+      politeness: the first corpus is small, and a report that hides its n invites the
+      first baseline to be read as ground truth.
+  - category: Architecture
+    chose: "The corpus is DESIGNED, covering five named criterion classes"
+    over: "Seeding it from the runs already known to have been misjudged"
+    reason: |
+      Sampling from known misjudgements samples FOR false negatives: the rate has no
+      denominator, because nobody inspects the criteria that passed. The false-positive
+      rate would be structurally 0/0 and would read as perfect. So the corpus states what
+      it covers and a test fails if a class loses its only fixture: met, unmet, absence,
+      vacuous conditional, and universal-over-subjects-split-across-windows. The operator's
+      judgements on live runs remain worth having as a SECOND corpus, which is why the two
+      phases that capture them are named successors rather than dependencies — this phase
+      measures without waiting for either.
+  - category: Architecture
+    chose: "The window budget becomes a defaulted parameter on the accountant"
+    over: "Reading DiffWindows.DefaultBudgetChars inside, and reproducing a split with 400k of committed fixture"
+    reason: |
+      A split is the condition under which a universal criterion is hardest to answer, and
+      it is the condition that produced the false negative this whole line of work started
+      from. A corpus that can only reproduce it by committing half a megabyte of fixture is
+      a corpus nobody writes and nobody reviews. The parameter is defaulted, so production
+      passes nothing and gets the number it always had; the seam is declared in the phase
+      rather than smuggled in, because a test seam that nobody wrote down is a behaviour
+      change waiting to be misread.
+  - category: Architecture
+    chose: "The report is keyed by model and by a digest of the account prompt"
+    over: "Keying it by the skills pin, as the expectation eval does"
+    reason: |
+      The account's instructions live in this repository, not in the skills package. A pin
+      would name a version that does not move when the thing under test moves, so two
+      baselines taken under different instructions would overwrite each other in the same
+      file. The digest is derived from the rendered prompt with criteria, diff and command
+      list held constant, so it moves exactly when the wording moves and never otherwise —
+      a hand-maintained number is a number somebody forgets to raise.
+  - category: Architecture
+    chose: "The anonymisation gate's raw-text half is extracted and reused; the attestation is not"
+    over: "Running the whole ExpectationFixtureAnonymizationCheck, or skipping the gate for authored fixtures"
+    reason: |
+      An authored fixture has nobody to attest that it was anonymised, so demanding the
+      attestation would either fail every fixture or teach everyone to write a false one.
+      The fingerprint sweep still runs, and it runs for a reason that is not true today:
+      the material here is invented, and the day somebody pastes a real tree into a fixture
+      is the day that stops being true. A gate that only guards the case that already
+      passes is not a gate.

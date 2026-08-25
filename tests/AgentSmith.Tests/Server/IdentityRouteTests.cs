@@ -40,8 +40,14 @@ public sealed class IdentityRouteTests
             .Where(line => line.Length > 0 && !line.StartsWith('#'))
             .ToList();
 
-        golden.Should().HaveCount(79, "p0503a's table was 77 rows, p0503d added the identity "
-            + "row and 2026-08-25-4530 added the auth-requirements row");
+        // 2026-08-25-e257: the absolute count was the brittle half of this assertion — it
+        // fails for every route anyone adds and says nothing about identity. The proof is in
+        // its own history: it was 78, then 79 for the auth-requirements row, and would be 82
+        // now. What it guards against is a golden regenerated wholesale and SHORT, which
+        // survives as a floor; RoutePermissionGuardTests compares the whole table against the
+        // live routes and is the stronger check either way.
+        golden.Should().HaveCountGreaterThanOrEqualTo(79,
+            "the golden may gain routes and must never silently lose the ones it had");
         golden.Where(row => row.Contains(IdentityRoute, StringComparison.Ordinal))
             .Should().ContainSingle().Which.Should().Be($"GET\t{IdentityRoute}\t{Permissions.IdentityRead}");
     }

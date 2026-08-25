@@ -308,8 +308,8 @@ public sealed class SpecAccountingTests
         var factory = new StubChatClientFactory(client);
         return new SpecAccountant(
             factory,
-            new SpecAccountCall(factory, new AsyncLocalRunContextAccessor(),
-                NullLogger<SpecAccountCall>.Instance),
+            new AccountCalls(new SpecAccountCall(factory, new AsyncLocalRunContextAccessor(),
+                NullLogger<SpecAccountCall>.Instance)),
             NullLogger<SpecAccountant>.Instance);
     }
 
