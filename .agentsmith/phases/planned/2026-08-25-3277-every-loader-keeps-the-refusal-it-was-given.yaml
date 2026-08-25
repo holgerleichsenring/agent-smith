@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-3277
+
+goal: "A loader that reduces a thrown refusal to its message costs the caller the one control that resolves it, so every loader keeps the refusal itself and renders the surface built for it."
+
+applies_to: "dashboard (the loaders that hold a caught error as a string)"
+
+requires:
+  - 2026-08-25-4530
+
+scope:
+  in: "The loaders and hooks that catch an API error and keep only its message, converted to hold the thrown value so a refusal reaches the surface that renders it with its action."
+  out: "Changing getJson's return type — a discriminated result through fifteen client modules is a refactor, and holding the thrown value gets the same answer without one."
+
+decisions:
+  - key: |
+      THE TYPE SURVIVED THE THROW AND THE LOADER DISCARDED IT. *a signed-out dashboard says so
+      instead of failing* made a 401 a typed ApiRefusal and left getJson rejecting with it, which
+      is what kept that phase from being a refactor of every client module. A loader that catches
+      it and stores `err.message` loses the type at the last step: the panel that would offer a
+      sign-in button gets a string and renders a sentence. refusalIn() reads the type back off a
+      caught value, so the conversion is holding the thrown value rather than its message.
+  - key: |
+      NOT A RETURN-TYPE CHANGE, WHICH IS THE ALTERNATIVE THAT LOOKS TIDIER AND IS NOT. Making
+      getJson resolve to a result union would touch fifteen client modules and every caller, and
+      would put a branch at each of them. Holding the thrown value changes one line per loader
+      and no signature at all.
+  - key: |
+      A LOADER THAT LEGITIMATELY WANTS A STRING KEEPS ONE. Some surfaces render a message and have
+      nowhere to put an action. Those read the message off the held value at RENDER time rather
+      than at catch time, which costs nothing and leaves the type intact for the ones that can
+      use it.
+
+steps:
+  - id: the-loaders-hold-what-they-caught
+    action: "Convert the loaders and hooks that store a caught error as a string to hold the thrown value, reading the message at render time where a message is all the surface can show."
+  - id: a-refusal-reaches-its-surface
+    action: "Render the refusal surface in the loaders whose surface has room for an action, so a signed-out caller gets the sign-in control rather than the sentence."
+
+tests:
+  - "Loader_A401_HoldsTheRefusalRatherThanItsMessage"
+  - "Loader_A401_RendersTheSignInAction"
+  - "Loader_A403_NamesThePermissionAndOffersNoSignIn"
+  - "Loader_AServerError_StillRendersTheMessageItDoesToday"
+
+done:
+  - "a signed-out caller reaches the sign-in control from every surface that has room for one"
+  - "a 403 names its permission wherever it lands"
+  - "a server error renders exactly what it renders today"
+  - "dashboard build green, dashboard tests green, full suite green"

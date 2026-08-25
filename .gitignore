@@ -82,3 +82,8 @@ tests/AgentSmith.PipelineHarness/Fixtures/DataFixture/**/package-lock.yml
 # compiled python caches (a gate cache once carried the fingerprint list)
 __pycache__/
 *.pyc
+
+# 2026-08-25-21ae: the image entrypoint writes this document at container start.
+# A tree running `next dev` has no entrypoint, so a developer testing sign-in
+# writes it by hand — and it carries THEIR installation's authority.
+src/dashboard/public/runtime-settings.json
