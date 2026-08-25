@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-2de1
+
+goal: "The dashboard signs a person in against the configured authority and puts the resulting token on every call it makes, so the pipeline p0503b built has something to validate."
+
+applies_to: "dashboard (sign-in loop, token store, the REST outgoing point, the hub connection)"
+
+requires:
+  - 2026-08-25-21ae
+  - p0503b
+  - p0503c
+  - p0517
+
+scope:
+  in: "An authorization-code-with-PKCE sign-in against the authority the runtime settings name, a token held for the tab's lifetime and renewed before it expires, a bearer header on the one REST outgoing point, the same token on the hub handshake, and sign-out."
+  out: "What a signed-in caller SEES, and what a refusal looks like — *a signed-out dashboard says so instead of failing*. The enforce default, which stays off: switchability is the requirement, not a milestone on the way to mandatory."
+
+decisions:
+  - key: |
+      THE BROWSER HOLDS THE TOKEN, BECAUSE THE SERVER WAS ALREADY BUILT THAT WAY. p0503c puts
+      the hub's token in the query string and says why: "a browser cannot set an Authorization
+      header on a websocket handshake". A back-end-for-frontend holding the token server-side
+      would still have to hand it to the browser for that handshake, so it buys nothing and
+      costs a session store, a cookie and a second identity to keep in sync. Authorization code
+      with PKCE, public client, no client secret anywhere — which is also the only shape the
+      settings document from *a setting changes without a rebuild* can safely carry.
+  - key: |
+      GENERIC OIDC, NOT A DIRECTORY-SPECIFIC CLIENT. The server validates against ONE OIDC
+      authority and its own configuration comments name a Keycloak realm as a first-class case.
+      A client library written for one directory would make the dashboard work against a subset
+      of the authorities the server already accepts, and the mismatch would surface as a
+      customer's issuer simply not working. The client is chosen for speaking discovery and
+      PKCE, nothing more.
+  - key: |
+      ONE INJECTION POINT, BECAUSE THERE IS ONLY ONE. *2026-08-25-39ab* pulled every REST call
+      onto a single apiFetch; the bearer header is a line there and reaches all of them. The hub
+      is the second and last point, and it takes a token FACTORY rather than a token: SignalR
+      asks again on every reconnect, and a token captured once at connect time is a dead
+      connection an hour later that reconnects forever without saying why.
+  - key: |
+      THE TOKEN LIVES IN MEMORY, AND A RELOAD RE-ASKS THE AUTHORITY SILENTLY. A token in local
+      storage is readable by anything that achieves script execution in the page, and it is
+      equivalent to the run control, the config store and the secrets it guards. Held in memory
+      it dies with the tab, and the authority's own session — which is what a directory exists
+      to hold — makes the next load a redirect the person never sees. That is also the only
+      renewal path that keeps working when the tab has been open longer than a token lives.
+  - key: |
+      A SIGN-IN THAT IS NOT CONFIGURED IS NOT ATTEMPTED. With no authority in the settings
+      document the loop is never constructed, no redirect is possible, and every call goes out
+      exactly as it does today. This is the same shape the server takes — p0503b registers
+      nothing without an authority — and it is what keeps a developer's tree and an installation
+      that has not configured a directory running.
+  - key: |
+      SIGN-OUT ENDS THE LOCAL SESSION AND ASKS THE AUTHORITY TO END ITS OWN. Dropping only the
+      in-memory token leaves the authority's session standing, so the next silent renewal signs
+      the same person straight back in and the button appears broken. An authority that
+      publishes no end-session endpoint is not an error; the local session still ends.
+
+steps:
+  - id: the-settings-describe-an-authority
+    action: "Extend the runtime settings document with the authority, client identifier, scopes and redirect path, all empty by default."
+  - id: a-person-signs-in-and-a-token-comes-back
+    action: "Add the sign-in loop over authorization code with PKCE against the discovered authority, plus the redirect callback route that completes it."
+    new:
+      - "the sign-in client and its callback route"
+  - id: the-token-has-one-owner
+    action: "Add the in-memory token store that hands out the current access token, renews it silently before expiry, and is empty when no authority is configured."
+    new:
+      - "the token store"
+  - id: every-call-carries-it
+    action: "Set the bearer header in apiFetch and install the token factory on the hub connection builder, both no-ops when the store is empty."
+  - id: a-person-can-sign-out
+    action: "Add sign-out that clears the store and, where the authority publishes one, redirects through its end-session endpoint."
+
+tests:
+  - "SignIn_NoAuthorityConfigured_IsNeverAttempted"
+  - "SignIn_AuthorityConfigured_RedirectsWithACodeChallenge"
+  - "Callback_WithACode_ExchangesItAndFillsTheStore"
+  - "Callback_WithAnError_SurfacesItAndLeavesTheStoreEmpty"
+  - "ApiFetch_StoreEmpty_SendsNoAuthorizationHeader"
+  - "ApiFetch_StoreHoldsAToken_SendsItAsABearer"
+  - "ApiFetch_ExistingHeaders_ArePreserved"
+  - "Hub_StoreHoldsAToken_TheFactoryReturnsItOnEveryCall"
+  - "Hub_TokenRenewed_TheNextConnectUsesTheNewOne"
+  - "Store_TokenNearExpiry_RenewsBeforeItExpires"
+  - "Store_RenewalFails_TheStoreEmptiesRatherThanServingADeadToken"
+  - "SignOut_ClearsTheStore"
+  - "SignOut_AuthorityPublishesAnEndSession_RedirectsThroughIt"
+  - "SignOut_AuthorityPublishesNone_StillEndsTheLocalSession"
+
+done:
+  - "a person signs in against the configured authority and the dashboard holds their token"
+  - "every REST call and the hub handshake carry it, through the two points that exist"
+  - "with no authority configured nothing is attempted and the dashboard behaves as it does today"
+  - "a token is renewed before it expires, and a reload does not force a visible sign-in"
+  - "sign-out ends the local session and the authority's where it publishes one"
+  - "dashboard build green, dashboard tests green, full suite green"
