@@ -105,7 +105,7 @@ public sealed class CapacityBudgetTests : IDisposable
         await budget.RecordAsync("run1", Footprint(4 * Gi), CancellationToken.None);
         await budget.TryReserveAsync("run1", CancellationToken.None);
 
-        await new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new(), budget), new()).ApplyAsync(
+        await RunEventAppliers.Default(budget).ApplyAsync(
             new AgentSmithDbContext(DbOptions()),
             new RunFinishedEvent("run1", "success", "https://pr", "done", DateTimeOffset.UtcNow),
             CancellationToken.None);
@@ -132,7 +132,7 @@ public sealed class CapacityBudgetTests : IDisposable
         await budget.RecordAsync("run2", Footprint(4 * Gi), CancellationToken.None);
         await budget.TryReserveAsync("run2", CancellationToken.None);
 
-        await new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new(), budget), new()).ApplyAsync(
+        await RunEventAppliers.Default(budget).ApplyAsync(
             new AgentSmithDbContext(DbOptions()),
             new RunFinishedEvent("run2", "waiting_for_input", null, "parked", DateTimeOffset.UtcNow),
             CancellationToken.None);

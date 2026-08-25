@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -166,15 +167,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunCheckpointProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunExpectationProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.QueuedRunProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunSandboxProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunStepTimeProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPullRequestProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunClassificationProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunFinalizationProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPhaseProjection>();
+        services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunTrailBuffers>();
