@@ -205,7 +205,7 @@ public sealed class PhaseEntryAccountTests
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken)
+            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars)
         {
             Calls++;
             var rows = criteria
@@ -225,7 +225,7 @@ public sealed class PhaseEntryAccountTests
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
             BranchSearch? branchSearch,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
+            PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars) =>
             throw new InvalidOperationException("429 Too Many Requests");
     }
 }

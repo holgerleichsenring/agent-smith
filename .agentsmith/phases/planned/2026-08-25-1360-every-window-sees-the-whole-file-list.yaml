@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-1360
+
+goal: "Every diff window's prompt carries the file list of the whole delivery, so a criterion is never refused over a file the account was told does not exist."
+
+applies_to: "backend"
+
+requires:
+  - 2026-08-25-7035
+
+scope:
+  in: "The file list a window is shown, and the wording that describes it. One list for the delivery, whichever slice the window carries."
+  out: "What the account may search and what it may say — the phase that follows. The window budget and the split itself, settled by p0422."
+
+decisions:
+  - key: |
+      THE HEADING SAYS COMPLETE AND THE LIST IS A SLICE. SpecAccountPrompt derives the file
+      list from its diff argument and the accountant passes one WINDOW as that argument. So
+      in every multi-window run the account reads "EVERY FILE THIS BRANCH CHANGED (complete,
+      never truncated)" over the files of one slice, then reads "a file's absence from the
+      DIFF BODY says nothing — check the list", then reads "a criterion you cannot tie to a
+      file is NOT satisfied". It is instructed to refuse a criterion over files it was told
+      do not exist.
+  - key: |
+      THIS IS NOT A RARE CASE. The window budget is 400k characters and a live two-repo
+      migration produced a combined diff of roughly 480k. A delivery large enough to need
+      splitting is exactly the delivery whose criteria span the split.
+  - key: |
+      THE UNION ALREADY ASSUMES WHAT THIS RESTORES. p0422 splits and unions on the ground
+      that evidence is monotone — what a window shows, it shows. A window shown a false file
+      list is not showing less, it is showing something untrue, and monotonicity says nothing
+      about that. The complete list is what makes the union's own premise hold.
+  - key: |
+      A COMPLETE LIST IS NOT A LICENCE TO ASSUME CONTENT. The prompt says a criterion about a
+      file EXISTING is answered by the list alone, and the union takes the first window that
+      says satisfied. Widening the list therefore widens what any single window may close on
+      the strength of a name it never read — the resolver already accepts a citation from
+      anywhere in the delivery, so nothing downstream would refuse it. Repairing a false
+      negative by arming a false positive is not a repair, so the same phase states what a
+      listed file proves: that it changed, and nothing about what it contains.
+  - key: |
+      THE CORRECTION PASS IS NOT A WINDOW AND WAS ABOUT TO BE FORGOTTEN. The second call is
+      handed windows[0] while the correction it carries demands a path copied exactly as the
+      FILE LIST prints it. A criterion whose file lives in a later window is asked to comply
+      with a list that cannot contain it. "Every window" does not reach this call, so it is
+      named.
+  - key: |
+      ONE ARGUMENT, DELIBERATELY ALONE IN A PHASE. It is a small change with a large effect
+      and no dependency on anything else being decided, so it ships and is measured on its
+      own. Bundling it with the reach work would make one number out of two changes.
+
+steps:
+  - id: the-prompt-takes-the-file-list-separately-from-the-body
+    action: "Let the account prompt receive the delivery's file list independently of the diff text it is asked to read."
+  - id: every-window-is-given-the-whole-deliverys-list
+    action: "Pass the file list of the entire delivery to every window, and keep the body the window's own slice."
+  - id: the-correction-pass-is-shown-the-same-complete-list
+    action: "Give the correction pass the whole delivery's file list rather than the first window's, so a citation it demands can be written."
+  - id: a-listed-file-is-not-read-content
+    action: "State that a file in the list and absent from the body proves the file changed and nothing about what it contains, so a criterion about content is settled only from a body that shows it."
+
+tests:
+  - "AccountPrompt_TheFileList_CoversTheWholeDeliveryNotTheBody"
+  - "AccountPrompt_ASingleWindowDelivery_IsUnchanged"
+  - "Accountant_EveryWindow_IsShownTheSameCompleteFileList"
+  - "Accountant_AFileInAnotherWindow_IsStillListed"
+  - "Accountant_TheWindowBody_RemainsItsOwnSlice"
+  - "Accountant_TheCorrectionPass_IsShownTheWholeDeliverysFileList"
+  - "AccountPrompt_AListedFileAbsentFromTheBody_IsNotEvidenceOfItsContent"
+
+done:
+  - "every window's prompt carries the file list of the whole delivery"
+  - "the body a window is asked to read is still its own slice"
+  - "the correction pass is shown the same complete list, not the first window's"
+  - "the prompt states that a listed file proves a change and not its content"
+  - "a single-window delivery produces the prompt it produced before"
+  - "build green, full suite green"

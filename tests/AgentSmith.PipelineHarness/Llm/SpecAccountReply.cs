@@ -42,6 +42,23 @@ internal static class SpecAccountReply
         return JsonSerializer.Serialize(rows);
     }
 
+    /// <summary>
+    /// 2026-08-25-7035: the mirror answer — every criterion refused. The scoring half of the
+    /// account eval has to be able to produce a false NEGATIVE on demand, and an agreeing
+    /// accountant can only ever produce the other kind.
+    /// </summary>
+    public static string RefusingEverything(string prompt)
+    {
+        var rows = Section(prompt, CriteriaHeader).Select(criterion => new
+        {
+            criterion,
+            satisfied = false,
+            citations = Array.Empty<string>(),
+            note = "scripted harness refusal",
+        });
+        return JsonSerializer.Serialize(rows);
+    }
+
     /// <summary>The "- " items under a header, up to the next blank-line-separated header.</summary>
     private static IReadOnlyList<string> Section(string prompt, string header)
     {

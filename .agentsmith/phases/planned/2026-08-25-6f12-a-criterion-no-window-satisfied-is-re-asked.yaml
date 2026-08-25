@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-6f12
+
+goal: "A criterion no diff window satisfied is asked once more with the whole branch and its base in reach, on a search budget of its own, before it becomes a verdict."
+
+applies_to: "backend"
+
+requires:
+  - 2026-08-25-9749
+
+scope:
+  in: "One further pass over the criteria the windowed account left unsatisfied, evidenced by search over branch and base rather than by a slice of the diff, with a budget that the windowed pass cannot have spent, merged over the window union."
+  out: "Re-asking a criterion the account already satisfied, and re-asking on unchanged evidence — which is asking for a change of mind, and stays refused."
+
+decisions:
+  - key: |
+      A UNIVERSAL CRITERION IS SATISFIABLE BY NO SINGLE WINDOW. The split unions the answers on
+      the ground that evidence is monotone, which holds for "there is a file that…". "Each
+      applicable host contains…" is a different shape: once its subjects are split, no window
+      sees them all, so no window says yes and the union of noes becomes the verdict. The
+      complete file list repairs the cases a LIST can answer; what remains is the criterion
+      whose subjects must be READ.
+  - key: |
+      RE-ASKING WITH MORE REACH IS NOT RE-ASKING FOR A CHANGE OF MIND. The existing correction
+      states the rule this must not break: a criterion reported not satisfied is never re-asked,
+      because that is an answer. It holds when the evidence is unchanged. This pass changes the
+      evidence — the whole branch and its base, through search, rather than one slice — so it
+      asks a different question. Once, and only where no window said yes.
+  - key: |
+      THE BUDGET IS PER ACCOUNT AND THE PASSES WOULD COMPETE FOR IT. Twelve searches are capped
+      on one instance shared by every window and the correction, while the iteration cap is per
+      request — so a first window that spends the budget on absence criteria leaves this pass
+      answering "no search left", a mechanism inert on arrival. It gets a budget that the
+      windowed pass cannot reach, and the evidence of both still resolves through one resolver,
+      which is a signature this phase owns rather than works around.
+  - key: |
+      IT RUNS AT MOST ONCE AND COSTS ONE CALL. A second full-reach pass would be a carousel with
+      a search bill; the account already ends a run, and this is the last question asked before
+      a verdict.
+
+steps:
+  - id: the-unsatisfied-criteria-are-asked-once-more
+    action: "After the windowed pass, put the criteria no window satisfied to one further call whose evidence is the whole delivery's file list and search over branch and base."
+  - id: the-pass-has-a-budget-the-windows-cannot-spend
+    action: "Give the full-reach pass search capacity the windowed pass cannot consume, and keep both passes' evidence resolvable through one resolver."
+  - id: the-answer-merges-over-the-window-union
+    action: "Merge the pass's answer over the union by the same precedence, so it can raise a criterion and never lower one."
+  - id: the-pass-runs-at-most-once
+    action: "Run it once per account, and say in the log what it was asked and what it changed."
+
+tests:
+  - "Accountant_AUniversalCriterionSplitAcrossWindows_IsSettledByTheFullReachPass"
+  - "Accountant_TheFullReachPass_HasSearchesLeftAfterAnExhaustedWindowedPass"
+  - "Accountant_TheFullReachPass_EvidenceResolvesThroughTheSameResolver"
+  - "Accountant_ACriterionSatisfiedByAWindow_IsNotReAsked"
+  - "Accountant_TheFullReachPass_CanRaiseButNeverLowerADisposition"
+  - "Accountant_TheFullReachPass_RunsAtMostOnce"
+  - "Accountant_NoCriterionOutstanding_SkipsTheFullReachPass"
+  - "Accountant_NoSandbox_SkipsTheFullReachPassAndSaysSo"
+
+done:
+  - "a criterion no window satisfied is asked once more with the whole file list and search over branch and base"
+  - "that pass has search capacity the windowed pass cannot have spent, and both passes' evidence resolves through one resolver"
+  - "the pass can raise a disposition and never lower one"
+  - "it runs at most once, is skipped when nothing is outstanding, and says what it changed"
+  - "build green, full suite green"

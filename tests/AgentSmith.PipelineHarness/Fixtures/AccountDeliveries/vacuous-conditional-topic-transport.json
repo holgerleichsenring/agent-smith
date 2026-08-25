@@ -1,0 +1,26 @@
+{
+  "id": "vacuous-conditional-topic-transport",
+  "class": "vacuous-conditional",
+  "description": "A conditional whose antecedent the BASE disproves: the criterion applies where a topic transport was previously configured, and this repository never had one. A correct account does not refuse it. This is the exact class that failed a live run three times over.",
+  "repositories": [
+    {
+      "name": "Sample.Server",
+      "base": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services) => services.AddLegacyBus(QueueTransport.Default);\n}\n"
+      },
+      "branch": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddBroker();\n        services.AddBrokerExtension<BrokerExtension>();\n    }\n}\n\npublic sealed class BrokerExtension : IBrokerExtension\n{\n    public void Configure(BrokerOptions opts)\n    {\n        opts.UseQueueTransport(Connect);\n        opts.PublishMessage<OrderPlaced>().ToExchange(\"order-placed\");\n    }\n}\n"
+      }
+    }
+  ],
+  "criteria": [
+    {
+      "text": "Every topic-transport publisher and consumer configuration uses the required subscription shortening and websocket transport, where the topic transport was previously configured.",
+      "truth": "met",
+      "because": "The base configured a queue transport and never a topic transport, so the criterion's condition holds nowhere and there is nothing it can be violated by."
+    }
+  ],
+  "commands": [
+    "Sample.Server: \"dotnet build\" exited 0"
+  ]
+}
