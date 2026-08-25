@@ -4,6 +4,7 @@ import { AppRail } from "@/components/shell/AppRail";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { DegradedBanner } from "@/components/shell/DegradedBanner";
 import { BuildMismatchBanner } from "@/components/shell/BuildMismatchBanner";
+import { AuthMisconfigurationBanner } from "@/components/shell/AuthMisconfigurationBanner";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { RunBucketFilterProvider } from "@/lib/RunBucketFilter";
@@ -63,6 +64,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       finding whose remedy is a reload rather than an operator. */}
                     <RenderBoundary surface="build identity banner">
                       <BuildMismatchBanner />
+                    </RenderBoundary>
+                    {/* 2026-08-25-4530: the two halves of sign-in live on two
+                      machines and neither can diagnose the other. This is the
+                      only place that holds both, and a half-configured
+                      installation otherwise renders nothing at all. */}
+                    <RenderBoundary surface="sign-in configuration banner">
+                      <AuthMisconfigurationBanner />
                     </RenderBoundary>
                     {children}
                   </main>

@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import {
+  ApiRefusal,
   ApiResponseError,
   apiFetch,
   apiUrl,
   getJson,
   readJson,
+  refusalOf,
   sendJson,
 } from "../apiResponse";
 
@@ -95,6 +97,84 @@ describe("readJson", () => {
     expect(body.recent).toEqual(["r1"]);
   });
 });
+
+// 2026-08-25-4530: a refusal is a STATE and a fault is an exception, and the
+// single outgoing point is where the two stop being the same thing.
+describe("a refusal separated from a fault", () => {
+  it("Get_401_ResolvesToASignInStateRatherThanThrowing", async () => {
+    const refusal = await refusalOf(response({ ok: false, status: 401 }), "/api/runs");
+
+    expect(refusal?.kind).toBe("sign-in");
+    expect(refusal?.status).toBe(401);
+    expect(refusal?.message).toContain("signed out");
+    // "HTTP 401" is the message that told an operator nothing about the one
+    // thing they had to do, and it is gone from this path.
+    expect(refusal?.message).not.toContain("HTTP 401");
+  });
+
+  it("Get_401_IsNotAnApiResponseError", async () => {
+    // Everything that renders a failure branches on this: a 401 is not a fault
+    // of the installation, so it must not arrive as one.
+    const thrown = await getJsonAgainst({ ok: false, status: 401 }).catch((e: unknown) => e);
+
+    expect(thrown).toBeInstanceOf(ApiRefusal);
+    expect(thrown).not.toBeInstanceOf(ApiResponseError);
+  });
+
+  it("Get_403_CarriesThePermissionsTheServerNamed", async () => {
+    // p0503b replaced the authorization result handler precisely so this body
+    // exists — ASP.NET's own forbid path writes nothing at all.
+    const refusal = await refusalOf(
+      response({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          error: "The caller is missing one or more permissions this route requires.",
+          missingPermissions: ["config.write", "secrets.read"],
+        }),
+      }),
+      "/api/config/secrets",
+    );
+
+    expect(refusal?.kind).toBe("permission");
+    expect(refusal?.missingPermissions).toEqual(["config.write", "secrets.read"]);
+    expect(refusal?.message).toContain("config.write");
+    expect(refusal?.message).toContain("secrets.read");
+  });
+
+  it("Get_403_WithAnUnreadableBody_StillNamesTheRefusal", async () => {
+    // A proxy's own 403 page carries no such body. The refusal is still a
+    // refusal; it just names less.
+    const refusal = await refusalOf(
+      response({
+        ok: false,
+        status: 403,
+        contentType: "text/html",
+        json: () => Promise.reject(new SyntaxError("Unexpected token '<'")),
+      }),
+      "/api/config/secrets",
+    );
+
+    expect(refusal?.kind).toBe("permission");
+    expect(refusal?.missingPermissions).toEqual([]);
+    expect(refusal?.message).toContain("named no permission");
+  });
+
+  it("Get_500_StillThrowsAsItDoesToday", async () => {
+    expect(await refusalOf(response({ ok: false, status: 500 }), "/api/runs")).toBeNull();
+
+    const thrown = await getJsonAgainst({ ok: false, status: 500 }).catch((e: unknown) => e);
+
+    expect(thrown).toBeInstanceOf(ApiResponseError);
+    expect((thrown as Error).message).toBe("/api/runs: HTTP 500");
+  });
+});
+
+/** One GET against a stubbed response, through the real outgoing point. */
+async function getJsonAgainst(init: Parameters<typeof response>[0]): Promise<unknown> {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(init)));
+  return getJson("/api/runs");
+}
 
 describe("getJson and sendJson", () => {
   it("getJson_APath_ReadsItThroughTheOneReader", async () => {
