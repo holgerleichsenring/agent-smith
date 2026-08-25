@@ -30,4 +30,21 @@ internal static class AccountEvidenceRules
               + "searched and then cite nothing for is refused."
             : "A criterion about something being ABSENT is answered by the commands listed\n"
               + "under COMMANDS: no diff shows what a repository does NOT contain.";
+
+    /// <summary>
+    /// 2026-08-25-0eae: the base is reachable, and the account is told so. A tool nobody is
+    /// told about ships inert — the same way p0483's search would have, had its rule not been
+    /// written at the same time. What the base is FOR beyond looking is not stated here: how a
+    /// conditional is discharged is its own phase, and a rule that runs ahead of the
+    /// disposition it needs would invite an answer the account cannot express.
+    /// </summary>
+    public static string Base(IReadOnlyList<string>? baseSearchable) =>
+        baseSearchable is { Count: > 0 }
+            ? "You can also read the BASE — the code as it stood BEFORE this delivery — with\n"
+              + "search_base. That is the only way to answer a question about what was there to\n"
+              + $"begin with. The repositories with a base you can search are: {string.Join(", ", baseSearchable)}.\n"
+              + "A search of the base is cited by its pattern like any other, and it is a\n"
+              + "different fact from a search of the branch: one says what is there now, the\n"
+              + "other what was there before."
+            : string.Empty;
 }

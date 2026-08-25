@@ -49,6 +49,7 @@ public sealed class SpecAccountant(
         // carries a tool and an iteration cap. Without a sandbox it falls back to the cited
         // evidence, which is what every account did before this.
         var searchable = branchSearch?.Repositories;
+        var baseSearchable = branchSearch?.BaseSearchable;
         var tools = AccountTools.For(branchSearch);
         var chat = chatClientFactory.Create(
             agent, TaskType.Reasoning, tools is null ? null : AccountTools.MaxIterations);
@@ -67,7 +68,7 @@ public sealed class SpecAccountant(
 
         var answer = await calls.AskEveryAsync(
             chat, repoKey, criteria, split, commandResults, searchable, tools,
-            deliveryFiles, costTracker, cancellationToken);
+            deliveryFiles, baseSearchable, costTracker, cancellationToken);
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
@@ -90,7 +91,7 @@ public sealed class SpecAccountant(
             chat, repoKey, [.. unresolved.Select(u => u.Criterion)],
             split.Count > 0 ? split[0] : string.Empty,
             searchable, commandResults, tools, deliveryFiles,
-            AccountReAsk.Message(unresolved), costTracker, cancellationToken);
+            AccountReAsk.Message(unresolved), baseSearchable, costTracker, cancellationToken);
         return new SpecAccount(repoKey, AccountSecondPass.Merge(
             rows, unresolved, second, repoKey, reader,
             AccountTools.ResolverOver(diff, commandResults, branchSearch)));

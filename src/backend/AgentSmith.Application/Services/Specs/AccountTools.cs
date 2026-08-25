@@ -33,5 +33,11 @@ internal static class AccountTools
     internal static IList<AITool>? For(BranchSearch? search) =>
         search is null
             ? null
-            : [AIFunctionFactory.Create(search.SearchBranch, name: "search_branch")];
+            : search.BaseSearchable.Count == 0
+                ? [AIFunctionFactory.Create(search.SearchBranch, name: "search_branch")]
+                // 2026-08-25-0eae: the base is offered only where one resolved. A tool that
+                // answers "this repository has no base" for every call is a tool that teaches
+                // the account to stop calling it.
+                : [AIFunctionFactory.Create(search.SearchBranch, name: "search_branch"),
+                   AIFunctionFactory.Create(search.SearchBase, name: "search_base")];
 }

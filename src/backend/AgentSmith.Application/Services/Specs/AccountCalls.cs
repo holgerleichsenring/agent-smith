@@ -28,14 +28,14 @@ public sealed class AccountCalls(SpecAccountCall call)
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria,
         IReadOnlyList<string> windows, IReadOnlyList<string> commandResults,
         IReadOnlyList<string>? searchable, IList<AITool>? tools, CitedFileIndex deliveryFiles,
-        PipelineCostTracker costTracker, CancellationToken ct)
+        IReadOnlyList<string>? baseSearchable, PipelineCostTracker costTracker, CancellationToken ct)
     {
         var answers = new List<IReadOnlyList<AccountRow>>();
         foreach (var window in windows.Count == 0 ? [string.Empty] : windows)
         {
             var rows = await call.AskAsync(
                 chat, repoKey, criteria, window, searchable, commandResults, costTracker, ct,
-                tools: tools, deliveryFiles: deliveryFiles);
+                tools: tools, deliveryFiles: deliveryFiles, baseSearchable: baseSearchable);
             if (rows is not null) answers.Add(rows);
         }
         return answers.Count == 0 ? null : AccountWindowMerge.Of(answers);
@@ -47,8 +47,8 @@ public sealed class AccountCalls(SpecAccountCall call)
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria, string window,
         IReadOnlyList<string>? searchable, IReadOnlyList<string> commandResults,
         IList<AITool>? tools, CitedFileIndex deliveryFiles, string correction,
-        PipelineCostTracker costTracker, CancellationToken ct) =>
+        IReadOnlyList<string>? baseSearchable, PipelineCostTracker costTracker, CancellationToken ct) =>
         call.AskAsync(
             chat, repoKey, criteria, window, searchable, commandResults, costTracker, ct,
-            correction, tools, deliveryFiles);
+            correction, tools, deliveryFiles, baseSearchable);
 }

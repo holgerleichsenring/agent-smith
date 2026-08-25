@@ -86,6 +86,41 @@ public sealed class AccountEvalMechanicsTests
                 + "measures nothing the production number does not already measure");
     }
 
+    /// <summary>
+    /// 2026-08-25-0eae, end to end on a real repository: the ref the delivery diff settled on
+    /// is a ref the account can read, and it answers a question the branch cannot. The base
+    /// carries the legacy bus; the branch does not. No mock can prove this — the point is that
+    /// git resolves the ref the production ladder picked.
+    /// </summary>
+    [Fact]
+    public async Task AccountFixture_TheResolvedBaseRef_IsSearchableAndAnswersWhatTheBranchCannot()
+    {
+        var fixture = Fixture("absence-no-legacy-bus");
+        await using var repos = await AccountFixtureRepositories.MaterialiseAsync(
+            fixture, NullLoggerFactory.Instance);
+
+        var deliveryDiff = new AgentSmith.Application.Services.DeliveryDiff(
+            new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(
+                NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
+            NullLogger<AgentSmith.Application.Services.DeliveryDiff>.Instance);
+        var diff = await deliveryDiff.ForBranchAsync(
+            repos.Sandboxes["Sample.Server"], CancellationToken.None);
+
+        diff.BaseRef.Should().Be("origin/main", "the fixture names its base the way a clone does");
+
+        var search = new BranchSearch(
+            repos.Sandboxes, NullLogger.Instance,
+            new Dictionary<string, string?> { ["Sample.Server"] = diff.BaseRef });
+
+        search.BaseSearchable.Should().ContainSingle();
+        (await search.SearchBase("Sample.Server", "LegacyBus"))
+            .Should().Contain("found in", "the base is where the legacy bus still lives");
+        (await search.SearchBranch("Sample.Server", "LegacyBus"))
+            .Should().Contain("does not occur anywhere");
+        search.Evidence.Should().HaveCount(2)
+            .And.Contain(e => e.StartsWith("Sample.Server@origin/main:", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task AccountEval_ARefusalOfAMetCriterion_ScoresAFalseNegative()
     {
