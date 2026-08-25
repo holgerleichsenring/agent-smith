@@ -617,8 +617,13 @@ export interface RunSnapshot {
   runId: string;
   pipeline: string;
   trigger: string;
-  repos: string[];
-  status: string;
+  /** 2026-08-25-39ab: OPTIONAL because the server is entitled to answer without
+   *  them — a row a projector has not filled yet, a payload from a build that
+   *  does not carry them. They were declared required and dereferenced anyway
+   *  (`repos.length`, `status.toLowerCase()`), which is how one absent field
+   *  blanked the whole document. Consumers read them as absent. */
+  repos?: string[] | null;
+  status?: string | null;
   prUrl: string | null;
   summary: string | null;
   startedAt: string;
@@ -759,7 +764,9 @@ export interface DroppedContext {
 
 /** p0336: the run's capacity calculation for the footprint panel. */
 export interface RunFootprintView {
-  pods: RunFootprintPod[];
+  /** 2026-08-25-39ab: optional — a reservation the server answers without its
+   *  pod list is a reservation with no pods to draw, not a crash. */
+  pods?: RunFootprintPod[] | null;
   totalCpuLimit: string;
   totalMemLimit: string;
   dropped: DroppedContext[];
@@ -777,8 +784,10 @@ export interface RunComputePod {
 
 /** p0348: the pods a run actually spawned — the honest live-compute view. */
 export interface RunComputeView {
-  pods: RunComputePod[];
-  totalMem: string;
+  /** 2026-08-25-39ab: optional for the same reason as the footprint's — the rail
+   *  used to assert both of these non-null three times over. */
+  pods?: RunComputePod[] | null;
+  totalMem?: string | null;
 }
 
 export interface OverviewSnapshot {
