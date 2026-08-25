@@ -73,6 +73,7 @@ integrations:
 
 state:
   done:
+    p0413a: "EVERY RUN IS ESTIMATED (scope handler, cost cap, harness). A single-repo run returned before its tier was recorded and derived blind on the default cap. The estimate now rides the one classification call it owns, survives a reply with no repo list, and a tier RAISES the resolved cap instead of replacing it. -> .agentsmith/phases/done/p0413a-the-estimate-does-not-depend-on-repo-count.yaml"
     p0282c: "SUPERSEDED (2026-08-25) by p0402, which shipped the 120-line class bound as FileLengthRatchetTests over a baseline. Moved to done/ unimplemented under this id. -> .agentsmith/phases/done/p0282c-god-class-decomposition.yaml"
     p0282a: "SUPERSEDED (2026-08-25) by p0401/p0402, which shipped the static-to-service conversion and its NoStaticStateRuleTests guard. p0401a carries the named remainder (four codec statics). Moved to done/ unimplemented under this id. -> .agentsmith/phases/done/p0282a-eliminate-static-services.yaml"
     p0314: "WITHDRAWN (2026-08-25): the reference debt it was cut to triage shrank on its own — measured today, 78 never-created ids and 151 dangling mentions against the 274/1153 the spec names. Re-cut if the count grows again. -> .agentsmith/phases/done/p0314-phase-reference-triage.yaml"
