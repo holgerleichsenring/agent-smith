@@ -35,6 +35,7 @@ internal static class KubernetesSandboxRegistrations
             sp.GetRequiredService<PodSpecBuilder>(),
             sp.GetRequiredService<KubernetesSandboxOptions>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
+            sp.GetRequiredService<IWireProtocolWatcher>(),
             sp.GetRequiredService<ILoggerFactory>()));
         // p0269a: admission reads the namespace ResourceQuota. Replaces the Unbounded
         // default registered in the Application composition.

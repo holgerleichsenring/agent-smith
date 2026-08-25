@@ -9,6 +9,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public interface IAgentImageResolver
 {
-    /// <summary>Returns "{registry}/{image-name}:{version}". Throws when no version is configured at either layer.</summary>
+    /// <summary>Returns "{registry}/{image-name}:{version}", with the version derived from the
+    /// running server unless an operator pinned one — see <see cref="IAgentVersionResolver"/>.</summary>
     string Resolve(ResolvedProject projectConfig);
 }
