@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0521
+
+decisions:
+  - category: Architecture
+    chose: "The rule is scoped by NAMESPACE — every date-minted id is judged, the closed counter namespace is not"
+    over: "A cutoff id, with the rule reading 'phases at or above this id are judged'"
+    reason: |
+      An ordering cutoff cannot work any more, and it fails in the direction that leaves
+      the test green. The counter namespace closed in p0507 and new ids are date-minted,
+      so the two shapes are ALTERNATIVES rather than one sequence: compared as text
+      "2026-08-25-…" sorts BELOW "p0521", because digits sort below letters. A rule
+      phrased "at or above p0521" would therefore exempt every phase minted from now on,
+      permanently, and its own exemption test would pass while it happened — the rule
+      would ship, read as installed, and govern nothing. Namespace is also the honest
+      statement of the intent: the counter phases are finished and are not renamed, which
+      is a property of what they ARE, not of where they sit in a sequence. The exemption
+      is proven non-vacuous rather than assumed: PhaseSlug_ACounterNamespacePhase_IsNotJudged
+      asserts that the closed namespace still CONTAINS names over the bound and labels
+      under the word floor, and PhaseGoal_ACounterNamespacePhase_IsNotJudged the same for
+      the 424 goals past 200 characters. An ordering cutoff would leave those green too —
+      what it would not leave green is a rule that also has to bind the open namespace.
+  - category: Architecture
+    chose: "The bound lives in the architecture rule; the embedded phase schema keeps maxLength 2000"
+    over: "Narrowing goal.maxLength to 200 in .agentsmith/phase-spec.schema.json, as the first cut of the spec asked"
+    reason: |
+      The schema is a product contract, not this repository's taste. It is an
+      EmbeddedResource of AgentSmith.Application, served by PhaseSpecSchemaProvider and
+      evaluated by the deployed server on every model-authored draft — SpecDraftValidator,
+      SpecDerivationParser, and SpecFallback. SpecFallback sets goal = ticket.Title and
+      THROWS on an invalid document, with the comment "the fallback has no second chance":
+      it is the path a run degrades TO. A 200-character cap there would turn any ticket
+      whose title runs long into an unrecoverable crash in a customer's installation, over
+      a house style — and the single-phase fallback is exactly the path that must not fail.
+      The same ruling is already recorded for a different bound in PhaseIdSchemaTests,
+      where a four-digit id pattern would have made the deployed server reject every spec
+      derived from a five-digit ticket. Two tests hold the line from both sides:
+      PhaseSchema_TheEmbeddedLimit_IsUnchanged pins 2000, and
+      PhaseSchema_ALongTicketTitle_StillProducesAValidFallbackSpec drives an 870-character
+      title through the real SpecFallback and asserts it does not throw.
+  - category: Implementation
+    chose: "Fifty characters, four words, two hundred characters"
+    over: "A tighter slug bound read off the record's own median"
+    reason: |
+      Fifty is not chosen, it is READ: PhaseIdFactory.Slug already truncates a
+      machine-generated slug at fifty, so any tighter repo rule would ship a product that
+      breaks its own rule in every customer repository the moment it derives a spec. The
+      two are now pinned to one number — PhaseIdFactory.MaxSlugLength — and
+      SlugGenerator_AndTheRule_AgreeOnOneNumber asserts both the constant and the
+      behaviour, so the generator cannot mint a name the rule refuses.
+      The word floor exists because length alone does not separate a claim from a label:
+      "mcp-tools-call" is short and says nothing about what changes, while
+      "a-waiting-run-is-not-a-finished-run" states the whole phase. Four words is a crude
+      proxy for a real distinction — it cannot judge whether a sentence is TRUE, but it
+      refuses a bare noun. It binds only the open namespace, where the convention already
+      holds: zero date-minted phases violate it, so it pins a practice instead of opening
+      a debt.
+  - category: Scope
+    chose: "The three schema repairs are steps of this phase, not follow-ups"
+    over: "Shipping the length rule and filing the 76 failing files as a successor phase"
+    reason: |
+      PhaseSpec_EveryFile_ValidatesAgainstTheSchema cannot be green until they land, and a
+      rule that ships red is a rule nobody can distinguish from a rule that is wrong. The
+      failures were three defects, all in done/ which is not edited: 73 files write
+      decisions as an array of plain strings, 2 exceed the schema's own 2000-character
+      goal limit, and p0237 was not parseable YAML at all — line 23 had unescaped quotes
+      inside a double-quoted scalar. Each got the repair its shape argues for. The
+      decisions shape is a SCHEMA defect, not a file defect: the schema's own description
+      claimed to accept the historical shapes while items demanded an object, so items
+      widened to oneOf[object, string] and the description now names all three shapes.
+      Widening an embedded schema is safe in a way narrowing is not — nothing that
+      validated before stops validating. p0237 was repaired in place because unparseable
+      YAML is a syntax defect, not content: the text is byte-identical apart from three
+      backslashes. The two long goals are ratcheted, because their phases are finished.
+  - category: TradeOff
+    chose: "A ratchet baseline for the five phases already over a bound"
+    over: "Renaming 2026-08-24-1cdc's file and rewriting the two done goals so nothing needs listing"
+    reason: |
+      Five date-minted or schema-level violations exist today: 1cdc's slug at 61
+      characters, ca23's goal at 252, 61f1's at 201, and p0201/p0176 at 2244 and 3631
+      against the schema. All five are in done/, which [[feedback_phase_versioning]] says
+      is not edited, and a done phase's file name is a pointer the record already carries
+      — renaming it would break that pointer while the parallel session owns context.yaml.
+      So they are listed at the length they had, in p0403's established ratchet shape: a
+      listed phase may only get SHORTER, must LEAVE the list once it fits, and nothing new
+      may join. The debt stays visible and moves one direction.
+      The two still in planned/ got the opposite treatment: 2026-08-24-035a (229) and
+      2026-08-24-19d0 (204) were both reviewed DO NOT BUILD, so their text is not sacred
+      and shortening is cheaper than a permanent baseline row that nobody will ever clear.
+      Both now state the same claim in 182 and 181 characters.
+  - category: Tooling
+    chose: "The schema evaluation reads the HIERARCHICAL result and descends only into invalid nodes"
+    over: "OutputFormat.List with the flat detail filter ContextSchemaFile already uses"
+    reason: |
+      The flat reading reported 200-plus failures on files that are perfectly valid. The
+      phase schema uses oneOf in three places — requires, step.action, and now decisions —
+      and a flat list carries the errors of every branch that did NOT match even when one
+      did, so a correct `requires:` list is reported as "should be string" and every
+      modern `- key:` decision as "should be string". A rule that misreads its own input
+      invents failures and hides real ones. Reading the hierarchy and recursing only
+      through nodes that are themselves invalid is what makes the difference between a
+      rule and a noise generator: it turned 200-plus phantom errors into the three genuine
+      defects above. ContextSchemaFile keeps the flat reading because the context schema
+      has no oneOf and changing it is not this phase's business.
+  - category: Scope
+    chose: "The methodology skill is reconciled by hand and named in the done criteria, not read by a test"
+    over: "An architecture test that diffs this repository's bound against the plugin's SKILL.md"
+    reason: |
+      The skill lives in specification-first-agentic-development, a separate repository on
+      its own release cycle. Reading its working tree would go red for anyone who has not
+      cloned it and be green-but-meaningless in CI — the ruling PhaseIdSchemaTests already
+      records for the id pattern. Its working tree also already carried an uncommitted
+      draft of this bound, so the pass RECONCILED with that draft rather than overwriting
+      it, and fixed step 1 in the same visit: it still told an author to "find the highest
+      phase number across all contexts", which p0507 abolished — that instruction is the
+      exact question a date-minted id exists so that nobody has to answer.
