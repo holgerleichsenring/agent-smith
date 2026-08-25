@@ -60,7 +60,12 @@ describe("RailIdentity", () => {
 
     renderRail("https://login.example/realm");
 
-    expect(await screen.findByTestId("rail-identity-name")).toHaveTextContent("operator@example");
+    // The element renders before the identity read answers — its fallback text is
+    // "signed in" — so waiting for the ELEMENT and asserting its content in the
+    // same breath races the fetch and loses under load. Wait for the content.
+    await waitFor(() =>
+      expect(screen.getByTestId("rail-identity-name")).toHaveTextContent("operator@example"),
+    );
     fireEvent.click(screen.getByTestId("rail-sign-out"));
     expect(session.signOut).toHaveBeenCalledOnce();
   });
