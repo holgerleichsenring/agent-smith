@@ -10,6 +10,12 @@ requires:
   - p0282c
 
 decisions:
+  - key: |
+      STATE ON 2026-08-25, MEASURED: still open, and the only one of the four stages with no guard
+      at all — no rule test for banned names, one-type-per-file, method length or typed context
+      keys. p0282a and p0282c shipped as p0401/p0402; p0282b is likewise still open. Treat this as
+      ongoing refactoring rather than a single cut: the ratchet is what makes it finishable, the
+      renames are what make it long.
   - "ContextKey<T> is the substantive slice: stringly-typed PipelineContext keys are a data-flow correctness risk (typo = silent null), the rest is hygiene"
   - "Renames of the 6 *Manager/*Helper classes ride along with other edits where possible to keep diffs reviewable"
 
