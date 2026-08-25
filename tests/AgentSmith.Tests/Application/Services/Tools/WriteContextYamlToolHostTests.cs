@@ -31,7 +31,7 @@ public sealed class WriteContextYamlToolHostTests
         var sut = BuildHost();
         var document = JsonDocument.Parse("""
             {
-              "meta": { "workdir": "src/Client", "project": "AuthClient", "type": "Angular SPA" },
+              "meta": { "workdir": "src/Client", "project": "SampleClient", "type": ["ui"] },
               "stack": { "lang": "TypeScript", "image": "node:20-bookworm", "sdks": ["@azure/msal-angular", "rxjs"] }
             }
             """).RootElement;
