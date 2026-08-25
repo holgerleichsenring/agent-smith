@@ -5,6 +5,15 @@ public sealed class RunStep : EntityBase
 {
     public long Id { get; set; }
     public string RunId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 2026-08-25-61f1: the trail position of the event that produced this row. The store
+    /// holds at most one row per (RunId, EventSeq), so an event projected twice occupies
+    /// one row instead of multiplying every total summed from this table. Null on rows
+    /// written before this phase — unattributed, never guessed.
+    /// </summary>
+    public long? EventSeq { get; set; }
+
     public int StepIndex { get; set; }
     public string StepName { get; set; } = string.Empty;
     public string? DisplayName { get; set; }

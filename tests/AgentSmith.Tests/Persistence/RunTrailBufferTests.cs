@@ -23,7 +23,7 @@ public sealed class RunTrailBufferTests
         var buffer = new RunTrailBuffer();
 
         for (var i = 0; i < Threshold - 1; i++)
-            buffer.Add(Command(), Threshold, T0).Should().BeNull("writes accumulate, not one-per-event");
+            buffer.Add(Command(), Threshold, T0).ToFlush.Should().BeNull("writes accumulate, not one-per-event");
     }
 
     [Fact]
@@ -34,9 +34,9 @@ public sealed class RunTrailBufferTests
 
         var batch = buffer.Add(Command(), Threshold, T0);
 
-        batch.Should().NotBeNull();
-        batch!.Should().HaveCount(Threshold);
-        buffer.Add(Command(), Threshold, T0).Should().BeNull("the buffer reset after flushing");
+        batch.ToFlush.Should().NotBeNull();
+        batch.ToFlush!.Should().HaveCount(Threshold);
+        buffer.Add(Command(), Threshold, T0).ToFlush.Should().BeNull("the buffer reset after flushing");
     }
 
     [Fact]
@@ -104,7 +104,8 @@ public sealed class RunTrailBufferTests
             new RunFinishedEvent("run-1", "success", null, "done", DateTimeOffset.UtcNow),
             flushThreshold: 25, DateTimeOffset.UtcNow);
 
-        flushed.Should().NotBeNull();
-        flushed!.Single().Seq.Should().Be(42);
+        flushed.Seq.Should().Be(42, "the position the buffer assigns is the one it reports");
+        flushed.ToFlush.Should().NotBeNull();
+        flushed.ToFlush!.Single().Seq.Should().Be(42);
     }
 }

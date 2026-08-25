@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -10,9 +11,27 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// disposed, or vanished. Split out of <see cref="RunEventApplier"/> like
 /// <see cref="RunCheckpointProjection"/>: the applier routes events, this owns
 /// what a sandbox row means over its life.
+/// <para>
+/// 2026-08-25-61f1: the sandbox RESULT's fold onto the run's metrics summary moved here
+/// from the applier for the same reason — a sandbox fact belongs to the sandbox
+/// projection, and the applier that was left routing it could only grow.
+/// </para>
 /// </summary>
-public sealed class RunSandboxProjection
+public sealed class RunSandboxProjection(
+    RunMetricsProjection metrics, RunStepTimeProjection stepTime)
 {
+    // p0369: fold one sandbox result onto the run's metrics summary. A terminal row is
+    // never re-folded (a late replay must not double-count), mirroring the cost guard on
+    // the per-call projection. p0404: the command's wall time also lands on the step.
+    public async Task FoldResultAsync(IUnitOfWork uow, SandboxResultEvent e, CancellationToken ct)
+    {
+        var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
+        if (run is null || run.FinishedAt is not null) return;
+        metrics.Fold(run, e);
+        await stepTime.FoldSandboxAsync(uow, e, ct);
+        await uow.SaveChangesAsync(ct);
+    }
+
     // p0332: lifetime start + declared memory request land on the row so the
     // snapshot can compute reserved resource-time (request x lifetime) per run.
     public async Task CreateAsync(IUnitOfWork uow, SandboxCreatedEvent e, CancellationToken ct)
