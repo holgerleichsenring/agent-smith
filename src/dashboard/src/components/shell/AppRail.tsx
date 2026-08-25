@@ -21,6 +21,7 @@ import {
 } from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 import { AppRailItem } from "./AppRailItem";
+import { RailIdentity } from "./RailIdentity";
 import { isOpenPullRequest } from "@/lib/prStatus";
 
 // p0209a: persistent left app rail. p0343c (pixel identity): the rail emits the
@@ -224,6 +225,11 @@ export function AppRail() {
           <RailFooter tracker={activity.tracker} webhooks={activity.webhooks} />
         </>
       )}
+
+      {/* 2026-08-25-4530: who is signed in, below both modes — the rail is the
+          one surface on every route, and "who am I" is not a runs question or a
+          config question. Silent where no authority is configured. */}
+      <RailIdentity />
     </nav>
   );
 }
