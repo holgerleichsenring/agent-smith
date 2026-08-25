@@ -13,19 +13,27 @@ using Xunit.Abstractions;
 namespace AgentSmith.PipelineHarness.Liveness;
 
 /// <summary>
-/// p0201 docker-tier reaper coverage. Two falsifiability anchors:
-///   - OrphanedContainer_ReaperRemovesIn35s: spawn a labelled container,
-///     don't add it to ActiveRunsSet, wait past the 60s age rail, force a
-///     scan, assert the container is gone.
-///   - YoungContainer_ReaperLeavesAlone: spawn a labelled container,
-///     immediately scan, assert the container survives the age rail.
-/// Both run only when AGENTSMITH_HARNESS_DOCKER=1 AND docker is reachable.
+/// p0201 docker-tier reaper coverage. Three falsifiability anchors:
+///   - OrphanedContainer_ReaperRemovesIn35s: spawn a container stamped with THIS
+///     store's owner id, don't add it to ActiveRunsSet, wait past the 60s age
+///     rail, force a scan, assert the container is gone.
+///   - YoungContainer_ReaperLeavesAlone: spawn an owned container, immediately
+///     scan, assert the container survives the age rail.
+///   - ForeignOwnerContainer_SurvivesAScanThatWouldReapIt: p0465 — a container
+///     stamped with ANOTHER store's owner id, past the age rail and absent from
+///     the active set, is never listed and therefore never removed.
+/// All run only when AGENTSMITH_HARNESS_DOCKER=1 AND docker is reachable.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 [Trait("Tier", "Docker")]
 public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
 {
-    private const string TestLabel = "agent-smith.job-id";
+    private const string TestLabel = DockerContainerSpecBuilder.JobIdLabel;
+    private const string OwnerLabel = DockerContainerSpecBuilder.OwnerLabel;
+    // p0465: the reaper lists on the owner label too, so a container without a
+    // matching stamp is invisible to it. The tests derive both from one identity.
+    private static readonly SandboxOwnerIdentity Owner = new("store-harness-p0465");
+    private static readonly SandboxOwnerIdentity ForeignOwner = new("store-someone-else");
     private static readonly TimeSpan ContainerGracePadding = TimeSpan.FromSeconds(5);
 
     [Fact]
@@ -35,7 +43,7 @@ public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
         var docker = ConnectDocker();
         var multiplexer = await ConnectRedisAsync();
         var jobId = "harness-orphan-" + Guid.NewGuid().ToString("N")[..8];
-        var containerId = await SpawnLabelledIdleContainerAsync(docker, jobId);
+        var containerId = await SpawnLabelledIdleContainerAsync(docker, jobId, Owner);
         try
         {
             // Age-rail is 60s; wait past it plus padding so the scan sees the
@@ -67,7 +75,7 @@ public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
         var docker = ConnectDocker();
         var multiplexer = await ConnectRedisAsync();
         var jobId = "harness-young-" + Guid.NewGuid().ToString("N")[..8];
-        var containerId = await SpawnLabelledIdleContainerAsync(docker, jobId);
+        var containerId = await SpawnLabelledIdleContainerAsync(docker, jobId, Owner);
         try
         {
             // Immediate scan: the container is seconds old, well inside the
@@ -87,16 +95,53 @@ public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
         }
     }
 
-    private static SandboxOrphanReaper NewReaper(IDockerClient docker, IConnectionMultiplexer multiplexer)
+    [Fact]
+    public async Task ForeignOwnerContainer_SurvivesAScanThatWouldReapIt()
     {
-        var logger = NullLogger<SandboxOrphanReaper>.Instance;
-        // p0242: a no-op lease => the DB active-run union is empty, so these
-        // Redis/Docker-tier tests keep asserting the Redis-active-set behaviour.
-        return new SandboxOrphanReaper(
-            docker, multiplexer, new NoOpActiveRunLease(), logger);
+        if (SkipIfUnavailable()) return;
+        var docker = ConnectDocker();
+        var multiplexer = await ConnectRedisAsync();
+        var jobId = "harness-foreign-" + Guid.NewGuid().ToString("N")[..8];
+        var containerId = await SpawnLabelledIdleContainerAsync(docker, jobId, ForeignOwner);
+        try
+        {
+            // Both rails are otherwise satisfied: past the age rail, absent from the
+            // active set. Only the owner stamp stands between it and removal.
+            await Task.Delay(SandboxOrphanReaper.MinContainerAge + ContainerGracePadding);
+
+            var reaper = NewReaper(docker, multiplexer);
+            await reaper.ScanOnceAsync(CancellationToken.None);
+            // A second scan: the one-time unowned sweep is spent, and a foreign
+            // OWNED container is never a candidate anyway.
+            await reaper.ScanOnceAsync(CancellationToken.None);
+
+            (await ContainerExistsAsync(docker, containerId)).Should().BeTrue(
+                "a sandbox stamped with another liveness store's owner id belongs to another "
+                + "server and must never be listed, let alone removed");
+        }
+        finally
+        {
+            await TryRemoveAsync(docker, containerId);
+            await multiplexer.CloseAsync();
+        }
     }
 
-    private static async Task<string> SpawnLabelledIdleContainerAsync(IDockerClient docker, string jobId)
+    private static SandboxOrphanReaper NewReaper(IDockerClient docker, IConnectionMultiplexer multiplexer)
+    {
+        // p0242: a no-op lease => the DB active-run union is empty, so these
+        // Redis/Docker-tier tests keep asserting the Redis-active-set behaviour.
+        var liveRuns = new LiveRunSetReader(
+            multiplexer, new NoOpActiveRunLease(), NullLogger<LiveRunSetReader>.Instance);
+        return new SandboxOrphanReaper(
+            docker,
+            new DockerSandboxQuery(Owner),
+            liveRuns,
+            new DockerSandboxRemover(docker, NullLogger<DockerSandboxRemover>.Instance),
+            NullLogger<SandboxOrphanReaper>.Instance);
+    }
+
+    private static async Task<string> SpawnLabelledIdleContainerAsync(
+        IDockerClient docker, string jobId, SandboxOwnerIdentity owner)
     {
         await EnsureImagePresentAsync(docker);
         var created = await docker.Containers.CreateContainerAsync(new CreateContainerParameters
@@ -105,7 +150,8 @@ public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
             Cmd = ["sleep", "600"],
             Labels = new Dictionary<string, string>
             {
-                [TestLabel] = jobId
+                [TestLabel] = jobId,
+                [OwnerLabel] = owner.Value
             },
             HostConfig = new HostConfig { AutoRemove = false }
         });

@@ -1,0 +1,108 @@
+phase: p0465
+decisions:
+  - id: ownership-is-the-liveness-store
+    chosen: >-
+      SandboxOwnerIdentity is derived from the Redis endpoint the sandbox itself is
+      handed (--redis-url / REDIS_URL): canonical endpoints + database index, SHA-256,
+      first 16 hex digits, prefixed "store-". An operator override (SANDBOX_OWNER_ID)
+      wins. Stamped as agent-smith.owner (Docker) and owner (k8s).
+    alternatives: >-
+      A per-process id (guid, hostname, pod name, replica name); the k8s
+      metadata.ownerReferences that KubernetesSandboxOptions already carries; deriving
+      ownership from the active-run set (the status quo).
+    why: >-
+      The reaper judges a container against a LIVENESS STORE, so the store is what
+      ownership must name. A per-process id makes a server's own containers foreign to
+      it after a restart — precisely the case the reaper exists for, since the happy
+      path (DockerSandbox.Dispose) already removes the container when the process
+      lives. It would also repeal p0355, where two replicas sharing one store are meant
+      to clean up after each other. Two servers that share a store are one owner and
+      keep cleaning up for each other; two that do not never see each other's
+      containers.
+
+  - id: label-legal-by-construction
+    chosen: >-
+      The identity is a legal Kubernetes label value by construction — at most 63
+      characters, alphanumeric at both ends — and the resolver is the only way to make
+      one. An override that is already legal is used verbatim; anything else is folded
+      to a fingerprint instead of being rejected at startup.
+    alternatives: >-
+      Pass the endpoint through as a label value; validate and throw on startup;
+      truncate silently.
+    why: >-
+      Docker accepts label values Kubernetes rejects. A value that works on one backend
+      and is refused (or silently altered) on the other makes the two backends disagree
+      about who owns what — the failure would surface as pods that no reaper ever
+      collects. Throwing on a typo would take the server down for a cosmetic setting.
+
+  - id: label-not-ownerreference
+    chosen: >-
+      Kubernetes ownership is a pod LABEL, not metadata.ownerReferences (which stays
+      unset, as it was).
+    alternatives: >-
+      Set KubernetesSandboxOptions.OwnerReference to the server pod and let garbage
+      collection do the work.
+    why: >-
+      The API cannot select on an owner reference: the list call would stay
+      namespace-wide and the ownership test would sink back into the decision function,
+      which is what let a foreign server's pods become candidates. An owner reference
+      also names the owning REPLICA — a per-process identity — and its garbage
+      collection would delete a live sandbox the moment that replica restarted.
+
+  - id: the-probe-has-the-same-defect
+    chosen: >-
+      DockerCapacityProbe counts through the same DockerSandboxQuery, so it counts only
+      this store's sandboxes.
+    alternatives: >-
+      Fix the reaper alone and leave the probe daemon-wide.
+    why: >-
+      The cap is a small number (default 2). An unscoped count replaces two servers
+      killing each other with two servers starving each other — the same defect wearing
+      the other mask. One query type is now the single place ownership is expressed.
+
+  - id: pre-phase-sandboxes-get-a-one-time-sweep
+    chosen: >-
+      The FIRST scan of each process additionally lists sandboxes carrying NO owner
+      label (Docker: filter in code after an unfiltered list; k8s: the "!owner"
+      selector) and judges them on the unchanged age and live-run rails. Every later
+      scan is owner-scoped only.
+    alternatives: >-
+      A documented operator step (docker rm by label); leaving them forever; treating a
+      missing owner label as belonging to the reader on every scan.
+    why: >-
+      Once ownership is a required filter term, a container from the previous binary is
+      never listed and never reaped — it would leak silently. Treating a missing owner
+      signal as reapable is the k8s reaper's existing treatment of a pod with no run-id
+      label. Bounding it to one sweep per process keeps the upgrade window short instead
+      of making "no owner label" a permanent licence.
+
+  - id: the-reaper-stands-down-where-liveness-cannot-be-read
+    chosen: >-
+      The Docker orphan reaper is registered only where a durable IActiveRunLease is
+      bound; with the DB-free NoOpActiveRunLease a SandboxReaperStandDownNotice is
+      registered instead and logs once at startup what stops being cleaned up.
+      SANDBOX_ORPHAN_REAPER=true|false overrides either way.
+    alternatives: >-
+      Keep registering it unconditionally with an opt-out flag (the spec's original
+      step); decide inside the running reaper; check the lease at each scan.
+    why: >-
+      The Docker backend is AUTO-DETECTED from /var/run/docker.sock, so the previous
+      wiring armed a daemon-wide reaper on every dev machine and every side-instance —
+      an opt-out only helps the operator who already knows. A no-op lease reports no
+      active runs at all, so the reaper's central question cannot be answered there:
+      standing down is the correct behaviour, not a degraded one. A silent absence is
+      how leftovers accumulate unnoticed, hence the notice.
+
+  - id: the-liveness-rails-are-untouched
+    chosen: >-
+      How a LISTED container is judged dead is unchanged: age rail plus the Redis
+      active set UNIONED with the fresh DB lease. The union moved into LiveRunSetReader,
+      shared by both reapers, and the Docker decision became the pure Judge function
+      that mirrors SelectCorpses.
+    alternatives: >-
+      Fold the ownership test into the decision alongside the rails.
+    why: >-
+      p0242's rails are correct and load-bearing; this phase is about which containers
+      are asked for, not about how they are judged. Ownership in the query means no rail
+      has to save a foreign container. The two reapers had each grown their own copy of
+      the union, which is one place too many for a rule that must not drift.

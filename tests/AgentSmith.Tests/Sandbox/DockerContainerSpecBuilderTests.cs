@@ -6,7 +6,8 @@ namespace AgentSmith.Tests.Sandbox;
 
 public sealed class DockerContainerSpecBuilderTests
 {
-    private readonly DockerContainerSpecBuilder _builder = new();
+    private static readonly SandboxOwnerIdentity Owner = new("store-0123456789abcdef");
+    private readonly DockerContainerSpecBuilder _builder = new(Owner);
 
     [Fact]
     public void BuildLoader_AlwaysProducesInjectCommand_AgainstSharedMount()
