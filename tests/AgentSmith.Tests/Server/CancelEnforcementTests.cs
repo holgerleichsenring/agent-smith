@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Events;
 using RunEvent = AgentSmith.Contracts.Events.RunEvent;
@@ -408,7 +409,7 @@ public sealed class CancelEnforcementTests : IDisposable
     }
 
     private Task ApplyAsync(RunEvent ev) =>
-        new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()).ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
+        RunEventAppliers.Default().ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;

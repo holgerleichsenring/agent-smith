@@ -13,6 +13,13 @@ public static class StartupSubsystems
     public const string Redis = "redis";
     public const string Spawner = "spawner";
 
+    /// <summary>2026-08-25-8c97: which build a half of the product came from.</summary>
+    public const string Build = "build";
+
     /// <summary>p0503b: the token authority a caller is validated against.</summary>
     public const string Auth = "auth";
+
+    /// <summary>2026-08-25-0d01: which sandbox-agent build this installation spawns, and
+    /// whether the wire it answers on is one this server reads.</summary>
+    public const string SandboxAgent = "sandbox-agent";
 }

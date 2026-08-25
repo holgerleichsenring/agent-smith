@@ -44,8 +44,9 @@ public class ExecutePipelineUseCaseTests
                 NullLogger<AgentSmith.Application.Services.Resume.ResumeRequestReader>.Instance),
             _sourceOverriderMock.Object,
             new StubSkillsCatalogResolver(),
-            new StubSkillsCatalogPath(),
-            skillLoaderMock.Object,
+            new ConceptVocabularyLoader(
+                new StubSkillsCatalogPath(), skillLoaderMock.Object,
+                NullLogger<ConceptVocabularyLoader>.Instance),
             new PipelineConfigResolver(),
             _events,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
@@ -330,6 +331,105 @@ public class ExecutePipelineUseCaseTests
             });
         return await _sut.ExecuteAsync($"fix #{ticket} in todo-list", "config.yml", false, null, CancellationToken.None);
     }
+
+    [Fact]
+    public async Task ExecuteAsync_AProjectNamedWithCapitals_ResolvesTheProject()
+    {
+        // p0515: the measured incident. The entry point lowercased the requested project
+        // name before looking it up in a catalog that never lowercased its keys, so a
+        // configured "Demo" was reachable from the init endpoint and unreachable from the
+        // queue consumer. The config comes from the real resolver — a hand-built
+        // AgentSmithConfig carries an ordinal dictionary and would prove nothing.
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(MaterializedConfig("""
+            agents:
+              a: { type: Claude }
+            repos:
+              r: { type: Local, path: /tmp/r }
+            trackers:
+              t: { type: GitHub, auth: t }
+            projects:
+              Demo: { agent: a, tracker: t, repos: [r] }
+            """));
+        ResolvedProject? executed = null;
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<string>, ResolvedProject, PipelineContext, CancellationToken>(
+                (_, project, _, _) => executed = project)
+            .ReturnsAsync(CommandResult.Ok("Done"));
+
+        var result = await _sut.ExecuteAsync(
+            new PipelineRequest("demo", "fix-bug"), "config.yml", CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        executed!.Name.Should().Be("Demo", "the run speaks the CONFIGURED spelling");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AnUnknownProjectOnAReservedRun_PublishesRunFinishedFailed()
+    {
+        // p0515: the launch died before RunStarted, which had no guard — the reserved row
+        // stayed queued forever, answering 409 already-running on every later click and
+        // holding the capacity it reserved at admission.
+        _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig());
+
+        var act = () => _sut.ExecuteAsync(
+            new PipelineRequest("ghost", "fix-bug", RunId: "run-reserved"),
+            "config.yml", CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConfigurationException>();
+        _events.Events.OfType<AgentSmith.Contracts.Events.RunStartedEvent>().Should().BeEmpty();
+        var finished = _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>()
+            .Should().ContainSingle().Subject;
+        finished.RunId.Should().Be("run-reserved");
+        finished.Status.Should().Be("failed");
+        finished.Summary.Should().Contain("ghost");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AnUnknownProjectWithoutAReservedRun_PublishesNothing()
+    {
+        // A terminal event for a run id nobody reserved is a no-op in the database but not
+        // in the live fold: the broadcaster would post a card with no project or repos.
+        _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig());
+
+        var act = () => _sut.ExecuteAsync(
+            new PipelineRequest("ghost", "fix-bug"), "config.yml", CancellationToken.None);
+
+        await act.Should().ThrowAsync<ConfigurationException>();
+        _events.Events.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AFailureAfterRunStarted_PublishesExactlyOneTerminalEvent()
+    {
+        // The prologue guard ends where p0175-fix's guard begins: a failure past RunStarted
+        // must still produce ONE terminal event, not two.
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(TodoConfig());
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("sandbox image not built"));
+
+        var act = () => _sut.ExecuteAsync(
+            new PipelineRequest("todo-list", "fix-bug", RunId: "run-reserved"),
+            "config.yml", CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _events.Events.OfType<AgentSmith.Contracts.Events.RunStartedEvent>().Should().ContainSingle();
+        _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>()
+            .Should().ContainSingle().Which.Status.Should().Be("failed");
+    }
+
+    private static AgentSmithConfig MaterializedConfig(string yaml) =>
+        new AgentSmith.Infrastructure.Core.Services.Configuration.RawConfigMaterializer(
+            new AgentSmith.Infrastructure.Core.Services.Configuration.ProjectConfigNormalizer(),
+            new AgentSmith.Infrastructure.Core.Services.Configuration.EffectiveTriggerBuilder(),
+            new AgentSmith.Infrastructure.Core.Services.Configuration.DeploymentDefaultsApplier(),
+            new AgentSmith.Infrastructure.Core.Services.Configuration.ConfigCatalogResolver(),
+            new AgentSmith.Infrastructure.Core.Services.AgentSmithPaths())
+        .Materialize(
+            new AgentSmith.Infrastructure.Core.Services.Configuration.RawConfigYaml().Deserialize(yaml));
 
     [Fact]
     public async Task ExecuteAsync_UnknownProject_ThrowsConfigurationException()

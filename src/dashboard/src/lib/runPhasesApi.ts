@@ -5,8 +5,7 @@
 // phase had nothing to open.
 
 import type { RunStepRow } from "@/lib/runStepsApi";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch, getJson, readJson } from "@/lib/apiResponse";
 
 export interface RunPhaseDecision {
   stepIndex: number | null;
@@ -40,9 +39,8 @@ export async function fetchRunPhases(
   runId: string,
   signal?: AbortSignal,
 ): Promise<RunPhaseRow[]> {
-  const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}/phases`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { phases?: RunPhaseRow[] };
+  const body = await getJson<{ phases?: RunPhaseRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/phases`, signal);
   return body.phases ?? [];
 }
 
@@ -51,11 +49,9 @@ export async function fetchRunPhase(
   phaseId: string,
   signal?: AbortSignal,
 ): Promise<RunPhaseDetail | null> {
-  const res = await fetch(
-    `${API_BASE}/api/runs/${encodeURIComponent(runId)}/phases/${encodeURIComponent(phaseId)}`,
-    { signal },
-  );
+  const path =
+    `/api/runs/${encodeURIComponent(runId)}/phases/${encodeURIComponent(phaseId)}`;
+  const res = await apiFetch(path, { signal });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as RunPhaseDetail;
+  return readJson<RunPhaseDetail>(res, path);
 }

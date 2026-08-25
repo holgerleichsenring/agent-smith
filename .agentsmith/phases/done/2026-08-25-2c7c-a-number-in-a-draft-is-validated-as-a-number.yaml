@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-2c7c
+
+goal: "A draft's numbers and booleans are judged as numbers and booleans, so a schema rule about them is enforced instead of silently unenforceable."
+
+applies_to: "backend (the YAML-to-JSON bridge the draft validators share)"
+
+requires:
+  - 2026-08-25-056d
+
+scope:
+  in: "The conversion that turns a parsed YAML document into the JSON a schema is evaluated against, and every validator that goes through it."
+  out: "The schemas themselves and what they require."
+
+decisions:
+  - key: |
+      EVERY SCALAR ARRIVES AS A STRING, SO EVERY NON-STRING RULE IS DEAD. The bridge deserialises
+      into a plain object graph and converts it for JSON, which stringifies scalars — so an
+      integer field is presented to the validator as a quoted value and fails a type rule, while
+      a rule that WOULD have caught a wrong value never gets a chance to. Any integer or boolean
+      constraint in the phase schema is currently unenforceable, and nobody would notice, because
+      the failure mode is a false rejection on correct input rather than a false acceptance.
+  - key: |
+      IT WAS FOUND BY BUILDING, NOT BY READING. The context-schema phase hit it on its first run:
+      a limits block whose value is plainly a number was reported as not a number. The fix there
+      was a type-aware bridge written for the tests; production still uses the old one, and that
+      asymmetry is the reason this is its own phase rather than a note.
+  - key: |
+      THE FIX BELONGS TO THE BRIDGE, NOT TO EACH CALLER. There is one conversion and several
+      validators behind it. Correcting it once is what makes every schema rule mean what it says.
+
+steps:
+  - id: a-scalar-keeps-its-type-across-the-bridge
+    action: "Convert a parsed YAML document to JSON preserving numbers, booleans and nulls as themselves, so a schema judges the value that was written."
+  - id: every-validator-uses-the-one-bridge
+    action: "Route the draft validators through that single conversion, so none keeps a private one that disagrees."
+
+tests:
+  - "Bridge_AnInteger_IsJudgedAsAnInteger"
+  - "Bridge_ABoolean_IsJudgedAsABoolean"
+  - "Bridge_ANull_IsJudgedAsNull"
+  - "Bridge_AQuotedNumber_StaysAString"
+  - "Validator_ADraftWithANumericLimit_IsAccepted"
+  - "Validator_ADraftWithAWrongTypeWhereANumberIsRequired_IsRejected"
+
+done:
+  - "a number written as a number validates as one, and a wrong type is still caught"
+  - "one conversion serves every draft validator"
+  - "build green, full suite green"

@@ -17,4 +17,10 @@ public static class AgentImageDefaults
 
     /// <summary>Default container registry for the sandbox agent image when neither agentsmith.yml nor per-project config specifies one.</summary>
     public const string DefaultRegistry = "holgerleichsenring";
+
+    /// <summary>
+    /// The version the in-process backend registers so an image reference can still be
+    /// FORMED where no image is ever pulled. Not a release, so nothing may judge it as one.
+    /// </summary>
+    public const string InProcessVersion = "in-process";
 }

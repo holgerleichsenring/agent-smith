@@ -12,6 +12,7 @@ import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection"
 import { RunDetailHeader, statusSpill } from "@/components/jobs/RunDetailHeader";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { RunSideRail } from "@/components/jobs/RunSideRail";
+import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { RunStory } from "@/components/jobs/story/RunStory";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { PaneResizeHandle } from "@/components/execution/PaneResizeHandle";
@@ -181,13 +182,19 @@ function RunDetail({ runId }: { runId: string }) {
           }
           sidebox={
             snapshot ? (
-              <RunSideRail
-                snapshot={snapshot}
-                hasDialogue={!!pendingQuestion}
-                onOpenDialogue={() => setDialogueOpen(true)}
-                onOpenTrace={() => setTraceOpen(true)}
-                traceSteps={snapshot.totalSteps}
-              />
+              // 2026-08-25-39ab: the rail reads the widest slice of the snapshot
+              // (status, compute, footprint, budget, PRs), so it is the most
+              // likely surface to meet a payload it does not know. Losing it must
+              // not cost the pipeline the operator came to watch.
+              <RenderBoundary surface="run side rail">
+                <RunSideRail
+                  snapshot={snapshot}
+                  hasDialogue={!!pendingQuestion}
+                  onOpenDialogue={() => setDialogueOpen(true)}
+                  onOpenTrace={() => setTraceOpen(true)}
+                  traceSteps={snapshot.totalSteps}
+                />
+              </RenderBoundary>
             ) : undefined
           }
         />
@@ -443,7 +450,13 @@ function StepDetail({
   const page = useRunStepEvents(runId, stepIndex, isRunLive(snapshot?.status));
   // The step's page is a bounded event list — the same composer that used to
   // fold the whole run now composes exactly one step from exactly its events.
-  const { nodes: composed } = useRunExecutionTree(page.events, snapshot, runId);
+  //
+  // 2026-08-25-5d7a: and it is TOLD which step, because the page starts at the
+  // step's newest row. A step longer than one page keeps its StepStarted event
+  // out of reach, and a composer left to infer the step from that event dropped
+  // every row the page carried — the pane read "no sub-events" and walking back
+  // through history changed nothing on screen.
+  const { nodes: composed } = useRunExecutionTree(page.events, snapshot, runId, stepIndex);
   const body = composed[0]?.body;
   const children = composed[0]?.children ?? [];
   const node = railNode ? { ...railNode, body } : null;
@@ -479,12 +492,12 @@ function StepDetail({
 }
 
 // p0259: a cancelled run is not a failure — it gets its own neutral banner.
-function isFailureStatus(s: string | undefined): boolean {
+function isFailureStatus(s: string | null | undefined): boolean {
   return !!s && s !== "running" && s !== "success" && s !== "cancelled"
     && s !== "queued" && s !== "waiting_for_input";
 }
 
-function mapResultStatus(status: string | undefined): NodeStatus {
+function mapResultStatus(status: string | null | undefined): NodeStatus {
   if (status === "success") return "ok";
   if (status === "running") return "run";
   if (status === "cancelled") return "cancel";

@@ -9,6 +9,7 @@ using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Server.Services.Lifecycle;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -26,6 +27,7 @@ namespace AgentSmith.Tests.Server;
 public sealed class DialogueResumeSweeperTests : IDisposable
 {
     private readonly SqliteConnection _connection;
+    private readonly StartupFindings _findings = new();
     private static readonly DateTimeOffset T = DateTimeOffset.Parse("2026-07-11T12:00:00Z");
 
     public DialogueResumeSweeperTests()
@@ -150,6 +152,84 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         ctx.QueuedTickets.Single().IsResume.Should().BeTrue();
     }
 
+    /// <summary>
+    /// 2026-08-25-a508: a run that asked again parks on a NEW question, and the answer that
+    /// resumed it the first time does not answer this one. Under one identity per run the
+    /// sweeper read the spent answer straight back out of the inbox and relaunched the run on
+    /// it, over and over, without the operator ever being asked.
+    /// </summary>
+    [Fact]
+    public async Task Sweeper_AParkedRunWhoseAnswerWasAlreadyUsed_EnqueuesNothing()
+    {
+        await ParkedAndResumedOnceAsync();
+
+        // The resumed leg asks again and parks under an identity of its own.
+        await ApplyAsync(Checkpointed("run-1", DateTimeOffset.UtcNow.AddDays(2), "ask-2"));
+
+        (await BuildSweeper().ScanOnceAsync(CancellationToken.None)).Should().Be(0);
+
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.RunCheckpoints.Single().ResumedAt.Should().BeNull(
+            "the first question's answer is not the second question's");
+        ctx.QueuedTickets.Count().Should().Be(1, "nothing new was enqueued");
+    }
+
+    /// <summary>
+    /// 2026-08-25-a508: and the second question is answerable at all — its own slot takes its
+    /// own answer, which is what a fourteen-day patience was being spent waiting for.
+    /// </summary>
+    [Fact]
+    public async Task SecondQuestion_Answered_ResumesTheRun()
+    {
+        await ParkedAndResumedOnceAsync();
+        await ApplyAsync(Checkpointed("run-1", DateTimeOffset.UtcNow.AddDays(2), "ask-2"));
+
+        await BuildInbox().TryDeliverAsync("job-1",
+            new DialogAnswer("ask-2", "use the shared package", null, DateTimeOffset.UtcNow, "@op"),
+            CancellationToken.None);
+        var resumed = await BuildSweeper().ScanOnceAsync(CancellationToken.None);
+
+        resumed.Should().Be(1);
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.RunCheckpoints.Single().ResumedAt.Should().NotBeNull();
+    }
+
+    /// <summary>
+    /// 2026-08-25-a508: a run parked with no checkpoint has nowhere for an answer to be
+    /// delivered — the dashboard renders no question and the sweeper never sees it. It is
+    /// reported on the findings channel rather than waited out in silence.
+    /// </summary>
+    [Fact]
+    public async Task UndeliverableAnswer_IsReportedAsAFindingRatherThanWaitedOut()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+
+        await BuildSweeper().ScanOnceAsync(CancellationToken.None);
+
+        _findings.All.Should().ContainSingle()
+            .Which.Reason.Should().Contain("run-1").And.Contain("cannot be delivered");
+
+        // And it stops being reported the moment the question becomes answerable.
+        await ApplyAsync(Checkpointed("run-1", DateTimeOffset.UtcNow.AddDays(2)));
+        await BuildSweeper().ScanOnceAsync(CancellationToken.None);
+
+        _findings.All.Should().BeEmpty("a park that can be answered is not a finding");
+    }
+
+    // A run that parked, was answered and had its resume enqueued — the state a second
+    // question is asked from.
+    private async Task ParkedAndResumedOnceAsync()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(Checkpointed("run-1", DateTimeOffset.UtcNow.AddDays(2), "ask-1"));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+        await BuildInbox().TryDeliverAsync("job-1",
+            new DialogAnswer("ask-1", "approve", null, DateTimeOffset.UtcNow, "@op"),
+            CancellationToken.None);
+        (await BuildSweeper().ScanOnceAsync(CancellationToken.None)).Should().Be(1);
+    }
+
     private DialogueResumeSweeper BuildSweeper(IParkedTicketDialogue? ticket = null)
     {
         var checkpoints = new DbRunCheckpointStore(ScopeFactory());
@@ -158,6 +238,9 @@ public sealed class DialogueResumeSweeperTests : IDisposable
             new DbCapacityQueue(ScopeFactory()), checkpoints, NullLogger<RunResumer>.Instance);
         return new DialogueResumeSweeper(
             BuildProvider(), checkpoints, inbox, resumer, ticket ?? new SilentTicket(),
+            new UnanswerableParkReporter(
+                ScopeFactory(), checkpoints, _findings,
+                NullLogger<UnanswerableParkReporter>.Instance),
             TimeProvider.System, NullLogger<DialogueResumeSweeper>.Instance);
     }
 
@@ -207,6 +290,7 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         services.AddScoped<DialogueAnswerRepository>();
         services.AddScoped<QueuedTicketRepository>();
         services.AddScoped<RunRepository>();
+        services.AddScoped<ParkedRunRepository>();
         return services.BuildServiceProvider();
     }
 
@@ -214,9 +298,10 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         runId, "ticket", "fix-bug", ["repo-a"], T, "claude", "42",
         Project: "p1", Platform: "github");
 
-    private static RunCheckpointedEvent Checkpointed(string runId, DateTimeOffset deadline) => new(
-        runId, "p1", "42", "github", "fix-bug", "job-1", "q1",
-        QuestionJson: """{"QuestionId":"q1","Type":3,"Text":"Approve?","Context":null,"Choices":null,"DefaultAnswer":"reject","Timeout":"3.00:00:00"}""",
+    private static RunCheckpointedEvent Checkpointed(
+        string runId, DateTimeOffset deadline, string questionId = "q1") => new(
+        runId, "p1", "42", "github", "fix-bug", "job-1", questionId,
+        QuestionJson: $$"""{"QuestionId":"{{questionId}}","Type":3,"Text":"Approve?","Context":null,"Choices":null,"DefaultAnswer":"reject","Timeout":"3.00:00:00"}""",
         RemainingCommandsJson: """[{"Name":"CheckoutSourceCommand"},{"Name":"ApprovalCommand"},{"Name":"AgenticMasterCommand"}]""",
         ContextJson: "[]", ExecutionCount: 14,
         AskedAt: T, AnswerDeadlineAt: deadline, Timestamp: T);
@@ -225,5 +310,5 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
     private async Task ApplyAsync(RunEvent ev) =>
-        await new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()).ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
+        await RunEventAppliers.Default().ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
 }

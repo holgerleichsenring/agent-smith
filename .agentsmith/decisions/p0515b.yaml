@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0515b
+
+decisions:
+  - category: Architecture
+    chose: "A write-time refusal in the repository, and no schema change at all"
+    over: "A unique index on a normalised column, with a migration and a backfill"
+    reason: |
+      The data loss is entirely in code. The lookup finds the case-twin, the upsert
+      takes its UPDATE branch, and the caller passes no expected version for an id its
+      version map never held — so the stale check that would have caught it never runs.
+      A guard that compares the stored spelling to the incoming one ordinally and
+      refuses when they differ ends the overwrite completely, with no column, no index,
+      no backfill and no deploy risk.
+
+      The index could not ship here anyway, because of where migrations run. The server
+      never migrates itself: an init container runs `database migrate`, and a non-zero
+      exit means the pod never reaches its server container. A refusal raised there is
+      not an upgrade stopping loudly — it is the installation down, with the only tool
+      that can delete one of the two spellings locked inside the server that will not
+      start. That work is a successor phase, and it has to repair the rows it would
+      reject before it can reject them.
+  - category: Implementation
+    chose: "ConfigNameCollisionGuard consumes p0515's ConfigNames"
+    over: "A comparison written out at the write path"
+    reason: |
+      Comparing one way in the store and another way in the loader would let the store
+      accept a pair the loader refuses to build — the exact split p0515 exists to close.
+      The guard asks ConfigNames.AreSame, the same rule the catalogs are keyed by.
+  - category: Implementation
+    chose: "The collision is judged in memory, over the ids read back for that type"
+    over: "A WHERE clause that lets the database decide"
+    reason: |
+      The verdict must not depend on the installation's collation. A case-insensitive
+      one (SQL Server, where the loss was measured) hides the twin behind an equality
+      the guard exists to reject; a case-sensitive one (SQLite) never surfaces it and
+      the pair simply lands as two rows. Reading the ids and comparing them here gives
+      one verdict on every provider. A config catalog is dozens of rows, not millions.
+  - category: Architecture
+    chose: "The import check sits inside ConfigImportRepository.Import"
+    over: "A check at the server endpoint and another in the CLI command"
+    reason: |
+      That is the one place both callers reach, and both already map the exception
+      correctly: the endpoint's write guard turns a ConfigurationException into a 400,
+      and the CLI catches the same type and exits non-zero. Checking at the two call
+      sites would leave whichever entry point is added next unguarded. Checking the
+      incoming file alone is sufficient because the force path clears the current rows
+      before it writes, and the check runs before the transaction opens — so a refused
+      import cannot wipe a store it was never going to replace.
+  - category: Implementation
+    chose: "The refusal names both spellings, the catalog, and the way out"
+    over: "A short 'name already exists' rejection"
+    reason: |
+      p0515 drops both halves of a colliding pair from the catalog, so neither is
+      listed in the studio and there is no row to click. The two spellings are the only
+      handle the operator has left — DELETE .../{id} still reaches the store by exact
+      id, and export, edit, force-import is the recovery. A message that does not carry
+      them turns a refusal into a dead end.

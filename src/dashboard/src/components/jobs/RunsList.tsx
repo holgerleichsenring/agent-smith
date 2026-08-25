@@ -9,6 +9,7 @@ import { RunRow } from "./RunRow";
 import { RunFilterChips, type RunFilter } from "./RunFilterChips";
 import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
 import { toNodeStatus } from "./runStatus";
+import { RenderBoundary } from "@/components/shell/RenderBoundary";
 
 // p0208: runs list container. Merges overview.active + recent into ONE list,
 // newest-first by startedAt, then renders the Recent bar + filter chips + a
@@ -75,8 +76,13 @@ export function RunsList() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-stone-200 bg-white" data-testid="runs-list">
+          {/* 2026-08-25-39ab: one row per boundary. A snapshot this build cannot
+              render costs its own row and nothing else — the other runs, the
+              filters and the rail keep working. */}
           {filtered.map((r) => (
-            <RunRow key={r.runId} snapshot={r} />
+            <RenderBoundary key={r.runId} surface={`run ${r.runId}`}>
+              <RunRow snapshot={r} />
+            </RenderBoundary>
           ))}
         </div>
       )}

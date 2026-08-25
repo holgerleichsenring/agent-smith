@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-39ab
+
+goal: "A payload the dashboard does not recognise costs a named error in one place, never a blank document."
+
+applies_to: "dashboard (error boundaries, the snapshot consumers, and the one place a response becomes a typed object)"
+
+scope:
+  in: "A boundary that catches a render failure and degrades to something readable; the run-snapshot consumers that dereference fields the server may legitimately omit; and one shared reader for a fetch response, so a shape change lands in one place instead of thirteen blind casts."
+  out: "Versioning of any kind — which build the halves are and whether they are compatible is the next phase. Generating the REST contract from the server, which is the structural cure and is named as its own phase."
+
+decisions:
+  - key: |
+      THIS IS THE FIX THE INCIDENT ACTUALLY NEEDED. A field was added to a payload, the dashboard
+      dereferenced something absent, and the page went white. A version check would have said the
+      halves matched, because both images carried the same release string — releases move on
+      release commits, not on merges. What no amount of version comparison would have done is
+      contain the throw. There is no error boundary anywhere in the app today: no route-level one,
+      no global one, no component that catches. One render failure blanks the document.
+  - key: |
+      A BLANK PAGE IS WORSE THAN A WRONG NUMBER, AND THAT IS THE WHOLE DESIGN RULE. An operator
+      watching a run wants the run to keep rendering when one card cannot. So the boundary is per
+      route AND global, and what it shows names the surface that failed rather than apologising
+      in the abstract.
+  - key: |
+      THE CONSUMERS DEREFERENCE WHAT THE SERVER MAY OMIT. The snapshot type declares fields
+      required that the API can legitimately answer without, and the code reaches through them —
+      a status lowercased, a compute object asserted non-null, a repo list counted. Every one is
+      a blank page waiting for a payload the server is entitled to send.
+  - key: |
+      THIRTEEN BLIND CASTS ARE THIRTEEN PLACES TO FIX NEXT TIME. Every response is asserted into
+      its type with no check. One shared reader does not make the types true, but it makes the
+      next shape change one edit instead of a hunt — and it is where a runtime check goes when
+      the contract is generated later.
+  - key: |
+      NEITHER THE COMMIT GATE NOR CI RUNS THESE TESTS TODAY, AND THAT IS PART OF THE PHASE. The
+      phase gate runs the backend build, the backend suite, CLI dry-runs and harness presets — no
+      package manager, no dashboard test, no dashboard build. The dashboard workflow is
+      path-filtered, so a backend-only payload change never runs it. A phase whose tests nothing
+      runs has shipped nothing, so the gate has to learn to run them.
+
+steps:
+  - id: a-render-failure-degrades-instead-of-blanking
+    action: "Add a route-level boundary and a global one, so a throw during render becomes a named error in place and the rest of the page keeps working."
+  - id: the-snapshot-consumers-tolerate-what-the-server-may-omit
+    action: "Stop dereferencing run-snapshot fields the API is entitled to answer without, so an absent field renders as absent rather than throwing."
+  - id: a-response-becomes-an-object-in-one-place
+    action: "Read every fetch response through one shared reader, so a shape change is one edit and a later runtime check has somewhere to live."
+  - id: the-gate-runs-the-dashboard-tests
+    action: "Make the commit gate build the dashboard and run its tests, so a phase that protects the dashboard is proven by the thing that blocks a commit."
+
+tests:
+  - "Render_AComponentThrows_TheBoundaryShowsANamedErrorAndTheShellSurvives"
+  - "Render_AComponentThrows_TheOtherRoutesStillRender"
+  - "Snapshot_MissingARequiredField_RendersWithoutThrowing"
+  - "Snapshot_CarryingAnUnknownField_RendersWithoutThrowing"
+  - "RunCard_ASnapshotWithoutAStatus_RendersInsteadOfThrowing"
+  - "SideRail_ASnapshotWithoutCompute_RendersInsteadOfThrowing"
+  - "ResponseReader_AShapeItDoesNotExpect_FailsInOnePlaceWithAReadableMessage"
+  - "Gate_RunsTheDashboardBuildAndTests"
+
+done:
+  - "a render failure shows a named error in place and never blanks the document"
+  - "a snapshot missing a field the server may omit still renders"
+  - "every response passes through one reader"
+  - "the commit gate builds the dashboard and runs its tests"
+  - "build green, full suite green, dashboard tests green"

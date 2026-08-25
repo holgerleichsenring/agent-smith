@@ -43,6 +43,12 @@ public static partial class ContextKeys
     /// per-component collisions when multiple components share a language).</summary>
     public const string BootstrapOutputs = "BootstrapOutputs";
 
+    /// <summary>p0496: the BootstrapProbeReport describing what the probe actually read —
+    /// the checked-out branch, the base it was cut from and the paths it looked for. Set by
+    /// BootstrapCheckHandler only when something is missing; quoted by the gate's refusal so
+    /// the operator is told what was read instead of what it might mean.</summary>
+    public const string BootstrapProbeReport = "BootstrapProbeReport";
+
     public const string SkillCandidates = "SkillCandidates";
     public const string SkillEvaluations = "SkillEvaluations";
     public const string SkillInstallPath = "SkillInstallPath";

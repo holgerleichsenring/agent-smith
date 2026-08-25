@@ -15,6 +15,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// ContextYamlDocument and emits YAML through IContextYamlSerializer (the
 /// same builder the parser uses on read). Parse-failure from LLM output
 /// becomes unrepresentable.
+/// 2026-08-25-c9c7: the document is also judged by <see cref="ContextDocumentGate"/>
+/// before it reaches disk, and every refusal is spent from a per-round
+/// <see cref="ContextWriteRejectionBudget"/>.
 /// </summary>
 public sealed class WriteContextYamlToolHost : IToolHost
 {
@@ -24,6 +27,10 @@ public sealed class WriteContextYamlToolHost : IToolHost
     private readonly IReadOnlyDictionary<string, ISandbox> _sandboxes;
     private readonly string _defaultRepo;
     private readonly IContextYamlSerializer _serializer;
+    private readonly ContextDocumentGate _gate;
+    // 2026-08-25-c9c7: per-round, so a document the model cannot make valid stops
+    // being re-invited instead of spending the loop's iteration cap.
+    private readonly ContextWriteRejectionBudget _budget = new();
     // p0341c: the discovered context keys per repo NAME (from ScopeRepos'
     // RemoteContextInventory), + the default repo's name, so context_name is constrained
     // to what discovery actually resolved. Null / empty for a repo => genuine bootstrap,
@@ -34,12 +41,14 @@ public sealed class WriteContextYamlToolHost : IToolHost
         IReadOnlyDictionary<string, ISandbox> sandboxes,
         string defaultRepo,
         IContextYamlSerializer serializer,
+        ContextDocumentGate gate,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
         string? defaultRepoName = null)
     {
         _sandboxes = sandboxes;
         _defaultRepo = defaultRepo;
         _serializer = serializer;
+        _gate = gate;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
 
@@ -60,7 +69,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         string repo,
         [Description("Context name, e.g. 'default' or 'api'. Becomes the directory under .agentsmith/contexts/.")]
         string context_name,
-        [Description("Document object: { meta: { workdir, project?, version?, type?, purpose?, domain? }, " +
+        [Description("Document object: { meta: { workdir, project?, version?, type?: [archetype,…], purpose?, domain? }, " +
                      "stack?: { lang?, image?, resources?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
                      "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
@@ -70,8 +79,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker " +
                      "image whose runtime can BOTH build " +
                      "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
-                     "name it from a trusted hub and pick a git-bearing tag (full -bookworm/-bullseye, an " +
-                     "mcr .../sdk tag, or buildpack-deps:...-scm — never -slim/-alpine). " +
+                     "it must come from a registry the operator trusts and must carry git, because the " +
+                     "repository is cloned inside it. " +
                      // p0332: resources demoted to the exception — the defaults fit
                      // almost every stack; agents must stop sizing every context.yaml.
                      "stack.resources is NORMALLY OMITTED — the platform defaults fit almost every " +
@@ -79,8 +88,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "defensible outlier: a build that DEMONSTRABLY needs more than the default " +
                      "(e.g. it OOM-killed or you measured the peak). If you declare it, provide ALL " +
                      "FOUR Kubernetes quantities { cpu_request, cpu_limit, memory_request, " +
-                     "memory_limit } — a partial block is ignored and the project/global default " +
-                     "applies — and values above the hard ceiling (cpu '2', memory '6Gi') are " +
+                     "memory_limit } — a partial block is refused — and values above the hard ceiling (cpu '2', memory '6Gi') are " +
                      "clamped down to it.")]
         JsonElement document,
         CancellationToken ct = default)
@@ -98,38 +106,18 @@ public sealed class WriteContextYamlToolHost : IToolHost
         if (!_nameGuard.TryResolve(repo, ref context_name, out var guardError))
             return guardError!;
 
-        ContextYamlDocument typed;
-        try
-        {
-            typed = JsonSerializer.Deserialize<ContextYamlDocument>(document.GetRawText(), DocumentJsonOptions)
-                ?? throw new InvalidOperationException("document deserialised to null");
-        }
-        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
-        {
-            return $"Error: document is not a valid context.yaml shape — {ex.Message}";
-        }
+        // 2026-08-25-c9c7: every refusal below is budgeted, so no defect can be
+        // re-offered to the model past the bound.
+        if (!_gate.TryRead(document, out var typed, out var readDefect))
+            return _budget.Reject(context_name, readDefect!);
 
         // Serialize first: it validates the fundamental meta.workdir requirement.
         string yaml;
-        try { yaml = _serializer.Serialize(typed); }
-        catch (InvalidOperationException ex) { return $"Error: {ex.Message}"; }
+        try { yaml = _serializer.Serialize(typed!); }
+        catch (InvalidOperationException ex) { return _budget.Reject(context_name, ex.Message); }
 
-        // stack.image is mandatory whenever a stack is described: the toolchain
-        // image the sandbox builds + tests this stack in must be named explicitly,
-        // not left to the weaker language→image fallback table. Fail loud so the
-        // agent re-emits with an exact image rather than silently shipping a
-        // context.yaml the resolver has to guess an image for.
-        // p0504: a declared meta.domain SUPPLIES an image from its catalog profile, so a
-        // context of a known domain may describe its stack without naming one. Without a
-        // domain the rule is unchanged.
-        if (typed.Stack is not null && string.IsNullOrWhiteSpace(typed.Stack.Image)
-            && string.IsNullOrWhiteSpace(typed.Meta?.Domain))
-            return "Error: stack.image is required — name the exact toolchain Docker image whose "
-                 + "runtime can BOTH build AND run this stack's tests (e.g. "
-                 + "mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm). Pick a git-bearing tag "
-                 + "(full -bookworm/-bullseye, an mcr .../sdk tag, or buildpack-deps:...-scm — "
-                 + "never -slim/-alpine). A context that declares meta.domain is exempt: its "
-                 + "profile brings an image.";
+        if (_gate.Defect(typed!) is { } defect) return _budget.Reject(context_name, defect);
+        _budget.Accepted(context_name);
 
         if (!TryResolveSandbox(repo, out var sandbox, out var err))
             return err!;
@@ -155,14 +143,4 @@ public sealed class WriteContextYamlToolHost : IToolHost
         error = $"Error: unknown repo '{repo}'. Known repos: [{string.Join(", ", _sandboxes.Keys.Where(k => k.Length > 0))}].";
         return false;
     }
-
-    private static readonly JsonSerializerOptions DocumentJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        // Deserialize arch/quality/behavior (IDictionary<string, object?>) into plain
-        // CLR types, not JsonElement, so the YAML serializer emits real values instead
-        // of a `value_kind: String` type wrapper.
-        Converters = { new InferredTypeJsonConverter() },
-    };
 }

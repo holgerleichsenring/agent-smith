@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Tests.TestSupport;
 using System;
 using System.Collections.Generic;
@@ -39,15 +40,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunCheckpointProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunExpectationProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.QueuedRunProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunSandboxProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunStepTimeProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPullRequestProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunClassificationProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunFinalizationProjection>();
-        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPhaseProjection>();
+        services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<DbPriorRunLedgerReader>();
         return services.BuildServiceProvider();

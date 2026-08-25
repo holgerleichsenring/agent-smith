@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0413a
+
+goal: "A run that touches one repository is sized and shaped like any other, by the call that already asks — and the tier it earns never cuts the budget the operator configured."
+
+applies_to: "backend (repo scoping handler, the estimate recorder, the cost cap resolution, and the scripted harness presets that assume the call never happens)"
+
+requires:
+  - p0413
+
+scope:
+  in: "Producing the tier and the work shape for a run whose repository count made the scoping question degenerate, using the classification call that path already owns; the reply contract that carries them; and the relationship between a tier verdict and the cap the operator's configuration resolved."
+  out: "Context scoping and the expected-change list, which sit behind the same guard but are not the estimate — they stay off for a single-repo run, and a successor phase decides whether context scoping should follow. The estimate surviving a resume, which it does not today and which this phase does not fix."
+
+decisions:
+  - key: |
+      THE ESTIMATE IS SKIPPED, NOT WRONG, AND THE TITLE SHOULD NOT SUGGEST OTHERWISE. The handler
+      returns before the tier and shape are recorded when there is nothing to scope. So the
+      derivation composes with no shape at all, and the cost cap keeps whatever the pipeline
+      seeded. Nothing computes a bad answer; nothing computes an answer.
+  - key: |
+      THERE IS NO SECOND CALL TO MERGE. Exactly one classification call exists on this path, and
+      the tier and shape are produced nowhere else. "One call, not two" is a guard rail against a
+      bad implementation, not a defect being repaired — and it must be stated as such, or the
+      builder will go hunting for a call that is not there. Truncation is not a risk either: the
+      reply is a small object well inside the planning budget, and a single-repo reply is smaller
+      than the two-repo one that already ships.
+  - key: |
+      THE COST IS ONE MORE PLANNING CALL ON THE MOST COMMON RUN SHAPE, AND THAT IS THE PRICE. A
+      single-repo ticketed run spends zero classification calls today and one afterwards. The
+      phase's own acceptance criterion used to forbid exactly that, which is how a criterion ends
+      up contradicting its goal.
+  - key: |
+      A TIER MUST NOT LOWER WHAT THE OPERATOR SET. The cap resolved for a tier consults only the
+      static default and never the per-pipeline override, and the recorder overwrites the cap the
+      pipeline had already resolved WITH that override. Extending the tier to every run therefore
+      cuts a single-repo bugfix from the default ceiling down to the small-tier one, and silently
+      discards an operator's per-pipeline setting. The estimate exists to size a leash, not to
+      shorten one somebody already chose.
+  - key: |
+      THE ESTIMATE IS GATED BEHIND A PARSE CONTRACT IT HAS NO REASON TO SATISFY. The reply parser
+      returns nothing unless the payload carries a repository array, and the handler then drops
+      the tier and shape whole. A model asked which repositories to check out, on a run with one,
+      has every reason to answer the interesting question and omit the degenerate list — and the
+      estimate is lost on exactly the runs this phase exists to fix.
+  - key: |
+      THE HARNESS IS THE HIDDEN COST AND IT IS MANDATORY. The scripted client is a strict queue
+      with no keying, and the default fixture project has one repository. The moment this path
+      calls the model on a single-repo run, roughly three dozen preset runs hand their derivation
+      payload to the classifier. Harness presets are part of the commit gate, so the re-scripting
+      is not optional follow-up work — it is in this phase or the phase cannot land.
+  - key: |
+      PLACEMENT IS FIXED BY WHAT THE CAP HAS TO FENCE. The tier must be recorded before the run's
+      first large spend, which rules out folding the estimate into the derivation that follows it.
+      Writing the constraint down is what stops it being re-derived, or got wrong, by whoever
+      builds this.
+
+steps:
+  - id: the-estimate-rides-the-call-that-already-asks
+    action: "Record the tier and the work shape for a run whose scoping question is degenerate, from the classification call that path already owns and before the run's first large spend, so exactly one such call is spent and never a second."
+  - id: the-estimate-survives-a-reply-that-scopes-nothing
+    action: "Carry the tier and shape out of a reply that names no repository list, so the estimate is not lost to a contract written for a question this run did not have."
+  - id: a-tier-never-cuts-what-the-operator-configured
+    action: "Resolve a tier's cap against the cap the configuration already resolved, so a verdict may size the run's ceiling but never lower it below an operator's own setting or discard a per-pipeline override."
+  - id: only-the-estimate-changes
+    action: "Keep context scoping and the expected-change list behind the guard they sit behind today, so this phase turns on the estimate and nothing else."
+  - id: the-presets-script-the-call-that-now-happens
+    action: "Script the classification reply in every preset run whose fixture has a single repository, so the harness tier stays green with the call in place."
+
+tests:
+  - "Estimate_SingleRepoRun_RecordsATierAndAShape"
+  - "Estimate_SingleRepoRun_SpendsExactlyOneClassificationCall"
+  - "Estimate_MultiRepoRun_StillSpendsExactlyOne"
+  - "Estimate_ReplyWithoutARepositoryList_StillYieldsTierAndShape"
+  - "Estimate_RecordedBeforeTheFirstLargeSpend"
+  - "Tier_SmallOnASingleRepoRun_DoesNotShrinkTheResolvedCap"
+  - "Tier_WithAPerPipelineOverride_KeepsTheOverride"
+  - "SingleRepoRun_ContextScopingStaysOff"
+  - "SingleRepoRun_ExpectedChangesStaysUnset"
+  - "SingleRepoRun_TheOperatorsRepoChoiceIsUntouched"
+  - "HarnessPresets_FastTier_IsGreenWithTheClassifierCalledOnSingleRepoRuns"
+
+done:
+  - "a single-repo run carries a tier and a shape, produced by one classification call and no second one"
+  - "the estimate survives a reply that names no repository list"
+  - "a tier verdict never lowers the cap the configuration resolved, and never discards a per-pipeline override"
+  - "context scoping and the expected-change list are unchanged for a single-repo run"
+  - "the fast harness tier is green with the classifier called on every single-repo preset run"
+  - "build green, full suite green"

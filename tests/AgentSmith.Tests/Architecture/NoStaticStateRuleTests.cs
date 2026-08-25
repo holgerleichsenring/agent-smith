@@ -57,8 +57,9 @@ public sealed class NoStaticStateRuleTests
         typeof(ConfigDocumentTaxonomy),
         typeof(ConfigSettingsAccess),
         typeof(AgentSmith.Infrastructure.Persistence.Extensions.PersistenceOptionsExtensions),
-        // p0504: the language→image convention table and the git-bearing tag patterns —
-        // fixed lookup data, so which image a language resolves to is one fact in one place.
+        // p0504: the language→image convention table — fixed lookup data, so which image a
+        // language resolves to is one fact in one place. 2026-08-25-014d: that is now ALL it
+        // holds; the registry boundary it also carried became a configured DI service.
         typeof(AgentSmith.Application.Services.Sandbox.ToolchainImageCatalog),
         // p0504: the command names that cannot run without a pod — a fixed list of
         // literals, extracted so the lifecycle that provisions one does not also hold it.

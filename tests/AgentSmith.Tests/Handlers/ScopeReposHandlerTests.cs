@@ -227,28 +227,89 @@ public sealed class ScopeReposHandlerTests
     }
 
     [Fact]
-    public async Task ScopeRepos_SingleRepo_SkipsClassification_StillBuildsInventory()
+    public async Task Estimate_SingleRepoRun_StillCarriesShapeAndTier()
     {
-        // A CLI --repo override already narrowed Repos to one entry — the operator's
-        // authority; the classifier must never run (and never override it).
+        // p0413a: a CLI --repo override (or a one-repo project) settles WHICH
+        // repositories — the operator's authority, never overridden here. It settles
+        // nothing about the ticket, and the run needs both halves of that estimate:
+        // the size fences its spend, the shape sizes the derivation's cut. Note the
+        // reply carries no "repos" array — a single-repo reply has no reason to.
         var pipeline = NewPipeline("server");
-        var handler = Handler("""{"repos": []}""");
+        pipeline.Set(ContextKeys.RunId, "run-19106");
+        var handler = Handler(
+            """
+            {"complexity": "large", "shape": "deterministic",
+             "shape_reason": "one declared set, applied the same way",
+             "rationale": "one repository, mechanical sweep"}
+            """);
 
         var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("skipped");
+        pipeline.TryGet<CostCapValues>("PipelineCostCap", out var cap).Should().BeTrue();
+        cap!.Usd.Should().Be(new PipelineCostCapConfig().ForTier(ComplexityTier.Large).Usd);
+        pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var shape).Should().BeTrue();
+        shape!.Shape.Should().Be(WorkShape.Deterministic);
+        _published.OfType<AgentSmith.Contracts.Events.RunWorkShapeResolvedEvent>().Should().ContainSingle();
+        // …and SCOPING stayed out of it: nothing narrowed, nothing dropped, nothing
+        // demanded — while the inventory the coordinator reads is still built.
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(1);
+        pipeline.Has(ContextKeys.RepoScopeRationale).Should().BeFalse();
+        pipeline.Has(ContextKeys.ExpectedChangeRepos).Should().BeFalse();
+        pipeline.Has(ContextKeys.ScopedContexts).Should().BeFalse();
         pipeline.Has(ContextKeys.RemoteContextInventory).Should().BeTrue();
+        _chatClient!.InvocationCount.Should().Be(1, "estimating costs the one call, not a second");
+    }
+
+    [Fact]
+    public async Task Estimate_MultiRepoRun_StillSpendsOneCall()
+    {
+        // p0413a: scoping and estimating are one question asked once. A run that does
+        // both must not pay twice for it.
+        var pipeline = NewPipeline("server", "client");
+        var handler = Handler(
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": false, "confidence": 0.9}],
+             "complexity": "medium", "shape": "judgement",
+             "shape_reason": "the endpoint's contract has to be decided first"}
+            """);
+
+        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        _chatClient!.InvocationCount.Should().Be(1);
+        pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().ContainSingle();
+        pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var shape).Should().BeTrue();
+        shape!.Shape.Should().Be(WorkShape.Judgement);
+    }
+
+    [Fact]
+    public async Task ComplexityTier_SmallerThanTheResolvedCap_NeverLowersIt()
+    {
+        // p0413a: the run already resolved a cap from configuration (a per-pipeline
+        // override, or the static default). An estimate is a guess and may enlarge that
+        // ceiling; it may never shrink it, or a small-tier guess would silently overrule
+        // the operator's own setting.
+        var pipeline = NewPipeline("server");
+        pipeline.Set("PipelineCostCap", new CostCapValues { Usd = 12m, Tokens = 3_000_000 });
+        var handler = Handler("""{"complexity": "small", "rationale": "a localised fix"}""");
+
+        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        var cap = pipeline.Get<CostCapValues>("PipelineCostCap");
+        cap.Usd.Should().Be(12m);
+        cap.Tokens.Should().Be(3_000_000);
     }
 
     // p0357: captures RunBudgetResolved (and any other) events the handler publishes.
     private readonly List<AgentSmith.Contracts.Events.RunEvent> _published = [];
+    private StubChatClient? _chatClient;
 
     private ScopeReposHandler Handler(string classifierReply)
     {
-        var chatFactory = new StubChatClientFactory(
-            new StubChatClient(new Queue<string>([classifierReply])));
+        _chatClient = new StubChatClient(new Queue<string>([classifierReply]));
+        var chatFactory = new StubChatClientFactory(_chatClient);
         var classifier = new RepoScopeClassifier(
             chatFactory, EventTestStubs.RunContext, NullLogger<RepoScopeClassifier>.Instance);
         var events = new Mock<AgentSmith.Contracts.Events.IEventPublisher>();

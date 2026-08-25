@@ -11,14 +11,15 @@ namespace AgentSmith.Application.Services.Resume;
 /// 2. the hot in-memory wait (full timeout when the run cannot checkpoint),
 /// 3. checkpoint + park for eligible ticket runs past the hot threshold,
 /// 4. the question's DefaultAnswer (timeout / no transport identity).
-/// The dialogue identity falls back to the run id so in-process server runs
-/// (no --job-id) still have working question/answer streams.
+/// 2026-08-25-a508: the dialogue identity comes from IDialogueJobIdentity, the one
+/// resolver both ask paths share, and a delivered answer is consumed only by the ask
+/// it was given for.
 /// </summary>
 public sealed class DialogueAskGate(
     IDialogueTransport dialogueTransport,
     IDialogueTrail dialogueTrail,
     IDialogueCheckpointWriter checkpointWriter,
-    IProgressReporter progressReporter,
+    IDialogueJobIdentity jobIdentity,
     ILogger<DialogueAskGate> logger) : IDialogueAskGate
 {
     private const int DefaultHotWaitSeconds = 600;
@@ -26,10 +27,10 @@ public sealed class DialogueAskGate(
     public async Task<DialogueAskOutcome> AskAsync(
         PipelineContext pipeline, DialogQuestion question, CancellationToken cancellationToken)
     {
-        if (TryConsumeResumedAnswer(pipeline, question, out var resumed))
+        if (ResumedAnswerPolicy.TryConsume(pipeline, question, out var resumed))
             return await RecordAsync(question, resumed!);
 
-        var jobId = ResolveDialogueJobId(pipeline);
+        var jobId = jobIdentity.Resolve(pipeline);
         if (jobId is null)
         {
             logger.LogWarning("No dialogue identity available — using default answer for '{QuestionId}'",
@@ -52,30 +53,6 @@ public sealed class DialogueAskGate(
         logger.LogWarning("Question '{QuestionId}' timed out, using default: {Default}",
             question.QuestionId, question.DefaultAnswer ?? "");
         return await RecordAsync(question, DefaultAnswerFor(question, "timeout"));
-    }
-
-    // The resumed answer is consumed once and re-keyed to the CURRENT question id:
-    // a handler that mints its question id per execution (Approval) produces a
-    // fresh id on re-entry, but deterministic re-execution reaches the same ask.
-    private static bool TryConsumeResumedAnswer(
-        PipelineContext pipeline, DialogQuestion question, out DialogAnswer? answer)
-    {
-        if (pipeline.TryGet<DialogAnswer>(ContextKeys.ResumedDialogueAnswer, out var delivered)
-            && delivered is not null)
-        {
-            pipeline.Remove(ContextKeys.ResumedDialogueAnswer);
-            answer = delivered with { QuestionId = question.QuestionId };
-            return true;
-        }
-        answer = null;
-        return false;
-    }
-
-    private string? ResolveDialogueJobId(PipelineContext pipeline)
-    {
-        if (progressReporter.JobId is { Length: > 0 } jobId) return jobId;
-        return pipeline.TryGet<string>(ContextKeys.RunId, out var runId)
-            && !string.IsNullOrEmpty(runId) ? runId : null;
     }
 
     // Eligible = a ticket run whose question outlives the hot window. Non-ticket

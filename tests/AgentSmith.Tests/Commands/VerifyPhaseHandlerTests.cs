@@ -32,9 +32,9 @@ public sealed class VerifyPhaseHandlerTests
         new DomainProfileStagesResolver(AgentSmith.Tests.TestHelpers.TestDomainProfiles.Empty),
         new SandboxTargets(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
-        new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+        new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
         new PhaseAccounting(
-            new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+            new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),

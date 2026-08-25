@@ -27,8 +27,8 @@ public sealed class DialogueAskGateTests
     {
         _reporter.Setup(r => r.JobId).Returns("job-1");
         _sut = new DialogueAskGate(
-            _transport.Object, _trail, _checkpointWriter.Object, _reporter.Object,
-            NullLogger<DialogueAskGate>.Instance);
+            _transport.Object, _trail, _checkpointWriter.Object,
+            new DialogueJobIdentity(_reporter.Object), NullLogger<DialogueAskGate>.Instance);
     }
 
     [Fact]
@@ -110,6 +110,55 @@ public sealed class DialogueAskGateTests
             It.IsAny<string>(), It.IsAny<DialogQuestion>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>
+    /// 2026-08-25-a508: the delivered answer belongs to the ask the run parked on. A second,
+    /// genuinely different question is a NEW ask — inheriting the first answer would mean it
+    /// was never asked and the operator never heard it.
+    /// </summary>
+    [Fact]
+    public async Task Answer_ToTheFirstQuestion_DoesNotResumeTheSecond()
+    {
+        var pipeline = TicketPipeline(hotWaitSeconds: 0);
+        pipeline.Set(ContextKeys.DialogueQuestion, Parked("ask-1", "May I raise the pins?"));
+        pipeline.Set(ContextKeys.ResumedDialogueAnswer,
+            new DialogAnswer("ask-1", "yes", null, DateTimeOffset.UtcNow, "@op"));
+        var second = Parked("ask-2", "And the tooling?");
+        _transport.Setup(t => t.WaitForAnswerAsync(
+                "job-1", "ask-2", TimeSpan.Zero, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DialogAnswer?)null);
+        _checkpointWriter.Setup(w => w.TryCheckpointAsync(
+                pipeline, second, "job-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var outcome = await _sut.AskAsync(pipeline, second, CancellationToken.None);
+
+        outcome.Checkpointed.Should().BeTrue("a new question parks and waits for its own answer");
+        pipeline.Has(ContextKeys.ResumedDialogueAnswer).Should().BeTrue(
+            "the first question's answer was not spent on a question it does not answer");
+        _transport.Verify(t => t.PublishQuestionAsync(
+            "job-1", second, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>
+    /// And the ask the run parked on still consumes it when its id was re-minted on re-entry
+    /// (Approval mints per execution) — the checkpointed question's TEXT identifies it.
+    /// </summary>
+    [Fact]
+    public async Task Answer_ToTheSameAskUnderAReMintedId_IsStillConsumed()
+    {
+        var pipeline = TicketPipeline(hotWaitSeconds: 0);
+        pipeline.Set(ContextKeys.DialogueQuestion, Parked("ask-1", "May I raise the pins?"));
+        pipeline.Set(ContextKeys.ResumedDialogueAnswer,
+            new DialogAnswer("ask-1", "yes", null, DateTimeOffset.UtcNow, "@op"));
+
+        var outcome = await _sut.AskAsync(
+            pipeline, Parked("re-minted", "May I raise the pins?"), CancellationToken.None);
+
+        outcome.Answer!.Answer.Should().Be("yes");
+        outcome.Answer.QuestionId.Should().Be("re-minted", "re-keyed to the ask in hand");
+        pipeline.Has(ContextKeys.ResumedDialogueAnswer).Should().BeFalse("consumed exactly once");
+    }
+
     [Fact]
     public async Task Ask_NoJobId_FallsBackToRunIdIdentity()
     {
@@ -140,4 +189,7 @@ public sealed class DialogueAskGateTests
 
     private static DialogQuestion Question(TimeSpan timeout) => new(
         Guid.NewGuid().ToString("N"), QuestionType.Approval, "Approve?", null, null, "reject", timeout);
+
+    private static DialogQuestion Parked(string questionId, string text) => new(
+        questionId, QuestionType.FreeText, text, null, null, null, TimeSpan.FromDays(14));
 }

@@ -13,7 +13,8 @@ namespace AgentSmith.Tests.Sandbox;
 /// </summary>
 public sealed class PodSpecBuilderResourcesTests
 {
-    private static readonly PodSpecBuilder Builder = new();
+    private static readonly PodSpecBuilder Builder =
+        new(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")));
 
     private static readonly SandboxSpec MinimalSpec = new(
         ToolchainImage: "debian:bookworm",

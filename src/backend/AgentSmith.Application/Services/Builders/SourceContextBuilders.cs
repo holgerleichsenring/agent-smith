@@ -33,14 +33,8 @@ public sealed class CheckoutSourceContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var branch = pipeline.TryGet<string>(ContextKeys.CheckoutBranch, out var b) && !string.IsNullOrWhiteSpace(b)
-            ? new BranchName(b)
-            : pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId)
-                ? TicketBranchNamer.Compose(ticketId!)
-                : null;
-
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        return new CheckoutSourceContext(repos, branch, pipeline);
+        return new CheckoutSourceContext(repos, RunBranchResolver.Resolve(pipeline), pipeline);
     }
 }
 

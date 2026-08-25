@@ -11,7 +11,7 @@ import { EventType, type RunEvent } from "@/types/hub-events";
  * 3-repo run showed 5 badges).
  */
 export function deriveRunRepoNames(
-  snapshotRepos: readonly string[] | undefined,
+  snapshotRepos: readonly string[] | null | undefined,
   events: readonly RunEvent[],
 ): string[] {
   const repos = new Set<string>();

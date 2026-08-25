@@ -124,6 +124,29 @@ export function seedPlannedSteps(
   });
 }
 
+// 2026-08-25-5d7a: a step PAGE begins wherever its cursor points — the step's own
+// StepStarted may lie a hundred rows below it. The reader knows which step it
+// asked for, so it seeds that step here instead of leaving the composer to infer
+// one from an event the page does not contain. A StepStarted that IS on the page
+// overwrites this seed, exactly as it overwrites a planned-step seed.
+export function seedAnchorStep(
+  steps: Map<number, StepBucket>, index: number, startMs: number,
+): void {
+  if (steps.has(index)) return;
+  steps.set(index, {
+    index,
+    name: "",
+    displayName: null,
+    message: null,
+    startMs,
+    endMs: null,
+    status: "run",
+    events: [],
+    sandboxRepos: new Map(),
+    commands: [],
+  });
+}
+
 export function ingestStepStarted(
   steps: Map<number, StepBucket>, e: Extract<RunEvent, { type: EventType.StepStarted }>,
 ): number {

@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-0d01
+
+goal: "A sandbox agent's version is derived from the server that spawns it, an operator who pins another one is told whether it can still talk, and an unknown message is not mistaken for a dead sandbox."
+
+applies_to: "backend (agent image resolution, the wire contract, the sandbox agent's deserialisation)"
+
+requires:
+  - 2026-08-25-8c97
+
+scope:
+  in: "Deriving the agent version instead of declaring it a second time; the protocol version the wire already carries and nobody reads; a deliberate pin being judged and reported; and the deserialisation that fails before any judgement can happen."
+  out: "The toolchain image, which the customer does build and which is a different phase's subject. Blocking a run on a protocol difference."
+
+decisions:
+  - key: |
+      THE ACCIDENTAL MISMATCH IS REMOVED, THE DELIBERATE ONE IS JUDGED — THE TWO RULINGS ARE NOT
+      OPPOSITES. One planned phase says two independently declarable versions that must match ARE
+      the configuration bug, and to remove the class rather than detect it. Another says detect
+      and range-check. Both are right about different things: the version is DERIVED by default,
+      so nobody can forget to move it, and an operator who deliberately pins another one gets a
+      compatibility verdict and sees it. Removing the class does not mean forbidding the override;
+      it means the override is the only way to get a mismatch, and it is visible.
+  - key: |
+      THE CUSTOMER DOES NOT BUILD THE AGENT IMAGE, AND A PHASE THAT ASSUMES OTHERWISE AIMS WRONG.
+      The agent ships as one carrier image containing only our binary, injected into any toolchain
+      image; its NAME is a compiled-in constant and only the registry and the tag are
+      configurable. What a customer builds is the toolchain image. So the only real skew is an
+      operator pinning an old tag of our own image — which is exactly what the derive-by-default
+      rule removes as an accident.
+  - key: |
+      THE PROTOCOL SLOT EXISTS AND IS DEAD. All three wire records already carry a schema version,
+      written at about forty construction sites and read at none. This phase gives it a reader and
+      a meaning rather than adding a second version field beside an unused one.
+  - key: |
+      A CHECK INSIDE A MESSAGE THE AGENT CANNOT PARSE IS UNREACHABLE. The wire's enum converter
+      throws on a value it does not know, and the failure escapes the agent's loop as an exit —
+      which the server reports as a vanished sandbox. So an old agent meeting a new message kind
+      does not report a protocol mismatch, it reports a death. Tolerating the unknown value is
+      what makes any protocol check possible at all, and it is worth more than the check.
+  - key: |
+      THE REPO'S OWN DEPLOYMENTS ARE SKEWED RIGHT NOW, SO A RANGE NEEDS A STATED WINDOW. The
+      version file, a service config, the compose default and the k8s templates name four
+      different versions today, and harness fixtures name two more. Skew is the live normal state.
+      A supported window has to be written down, with who moves it, or the check is a wish.
+
+steps:
+  - id: the-agent-version-comes-from-the-server-that-spawns-it
+    action: "Derive the agent image tag from the running server instead of requiring it to be declared a second time, keeping an explicit operator pin possible."
+  - id: an-unknown-message-is-tolerated-instead-of-fatal
+    action: "Make the sandbox agent survive a message kind it does not know, so a protocol difference can be reported rather than surfacing as a vanished sandbox."
+  - id: the-protocol-version-has-a-reader
+    action: "Give the version the wire already carries a meaning and a stated supported window, so a message from outside it is recognised as such."
+  - id: a-pinned-agent-says-whether-it-can-still-talk
+    action: "Judge a deliberately pinned agent against that window and report the verdict where the build mismatch is reported, without refusing to run."
+
+tests:
+  - "AgentVersion_NotDeclared_IsDerivedFromTheServer"
+  - "AgentVersion_DeliberatelyPinned_IsUsed"
+  - "AgentVersion_DeliberatelyPinned_IsJudgedAndReported"
+  - "Agent_ReceivingAnUnknownMessageKind_DoesNotExit"
+  - "Agent_ReceivingAnUnknownMessageKind_IsNotReportedAsVanished"
+  - "Protocol_AVersionOutsideTheWindow_IsANamedFinding"
+  - "Protocol_AVersionInsideTheWindow_ProducesNoFinding"
+  - "Protocol_TheSupportedWindow_IsStatedInOnePlace"
+
+done:
+  - "an undeclared agent version is derived, so the accidental mismatch cannot happen"
+  - "a deliberate pin still works and is judged, and the verdict is visible"
+  - "an unknown message kind is tolerated and never looks like a dead sandbox"
+  - "the supported window is written down in one place"
+  - "build green, full suite green"

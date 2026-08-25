@@ -12,14 +12,15 @@ import { Badge } from "@/components/ui/Badge";
 const ENDED_UNCANCELLED = new Set(["success", "failed", "error"]);
 
 interface Props {
-  status: string;
+  /** 2026-08-25-39ab: absent when the server answered the snapshot without one. */
+  status: string | null | undefined;
   cancelRequested: boolean;
   className?: string;
 }
 
 export function CancelRequestedBadge({ status, cancelRequested, className }: Props) {
   if (!cancelRequested) return null;
-  const s = status.toLowerCase();
+  const s = (status ?? "").toLowerCase();
   if (s === "cancelled") return null;
   if (ENDED_UNCANCELLED.has(s)) {
     return (

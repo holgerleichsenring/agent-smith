@@ -5,6 +5,7 @@ using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Interceptors;
 using AgentSmith.Infrastructure.Persistence.Models;
+using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -81,7 +82,9 @@ internal static class DatabaseCommand
 
         // Don't log the connection string — it may carry Postgres/MySQL credentials.
         Console.WriteLine($"Applying relational-persistence migrations (provider={persistence.Provider})...");
-        await db.Database.MigrateAsync(ct);
+        // 2026-08-25-61f1: repair before migrate. The migrator owns that order because a
+        // uniqueness migration cannot be applied over the rows it would reject.
+        await services.GetRequiredService<RunStoreMigrator>().MigrateAsync(db, ct);
         Console.WriteLine("Done — schema is up to date.");
         return 0;
     }

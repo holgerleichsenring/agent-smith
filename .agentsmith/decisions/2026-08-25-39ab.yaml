@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-39ab
+
+decisions:
+  - category: Architecture
+    chose: "Three boundary layers — a global one, a route one, and a per-surface component boundary"
+    over: "Only Next's file-convention error.tsx, or only a hand-rolled component boundary"
+    reason: |
+      They catch different failures and none of them subsumes the others. error.tsx catches a
+      throw inside a route segment but sits INSIDE the root layout, so a throw in the app rail,
+      the degraded banner or a shared provider escapes it and still blanks the document —
+      global-error.tsx is the only thing that catches those, and it is also the only one that
+      renders its own <html>/<body>. Neither of the two keeps the rest of a WORKING page alive:
+      Next replaces the whole segment, so one unrenderable run card would still cost the
+      operator the run list. The component boundary is what makes "a blank page is worse than a
+      wrong number" true at card granularity, and it is the only one a unit test can drive.
+  - category: Implementation
+    chose: "RenderBoundary is a class component and the app's only one"
+    over: "A hooks-based wrapper, or a third-party boundary dependency"
+    reason: |
+      React exposes catching a render error exclusively through class lifecycle
+      (getDerivedStateFromError / componentDidCatch); there is no hook equivalent in React 19.
+      The class holds nothing but the catch — what a failure LOOKS like lives in FailedSurface,
+      so the composition rule is kept where it can be kept. A dependency for fifty lines that
+      cannot change would be a supply-chain edge bought for nothing.
+  - category: Architecture
+    chose: "Made the snapshot type honest — status, repos and the two pod lists are optional — instead of adding defensive reads behind a type that still promises them"
+    over: "Leaving RunSnapshot as it was and sprinkling `?? []` / `?? \"\"` at the throwing sites"
+    reason: |
+      The type WAS the bug: it declared required what the API is entitled to omit, so every
+      consumer was invited to dereference and the compiler agreed. Relaxing it turned the
+      audit into a compiler task — thirty errors, each one a site that would have thrown on a
+      payload the server may legitimately send, including several the review had not listed
+      (RunRow, TopologyCard, CapacityFootprintPanel, the mission buckets). Defensive reads
+      under a lying type protect only the sites someone remembered.
+  - category: Implementation
+    chose: "One reader module (apiUrl / apiFetch / readJson / getJson / sendJson) that does NOT validate bodies"
+    over: "Adding runtime schema validation now, or leaving the fifteen local API_BASE constants"
+    reason: |
+      Validation belongs to a generated contract, which is a named separate phase; inventing a
+      hand-written schema per endpoint here would be a second source of truth to keep in sync
+      with the server and would age worse than the casts. What the reader buys today is
+      singular: one place composes the origin, one place decides what a non-ok status means,
+      and one place turns a body into an object — so the next shape change is one edit, and
+      the later runtime check has exactly one function to live in. A body that is not JSON at
+      all (a proxy's HTML error page) now fails with a message naming the path and the
+      content-type instead of an opaque SyntaxError from whichever module happened to ask.
+  - category: Tooling
+    chose: "The dashboard check runs FIRST in the phase gate, and a missing pnpm blocks the commit"
+    over: "Running it last, or skipping it when the toolchain is absent"
+    reason: |
+      It is the cheapest complete signal in the gate (~45s against minutes of .NET), so failing
+      there first is the fastest honest answer, and it makes the step drivable by a test that
+      needs no dotnet at all. Skipping on a missing toolchain was the tempting option and is
+      the one that reproduces the defect this phase exists to fix: an unproven commit that
+      exits 0 is indistinguishable from a proven one. The gate says what is missing and blocks.
+      A tree with no src/dashboard/package.json — the skills catalog, any other checkout — has
+      no dashboard to prove and says so.
+  - category: Scope
+    chose: "No versioning of any kind, and no change to the path-filtered dashboard workflow"
+    over: "Adding a build-identity handshake while the boundaries were being installed"
+    reason: |
+      Which build each half is, and whether they are compatible, is the next phase
+      (2026-08-25-8c97). The incident's own evidence is that a version check would have said
+      the halves matched — both images carried the same release string — so containing the
+      throw is the fix that stands on its own, and the two are worth keeping separable. CI's
+      path filter stays as it is because the commit gate now covers the case it misses.

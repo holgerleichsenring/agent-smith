@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-5d7a
+
+goal: "A step's detail pane shows the step it was opened on, however deep into that step's history the page starts."
+
+applies_to: "dashboard (run detail — the step pane and the composer behind it)"
+
+scope:
+  in: "The composer that turns one step's event page into that step's body, and the pane that hands it the page."
+  out: "The paging itself — the cursor walk, the poll and the server's read are correct and stay as they are."
+
+decisions:
+  - key: |
+      THE PANE KNOWS WHICH STEP IT IS SHOWING; THE COMPOSER WAS MADE TO GUESS. The composer opens with
+      no active step and adopts one only when a StepStarted event goes past. That was true of the whole
+      run's stream, where every step began inside the window. A step PAGE begins at the step's newest
+      row, so the step's own opening event is a hundred rows below the page — and every event on the
+      page is dropped into no bucket at all. The pane then says "no sub-events" about a step that
+      produced thousands.
+  - key: |
+      WHICH IS WHY IT LOOKS LIKE THE BUTTON IS BROKEN. "Load older events" fetches, prepends and
+      re-composes exactly as designed; the page it adds is discarded by the same rule, so the pane does
+      not change. Nothing about the walk needs fixing — the operator was reading a composer bug through
+      a working control.
+  - key: |
+      AND WHY IT SPLITS BY STEP SIZE, NOT BY RUN STATE. Any step whose whole event history fits in one
+      page carries its own StepStarted and renders; anything longer never does. A short step early in a
+      finished run works while the long one after it does not, and on a live run the step that just
+      started works while the finished one before it does not. One rule, two symptoms.
+  - key: |
+      THE FIX IS TO STOP INFERRING WHAT IS ALREADY KNOWN. The pane passes the step index it fetched
+      with; the composer starts anchored there. A StepStarted that IS on the page still wins and
+      supplies the step's real identity, so nothing about the whole-run fold changes.
+
+steps:
+  - id: the-composer-accepts-an-anchor
+    action: "Let the composer be told which step a page belongs to: it opens with that step active and a bucket already seeded, so events land in it whether or not the page contains the step's opening event."
+  - id: the-step-pane-passes-the-step-it-opened
+    action: "The step detail hands the composer the index it fetched the page with, so the pane composes the step the operator selected."
+
+tests:
+  - "useRunExecutionTree_PageWithoutStepStarted_ComposesTheAnchoredStep"
+  - "useRunExecutionTree_PageWithStepStarted_KeepsTheStepsOwnIdentity"
+  - "useRunExecutionTree_AnchoredPage_AttachesSandboxCommandsAndSubAgents"
+
+done:
+  - "a step whose history exceeds one page renders its newest page"
+  - "load older visibly grows that pane"
+  - "the whole-run fold composes exactly as before"
+  - "dashboard tests green, dashboard build green, full suite green"

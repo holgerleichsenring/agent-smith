@@ -63,7 +63,8 @@ public class CommandContextFactoryTests
 
         result.Should().BeOfType<CheckoutSourceContext>();
         var ctx = (CheckoutSourceContext)result;
-        ctx.Branch!.Value.Should().Be("agent-smith/456");
+        ctx.Branch!.Name.Value.Should().Be("agent-smith/456");
+        ctx.Branch.ComposedFromTicket.Should().BeTrue();
     }
 
     [Fact]

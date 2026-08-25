@@ -68,6 +68,17 @@ RUN set -eux; \
 # matched to the toolchain main container's UID via fsGroup).
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
 COPY --from=build --chmod=755 /publish/AgentSmith.Sandbox.Agent /agent
+
+# 2026-08-25-0d01: which build this carrier image was made from. 8c97 started passing these
+# build arguments to every leg of the publish matrix, and a leg that does not DECLARE them
+# has BuildKit warn that they went unconsumed. Declared here they stop being a warning and
+# start being an answer: this image is the one the server's derived tag names, and an agent
+# that can say which build it is can be matched against the server that spawned it. Unset
+# when the image is built by hand, which is an absence, not a mismatch.
+ARG AGENTSMITH_BUILD_REVISION
+ARG AGENTSMITH_RELEASE_VERSION
+ENV AGENTSMITH_BUILD_REVISION=$AGENTSMITH_BUILD_REVISION
+ENV AGENTSMITH_RELEASE_VERSION=$AGENTSMITH_RELEASE_VERSION
 # p0357: the relocatable CPython payload — --inject copies it to /shared/python and
 # the agent's ProcessRunner prepends its bin/ to every step's PATH.
 COPY --from=python-fetch /python /python
