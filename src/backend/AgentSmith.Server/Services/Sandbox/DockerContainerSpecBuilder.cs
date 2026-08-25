@@ -8,16 +8,19 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// initContainer that copies /agent into a shared volume, and a toolchain main
 /// container that runs /shared/agent against a separate /work volume.
 /// </summary>
-public sealed class DockerContainerSpecBuilder
+public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
 {
     public const string SharedMount = "/shared";
     public const string WorkMount = "/work";
 
     /// <summary>p0201: stable docker label keys for ownership + run scoping. The
     /// orphan reaper filters on JobIdLabel; the watcher and reaper read RunIdLabel
-    /// to scope cancel + cleanup to one run.</summary>
+    /// to scope cancel + cleanup to one run. p0465: OwnerLabel names the liveness
+    /// store this sandbox belongs to — the reaper and the capacity probe both filter
+    /// on it, so a container of another store is neither reaped nor counted.</summary>
     public const string JobIdLabel = "agent-smith.job-id";
     public const string RunIdLabel = "agent-smith.run-id";
+    public const string OwnerLabel = "agent-smith.owner";
 
     public CreateContainerParameters BuildLoader(string containerName, string sharedVolume, string agentImage) => new()
     {
@@ -56,11 +59,12 @@ public sealed class DockerContainerSpecBuilder
         HostConfig = BuildHostConfig(sharedVolume, workVolume, spec, packageCaches)
     };
 
-    private static Dictionary<string, string> BuildLabels(string jobId, string? runId)
+    private Dictionary<string, string> BuildLabels(string jobId, string? runId)
     {
         var labels = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            [JobIdLabel] = jobId
+            [JobIdLabel] = jobId,
+            [OwnerLabel] = owner.Value
         };
         if (!string.IsNullOrEmpty(runId)) labels[RunIdLabel] = runId;
         return labels;

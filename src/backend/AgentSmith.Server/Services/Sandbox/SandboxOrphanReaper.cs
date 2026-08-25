@@ -1,39 +1,38 @@
-using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Services.Events;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// p0201: process-wide singleton that walks Docker containers labelled
-/// <see cref="DockerContainerSpecBuilder.JobIdLabel"/> every
-/// <see cref="ScanInterval"/> and force-removes those that are BOTH older than
-/// <see cref="MinContainerAge"/> AND not present in
-/// <see cref="EventStreamKeys.ActiveRunsSet"/>. Two-rail safety: the age rail
-/// closes the spawn-window race (label visible before the run-id enters the
-/// active set); the active-set rail catches the steady-state orphan.
+/// p0201: process-wide singleton that walks the sandbox containers of THIS liveness
+/// store every <see cref="ScanInterval"/> and force-removes those that are BOTH older
+/// than <see cref="MinContainerAge"/> AND owned by no live run. Two-rail safety: the
+/// age rail closes the spawn-window race (label visible before the run-id enters the
+/// active set); the live-run rail catches the steady-state orphan.
+///
+/// p0465: the ownership term is part of the QUERY, not of the decision — a container
+/// spawned against a different Redis store is never listed, so no rail has to save it.
+/// Deriving ownership from the active-run set is what let a second server on the same
+/// daemon delete the first one's live sandboxes.
 /// </summary>
 public sealed class SandboxOrphanReaper(
     IDockerClient docker,
-    IConnectionMultiplexer multiplexer,
-    IActiveRunLease activeRunLease,
+    DockerSandboxQuery query,
+    LiveRunSetReader liveRuns,
+    DockerSandboxRemover remover,
     ILogger<SandboxOrphanReaper> logger) : BackgroundService
 {
     public static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan MinContainerAge = TimeSpan.FromSeconds(60);
-    // p0242: a run whose DB lease heartbeat is younger than this is live — its
-    // sandboxes are off-limits to the reaper even when Redis was flushed.
-    private static readonly TimeSpan LeaseFreshFor = TimeSpan.FromMinutes(3);
+
+    private bool _unownedSweepDone;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation(
-            "SandboxOrphanReaper started (scan={Scan}, min-age={MinAge})",
-            ScanInterval, MinContainerAge);
+            "SandboxOrphanReaper started (scan={Scan}, min-age={MinAge})", ScanInterval, MinContainerAge);
         while (!stoppingToken.IsCancellationRequested)
         {
             try { await ScanOnceAsync(stoppingToken); }
@@ -48,95 +47,66 @@ public sealed class SandboxOrphanReaper(
     // deterministically rather than waiting on the 30s timer.
     public async Task ScanOnceAsync(CancellationToken ct)
     {
-        var containers = await ListLabelledAsync(ct);
+        var containers = await ListCandidatesAsync(ct);
         if (containers.Count == 0) return;
-        var activeRuns = await ReadActiveRunsAsync();
-        foreach (var c in containers)
+        var live = await liveRuns.ReadAsync(ct);
+        foreach (var verdict in Judge(containers, live, MinContainerAge, DateTimeOffset.UtcNow))
         {
             ct.ThrowIfCancellationRequested();
-            await ConsiderAsync(c, activeRuns, ct);
+            Log(verdict);
+            if (verdict.Outcome == SandboxReapOutcome.Orphan)
+                await remover.RemoveAsync(verdict.ContainerId, verdict.JobId, ct);
         }
     }
 
-    private async Task<IList<ContainerListResponse>> ListLabelledAsync(CancellationToken ct)
+    // p0465: the owned query is the steady state. A container spawned by a binary that
+    // predates the owner stamp can never appear in it, so the FIRST scan of the process
+    // also sweeps the un-stamped ones — once, under the same two rails. That is the k8s
+    // corpse reaper's existing treatment of a pod with no owner signal.
+    private async Task<IList<ContainerListResponse>> ListCandidatesAsync(CancellationToken ct)
     {
-        var parameters = new ContainersListParameters
-        {
-            All = true,
-            Filters = new Dictionary<string, IDictionary<string, bool>>
-            {
-                ["label"] = new Dictionary<string, bool> { [DockerContainerSpecBuilder.JobIdLabel] = true }
-            }
-        };
-        return await docker.Containers.ListContainersAsync(parameters, ct);
+        var owned = await docker.Containers.ListContainersAsync(query.Owned(includeStopped: true), ct);
+        if (_unownedSweepDone) return owned;
+        _unownedSweepDone = true;
+        var unowned = (await docker.Containers.ListContainersAsync(query.AnyOwner(includeStopped: true), ct))
+            .Where(DockerSandboxQuery.IsUnowned).ToList();
+        if (unowned.Count > 0)
+            logger.LogInformation(
+                "Reaper one-time sweep: {Count} sandbox container(s) carry no owner label (spawned "
+                + "before p0465) and are judged on the age and live-run rails alone", unowned.Count);
+        return [.. owned, .. unowned];
     }
 
-    private async Task<HashSet<string>> ReadActiveRunsAsync()
+    // Pure: given this store's sandbox containers and the live-run set, name the
+    // outcome for each. Extracted so both rails are unit-tested without a Docker mock.
+    internal static IReadOnlyList<SandboxReapVerdict> Judge(
+        IEnumerable<ContainerListResponse> containers, ISet<string> liveRuns,
+        TimeSpan minAge, DateTimeOffset now)
     {
-        var members = await multiplexer.GetDatabase().SetMembersAsync(EventStreamKeys.ActiveRunsSet);
-        var set = new HashSet<string>(members.Select(m => (string)m!), StringComparer.Ordinal);
-        // p0242: UNION the flush-proof DB lease's fresh run ids. The Redis active-set
-        // vanishes on a flush, and treating that as 'all runs dead' would reap the
-        // live sandboxes of an in-flight pipeline (the empty-Redis meltdown). A live
-        // run renews its DB heartbeat, so its run id stays here even with Redis empty.
-        // 'No tracking data' is not 'dead'.
-        foreach (var runId in await activeRunLease.GetActiveRunIdsAsync(LeaseFreshFor, CancellationToken.None))
-            set.Add(runId);
-        return set;
+        var verdicts = new List<SandboxReapVerdict>();
+        foreach (var container in containers)
+        {
+            var runId = LabelOrEmpty(container.Labels, DockerContainerSpecBuilder.RunIdLabel);
+            var age = now - new DateTimeOffset(container.Created, TimeSpan.Zero);
+            var outcome = age < minAge ? SandboxReapOutcome.TooYoung
+                : runId.Length > 0 && liveRuns.Contains(runId) ? SandboxReapOutcome.RunIsLive
+                : SandboxReapOutcome.Orphan;
+            verdicts.Add(new SandboxReapVerdict(
+                container.ID,
+                LabelOrEmpty(container.Labels, DockerContainerSpecBuilder.JobIdLabel),
+                runId, age, outcome));
+        }
+        return verdicts;
     }
 
-    private async Task ConsiderAsync(ContainerListResponse container, HashSet<string> activeRuns, CancellationToken ct)
+    private void Log(SandboxReapVerdict v)
     {
-        var jobId = LabelOrEmpty(container.Labels, DockerContainerSpecBuilder.JobIdLabel);
-        var runId = LabelOrEmpty(container.Labels, DockerContainerSpecBuilder.RunIdLabel);
-        var age = DateTimeOffset.UtcNow - new DateTimeOffset(container.Created, TimeSpan.Zero);
-        if (age < MinContainerAge)
-        {
-            logger.LogDebug(
-                "Reaper SKIP age-rail: container {Id} jobId={JobId} runId={RunId} age={Age:F1}s",
-                ShortId(container.ID), jobId, runId, age.TotalSeconds);
-            return;
-        }
-        if (!string.IsNullOrEmpty(runId) && activeRuns.Contains(runId))
-        {
-            logger.LogDebug(
-                "Reaper SKIP active-run: container {Id} jobId={JobId} runId={RunId} age={Age:F1}s",
-                ShortId(container.ID), jobId, runId, age.TotalSeconds);
-            return;
-        }
-        await ReapAsync(container, jobId, runId, age, ct);
-    }
-
-    private async Task ReapAsync(ContainerListResponse container, string jobId, string runId, TimeSpan age, CancellationToken ct)
-    {
-        logger.LogInformation(
-            "Reaper REMOVE: container {Id} jobId={JobId} runId={RunId} age={Age:F1}s",
-            ShortId(container.ID), jobId, runId, age.TotalSeconds);
-        try
-        {
-            await docker.Containers.RemoveContainerAsync(container.ID,
-                new ContainerRemoveParameters { Force = true, RemoveVolumes = false }, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Reaper failed to remove orphan container {Id}", ShortId(container.ID));
-            return;
-        }
-        await RemoveLabelledVolumesAsync(jobId, ct);
-    }
-
-    private async Task RemoveLabelledVolumesAsync(string jobId, CancellationToken ct)
-    {
-        if (string.IsNullOrEmpty(jobId)) return;
-        var slug = jobId.Length > 12 ? jobId[..12] : jobId;
-        foreach (var name in new[] { $"agentsmith-sandbox-{slug}-shared", $"agentsmith-sandbox-{slug}-work" })
-        {
-            try { await docker.Volumes.RemoveAsync(name, force: true, ct); }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Reaper failed to remove volume {Name}", name);
-            }
-        }
+        const string line = "Reaper {Outcome}: container {Id} jobId={JobId} runId={RunId} age={Age:F1}s";
+        var id = ShortId(v.ContainerId);
+        if (v.Outcome == SandboxReapOutcome.Orphan)
+            logger.LogInformation(line, "REMOVE", id, v.JobId, v.RunId, v.Age.TotalSeconds);
+        else
+            logger.LogDebug(line, "SKIP " + v.Outcome, id, v.JobId, v.RunId, v.Age.TotalSeconds);
     }
 
     private static string LabelOrEmpty(IDictionary<string, string>? labels, string key) =>

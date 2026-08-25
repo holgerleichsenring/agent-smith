@@ -17,7 +17,8 @@ namespace AgentSmith.Server.Extensions;
 /// Server sandbox composition: auto-detected backend factory (SANDBOX_TYPE &gt;
 /// KUBERNETES_SERVICE_HOST &gt; /var/run/docker.sock &gt; InProcess fallback),
 /// sandbox/orchestrator global config + options bindings, IOrchestratorResourceResolver.
-/// Per-backend service-registration helpers live in <see cref="SandboxBackendRegistrations"/>.
+/// Per-backend service-registration helpers live in <see cref="DockerSandboxRegistrations"/>
+/// and <see cref="KubernetesSandboxRegistrations"/>.
 /// </summary>
 internal static class ServerSandboxExtensions
 {
@@ -59,8 +60,8 @@ internal static class ServerSandboxExtensions
         var backend = ResolveBackend();
         switch (backend)
         {
-            case SandboxBackend.Kubernetes: SandboxBackendRegistrations.RegisterKubernetes(services); break;
-            case SandboxBackend.Docker: SandboxBackendRegistrations.RegisterDocker(services); break;
+            case SandboxBackend.Kubernetes: KubernetesSandboxRegistrations.Register(services); break;
+            case SandboxBackend.Docker: DockerSandboxRegistrations.Register(services); break;
             case SandboxBackend.InProcess: services.AddSingleton<ISandboxFactory, InProcessSandboxFactory>(); break;
         }
         services.AddSingleton(new SandboxBackendInfo(backend));
