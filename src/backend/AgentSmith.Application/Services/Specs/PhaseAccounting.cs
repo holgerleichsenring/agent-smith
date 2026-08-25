@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -48,39 +47,21 @@ public sealed class PhaseAccounting(
         // two-repo ticket whose criteria name the API service made the worker repository
         // outstanding on every one of them, which is a false negative by construction.
         // The criteria belong to the PHASE; the repositories are where its work lands.
-        var combined = new StringBuilder();
-        var failures = new List<string>();
-        foreach (var (key, sandbox) in sandboxes)
-        {
-            var diff = await deliveryDiff.ForBranchAsync(sandbox, cancellationToken);
-            if (diff.Failed)
-            {
-                failures.Add($"{key} ({diff.Basis})");
-                continue;
-            }
-            combined.Append("# repository: ").Append(key).Append('\n')
-                .Append(diff.Text).Append('\n');
-        }
-
-        if (failures.Count > 0)
+        var evidence = await DeliveryEvidence.GatherAsync(
+            deliveryDiff, sandboxes, cancellationToken);
+        if (evidence.Failures.Count > 0)
             return [new SpecAccount(
                 string.Join(", ", sandboxes.Keys), [],
-                $"the delivery diff could not be taken for {string.Join("; ", failures)}")];
+                $"the delivery diff could not be taken for {string.Join("; ", evidence.Failures)}")];
 
-        // p0434: taking the account is a MODEL call, and on the path where CommitAndPR
-        // reaches it first that call happens at the last step of the run — after every unit
-        // of work is done. A rate limit or a transport blip there used to throw the whole
-        // step, so the run lost its pull request having built everything (the p0350 shape,
-        // which cost two draft PRs once). A failure is now an account that could not be
-        // taken: the gate still refuses it, and the delivery still happens.
         SpecAccount account;
         try
         {
             // p0483: the sandboxes are still standing here, so the account can look at the
             // branch instead of being told about it.
             account = await accountant.AccountAsync(
-                string.Join(", ", sandboxes.Keys), criteria, combined.ToString(),
-                commandResults, agent, new BranchSearch(sandboxes, logger),
+                string.Join(", ", sandboxes.Keys), criteria, evidence.Diff,
+                commandResults, agent, new BranchSearch(sandboxes, logger, evidence.BaseRefs),
                 costTracker, cancellationToken);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)

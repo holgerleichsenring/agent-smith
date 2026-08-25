@@ -4,6 +4,13 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0420: the question put to a fresh instance — the criteria, the diff, and the
 /// instruction to find what is MISSING.
 /// <para>
+/// 2026-08-25-1360: the FILE LIST is a separate argument from the BODY. It used to be
+/// derived from the body, and the body is one WINDOW of an oversized delivery — so every
+/// window read a partial list under a heading calling it complete, and was then told that a
+/// criterion it cannot tie to a file is not satisfied. It was instructed to refuse a
+/// criterion over files it had been told did not exist.
+/// </para>
+/// <para>
 /// Asked negatively on purpose: "all done" is the cheap answer to the positive question
 /// and the expensive answer to this one. And the reader is told it has no account of the
 /// work other than the diff, because a model that believes it did the work confirms
@@ -14,7 +21,8 @@ public static class SpecAccountPrompt
 {
     public static string For(
         IReadOnlyList<string> criteria, string diff, IReadOnlyList<string> commandResults,
-        IReadOnlyList<string>? searchable = null)
+        IReadOnlyList<string>? searchable = null, CitedFileIndex? deliveryFiles = null,
+        IReadOnlyList<string>? baseSearchable = null)
     {
         ArgumentNullException.ThrowIfNull(criteria);
         ArgumentNullException.ThrowIfNull(commandResults);
@@ -22,25 +30,15 @@ public static class SpecAccountPrompt
         // something exists — an inventory document, a new extension class — and a
         // truncated diff answered "no" for a whole repository whose files were simply
         // past the budget. What changed is cheap to state; how it changed is not.
-        var files = CitedFileIndex.FromDiff(diff);
+        // The list covers the whole DELIVERY; the body may be one window of it.
+        var files = deliveryFiles ?? CitedFileIndex.FromDiff(diff);
         var changed = files.IsEmpty
             ? "(no file changed)"
             : string.Join("\n", files.Paths.OrderBy(p => p, StringComparer.Ordinal).Select(p => "- " + p));
         var body = diff ?? string.Empty;
         var list = string.Join("\n", criteria.Select(c => "- " + c));
-        // p0483: an absence is settled by LOOKING, not by being shown a command that looked.
-        var absence = searchable is { Count: > 0 }
-            ? "A criterion about something being ABSENT you settle YOURSELF: call search_branch\n"
-              + "against each repository the criterion covers and read what comes back. No\n"
-              + "output means the branch does not contain it, and that is the proof. The\n"
-              + $"repositories you can search are: {string.Join(", ", searchable)}. Do not close\n"
-              + "an absence criterion on a listed command when you could look instead, and do\n"
-              + "not report one as unsatisfied without having searched for it. A criterion you\n"
-              + "settled this way is CITED BY THE PATTERN you searched for, copied exactly as\n"
-              + "you wrote it — that search is evidence like any command, and a criterion you\n"
-              + "searched and then cite nothing for is refused."
-            : "A criterion about something being ABSENT is answered by the commands listed\n"
-              + "under COMMANDS: no diff shows what a repository does NOT contain.";
+        var absence = AccountEvidenceRules.Absence(searchable);
+        var baseRule = AccountEvidenceRules.Base(baseSearchable);
         var ran = commandResults.Count == 0
             ? "(no verification command ran for this phase)"
             : string.Join("\n", commandResults.Select(r => "- " + r));
@@ -58,6 +56,8 @@ public static class SpecAccountPrompt
             really ran against this branch: cite the command, not a file.
 
             {{absence}}
+
+            {{baseRule}}
 
             "citations" is a LIST and every element is ONE whole thing: one path from the
             file list, or one command copied VERBATIM from between the quotes on its line,
@@ -83,6 +83,12 @@ public static class SpecAccountPrompt
             complete; the DIFF BODY below may be only PART of what the branch changed, so a
             file's absence from it says nothing — check the list. A criterion about a file
             EXISTING is answered by the list alone.
+
+            A listed file whose body is not shown proves that the file CHANGED and nothing
+            about what it now contains. So a criterion about CONTENT — what a file declares,
+            configures or calls — is settled from a body that shows it, or by searching for
+            it, never from the name alone. Assuming the content of a file you were not shown
+            is the one way to be wrong in the direction that costs nothing to state.
             A criterion you cannot tie to a file in the diff is NOT satisfied, whatever it
             looks like it ought to be. Saying "not satisfied" costs you nothing and is the
             useful answer; saying "satisfied" without a file is the one thing that misleads.

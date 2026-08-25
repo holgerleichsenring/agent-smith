@@ -36,12 +36,19 @@ public sealed class DeliveryDiff(SandboxBaseBranch baseBranchReader, ILogger<Del
             if (diff is null) continue;
             logger.LogInformation(
                 "Delivery diff taken {Description} ({Chars:N0} chars)", description, diff.Length);
-            return new DiffResult(diff, description);
+            return new DiffResult(diff, description, BaseRef: BaseRefOf(against));
         }
 
         logger.LogWarning("No delivery diff could be taken — no comparable base ref in the sandbox");
         return new DiffResult(string.Empty, "no comparable base", Failed: true);
     }
+
+    /// <summary>
+    /// The comparison's ref, or null for the HEAD rung — HEAD is the branch, so a search of
+    /// it would search the delivery under the name of the thing it is compared against.
+    /// </summary>
+    private static string? BaseRefOf(string[] against) =>
+        against is ["HEAD"] ? null : against[0];
 
     // Ordered by how close each comparison is to "what this branch delivers".
     private static IEnumerable<(string[] Args, string Description)> Candidates(string? baseBranch)
@@ -77,5 +84,13 @@ public sealed class DeliveryDiff(SandboxBaseBranch baseBranchReader, ILogger<Del
         Specs.CitedFileIndex.FromDiff(diff).Paths.Any(path => !RunRecordPaths.IsRunRecordPath(path));
 
     /// <param name="Basis">How the comparison was taken — it belongs in the account.</param>
-    public sealed record DiffResult(string Text, string Basis, bool Failed = false);
+    /// <summary>
+    /// 2026-08-25-0eae: <paramref name="BaseRef"/> is the ref the comparison actually ran
+    /// against, or null when the ladder fell through to the branch itself. The account's
+    /// search needs the ref, not the sentence describing it — and it needs THIS one, because
+    /// resolving a base a second time could hand it a ref the diff it is reading was never
+    /// taken against.
+    /// </summary>
+    public sealed record DiffResult(
+        string Text, string Basis, bool Failed = false, string? BaseRef = null);
 }

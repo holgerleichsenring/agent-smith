@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-0eae
+
+decisions:
+  - category: Architecture
+    chose: "The base ref travels WITH the delivery diff, from the resolution that took it"
+    over: "Resolving the base a second time inside the search"
+    reason: |
+      The delivery diff picks its base through a ladder — origin/<base>, then <base>, then
+      HEAD — and names what it settled on. Resolving again could hand the account's search a
+      ref the diff it is reading was never compared against, and the account would then be
+      reasoning about two different pasts at once. DiffResult carries the ref it used; where
+      the ladder fell through to HEAD it carries null, because HEAD is the branch and
+      searching it under the name of the base is worse than not searching at all.
+  - category: Architecture
+    chose: "A second command, git grep against a ref, rather than a flag on the existing search"
+    over: "Teaching the existing grep to take a ref"
+    reason: |
+      A ref cannot be read by grep at all — the working tree is the only thing it sees. So
+      this is a different program with a different argument vector, and pretending otherwise
+      would produce a parameter that silently does nothing on one path. Both keep the property
+      that matters: a fixed argv with no shell, the pattern as one element, so nothing a model
+      writes can become a command.
+  - category: Architecture
+    chose: "The base tool is offered only to repositories whose base resolved"
+    over: "Always offering it and answering 'no base' at call time"
+    reason: |
+      A tool that answers "there is nothing here" to every call teaches the account to stop
+      calling it, and the account has twelve searches to spend. Where no repository has a
+      base, the tool is not offered and the prompt says nothing about it — the same rule p0483
+      set for the branch search, for the same reason.
+  - category: Architecture
+    chose: "An errored search stays in the evidence and says in words that it proves nothing"
+    over: "Dropping it, which is what this phase was specified to do"
+    reason: |
+      The spec said to keep a search that could not run out of the evidence. The suite refused
+      it, and the suite was right: p0484 records every search that HAPPENED so an account
+      which looked may say so, and dropping the line would refuse an account for citing a
+      search it really ran — trading one false negative for another. Both intents are real and
+      they are not in conflict once the line carries both facts: it names the exit status AND
+      says the search could not run. Nothing downstream can read it as an absence, and nothing
+      upstream loses the ability to say it looked. The spec was corrected before shipping
+      rather than the older decision being quietly reversed.
+  - category: Refactoring
+    chose: "Split BranchSearch into the tools, the commands (SearchCommands) and the record (SearchEvidence); split the diff gathering out of PhaseAccounting (DeliveryEvidence)"
+    over: "Baselining four files against the 120-line rule"
+    reason: |
+      Adding a second tree to search doubled what BranchSearch held: what may be run, who may
+      run it and how often, and what a run MEANS afterwards. Those move for different reasons —
+      a command changes when the tree changes, the budget when cost does, the wording when a
+      later rule needs to read it. PhaseAccounting had the same shape: gathering evidence and
+      deciding what an account is worth are different jobs. The length rule found all four
+      seams, which is the argument for having it.

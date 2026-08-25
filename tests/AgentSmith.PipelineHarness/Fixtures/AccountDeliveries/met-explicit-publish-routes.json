@@ -1,0 +1,41 @@
+{
+  "id": "met-explicit-publish-routes",
+  "class": "met",
+  "description": "A publisher host declares explicit publish routes and a consumer host declares listener bindings. The criterion is universal over both hosts and both satisfy it in their own role. This is the shape a live run refused over a branch that carried it. It also carries one genuinely unmet criterion, so the same delivery exercises both directions of the score.",
+  "repositories": [
+    {
+      "name": "Sample.Server",
+      "base": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddLegacyBus();\n    }\n}\n"
+      },
+      "branch": {
+        "src/Messaging/Installer.cs": "namespace Sample.Server.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddBroker();\n        services.AddBrokerExtension<BrokerExtension>();\n    }\n}\n\npublic sealed class BrokerExtension : IBrokerExtension\n{\n    public void Configure(BrokerOptions opts)\n    {\n        opts.Policies.DisableConventionalLocalRouting();\n        opts.UseQueueTransport(Connect);\n        opts.PublishMessage<OrderPlaced>().ToExchange(\"order-placed\");\n        opts.PublishMessage<OrderCancelled>().ToExchange(\"order-cancelled\");\n    }\n}\n"
+      }
+    },
+    {
+      "name": "Sample.Worker",
+      "base": {
+        "src/Messaging/Installer.cs": "namespace Sample.Worker.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddLegacyBus();\n    }\n}\n"
+      },
+      "branch": {
+        "src/Messaging/Installer.cs": "namespace Sample.Worker.Messaging;\n\npublic sealed class Installer\n{\n    public void Install(IServiceCollection services)\n    {\n        services.AddBroker();\n        services.AddBrokerExtension<BrokerExtension>();\n    }\n}\n\npublic sealed class BrokerExtension : IBrokerExtension\n{\n    public void Configure(BrokerOptions opts)\n    {\n        opts.Policies.DisableConventionalLocalRouting();\n        opts.UseQueueTransport(Connect);\n        opts.BindExchange(\"order-placed\").ToQueue(\"sample-worker-order-placed\");\n        opts.ListenToQueue(\"sample-worker-order-placed\").DeadLetterQueueing(new DeadLetterQueue(\"sample-worker-order-placed-dlq\"));\n    }\n}\n"
+      }
+    }
+  ],
+  "criteria": [
+    {
+      "text": "Each applicable host contains an explicit broker extension with conventional local routing disabled, explicit publish routes where the host publishes, and listener bindings where the host consumes.",
+      "truth": "met",
+      "because": "Sample.Server declares DisableConventionalLocalRouting and two PublishMessage routes; Sample.Worker declares DisableConventionalLocalRouting, a queue binding and a listener. A consumer having no publish route is the topology its role requires."
+    },
+    {
+      "text": "Every publish route names its exchange through the shared name formatter rather than a literal string.",
+      "truth": "unmet",
+      "because": "Both publish routes pass literal strings to ToExchange; no formatter is called anywhere in the branch."
+    }
+  ],
+  "commands": [
+    "Sample.Server: \"dotnet build\" exited 0",
+    "Sample.Worker: \"dotnet build\" exited 0"
+  ]
+}
