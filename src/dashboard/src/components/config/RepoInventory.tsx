@@ -47,14 +47,14 @@ function ConnectionInventory({
   projects: StudioProject[];
 }) {
   const [snapshot, setSnapshot] = useState<ConnectionRepos | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchConnectionRepos(connection.id, controller.signal)
       .then(setSnapshot)
       .catch((err: Error) => {
-        if (err.name !== "AbortError") setError(err.message);
+        if (err.name !== "AbortError") setError(err);
       });
     return () => controller.abort();
   }, [connection.id]);
@@ -80,7 +80,7 @@ function ConnectionInventory({
           <div className="f" data-testid={`repo-inventory-error-${connection.id}`}>
             <span className="fl">discovery</span>
             <span className="fv" style={{ color: "var(--bad)" }}>
-              unavailable: {error}
+              unavailable: {error.message}
             </span>
           </div>
         </div>

@@ -171,7 +171,7 @@ export function RepoPicker({
 /** The discovery cache of the picked connection, with its own loading/error state. */
 function useConnectionDiscovery(connectionId: string) {
   const [discovered, setDiscovered] = useState<ConnectionRepos | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -183,7 +183,7 @@ function useConnectionDiscovery(connectionId: string) {
     fetchConnectionRepos(connectionId, controller.signal)
       .then((r) => setDiscovered(r))
       .catch((err: Error) => {
-        if (err.name !== "AbortError") setError(err.message);
+        if (err.name !== "AbortError") setError(err);
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
@@ -269,7 +269,7 @@ function DiscoveryNotice({
 }: {
   testId: string;
   loading: boolean;
-  error: string | null;
+  error: Error | null;
   discovered: ConnectionRepos | null;
 }) {
   if (loading)
@@ -281,7 +281,7 @@ function DiscoveryNotice({
   if (error)
     return (
       <span className="help" data-testid={`${testId}-error`} style={{ color: "var(--bad)" }}>
-        discovery cache unavailable: {error}
+        discovery cache unavailable: {error.message}
       </span>
     );
   if (discovered?.discoveredAt === null)
