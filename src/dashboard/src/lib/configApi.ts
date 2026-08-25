@@ -4,7 +4,7 @@
 // comes from) and the tracker trigger semantics — so the dashboard renders
 // exactly what the runtime resolves, not a second computation.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { ApiResponseError, apiFetch, getJson, sendJson } from "@/lib/apiResponse";
 
 // Where an effective value came from. "run-resolved" = not knowable at config
 // time (e.g. the toolchain image is chosen per run from the repo's context.yaml).
@@ -138,9 +138,7 @@ export interface ConfigSnapshot {
 }
 
 export async function fetchConfig(signal?: AbortSignal): Promise<ConfigSnapshot> {
-  const res = await fetch(`${API_BASE}/api/config`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as ConfigSnapshot;
+  return getJson<ConfigSnapshot>(`/api/config`, signal);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,9 +211,7 @@ export interface ConfigCapabilities {
 }
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {
-  return parseCapabilities(
-    await readJson<ConfigCapabilities>(await fetch(`${API_BASE}/api/config/capabilities`, { signal })),
-  );
+  return parseCapabilities(await getJson<ConfigCapabilities>(`/api/config/capabilities`, signal));
 }
 
 const FIELD_KINDS: CapabilityFieldKind[] = ["text", "list", "bool", "map"];
@@ -259,28 +255,14 @@ export async function validateProjectDraft(
   draft: StudioProject,
   signal?: AbortSignal,
 ): Promise<ConfigFinding[]> {
-  return readJson<ConfigFinding[]>(
-    await fetch(`${API_BASE}/api/config/projects/validate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
-      signal,
-    }),
-  );
+  return sendJson<ConfigFinding[]>("POST", `/api/config/projects/validate`, draft, signal);
 }
 
 export async function validateTrackerDraft(
   draft: StudioTracker,
   signal?: AbortSignal,
 ): Promise<ConfigFinding[]> {
-  return readJson<ConfigFinding[]>(
-    await fetch(`${API_BASE}/api/config/trackers/validate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
-      signal,
-    }),
-  );
+  return sendJson<ConfigFinding[]>("POST", `/api/config/trackers/validate`, draft, signal);
 }
 
 /** p0345c: one repo the discovery cache knows inside a connection. */
@@ -300,11 +282,8 @@ export async function fetchConnectionRepos(
   connectionId: string,
   signal?: AbortSignal,
 ): Promise<ConnectionRepos> {
-  return readJson<ConnectionRepos>(
-    await fetch(`${API_BASE}/api/config/connections/${encodeURIComponent(connectionId)}/repos`, {
-      signal,
-    }),
-  );
+  return getJson<ConnectionRepos>(
+    `/api/config/connections/${encodeURIComponent(connectionId)}/repos`, signal);
 }
 
 /** One per-role model entry (p0345c AgentEntity v2) — model name plus the
@@ -479,11 +458,6 @@ export interface ConfigChange {
   reverted: boolean;
 }
 
-async function readJson<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as T;
-}
-
 /** A typed CRUD client bound to one entity endpoint. */
 export interface CrudClient<T extends { id: string }> {
   kind: ConfigEntityKind;
@@ -494,38 +468,22 @@ export interface CrudClient<T extends { id: string }> {
 }
 
 export function crudClient<T extends { id: string }>(kind: ConfigEntityKind): CrudClient<T> {
-  const base = `${API_BASE}/api/config/${kind}`;
+  const base = `/api/config/${kind}`;
   return {
     kind,
     async list(signal) {
-      return readJson<T[]>(await fetch(base, { signal }));
+      return getJson<T[]>(base, signal);
     },
     async create(body, signal) {
-      return readJson<T>(
-        await fetch(base, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-          signal,
-        }),
-      );
+      return sendJson<T>("POST", base, body, signal);
     },
     async update(id, body, signal) {
-      return readJson<T>(
-        await fetch(`${base}/${encodeURIComponent(id)}`, {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-          signal,
-        }),
-      );
+      return sendJson<T>("PUT", `${base}/${encodeURIComponent(id)}`, body, signal);
     },
     async remove(id, signal) {
-      const res = await fetch(`${base}/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        signal,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const path = `${base}/${encodeURIComponent(id)}`;
+      const res = await apiFetch(path, { method: "DELETE", signal });
+      if (!res.ok) throw new ApiResponseError(path, res.status, `HTTP ${res.status}`);
     },
   };
 }
@@ -541,8 +499,9 @@ export const secretsApi = crudClient<StudioSecret>("secrets");
 /** p0343b: the catalog rendered as loader-round-trippable agentsmith.yml —
  *  GET /api/config/export.yml (text/yaml). */
 export async function fetchConfigExportYml(signal?: AbortSignal): Promise<string> {
-  const res = await fetch(`${API_BASE}/api/config/export.yml`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const path = `/api/config/export.yml`;
+  const res = await apiFetch(path, { signal });
+  if (!res.ok) throw new ApiResponseError(path, res.status, `HTTP ${res.status}`);
   return await res.text();
 }
 
@@ -558,7 +517,7 @@ export async function importConfigYml(
   force: boolean,
   signal?: AbortSignal,
 ): Promise<number> {
-  const res = await fetch(`${API_BASE}/api/config/import${force ? "?force=true" : ""}`, {
+  const res = await apiFetch(`/api/config/import${force ? "?force=true" : ""}`, {
     method: "POST",
     headers: { "Content-Type": "text/yaml" },
     body: yaml,
@@ -712,9 +671,7 @@ export async function fetchSetting<K extends SettingKey>(
   key: K,
   signal?: AbortSignal,
 ): Promise<SettingShapes[K]> {
-  return readJson<SettingShapes[K]>(
-    await fetch(`${API_BASE}/api/config/settings/${key}`, { signal }),
-  );
+  return getJson<SettingShapes[K]>(`/api/config/settings/${key}`, signal);
 }
 
 /** Save one settings singleton. The backend records an attributed version and bumps
@@ -724,7 +681,7 @@ export async function saveSetting<K extends SettingKey>(
   value: SettingShapes[K],
   signal?: AbortSignal,
 ): Promise<SettingShapes[K]> {
-  const res = await fetch(`${API_BASE}/api/config/settings/${key}`, {
+  const res = await apiFetch(`/api/config/settings/${key}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(value),
@@ -738,13 +695,11 @@ export async function saveSetting<K extends SettingKey>(
 }
 
 export async function fetchChanges(signal?: AbortSignal): Promise<ConfigChange[]> {
-  return readJson<ConfigChange[]>(await fetch(`${API_BASE}/api/config/changes`, { signal }));
+  return getJson<ConfigChange[]>(`/api/config/changes`, signal);
 }
 
 export async function revertChange(id: string, signal?: AbortSignal): Promise<void> {
-  const res = await fetch(
-    `${API_BASE}/api/config/changes/${encodeURIComponent(id)}/revert`,
-    { method: "POST", signal },
-  );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const path = `/api/config/changes/${encodeURIComponent(id)}/revert`;
+  const res = await apiFetch(path, { method: "POST", signal });
+  if (!res.ok) throw new ApiResponseError(path, res.status, `HTTP ${res.status}`);
 }

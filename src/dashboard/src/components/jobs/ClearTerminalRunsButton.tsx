@@ -6,7 +6,7 @@ import { useCallback, useState } from "react";
 // cancelled runs, leaving running and queued untouched (the backend scopes it
 // to terminal only, so it can never force-kill a live run). Two-click confirm
 // like DeleteRunButton; the RunsChanged nudge refetches the list.
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch } from "@/lib/apiResponse";
 
 export function ClearTerminalRunsButton() {
   const [armed, setArmed] = useState(false);
@@ -19,7 +19,7 @@ export function ClearTerminalRunsButton() {
     setPending(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/runs?state=terminal`, { method: "DELETE" });
+      const res = await apiFetch(`/api/runs?state=terminal`, { method: "DELETE" });
       if (!res.ok) setError(`HTTP ${res.status}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "request failed");

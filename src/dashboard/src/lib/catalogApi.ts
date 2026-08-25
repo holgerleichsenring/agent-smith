@@ -2,7 +2,7 @@
 // (names + descriptions); each SKILL.md body is fetched on demand when a card
 // is expanded, so the per-run event stream is never bloated with bodies.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch, getJson, readJson } from "@/lib/apiResponse";
 
 export interface CatalogEntry {
   name: string;
@@ -24,15 +24,13 @@ export interface CatalogContents {
 }
 
 export async function fetchCatalogContents(signal?: AbortSignal): Promise<CatalogContents> {
-  const res = await fetch(`${API_BASE}/api/catalog`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as CatalogContents;
+  return getJson<CatalogContents>(`/api/catalog`, signal);
 }
 
 export async function fetchSkillBody(name: string, signal?: AbortSignal): Promise<string | null> {
-  const res = await fetch(`${API_BASE}/api/catalog/skills/${encodeURIComponent(name)}`, { signal });
+  const path = `/api/catalog/skills/${encodeURIComponent(name)}`;
+  const res = await apiFetch(path, { signal });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { name: string; markdown: string };
-  return body.markdown;
+  const body = await readJson<{ markdown?: string }>(res, path);
+  return body.markdown ?? null;
 }

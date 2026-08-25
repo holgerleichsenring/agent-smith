@@ -5,8 +5,7 @@
 // O(runtime) — so a 4-hour run costs the browser the same as a 4-minute one.
 
 import type { RunEvent, RunTimeSplit } from "@/types/hub-events";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { getJson } from "@/lib/apiResponse";
 
 export interface RunStepRow {
   stepIndex: number;
@@ -71,9 +70,8 @@ export interface RunDecisionRow {
 }
 
 export async function fetchRunSteps(runId: string, signal?: AbortSignal): Promise<RunStepRow[]> {
-  const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}/steps`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { steps?: RunStepRow[] };
+  const body = await getJson<{ steps?: RunStepRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/steps`, signal);
   return body.steps ?? [];
 }
 
@@ -122,20 +120,17 @@ async function getStepEvents(
   signal?: AbortSignal,
 ): Promise<StepEventsBody> {
   const params = new URLSearchParams(query ?? {}).toString();
-  const res = await fetch(
-    `${API_BASE}/api/runs/${encodeURIComponent(runId)}/steps/${stepIndex}/events${params ? `?${params}` : ""}`,
-    { signal },
+  return getJson<StepEventsBody>(
+    `/api/runs/${encodeURIComponent(runId)}/steps/${stepIndex}/events${params ? `?${params}` : ""}`,
+    signal,
   );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as StepEventsBody;
 }
 
 export async function fetchRunDecisions(
   runId: string,
   signal?: AbortSignal,
 ): Promise<RunDecisionRow[]> {
-  const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}/decisions`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { decisions?: RunDecisionRow[] };
+  const body = await getJson<{ decisions?: RunDecisionRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/decisions`, signal);
   return body.decisions ?? [];
 }

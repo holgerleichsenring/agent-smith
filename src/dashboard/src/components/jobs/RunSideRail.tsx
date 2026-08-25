@@ -82,7 +82,7 @@ function openedPullRequests(snapshot: RunSnapshot): RunPullRequest[] {
   if (snapshot.prUrl) {
     return [
       {
-        repo: snapshot.repos[0] ?? "repository",
+        repo: snapshot.repos?.[0] ?? "repository",
         url: snapshot.prUrl,
         status: "opened",
         isDraft: snapshot.status !== "success",
@@ -115,7 +115,11 @@ export function RunSideRail({
   // per-tool-call firehose no longer floods the Run group (p0367).
   const sandboxBeat = useSandboxActivity(snapshot.runId);
 
-  const stateLabel = STATE_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status.replaceAll("_", " ");
+  // 2026-08-25-39ab: the rail renders the state the server sent. Sent nothing,
+  // it says so — the label is the one place this surface reads the raw word.
+  const rawStatus = snapshot.status ?? "";
+  const stateLabel =
+    STATE_LABEL[rawStatus.toLowerCase()] ?? (rawStatus ? rawStatus.replaceAll("_", " ") : "unknown");
 
   // p0348: COMPUTE shows the pods the run ACTUALLY spawned (RunSandbox rows), not
   // the p0336 admission reservation (which counts every configured repo + a
@@ -123,24 +127,25 @@ export function RunSideRail({
   // on a run that will have pods (it carries a reserved footprint), show
   // "calculating…" rather than the reservation dressed up as live. Once pods
   // spawn — and after the run, because the rows persist — the live count wins.
-  const hasLivePods = !!compute && compute.pods.length > 0;
-  const terminal = ["success", "failed", "error", "cancelled"].includes(
-    snapshot.status.toLowerCase(),
-  );
+  // 2026-08-25-39ab: a liveCompute object the server sent without its pod list
+  // used to be asserted non-null three times over. Read the pods once, honestly.
+  const livePods = compute?.pods ?? [];
+  const hasLivePods = livePods.length > 0;
+  const terminal = ["success", "failed", "error", "cancelled"].includes(rawStatus.toLowerCase());
   const calculating = !hasLivePods && !terminal && !!footprint;
   const showCompute = hasLivePods || calculating;
   const computeText = hasLivePods
-    ? `${compute!.pods.length} ${compute!.pods.length === 1 ? "pod" : "pods"} · ${compute!.totalMem}`
+    ? `${livePods.length} ${livePods.length === 1 ? "pod" : "pods"} · ${compute?.totalMem ?? "—"}`
     : "calculating…";
   const drawer = hasLivePods
     ? {
         header: "Live · the pods this run spawned",
-        pods: compute!.pods.map((p) => ({ key: p.repo, name: p.repo, img: p.image, res: p.mem })),
+        pods: livePods.map((p) => ({ key: p.repo, name: p.repo, img: p.image, res: p.mem })),
       }
     : calculating && footprint
     ? {
         header: "Reserved at admission · live pods pending",
-        pods: footprint.pods.map((p) => ({
+        pods: (footprint.pods ?? []).map((p) => ({
           key: p.repo,
           name: p.repo,
           img: p.image,

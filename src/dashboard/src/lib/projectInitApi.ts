@@ -8,7 +8,7 @@
 // starting a second), 503 with the reason the run does not fit right now, and 4xx
 // when no such project is configured.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch } from "@/lib/apiResponse";
 
 export type InitLaunchOutcome = "started" | "already-running" | "refused";
 
@@ -35,7 +35,7 @@ export async function startProjectInit(
   options: InitOptions,
   signal?: AbortSignal,
 ): Promise<InitLaunch> {
-  const res = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(project)}/init`, {
+  const res = await apiFetch(`/api/projects/${encodeURIComponent(project)}/init`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(options),
