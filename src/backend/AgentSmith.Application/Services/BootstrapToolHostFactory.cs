@@ -25,7 +25,8 @@ public sealed class BootstrapToolHostFactory(
     IDecisionLogger decisionLogger,
     IPathReadGuard readGuard,
     IPathWriteGuard writeGuard,
-    IContextYamlSerializer contextYamlSerializer)
+    IContextYamlSerializer contextYamlSerializer,
+    ContextDocumentGate contextDocumentGate)
 {
     public BootstrapToolBundle Create(
         ISandbox sandbox, string repoLocalPath, string repoName, string contextName = "")
@@ -42,7 +43,8 @@ public sealed class BootstrapToolHostFactory(
         var writeContextYaml = new WriteContextYamlToolHost(
             new Dictionary<string, ISandbox> { [repoName] = sandbox },
             defaultRepo: repoName,
-            contextYamlSerializer);
+            contextYamlSerializer,
+            contextDocumentGate);
         var tools = new AgenticToolSurface().Bootstrap(fs, log, writeContextYaml);
         return new BootstrapToolBundle(tools, fs.GetChanges, log.GetDecisions);
     }

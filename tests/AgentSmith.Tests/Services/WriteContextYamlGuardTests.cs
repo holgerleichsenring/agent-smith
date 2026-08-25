@@ -21,6 +21,7 @@ public sealed class WriteContextYamlGuardTests
             defaultRepo: "repo",
             serializer: new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+            gate: AgentSmith.Tests.TestHelpers.ContextGates.Build(),
             discoveredContexts: discovered,
             defaultRepoName: defaultRepoName);
 

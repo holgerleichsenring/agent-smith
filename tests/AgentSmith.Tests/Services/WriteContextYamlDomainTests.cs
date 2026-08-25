@@ -20,7 +20,8 @@ public sealed class WriteContextYamlDomainTests
             new Dictionary<string, ISandbox>(),
             defaultRepo: "repo",
             serializer: new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
-                new AgentSmith.Infrastructure.Services.ContextYamlBuilders()));
+                new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+            gate: AgentSmith.Tests.TestHelpers.ContextGates.Build());
 
     private static JsonElement Doc(string json) => JsonDocument.Parse(json).RootElement;
 
