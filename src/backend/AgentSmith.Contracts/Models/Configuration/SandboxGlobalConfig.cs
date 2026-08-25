@@ -52,6 +52,30 @@ public sealed class SandboxGlobalConfig
     /// </summary>
     public int RunCommandTimeoutSeconds { get; set; } = 300;
 
+    /// <summary>
+    /// 2026-08-25-014d: the registries a sandbox toolchain image may be pulled from,
+    /// as reference prefixes (<c>mcr.microsoft.com/</c>, <c>ghcr.io/</c>, a private
+    /// mirror's host). The image string is model-authored or profile-authored, so
+    /// this is the supply-chain boundary the run is held to. EMPTY means the built-in
+    /// default, which is exactly what shipped before this field existed.
+    /// </summary>
+    public List<string> AllowedRegistries { get; set; } = [];
+
+    /// <summary>
+    /// 2026-08-25-014d: whether the Docker Hub official <em>library</em> namespace is
+    /// trusted — <c>node:20-bookworm</c>, <c>buildpack-deps:bookworm-scm</c>. This is a
+    /// repository SHAPE (no namespace segment), not a registry, so it carries its own
+    /// switch: folding it into <see cref="AllowedRegistries"/> as a host entry would
+    /// admit every user repository on that host instead.
+    /// <para>
+    /// NULL follows the registries. With none named the shape is trusted, so an unset
+    /// configuration is the pre-existing policy unchanged; once a registry list IS
+    /// named the shape is refused unless this says otherwise, because a named list is
+    /// a narrowing and keeping the shape would silently widen it back open.
+    /// </para>
+    /// </summary>
+    public bool? AllowDockerHubLibrary { get; set; }
+
     // p0270a: the per-project override arithmetic that lived here
     // (ResolveStepTimeout / ResolveRunCommandTimeout) moved into the single
     // ConfigResolutionPass so the run path and the dashboard read one resolution.

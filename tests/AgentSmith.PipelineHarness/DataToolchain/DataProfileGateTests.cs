@@ -69,10 +69,13 @@ public sealed class DataProfileGateTests : IDisposable
     {
         if (Profile() is not { } profile) return;
 
-        ToolchainImageCatalog.IsTrustedRegistry(profile.Image).Should().BeTrue(
+        // 2026-08-25-014d: the gate is the registry policy, judged with the default
+        // (unconfigured) boundary — a profile ships in the binary, so it has to clear the
+        // policy an operator who has configured nothing gets. The tag pattern that used to
+        // stand next to this is gone: whether the image carries git is discovered at the
+        // checkout that needs it, by name, instead of guessed from how the tag looks.
+        new ImageRegistryTrust().Accepts(profile.Image).Should().BeTrue(
             $"'{profile.Image}' must come from a trusted registry or no sandbox starts for it");
-        ToolchainImageCatalog.IsGitBearing(profile.Image).Should().BeTrue(
-            $"'{profile.Image}' must carry git — a sandbox runs `git clone` inside it");
     }
 
     public void Dispose() => _profiles.Dispose();

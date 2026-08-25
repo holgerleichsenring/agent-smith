@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-014d
+
+decisions:
+  - category: Security
+    chose: "sandbox.allowed_registries (prefix list) plus sandbox.allow_docker_hub_library (nullable bool), both on the GLOBAL sandbox block"
+    over: "one allowed_registries list carrying 'docker.io' as a default entry, on the per-project sandbox block"
+    reason: |
+      The compiled policy was never a list of registries. Two of its three rules were
+      prefixes; the third accepted an image whose REPOSITORY has no namespace segment —
+      the public library shape. A 'docker.io' entry would have admitted every user
+      repository on that host, so shipping it as "the current list, as a default" would
+      have widened the boundary while claiming to preserve it. The shape keeps its own
+      switch. Per-project was refused because a project that can widen its own
+      supply-chain boundary does not have one.
+
+  - category: Security
+    chose: "An unset allow_docker_hub_library FOLLOWS the registry list: trusted while no list is named, refused once one is"
+    over: "a fixed default of true, or a fixed default of false"
+    reason: |
+      Always-true means an operator who names their mirror silently keeps every library
+      image — a narrowing that does not narrow. Always-false changes what an unset
+      configuration does, which is the one thing this phase promised not to do. Following
+      the list gives both: nothing configured is the old policy exactly, and a named list
+      is a real narrowing. Either value can still be stated explicitly, and then wins.
+
+  - category: Security
+    chose: "The repository is cut at the tag separator following the LAST '/', not at the first ':'"
+    over: "keeping image.Split(':', 2)[0] so an unset configuration stays byte-identical"
+    reason: |
+      Cutting at the first colon read the PORT of 'a.host:5000/pwn:latest' as a tag and the
+      remainder as namespace-free, so an arbitrary private registry passed as an official
+      library image. This is the one deliberate behaviour change. The shape rule had to be
+      stated explicitly to get its own switch, and stating a boundary correctly is not the
+      same as widening it — every legitimate image accepted before is still accepted, only
+      the bypass is closed. The spec's own premise is that the boundary is already porous
+      and that saying so is part of the phase.
+
+  - category: Architecture
+    chose: "Delete the git-bearing tag patterns from the product; they survive only as a test pinning our own language table"
+    over: "a `git --version` probe per candidate image (p0520's proposal), or more pattern rows"
+    reason: |
+      The image is chosen before any sandbox exists, by a synchronous builder called twice
+      per sandbox, so a probe means a throwaway pod per candidate image per repo per run —
+      against the quota that already returns capacity-403s, with a pull failure
+      indistinguishable from a missing tool (the p0364 shape) and a container that is
+      reap-eligible by construction (p0465). More rows only moves the wrong-answer
+      boundary. The patterns' only runtime effect was a SILENT downgrade to a different
+      image, and they knew four ecosystems. As a test they are what they always really
+      were: a pin on four bases this repository confirmed, over values we author ourselves.
+
+  - category: TradeOff
+    chose: "A domain profile image is refused for its registry only, no longer for its tag"
+    over: "keeping p0504's git-bearing throw, which refuses rather than falls back"
+    reason: |
+      A profile brings its image BECAUSE the profile's commands live in it. Refusing it
+      over a tag shape decided, from the name alone, that the catalog was wrong about its
+      own toolchain — and no sandbox started at all. The registry refusal stays: that is a
+      question about the image's AUTHOR, which a name genuinely answers.
+
+  - category: Implementation
+    chose: "A clone that cannot start git reports MissingGitInImage.Cause, naming the field to change"
+    over: "the generic 'git clone failed (exit=-1)', or widening ISandbox with ToolchainImage to quote the exact image"
+    reason: |
+      Deleting the guess means the failure it hid now reaches an operator, so it has to be
+      readable — exit=-1 with a start failure reads as a broken repository. The sandbox
+      agent execs directly (ProcessRunner), so a missing binary throws instead of exiting;
+      that signature plus the shell's 127 is the whole detection. ISandbox was left alone:
+      widening a core port to improve one message costs more than the message is worth, and
+      the message names the FIELD, which is what actually gets edited.
+
+  - category: Scope
+    chose: "The compiled-in tool-runner and scanner images stay OUTSIDE the sandbox registry policy, recorded rather than covered"
+    over: "bringing nuclei / spectral / zaproxy under sandbox.allowed_registries"
+    reason: |
+      The sandbox boundary exists because a toolchain image is named at run time by a model
+      or a catalog profile — an untrusted author. These three are named in the binary by
+      this repository; nothing is cloned into them and no agent runs there. Two are
+      namespaced Docker Hub repositories, so covering them would refuse the shipped
+      defaults on a stock install without making anything safer; the third already passes.
+      The exclusion is written on ToolRunnerConfig.Images and pinned by
+      CompiledInToolImagesTests, which fails on a fourth compiled-in image until somebody
+      classifies it, and fails again once an exclusion outlives its need.
+
+  - category: Implementation
+    chose: "Remove the tag-shape prose from the model-facing tool description and the write-path rejection too"
+    over: "leaving the guidance, since it does describe images that work"
+    reason: |
+      '-bookworm/-bullseye/-scm, never -slim/-alpine' names four ecosystems' conventions as
+      if they were the rule. A model reading it picks an image by how its name looks, which
+      is the same defect one layer up — the code would stop guessing while the prompt kept
+      teaching the guess. What replaces it states the two real requirements: a registry the
+      operator trusts, and git, because the repository is cloned inside the image.
+
+  - category: Scope
+    chose: "Left untouched: VerifyStageResolver.IsDotnet, DependencyAuditor's manifest chain, the alias vocabularies, RunFootprintCalculator.ImageOf"
+    over: "fixing every place a language or ecosystem NAME decides behaviour in one pass"
+    reason: |
+      Same defect class, different mechanisms, different blast radius. The spec names them
+      so the goal is not read as covering them, and so they are not later rediscovered as
+      an omission.
