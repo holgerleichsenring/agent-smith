@@ -104,6 +104,66 @@ describe("startAuthSession", () => {
     expect(await module.currentAccessToken()).toBe("at-1");
     expect(session?.returnTo).toBe("/jobs");
   });
+
+  // An authority whose reply URL is registered without a path returns to "/".
+  // Reading every visit to the home page as a callback would exchange a code
+  // that is not there, record the refusal and empty the store — leaving the tab
+  // signed out on the one route it is most often opened at.
+  it("Boot_OnTheRedirectRouteWithNoCode_RestoresInsteadOfExchanging", async () => {
+    window.history.replaceState({}, "", "/");
+    const client = fakeClient();
+    const { module } = await bootWith({ ...AUTHORITY, redirectPath: "/" }, client);
+
+    const session = await module.startAuthSession();
+
+    expect(client.signinRedirectCallback).not.toHaveBeenCalled();
+    expect(client.signinSilent).toHaveBeenCalledTimes(1);
+    expect(session?.error).toBeNull();
+  });
+
+  it("Boot_OnAPathlessRedirectCarryingACode_ExchangesIt", async () => {
+    window.history.replaceState({}, "", "/?code=the-code&state=the-state");
+    const client = fakeClient();
+    const { module } = await bootWith({ ...AUTHORITY, redirectPath: "/" }, client);
+
+    await module.startAuthSession();
+
+    expect(client.signinRedirectCallback).toHaveBeenCalledTimes(1);
+    expect(client.signinSilent).not.toHaveBeenCalled();
+  });
+
+  // The authority answers a refusal on the same route, and it is still an
+  // arrival: exchanging it is what turns it into a reported error.
+  it("Boot_OnTheRedirectRouteCarryingAnError_IsStillAnArrival", async () => {
+    window.history.replaceState({}, "", "/?error=access_denied");
+    const client = fakeClient();
+    const { module } = await bootWith({ ...AUTHORITY, redirectPath: "/" }, client);
+
+    await module.startAuthSession();
+
+    expect(client.signinRedirectCallback).toHaveBeenCalledTimes(1);
+    expect(client.signinSilent).not.toHaveBeenCalled();
+  });
+
+  it("Boot_AfterTheExchange_TheSpentCodeIsGoneFromTheAddressBar", async () => {
+    window.history.replaceState({}, "", "/?code=the-code&state=the-state&tab=runs");
+    const { module } = await bootWith({ ...AUTHORITY, redirectPath: "/" }, fakeClient());
+
+    await module.startAuthSession();
+
+    expect(window.location.search).toBe("?tab=runs");
+  });
+
+  it("Boot_NotOnTheRedirectRoute_LeavesAQueryOfItsOwnAlone", async () => {
+    window.history.replaceState({}, "", "/jobs?code=not-an-authorization-code");
+    const client = fakeClient();
+    const { module } = await bootWith({ ...AUTHORITY, redirectPath: "/" }, client);
+
+    await module.startAuthSession();
+
+    expect(client.signinRedirectCallback).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?code=not-an-authorization-code");
+  });
 });
 
 describe("signIn", () => {
