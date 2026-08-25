@@ -12,6 +12,9 @@ interface Props {
 }
 
 export function CapacityFootprintPanel({ footprint, queuePosition }: Props) {
+  // 2026-08-25-39ab: a footprint the server answered without its pod list draws
+  // no pods and says zero — it does not take the panel, and the page, down.
+  const pods = footprint.pods ?? [];
   const badge = footprint.reserved
     ? { label: "reserved", tone: "bg-emerald-100 text-emerald-700" }
     : queuePosition != null
@@ -28,11 +31,11 @@ export function CapacityFootprintPanel({ footprint, queuePosition }: Props) {
         <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${badge.tone}`}>{badge.label}</span>
       </div>
       <div className="mt-1 font-mono text-xs text-stone-500">
-        {footprint.pods.length} pods · {footprint.totalMemLimit} / {footprint.totalCpuLimit} cpu
+        {pods.length} pods · {footprint.totalMemLimit} / {footprint.totalCpuLimit} cpu
       </div>
 
       <ul className="mt-2 space-y-1">
-        {footprint.pods.map((pod, i) => (
+        {pods.map((pod, i) => (
           <li key={i} className="flex items-center justify-between gap-3 font-mono text-xs text-stone-600">
             <span className="truncate">
               {pod.repo}

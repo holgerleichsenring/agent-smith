@@ -7,17 +7,27 @@
 #
 # When it gates, the deterministic phase checks must all be green or the commit
 # is blocked (exit 2, stderr fed back to Claude):
-#   1. build           — dotnet build (errors fail)
-#   2. unit + harness xUnit tests — dotnet test (this is the harness pass/fail gate)
-#   3. CLI dry-runs    — <command> --help for each pipeline
-#   4. harness presets — every preset from `--list`, stub tier, CRASH-ONLY check
+#   1. dashboard       — pnpm install/test/build in src/dashboard (2026-08-25-39ab)
+#   2. build           — dotnet build (errors fail)
+#   3. unit + harness xUnit tests — dotnet test (this is the harness pass/fail gate)
+#   4. CLI dry-runs    — <command> --help for each pipeline
+#   5. harness presets — every preset from `--list`, stub tier, CRASH-ONLY check
 #
-# Step 4 note: the console `--preset` runner returns the *pipeline result* as its
+# Step 1 note (2026-08-25-39ab): the dashboard's own workflow is path-filtered on
+# src/dashboard/**, so a backend-only payload change never ran a single dashboard
+# test — the half that renders the payload was proven by nothing. It runs FIRST
+# because it is the cheapest complete signal (~45s against minutes of .NET) and
+# because a phase that breaks the dashboard should hear so before the build.
+# A tree without src/dashboard/package.json has no dashboard to check and says so.
+# A tree that HAS one and no pnpm fails the gate — a missing toolchain is an
+# unproven commit, and a silent skip is indistinguishable from a pass.
+#
+# Step 5 note: the console `--preset` runner returns the *pipeline result* as its
 # exit code — exit 1 (pipeline FAIL, e.g. fix-bug "no code changes") is a valid
-# outcome, NOT a test failure. So step 4 only fails the gate on a real crash
+# outcome, NOT a test failure. So step 5 only fails the gate on a real crash
 # (exit >= 2 or an unhandled exception), which catches composition-root / DI
 # wiring breakage in RealCompositionHarness. The actual harness pass/fail
-# assertions live in the xUnit tests run by step 2.
+# assertions live in the xUnit tests run by step 3.
 #
 # The --docker harness tier is intentionally NOT in the blocking gate: it needs
 # a docker daemon + redis and is too heavy/flaky for a commit hook. Run it
@@ -119,8 +129,8 @@ tmp=$(mktemp -d 2>/dev/null || echo /tmp)
 log()  { echo "[phase-gate] $*" >&2; }
 fail() { record blocked "$target_dir" "$1"; echo "" >&2; echo "PHASE GATE BLOCKED COMMIT — $1 failed. Fix it before committing the phase." >&2; exit 2; }
 
-# A phase routinely spans both repos, and the four checks below are all .NET
-# solution checks. In the skills catalog the equivalent gate is its own validator
+# A phase routinely spans both repos. The checks below are the .NET solution
+# checks plus the dashboard's own build and tests. In the skills catalog the equivalent gate is its own validator
 # — it guards the live-breakage classes there (description cap, frontmatter,
 # name/directory match, principles templates), which is what a phase commit
 # touching a master can actually break.
@@ -138,26 +148,41 @@ if [ ! -f AgentSmith.sln ]; then
   exit 0
 fi
 
-log "phase commit detected — gating $target_dir (build, tests, dry-runs, harness presets)"
+log "phase commit detected — gating $target_dir (dashboard, build, tests, dry-runs, harness presets)"
 
-log "1/4 build..."
+log "1/5 dashboard build + tests..."
+if [ -f src/dashboard/package.json ]; then
+  command -v pnpm >/dev/null 2>&1 \
+    || fail "dashboard checks need pnpm on PATH (corepack enable, or install pnpm)"
+  for step in "install --frozen-lockfile" "test" "build"; do
+    # shellcheck disable=SC2086
+    if ! (cd src/dashboard && pnpm $step) >"$tmp/dashboard.log" 2>&1; then
+      tail -40 "$tmp/dashboard.log" >&2; fail "dashboard: pnpm ${step%% *}"
+    fi
+    log "    dashboard: pnpm ${step%% *} ok"
+  done
+else
+  log "    no src/dashboard/package.json in $target_dir — no dashboard to check"
+fi
+
+log "2/5 build..."
 if ! dotnet build AgentSmith.sln -clp:ErrorsOnly >"$tmp/build.log" 2>&1; then
   tail -40 "$tmp/build.log" >&2; fail "build"
 fi
 
-log "2/4 unit + harness xUnit tests..."
+log "3/5 unit + harness xUnit tests..."
 if ! dotnet test AgentSmith.sln --no-build >"$tmp/test.log" 2>&1; then
   tail -50 "$tmp/test.log" >&2; fail "dotnet test"
 fi
 
-log "3/4 CLI dry-runs..."
+log "4/5 CLI dry-runs..."
 for c in api-scan security-scan fix feature; do
   if ! dotnet run --no-build --project src/backend/AgentSmith.Cli -- "$c" --help >/dev/null 2>"$tmp/dry-$c.log"; then
     cat "$tmp/dry-$c.log" >&2; fail "dry-run: $c --help"
   fi
 done
 
-log "4/4 harness presets (stub tier, crash-only)..."
+log "5/5 harness presets (stub tier, crash-only)..."
 if ! presets=$(dotnet run --no-build --project tests/AgentSmith.PipelineHarness -- --list 2>"$tmp/harness-list.log"); then
   cat "$tmp/harness-list.log" >&2; fail "harness --list"
 fi
@@ -172,6 +197,6 @@ while IFS= read -r p; do
   log "    preset ran: $p (rc=$rc)"
 done <<< "$presets"
 
-record passed "$target_dir" "build,tests,dry-runs,harness-presets"
+record passed "$target_dir" "dashboard,build,tests,dry-runs,harness-presets"
 log "all green — commit allowed (recorded in $ledger)"
 exit 0

@@ -13,7 +13,7 @@ interface Props {
   onDeleted?: () => void;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { apiFetch } from "@/lib/apiResponse";
 
 export function DeleteRunButton({ runId, onDeleted }: Props) {
   const [armed, setArmed] = useState(false);
@@ -28,7 +28,7 @@ export function DeleteRunButton({ runId, onDeleted }: Props) {
     setPending(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
       if (res.ok || res.status === 204) { onDeleted?.(); return; }
       setError(`HTTP ${res.status}`);
       setArmed(false);

@@ -5,11 +5,8 @@
 // Pull Requests page and the AppRail's live open-PR count.
 
 import type { PullRequest } from "@/types/hub-events";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { getJson } from "@/lib/apiResponse";
 
 export async function fetchPullRequests(signal?: AbortSignal): Promise<PullRequest[]> {
-  const res = await fetch(`${API_BASE}/api/pull-requests`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as PullRequest[];
+  return getJson<PullRequest[]>(`/api/pull-requests`, signal);
 }

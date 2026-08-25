@@ -3,7 +3,7 @@
 // code — so the dashboard is reachable exactly when there is something to report, and this
 // is where it reads it.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+import { getJson } from "@/lib/apiResponse";
 
 export interface StartupFinding {
   subsystem: string;
@@ -23,7 +23,5 @@ export interface StartupFindings {
 }
 
 export async function fetchFindings(signal?: AbortSignal): Promise<StartupFindings> {
-  const res = await fetch(`${API_BASE}/api/config/findings`, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as StartupFindings;
+  return getJson<StartupFindings>(`/api/config/findings`, signal);
 }
