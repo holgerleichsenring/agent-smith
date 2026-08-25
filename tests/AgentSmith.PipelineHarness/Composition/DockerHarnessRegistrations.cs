@@ -55,8 +55,14 @@ internal static class DockerHarnessRegistrations
         services.RemoveAll<IDockerClient>();
         services.RemoveAll<DockerSandboxOptions>();
         services.RemoveAll<DockerContainerSpecBuilder>();
+        // p0465: the harness hands the sandbox its own Redis endpoint, so the owner
+        // identity (and every query scoped by it) must be re-derived from it.
+        services.RemoveAll<SandboxOwnerIdentity>();
+        services.RemoveAll<DockerSandboxQuery>();
 
         services.AddSingleton(options);
+        services.AddSingleton(new SandboxOwnerIdentityResolver().Resolve(options.RedisUrl));
+        services.AddSingleton<DockerSandboxQuery>();
         services.AddSingleton<IDockerClient>(
             new DockerClientConfiguration(new Uri(options.DockerSocketUri)).CreateClient());
         services.AddSingleton<DockerContainerSpecBuilder>();
