@@ -21,7 +21,7 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
     private readonly ILogger<SkillCatalogPromptCatalog> _logger;
 
     // p0179g: skills subtree sits at {catalogRoot}/skills/. Same value as
-    // ExecutePipelineUseCase.CatalogSkillsRootSubPath — both call sites pass
+    // ConceptVocabularyLoader.CatalogSkillsRootSubPath — both call sites pass
     // through YamlSkillLoader, which walks <root>/_masters/* for masters and
     // <root>/<category>/<skill>/SKILL.md for everything else.
     private const string CatalogSkillsRootSubPath = "skills";
