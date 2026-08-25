@@ -67,4 +67,38 @@ public sealed class RepoScopeTierTests
         // Unknown has no per-tier entry => the static per-pipeline default (fail-safe).
         config.ForTier(ComplexityTier.Unknown).Should().BeSameAs(config.Default);
     }
+
+    [Fact]
+    public void RaisedTo_ABiggerEstimate_EnlargesEachDimension()
+    {
+        var resolved = new CostCapValues { Usd = 5m, Tokens = 500_000 };
+
+        var raised = resolved.RaisedTo(new CostCapValues { Usd = 25m, Tokens = 5_000_000 });
+
+        raised.Usd.Should().Be(25m);
+        raised.Tokens.Should().Be(5_000_000);
+    }
+
+    [Fact]
+    public void RaisedTo_ASmallerEstimate_LeavesTheResolvedCapAlone()
+    {
+        // p0413a: an estimate is a guess; the resolved cap is the operator's
+        // instruction. A guess may enlarge the ceiling, never shrink it.
+        var resolved = new CostCapValues { Usd = 12m, Tokens = 3_000_000 };
+
+        var raised = resolved.RaisedTo(new CostCapValues { Usd = 2m, Tokens = 400_000 });
+
+        raised.Should().BeSameAs(resolved);
+    }
+
+    [Fact]
+    public void RaisedTo_BiggerInOneDimensionOnly_RaisesThatOne()
+    {
+        var resolved = new CostCapValues { Usd = 12m, Tokens = 400_000 };
+
+        var raised = resolved.RaisedTo(new CostCapValues { Usd = 8m, Tokens = 1_500_000 });
+
+        raised.Usd.Should().Be(12m);
+        raised.Tokens.Should().Be(1_500_000);
+    }
 }
