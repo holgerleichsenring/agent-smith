@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-014d
+
+goal: "Which registries a sandbox image may come from is the operator's to say, and a missing tool is discovered where it is used instead of guessed from the image name."
+
+applies_to: "backend (the toolchain image catalog and the image-selection chain)"
+
+requires:
+  - 2026-08-25-c9c7
+
+scope:
+  in: "Moving the registry decision out of the binary into operator configuration without widening it, and replacing the name-pattern that guesses whether an image carries git with the failure that already happens when it does not."
+  out: "The other places a language or ecosystem NAME still decides behaviour — the build-stage resolver, the manifest chain, the alias vocabularies, the footprint grouping. They are the same defect class and are named here so the goal is not read as covering them."
+
+decisions:
+  - key: |
+      THE CURRENT POLICY IS NOT A LIST OF REGISTRIES, AND A LIST WOULD WIDEN IT. Three rules decide
+      trust today and only two are registries; the third accepts an image whose repository has no
+      slash — the public library namespace. Expressing that as a registry entry admits every user
+      repository on that host, which is a strictly larger boundary shipped under the name "the
+      current list as a default". The repository-shape rule needs its own switch or it changes
+      meaning.
+  - key: |
+      IT IS GLOBAL POLICY, NOT PER-PROJECT. There are two configuration blocks with the same name,
+      one per project and one global. Putting a supply-chain boundary in the per-project one lets
+      a project widen its own — which is not a boundary.
+  - key: |
+      A PROBE THAT SPAWNS A CONTAINER TO ASK IS THE WRONG SHAPE. The image is chosen before any
+      sandbox exists, and the builder that chooses is synchronous and runs twice per sandbox. A
+      probe would mean a throwaway pod per candidate image per repository per run, against the
+      quota that already refuses capacity — and a pull failure would be indistinguishable from a
+      missing tool, which reproduces the failure an operator already lost a session to. Worse, a
+      throwaway container is reap-eligible by construction.
+  - key: |
+      THE FACT IS ALREADY ESTABLISHED WHERE IT MATTERS. A sandbox clones inside itself, so an image
+      without git fails there, loudly, at the first thing that needs it. The name pattern's only
+      present effect is a SILENT downgrade to a different image. Deleting it and naming the
+      checkout failure honestly is what "the code checks facts, never names" actually means here.
+  - key: |
+      THE BOUNDARY IS ALREADY POROUS AND SAYING SO IS PART OF THE PHASE. Two tool-runner images and
+      one scanner image are compiled-in defaults that pass through no trust check at all. If
+      registry policy is genuinely the operator's, they belong under it — and if they stay out,
+      that is a decision to record rather than an omission to discover.
+
+steps:
+  - id: the-registry-decision-is-the-operators
+    action: "Move the trust decision into global operator configuration, preserving exactly today's behaviour when unset, with the repository-shape rule as its own switch rather than folded into a registry list."
+  - id: an-image-without-git-fails-where-git-is-needed
+    action: "Delete the name pattern that guesses whether an image carries git, and turn the checkout failure it was hiding into a named error that says what is missing and why."
+  - id: the-compiled-in-images-are-under-the-same-policy
+    action: "Bring the tool-runner and scanner images under the same trust decision, or record why they stay outside it."
+
+tests:
+  - "Registries_Unset_AcceptsExactlyWhatIsAcceptedToday"
+  - "Registries_Unset_StillAcceptsTheLibraryNamespaceShape"
+  - "Registries_Configured_RefusesAnImageOutsideThem"
+  - "Registries_PerProject_CannotWidenTheGlobalBoundary"
+  - "Image_WithoutGit_FailsAtTheCheckoutWithANamedError"
+  - "Image_WithoutGit_IsNoLongerSilentlyDowngraded"
+  - "Image_OfAnUnknownEcosystem_IsAcceptedWhenItsRegistryIs"
+  - "ToolRunnerImages_AreCoveredOrTheirExclusionIsRecorded"
+
+done:
+  - "an operator decides which registries a sandbox image may come from, and an unset configuration changes nothing"
+  - "a project cannot widen the global boundary"
+  - "no image name is pattern-matched to guess what it contains"
+  - "an image without git fails where git is used, with a message that names the cause"
+  - "build green, full suite green"
