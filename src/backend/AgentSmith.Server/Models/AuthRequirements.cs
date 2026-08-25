@@ -15,9 +15,24 @@ namespace AgentSmith.Server.Models;
 /// mapping, the group mapping and the admin grant answer a different question and are not
 /// a caller's business.
 /// </para>
+/// <para>
+/// 2026-08-25-1806: it also carries whether THIS caller's token was refused, and by which
+/// check. An enforcing installation answers /api/identity with 401 to exactly the caller
+/// whose token it rejected, so this anonymous route is the only one that can say why — and
+/// a refused token rendered as "nothing arrived" sends an operator to write a mapping when
+/// the audience is what is wrong.
+/// </para>
 /// </summary>
 public sealed record AuthRequirements(bool Enforced, string? Authority, string? Audience)
 {
+    /// <summary>
+    /// Which check refused this request's token, out of the closed <c>TokenRefusals</c>
+    /// vocabulary — null when no token was presented, or when the one presented was
+    /// accepted. A classification rather than the validation message: it is enough to act
+    /// on, and it repeats nothing back that the caller did not send.
+    /// </summary>
+    public string? TokenRefusal { get; init; }
+
     /// <summary>
     /// <see cref="TokenAuthorityConfig.Enforce"/> alone is not the answer.
     /// ServerAuthenticationExtensions attaches the fallback policy that refuses anything

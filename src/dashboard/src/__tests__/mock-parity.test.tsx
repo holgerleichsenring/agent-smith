@@ -97,6 +97,8 @@ vi.mock("@/lib/configApi", () => {
       connectionTypes: [],
       agentProviders: ["Azure OpenAI"],
       resolutionStrategies: ["tag"],
+      permissions: [],
+      builtInRoles: [],
       pipelines: ["fix-bug"],
     }),
     fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),

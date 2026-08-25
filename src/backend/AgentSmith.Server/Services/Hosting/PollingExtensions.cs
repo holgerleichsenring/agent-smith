@@ -36,6 +36,10 @@ internal static class PollingExtensions
         // (every replica — the skills cache is per-pod, unlike the leader-only pollers).
         services.AddHostedService<SkillsCatalogReloadHostedService>();
 
+        // 2026-08-25-1806: the config store's assembled document is per-pod, so a save on
+        // one replica has to reach the others for a role mapping to apply without a restart.
+        services.AddHostedService<ConfigStoreReloadHostedService>();
+
         services.AddSingleton<RedisConnectionHealth>();
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<RedisConnectionHealth>().Health);

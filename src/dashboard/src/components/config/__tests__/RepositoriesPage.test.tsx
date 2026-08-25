@@ -58,6 +58,8 @@ vi.mock("@/lib/configApi", () => {
       connectionTypes: [],
       agentProviders: [],
       resolutionStrategies: [],
+      permissions: [],
+      builtInRoles: [],
       pipelines: [],
     }),
     // conn has a warm discovery cache; cold was never discovered.

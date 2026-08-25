@@ -54,6 +54,8 @@ vi.mock("@/lib/configApi", () => ({
     connectionTypes: [],
     agentProviders: ["claude", "openai"],
     resolutionStrategies: [],
+    permissions: [],
+    builtInRoles: [],
     pipelines: ["fix-bug", "feature"],
     roles: [],
   }),

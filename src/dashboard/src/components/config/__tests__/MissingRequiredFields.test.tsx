@@ -79,6 +79,8 @@ vi.mock("@/lib/configApi", () => {
       connectionTypes: [],
       agentProviders: ["anthropic"],
       resolutionStrategies: ["tag"],
+      permissions: [],
+      builtInRoles: [],
       // The OFFERABLE set (PipelinePresets.Names) — retired aliases are absent by design.
       pipelines: ["code", "security-scan"],
       roles: [{ key: "coding", optional: false }],
