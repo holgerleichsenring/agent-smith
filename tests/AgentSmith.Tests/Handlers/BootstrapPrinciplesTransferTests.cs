@@ -182,7 +182,8 @@ public sealed class BootstrapPrinciplesTransferTests
             Mock.Of<IDecisionLogger>(),
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
-            Mock.Of<IContextYamlSerializer>()),
+            Mock.Of<IContextYamlSerializer>(),
+            ContextGates.Build()),
         BootstrapReaderStubs.ReaderFactoryReturning(
             contextYaml: "meta:\n  workdir: server\n", codingPrinciples: existingPrinciples),
         transfer,
