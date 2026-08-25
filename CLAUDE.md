@@ -65,16 +65,32 @@ reserved in advance, so `requires:` names only phases that already exist.
 ## Naming a Phase
 
 The slug is at most **50 characters** and at least **4 words**, and the `goal:` is one
-sentence of at most **200 characters**. A name states what changes
-(`a-phase-id-can-be-minted-offline`), not the area it changes (`mcp-tools-call`) — length
-alone does not tell the two apart, which is what the word floor is for. The reasoning goes
-in `decisions:`, and 50 is the same number `PhaseIdFactory.Slug` mints against, so the
-product cannot generate a name the rule refuses.
+sentence of at most **200 characters**. The reasoning goes in `decisions:`, and 50 is the
+same number `PhaseIdFactory.Slug` mints against, so the product cannot generate a name the
+rule refuses.
 
-`PhaseNameRuleTests` enforces both bounds over the DATE-MINTED namespace. The closed
-counter namespace is out of scope by construction — those phases are finished and are not
-renamed — and the scoping is a namespace rather than an ordering, because a date-minted id
-sorts below every counter id as text.
+A name is built from a **subject you can find and a predicate that changed it**. The
+subject is a nameable thing in this system — a type, a file, a step, a surface, an
+artifact: `every-window-sees-the-whole-file-list`, `the-account-searches-the-base-ref`,
+`a-phase-id-can-be-minted-offline`. It is not the area the work touches (`mcp-tools-call`
+names a place and leaves the claim unwritten), and it is not the INSIGHT behind the work.
+
+An insight-name is the failure this rule was rewritten against.
+`a-criterion-is-settled-by-looking-not-slicing` reads well and cannot be looked up: it
+states a principle, so the next phase that reaches the same principle by changing something
+else gets the same name. That is not hypothetical — `the-account-sees-what-the-agent-ran`
+was minted twice, for p0452 and for p0469, because both were about that idea while changing
+different things. A name that can be minted twice is not a name.
+
+Two working tests. If the name would still fit after the phase ships something else, the
+subject is missing. If you cannot write it concretely, the phase is doing more than one
+thing and wants splitting — which is information, not an obstacle.
+
+`PhaseNameRuleTests` enforces the bounds and the uniqueness of a slug over the DATE-MINTED
+namespace. The closed counter namespace is out of scope by construction — those phases are
+finished and are not renamed, and four of their slugs are duplicates that stay — and the
+scoping is a namespace rather than an ordering, because a date-minted id sorts below every
+counter id as text.
 
 ## Implementation Workflow (follow this order for every phase)
 
