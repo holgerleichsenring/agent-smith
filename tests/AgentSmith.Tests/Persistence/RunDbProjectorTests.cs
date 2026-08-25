@@ -48,6 +48,7 @@ public sealed class RunDbProjectorTests : IDisposable
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPhaseProjection>();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<TimeProvider>(_clock);
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunTrailBuffers>();
         services.AddSingleton<RunDbProjector>();
         return services.BuildServiceProvider();
     }

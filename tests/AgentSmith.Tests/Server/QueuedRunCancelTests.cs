@@ -60,8 +60,9 @@ public sealed class QueuedRunCancelTests : IDisposable
             "2026-07-10T12-00-00-a1b2", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
-        var handled = await RunControlEndpoints.TryCancelQueuedAsync(
-            reserved, NewRepository(), _queue, _events, NewFinalizer(), CancellationToken.None);
+        var handled = await QueuedRunCancel.TryAsync(
+            reserved, NewRepository(), _queue, _events, NewFinalizer(),
+            NewTerminalWriter(), CancellationToken.None);
 
         handled.Should().BeTrue();
         using (var ctx = new AgentSmithDbContext(Options()))
@@ -89,8 +90,9 @@ public sealed class QueuedRunCancelTests : IDisposable
             "2026-07-10T12-00-00-a1b2", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
-        var handled = await RunControlEndpoints.TryCancelQueuedAsync(
-            reserved, NewRepository(), _queue, _events, NewFinalizer(), CancellationToken.None);
+        var handled = await QueuedRunCancel.TryAsync(
+            reserved, NewRepository(), _queue, _events, NewFinalizer(),
+            NewTerminalWriter(), CancellationToken.None);
 
         handled.Should().BeTrue();
         _ticketProvider.Verify(p => p.FinalizeAsync(
@@ -112,8 +114,9 @@ public sealed class QueuedRunCancelTests : IDisposable
             "2026-07-10T12-00-00-a1b2", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
-        var handled = await RunControlEndpoints.TryCancelQueuedAsync(
-            reserved, NewRepository(), _queue, _events, NewFinalizer(), CancellationToken.None);
+        var handled = await QueuedRunCancel.TryAsync(
+            reserved, NewRepository(), _queue, _events, NewFinalizer(),
+            NewTerminalWriter(), CancellationToken.None);
 
         handled.Should().BeTrue("a tracker error must never block the cancel");
         _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
@@ -132,8 +135,9 @@ public sealed class QueuedRunCancelTests : IDisposable
             await ctx.SaveChangesAsync();
         }
 
-        var handled = await RunControlEndpoints.TryCancelQueuedAsync(
-            "run-live", NewRepository(), _queue, _events, NewFinalizer(), CancellationToken.None);
+        var handled = await QueuedRunCancel.TryAsync(
+            "run-live", NewRepository(), _queue, _events, NewFinalizer(),
+            NewTerminalWriter(), CancellationToken.None);
 
         handled.Should().BeFalse("a live run cancels through the registry, not the queue path");
         _published.Should().BeEmpty();
@@ -182,5 +186,41 @@ public sealed class QueuedRunCancelTests : IDisposable
         services.AddScoped<QueuedTicketRepository>();
         return new DbCapacityQueue(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+    }
+
+    /// <summary>
+    /// 2026-08-24-ca23: the queued cancel is the SECOND entry point and never reaches
+    /// CancelEnforcer. It publishes into a stream nobody drains — a queued run left the active
+    /// set at its own waiting event — so before this phase the row stayed unfinished and the
+    /// enforcer re-selected it every scan. The row must be terminal when the call returns.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_QueuedRun_ThroughTheEndpointsOwnPath_FinishesTheRowWithoutTheDrain()
+    {
+        var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
+            "p1", "77", "fix-bug", "github",
+            "2026-08-24T19-46-27-ca23", "waiting for sandbox capacity",
+            ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
+
+        var handled = await QueuedRunCancel.TryAsync(
+            reserved, NewRepository(), _queue, _events, NewFinalizer(),
+            NewTerminalWriter(), CancellationToken.None);
+
+        handled.Should().BeTrue();
+        using var check = new AgentSmithDbContext(Options());
+        var run = check.Runs.Single(r => r.Id == reserved);
+        run.Status.Should().Be("cancelled", "nothing will deliver this run's terminal event");
+        run.FinishedAt.Should().NotBeNull();
+    }
+
+    private CancelTerminalWriter NewTerminalWriter() => new(WriterServices());
+
+    private ServiceProvider WriterServices()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddSingleton<QueuedRunProjection>();
+        services.AddSingleton<RunFinalizationProjection>();
+        return services.BuildServiceProvider();
     }
 }
