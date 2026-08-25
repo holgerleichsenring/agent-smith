@@ -45,8 +45,9 @@ public sealed class ExecutePipelineUseCaseReposTests
                 NullLogger<AgentSmith.Application.Services.Resume.ResumeRequestReader>.Instance),
             _sourceOverriderMock.Object,
             new StubSkillsCatalogResolver(),
-            new StubSkillsCatalogPath(),
-            skillLoaderMock.Object,
+            new ConceptVocabularyLoader(
+                new StubSkillsCatalogPath(), skillLoaderMock.Object,
+                NullLogger<ConceptVocabularyLoader>.Instance),
             new PipelineConfigResolver(),
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,

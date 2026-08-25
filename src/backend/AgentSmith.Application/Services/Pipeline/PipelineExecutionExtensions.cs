@@ -99,13 +99,13 @@ public static class PipelineExecutionExtensions
         // a process-wide fact.
         services.AddSingleton<Metrics.AgentSmithMetrics>();
         services.AddSingleton<ProjectResolver>();
-        services.AddSingleton<IEnvelopeProjectResolver>(
-            sp => sp.GetRequiredService<ProjectResolver>());
+        services.AddSingleton<IEnvelopeProjectResolver>(sp => sp.GetRequiredService<ProjectResolver>());
         services.AddTransient<Polling.ITrackerDiscoveryQueryBuilder, Polling.TrackerDiscoveryQueryBuilder>();
         // NB: ISpawnPipelineRunsUseCase is NOT registered here — it depends on
         // ITicketClaimService, a Server-only service (webhook + poller fan-out).
         // Registering it in this shared extension made it unconstructable in the
         // CLI graph; it lives in the Server composition (DispatcherExtensions).
+        services.AddTransient<ConceptVocabularyLoader>();
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         // Safe default lease so ExecutePipelineUseCase resolves in EVERY composition
