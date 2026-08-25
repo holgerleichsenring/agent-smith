@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-5266
+
+decisions:
+  - category: Architecture
+    chose: "The demo's top-level `ci:` block is deleted, not declared in the schema"
+    over: "Adding a top-level `ci` object to context.schema.json so the shipped sample validates"
+    reason: |
+      It is a fossil, not a field the reconciliation missed. Three things say so and they
+      agree. First, nothing reads it: ContextYamlReadShape has no Ci member, so a
+      top-level `ci:` in a context.yaml is dropped silently — the demo's declared test
+      command has done nothing for as long as the current reader has existed. Second, the
+      concept moved and still exists elsewhere: CiConfig.BuildCommand/TestCommand come
+      from the analyzer's project-map.json and are consumed by VerifyStageResolver, which
+      is where a build or test command is authoritative today. Third, the block is the
+      residue of p0161's per-context test gate, which p0216 removed outright along with
+      TestHandler — the demo was simply never swept. Declaring it would put the schema
+      back in the state 056d found it in: text describing a field no writer emits and no
+      reader consumes. It would also collide semantically, because the schema already
+      declares a `ci` — `stack.ci`, the list of CI PLATFORMS — and one document carrying
+      two differently-shaped keys of the same name teaches the reader nothing good. The
+      demo loses nothing: its README already gives the test command as prose for a human.
+  - category: Architecture
+    chose: "mcr.microsoft.com/dotnet/sdk:10.0 for this repository and for the demo sample"
+    over: "The sdk:9.0 the language table resolves today, or the sdk:8.0 the context claimed to run"
+    reason: |
+      Established from the tree, not from the context file's own claim, which was wrong.
+      All 19 csproj files target net10.0, every Dockerfile in the repository builds on
+      mcr.microsoft.com/dotnet/sdk:10.0, and the installed SDK is 10.0.100 — while
+      stack.runtime still said ".NET 8". The demo sample's two csproj files target
+      net10.0 as well. That makes the fallback actively wrong rather than merely
+      unspecific: stack.lang "C#" resolves through ToolchainImageCatalog to
+      mcr.microsoft.com/dotnet/sdk:9.0, an SDK that cannot build net10.0 at all. The
+      value clears ImageRegistryTrust unchanged — mcr.microsoft.com/ is one of the two
+      default trusted registries — which is the only property 2026-08-25-014d left an
+      image to be judged by; whether it carries git is now discovered at the checkout.
+  - category: Testing
+    chose: "The shipped set is DISCOVERED under two roots, and judged by the product's own rule objects"
+    over: "A fact per known file, or a re-statement of the schema and image rule inside the test"
+    reason: |
+      Both alternatives are the drift this phase exists to stop, in test form. A fact per
+      file leaves the fourth shipped context uncovered by construction, and the spec's own
+      test list was written that way — so the enumeration replaces it: any
+      <root>/.agentsmith/contexts/<name>/context.yaml under .agentsmith/ or src/ is judged
+      the moment it exists. A re-stated rule is a second copy that will disagree with the
+      first, so the test constructs ContextSchemaRule over the ContextSchemaProvider the
+      binary embeds and ContextStackImageRule itself, and reaches the typed document
+      through ContextYamlSerializer — the product's reader — so it sees exactly the
+      stack.image and meta.domain the sandbox will see. tests/ is excluded on purpose: its
+      context files are inputs, and the harness data fixtures exist to be refused.
+  - category: Architecture
+    chose: "template.context.yaml is a shipped context and gains an image too"
+    over: "Scoping the phase to the two files the spec names and exempting the template"
+    reason: |
+      It is the file every new project starts from, so an exemption would leave the
+      most-copied worked example teaching the omission the rule now forbids — and an
+      exemption is an entry in a list that the next person has to remember to revisit.
+      The enumeration has no exemption to forget. 056d had already made the same call for
+      the schema half ("the template is copied into every new project — it cannot fail its
+      own schema"); this is the image half of the same argument.
