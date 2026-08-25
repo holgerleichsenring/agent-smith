@@ -10,8 +10,13 @@ methodology:
   version: "2.1.0"
 
 stack:
-  runtime: .NET 8
+  runtime: .NET 10
   lang: C#
+  # 2026-08-25-c9c7 requires it; every csproj here targets net10.0 and every
+  # Dockerfile builds on this exact tag, so it is the image that can build AND
+  # test this stack. Without it the sandbox fell back to the language table's
+  # .NET 9 SDK, which cannot build net10.0 at all.
+  image: mcr.microsoft.com/dotnet/sdk:10.0
   infra: [Docker, K8s, Redis]
   testing: [xUnit, Moq, FluentAssertions]
   sdks: [Anthropic, OpenAI, Azure.AI.OpenAI, Google-Gemini, Octokit, LibGit2Sharp, YamlDotNet]
