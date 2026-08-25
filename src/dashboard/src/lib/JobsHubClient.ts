@@ -6,6 +6,7 @@ import {
 } from "@microsoft/signalr";
 import { HubGroupRegistry } from "./HubGroupRegistry";
 import { HubReconnectPolicy } from "./HubReconnectPolicy";
+import { currentAccessToken } from "./auth/session";
 import type {
   RunEvent,
   SandboxActivityRollup,
@@ -76,6 +77,13 @@ const keySandbox = (runId: string, repo: string) => `sandbox:${runId}:${repo}`;
 
 export interface JobsHubClientOptions {
   hubUrl: string;
+  /**
+   * 2026-08-25-2de1: a FACTORY, never a captured token. SignalR asks again on
+   * every reconnect, and a token frozen at connect time is a connection that
+   * reconnects forever an hour later without ever saying why. An empty string is
+   * the "no token" answer SignalR already understands.
+   */
+  accessTokenFactory?: () => Promise<string>;
 }
 
 export class JobsHubClient {
@@ -264,9 +272,20 @@ export class JobsHubClient {
     finally { /* keep promise to dedupe concurrent ensureStarted */ }
   }
 
+  // 2026-08-25-2de1: p0503c reads the handshake token off the query string
+  // because a browser cannot set an Authorization header on a websocket
+  // handshake — which is exactly what SignalR's own accessTokenFactory produces.
+  // With no factory this is the builder call the client has always made.
+  private withUrl(): HubConnectionBuilder {
+    const accessTokenFactory = this.options.accessTokenFactory;
+    const builder = new HubConnectionBuilder();
+    return accessTokenFactory
+      ? builder.withUrl(this.options.hubUrl, { accessTokenFactory })
+      : builder.withUrl(this.options.hubUrl);
+  }
+
   private async openConnection(): Promise<void> {
-    const conn = new HubConnectionBuilder()
-      .withUrl(this.options.hubUrl)
+    const conn = this.withUrl()
       .withAutomaticReconnect(new HubReconnectPolicy())
       .configureLogging(LogLevel.Warning)
       .build();
@@ -317,8 +336,15 @@ export class JobsHubClient {
 
 let singleton: JobsHubClient | null = null;
 export function getJobsHubClient(hubUrl: string): JobsHubClient {
-  if (!singleton) singleton = new JobsHubClient({ hubUrl });
+  if (!singleton) singleton = new JobsHubClient({ hubUrl, accessTokenFactory: hubAccessToken });
   return singleton;
+}
+
+// 2026-08-25-2de1: SignalR appends access_token and the Authorization header only
+// for a non-empty value, so an installation with no authority configured makes
+// byte-identically the handshake it makes today.
+export async function hubAccessToken(): Promise<string> {
+  return (await currentAccessToken()) ?? "";
 }
 
 /** Test-only: reset the module-level singleton between tests. */
