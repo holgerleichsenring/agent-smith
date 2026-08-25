@@ -33,6 +33,7 @@ internal static class MasterHandlerFixture
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+            AgentSmith.Tests.TestHelpers.ContextGates.Build(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
