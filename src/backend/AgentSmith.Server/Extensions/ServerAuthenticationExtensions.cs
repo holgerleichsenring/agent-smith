@@ -6,7 +6,6 @@ using AgentSmith.Server.Services.Startup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -35,7 +34,7 @@ internal static class ServerAuthenticationExtensions
         if (auth is not { IsUsable: true }) return services;
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(o => Configure(o, auth));
+            .AddJwtBearer(new JwtBearerSetup(auth).Apply);
         services.AddAuthorization(o =>
         {
             if (auth.Enforce) o.FallbackPolicy = EveryPermissionPolicy();
@@ -68,45 +67,6 @@ internal static class ServerAuthenticationExtensions
         app.UseAuthorization();
         return app;
     }
-
-    private static void Configure(JwtBearerOptions options, TokenAuthorityConfig auth)
-    {
-        options.Authority = auth.Authority;
-        // p0517: a browser cannot set an Authorization header on a websocket handshake, so
-        // the hub's token arrives in the query string and this is where it is picked up.
-        options.Events ??= new JwtBearerEvents();
-        options.Events.OnMessageReceived = HubHandshakeAuthentication.Receive;
-        // p0503d: OFF, or the role claim is invisible. The default inbound map rewrites
-        // `roles` (and `role`) to the long WS-Federation role type, so a configured claim
-        // name of `roles` finds ZERO claims — while `groups`, which is not in the map,
-        // survives untouched. That asymmetry fails in production and passes in any unit
-        // test that builds a ClaimsPrincipal directly, so it is pinned here.
-        options.MapInboundClaims = false;
-        // The discovery document of a loopback authority is served over plain HTTP; a
-        // deployed one is not, and demanding metadata over HTTPS there is not optional.
-        options.RequireHttpsMetadata = !IsLoopback(auth.Authority!);
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            // The issuer is not stated twice: the handler folds the authority's own
-            // discovered issuer into these parameters, so the authority IS the issuer.
-            ValidateIssuer = true,
-            ValidateAudience = !string.IsNullOrWhiteSpace(auth.Audience),
-            ValidAudience = auth.Audience,
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(2),
-            // p0503d: the claim a caller is NAMED by, so ClaimsPrincipal.Identity.Name is
-            // the configured one — which is what the identity page shows and what a config
-            // change is attributed to, through one accessor rather than two lookups.
-            NameClaimType = auth.NameClaim,
-        };
-        // p0503e: the challenge, and nothing else on this event set — a sibling adding
-        // another handler assigns its own property rather than replacing this one.
-        (options.Events ??= new JwtBearerEvents()).OnChallenge = context => context.HttpContext
-            .RequestServices.GetRequiredService<AuthorityAwareChallenge>().WriteAsync(context);
-    }
-
-    private static bool IsLoopback(string authority) =>
-        Uri.TryCreate(authority, UriKind.Absolute, out var uri) && uri.IsLoopback;
 
     // One requirement per catalogued permission, so a refusal can name the ones that were
     // missing rather than the policy that failed.

@@ -19,22 +19,25 @@ namespace AgentSmith.Server.Security;
 /// </summary>
 internal sealed class CallerRoleReader
 {
-    private readonly TokenAuthorityConfig _auth;
+    private readonly RoleMappingConfig _mapping;
     private readonly Dictionary<string, List<string>> _groupRoles = new(StringComparer.Ordinal);
 
-    public CallerRoleReader(TokenAuthorityConfig auth)
+    // 2026-08-25-1806: the claim NAMES come from the stored mapping too. They were never a
+    // startup concern — this reader is asked per request — and an installation that points
+    // its role claim somewhere else should not have to restart a pod to try it.
+    public CallerRoleReader(RoleMappingConfig mapping)
     {
-        _auth = auth;
-        foreach (var (group, roles) in auth.GroupRoles) _groupRoles[Normalize(group)] = roles;
+        _mapping = mapping;
+        foreach (var (group, roles) in mapping.GroupRoles) _groupRoles[Normalize(group)] = roles;
     }
 
     /// <summary>The role-claim values verbatim, so the identity page can show what arrived.</summary>
     public IReadOnlyList<string> RoleClaimValues(ClaimsPrincipal caller) =>
-        Values(caller, _auth.RoleClaim);
+        Values(caller, _mapping.RoleClaim);
 
     /// <summary>The group-claim values verbatim, unmapped ones included.</summary>
     public IReadOnlyList<string> GroupClaimValues(ClaimsPrincipal caller) =>
-        Values(caller, _auth.GroupClaim);
+        Values(caller, _mapping.GroupClaim);
 
     /// <summary>Role names from the role claim, unioned with the roles the groups map onto.</summary>
     public IReadOnlyList<string> Roles(ClaimsPrincipal caller) =>

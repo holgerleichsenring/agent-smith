@@ -16,7 +16,20 @@ public sealed record ConfigCapabilities(
     IReadOnlyList<string> AgentProviders,
     IReadOnlyList<string> ResolutionStrategies,
     IReadOnlyList<string> Pipelines,
-    IReadOnlyList<ModelRoleCapability> Roles);
+    IReadOnlyList<ModelRoleCapability> Roles)
+{
+    /// <summary>
+    /// 2026-08-25-1806: the CLOSED permission catalog a role bundle is built from. It rides
+    /// this descriptor because it answers the same question every other list here does —
+    /// what may a form offer — and a second endpoint would be a second copy of a closed
+    /// list. Supplied by the host rather than by the builder below: it is the server's
+    /// authorization vocabulary, not a config contract.
+    /// </summary>
+    public IReadOnlyList<string> Permissions { get; init; } = [];
+
+    /// <summary>The role names the product ships. A custom bundle under one of them is ignored.</summary>
+    public IReadOnlyList<string> BuiltInRoles { get; init; } = [];
+}
 
 /// <summary>
 /// One form field of a typed entity: wire key, display label, requiredness and the SHAPE

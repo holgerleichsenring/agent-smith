@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Security;
 
 namespace AgentSmith.Tests.Server.Auth;
@@ -12,8 +13,25 @@ namespace AgentSmith.Tests.Server.Auth;
 /// </summary>
 internal static class ResolverUnderTest
 {
+    /// <summary>
+    /// 2026-08-25-1806: a resolver whose mapping is still the bootstrap block's — the state
+    /// an installation is in before its mapping has been migrated into the config store.
+    /// </summary>
     public static CallerIdentityResolver With(TokenAuthorityConfig auth, string? grant = null) =>
-        new(auth, new CallerRoleReader(auth), new RoleCatalog(auth), Grant(grant));
+        new(new RoleMappingSource(new StoredMappingStub(null), auth), Grant(grant));
+
+    /// <summary>
+    /// A resolver whose mapping comes from the STORE, which is where it comes from once the
+    /// migration has run. The stub is handed back so a test can change what is stored and
+    /// assert the next resolve sees it.
+    /// </summary>
+    public static CallerIdentityResolver Over(
+        TokenAuthorityConfig auth, StoredMappingStub stored, string? grant = null)
+    {
+        var source = new RoleMappingSource(stored, auth);
+        source.AdoptStore();
+        return new CallerIdentityResolver(source, Grant(grant));
+    }
 
     public static AdminGrant Grant(string? value, List<string>? asked = null) =>
         new(name =>
