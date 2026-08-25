@@ -4,7 +4,7 @@
 // comes from) and the tracker trigger semantics — so the dashboard renders
 // exactly what the runtime resolves, not a second computation.
 
-import { ApiResponseError, apiFetch, getJson, sendJson } from "@/lib/apiResponse";
+import { apiFetch, getJson, refused, sendJson } from "@/lib/apiResponse";
 
 // Where an effective value came from. "run-resolved" = not knowable at config
 // time (e.g. the toolchain image is chosen per run from the repo's context.yaml).
@@ -483,7 +483,7 @@ export function crudClient<T extends { id: string }>(kind: ConfigEntityKind): Cr
     async remove(id, signal) {
       const path = `${base}/${encodeURIComponent(id)}`;
       const res = await apiFetch(path, { method: "DELETE", signal });
-      if (!res.ok) throw new ApiResponseError(path, res.status, `HTTP ${res.status}`);
+      if (!res.ok) throw await refused(res, path);
     },
   };
 }
@@ -501,7 +501,7 @@ export const secretsApi = crudClient<StudioSecret>("secrets");
 export async function fetchConfigExportYml(signal?: AbortSignal): Promise<string> {
   const path = `/api/config/export.yml`;
   const res = await apiFetch(path, { signal });
-  if (!res.ok) throw new ApiResponseError(path, res.status, `HTTP ${res.status}`);
+  if (!res.ok) throw await refused(res, path);
   return await res.text();
 }
 
@@ -701,5 +701,5 @@ export async function fetchChanges(signal?: AbortSignal): Promise<ConfigChange[]
 export async function revertChange(id: string, signal?: AbortSignal): Promise<void> {
   const path = `/api/config/changes/${encodeURIComponent(id)}/revert`;
   const res = await apiFetch(path, { method: "POST", signal });
-  if (!res.ok) throw new ApiResponseError(path, res.status, `HTTP ${res.status}`);
+  if (!res.ok) throw await refused(res, path);
 }

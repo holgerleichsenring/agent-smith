@@ -40,7 +40,8 @@ public sealed class IdentityRouteTests
             .Where(line => line.Length > 0 && !line.StartsWith('#'))
             .ToList();
 
-        golden.Should().HaveCount(78, "p0503a's table was 77 rows and this phase adds one");
+        golden.Should().HaveCount(79, "p0503a's table was 77 rows, p0503d added the identity "
+            + "row and 2026-08-25-4530 added the auth-requirements row");
         golden.Where(row => row.Contains(IdentityRoute, StringComparison.Ordinal))
             .Should().ContainSingle().Which.Should().Be($"GET\t{IdentityRoute}\t{Permissions.IdentityRead}");
     }

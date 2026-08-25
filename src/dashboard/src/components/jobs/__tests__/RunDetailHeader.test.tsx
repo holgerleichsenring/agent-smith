@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import { RunDetailHeader } from "../RunDetailHeader";
@@ -121,7 +121,7 @@ describe("RunDetailHeader", () => {
       globalThis.fetch = originalFetch;
     });
 
-    it("RunDetailHeader_CancelClicked_ShowsConfirmationLikeDelete", () => {
+    it("RunDetailHeader_CancelClicked_ShowsConfirmationLikeDelete", async () => {
       // p0372: cancel kills a paid, in-flight run — it gets the SAME two-click
       // confirm as delete: the first click only arms, nothing is posted.
       render(<RunDetailHeader {...base} status="running" />);
@@ -130,9 +130,13 @@ describe("RunDetailHeader", () => {
       expect(cancel).toHaveTextContent("confirm cancel");
       expect(globalThis.fetch).not.toHaveBeenCalled();
       fireEvent.click(cancel);
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        "/api/runs/run-abc/cancel",
-        expect.objectContaining({ method: "POST" }),
+      // 2026-08-25-2de1: the sign-in loop settles before the first request goes
+      // out, so the call lands a tick after the click rather than inside it.
+      await waitFor(() =>
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+          "/api/runs/run-abc/cancel",
+          expect.objectContaining({ method: "POST" }),
+        ),
       );
       // Both actions live in the prominent header actions cluster.
       const actions = screen.getByTestId("run-header-actions");

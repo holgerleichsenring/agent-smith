@@ -57,4 +57,10 @@ EXPOSE 3000
 # probe always hits the v4 socket Next.js binds.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD wget -qO- http://127.0.0.1:3000/ >/dev/null || exit 1
-ENTRYPOINT ["node", "server.js"]
+# 2026-08-25-21ae: the entrypoint writes the runtime settings document into the
+# static root this server serves, then execs the server as PID 1's child. The
+# server command stays a CMD so the entrypoint is what runs first and the
+# document exists before the first browser can ask for it.
+COPY --chmod=0755 src/dashboard/docker-entrypoint.sh /app/docker-entrypoint.sh
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["node", "server.js"]
