@@ -135,7 +135,6 @@
 136	AgentSmith.Application/Services/Loop/RuntimeObservationFactory.cs
 136	AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeHistoryCacheHandler.cs
 135	AgentSmith.Application/Services/ApiScanFindingsFormatter.cs
-134	AgentSmith.Infrastructure.Core/Services/Configuration/ConfigCatalogResolver.cs
 134	AgentSmith.Infrastructure/Services/Tools/DockerToolRunner.cs
 133	AgentSmith.Application/Services/Handlers/SecuritySnapshotWriter.cs
 130	AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs

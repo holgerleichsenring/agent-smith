@@ -21,8 +21,8 @@ public sealed class RawConfigMaterializer(
     ConfigSecretReferences? secretReferences = null)
 {
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
-    private readonly ConfigSecretReferences _references =
-        secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable);
+    private readonly ConfigSecretResolver _secrets = new(
+        secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
     private readonly List<StartupFinding> _unmaterializable = [];
 
     /// <summary>
@@ -39,8 +39,7 @@ public sealed class RawConfigMaterializer(
         // operator has fixed stops being reported without a restart.
         _findings.Clear(StartupSubsystems.Configuration);
         _unmaterializable.Clear();
-        ResolveSecrets(raw);
-        ResolveSecretReferences(raw);
+        _secrets.Apply(raw);
         deploymentDefaults.Apply(raw);
         ApplyEffectiveTriggers(raw);
         NormalizeProjects(raw);
@@ -53,11 +52,16 @@ public sealed class RawConfigMaterializer(
     // p0391b: an unknown resolution shorthand key used to throw out of here, and the
     // server's loader turned that into "the whole configuration is unusable" — one typo
     // in one project silenced every other project. It is now that project's finding.
+    // p0515: the tracker reference is resolved HERE, on the raw map, before any catalog
+    // exists — so it gets the catalog's case rule too. Without it a capitalised tracker ref
+    // merged no workflow at all, and a project carrying an explicit trigger block kept an
+    // EMPTY trigger_statuses, which the poller reads as "every status matches".
     private void ApplyEffectiveTriggers(RawAgentSmithConfig raw)
     {
+        var trackers = ConfigNames.KeyedByName(raw.Trackers);
         foreach (var (name, project) in raw.Projects)
         {
-            raw.Trackers.TryGetValue(project.Tracker, out var tracker);
+            trackers.TryGetValue(project.Tracker, out var tracker);
             try
             {
                 effectiveTriggers.Apply(name, project, tracker);
@@ -94,27 +98,5 @@ public sealed class RawConfigMaterializer(
         skills.Source = !string.IsNullOrWhiteSpace(skills.Path) ? SkillsSourceMode.Path
             : !string.IsNullOrWhiteSpace(skills.Url) ? SkillsSourceMode.Url
             : SkillsSourceMode.Embedded;
-    }
-
-    // p0191: registry tokens reference secrets via ${name}; substitute them after
-    // ResolveSecrets has replaced the secrets-dict values with env-var contents.
-    // p0506: a project's jira_trigger.secret carries the same reference shape — the
-    // shipped example writes ${JIRA_WEBHOOK_SECRET} — and was substituted by nothing,
-    // so the verifier compared deliveries against the literal placeholder.
-    private void ResolveSecretReferences(RawAgentSmithConfig raw)
-    {
-        foreach (var entry in raw.Registries)
-            entry.Token = _references.Resolve(entry.Token, raw.Secrets);
-        foreach (var project in raw.Projects.Values)
-            if (project.JiraTrigger?.Secret is { } secret)
-                project.JiraTrigger.Secret = _references.Resolve(secret, raw.Secrets);
-    }
-
-    private void ResolveSecrets(RawAgentSmithConfig raw)
-    {
-        var resolved = new Dictionary<string, string>();
-        foreach (var (key, value) in raw.Secrets)
-            resolved[key] = _references.ResolveFromEnvironment(value);
-        raw.Secrets = resolved;
     }
 }

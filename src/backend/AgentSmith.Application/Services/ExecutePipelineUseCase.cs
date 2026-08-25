@@ -4,7 +4,6 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -24,8 +23,7 @@ public sealed class ExecutePipelineUseCase(
     Resume.ResumeRequestReader resumeReader,
     ISourceConfigOverrider sourceConfigOverrider,
     ISkillsCatalogResolver catalogResolver,
-    ISkillsCatalogPath catalogPath,
-    ISkillLoader skillLoader,
+    ConceptVocabularyLoader vocabularyLoader,
     IPipelineConfigResolver pipelineConfigResolver,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
@@ -43,13 +41,6 @@ public sealed class ExecutePipelineUseCase(
     // well under the reaper's 3-min stale threshold so a legit multi-minute run
     // never looks crashed. CLI binds a no-op lease; non-ticket runs hold none.
     private static readonly TimeSpan LeaseHeartbeatInterval = TimeSpan.FromSeconds(45);
-    /// <summary>
-    /// Sub-path inside the catalog root where the shared concept vocabulary lives.
-    /// The vocabulary is global per catalog (not per-pipeline-skills-path), so it
-    /// always sits at the top of the <c>skills/</c> tree regardless of which
-    /// pipeline runs.
-    /// </summary>
-    private const string CatalogSkillsRootSubPath = "skills";
 
     public async Task<CommandResult> ExecuteAsync(
         PipelineRequest request, string configPath, CancellationToken cancellationToken)
@@ -66,116 +57,34 @@ public sealed class ExecutePipelineUseCase(
             "Executing pipeline '{Pipeline}' for project '{Project}'{TicketDesc} (run {RunId})",
             request.PipelineName, request.ProjectName, ticketDesc, runId);
 
-        var config = configLoader.LoadConfig(configPath);
-        var catalogResolution = await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
-
-        var projectConfig = ResolveProject(request, config);
-
-        var repos = ResolveRepos(projectConfig, request.Context);
-
-        var commands = PipelinePresets.TryResolve(request.PipelineName)
-            ?? throw new ConfigurationException($"Pipeline '{request.PipelineName}' not found in presets.");
-
-        var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
-
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.RunId, runId);
-        pipeline.Set(ContextKeys.RunStartedAt, runStartedAt);
-        // p0230/p0495: resolve the sandbox timeout pair once, in ONE pass — the default a
-        // run_command gets, and the operator's step cap, the ceiling it may ask for.
-        pipeline.Set(ContextKeys.RunCommandTimeoutSeconds,
-            configResolver.ResolveRunCommandTimeout(projectConfig).Value);
-        pipeline.Set(ContextKeys.StepTimeoutSeconds, configResolver.ResolveStepTimeout(projectConfig).Value);
-        // p0205: the visible LoadCatalog step reads this binding to emit the
-        // per-run CatalogLoaded event. EnsureResolvedAsync above is the loader;
-        // the step just records what THIS run bound to.
-        pipeline.Set(ContextKeys.CatalogResolution, catalogResolution);
-        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, repos);
-        pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
-        pipeline.Set(ContextKeys.Headless, request.Headless);
-        // A provided RunId means this launch REUSES an existing run row (p0320c
-        // capacity-queue relaunch): every attempt of the same logical run must not
-        // repeat one-shot ticket side effects like the "working on it" comment —
-        // a capacity-starved ticket otherwise collects one comment per retry.
-        if (request.RunId is not null)
-            pipeline.Set(ContextKeys.RelaunchedRun, true);
-        pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
-        pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
-        pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
-        // p0327: hybrid-wait tuning + the identity facts a checkpoint event needs
-        // (a spawned orchestrator cannot read them from the DB).
-        pipeline.Set(ContextKeys.DialogueHotWaitSeconds, config.Dialogue.HotWaitSeconds);
-        pipeline.Set(ContextKeys.DialogueApprovalTimeoutSeconds, config.Dialogue.ApprovalTimeoutSeconds);
-        pipeline.Set(ContextKeys.ProjectName, projectConfig.Name);
-        if (request.TicketId is not null)
-            pipeline.Set(ContextKeys.TrackerPlatform,
-                projectConfig.Tracker.Type.ToString().ToLowerInvariant());
-        pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
-        pipeline.Set("PipelineCostCap", configResolver.ResolveCostCap(request.PipelineName).Value);
-        // p0176b: per-call cost emitter (EventPublishingChatClient) and the
-        // tracker share the same default-pricing baseline via the resolver.
-        pipeline.Set("ModelPricingResolver", modelPricingResolver);
-
-        // p0125c-followup: vocabulary must be in PipelineContext BEFORE the first
-        // handler runs. Since p0125c, PipelineNameInitializer is step 1 of every
-        // preset and calls SetEnum("pipeline_name", ...) — which throws
-        // KeyNotFoundException against ConceptVocabulary.Empty. LoadSkills
-        // populates the vocabulary too, but it's much later in every preset
-        // (typically step 14+), so the early concept-writers had no vocab.
-        // Loading here, between catalog-resolve and pipeline-execute, is the
-        // single deterministic choke-point where both the catalog root and the
-        // freshly-built PipelineContext are in scope. LoadSkills still runs
-        // later but the vocabulary slot will already be populated, so the
-        // double-load is a no-op (LoadSkills sets the same vocabulary).
-        var vocabulary = LoadVocabularyFromCatalog();
-        pipeline.Set(ContextKeys.ConceptVocabulary, vocabulary);
-
-        if (request.TicketId is not null)
-            pipeline.Set(ContextKeys.TicketId, request.TicketId);
-
-        // p0326: inline ticket (demo/trackerless) — FetchTicket materializes it
-        // instead of a provider lookup; no TicketId, no lease, no tracker writes.
-        if (request.InlineTicket is not null)
-            pipeline.Set(ContextKeys.InlineTicket, request.InlineTicket);
-
-        if (request.IsInit)
+        // p0515: the work before RunStarted had no guard — p0175-fix wrapped only what comes
+        // AFTER it. A configuration fault here escaped with no terminal event, so a launch
+        // that had reserved a run left that row queued forever: every later click answered
+        // 409 already-running, and the admission reservation was never released.
+        RunPrologue prologue;
+        try
         {
-            pipeline.Set(ContextKeys.InitMode, true);
-            pipeline.Set(ContextKeys.CheckoutBranch, "agentsmith/init");
+            prologue = await BuildPrologueAsync(
+                request, configPath, runId, runStartedAt, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await PublishPrologueFailureAsync(request, runId, ex);
+            throw;
         }
 
-        if (request.Context is not null)
-        {
-            foreach (var (key, value) in request.Context)
-                pipeline.Set(key, value);
+        var projectConfig = prologue.Project;
+        var pipeline = prologue.Pipeline;
+        var resumePlan = prologue.Resume;
 
-            // Map ScanBranch to CheckoutBranch if not already set
-            if (request.Context.ContainsKey(ContextKeys.ScanBranch)
-                && !pipeline.Has(ContextKeys.CheckoutBranch))
-            {
-                pipeline.Set(ContextKeys.CheckoutBranch, request.Context[ContextKeys.ScanBranch]);
-            }
-        }
-
-        // p0128b: operator answers from a prior open-questions round-trip flow into
-        // the next run as a structured input block.
-        if (request.PlanAnswers is { Count: > 0 })
-            pipeline.Set(ContextKeys.PlanAnswers, request.PlanAnswers);
-
-        sourceConfigOverrider.Apply(projectConfig, pipeline);
-
-        // p0327: a resume launch rehydrates the checkpointed context ON TOP of
-        // the standard seeding (restored run state wins) and re-enters at the
-        // serialized step cursor instead of the preset's first command.
-        var resumePlan = resumeReader.TryRead(pipeline);
-
-        await PublishRunStartedAsync(runId, runStartedAt, request, repos, projectConfig, cancellationToken);
+        await PublishRunStartedAsync(runId, runStartedAt, request, prologue.Repos, projectConfig, cancellationToken);
         // p0242: link the run id onto the lease the poller claimed (jobId stays
         // null for an in-process run — the heartbeat is its liveness signal). Then
         // pump the heartbeat for the run's lifetime, and RELEASE on every exit.
-        await AttachLeaseAsync(request, runId, cancellationToken);
+        // p0515: under the CONFIGURED spelling — two capitalisations, not two leases.
+        await AttachLeaseAsync(request, projectConfig.Name, runId, cancellationToken);
         using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var heartbeatPump = RunHeartbeatPumpAsync(request, runId, heartbeatCts.Token);
+        var heartbeatPump = RunHeartbeatPumpAsync(request, projectConfig.Name, runId, heartbeatCts.Token);
         // p0200: register a per-run CTS so /api/runs/{runId}/cancel and
         // PipelineRunWatchdog can signal this execution by runId.
         var runCt = cancellationRegistry.Register(runId, cancellationToken);
@@ -185,7 +94,7 @@ public sealed class ExecutePipelineUseCase(
         try
         {
             result = resumePlan is null
-                ? await pipelineExecutor.ExecuteAsync(commands, projectConfig, pipeline, runCt)
+                ? await pipelineExecutor.ExecuteAsync(prologue.Commands, projectConfig, pipeline, runCt)
                 : await pipelineExecutor.ResumeAsync(
                     resumePlan.Commands, projectConfig, pipeline, resumePlan.ExecutionCount, runCt);
         }
@@ -200,7 +109,7 @@ public sealed class ExecutePipelineUseCase(
             var cancelMsg = cancelReason switch
             {
                 "watchdog-wall-time" =>
-                    $"Run exceeded its {config.Orchestrator.MaxRunWallTimeSeconds / 60}-minute wall-time budget "
+                    $"Run exceeded its {prologue.Config.Orchestrator.MaxRunWallTimeSeconds / 60}-minute wall-time budget "
                     + "(orchestrator.max_run_wall_time_seconds) and was cancelled.",
                 "operator" => "Cancelled by operator.",
                 // p0237: the liveness watcher killed the run because the sandbox
@@ -341,27 +250,151 @@ public sealed class ExecutePipelineUseCase(
             // .None so the release lands even when the caller's token is cancelled.
             heartbeatCts.Cancel();
             try { await heartbeatPump; } catch (OperationCanceledException) { /* expected */ }
-            await ReleaseLeaseAsync(request, runId, CancellationToken.None);
+            await ReleaseLeaseAsync(request, projectConfig.Name, runId, CancellationToken.None);
         }
+    }
+
+    // p0515: everything that must succeed BEFORE the run announces itself, as one unit — so
+    // the guard at the call site has something to wrap, and so ExecuteAsync reads as the
+    // run's lifecycle rather than its seeding.
+    private async Task<RunPrologue> BuildPrologueAsync(
+        PipelineRequest request, string configPath, string runId,
+        DateTimeOffset runStartedAt, CancellationToken cancellationToken)
+    {
+        var config = configLoader.LoadConfig(configPath);
+        var catalogResolution = await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
+        var projectConfig = ResolveProject(request, config);
+        var repos = ResolveRepos(projectConfig, request.Context);
+        var commands = PipelinePresets.TryResolve(request.PipelineName)
+            ?? throw new ConfigurationException($"Pipeline '{request.PipelineName}' not found in presets.");
+        var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.RunId, runId);
+        pipeline.Set(ContextKeys.RunStartedAt, runStartedAt);
+        // p0230/p0495: resolve the sandbox timeout pair once, in ONE pass — the default a
+        // run_command gets, and the operator's step cap, the ceiling it may ask for.
+        pipeline.Set(ContextKeys.RunCommandTimeoutSeconds,
+            configResolver.ResolveRunCommandTimeout(projectConfig).Value);
+        pipeline.Set(ContextKeys.StepTimeoutSeconds, configResolver.ResolveStepTimeout(projectConfig).Value);
+        // p0205: the visible LoadCatalog step reads this binding to emit the
+        // per-run CatalogLoaded event. EnsureResolvedAsync above is the loader;
+        // the step just records what THIS run bound to.
+        pipeline.Set(ContextKeys.CatalogResolution, catalogResolution);
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, repos);
+        pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
+        pipeline.Set(ContextKeys.Headless, request.Headless);
+        // A provided RunId means this launch REUSES an existing run row (p0320c
+        // capacity-queue relaunch): every attempt of the same logical run must not
+        // repeat one-shot ticket side effects like the "working on it" comment —
+        // a capacity-starved ticket otherwise collects one comment per retry.
+        if (request.RunId is not null)
+            pipeline.Set(ContextKeys.RelaunchedRun, true);
+        pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
+        pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
+        pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
+        // p0327: hybrid-wait tuning + the identity facts a checkpoint event needs
+        // (a spawned orchestrator cannot read them from the DB).
+        pipeline.Set(ContextKeys.DialogueHotWaitSeconds, config.Dialogue.HotWaitSeconds);
+        pipeline.Set(ContextKeys.DialogueApprovalTimeoutSeconds, config.Dialogue.ApprovalTimeoutSeconds);
+        pipeline.Set(ContextKeys.ProjectName, projectConfig.Name);
+        if (request.TicketId is not null)
+            pipeline.Set(ContextKeys.TrackerPlatform,
+                projectConfig.Tracker.Type.ToString().ToLowerInvariant());
+        pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
+        pipeline.Set("PipelineCostCap", configResolver.ResolveCostCap(request.PipelineName).Value);
+        // p0176b: per-call cost emitter (EventPublishingChatClient) and the
+        // tracker share the same default-pricing baseline via the resolver.
+        pipeline.Set("ModelPricingResolver", modelPricingResolver);
+
+        // p0125c-followup: vocabulary must be in PipelineContext BEFORE the first
+        // handler runs. Since p0125c, PipelineNameInitializer is step 1 of every
+        // preset and calls SetEnum("pipeline_name", ...) — which throws
+        // KeyNotFoundException against ConceptVocabulary.Empty. LoadSkills
+        // populates the vocabulary too, but it's much later in every preset
+        // (typically step 14+), so the early concept-writers had no vocab.
+        // Loading here, between catalog-resolve and pipeline-execute, is the
+        // single deterministic choke-point where both the catalog root and the
+        // freshly-built PipelineContext are in scope. LoadSkills still runs
+        // later but the vocabulary slot will already be populated, so the
+        // double-load is a no-op (LoadSkills sets the same vocabulary).
+        pipeline.Set(ContextKeys.ConceptVocabulary, vocabularyLoader.Load());
+
+        if (request.TicketId is not null)
+            pipeline.Set(ContextKeys.TicketId, request.TicketId);
+
+        // p0326: inline ticket (demo/trackerless) — FetchTicket materializes it
+        // instead of a provider lookup; no TicketId, no lease, no tracker writes.
+        if (request.InlineTicket is not null)
+            pipeline.Set(ContextKeys.InlineTicket, request.InlineTicket);
+
+        if (request.IsInit)
+        {
+            pipeline.Set(ContextKeys.InitMode, true);
+            pipeline.Set(ContextKeys.CheckoutBranch, "agentsmith/init");
+        }
+
+        if (request.Context is not null)
+        {
+            foreach (var (key, value) in request.Context)
+                pipeline.Set(key, value);
+
+            // Map ScanBranch to CheckoutBranch if not already set
+            if (request.Context.ContainsKey(ContextKeys.ScanBranch)
+                && !pipeline.Has(ContextKeys.CheckoutBranch))
+            {
+                pipeline.Set(ContextKeys.CheckoutBranch, request.Context[ContextKeys.ScanBranch]);
+            }
+        }
+
+        // p0128b: operator answers from a prior open-questions round-trip flow into
+        // the next run as a structured input block.
+        if (request.PlanAnswers is { Count: > 0 })
+            pipeline.Set(ContextKeys.PlanAnswers, request.PlanAnswers);
+
+        sourceConfigOverrider.Apply(projectConfig, pipeline);
+
+        // p0327: a resume launch rehydrates the checkpointed context ON TOP of
+        // the standard seeding (restored run state wins) and re-enters at the
+        // serialized step cursor instead of the preset's first command.
+        return new RunPrologue(
+            config, projectConfig, repos, commands, pipeline, resumeReader.TryRead(pipeline));
+    }
+
+    // p0515: only a launch that RESERVED a run id owns a row to terminalize. A terminal
+    // event for an unknown run is a no-op in the database but NOT in the live fold — the
+    // broadcaster folds it onto an empty snapshot and posts a card with no project, pipeline
+    // or repos. Init, capacity-queue and resume launches carry request.RunId, and those are
+    // exactly the launches that can hang on a queued row.
+    private Task PublishPrologueFailureAsync(PipelineRequest request, string runId, Exception ex)
+    {
+        logger.LogError(ex, "Run {RunId} failed before it started: {Reason}", runId, ex.Message);
+        return request.RunId is null
+            ? Task.CompletedTask
+            : PublishRunFinishedWithStatusAsync(
+                runId, "failed", ex.Message, prUrl: null, costUsd: null, CancellationToken.None);
     }
 
     // p0242: lease lifecycle helpers. The poller CLAIMED the lease at enqueue; we attach
     // the run id, renew while alive, and release at the end UNDER THAT SAME id (p0459) —
     // a ticket a newer run has since reclaimed keeps its new holder. Guarded to ticket
     // runs: CLI/non-ticket runs hold no lease, and a missing row is a harmless no-op.
-    private async Task AttachLeaseAsync(PipelineRequest request, string runId, CancellationToken ct)
+    private async Task AttachLeaseAsync(
+        PipelineRequest request, string project, string runId, CancellationToken ct)
     {
         if (request.TicketId is null) return;
-        await activeRunLease.AttachRunAsync(request.ProjectName, request.TicketId, runId, jobId: null, ct);
+        await activeRunLease.AttachRunAsync(project, request.TicketId, runId, jobId: null, ct);
     }
 
-    private async Task ReleaseLeaseAsync(PipelineRequest request, string runId, CancellationToken ct)
+    private async Task ReleaseLeaseAsync(
+        PipelineRequest request, string project, string runId, CancellationToken ct)
     {
         if (request.TicketId is null) return;
-        await activeRunLease.ReleaseAsync(request.ProjectName, request.TicketId, runId, ct);
+        await activeRunLease.ReleaseAsync(project, request.TicketId, runId, ct);
     }
 
-    private async Task RunHeartbeatPumpAsync(PipelineRequest request, string runId, CancellationToken ct)
+    private async Task RunHeartbeatPumpAsync(
+        PipelineRequest request, string project, string runId, CancellationToken ct)
     {
         if (request.TicketId is null) return;
         // p0376: the try/catch lives INSIDE the loop so a transient DB fault on ONE
@@ -378,7 +411,7 @@ public sealed class ExecutePipelineUseCase(
             try
             {
                 await Task.Delay(LeaseHeartbeatInterval, ct);
-                await activeRunLease.RenewHeartbeatAsync(request.ProjectName, request.TicketId, CancellationToken.None);
+                await activeRunLease.RenewHeartbeatAsync(project, request.TicketId, CancellationToken.None);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -400,9 +433,10 @@ public sealed class ExecutePipelineUseCase(
         if (!string.IsNullOrEmpty(request.AgentName))
             return BuildEphemeralProject(request, config);
 
-        var projectName = request.ProjectName.ToLowerInvariant();
-        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
-            throw new ConfigurationException($"Project '{projectName}' not found in configuration.");
+        // p0515: looked up AS CONFIGURED. This lowercased, while the catalog is keyed by
+        // ConfigNames.Comparer — two rules for one name, and the launcher used the other one.
+        if (!config.Projects.TryGetValue(request.ProjectName, out var projectConfig))
+            throw new ConfigurationException($"Project '{request.ProjectName}' not found in configuration.");
         return projectConfig;
     }
 
@@ -533,41 +567,6 @@ public sealed class ExecutePipelineUseCase(
         if (!config.Projects.TryGetValue(projectName, out var project)) return fallback;
         try { return pipelineConfigResolver.ResolveDefaultPipelineName(project); }
         catch (InvalidOperationException) { return fallback; }
-    }
-
-    /// <summary>
-    /// p0125c-followup: shared concept vocabulary is loaded from the catalog's
-    /// <c>skills/</c> subtree. <see cref="ISkillsCatalogPath.Root"/> points at
-    /// the extracted catalog root (e.g. <c>~/.cache/agentsmith/skills/</c>); the
-    /// vocab YAML sits at <c>{Root}/skills/concept-vocabulary.yaml</c>.
-    /// Returns <see cref="ConceptVocabulary.Empty"/> when the catalog isn't
-    /// bootstrapped yet (CLI tooling running before the resolver wired it up,
-    /// or dev-from-source with no catalog at all). The empty vocab matches the
-    /// pre-fix behavior; concept-writers in early steps will throw with the
-    /// same KeyNotFoundException as before, surfacing the missing-catalog
-    /// problem clearly rather than masking it.
-    /// </summary>
-    private ConceptVocabulary LoadVocabularyFromCatalog()
-    {
-        try
-        {
-            var skillsRoot = Path.Combine(catalogPath.Root, CatalogSkillsRootSubPath);
-            if (!Directory.Exists(skillsRoot))
-            {
-                logger.LogWarning(
-                    "Skills root {Path} not present at pipeline-bootstrap; concept vocabulary " +
-                    "will be empty until LoadSkills repopulates it.", skillsRoot);
-                return ConceptVocabulary.Empty;
-            }
-            return skillLoader.LoadVocabulary(skillsRoot) ?? ConceptVocabulary.Empty;
-        }
-        catch (InvalidOperationException ex)
-        {
-            logger.LogWarning(ex,
-                "Catalog not yet bootstrapped at pipeline-start; concept vocabulary " +
-                "will be empty until LoadSkills repopulates it.");
-            return ConceptVocabulary.Empty;
-        }
     }
 
     private Task PublishRunStartedAsync(
