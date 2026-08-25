@@ -42,7 +42,7 @@ public sealed class AccountDeliveryEvalTests(ITestOutputHelper output)
         var factory = new AccountEvalChatFactory(client, modelId);
         var accountant = new SpecAccountant(
             factory,
-            new SpecAccountCall(factory, new EvalRunContext(), NullLogger<SpecAccountCall>.Instance),
+            new AccountCalls(new SpecAccountCall(factory, new EvalRunContext(), NullLogger<SpecAccountCall>.Instance)),
             NullLogger<SpecAccountant>.Instance);
 
         var report = await new AccountEvalHarness(accountant, NullLoggerFactory.Instance)
