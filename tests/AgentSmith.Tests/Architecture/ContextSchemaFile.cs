@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using AgentSmith.Application.Services.Validation;
 using Json.Schema;
 
 namespace AgentSmith.Tests.Architecture;

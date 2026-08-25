@@ -13,9 +13,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// rendered from — its key casing is the writer's, its unknown keys are already
 /// gone, and its numbers are still numbers — so the schema judges the file that
 /// will exist. Judging the raw argument would reject a model whose casing never
-/// reaches the file and would put the YAML-to-JSON bridge (which stringifies
-/// every scalar, cut as 2026-08-25-2c7c and deliberately not fixed here) in the
-/// path of every integer rule in the schema.
+/// reaches the file.
 /// </para>
 /// </summary>
 public sealed class ContextDocumentGate(ContextStackImageRule stackImage, ContextSchemaRule schemaRule)
