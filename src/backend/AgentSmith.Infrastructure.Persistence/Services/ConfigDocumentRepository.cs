@@ -24,6 +24,7 @@ public sealed class ConfigDocumentRepository(AgentSmithDbContext db)
     public void Save(ConfigDocWrite write)
     {
         SecretValueGuard.Validate(write.Type, write.Id, write.Doc);
+        ConfigNameCollisionGuard.AgainstStored(write.Type, write.Id, StoredIds(write.Type));
         using var tx = db.Database.BeginTransaction();
         var existing = Find(write.Type, write.Id);
         var version = NextVersion(existing, write);
@@ -63,6 +64,13 @@ public sealed class ConfigDocumentRepository(AgentSmithDbContext db)
             .OrderByDescending(v => v.Version)
             .Select(v => v.Doc)
             .FirstOrDefault();
+
+    // p0515b: the collision is judged in memory, never by the database — a case-insensitive
+    // collation would hide the twin behind an equality the guard is there to reject, and a
+    // case-sensitive one would never surface it at all.
+    private IReadOnlyList<string> StoredIds(string type) =>
+        db.ConfigEntities.AsNoTracking().Where(e => e.EntityType == type)
+            .Select(e => e.EntityId).ToList();
 
     private ConfigEntity? Find(string type, string id) =>
         db.ConfigEntities.SingleOrDefault(e => e.EntityType == type && e.EntityId == id);

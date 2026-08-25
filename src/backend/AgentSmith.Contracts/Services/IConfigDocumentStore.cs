@@ -18,13 +18,21 @@ public interface IConfigDocumentStore
     /// <summary>All current doc rows, for assembling the typed config.</summary>
     IReadOnlyList<ConfigDocRow> LoadAll();
 
-    /// <summary>Upsert one entity (doc + edges + a new version), version-checked and secret-guarded.</summary>
+    /// <summary>
+    /// Upsert one entity (doc + edges + a new version), version-checked and secret-guarded.
+    /// p0515b: refused when the store already holds the same name under a different spelling —
+    /// that write would replace an entity the caller never named.
+    /// </summary>
     void Save(ConfigDocWrite write);
 
     /// <summary>Delete one entity; rejected with the referencing set when an edge still points at it.</summary>
     void Delete(string type, string id, string changedBy);
 
-    /// <summary>Import a whole config: all entity rows first, then all edges, so RESTRICT holds regardless of order.</summary>
+    /// <summary>
+    /// Import a whole config: all entity rows first, then all edges, so RESTRICT holds regardless
+    /// of order. p0515b: refused before anything is cleared when the set carries two spellings of
+    /// one name.
+    /// </summary>
     void Import(IReadOnlyList<ConfigDocWrite> entities, bool force);
 
     /// <summary>The single audit feed, newest first.</summary>
