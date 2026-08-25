@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-0eae
+
+goal: "The delivery account searches the base ref each repository was diffed against, as well as the branch, and every search says which ref it read."
+
+applies_to: "backend"
+
+requires:
+  - 2026-08-25-1360
+
+scope:
+  in: "Reach, and nothing that spends it. The base ref the delivery diff already resolved is carried to the account's search; the search reads it read-only, without a shell; a search that could not run is kept out of the evidence; and every evidence line names the ref it read, so a base search and a branch search are never the same citation."
+  out: "The not-applicable disposition, the full-reach pass and the run-level nothing-satisfied rule — three successors named below, each of which SPENDS this reach and none of which is buildable before it exists. The derivation side, which needs the same reach for a different caller."
+
+decisions:
+  - key: |
+      THREE CRITERION CLASSES LIVE IN THE BASE AND THE ACCOUNT CANNOT SEE IT. A live two-repo
+      migration failed on three criteria and every one was a non-finding. Two were quantified
+      over the BASE rather than the diff — "where X was previously configured" and "no host
+      gains a transport it did not have before". The account is handed the diff, the file
+      list, the commands and, since p0483, a grep of the branch as it stands. The base is in
+      none of them.
+  - key: |
+      THE SPEC THAT PRECEDED THIS ONE TRIED TO DO FOUR THINGS AND WAS REFUSED. It carried the
+      reach, a third disposition, a re-ask and a run-level pass rule. The disposition needed a
+      citation that can tell a base search from a branch search — which the same spec put out
+      of scope, so it forbade itself the change it needed. Cutting to reach is not a deferral
+      of the rest; it is the discovery that the rest all rest on it. The name said so first:
+      "the account searches the base ref" names reach and nothing else.
+  - key: |
+      THE BASE IS ALREADY IN THE SANDBOX AND ALREADY RESOLVED. The clone is full, git runs
+      there, and the delivery diff picks a ref through a ladder — origin/<base>, then <base>,
+      then HEAD — and NAMES what it settled on. That name is discarded on the success path
+      today. Carrying it is the whole plumbing: resolving it a second time would let the
+      account search a different ref than the diff it is reading was taken against.
+  - key: |
+      WHERE THE LADDER FELL TO HEAD, THERE IS NO BASE. Then a base search would search the
+      branch under another name, which is worse than no base search at all. The absence is
+      reported, not substituted.
+  - key: |
+      IT IS NOT THE SAME COMMAND. A ref cannot be read by grep, so this is git grep with
+      exclusion pathspecs — the same read-only, fixed-argv, no-shell shape, a different argv.
+  - key: |
+      AN EVIDENCE LINE THAT DOES NOT NAME ITS REF MAKES THE SUCCESSORS IMPOSSIBLE. A search is
+      remembered today as its repository, its pattern and its exit code, and a citation is
+      matched on the pattern alone — so a base search and a branch search of the same pattern
+      are one citation. Every rule that will later distinguish them has to be able to read the
+      difference, which is why the evidence line is part of REACH and not of what spends it.
+  - key: |
+      A SEARCH THAT COULD NOT RUN PROVES NOTHING, and is remembered today exactly like one
+      that ran and found nothing. That conflation is harmless while nothing draws a conclusion
+      from an empty result, and load-bearing the moment something does.
+
+steps:
+  - id: the-resolved-base-ref-reaches-the-account
+    action: "Carry the ref the delivery diff settled on, per repository, from the diff to the account's search, and report its absence where the ladder fell through to the branch itself."
+  - id: the-search-reads-a-ref-read-only
+    action: "Let the account search a carried base ref as well as the working tree, read-only and without a shell, and refuse a ref that does not resolve rather than searching something else."
+  - id: a-search-names-the-ref-it-read
+    action: "Record in every search's evidence line which ref it read, so a base search and a branch search of one pattern are two citations."
+  - id: a-search-that-did-not-run-is-not-evidence
+    action: "Keep a search that errored, timed out or named no such ref out of the evidence a citation can resolve against, and say which it was."
+
+tests:
+  - "PhaseAccounting_TheResolvedBaseRef_ReachesTheSearch"
+  - "PhaseAccounting_ABaseThatFellThroughToTheBranch_IsReportedAsNoBase"
+  - "BranchSearch_ACarriedBaseRef_IsSearchedReadOnly"
+  - "BranchSearch_ABaseSearchThatFoundNothing_IsRememberedAsEvidence"
+  - "BranchSearch_AnUnresolvableRef_IsRefusedRatherThanSubstituted"
+  - "BranchSearch_ASearchThatErrored_IsNotEvidenceOfAbsence"
+  - "BranchSearch_ABaseSearchEvidenceLine_NamesTheRefItRead"
+  - "BranchSearch_ABranchAndABaseSearchOfOnePattern_AreTwoCitations"
+  - "Accountant_NoSandbox_StillAccountsFromCitedEvidence"
+
+done:
+  - "the ref the delivery diff was taken against is the ref the account searches, per repository"
+  - "a base that fell through to the branch is reported as no base, never searched as one"
+  - "a base search runs read-only, without a shell, and refuses a ref that does not resolve"
+  - "every evidence line names the ref it read, so two searches of one pattern are two citations"
+  - "a search that could not run is not evidence of absence and says which failure it was"
+  - "build green, full suite green"

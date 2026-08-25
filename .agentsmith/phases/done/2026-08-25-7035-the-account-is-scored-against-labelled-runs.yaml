@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-25-7035
+
+goal: "The delivery account runs against fixture deliveries whose truth is known, so a change to it moves a false-negative and a false-positive rate that both have a denominator."
+
+applies_to: "backend (the pipeline harness eval tier)"
+
+scope:
+  in: "A corpus of small fixture deliveries built as real repositories — a base tree, a branch tree, ratified criteria and the known disposition of each — replayed through the real account against a real in-process sandbox, scored in both directions, and reported with its population."
+  out: "The operator's judgements on live runs as a second corpus — that needs 7f5a and e257 and is a successor, not a dependency; this phase measures without waiting for either. Harvesting fixtures from live customer runs, which needs the account to record the evidence it judged and cannot be done from what a run stores today — named in prose as a successor. Any automatic CI gate on the numbers, before the corpus has a population worth gating on."
+
+decisions:
+  - key: |
+      THE MACHINE EXISTS AND WAS NEVER FED. p0329 built fixture ingestion, a per-assertion judge
+      and a committed report as a baseline record. The fixture directory holds one synthetic
+      file; the single committed report reads "fixtures: 1, 4/4 (100 %)" and is dated three
+      weeks ago. And it judges the DRAFTER. The account — fourteen phases of tuning — has no
+      eval at all.
+  - key: |
+      THE OBVIOUS CORPUS IS THE WRONG ONE, AND FINDING OUT WAS THE POINT OF ASKING. Replaying
+      real runs cannot work today: the account's input is never persisted — the delivery diff is
+      a local buffer, the base ref is discarded on the success path, and the median diff is 205k
+      characters — and since p0483 the account is a TOOL-USING call against live sandboxes, so a
+      replay with no sandbox would measure a different component than the one in production.
+  - key: |
+      SO THE FIXTURE IS A DELIVERY, NOT A TRANSCRIPT. A base tree and a branch tree, committed
+      to this repository, made into real git repositories at test time and handed to the account
+      through the in-process sandbox it already runs against in CLI mode. The search tool works
+      for real, on any pattern, including one a future prompt invents. Nothing is recorded and
+      replayed, so nothing goes stale when the prompt changes.
+  - key: |
+      IT ALSO REMOVES THE DISCLOSURE PROBLEM ENTIRELY. A unified diff of a customer repository is
+      a far larger surface than a ticket summary, and the anonymisation check that guards the
+      existing fixtures matches emails, URLs and a deny-list that is empty by policy. A fixture
+      we author carries no customer material to miss.
+  - key: |
+      BOTH DIRECTIONS NEED A DENOMINATOR. Seeding only from runs known to have been misjudged
+      samples FOR false negatives and leaves the false-positive rate structurally 0/0. The corpus
+      is designed instead: criteria that are genuinely met, genuinely unmet, vacuously
+      conditional, and universal over subjects that fall on both sides of a window split. A rate
+      over a designed population is a measurement; a rate over the complaints is a mood.
+  - key: |
+      THE FIXTURE AUTHOR IS NOT THE ORACLE. The truth of "this tree contains an explicit publish
+      route" is a property of the tree, not a judgement about it. Where a fixture's truth is not
+      that plain, it does not belong in the corpus.
+  - key: |
+      WHAT IS REUSED AND WHAT IS NOT, stated rather than implied. Reused: the LiveLLM tier
+      convention, the opt-in credential skip, the committed-report discipline. New: the fixture,
+      its loader, the scoring and the report — the existing ones carry a ticket and a gold
+      assertion list, which an account fixture is not. Calling that a reuse would be a rewrite
+      wearing a borrowed name.
+  - key: |
+      THE REPORT IS KEYED BY MODEL AND BY THE ACCOUNT PROMPT, not by the skills pin: the account's
+      instructions live in this repository, so a pin would key the report to something that does
+      not change when the thing under test does.
+
+steps:
+  - id: a-fixture-delivery-is-two-trees-and-its-truth
+    action: "Define a fixture as a base tree, a branch tree, the ratified criteria and the known disposition of each, committed to this repository."
+  - id: a-fixture-becomes-a-real-repository-at-test-time
+    action: "Materialise a fixture into a real git repository with a base ref and a work branch, and hand it to the account through an in-process sandbox so its search tool works for real."
+  - id: the-account-is-scored-in-both-directions
+    action: "Compare the account's disposition per criterion against the fixture's known truth, counting refusals of met criteria and passes of unmet ones separately."
+  - id: the-report-carries-both-rates-and-its-population
+    action: "Emit and commit a report per model and account-prompt version with both rates, the per-criterion detail and the population each rate was computed over."
+  - id: the-corpus-covers-the-classes-that-have-failed
+    action: "Seed fixtures for a met criterion, an unmet one, an absence, a vacuous conditional and a universal criterion whose subjects straddle a window split, and record the baseline."
+  - id: the-scoring-is-proven-without-a-model
+    action: "Cover fixture materialisation, disposition comparison, rate arithmetic and report shape with scripted answers in the model-free tier."
+
+tests:
+  - "AccountFixture_Materialised_IsARealRepositoryWithABaseAndABranch"
+  - "AccountFixture_ItsSearchTool_AnswersAPatternTheFixtureNeverDeclared"
+  - "AccountFixture_WithoutAKnownDisposition_IsNotScored"
+  - "AccountEval_ADispositionMatchingTheTruth_ScoresNeither"
+  - "AccountEval_ARefusalOfAMetCriterion_ScoresAFalseNegative"
+  - "AccountEval_APassOfAnUnmetCriterion_ScoresAFalsePositive"
+  - "AccountEval_EachRate_IsComputedOverItsOwnDenominator"
+  - "AccountEval_TheReport_StatesBothPopulations"
+  - "AccountEval_TheReport_IsDeterministicPerModelAndPromptVersion"
+  - "AccountEval_LiveTier_SkipsLoudlyWithoutCredentials"
+  - "AccountEval_TheCorpus_CoversEveryCriterionClassItClaims"
+
+done:
+  - "a fixture delivery is two trees and a known disposition per criterion, committed to this repository"
+  - "it materialises into a real repository and the account's search tool answers real patterns against it"
+  - "the account is scored in both directions, each rate over its own denominator"
+  - "the report carries both rates, both populations and the per-criterion detail, and is committed"
+  - "the corpus covers a met, an unmet, an absence, a vacuous conditional and a window-straddling universal criterion"
+  - "the arithmetic and report shape are proven without a model; the live tier is opt-in and skips loudly"
+  - "build green, full suite green (eval tier opt-in)"

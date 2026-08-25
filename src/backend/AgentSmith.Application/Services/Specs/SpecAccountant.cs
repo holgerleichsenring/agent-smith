@@ -38,7 +38,8 @@ public sealed class SpecAccountant(
         AgentConfig agent,
         BranchSearch? branchSearch,
         PipelineCostTracker costTracker,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int windowBudgetChars = DiffWindows.DefaultBudgetChars)
     {
         ArgumentNullException.ThrowIfNull(criteria);
         if (criteria.Count == 0)
@@ -54,7 +55,7 @@ public sealed class SpecAccountant(
 
         // A diff too large for one call is SPLIT, never cut: evidence is monotone, so a
         // criterion satisfied by one window is satisfied, and the windows' answers union.
-        var windows = DiffWindows.Split(diff);
+        var windows = DiffWindows.Split(diff, windowBudgetChars);
         if (windows.Count > 1)
             logger.LogInformation(
                 "{Repo}: the delivery diff spans {Windows} windows — accounting for each and "
