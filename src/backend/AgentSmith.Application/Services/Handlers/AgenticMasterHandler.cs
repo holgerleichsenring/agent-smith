@@ -35,6 +35,7 @@ public sealed class AgenticMasterHandler(
     IDecisionLogger decisionLogger,
     AgentSmithConfig config,
     IContextYamlSerializer contextYamlSerializer,
+    ContextDocumentGate contextDocumentGate, // 2026-08-25-c9c7: judges write_context_yaml's document
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
     ISpecDialogPromptFactory specDialogPromptFactory,
@@ -259,7 +260,8 @@ public sealed class AgenticMasterHandler(
             && keyToRepo.TryGetValue(defaultKey, out var drn) && !string.IsNullOrEmpty(drn)
             ? drn : defaultKey;
         var writeContextYaml = new WriteContextYamlToolHost(
-            sandboxes, defaultKey, contextYamlSerializer, discoveredContexts, writeDefaultRepoName);
+            sandboxes, defaultKey, contextYamlSerializer, contextDocumentGate,
+            discoveredContexts, writeDefaultRepoName);
 
         // p0356: the probed toolchain inventory enters the CODING master's system
         // prompt as a capability statement — per-run stable, so the automatic

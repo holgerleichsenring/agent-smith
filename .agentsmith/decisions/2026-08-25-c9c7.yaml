@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-c9c7
+
+decisions:
+  - category: Architecture
+    chose: "A stack block is mandatory unless meta.domain is declared"
+    over: "Rejecting every context that names no image, or leaving the p0265 guard as it stood"
+    reason: |
+      The image requirement was never unenforced — WriteContextYamlToolHost checked it.
+      It checked `typed.Stack is not null && image is blank && domain is blank`, so a
+      model that omitted the whole stack block made the first conjunct false and walked
+      past. One clause was missing, not a schema engine. The fix inverts the shape: a
+      declared domain exempts the context entirely (p0504's profile brings the image and
+      DataProfileGateTests guards that), and every other context must carry a stack that
+      names one. A blanket "reject a missing image" would have silently reverted p0504.
+  - category: Architecture
+    chose: "The judged JSON is the TYPED document projected back to JSON"
+    over: "The raw `document` argument the model sent, or the emitted YAML re-parsed as JSON"
+    reason: |
+      Three candidates, and only one of them is the file. The raw argument is not what
+      gets written: unknown keys are dropped by deserialization and never reach disk, so
+      judging it would refuse a model over casing and stray keys that the writer already
+      discards — noise that costs refusal budget and fixes nothing. The emitted YAML is
+      the file, but reading it back needs a YAML-to-JSON bridge, and the shared one
+      stringifies every scalar (cut as 2026-08-25-2c7c, deliberately NOT fixed here) —
+      every integer rule in the schema would then fail on correct input. The typed
+      document projected through the writer's own naming policy is the emitted YAML in
+      JSON form: writer casing, no unknown keys, numbers still numbers. It is also not
+      vacuous — the typed document models arch/quality/behavior as freeform maps and
+      enforces no enum, pattern or length anywhere, which is precisely what the schema
+      adds.
+  - category: Architecture
+    chose: "A refusal quotes the broken rule out of the schema, and five refusals per context ends the exchange"
+    over: "Returning the raw validator message, or refusing indefinitely"
+    reason: |
+      A refusal returns as a tool result and the model re-emits inside the agentic loop.
+      "Value should match one of the values specified by the enum" without the values is
+      an invitation to guess, and guessing at the iteration cap is the p0385/p0386 shape.
+      The message therefore carries a JSON Pointer to the offending node AND the schema
+      node that rejected it, resolved from the schema document by the evaluation path, so
+      one refusal is normally enough. Behind that, ContextWriteRejectionBudget counts
+      refusals per context name for the tool host's lifetime — one round — and after five
+      stops inviting a rewrite and says the write is abandoned. Nothing is written either
+      way, so BootstrapRoundHandler's existing missing-context.yaml guard turns the
+      exhausted budget into a loud round failure rather than a silent success.
+  - category: Architecture
+    chose: "The re-entry already exists — re-running init-project — and is pinned by a test rather than rebuilt"
+    over: "Weakening BootstrapDiscoverHandler's short-circuit so an imageless context forces re-discovery"
+    reason: |
+      The premise the phase was cut on is half right. BootstrapDiscoverHandler does
+      short-circuit when a non-synthetic discovery exists — but it short-circuits the
+      discovery LLM CALL only. It still projects the existing contexts into
+      DiscoveredComponents, BootstrapDispatch fans out one BootstrapRound per component,
+      and that round reads the existing context.yaml, must call write_context_yaml, and
+      fails the run when it does not. An initialised repository DOES re-write its
+      context; it just needs init-project run again. Building a second route would have
+      been a mechanism for a problem that does not exist, so the property is pinned by
+      ContextReinitReachTests instead — it was load-bearing and never asserted.
+  - category: Architecture
+    chose: "A partial stack.resources block is now refused"
+    over: "Keeping the documented 'a partial block is ignored and the default applies'"
+    reason: |
+      The schema has always required all four Kubernetes quantities together; enforcing
+      it turns a silently-dropped block into a named defect. The tool description said
+      the opposite and now matches. The resolver's read-side tolerance for pre-existing
+      files is unchanged — only the write path got stricter.
