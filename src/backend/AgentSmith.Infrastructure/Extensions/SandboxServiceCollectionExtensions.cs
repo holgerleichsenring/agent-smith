@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Services.Sandbox;
@@ -22,7 +23,10 @@ public static class SandboxServiceCollectionExtensions
     {
         services.AddSingleton<ISandboxFactory, InProcessSandboxFactory>();
         services.TryAddSingleton<IOptions<SandboxGlobalConfig>>(_ =>
-            Options.Create(new SandboxGlobalConfig { AgentVersion = "in-process" }));
+            Options.Create(new SandboxGlobalConfig
+            {
+                AgentVersion = AgentImageDefaults.InProcessVersion
+            }));
         return services;
     }
 }

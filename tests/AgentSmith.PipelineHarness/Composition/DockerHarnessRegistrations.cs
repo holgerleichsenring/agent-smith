@@ -83,6 +83,7 @@ internal static class DockerHarnessRegistrations
                 sp.GetRequiredService<DockerPackageCaches>(),
                 sp.GetRequiredService<DockerImagePresence>(),
                 sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
+                sp.GetRequiredService<IWireProtocolWatcher>(),
                 sp.GetRequiredService<ILoggerFactory>());
             return new ExtraBindsSandboxFactory(inner, session);
         });

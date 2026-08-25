@@ -58,6 +58,10 @@ internal static class ServerSandboxExtensions
     internal static IServiceCollection AddSandbox(this IServiceCollection services)
     {
         var backend = ResolveBackend();
+        // 2026-08-25-0d01: the reader for the protocol version every wire record has always
+        // carried. Registered for every backend, because the in-process one is the only one
+        // that cannot skew and the other two both talk to an image with its own release.
+        services.AddSingleton<IWireProtocolWatcher, WireProtocolWatcher>();
         switch (backend)
         {
             case SandboxBackend.Kubernetes: KubernetesSandboxRegistrations.Register(services); break;

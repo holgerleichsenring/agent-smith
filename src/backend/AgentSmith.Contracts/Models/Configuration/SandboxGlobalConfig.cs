@@ -16,12 +16,12 @@ public sealed class SandboxGlobalConfig
     public string AgentRegistry { get; set; } = AgentSmith.Contracts.Constants.AgentImageDefaults.DefaultRegistry;
 
     /// <summary>
-    /// Sandbox agent image tag (e.g. <c>0.48.0</c>). No default — operators MUST set this
-    /// in agentsmith.yml under either the top-level <c>sandbox:</c> block or a
-    /// per-project <c>projects.&lt;name&gt;.sandbox:</c> override. Empty value triggers a
-    /// fail-loud at sandbox-spawn time so a misconfigured deployment is caught
-    /// before the first ticket lands instead of producing an ErrImagePull at the
-    /// pod level.
+    /// Sandbox agent image tag (e.g. <c>0.48.0</c>). 2026-08-25-0d01: an OVERRIDE, not a
+    /// requirement — left empty (and with no <c>deployment.version</c> filling it), the tag
+    /// is DERIVED from the release the running server is, so the two cannot drift apart by
+    /// being forgotten. Set it to pin a different published tag deliberately: an air-gapped
+    /// mirror carrying one release, or a bisecting developer. A deliberate pin is reported
+    /// as an advisory finding, never refused.
     /// </summary>
     public string AgentVersion { get; set; } = string.Empty;
 

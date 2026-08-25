@@ -51,6 +51,7 @@ internal static class DockerSandboxRegistrations
             sp.GetRequiredService<DockerPackageCaches>(),
             sp.GetRequiredService<DockerImagePresence>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
+            sp.GetRequiredService<IWireProtocolWatcher>(),
             sp.GetRequiredService<ILoggerFactory>()));
         // p0269a: Docker capacity is a configured concurrent-sandbox cap (no
         // create-time signal on a limitless daemon). Replaces the Unbounded default.

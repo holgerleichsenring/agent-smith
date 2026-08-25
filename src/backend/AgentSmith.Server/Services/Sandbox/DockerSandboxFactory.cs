@@ -17,9 +17,8 @@ public sealed class DockerSandboxFactory(
     IConnectionMultiplexer redis,
     DockerContainerSpecBuilder specBuilder,
     DockerSandboxOptions options,
-    DockerPackageCaches packageCaches,
-    DockerImagePresence images,
-    IOptions<SandboxGlobalConfig> sandboxConfig,
+    DockerPackageCaches packageCaches, DockerImagePresence images,
+    IOptions<SandboxGlobalConfig> sandboxConfig, IWireProtocolWatcher protocol,
     ILoggerFactory loggerFactory) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
@@ -39,7 +38,8 @@ public sealed class DockerSandboxFactory(
         var toolchainId = await StartToolchainAsync(
             slug, sharedVolume, workVolume, jobId, spec, network, caches, cancellationToken);
 
-        var channel = new SandboxRedisChannel(redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>());
+        var channel = new SandboxRedisChannel(
+            redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);
         return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
