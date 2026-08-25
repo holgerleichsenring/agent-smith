@@ -51,6 +51,26 @@ spec:
             # eth0 only and the loopback probe fails. Force 0.0.0.0.
             - name: HOSTNAME
               value: "0.0.0.0"
+            # 2026-08-25-21ae: read by the image entrypoint at start and written
+            # into a document the browser fetches, NOT compiled into the bundle —
+            # so changing one of these is a rollout of this Deployment, never a
+            # rebuild of the image. Empty is the OFF state: leave them and the
+            # dashboard behaves exactly as it did before they existed.
+            # Plain values, not secretKeyRefs, because the document is served to
+            # any browser that asks. A public client id and an authority are
+            # public values; a client secret would not belong here at all.
+            # AUTHORITY and AUDIENCE are the same variables the server reads
+            # (8-deployment-server.yaml) — set them to the same value there.
+            - name: AGENTSMITH_AUTH_AUTHORITY
+              value: ""
+            - name: AGENTSMITH_AUTH_CLIENT_ID
+              value: ""
+            - name: AGENTSMITH_AUTH_AUDIENCE
+              value: ""
+            - name: AGENTSMITH_AUTH_SCOPES
+              value: ""
+            - name: AGENTSMITH_AUTH_REDIRECT_PATH
+              value: ""
           livenessProbe:
             httpGet:
               path: /

@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-21ae
+
+decisions:
+  - category: Architecture
+    chose: "A document the image entrypoint writes into the served static root before the server starts"
+    over: "A NEXT_PUBLIC_* variable, or a Next.js route handler that reads the environment per request"
+    reason: |
+      The image's own Dockerfile already states why a variable will not do: Next.js inlines a
+      NEXT_PUBLIC_* value at BUILD time. That is correct for the build revision it says it
+      about — a stale tab must keep naming the bundle it downloaded — and wrong for anything an
+      operator sets per installation. An authority that costs a rebuild to change is not a
+      setting, and one image would no longer serve every installation.
+      A route handler would read the environment fresh on every request, which is more than the
+      problem needs and puts an SSR round-trip in front of the first render. A file written once
+      at start is served by the same static path the shell already comes from, and the entrypoint
+      is the one place in the image that runs after the operator's environment exists and before
+      anything can ask for it. `exec "$@"` keeps the server the process the runtime supervises,
+      so a restart and a signal behave exactly as they did.
+  - category: Architecture
+    chose: "An absent document resolves to every setting at its default"
+    over: "A failed boot, a banner, or a retry"
+    reason: |
+      `next dev` runs no entrypoint, so a developer's tree has no document at all. Treating that
+      as an error would make the dev server the one environment the dashboard cannot run in, and
+      would turn a deployment mistake into a blank page rather than a running dashboard with the
+      feature off. A 404, a body that is not JSON, and a network that never answered are all the
+      same answer: unconfigured. The 404 is silent because it is the expected state; an
+      unreadable body warns, because a document that exists and cannot be read is a mistake
+      somebody wants named.
+      A field the document does not carry takes its default too — an older entrypoint's document
+      is incomplete, not wrong, and one absent field must not cost the browser the four it wrote.
+  - category: Implementation
+    chose: "One memoised read behind a provider above the route boundary"
+    over: "Each consumer resolving the document for itself"
+    reason: |
+      Two reads are two answers, and a window in which one component believes a setting is on
+      while another does not. The provider sits beside the event store and the config catalog —
+      the layer that already exists for exactly this. The promise is memoised in module state
+      rather than in the component, because reactStrictMode double-mounts every effect in dev and
+      a per-component cache would fetch twice on the first boot it was supposed to prove.
+      The read is deliberately NOT composed through apiResponse: this is not the API. It is a
+      static file on the dashboard's own origin, and apiUrl would send it to
+      NEXT_PUBLIC_API_BASE_URL, wherever the backend happens to live.
+  - category: Security
+    chose: "The document carries public values only, and the entrypoint says so in the file"
+    over: "Marking individual fields, or a convention nobody can read at the point of editing"
+    reason: |
+      The document is served to any browser that asks; it is public by construction. An OAuth
+      public client's identifier, its authority and a scope list are public values. A client
+      secret, a token or a connection string never are — and there is no code path in a shell
+      script that substitutes an environment variable into JSON that could tell the difference.
+      The comment in the entrypoint, in the client, and beside every variable in the compose
+      example, the k8s Deployment and the env example is the only guard that scales to the person
+      about to add a sixth field.
+      The k8s Deployment carries them as plain values rather than the secretKeyRefs the server's
+      auth variables use, for the same reason — a secretKeyRef would claim a confidentiality this
+      document cannot have.
+  - category: Implementation
+    chose: "cache: \"no-store\" on the one request"
+    over: "A cache-busting query string, or response headers set by the server"
+    reason: |
+      A file under the static root is cached like any other static asset, so a browser that holds
+      one keeps answering from the previous installation's settings after the pod that served it
+      is gone. Disabling the cache on the request costs one network round-trip per boot, which is
+      affordable exactly because it happens once. Headers would have to be set by a server the
+      static path does not route through, and a query string leaves a cacheable URL behind.
+  - category: TradeOff
+    chose: "The redirect path is the one field whose built-in default is not empty"
+    over: "Every field defaulting to the empty string"
+    reason: |
+      The four identity values name the installation and must default to empty — an installation
+      that sets nothing must behave exactly as it does today. The redirect path names a route
+      inside this dashboard instead, so empty is a broken value rather than an unconfigured one,
+      and an operator who sets an authority and a client id and nothing else would otherwise get
+      a sign-in loop that returns nowhere. The entrypoint substitutes the same "/signin-callback"
+      the client falls back to, so a document written with nothing set and no document at all are
+      the same settings — which is the property the OFF state actually rests on.
+  - category: Tooling
+    chose: "The entrypoint's settings path is an environment variable, and vitest runs the script"
+    over: "A hard-coded path with the script left untested, or a new shell-test harness"
+    reason: |
+      The repo has no shell-test pattern — no test runner touches any of its eight .sh files — and
+      inventing one for a twenty-line script would be heavier than the script. vitest already runs
+      in node, so it runs `sh docker-entrypoint.sh <command>` against a temp directory directly.
+      Making the destination a variable (defaulting to the static root the image serves) is what
+      lets a case assert the document's shape without building an image, and it is what lets the
+      exec case prove the ordering: the command the entrypoint execs cats the document the
+      entrypoint just wrote.
+      Values are escaped for backslash and quote before substitution, because an operator's
+      authority with either in it would end the JSON string early and the browser would then read
+      nothing at all rather than one bad field.
