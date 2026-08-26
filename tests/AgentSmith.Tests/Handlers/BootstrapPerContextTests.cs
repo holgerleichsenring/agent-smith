@@ -99,6 +99,8 @@ public sealed class BootstrapPerContextTests
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
             BootstrapReaderStubs.NullReaderFactory(),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -127,6 +129,8 @@ public sealed class BootstrapPerContextTests
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
             BootstrapReaderStubs.NullReaderFactory(),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -173,6 +177,8 @@ public sealed class BootstrapPerContextTests
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
             BootstrapReaderStubs.ReaderFactoryReturning(existing),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -198,6 +204,8 @@ public sealed class BootstrapPerContextTests
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
             BootstrapReaderStubs.NullReaderFactory(),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");

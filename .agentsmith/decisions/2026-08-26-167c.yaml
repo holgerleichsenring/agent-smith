@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-26-167c
+
+decisions:
+  - category: Architecture
+    chose: "A single value is normalised to a one-element list by walking the document ALONGSIDE the schema"
+    over: "Declaring `anyOf: [array, string]` on every array-valued property, or hard-coding the field names the prompt gets wrong"
+    reason: |
+      The shipped project-bootstrap master writes `"type": "Angular SPA"` and
+      `"style": "Layered"` where the schema declares arrays. Three of the four defects
+      the live run hit were SHAPE, not vocabulary, and the master reaches this build as
+      a SHA256-verified tarball — correcting it is a release in the skills repository
+      and a pin bump here, so it cannot be the condition for a run completing.
+      Two of the three fields are inside `arch`, which the typed writer models as a
+      freeform map, so a converter on the typed record could never reach them. An
+      `anyOf` per property would have restated the same relaxation seventeen times and
+      doubled every error message. ContextSingleValueNormaliser instead walks the
+      instance next to the schema and wraps a scalar wherever the schema says
+      `"type": "array"` — one mechanism, the schema still the only source of what is a
+      list, and the YAML on disk carries a list either way.
+  - category: Architecture
+    chose: "The open constraint is length + character shape + placeholders refused by name"
+    over: "A lowercase-hyphen slug rule, or dropping the constraint entirely"
+    reason: |
+      Measured against the shipped schema, a slug rule refuses 17 of 17 arch.style
+      values, 36 of 36 arch.patterns, 6 of 7 api styles, 5 of 8 ui types and 4 of 4
+      testing styles — including this repository's own `CleanArch` and
+      `Command/Handler`, and the template copied into every new project. It also
+      refuses `C#`, `.NET`, `REST` and `gRPC`. So the rule is 2–30 characters, letters
+      and digits plus the punctuation the corpus already uses (`#`, `+`, `.`, `/`,
+      `_`, `-`, spaces).
+      Length is what refuses a paragraph: `pipeline-oriented-library-and-cli` (33) is
+      over the cap whatever it is spelled with, while the longest corpus value
+      (`Chain-of-Responsibility`, 23) fits. Laziness is refused by NAME — `todo`,
+      `tbd`/`tba`, `unknown`, `n/a`, `placeholder`, `xxx`, `???` — because a slug rule
+      blocks none of it. `none` is deliberately NOT refused: "no tests" is information.
+  - category: Implementation
+    chose: "The placeholder exclusion lives in the pattern's negative lookahead, not in a `not` subschema"
+    over: "`not: { pattern: … }` beside the shape pattern"
+    reason: |
+      Measured, not assumed: JsonSchema.Net emits NO error detail when `not` fires, so
+      `"todo"` came back as invalid with an empty reason — the exact guessing loop the
+      rejection exists to end. Worse, while `not` PASSES it emits its child's failure as
+      a detail, so every valid value produced a spurious "does not match" line. One
+      pattern with a leading `(?!…)` is ECMA-262-portable, produces a quotable rule, and
+      the node's description names both halves in words.
+  - category: Architecture
+    chose: "Every vocabulary is classified in the schema itself by a $comment marker, and a test enumerates both sets"
+    over: "Classifying 'the descriptive ones' in prose in the phase spec"
+    reason: |
+      The first draft left four vocabularies unclassified and the live document was
+      refused on one of them (`quality.testing.style`, where a JavaScript repository
+      writes `jest`). Each node now carries `DESCRIPTIVE — opened` or `DECIDED — stays
+      closed` with its reason, and ContextVocabularyTests asserts the two pointer sets
+      exactly. Opened: meta.type items, arch.style items, arch.patterns items,
+      behavior.api.style, behavior.ui.type, quality.testing.style. Closed:
+      behavior.pipeline.*.error, data.*.migrations, integrations.*.type, quality.lang —
+      a policy or a chosen strategy, each with an exhaustive state space.
+  - category: Architecture
+    chose: "The rejection groups by broken RULE, quotes it once with the locations beside it, and is bounded by characters"
+    over: "Raising MaxDefects from 3, or raising the 400-character rule cap"
+    reason: |
+      Three defects at a time cannot converge inside a five-refusal budget: a realistic
+      off-vocabulary document carries about twenty, six of them on arch.patterns alone.
+      And the 400-character cap DROPPED that field's 486-character list, so the one
+      field with 36 values was the one field whose values the model never saw. Raising
+      both numbers trades one arbitrary limit for another.
+      ContextDefectReport groups defects by (schema node, keyword), so six bad patterns
+      produce one line naming six locations and quoting the rule, its first eight
+      suggestions plus "and 28 more", and the field's description. The whole message is
+      bounded at 4000 characters and says how many defects it left out. Suggestions are
+      resolved through ContextSchemaPointer from `examples`, which is where they moved
+      when `enum` became a pattern.
+  - category: Architecture
+    chose: "The bootstrap round asks the TOOL what this round did; the sandbox only corroborates"
+    over: "Keeping the FileExistsAsync check, or adding a marker file"
+    reason: |
+      BootstrapRoundHandler decided by "a context.yaml exists". On a first init that is
+      the same question; on a RE-INIT — the supported route back in — the file is
+      already there from last time, so five refusals resolved to CommandResult.Ok, the
+      round was green and the stale context survived. WriteContextYamlToolHost now
+      records whether THIS round's write succeeded and what refused it last;
+      BootstrapToolBundle carries it; BootstrapContextWriteVerdict turns it into three
+      distinguishable outcomes — never called, refused (naming the defect), or written
+      but absent from the sandbox. `ContextWriteRejectionBudget.IsExhausted` was dead
+      code; it is now what lets the refusal say the budget ran out, rather than being
+      deleted.
+  - category: Implementation
+    chose: "BootstrapRoundHandler gave up its output-recording responsibility"
+    over: "Adding a baseline entry, or extracting a private helper file"
+    reason: |
+      The file sat at EXACTLY its file-length baseline (233), so a single added line
+      failed the build — the ratchet doing its job. Recording where a round's prose goes
+      (SkillOutputs, the per-(repo, context) trail, the DiscussionLog) is not the same
+      responsibility as running the round, so it became BootstrapOutputRecorder rather
+      than moved code. The handler is 194 lines and the baseline was tightened to match,
+      so the room this made cannot be silently spent later.
+  - category: Implementation
+    chose: "quality.naming accepts `[\"object\", \"string\"]`"
+    over: "Requiring the map and letting the master's example keep being refused"
+    reason: |
+      The schema demands a map of rule-per-kind; the shipped master's worked example
+      writes a sentence. One of the two has to move and the schema is the forgiving
+      side — a sentence carries the same information to the only audience this field
+      has, which is a reader. `additionalProperties` is ignored for a non-object, so
+      the map form is unchanged.
+  - category: Scope
+    chose: "The master's own correction is left to 2026-08-26-66e2, and the agreement is pinned by a test here"
+    over: "Editing the embedded tarball, or waiting for the skills release"
+    reason: |
+      The tarball is verified by SHA256 from a GitHub release, so it cannot be corrected
+      in this repository. What CAN be done here is stop the disagreement coming back:
+      Prompt_TheEmbeddedBootstrapExample_ValidatesAgainstTheShippedSchema reads the
+      worked example out of the embedded catalog, fills its angle-bracket slots with
+      defensible values (they are instructions to the model, not data) and validates the
+      SHAPE. A pin bump that reintroduces a refused shape now fails this build instead
+      of a customer's run.
+  - category: Implementation
+    chose: "A bootstrap chat stub that asserts success must CALL write_context_yaml"
+    over: "Seeding an existing context.yaml on the sandbox to satisfy the round"
+    reason: |
+      That seeding is precisely the hole this phase closes, so leaving it in the
+      fixtures would have left the tests asserting the old behaviour. BootstrapToolCall
+      invokes the tool out of the round's own tool surface the way the producer skill
+      does, with a valid or a refused document — which is also what the new round tests
+      use to make a refusal happen.

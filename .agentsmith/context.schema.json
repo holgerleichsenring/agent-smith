@@ -47,7 +47,12 @@
           "maxItems": 4,
           "items": {
             "type": "string",
-            "enum": [
+            "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because the archetype list can never cover every system; the constraint that stays is length and shape.",
+            "description": "One system archetype. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+            "minLength": 2,
+            "maxLength": 30,
+            "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+            "examples": [
               "crud",
               "api",
               "pipeline",
@@ -385,7 +390,12 @@
           "description": "Architecture styles",
           "items": {
             "type": "string",
-            "enum": [
+            "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a style list can never cover every architecture; the constraint that stays is length and shape.",
+            "description": "One architecture style. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+            "minLength": 2,
+            "maxLength": 30,
+            "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+            "examples": [
               "CleanArch",
               "Hexagonal",
               "Onion",
@@ -411,7 +421,12 @@
           "description": "Key design patterns used",
           "items": {
             "type": "string",
-            "enum": [
+            "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a pattern catalogue can never cover every pattern; the constraint that stays is length and shape.",
+            "description": "One design pattern. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+            "minLength": 2,
+            "maxLength": 30,
+            "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+            "examples": [
               "Repository",
               "UnitOfWork",
               "MediatR",
@@ -504,7 +519,12 @@
           "properties": {
             "style": {
               "type": "string",
-              "enum": [
+              "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because an API-style list can never cover every protocol; the constraint that stays is length and shape.",
+              "description": "The API style. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+              "minLength": 2,
+              "maxLength": 30,
+              "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+              "examples": [
                 "REST",
                 "GraphQL",
                 "gRPC",
@@ -577,6 +597,7 @@
               },
               "error": {
                 "type": "string",
+                "$comment": "2026-08-26-167c: DECIDED — stays closed. The error strategy is chosen between behaviours the pipeline runtime implements, not observed in the code.",
                 "enum": [
                   "stop-on-first-failure",
                   "skip-and-log",
@@ -644,7 +665,12 @@
           "properties": {
             "type": {
               "type": "string",
-              "enum": [
+              "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a UI-type list can never cover every delivery shape; the constraint that stays is length and shape.",
+              "description": "The UI delivery type. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+              "minLength": 2,
+              "maxLength": 30,
+              "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+              "examples": [
                 "SPA",
                 "SSR",
                 "MPA",
@@ -717,6 +743,7 @@
       "properties": {
         "lang": {
           "type": "string",
+          "$comment": "2026-08-26-167c: DECIDED — stays closed. A language policy has three states and picking one is a decision, not a description.",
           "enum": [
             "english-only",
             "german-allowed",
@@ -763,7 +790,13 @@
           }
         },
         "naming": {
-          "type": "object",
+          "$comment": "2026-08-26-167c: a map OR a sentence. The shipped project-bootstrap master's worked example writes a string here, and a sentence carries the same information to the only audience this field has, which is a reader. additionalProperties applies to the map form only.",
+          "type": [
+            "object",
+            "string"
+          ],
+          "description": "Naming conventions: either rule-per-kind (classes, fields, interfaces, …) or one sentence describing them.",
+          "maxLength": 400,
           "additionalProperties": {
             "type": "string"
           }
@@ -773,7 +806,12 @@
           "properties": {
             "style": {
               "type": "string",
-              "enum": [
+              "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a style list can never cover every test convention; the constraint that stays is length and shape.",
+              "description": "The test structure style. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+              "minLength": 2,
+              "maxLength": 30,
+              "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+              "examples": [
                 "AAA",
                 "GWT",
                 "BDD",
@@ -798,6 +836,7 @@
         "properties": {
           "type": {
             "type": "string",
+            "$comment": "2026-08-26-167c: DECIDED — stays closed. Direction is exhaustive by construction: inbound, outbound, bidirectional or storage.",
             "enum": [
               "inbound",
               "outbound",
@@ -839,6 +878,7 @@
           },
           "migrations": {
             "type": "string",
+            "$comment": "2026-08-26-167c: DECIDED — stays closed. A migration strategy is chosen, not observed; these five are the strategies that exist.",
             "enum": [
               "code-first",
               "db-first",

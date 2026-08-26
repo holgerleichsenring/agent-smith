@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Architecture;
@@ -26,7 +27,7 @@ namespace AgentSmith.Tests.Architecture;
 /// </summary>
 public sealed class ShippedContextTests
 {
-    private readonly ContextSchemaRule _schema = new(new ContextSchemaProvider());
+    private readonly ContextSchemaRule _schema = ContextGates.Rule();
     private readonly ContextStackImageRule _image = new();
     private readonly ContextYamlSerializer _reader = new(new ContextYamlBuilders());
 

@@ -72,20 +72,40 @@ public sealed class ContextImageRuleTests
     [Fact]
     public async Task Write_AnInvalidContext_TheRejectionNamesTheDefect()
     {
-        // meta.type is a closed set of archetypes. The model never sees the schema, so a
-        // refusal that only says "should match one of the enum values" is an invitation
-        // to guess — and guessing is what turns one refusal into a loop.
+        // quality.lang is a DECIDED vocabulary and stays closed: a language policy has
+        // three states and picking one is a decision. The model never sees the schema,
+        // so a refusal that only says "should match one of the enum values" is an
+        // invitation to guess — and guessing is what turns one refusal into a loop.
+        // 2026-08-26-167c: this used to send `"type": ["microservice"]`, which the open
+        // meta.type now accepts — an honest archetype is no longer a defect.
         var result = await WriteAsync("""
             {
-              "meta": { "workdir": ".", "type": ["microservice"] },
-              "stack": { "lang": "C#", "image": "mcr.microsoft.com/dotnet/sdk:8.0" }
+              "meta": { "workdir": "." },
+              "stack": { "lang": "C#", "image": "mcr.microsoft.com/dotnet/sdk:8.0" },
+              "quality": { "lang": "denglisch" }
             }
             """);
 
         result.Should().StartWith("Error:");
-        result.Should().Contain("/meta/type/0", "a JSON Pointer to the offending node");
-        result.Should().Contain("agent", "the allowed values are quoted out of the schema");
+        result.Should().Contain("/quality/lang", "a JSON Pointer to the offending node");
+        result.Should().Contain("english-only", "the allowed values are quoted out of the schema");
         NothingWasWritten();
+    }
+
+    [Fact]
+    public async Task Write_AnHonestValueTheListNeverHad_IsAccepted()
+    {
+        // 2026-08-26-167c: the descriptive vocabularies suggest. A model refused for
+        // naming its architecture honestly spends its budget being told to lie.
+        var result = await WriteAsync("""
+            {
+              "meta": { "workdir": ".", "type": ["data-platform"] },
+              "stack": { "lang": "Python", "image": "python:3.12-bookworm" },
+              "arch": { "style": "Medallion", "patterns": ["Dependency Injection"] }
+            }
+            """);
+
+        result.Should().StartWith("context.yaml written:");
     }
 
     [Fact]
