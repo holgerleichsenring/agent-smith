@@ -12,9 +12,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// The judged JSON is the TYPED document projected back to JSON, not the raw
 /// argument the model sent. The typed document is what the YAML on disk is
 /// rendered from — its key casing is the writer's, its unknown keys are already
-/// gone, and its numbers are still numbers — so the schema judges the file that
-/// will exist. Judging the raw argument would reject a model whose casing never
-/// reaches the file.
+/// gone, its readings are already dropped (2026-08-26-04b6), and its numbers are
+/// still numbers — so the schema judges the file that will exist. Judging the raw
+/// argument would reject a model whose casing never reaches the file.
 /// </para>
 /// <para>
 /// 2026-08-26-167c: both rules RUN and both REPORT. The gate used to return the
@@ -26,7 +26,8 @@ public sealed class ContextDocumentGate(
     ContextStackImageRule stackImage,
     ContextSchemaRule schemaRule,
     ContextDefectReport report,
-    ContextSingleValueNormaliser normaliser)
+    ContextSingleValueNormaliser normaliser,
+    ContextReadingFilter readings)
 {
     public bool TryRead(JsonElement document, out ContextYamlDocument? typed, out string? defect)
     {
@@ -39,6 +40,9 @@ public sealed class ContextDocumentGate(
             // deserialising it used to throw and hand the model a CLR type name.
             var normalised = normaliser.Normalise(JsonNode.Parse(document.GetRawText()));
             typed = normalised.Deserialize<ContextYamlDocument>(DocumentJson);
+            // 2026-08-26-04b6: the readings go before anything judges or writes the document,
+            // so the schema still judges the file that will exist.
+            if (typed is not null) typed = readings.Strip(typed);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {

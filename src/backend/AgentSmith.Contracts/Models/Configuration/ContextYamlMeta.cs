@@ -5,12 +5,19 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// 2026-08-25-056d: a LIST, because the schema has always declared it as one and both shipped
 /// context files write one. As a single string the writer emitted YAML its own schema rejected,
 /// and a document repeating the two archetypes this repo declares failed to deserialise at all.</param>
+/// <param name="Purpose">`meta.purpose:` — what this context is FOR. The one line nobody can
+/// derive: it appears in no file, and the ticket-to-repo classifier reasons from it before a
+/// checkout exists.</param>
 /// <param name="Domain">p0504: one word naming a profile in the skills catalog. A context
 /// declaring a domain need not name a stack.image — the profile brings one.</param>
+/// <remarks>
+/// 2026-08-26-04b6: `project` and `version` are gone. Both were READINGS — the repository's own
+/// name, which every run already carries, and a semver copied out of the build file that is
+/// stale on the next release. The schema still ACCEPTS them, so no context written before is
+/// invalidated; a document that still offers them is accepted and the file does not carry them.
+/// </remarks>
 public sealed record ContextYamlMeta(
     string Workdir,
-    string? Project = null,
-    string? Version = null,
     IReadOnlyList<string>? Type = null,
     string? Purpose = null,
     string? Domain = null);

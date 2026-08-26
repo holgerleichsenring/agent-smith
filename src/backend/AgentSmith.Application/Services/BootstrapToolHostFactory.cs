@@ -26,7 +26,8 @@ public sealed class BootstrapToolHostFactory(
     IPathReadGuard readGuard,
     IPathWriteGuard writeGuard,
     IContextYamlSerializer contextYamlSerializer,
-    ContextDocumentGate contextDocumentGate)
+    ContextDocumentGate contextDocumentGate,
+    SandboxContextYamlWriter contextYamlWriter)
 {
     public BootstrapToolBundle Create(
         ISandbox sandbox, string repoLocalPath, string repoName, string contextName = "")
@@ -44,7 +45,8 @@ public sealed class BootstrapToolHostFactory(
             new Dictionary<string, ISandbox> { [repoName] = sandbox },
             defaultRepo: repoName,
             contextYamlSerializer,
-            contextDocumentGate);
+            contextDocumentGate,
+            contextYamlWriter);
         var tools = new AgenticToolSurface().Bootstrap(fs, log, writeContextYaml);
         // 2026-08-26-167c: the round asks the TOOL what happened, not the sandbox.
         return new BootstrapToolBundle(

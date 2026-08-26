@@ -60,11 +60,19 @@ public sealed class PhaseRecordPublishedTests
         var files = new Mock<ISandboxFileReader>();
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files.Object);
+        var targets = new SandboxTargets();
         return new WritePhaseRecordHandler(
             factory.Object,
             new ExecutedPhaseMarker(null!, NullLogger<ExecutedPhaseMarker>.Instance),
-            publisher,
-            new SandboxTargets(),
+            new PhaseRecordPublisher(publisher),
+            new PhaseRecordIndexLine(),
+            new PhaseIndexWriter(
+                factory.Object,
+                new AgentSmith.Infrastructure.Services.ContextYamlStateDoneCodec(
+                    new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+                targets,
+                NullLogger<PhaseIndexWriter>.Instance),
+            targets,
             NullLogger<WritePhaseRecordHandler>.Instance);
     }
 
