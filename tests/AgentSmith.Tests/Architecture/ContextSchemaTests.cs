@@ -75,19 +75,22 @@ public sealed class ContextSchemaTests
             "a bootstrapped context must not be asked for a block no writer can produce");
     }
 
+    /// <summary>
+    /// 2026-08-26-04b6: the fullest document the writer can still emit. Its reading fields
+    /// (project, version, runtime, frameworks, infra, testing, sdks) left the typed record
+    /// in that phase; the schema still declares them, deprecated, so nothing written before
+    /// is invalidated.
+    /// </summary>
     [Fact]
-    public void Schema_AContextNamingItsFrameworks_Validates()
+    public void Schema_TheFullestContextTheWriterEmits_Validates()
     {
         var yaml = _writer.Serialize(new ContextYamlDocument(
             new ContextYamlMeta(
-                Workdir: ".", Project: "Sample", Version: "1.0.0",
-                Type: ["api", "worker"], Purpose: "Sample context for the schema."),
-            new ContextYamlStack(
-                Lang: "C#", Runtime: ".NET 8", Image: "mcr.microsoft.com/dotnet/sdk:8.0",
-                Frameworks: ["ASP.NET-Core"], Infra: ["Docker"], Testing: ["xUnit"])));
+                Workdir: ".", Type: ["api", "worker"], Purpose: "Sample context for the schema."),
+            new ContextYamlStack(Lang: "C#", Image: "mcr.microsoft.com/dotnet/sdk:8.0")));
 
         ContextSchemaFile.Validate(yaml).Should().BeEmpty(
-            "stack.frameworks has been emitted since p0193 and meta.type has always been "
-            + "a list of archetypes — both shapes come from the writer, not from a guess");
+            "meta.type has always been a list of archetypes — the shape comes from the "
+            + "writer, not from a guess");
     }
 }

@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-26-364f
+
+decisions:
+  - category: Architecture
+    chose: "The context write became a read-modify-write over a generic map, reusing the pattern ContextYamlRegistryAuthCodec already documents"
+    over: "Growing ContextYamlDocument until it models every section, or writing the unmodelled sections back from a second typed record"
+    reason: |
+      ContextYamlDocument models meta, stack, arch, quality, behavior, prerequisites and
+      registry_auth. WriteContextYamlToolHost serialised that record and wrote the WHOLE
+      file, so state, methodology, integrations, data and decisions were deleted the
+      moment a context was rewritten — 476 KB of chronicle here, and every decision the
+      runs recorded in a target repository.
+      The mechanism was already in the codebase: ContextYamlRegistryAuthCodec.Upsert
+      round-trips the file as a generic map so "sections the typed ContextYamlDocument
+      does not model (state, integrations, …) survive the rewrite untouched" — its own
+      docstring. One path was written correctly for one section; the write that states
+      most of the file was not. ContextYamlSectionUpsert applies the same round trip
+      through the same ContextYamlBuilders, so both writers agree by construction.
+      Modelling every section would have made the model author the chronicle, which is
+      the one section it must not touch.
+  - category: Architecture
+    chose: "The keys the document CARRIES are the top-level keys of its own YAML, and each replaces its key outright"
+    over: "Deep-merging the two documents, or clearing every key the record models"
+    reason: |
+      The write is not a merge of two documents: what the typed document states REPLACES
+      its key, because the writer's job is to state that section afresh — a stale
+      stack.sdks entry must be able to disappear. What the document does NOT state is
+      not the writer's business, and the absence of a key in a write is not an
+      instruction to delete it (the p0392a rule for the config store, applied to the
+      file this product tells its users to keep).
+      Taking the key set from the emitted YAML rather than from the record's properties
+      means the two cannot drift: a field added to ContextYamlDocument starts replacing
+      its section on the same build that adds it, and a section the record stops
+      emitting stops being touched.
+  - category: Implementation
+    chose: "An existing file that does not parse is refused with its parse error and left on disk"
+    over: "Overwriting it with the typed document, or writing beside it"
+    reason: |
+      Read-modify-write has one failure mode the whole-file write did not: a file that
+      does not parse. Overwriting it would turn a recoverable hand-edit into exactly the
+      data loss this phase exists to stop. The refusal names the path and quotes the
+      YAML error with its line and column — the shape 2026-08-26-167c gave every other
+      refusal — and the round's write outcome already fails a round on any refusal, so a
+      broken file cannot pass as a green re-init.
+  - category: TradeOff
+    chose: "Comments and flow style are paid as the cost of the round trip, and the cost is written into the code"
+    over: "A targeted splice that edits only the modelled sections in place"
+    reason: |
+      A generic-map round trip loses comments — including the `# yaml-language-server:`
+      header that makes an editor validate the file — and normalises flow style. That is
+      a real cost and it is smaller than deleting whole sections, so it is paid and
+      stated in ContextYamlSectionUpsert's own docstring rather than discovered later.
+      A splice would keep the comments and cannot express "replace this section", which
+      is precisely what a write must do.
+  - category: Implementation
+    chose: "The read-modify-write moved into SandboxContextYamlWriter, and the fixtures got the real serializer"
+    over: "Inlining the read and merge in WriteContextYamlToolHost.AttemptAsync"
+    reason: |
+      The host's responsibility is the tool surface — name guard, gate, rejection budget,
+      this round's outcome. Putting a document on a sandbox's disk without losing what is
+      already there is a second responsibility, and inlining it would have pushed the
+      host's file within one line of its length baseline.
+      Four bootstrap fixtures passed Mock.Of<IContextYamlSerializer>(), whose Serialize
+      returns null; the old write path put that null on disk unnoticed. A fixture that
+      cannot produce a file cannot prove one survived, so they now build the real
+      serializer, and the new cases run against InProcessSandbox on a real temp directory
+      — "left on disk" is only checkable where a disk exists.

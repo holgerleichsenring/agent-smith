@@ -1,10 +1,8 @@
 meta:
   workdir: .
-  project: demo-sample
+  purpose: "Two tiny csproj files a first run can build and test end to end."
 stack:
   lang: csharp
-  runtime: .NET 10
   # The toolchain image that can BOTH build and test this stack: both csproj
   # files target net10.0, so the .NET 10 SDK is the one that can.
   image: mcr.microsoft.com/dotnet/sdk:10.0
-  testing: [xUnit]

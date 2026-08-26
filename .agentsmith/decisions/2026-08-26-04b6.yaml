@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-26-04b6
+
+decisions:
+  - category: Architecture
+    chose: "Every one of the 41 fields is classified in the schema's own $comment as JUDGEMENT, MECHANISM or READING, and the field set the rule covers is derived from the schema"
+    over: "Naming the two or three fields the phase removes in prose in the spec"
+    reason: |
+      Two fields named in prose is not a classification, and the schema has forty-one.
+      Each node now opens with one of the three words and one clause saying why, and
+      ContextFieldClassificationTests derives the covered set — the root's own fields
+      plus the children of meta, stack, arch, behavior and quality — so a field added
+      without a classification fails the build rather than being assumed into the file.
+      A table is also the only form in which the NEXT field can be argued.
+      JUDGEMENT: meta.type, meta.purpose, behavior.* (all eight), quality.lang,
+      quality.limits, quality.naming, quality.testing, integrations, data, state,
+      decisions. MECHANISM: meta.workdir, meta.domain, methodology, stack.lang,
+      stack.image, stack.resources, prerequisites, registry_auth. READING:
+      meta.project, meta.version, meta.repo, stack.runtime, stack.frameworks,
+      stack.frontend, stack.infra, stack.testing, stack.ci, stack.sdks, arch.style,
+      arch.patterns, arch.layers, arch.bounded-contexts, quality.principles.
+  - category: Architecture
+    chose: "A field is a reading when the repository still states it for itself — including a taxonomy label an agent picked by skimming"
+    over: "Removing whatever no code reads"
+    reason: |
+      "No code reads it" is the wrong test, and measurably false: the raw context.yaml
+      is pasted verbatim into every master prompt, and a shipped analyzer master is told
+      to treat the declared type as ground truth. The MODEL is the reader. So the right
+      question is what a reader can act on — and a guessed label is worse than a silent
+      field, because it IS acted on.
+      `sdks` names a package at a version the manifest is one install away from
+      disagreeing with, and nothing can tell which of the two is true; deleting it
+      removes no knowledge, only a second copy that can diverge. `arch` would be a
+      judgement if anybody had made one — "we build in layers" is a decision — but here
+      an agent skims the tree once and picks a word from a list. `quality.principles`,
+      measured in a live context, was every build-file flag read back out, while the
+      authored coding-principles.md is where the intent already lives.
+  - category: Scope
+    chose: "meta.purpose and state survive everything"
+    over: "Treating the long sections as the cost problem"
+    reason: |
+      What a module is FOR appears in no file, and the ticket-to-repo classifier reasons
+      from it before a checkout exists — the most human field in the document and one of
+      the few the orchestrator reads.
+      state is the counterexample the phase is measured against: every entry records a
+      decision and what came of it, so the file teaches a reader how the program got its
+      shape. It is long because entries have been wordy, which the 400-character index
+      cap already attacks — not a reason to remove the one section written by whoever
+      made the call. registry_auth and decisions are records, not readings, and are
+      untouched.
+  - category: Implementation
+    chose: "Deprecated in the schema, kept accepted; the readings are dropped on the WRITE path instead"
+    over: "Removing the properties from the schema, or refusing a document that offers one"
+    reason: |
+      The schema root is additionalProperties:false. Removing a property from
+      `properties` does not stop asking for it — it starts REFUSING it, and every context
+      written before this phase fails on its first run, this repository's own included.
+      So the properties stay, marked `READING — … DEPRECATED`, and the asking stops where
+      asking actually happens: the tool description, the template and the demo sample.
+      Refusing would be worse still: the prompt that asks for these fields ships in the
+      skills tarball behind a release and a pin, so a model working from the current
+      prompt would be punished for obeying it. The tool DISCARDS instead — a document
+      carrying every reading is accepted and the file simply does not carry them.
+  - category: Implementation
+    chose: "The typed record drops the readings it modelled; a filter strips the two freeform blocks"
+    over: "One filter that strips every reading by name"
+    reason: |
+      Ten of the fifteen readings need no code at all: meta.repo, stack.frontend and
+      stack.ci were never on the typed document, and removing Project, Version, Runtime,
+      Frameworks, Sdks, Infra and Testing from ContextYamlMeta / ContextYamlStack means
+      System.Text.Json ignores them on the way in — accepted, stored nowhere, with no
+      list of names to keep in step. What is left is exactly the three fields the READER
+      has ever read (lang, image, resources), which is a coherence the file can be
+      checked against.
+      arch and quality are freeform dictionaries, so their readings have no property to
+      delete; ContextReadingFilter removes those five keys inside ContextDocumentGate.TryRead,
+      before anything judges or writes the document — the gate's stated contract is that
+      it judges the file that will exist. An emptied block is dropped whole, because an
+      empty map is not a block and the schema refuses one.
+  - category: Implementation
+    chose: "The 167c vocabulary nodes are pinned from a second angle rather than trusted"
+    over: "Assuming deprecation is invisible to the rest of the schema"
+    reason: |
+      ContextVocabularyTests asserts ten JSON pointers exactly, nine tests build documents
+      with arch.patterns, and ContextSingleValueNormaliser learns "this is an array" from
+      the schema — deleting a node would have silently disabled the single-value shorthand
+      the shipped prompt writes. Schema_The167cVocabularyPointers_AreUnchanged counts the
+      six opened and four closed markers and then normalises a scalar arch.style, so the
+      shorthand is proven still to work over a deprecated node.
+      The two fixture payloads that lived on stack.sdks and quality.principles — a scoped
+      npm package and a string containing ": ", the exact two YAML-quoting bugs the typed
+      writer exists to prevent — moved to the freeform block, where the quoting rule is
+      identical and the fields are not deprecated.

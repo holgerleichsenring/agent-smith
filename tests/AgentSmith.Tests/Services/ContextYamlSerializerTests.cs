@@ -7,9 +7,11 @@ namespace AgentSmith.Tests.Services;
 /// <summary>
 /// p0193: Serializer + Parser share one YamlDotNet builder. Round-trip is
 /// the central guarantee — what we accept on Serialize, we read back on
-/// Parse. Two real-world failure modes (npm '@scope/pkg' in sdks and ': '
+/// Parse. Two real-world failure modes (npm '@scope/pkg' in a list and ': '
 /// inside list strings) are pinned because they are the exact bugs the
-/// operator hit in the customer's context.yaml files before this phase.
+/// operator hit in context.yaml files before this phase. 2026-08-26-04b6 moved
+/// both payloads off `stack.sdks` and `quality.principles` — both READINGS, no
+/// longer written — into the freeform block, where the quoting rule is the same.
 /// </summary>
 public sealed class ContextYamlSerializerTests
 {
@@ -19,8 +21,8 @@ public sealed class ContextYamlSerializerTests
     public void Roundtrip_PreservesWorkdirAndLang()
     {
         var doc = new ContextYamlDocument(
-            new ContextYamlMeta(Workdir: "src/Server", Project: "Sample", Type: ["api"]),
-            new ContextYamlStack(Lang: "C#", Runtime: ".NET 8"));
+            new ContextYamlMeta(Workdir: "src/Server", Type: ["api"]),
+            new ContextYamlStack(Lang: "C#"));
 
         var yaml = _sut.Serialize(doc);
         var parsed = _sut.Parse(yaml);
@@ -31,15 +33,17 @@ public sealed class ContextYamlSerializerTests
     }
 
     [Fact]
-    public void Roundtrip_NpmScopedPackageInSdks_ParsesBackClean()
+    public void Roundtrip_NpmScopedPackageInAFreeformList_ParsesBackClean()
     {
         // Operator's broken file had unquoted "- @azure/msal-angular" — the
         // typed writer must emit this in a form the YAML scanner accepts.
         var doc = new ContextYamlDocument(
             new ContextYamlMeta(Workdir: "."),
-            new ContextYamlStack(
-                Lang: "TypeScript",
-                Sdks: new[] { "@azure/msal-angular", "@azure/msal-browser", "rxjs" }));
+            new ContextYamlStack(Lang: "TypeScript"),
+            Quality: new Dictionary<string, object?>
+            {
+                ["typescript"] = new[] { "@azure/msal-angular", "@azure/msal-browser", "rxjs" },
+            });
 
         var yaml = _sut.Serialize(doc);
         var parsed = _sut.Parse(yaml);
@@ -52,14 +56,14 @@ public sealed class ContextYamlSerializerTests
     }
 
     [Fact]
-    public void Roundtrip_StringWithColonInQualityPrinciples_ParsesBackClean()
+    public void Roundtrip_StringWithColonInAFreeformList_ParsesBackClean()
     {
-        // Second broken file: a `principles:` list item like
+        // Second broken file: a list item like
         // "Angular style: PascalCase for components/services" — the unquoted
         // ": " caused the scanner to think the list item was a mapping.
         var quality = new Dictionary<string, object?>
         {
-            ["principles"] = new[]
+            ["typescript"] = new[]
             {
                 "Angular style: PascalCase for components/services; file suffixes: .component.ts/.service.ts",
                 "Strict TypeScript (\"strict\": true in tsconfig)",
