@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-26-5c85
+
+goal: "GitLab discovery lists subgroups but names every project by its bare slug, making same-named repos indistinguishable — a discovered repo carries its namespace-relative path."
+
+applies_to: "backend (GitLab repo discovery, glob expansion, multi-repo path routing)"
+
+requires: []
+
+scope:
+  in: "GitLabRepoDiscoveryProvider's mapping from the GitLab projects API to DiscoveredRepo.Name (path_with_namespace, group prefix stripped), plus the one consumer that cannot route a slash-carrying repo name: FilesystemToolHost's first-segment split, which must resolve against its known runner keys instead."
+  out: "GitHub and Azure DevOps discovery (flat namespaces, nothing to carry); the clone/API URL path (ResolveGitLabTarget already keeps the full URL path, URL-escaped); webhook routing (matches by web_url, not by name); filesystem/k8s identifiers (clone lands in '.' at /work, pod names and labels derive from jobId — verified, the repo name reaches neither)."
+
+decisions:
+  - key: |
+      NAMESPACE-RELATIVE, NOT path_with_namespace VERBATIM. A repo ref is written
+      connection/pattern and the connection already pins the group — naming discovered repos
+      by the FULL path would force every existing ref and glob to repeat the group
+      ('conn/group/team-a/api') and would break every top-level ref that works today. Stripping
+      the connection's group prefix keeps top-level repos at their current short name (nothing
+      an operator has configured changes meaning) and gives subgroup repos exactly the segment
+      an operator would write to disambiguate them.
+  - key: |
+      SHARED PROJECTS LEAVE THE LISTING: with_shared=false. The endpoint returns projects
+      SHARED into the group by default, and their path_with_namespace does not start with the
+      group — the prefix-strip fallback would be the ROUTINE path for them, not a degradation
+      edge, and their names would stay as ambiguous as today's. A shared project does not live
+      under the group: its namespace is foreign, an exact ref cannot even build its URL (the
+      builder prefixes the connection group). Discovery now lists what the connection's group
+      OWNS, and the fallback becomes what it claims to be — an edge, logged as a warning.
+  - key: |
+      GLOBS STAY COMPATIBLE BY CONSTRUCTION, NOT BY LUCK — AND THE EXCEPTIONS ARE NAMED.
+      RepoGlobMatcher turns '*' into '.*', which crosses '/', so 'conn/*' keeps matching a
+      subgroup repo after its name grows a prefix; a test pins this. But a NARROWER glob or an
+      exclude that today matches a subgroup repo by bare slug ('conn/Sample.*',
+      '!conn/legacy*') changes meaning: the include silently drops the repo, the exclude
+      silently re-admits it. That is the migration cost of making names unambiguous, it is
+      carried in the CHANGELOG entry, and RepoGlobExpander already logs every expansion's
+      resolved set so the drift is visible per project.
+  - key: |
+      ROUTE BY KNOWN KEYS, NOT BY FIRST SEGMENT. FilesystemToolHost addresses multi-repo files
+      as '<repoName>/<path>' and resolved the repo by splitting at the FIRST slash — a repo
+      named 'team-a/api' would register under its full name and never be found. Exact refs can
+      already put '/' into a repo name today, so this defect is latent; discovery names make it
+      the standard outcome. Routing resolves by LONGEST matching known runner key (segment
+      boundary honoured) in both the multi-runner branch and the single-runner prefix strip.
+  - key: |
+      THE TEST SEAM IS Parse ITSELF. The provider holds a private static HttpClient, so
+      DiscoverAsync is unwritable as a unit test without an HTTP seam this phase does not need:
+      Parse becomes internal (InternalsVisibleTo already serves the test assembly for this
+      project — SourceProviderFactory.ResolveGitLabTarget is tested the same way) and takes the
+      connection group, so the mapping is pinned directly.
+
+steps:
+  - id: discovery-carries-the-namespace
+    action: "Deserialize path_with_namespace in GitLabRepoDiscoveryProvider, request with_shared=false, and set DiscoveredRepo.Name to the path relative to the connection's group (case-insensitive prefix strip, '/'-trimmed); fall back to the bare path with a logged warning when the prefix is absent."
+    modify:
+      - "GitLabRepoDiscoveryProvider: GitLabProject gains path_with_namespace; discovery URL gains with_shared=false; Parse becomes internal, takes the group, computes the relative name, warns on fallback"
+  - id: a-slash-named-repo-is-addressable
+    action: "Resolve FilesystemToolHost's repo routing by longest matching known runner key at a segment boundary instead of the first path segment, in the multi-runner lookup and the single-runner prefix strip alike."
+    modify:
+      - "FilesystemToolHost: Route/prefix-strip match against registered runner keys"
+  - id: the-matcher-contract-is-pinned
+    action: "Pin with tests that 'conn/*' matches a subgroup name, that an exact 'team-a/api' ref matches discovery, and that two same-slug projects in different subgroups resolve to two distinct names."
+
+tests:
+  - "Parse_ProjectInSubgroup_NameIsNamespaceRelative"
+  - "Parse_TopLevelProject_NameStaysBareSlug"
+  - "Parse_SameSlugInTwoSubgroups_YieldsTwoDistinctNames"
+  - "Parse_PathWithNamespaceMissing_FallsBackToBarePath"
+  - "Parse_GroupPrefixCaseDiffers_StillStripsPrefix"
+  - "Parse_ForeignNamespace_FallsBackToBarePathAndWarns"
+  - "RepoGlobMatcher_StarPattern_MatchesAcrossSlash"
+  - "RepoGlobExpander_ExactSubgroupRef_MatchesDiscoveredRepo"
+  - "Route_SlashNamedRepo_ResolvesItsRunner"
+  - "Route_SlashNamedRepo_DoesNotShadowItsParentSegment"
+
+done:
+  - "a repo in a subgroup is discovered under its namespace-relative name and an exact ref spelling that name selects exactly it"
+  - "two projects sharing a slug in different subgroups are two distinguishable repos"
+  - "a top-level repo keeps the name it has today; 'conn/*' globs resolve unchanged"
+  - "a slash-named repo's files are addressable through the filesystem tools in multi-repo runs"
+  - "the CHANGELOG names the two operator-visible shifts: shared projects leave discovery, bare-slug globs no longer see subgroup repos"
+  - "full backend suite green"
