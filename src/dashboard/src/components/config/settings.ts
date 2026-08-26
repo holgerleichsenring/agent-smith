@@ -1,5 +1,8 @@
 import type { SettingKey } from "@/lib/configApi";
 
+// 2026-08-26-7a51: `role_mapping` left this rail for the Access surface, which needs
+// access.write rather than config.write — a custom role bundling config.write is legal,
+// and granting a role is how such a caller would make themselves an administrator.
 // p0353: static metadata for the global SETTINGS singletons — the taxonomy's
 // editable singleton docs surfaced as one typed form each, mirroring the catalog's
 // entity kinds. Order is the rail order (deployment-shaped things first, then the
@@ -19,8 +22,6 @@ export const SETTING_KEYS: SettingKey[] = [
   "skills",
   "pipeline_storage",
   "pipeline_data_flow",
-  // 2026-08-25-1806: a role mapping changes when a team does, so it is edited here.
-  "role_mapping",
 ];
 
 export const SETTING_LABEL: Record<SettingKey, string> = {
@@ -36,7 +37,6 @@ export const SETTING_LABEL: Record<SettingKey, string> = {
   skills: "Skills",
   pipeline_storage: "Pipeline storage",
   pipeline_data_flow: "Pipeline data flow",
-  role_mapping: "Roles & claims",
 };
 
 // The one-line subtitle under each settings title in the studio content area.
@@ -53,7 +53,6 @@ export const SETTING_SUBTITLE: Record<SettingKey, string> = {
   skills: "where the skill catalog is resolved from",
   pipeline_storage: "in-flight run-artifact store TTL",
   pipeline_data_flow: "data-flow gating — warn only, or enforce",
-  role_mapping: "what a role name grants, and the claims a role is read out of",
 };
 
 // The rail / header glyph per settings key.
@@ -70,7 +69,6 @@ export const SETTING_ICON: Record<SettingKey, string> = {
   skills: "✧",
   pipeline_storage: "⛁",
   pipeline_data_flow: "⇢",
-  role_mapping: "◈",
 };
 
 export function isSettingKey(value: string | undefined): value is SettingKey {

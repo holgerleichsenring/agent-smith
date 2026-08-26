@@ -34,11 +34,27 @@ public sealed class RoleMappingConfig
     /// </summary>
     public Dictionary<string, List<string>> Roles { get; set; } = [];
 
+    /// <summary>
+    /// 2026-08-26-7a51: roles an administrator granted HERE, each against the claim it was
+    /// written for. Additive beside whatever the directory says, so a person can hold a
+    /// directory role and a granted one at once.
+    /// </summary>
+    public List<PersonGrant> PersonGrants { get; set; } = [];
+
+    /// <summary>
+    /// 2026-08-26-7a51: how long an observed caller is kept before the retention service
+    /// drops the row. Zero or less keeps them forever.
+    /// </summary>
+    public int ObservationRetentionDays { get; set; } = DefaultObservationRetentionDays;
+
     /// <summary>The claim name an installation that has configured nothing reads roles from.</summary>
     public const string DefaultRoleClaim = "roles";
 
     /// <summary>The claim name an installation that has configured nothing reads groups from.</summary>
     public const string DefaultGroupClaim = "groups";
+
+    /// <summary>Ninety days of observations is a directory's worth of joiners and leavers.</summary>
+    public const int DefaultObservationRetentionDays = 90;
 
     /// <summary>
     /// Whether this mapping says anything an installation would miss. It is what the

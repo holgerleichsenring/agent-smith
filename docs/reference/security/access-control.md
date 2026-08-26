@@ -6,11 +6,16 @@ callers because their **identity provider** says so.
 
 That last sentence is the whole design, and it is worth stating plainly:
 
-> The directory says which roles a caller holds. The application says what those roles
-> may do. **Nobody assigns a person a role inside agent-smith.** There is no user store,
-> no member list and no screen on which an administrator grants somebody a role — and
-> there will not be one. Identity-to-roles happens at the identity provider, as an
-> app-role assignment or a group membership.
+> The directory says WHO a caller is. Signing in happens there and nowhere else: a caller
+> the directory refuses resolves to nobody before any mapping is consulted, so nothing
+> here can let somebody in. What a caller may DO is this installation's decision — a role
+> claim, a group membership it maps, or a role an administrator grants a person on the
+> **Access** surface.
+
+A grant decides a role and never decides access. There is still no user store, and the
+list of people on the Access surface is not one: it is the callers this installation has
+actually seen, kept so an administrator picks a person instead of copying an identifier
+out of a directory console.
 
 ## The three built-in roles
 
@@ -69,14 +74,66 @@ help: the token was refused before any claim in it was read. The page names whic
 refused it — audience, issuer, signature, expiry — and shows the authority and audience
 this server expects, which is what the fix is written from.
 
-**3. Write the mapping** in the Config Studio, under **Settings -> Roles & claims**. A
-role bundle is built by picking from the permission catalog — the catalog is closed, so
-there is nothing to type and nothing to misspell — and a group value is mapped onto the
-role names the installation knows.
+**3. Grant the role** in the Config Studio, under **Access**. Four panes over one
+document:
 
-**4. There is no step four.** A saved mapping applies to the next request. What a role
-MEANS is application configuration: it changes when a team does, so it lives in the
-config store like every other setting and reloads live.
+* **People** — everyone this installation has seen, searchable and paged, each row
+  showing the roles they hold and where each one came from. Grant a role from the row.
+  Somebody who has not called yet is added by hand and reads *not signed in yet* rather
+  than a timestamp.
+* **Groups** — every group value that has arrived or been mapped, and the roles it grants.
+* **Roles** — the three built-in roles, what each holds, and how many people and groups
+  carry it, above the full permission matrix. Custom roles are rendered read-only; a new
+  one is refused.
+* **Claim names** — which claims roles and groups are read out of, and the claim callers
+  are named by.
+
+**4. There is no step four.** A saved grant applies to the next request. What a role MEANS
+and who holds it are both application configuration: they change when a team does, so they
+live in the config store like every other setting and reload live.
+
+The Access surface needs `access.read` and `access.write`, which only `admin` holds.
+`config.write` is deliberately not enough: a custom role may bundle `config.write`, and
+granting a role is how such a caller would make themselves an administrator and collect
+the secrets permissions the catalog keeps separable.
+
+### A grant remembers the claim it was written against
+
+A person grant stores `{claim, value}`, not a bare value, and resolves only while `claim`
+is the configured `name_claim`. Written under `preferred_username` and later read under
+`email`, one value can name a different person entirely — the same cross-claim collision
+`AGENTSMITH_ADMIN_GRANT`'s mandatory prefix refuses. A grant whose claim is no longer in
+force grants nothing and says so in `findings`.
+
+Values compare **ordinally**: `Ada@example.com` and `ada@example.com` are two identifiers,
+not one word.
+
+### Point `name_claim` at `sub` if you can
+
+`sub` is opaque and never reused. `email` and `preferred_username` are editable by their
+holder in common directory configurations — a person who can change their own can claim a
+grant written for somebody else, and a grant reassigned after somebody leaves goes to
+whoever inherits the address. The surface warns whenever `name_claim` is not `sub`.
+
+### Every write leaves a route to admin
+
+A role mapping that reaches the store must leave at least one way to reach `admin`: a
+person granted it, a group mapped onto it, a role claim this installation reads, or a
+non-empty `AGENTSMITH_ADMIN_GRANT`. The check sits on the document store rather than on a
+route, because a save, an import, a revert and the bootstrap migration all write a mapping
+and three of them never pass a settings endpoint. A refusal names the four routes.
+
+### Who has been seen, and for how long
+
+A validated caller is NOTED — subject, the name-claim value with its claim, the role and
+group values that arrived — coalesced in memory and written off the request path. There is
+no sign-in event to hook: a bearer token is checked on every request and this server holds
+no session, so a row per validated token would be one write per request per caller. The
+record fails open: nobody is ever refused because their observation could not be stored.
+
+Observations are kept for `observation_retention_days` (90 by default) and are **not**
+configuration — they never travel in a config export. Removing a person removes their
+grant and their record in one action.
 
 The *authority*, the *audience* and the *enforce* switch are different — they are
 bootstrap configuration, read from the file and the environment before the config store
@@ -102,9 +159,12 @@ is how an issuer gets proven before anybody can be locked out.
   `/platform-admins` — which is normalised away.
 * **A caller in two mapped groups holds the union** of both bundles, and the admin grant
   unions with whatever the token already carried.
-* **Custom roles are additive.** A name that collides with a built-in role does not
-  replace it, and a permission name outside the catalog is dropped from the bundle rather
-  than granted. Both are reported in `findings`.
+* **Custom roles are additive, and read-only.** One an installation already has keeps
+  working, is round-tripped verbatim and is reported; a NEW one is refused on save. A name
+  that collides with a built-in role does not replace it, and a permission name outside the
+  catalog is dropped from the bundle rather than granted. Both are reported in `findings`.
+* **A person grant unions with the directory's roles.** Somebody can hold `reader` from
+  their directory and `admin` from a grant at the same time.
 
 ### A directory that nests its roles
 

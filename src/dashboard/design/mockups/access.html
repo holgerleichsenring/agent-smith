@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Who May Do What</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+</head>
+<body>
+
+<style>
+:root {
+  --canvas: #fffefb;
+  --canvas-soft: #f8f4f0;
+  --surface: #fffefb;
+  --line: #e6e0d6;
+  --line-strong: #d3ccbe;
+  --ink: #201515;
+  --ink-mid: #36342e;
+  --body: #605d52;
+  --body-mid: #939084;
+  --mute: #c5c0b1;
+  --primary: #22c55e;
+  --primary-deep: #15803d;
+  --primary-wash: #eefaf1;
+  --on-primary: #fffefb;
+  --directory: #7c6bd8;
+  --directory-wash: #f1eefc;
+  --shadow: 0 1px 2px rgba(32,21,21,.05), 0 8px 24px -16px rgba(32,21,21,.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #1c1e22; --canvas-soft: #23262b; --surface: #212429;
+    --line: #34383f; --line-strong: #454a53;
+    --ink: #ece8e0; --ink-mid: #d8d4cc; --body: #a8a49a; --body-mid: #85817a; --mute: #6b7280;
+    --primary: #34d576; --primary-deep: #6ee79b; --primary-wash: #1b2f22; --on-primary: #14251a;
+    --directory: #a496ea; --directory-wash: #282443;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -16px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  --canvas: #1c1e22; --canvas-soft: #23262b; --surface: #212429;
+  --line: #34383f; --line-strong: #454a53;
+  --ink: #ece8e0; --ink-mid: #d8d4cc; --body: #a8a49a; --body-mid: #85817a; --mute: #6b7280;
+  --primary: #34d576; --primary-deep: #6ee79b; --primary-wash: #1b2f22; --on-primary: #14251a;
+  --directory: #a496ea; --directory-wash: #282443;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -16px rgba(0,0,0,.6);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--canvas); color: var(--ink);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 52px 28px 96px; }
+
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--body-mid); margin: 0 0 10px; }
+h1 { font-size: 32px; font-weight: 500; letter-spacing: -.6px; margin: 0 0 10px; text-wrap: balance; }
+
+
+.legend {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin: 0 0 26px; font-size: 12.5px; color: var(--body-mid);
+}
+.legend .sep { color: var(--mute); margin: 0 3px; }
+
+/* ── add ────────────────────────────────────────────── */
+.adder { position: relative; margin-left: auto; }
+.adder > summary {
+  list-style: none; cursor: pointer; display: inline-flex; align-items: center;
+  border: 1px solid var(--line-strong); border-radius: 9px; padding: 7px 14px;
+  font-size: 13px; color: var(--ink-mid); background: var(--surface); white-space: nowrap;
+}
+.adder > summary::-webkit-details-marker { display: none; }
+.adder > summary:hover { border-color: var(--primary); color: var(--primary-deep); }
+.adder > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.adder[open] > summary { border-color: var(--primary); color: var(--primary-deep); background: var(--primary-wash); }
+.addbox {
+  position: absolute; z-index: 30; top: calc(100% + 7px); right: 0;
+  display: flex; gap: 7px; align-items: center; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 11px;
+  box-shadow: var(--shadow); padding: 9px; flex-wrap: wrap;
+}
+.addfield {
+  font-size: 13px; padding: 7px 11px; border: 1px solid var(--line-strong);
+  border-radius: 8px; background: var(--canvas); color: var(--ink); min-width: 290px;
+}
+.addfield::placeholder { color: var(--body-mid); font-family: Inter, sans-serif; }
+.addfield:focus-visible { outline: 2px solid var(--primary); outline-offset: -1px; border-color: var(--primary); }
+.addrole {
+  font-family: "IBM Plex Mono", monospace; font-size: 13px; padding: 7px 9px;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: var(--canvas); color: var(--ink); cursor: pointer;
+}
+.addrole:focus-visible { outline: 2px solid var(--primary); outline-offset: -1px; }
+.addgo {
+  border: 0; border-radius: 8px; background: var(--primary); color: var(--on-primary);
+  font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer;
+}
+.addgo:hover { background: var(--primary-deep); }
+.addgo:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.pending { color: var(--body-mid); font-style: italic; }
+
+/* ── tabs ───────────────────────────────────────────── */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.tab {
+  border: 0; background: none; font-family: inherit; font-size: 14px; font-weight: 500;
+  color: var(--body); padding: 9px 15px 11px; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 7px;
+}
+.tab:hover { color: var(--ink-mid); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--primary); font-weight: 600; }
+.tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; border-radius: 6px; }
+.tab .n {
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--body-mid);
+  background: var(--canvas-soft); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px;
+}
+.tab[aria-selected="true"] .n { color: var(--primary-deep); background: var(--primary-wash); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+[role="tabpanel"][hidden] { display: none; }
+
+
+/* ── toolbar ────────────────────────────────────────── */
+.toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.search {
+  flex: 1 1 230px; min-width: 180px; font-family: inherit; font-size: 13.5px;
+  padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 9px;
+  background: var(--surface); color: var(--ink);
+}
+.search::placeholder { color: var(--body-mid); }
+.search:focus-visible { outline: 2px solid var(--primary); outline-offset: -1px; border-color: var(--primary); }
+.filters { display: flex; gap: 4px; }
+.filter {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+  font-family: inherit; font-size: 12.5px; color: var(--body); padding: 5px 11px; cursor: pointer;
+}
+.filter:hover { border-color: var(--line-strong); color: var(--ink-mid); }
+.filter[aria-pressed="true"] { background: var(--primary-wash); color: var(--primary-deep); border-color: color-mix(in srgb, var(--primary) 34%, transparent); font-weight: 500; }
+.filter:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ── table ──────────────────────────────────────────── */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th {
+  text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--body-mid); padding: 11px 16px; border-bottom: 1px solid var(--line);
+  white-space: nowrap; background: var(--canvas-soft);
+}
+tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+.who-name { font-weight: 600; color: var(--ink); }
+.who-sub { font-size: 11.5px; color: var(--body-mid); margin-top: 1px; }
+.seen { color: var(--body); white-space: nowrap; font-size: 12.5px; }
+.empty { padding: 26px 16px; text-align: center; color: var(--body-mid); font-size: 13px; }
+
+/* ── more ───────────────────────────────────────────── */
+.more { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 11px; flex-wrap: wrap; }
+.tally { font-size: 12.5px; color: var(--body-mid); font-variant-numeric: tabular-nums; }
+.more-btn {
+  border: 1px solid var(--line-strong); background: var(--surface); border-radius: 9px;
+  font-family: inherit; font-size: 13px; color: var(--ink-mid); padding: 7px 15px; cursor: pointer;
+}
+.more-btn:hover { border-color: var(--primary); color: var(--primary-deep); }
+.more-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ── chips ──────────────────────────────────────────── */
+.roles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
+  padding: 3px 9px 3px 8px; font-size: 12px; font-weight: 500;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.chip .src { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+.chip-directory { background: var(--directory-wash); color: var(--directory); border-color: color-mix(in srgb, var(--directory) 28%, transparent); }
+.chip-here { background: var(--primary-wash); color: var(--primary-deep); border-color: color-mix(in srgb, var(--primary) 34%, transparent); }
+.chip-none { color: var(--body-mid); font-style: italic; font-size: 12px; }
+.chip button {
+  border: 0; background: none; padding: 0; margin-left: 1px; color: inherit;
+  cursor: pointer; font-size: 13px; line-height: 1; opacity: .55; font-family: inherit;
+}
+.chip button:hover { opacity: 1; }
+.chip button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 3px; }
+
+.assign { position: relative; display: inline-block; }
+.assign > summary {
+  list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  border: 1px dashed var(--line-strong); border-radius: 999px; padding: 3px 10px;
+  font-size: 12px; color: var(--body);
+}
+.assign > summary::-webkit-details-marker { display: none; }
+.assign > summary:hover { border-color: var(--primary); color: var(--primary-deep); }
+.assign > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.menu {
+  position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 5px; min-width: 200px;
+}
+.menu button {
+  display: block; width: 100%; text-align: left; border: 0; background: none;
+  padding: 7px 10px; border-radius: 7px; cursor: pointer; font-family: inherit;
+  font-size: 13px; color: var(--ink-mid);
+}
+.menu button:hover { background: var(--canvas-soft); }
+.menu button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.menu button small { display: block; color: var(--body-mid); font-size: 11px; }
+
+/* ── roles panel ────────────────────────────────────── */
+.rolecards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 26px; }
+.rolecard { border: 1px solid var(--line); border-radius: 12px; padding: 15px 16px; background: var(--surface); }
+.rolecard h3 { margin: 0 0 3px; font-size: 15px; font-weight: 600; font-family: "IBM Plex Mono", monospace; }
+.rolecard .sum { margin: 0 0 11px; font-size: 12.5px; color: var(--body); }
+.rolecard .carried { font-size: 12px; color: var(--body-mid); border-top: 1px solid var(--line); padding-top: 9px; }
+.rolecard .carried b { color: var(--ink-mid); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rolecard .np { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--body-mid); }
+
+.matrix th.perm { width: 43%; }
+.matrix td.perm { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-mid); }
+.matrix .perm-note { font-family: Inter, sans-serif; font-size: 11.5px; color: var(--body-mid); margin-top: 2px; }
+.matrix th.role, .matrix td.role { text-align: center; width: 19%; }
+.matrix thead th.role { color: var(--ink-mid); font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 600; font-family: "IBM Plex Mono", monospace; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+.dash { color: var(--mute); }
+.grp { background: var(--canvas-soft); }
+.grp td { font-size: 10.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--body-mid); padding: 8px 16px; }
+
+
+@media (max-width: 860px) { .rolecards { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .wrap { padding: 34px 18px 72px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Settings · Access</p>
+  <h1>Who may do what</h1>
+  <p class="legend">
+    <span class="chip chip-directory"><span class="src">group</span>operator</span> from your directory
+    <span class="sep">·</span>
+    <span class="chip chip-here"><span class="src">granted</span>admin</span> granted here
+  </p>
+
+  <div class="tabs" role="tablist" aria-label="Access settings">
+    <button class="tab" role="tab" id="tab-people" aria-controls="panel-people" aria-selected="true">
+      People <span class="n" id="n-people">143</span>
+    </button>
+    <button class="tab" role="tab" id="tab-groups" aria-controls="panel-groups" aria-selected="false" tabindex="-1">
+      Groups <span class="n" id="n-groups">17</span>
+    </button>
+    <button class="tab" role="tab" id="tab-roles" aria-controls="panel-roles" aria-selected="false" tabindex="-1">
+      Roles <span class="n">3</span>
+    </button>
+  </div>
+
+  <!-- ── PEOPLE ─────────────────────────────────────── -->
+  <div role="tabpanel" id="panel-people" aria-labelledby="tab-people">
+    <div class="toolbar">
+      <input class="search" id="q-people" type="search" placeholder="Search by name or subject" aria-label="Search people">
+      <div class="filters">
+        <button class="filter" data-pfilter="all" aria-pressed="true">All</button>
+        <button class="filter" data-pfilter="granted" aria-pressed="false">Granted here</button>
+        <button class="filter" data-pfilter="none" aria-pressed="false">No role</button>
+      </div>
+      <details class="adder" id="add-person">
+        <summary>+ Add person</summary>
+        <div class="addbox">
+          <input class="addfield mono" id="new-person" type="text"
+                 placeholder="email or subject the directory sends" aria-label="Subject">
+          <select class="addrole" id="new-person-role" aria-label="Role">
+            <option value="reader">reader</option>
+            <option value="operator" selected>operator</option>
+            <option value="admin">admin</option>
+          </select>
+          <button class="addgo" type="button" data-addperson>Add</button>
+        </div>
+      </details>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Person</th><th>Last seen</th><th>Roles</th></tr></thead>
+        <tbody id="people"></tbody>
+      </table>
+    </div>
+    <div class="more">
+      <span class="tally" id="tally-people"></span>
+      <button class="more-btn" id="more-people" type="button">Show 25 more</button>
+    </div>
+  </div>
+
+  <!-- ── GROUPS ─────────────────────────────────────── -->
+  <div role="tabpanel" id="panel-groups" aria-labelledby="tab-groups" hidden>
+    <div class="toolbar">
+      <input class="search" id="q-groups" type="search" placeholder="Search by value or name" aria-label="Search groups">
+      <div class="filters">
+        <button class="filter" data-gfilter="all" aria-pressed="true">All</button>
+        <button class="filter" data-gfilter="mapped" aria-pressed="false">Mapped</button>
+        <button class="filter" data-gfilter="unmapped" aria-pressed="false">Unmapped</button>
+      </div>
+      <details class="adder" id="add-group">
+        <summary>+ Add group</summary>
+        <div class="addbox">
+          <input class="addfield mono" id="new-group" type="text"
+                 placeholder="group value your directory sends" aria-label="Group value">
+          <select class="addrole" id="new-group-role" aria-label="Role">
+            <option value="reader">reader</option>
+            <option value="operator" selected>operator</option>
+            <option value="admin">admin</option>
+          </select>
+          <button class="addgo" type="button" data-addgroup>Add</button>
+        </div>
+      </details>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Group value <span class="mono" style="text-transform:none;letter-spacing:0">· groups</span></th>
+            <th>Carried by</th>
+            <th>Grants</th>
+          </tr>
+        </thead>
+        <tbody id="groups"></tbody>
+      </table>
+    </div>
+    <div class="more">
+      <span class="tally" id="tally-groups"></span>
+      <button class="more-btn" id="more-groups" type="button">Show 25 more</button>
+    </div>
+  </div>
+
+  <!-- ── ROLES ──────────────────────────────────────── -->
+  <div role="tabpanel" id="panel-roles" aria-labelledby="tab-roles" hidden>
+    <div class="rolecards" id="rolecards"></div>
+    <div class="tablewrap">
+      <table class="matrix">
+        <thead>
+          <tr><th class="perm">Permission</th><th class="role">reader</th><th class="role">operator</th><th class="role">admin</th></tr>
+        </thead>
+        <tbody id="matrix"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const ROLES = ["reader", "operator", "admin"];
+const PAGE = 12;
+
+const FIRST = ["Marta","Jonas","Priya","Tom","Ana","Lukas","Sofia","Daniel","Hannah","Ravi","Elena","Mikkel","Yuki","Clara","Noah","Ines","Pawel","Nadia","Felix","Leila","Otto","Sanne","Bruno","Maja","Kenji","Rosa","Viktor","Amira","Gustav","Tessa","Milan","Zoe","Anton","Lucia","Ferdi","Nora"];
+const LAST = ["Keller","Weiß","Raman","Byrne","Lindqvist","Moreau","Costa","Novak","Berg","Haddad","Vos","Aalto","Tanaka","Reyes","Okafor","Marek","Dubois","Serrano","Hartmann","Nilsen","Fischer","Brandt","Silva","Kovacs","Ito","Alvarez","Petrov","Saleh","Lund","Bakker","Horvat","Papadopoulos","Meyer","Fontana","Graf","Larsen"];
+const WHEN = ["2 minutes ago","today, 09:14","today, 08:02","yesterday","yesterday","2 days ago","3 days ago","4 days ago","last week","last week","2 weeks ago","3 weeks ago"];
+
+const PEOPLE = FIRST.map((first, i) => {
+  const name = `${first} ${LAST[i]}`;
+  const sub = `${first[0].toLowerCase()}.${LAST[i].toLowerCase().replace(/[^a-z]/g, "")}@example.com`;
+  const directory = i % 4 === 1 ? [{ role: "operator", via: "group" }]
+    : i % 7 === 3 ? [{ role: "reader", via: "roles" }] : [];
+  const granted = i === 0 || i === 2 ? ["admin"] : i % 11 === 5 ? ["operator"] : [];
+  return { name, sub, seen: WHEN[i % WHEN.length], directory, granted };
+});
+
+const GROUP_NAMES = ["platform-operators","logistics-devs","all-staff","integration-team","sre-oncall","data-platform","qa-guild","contractors-2026","product-owners","security-review","interns","field-support","release-managers","architecture-board","support-l2","finance-readonly","partner-access"];
+const GROUPS = GROUP_NAMES.map((label, i) => ({
+  value: `${hex(8, i)}-${hex(4, i + 1)}-4${hex(3, i + 2)}-${(8 + (i % 4)).toString(16)}${hex(3, i + 3)}-${hex(12, i + 4)}`,
+  label,
+  people: [2, 1, 143, 6, 4, 9, 3, 12, 5, 2, 7, 11, 3, 4, 8, 2, 1][i],
+  grants: i === 0 ? "operator" : i === 4 ? "reader" : null,
+}));
+
+function hex(n, seed) {
+  let out = "", x = (seed + 7) * 2654435761 % 4294967296;
+  for (let i = 0; i < n; i++) { x = (x * 1103515245 + 12345) % 4294967296; out += (x % 16).toString(16); }
+  return out;
+}
+
+const PERMS = [
+  ["Runs", [
+    ["runs.read", "see the run list and a run's detail", 1],
+    ["runs.watch", "expand the live sandbox drawer", 1],
+    ["runs.control", "start, cancel and resume a run", 2],
+    ["runs.delete", "delete a run and its artifacts", 2],
+  ]],
+  ["Projects & catalog", [
+    ["projects.init", "initialise a project", 2],
+    ["catalog.read", "read the skill catalog", 1],
+  ]],
+  ["Diagnostics", [
+    ["diagnostics.read", "read the connection snapshot", 1],
+    ["diagnostics.probe", "call out to a connected system", 2],
+  ]],
+  ["Configuration", [
+    ["config.read", "read the installation's configuration", 3],
+    ["config.write", "change it", 3],
+    ["config.export", "export it as a file", 3],
+    ["config.import", "import a file over it", 3],
+  ]],
+  ["Secrets", [
+    ["secrets.read", "list which secrets exist", 3],
+    ["secrets.write", "set a secret's value", 3],
+  ]],
+  ["Identity", [["identity.read", "read your own identity page", 1]]],
+];
+
+let addedPeople = 0;
+const state = { pShown: PAGE, pQuery: "", pFilter: "all", gShown: PAGE, gQuery: "", gFilter: "all" };
+
+const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const describe = (role) =>
+  role === "reader" ? "see runs, catalog, diagnostics"
+  : role === "operator" ? "reader + control and delete runs"
+  : "everything, configuration included";
+
+/* ── people ─────────────────────────────────────────── */
+function peopleMatching() {
+  const q = state.pQuery.trim().toLowerCase();
+  return PEOPLE.filter((p) => {
+    if (q && !p.name.toLowerCase().includes(q) && !p.sub.toLowerCase().includes(q)) return false;
+    if (state.pFilter === "granted") return p.granted.length > 0;
+    if (state.pFilter === "none") return p.granted.length === 0 && p.directory.length === 0;
+    return true;
+  });
+}
+
+function chips(person) {
+  const index = PEOPLE.indexOf(person);
+  const parts = person.directory.map((d) =>
+    `<span class="chip chip-directory"><span class="src">${esc(d.via)}</span>${esc(d.role)}</span>`);
+  person.granted.forEach((role, r) => {
+    parts.push(`<span class="chip chip-here"><span class="src">granted</span>${esc(role)}` +
+      `<button type="button" data-drop="${index}:${r}" aria-label="Remove ${esc(role)} from ${esc(person.name)}">×</button></span>`);
+  });
+  if (!parts.length) parts.push('<span class="chip-none">no role</span>');
+
+  const held = new Set([...person.directory.map((d) => d.role), ...person.granted]);
+  const open = ROLES.filter((r) => !held.has(r));
+  if (open.length) {
+    parts.push(`<details class="assign"><summary>+ grant</summary><div class="menu">` +
+      open.map((r) => `<button type="button" data-add="${index}:${r}">${esc(r)}<small>${describe(r)}</small></button>`).join("") +
+      `</div></details>`);
+  }
+  return `<div class="roles">${parts.join("")}</div>`;
+}
+
+function renderPeople() {
+  const all = peopleMatching();
+  const page = all.slice(0, state.pShown);
+  const body = document.getElementById("people");
+  body.innerHTML = "";
+  if (!page.length) {
+    body.appendChild(el(`<tr><td colspan="3" class="empty">Nobody matches that.</td></tr>`));
+  }
+  page.forEach((p) => body.appendChild(el(
+    `<tr>
+      <td><div class="who-name">${esc(p.name)}</div><div class="who-sub mono">${esc(p.sub)}</div></td>
+      <td class="seen ${p.seen ? "" : "pending"}">${esc(p.seen || "not signed in yet")}</td>
+      <td>${chips(p)}</td>
+    </tr>`)));
+
+  document.getElementById("tally-people").textContent =
+    all.length ? `Showing ${page.length} of ${all.length}` : "";
+  const more = document.getElementById("more-people");
+  more.hidden = page.length >= all.length;
+  more.textContent = `Show ${Math.min(25, all.length - page.length)} more`;
+  document.getElementById("n-people").textContent = PEOPLE.length;
+}
+
+/* ── groups ─────────────────────────────────────────── */
+function groupsMatching() {
+  const q = state.gQuery.trim().toLowerCase();
+  return GROUPS.filter((g) => {
+    if (q && !g.label.toLowerCase().includes(q) && !g.value.toLowerCase().includes(q)) return false;
+    if (state.gFilter === "mapped") return Boolean(g.grants);
+    if (state.gFilter === "unmapped") return !g.grants;
+    return true;
+  });
+}
+
+function renderGroups() {
+  const all = groupsMatching();
+  const page = all.slice(0, state.gShown);
+  const body = document.getElementById("groups");
+  body.innerHTML = "";
+  if (!page.length) {
+    body.appendChild(el(`<tr><td colspan="3" class="empty">No group matches that.</td></tr>`));
+  }
+  page.forEach((g) => {
+    const index = GROUPS.indexOf(g);
+    const grants = g.grants
+      ? `<span class="chip chip-here"><span class="src">maps to</span>${esc(g.grants)}` +
+        `<button type="button" data-unmap="${index}" aria-label="Stop mapping ${esc(g.label)}">×</button></span>`
+      : `<details class="assign"><summary>+ map to a role</summary><div class="menu">` +
+        ROLES.map((r) => `<button type="button" data-map="${index}:${r}">${esc(r)}<small>${describe(r)}</small></button>`).join("") +
+        `</div></details>`;
+    body.appendChild(el(
+      `<tr>
+        <td><div class="mono" style="font-size:12px">${esc(g.value)}</div><div class="who-sub">${esc(g.label)}</div></td>
+        <td class="seen">${g.people} ${g.people === 1 ? "person" : "people"}</td>
+        <td><div class="roles">${grants}</div></td>
+      </tr>`));
+  });
+
+  document.getElementById("tally-groups").textContent =
+    all.length ? `Showing ${page.length} of ${all.length}` : "";
+  const more = document.getElementById("more-groups");
+  more.hidden = page.length >= all.length;
+  more.textContent = `Show ${Math.min(25, all.length - page.length)} more`;
+  document.getElementById("n-groups").textContent = GROUPS.length;
+}
+
+/* ── roles ──────────────────────────────────────────── */
+function renderRoles() {
+  const cards = document.getElementById("rolecards");
+  cards.innerHTML = "";
+  ROLES.forEach((role, i) => {
+    const count = PERMS.flatMap(([, rows]) => rows).filter(([, , from]) => from <= i + 1).length;
+    const people = PEOPLE.filter((p) => p.granted.includes(role) || p.directory.some((d) => d.role === role)).length;
+    const groups = GROUPS.filter((g) => g.grants === role).length;
+    cards.appendChild(el(
+      `<div class="rolecard">
+        <h3>${esc(role)}</h3>
+        <p class="sum">${esc(describe(role))}</p>
+        <p class="carried">
+          <b>${count}</b> <span class="np">of 15 permissions</span><br>
+          carried by <b>${people}</b> ${people === 1 ? "person" : "people"} · <b>${groups}</b> ${groups === 1 ? "group" : "groups"}
+        </p>
+      </div>`));
+  });
+
+  const body = document.getElementById("matrix");
+  body.innerHTML = "";
+  PERMS.forEach(([group, rows]) => {
+    body.appendChild(el(`<tr class="grp"><td colspan="4">${esc(group)}</td></tr>`));
+    rows.forEach(([name, note, from]) => {
+      const cell = (level) => from <= level
+        ? '<td class="role"><span class="dot"></span></td>'
+        : '<td class="role"><span class="dash">–</span></td>';
+      body.appendChild(el(
+        `<tr><td class="perm">${esc(name)}<div class="perm-note">${esc(note)}</div></td>${cell(1)}${cell(2)}${cell(3)}</tr>`));
+    });
+  });
+}
+
+/* ── tabs ───────────────────────────────────────────── */
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+function selectTab(tab) {
+  tabs.forEach((t) => {
+    const on = t === tab;
+    t.setAttribute("aria-selected", String(on));
+    t.tabIndex = on ? 0 : -1;
+    document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+  });
+  tab.focus();
+}
+tabs.forEach((tab) => {
+  tab.addEventListener("click", () => selectTab(tab));
+  tab.addEventListener("keydown", (event) => {
+    const i = tabs.indexOf(tab);
+    if (event.key === "ArrowRight") selectTab(tabs[(i + 1) % tabs.length]);
+    if (event.key === "ArrowLeft") selectTab(tabs[(i - 1 + tabs.length) % tabs.length]);
+  });
+});
+
+/* ── events ─────────────────────────────────────────── */
+document.getElementById("q-people").addEventListener("input", (e) => {
+  state.pQuery = e.target.value; state.pShown = PAGE; renderPeople();
+});
+document.getElementById("q-groups").addEventListener("input", (e) => {
+  state.gQuery = e.target.value; state.gShown = PAGE; renderGroups();
+});
+function addPerson() {
+  const field = document.getElementById("new-person");
+  const value = field.value.trim();
+  if (!value) { field.focus(); return; }
+  PEOPLE.unshift({
+    name: value.includes("@") ? value.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : value,
+    sub: value,
+    seen: null,
+    directory: [],
+    granted: [document.getElementById("new-person-role").value],
+  });
+  addedPeople += 1;
+  field.value = "";
+  document.getElementById("add-person").open = false;
+  state.pQuery = ""; document.getElementById("q-people").value = "";
+  state.pShown = Math.max(state.pShown, PAGE);
+  renderPeople(); renderRoles();
+}
+
+function addGroup() {
+  const field = document.getElementById("new-group");
+  const value = field.value.trim();
+  if (!value) { field.focus(); return; }
+  GROUPS.unshift({
+    value,
+    label: "added here",
+    people: 0,
+    grants: document.getElementById("new-group-role").value,
+  });
+  field.value = "";
+  document.getElementById("add-group").open = false;
+  state.gQuery = ""; document.getElementById("q-groups").value = "";
+  renderGroups(); renderRoles();
+}
+
+document.getElementById("new-person").addEventListener("keydown", (e) => { if (e.key === "Enter") addPerson(); });
+document.getElementById("new-group").addEventListener("keydown", (e) => { if (e.key === "Enter") addGroup(); });
+
+document.getElementById("more-people").addEventListener("click", () => { state.pShown += 25; renderPeople(); });
+document.getElementById("more-groups").addEventListener("click", () => { state.gShown += 25; renderGroups(); });
+
+document.addEventListener("click", (event) => {
+  const filter = event.target.closest("[data-pfilter],[data-gfilter]");
+  if (filter) {
+    const isPeople = filter.hasAttribute("data-pfilter");
+    const group = filter.parentElement.querySelectorAll("button");
+    group.forEach((b) => b.setAttribute("aria-pressed", String(b === filter)));
+    if (isPeople) { state.pFilter = filter.dataset.pfilter; state.pShown = PAGE; renderPeople(); }
+    else { state.gFilter = filter.dataset.gfilter; state.gShown = PAGE; renderGroups(); }
+    return;
+  }
+
+  if (event.target.closest("[data-addperson]")) { addPerson(); return; }
+  if (event.target.closest("[data-addgroup]")) { addGroup(); return; }
+
+  const target = event.target.closest("[data-add],[data-drop],[data-map],[data-unmap]");
+  if (!target) return;
+  const { add, drop, map, unmap } = target.dataset;
+  if (add) { const [i, role] = add.split(":"); PEOPLE[i].granted.push(role); renderPeople(); renderRoles(); }
+  if (drop) { const [i, r] = drop.split(":"); PEOPLE[i].granted.splice(Number(r), 1); renderPeople(); renderRoles(); }
+  if (map) { const [i, role] = map.split(":"); GROUPS[i].grants = role; renderGroups(); renderRoles(); }
+  if (unmap) { GROUPS[unmap].grants = null; renderGroups(); renderRoles(); }
+});
+
+renderPeople();
+renderGroups();
+renderRoles();
+</script>
+
+</body></html>

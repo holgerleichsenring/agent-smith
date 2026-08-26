@@ -291,6 +291,15 @@ function ConfigRailSections({ pathname }: { pathname: string }) {
           active={pathname === `/config/settings/${key}`}
         />
       ))}
+      {/* 2026-08-26-7a51: who may do what. Its own section rather than a settings entry,
+          because it needs access.read/access.write and not config.read/config.write. */}
+      <Section label="Access" style={{ marginTop: 10 }} />
+      <AppRailItem
+        label="Who may do what"
+        href="/config/access"
+        icon="◈"
+        active={pathname === "/config/access"}
+      />
       <Section label="History" style={{ marginTop: 10 }} />
       <AppRailItem
         label="Changes"
