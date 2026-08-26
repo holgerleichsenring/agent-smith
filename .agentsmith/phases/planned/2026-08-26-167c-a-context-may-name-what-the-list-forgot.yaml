@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-26-167c
+
+goal: "The schema accepts what the shipped prompt actually writes, the vocabulary suggests instead of dictating, and one rejection carries every defect."
+
+applies_to: "backend (context schema, the defect report, the bootstrap round)"
+
+requires:
+  - 2026-08-25-c9c7
+
+scope:
+  in: "The schema accepts the shapes the shipped prompt writes; the descriptive vocabularies open to a value the existing corpus already satisfies; a rejection reports every defect once, bounded by characters; and a round whose write was refused stops reporting success."
+  out: "Inventing a taxonomy for data platforms — the point is that no list keeps up. Rewriting the values existing contexts already carry, which would split the corpus in half. Editing the bootstrap master's worked example and its default-to-Layered line — worth doing, but it lives in the skills repo behind a release and a pin bump, so it is *the master writes the shapes it is judged by* rather than a step here."
+
+decisions:
+  - key: |
+      THE PROMPT AND THE SCHEMA DISAGREE ABOUT SHAPE, AND THAT IS THE LARGER HALF. The shipped
+      project-bootstrap master hands the model a worked example whose fields are the wrong TYPE:
+      `"type": "Angular SPA"` and `"style": "Layered"` where the schema declares arrays, and
+      `"naming": "..."` where it declares a map. Three of the four defects the live run hit are
+      shape, not vocabulary. An earlier draft of this phase blamed the enum alone; ship that and
+      the next run reproduces three of its four refusals verbatim.
+  - key: |
+      THE SCHEMA IS THE SIDE THAT GIVES, BECAUSE THE PROMPT IS BEHIND A RELEASE TRAIN. The master
+      lives in the skills repository and reaches this build as a tarball verified by SHA256, so
+      correcting it means a release there and a pin bump here — it cannot be the condition for a
+      run completing. It is also not the only prompt: a customer skill writes contexts too, and
+      nothing stops it choosing the same shorthand. So the schema accepts a single value wherever
+      it accepts a list of them, which is the reading a person would give it anyway. Fixing the
+      master stays worth doing and is named as its own phase rather than dropped.
+  - key: |
+      "Layered" WAS AN INSTRUCTION, NOT AN INVENTION. The same master says "Default
+      conservatively (`Layered` over `CleanArch` if unsure)" and puts the literal in its example.
+      The model followed it and was refused. Reading that as the model lying to satisfy a
+      vocabulary — as the earlier draft did — misplaces the defect onto the writer.
+  - key: |
+      THE OPEN CONSTRAINT MUST ACCEPT THE CORPUS THAT EXISTS, AND A SLUG DOES NOT. Measured
+      against the shipped schema, a lowercase-hyphen rule refuses 17 of 17 arch.style values,
+      36 of 36 arch.patterns, 6 of 7 api styles and 4 of 4 testing styles — including this
+      repository's own context (`CleanArch`, `Command/Handler`). It would also refuse `C#`,
+      `.NET`, `REST` and `gRPC`, which is most of what a writer would honestly type. The rule is
+      a bounded free value — a couple of characters up to a short cap, letters, digits and the
+      punctuation those names already use — not a slug.
+  - key: |
+      LENGTH IS WHAT REFUSES A PARAGRAPH; A SEPARATOR IS NOT. A slug rule blocks none of the
+      laziness it names — `todo`, `tbd`, `unknown` and
+      `pipeline-oriented-library-and-cli` all satisfy it. A short maximum length refuses the
+      paragraph whatever it is spelled with, and the lazy placeholders are refused by naming
+      them. Guessing that a shape implies effort is how the first draft got this backwards.
+  - key: |
+      THE SUGGESTIONS MUST SATISFY THEIR OWN RULE, AND A TEST SAYS SO. Moving the known values
+      from `enum` to `examples` is only safe while every one of them still validates. That is
+      exactly the invariant the first draft broke without noticing, so it becomes an assertion
+      over the schema itself rather than a promise in prose.
+  - key: |
+      OPEN WHAT DESCRIBES, KEEP CLOSED WHAT DECIDES — AND SAY WHICH BY POINTER. `quality.lang`
+      picks between three states and stays closed; `data.migrations` names a chosen strategy and
+      stays closed, which the first draft got wrong by listing it as descriptive. Every enum in
+      the schema is classified explicitly, because "the descriptive ones" left four unclassified
+      and the live document is refused on one of them (`quality.testing.style`, where a
+      JavaScript repository writes `jest`).
+  - key: |
+      A REJECTION IS BOUNDED BY CHARACTERS AND QUOTES EACH RULE ONCE. Three defects at a time
+      cannot converge inside a five-refusal budget: a realistic off-vocabulary document carries
+      about twenty, six of them on `arch.patterns` alone, each repeating the same 486-character
+      list. And the existing 400-character rule cap silently DROPS that list today, so the one
+      field with 36 values is the one field whose values are never shown — the guessing c9c7
+      set out to end, still live. Group by location and keyword, quote once, truncate a long
+      suggestion list to a head plus a count, and bound the whole message by size.
+  - key: |
+      A ROUND MUST KNOW WHETHER IT WROTE, NOT WHETHER A FILE EXISTS. BootstrapRoundHandler asks
+      the sandbox whether context.yaml is there. On a first init that is the same question. On a
+      RE-INIT — the supported route back in — the file is already on disk from last time, so
+      five refusals still resolve to success: the round reports green and the stale context
+      survives untouched. The tool records whether this round's write succeeded and what refused
+      it, and the round fails on the refusal whatever is on disk.
+  - key: |
+      A DEFECT REPORT THAT SHORT-CIRCUITS IS NOT COMPLETE. The gate returns the image rule's
+      defect OR the schema rule's, so the most common first-round failure hides every schema
+      defect behind one line and the second round starts guessing again. Both run; both report.
+  - key: |
+      quality.naming TAKES A SENTENCE, BECAUSE THE PROMPT ALREADY WRITES ONE. The schema demands
+      a map; the shipped master's example writes a string. One of the two has to move, and the
+      schema is the forgiving side — a sentence carries the same information to the only
+      audience this field has, which is a reader.
+
+steps:
+  - id: a-single-value-reads-as-a-list-of-one
+    action: "Accept a single string wherever the schema declares an array of them, normalising it to a one-element list on the way in, so the shorthand the shipped prompt writes stops being a defect."
+  - id: the-shipped-prompt-is-checked-against-the-schema
+    action: "Assert the worked example inside the EMBEDDED skills tarball validates against the shipped context schema, so a future pin bump that reintroduces the disagreement fails the build rather than a customer's run."
+    new:
+      - "the embedded-prompt agreement test"
+  - id: the-vocabulary-suggests
+    action: "Classify every enum in the context schema as descriptive or decided; turn the descriptive ones into a bounded free value carrying the known values as suggestions, with the lazy placeholders refused by name, and assert every suggestion satisfies the constraint."
+  - id: naming-takes-a-sentence
+    action: "Accept a string as well as a map for quality.naming."
+  - id: a-rejection-is-complete-and-bounded
+    action: "Run both gate rules, group defects by location and keyword, quote each rule once with a long suggestion list truncated to a head plus a count, and bound the message by characters."
+    new:
+      - "the schema defect report"
+  - id: a-refused-write-is-never-a-green-round
+    action: "Carry this round's write outcome and its last refusal from the tool through the bundle to the round, and fail on a refusal regardless of what the sandbox already holds."
+  - id: the-handler-makes-room
+    action: "Extract from BootstrapRoundHandler so the round's new outcome check fits under the file-length ratchet it currently sits exactly on."
+
+tests:
+  - "Schema_ThisRepositorysOwnContext_StillValidates"
+  - "Schema_EverySuggestedValue_ValidatesUnderTheOpenConstraint"
+  - "Schema_AKnownArchStyleAndPattern_StillValidate"
+  - "Schema_AnUnknownButHonestValue_Validates"
+  - "Schema_AValueWithPunctuationTheCorpusUses_Validates"
+  - "Schema_AnEmptyValue_IsRefused"
+  - "Schema_ALazyPlaceholder_IsRefused"
+  - "Schema_AParagraphWithHyphensInsteadOfSpaces_IsRefused"
+  - "Schema_QualityLangAndDataMigrations_StayClosed"
+  - "Schema_NamingAsASentenceOrAMap_BothValidate"
+  - "Schema_ASingleValueWhereAListIsDeclared_Validates"
+  - "Schema_ASingleValue_NormalisesToAListOfOne"
+  - "Prompt_TheEmbeddedBootstrapExample_ValidatesAgainstTheShippedSchema"
+  - "Report_ADocumentWithManyDefects_NamesThemAll"
+  - "Report_SixDefectsOnOneField_QuotesTheRuleOnce"
+  - "Report_ALongSuggestionList_IsTruncatedRatherThanDropped"
+  - "Report_AnImageDefectAndASchemaDefect_AreBothReported"
+  - "Report_AnOversizedReport_IsBoundedByCharacters"
+  - "Bootstrap_AReinitWhoseWriteWasRefused_FailsRatherThanReportingSuccess"
+  - "Bootstrap_TheWriteWasRefused_NamesTheRefusalAndItsDefect"
+  - "Bootstrap_TheToolWasNeverCalled_StillSaysThat"
+
+done:
+  - "a context written before this phase still validates, this repository's own included"
+  - "the shipped prompt's worked example validates, and a pin bump that breaks that fails the build"
+  - "a component the list does not cover is described honestly and validates"
+  - "an empty, lazy or paragraph-length value is still refused"
+  - "one rejection carries every defect, each rule quoted once, bounded by size"
+  - "a refused write never reports a green round, on a first init or a re-init"
+  - "backend build green, full suite green"
