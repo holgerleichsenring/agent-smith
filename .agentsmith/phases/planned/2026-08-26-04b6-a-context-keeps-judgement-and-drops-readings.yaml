@@ -7,7 +7,6 @@ applies_to: "backend (context schema, the write path, the document model) + the 
 
 requires:
   - 2026-08-26-167c
-  - 2026-08-26-364f
 
 scope:
   in: "Every context field is classified as judgement, mechanism or reading; the readings stop being written and stop being asked for; a context written before this phase stays valid and loses nothing on disk until it is rewritten; and the shipped schema, template and docs say which is which."
@@ -39,22 +38,29 @@ decisions:
       tool that writes context.yaml discards the readings instead of refusing them: a model that
       still offers them is not punished, and the file simply does not carry them. The prompt's
       own correction follows and is only cosmetic by then.
-  # CORRECTED after review: the original claim here was false. A re-init did not "simply
-  # write the smaller document" — it deleted every section the typed document does not model.
-  # That is why 2026-08-26-364f now comes first.
   - key: |
-      AN EXISTING CONTEXT LOSES NOTHING UNTIL IT IS REWRITTEN — WHICH IS ONLY TRUE ONCE THE
-      WRITE PRESERVES WHAT IT DOES NOT MODEL. The dropped fields stay ACCEPTED by the schema, so
-      no installation is invalidated and no file is migrated. But a whole-file write deletes
-      unmodelled neighbours, so this phase cannot ship before *a context write preserves what it
-      does not model*.
+      AN EXISTING CONTEXT LOSES NOTHING UNTIL IT IS REWRITTEN. Every field this phase touches is
+      one the typed document already carries, so the write path's habit of replacing whole
+      neighbouring sections — real, and fixed by *a context write preserves what it does not
+      model* — does not bear on it. No installation is invalidated and no file is migrated.
   - key: |
-      THE CLASSIFICATION IS THE DELIVERABLE, AND THE PROMPT IS A READER. The raw context.yaml is
-      pasted verbatim into every master prompt, and a shipped analyzer master is told to treat
-      the declared type as ground truth — so "no code reads it" was the wrong question. A field
-      is judged by whether a reader can act on it, and the model is a reader. The phase produces
-      the field-by-field table BEFORE anything is dropped, because two of nineteen fields named
-      in prose is not a classification.
+      THE MODEL IS THE READER, WHICH CHANGES THE ARGUMENT AND NOT THE ANSWER. The raw
+      context.yaml is pasted verbatim into every master prompt, and a shipped analyzer master is
+      told to treat the declared type as ground truth. So "no code reads it" was the wrong test.
+      The right one is what a reader can act on — and a guessed label is worse than a silent
+      field, because it is acted on. arch.style still goes, for the reason it was always going:
+      nobody decided it.
+  - key: |
+      THE CLASSIFICATION IS THE DELIVERABLE. Two fields named in prose is not a classification;
+      the schema has nineteen. The phase produces the field-by-field table first — judgement,
+      mechanism or reading, one clause each — and only then does anything change. A table is
+      also the only form in which the next added field can be argued rather than assumed.
+  - key: |
+      DEPRECATED, NOT DELETED FROM THE SCHEMA. The schema root is additionalProperties:false, so
+      removing a property from `properties` does not stop asking for it — it starts REFUSING it,
+      and every context written before this phase fails on the first run, this repository's own
+      included. The properties stay, marked deprecated with a comment; the tool description, the
+      template and the masters are where asking actually stops.
   - key: |
       meta.purpose IS THE ONE LINE NOBODY CAN DERIVE, AND IT SURVIVES EVERYTHING. What a module
       is FOR appears in no file. It is also already load-bearing — the ticket-to-repo classifier
@@ -67,7 +73,7 @@ steps:
   - id: the-readings-stop-being-written
     action: "Drop the reading fields on the write path so a document that still offers them is accepted and the file does not carry them."
   - id: the-schema-stops-asking
-    action: "Remove the readings from the shipped schema's described surface while continuing to accept them, and update the template and samples to the smaller shape."
+    action: "Mark the readings deprecated in the shipped schema — kept accepted, since the root refuses anything it does not declare — and take them out of the template and samples."
   - id: the-docs-say-which-is-which
     action: "State the judgement-or-reading test in the context reference, so the next field added is argued rather than assumed."
 
@@ -77,6 +83,8 @@ tests:
   - "Write_TheJudgementFields_AreStoredVerbatim"
   - "Schema_AContextWrittenBeforeThisPhase_StillValidates"
   - "Schema_EveryFieldIsClassified"
+  - "Schema_ADeprecatedFieldIsStillAccepted"
+  - "Schema_The167cVocabularyPointers_AreUnchanged"
   - "Summary_TheOrchestratorFields_AreUnchanged"
   - "Purpose_Absent_IsStillTheOneFieldWorthAsking"
   - "State_IsUntouched"
