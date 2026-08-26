@@ -25,6 +25,8 @@ public sealed class BootstrapRoundHandler(
     BootstrapToolHostFactory toolHostFactory,
     ISandboxFileReaderFactory readerFactory,
     BootstrapPrinciplesTransfer principlesTransfer,
+    BootstrapContextWriteVerdict contextWrite,
+    BootstrapOutputRecorder outputRecorder,
     IRunContextAccessor runContext,
     ILogger<BootstrapRoundHandler> logger) : ICommandHandler<BootstrapRoundContext>
 {
@@ -66,27 +68,23 @@ public sealed class BootstrapRoundHandler(
         var responseText = await CallSkillAsync(
             context, role, system, user, bundle.Tools, pipeline, cancellationToken);
 
-        PersistOutput(context, context.SkillName, role, responseText);
+        outputRecorder.Record(context, role, responseText);
         var changes = bundle.GetChanges();
         var decisions = bundle.GetDecisions();
         if (decisions.Count > 0) pipeline.AppendDecisions(decisions);
 
-        // p0193-fix: context.yaml is written via write_context_yaml (its own
-        // sandbox Step), so it never shows up in bundle.GetChanges() (which only
-        // tracks the FilesystemToolHost writes, i.e. coding-principles.md). Verify
-        // the artifact directly on the sandbox so a skipped/failed context.yaml
-        // write FAILS loudly instead of the run reporting a silent success.
+        // 2026-08-26-167c: the round asks the TOOL what this round did, and the
+        // sandbox only whether the file it reported is really there. Asking the
+        // sandbox alone made a re-init whose every write was refused report green.
         var (ctxPath, _) = BootstrapPromptFactory.ResolveTargetPaths(context.ContextName);
-        var contextYamlWritten =
-            await FileExistsAsync(sandbox, ctxPath, cancellationToken);
+        var outcome = bundle.GetContextWrite();
+        var onDisk = await FileExistsAsync(sandbox, ctxPath, cancellationToken);
         logger.LogInformation(
-            "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s), context.yaml={CtxWritten}",
-            role.Emoji, role.DisplayName, changes.Count, decisions.Count, contextYamlWritten);
+            "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s), context.yaml written={CtxWritten} on-disk={OnDisk}",
+            role.Emoji, role.DisplayName, changes.Count, decisions.Count, outcome.Written, onDisk);
 
-        if (!contextYamlWritten)
-            return CommandResult.Fail(
-                $"BootstrapRound: skill '{context.SkillName}' did not produce {ctxPath} "
-                + "— the write_context_yaml tool was not called or failed. context.yaml is required.");
+        if (contextWrite.Failure(context.SkillName, ctxPath, outcome, onDisk) is { } failure)
+            return CommandResult.Fail(failure);
         // p0379: in transfer/preserve mode the principles file is framework-owned,
         // so a round with zero write_file changes is the expected success shape.
         if (transfer.Mode != PrinciplesMode.SkillWrites)
@@ -193,41 +191,4 @@ public sealed class BootstrapRoundHandler(
             && !string.IsNullOrWhiteSpace(appliesTo)
             ? appliesTo
             : null;
-
-    private static void PersistOutput(
-        BootstrapRoundContext context, string skillName,
-        RoleSkillDefinition role, string responseText)
-    {
-        var pipeline = context.Pipeline;
-        if (!pipeline.TryGet<Dictionary<string, string>>(ContextKeys.SkillOutputs, out var outputs) || outputs is null)
-            outputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        outputs[skillName] = responseText;
-        pipeline.Set(ContextKeys.SkillOutputs, outputs);
-
-        AppendBootstrapOutput(pipeline, context.RepoName, context.ContextName, responseText);
-
-        if (!pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var discussion) || discussion is null)
-            discussion = [];
-        discussion.Add(new DiscussionEntry(skillName, role.DisplayName, role.Emoji, Round: 1, responseText));
-        pipeline.Set(ContextKeys.DiscussionLog, discussion);
-    }
-
-    // p0161d: writes the (repo, context) → markdown output trail used by
-    // WriteRunResultHandler's init-mode fan-out. Empty contextName uses
-    // "default" so legacy single-context runs land in a predictable slot.
-    private static void AppendBootstrapOutput(
-        PipelineContext pipeline, string repoName, string contextName, string output)
-    {
-        if (!pipeline.TryGet<Dictionary<string, Dictionary<string, string>>>(
-                ContextKeys.BootstrapOutputs, out var byRepo) || byRepo is null)
-            byRepo = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
-        if (!byRepo.TryGetValue(repoName, out var byContext))
-        {
-            byContext = new Dictionary<string, string>(StringComparer.Ordinal);
-            byRepo[repoName] = byContext;
-        }
-        var key = string.IsNullOrEmpty(contextName) ? "default" : contextName;
-        byContext[key] = output;
-        pipeline.Set(ContextKeys.BootstrapOutputs, byRepo);
-    }
 }
