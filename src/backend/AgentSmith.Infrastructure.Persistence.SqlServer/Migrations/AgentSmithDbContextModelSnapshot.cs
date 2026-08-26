@@ -246,6 +246,50 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("DialogueAnswers");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ObservedCallerEntity", b =>
+                {
+                    b.Property<string>("Subject")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("FirstSeen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("GroupValues")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("GroupsOmitted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("LastSeen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NameClaim")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("NameValue")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("RoleValues")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Subject");
+
+                    b.ToTable("ObservedCallers");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.QueuedTicket", b =>
                 {
                     b.Property<long>("Id")

@@ -39,6 +39,13 @@ internal sealed class AdminGrant
     /// <summary>What is wrong with the grant as written, said where an operator can read it.</summary>
     public IReadOnlyList<string> Findings => _findings;
 
+    /// <summary>
+    /// 2026-08-26-7a51: whether this grant names ANYBODY. The admin invariant needs the
+    /// question answered, and reading the environment variable answers a different one —
+    /// an unprefixed entry is set, parses to nothing, and grants nobody.
+    /// </summary>
+    public bool NamesSomebody => _groups.Count > 0 || _subjects.Count > 0;
+
     /// <summary>Whether this caller is one of the named ones. Ordinal — both are opaque identifiers.</summary>
     public bool Holds(IEnumerable<string> groupValues, string? subject) =>
         groupValues.Any(group => _groups.Contains(group.TrimStart('/'), StringComparer.Ordinal))

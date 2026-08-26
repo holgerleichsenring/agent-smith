@@ -564,8 +564,7 @@ export type SettingKey =
   | "registries"
   | "primary_provider"
   | "pipeline_storage"
-  | "pipeline_data_flow"
-  | "role_mapping";
+  | "pipeline_data_flow";
 
 export interface OrchestratorSetting {
   registry: string;
@@ -655,16 +654,6 @@ export interface PipelineDataFlowSetting {
   enforce: boolean;
 }
 
-/** 2026-08-25-1806: what a role NAME means here, and the two claims a role name is read
- *  out of. `roles` bundles the closed permission catalog; `groupRoles` maps a directory
- *  group value onto role names. Both are name -> list of names. */
-export interface RoleMappingSetting {
-  roleClaim: string;
-  groupClaim: string;
-  roles: Record<string, string[]>;
-  groupRoles: Record<string, string[]>;
-}
-
 /** Maps each settings key to its wire shape. */
 export interface SettingShapes {
   orchestrator: OrchestratorSetting;
@@ -679,7 +668,6 @@ export interface SettingShapes {
   primary_provider: PrimaryProviderSetting;
   pipeline_storage: PipelineStorageSetting;
   pipeline_data_flow: PipelineDataFlowSetting;
-  role_mapping: RoleMappingSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

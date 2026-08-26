@@ -1,4 +1,5 @@
 import { use } from "react";
+import { AccessStudio } from "@/components/access/AccessStudio";
 import { ConfigStudio, type StudioSection } from "@/components/config/ConfigStudio";
 import { SettingsStudio } from "@/components/config/SettingsStudio";
 import { isConfigEntityKind } from "@/components/config/entities";
@@ -24,6 +25,9 @@ function sectionFromSlug(slug?: string[]): StudioSection {
 
 export default function ConfigPage({ params }: PageProps) {
   const { slug } = use(params);
+  // 2026-08-26-7a51: /config/access → who may do what. Its own surface and its own
+  // permission, because config.write must not be enough to grant somebody admin.
+  if (slug?.[0] === "access") return <AccessStudio />;
   if (slug?.[0] === "settings") {
     const key = isSettingKey(slug[1]) ? slug[1] : SETTING_KEYS[0];
     return <SettingsStudio settingKey={key} />;

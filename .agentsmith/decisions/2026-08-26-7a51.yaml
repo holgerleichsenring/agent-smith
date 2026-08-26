@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-26-7a51
+
+decisions:
+  - category: Architecture
+    chose: "The admin invariant is a DECORATOR over IConfigDocumentStore, checked on Save and Import"
+    over: "A check on the settings PUT, or a delta comparison inside DbConfigStore"
+    reason: |
+      Four writes reach a role_mapping document and three of them never pass a settings
+      route: ConfigTransferEndpoints decomposes an import straight into the doc store,
+      DbConfigStore.Revert writes a prior document through, and RoleMappingMigration writes
+      the bootstrap file's mapping in. IConfigDocumentStore is where all four arrive.
+      Judging the WHOLE document rather than the delta is what makes two concurrent
+      administrators safe — each save is asked the same question about the document it is
+      about to become — and it is also the only formulation that counts the right thing:
+      "refuse removing the last admin" holds no grants at all on an installation whose
+      administrators arrive through the role claim, while clearing that claim still empties
+      them.
+      It is registered from AccessPersistenceExtensions rather than inline, because
+      RelationalPersistenceExtensions sits on its file-length ratchet entry and may not grow.
+
+  - category: Architecture
+    chose: "A person grant persists {claim, value} and resolves only while claim is the configured name_claim"
+    over: "A bare value matched against Identity.Name"
+    reason: |
+      name_claim is bootstrap and binds into TokenValidationParameters.NameClaimType at
+      startup, so a bare-string grant is matched against whatever Identity.Name happens to
+      be TODAY. Written under preferred_username and later read under email,
+      `someone@example.com` can name a different person — the cross-claim collision
+      AdminGrant's mandatory `group:`/`sub:` prefix already refuses, rebuilt inside the
+      surface meant to be its safe version.
+      This is a STORAGE shape, so it could not be retrofitted once grants existed. A grant
+      whose claim is no longer in force resolves nothing and is reported through the same
+      findings channel the catalog uses. Values compare ordinal: an identifier is not a word.
+
+  - category: Architecture
+    chose: "The caller is OBSERVED into an in-memory buffer, flushed by a hosted service, failing open"
+    over: "An upsert per validated token inside CallerIdentityResolver"
+    reason: |
+      There is no sign-in event to hook. A bearer token is validated on every request, the
+      server holds no session, and CallerIdentityResolver.Resolve is synchronous on a
+      SINGLETON authorization handler with nowhere to await a write. A row per validated
+      token is one upsert per request per caller — on SQLite, the default, that is the write
+      lock taken on the authorization path, with the dashboard's polling and the hub
+      handshake multiplying it.
+      So: coalesced by subject in a ConcurrentDictionary, suppressed inside a five-minute
+      window, drained every thirty seconds by CallerObservationFlushHostedService, and a
+      failed batch is reinstated so a suppressed caller is not lost. The resolver wraps the
+      hand-off in a try/catch: a caller is never refused because their observation could not
+      be taken.
+
+  - category: Architecture
+    chose: "The access view carries the stored document alongside the four panes"
+    over: "The dashboard rebuilding the document from what it renders"
+    reason: |
+      The panes are DERIVED — a custom role's bundle reaches them with the permissions the
+      server's catalog does not know already dropped by RoleCatalog. A surface that
+      reconstructed the document from its own rows would therefore rewrite the very roles
+      this phase promises to round-trip verbatim, silently, on the first unrelated save.
+      Carrying RoleMappingConfig itself makes "round-tripped verbatim" mechanical.
+
+  - category: Security
+    chose: "access.read / access.write on three new routes, and role_mapping leaves /api/config/settings"
+    over: "Keeping the mapping on the config.write settings route"
+    reason: |
+      A custom role bundling config.write is legal, and the settings route that carried the
+      role mapping would let such a caller grant themselves admin — and with it secrets.read
+      and secrets.write, which p0503a's catalog deliberately kept separable. The escalation
+      existed already; this phase turns it into a button, so it decides the permission rather
+      than inheriting one.
+      role_mapping stays a settings singleton in the STORE — that is what gives it the
+      attributed change row, the revert and the YAML export — and the settings ENDPOINTS
+      filter it out, so it is reachable from exactly one place. admin holds Permissions.All,
+      so bundling the two into admin alone needed no edit to the built-in bundles.
+
+  - category: Implementation
+    chose: "AdminGrant gained a NamesSomebody accessor"
+    over: "Reading AGENTSMITH_ADMIN_GRANT in the invariant"
+    reason: |
+      "The variable is set" and "the grant names somebody" are different questions. An
+      unprefixed entry is set, parses to nothing and grants nobody — AdminGrant refuses it
+      as a finding — so an invariant that trusted the environment read would let an
+      installation lock itself out and report the reason it could not.
+
+  - category: Implementation
+    chose: "Custom roles are refused on save and rendered read-only, never deleted"
+    over: "Removing them, or keeping them editable"
+    reason: |
+      They came out of p0503d's catalog rather than a request and make the surface harder to
+      read for a case nobody has. Deleting the data would drop everyone holding one to zero
+      permissions, so an existing role is rendered, round-tripped and reported; a NEW one is
+      refused at the save by NewCustomRoleGuard, which compares against the mapping in force
+      rather than against a list.
+
+  - category: Implementation
+    chose: "The surface is a DRAFT with one Save, and removing a person is immediate"
+    over: "Applying every chip click as its own PUT"
+    reason: |
+      Draft-plus-Save is the Config Studio's own idiom (SettingsStudio), and the operator
+      asked for no second editing pattern. A grant is part of the document, so it belongs in
+      the draft; removing a person also deletes an observation row, which is not
+      configuration and cannot travel in a draft — so that one action is immediate and
+      answers with the reloaded view.
+
+  - category: Implementation
+    chose: "Retention is a field on RoleMappingConfig, swept hourly by its own hosted service"
+    over: "A bootstrap setting, or folding the sweep into the flush service"
+    reason: |
+      The window is read from the mapping in force on every pass, so shortening it applies
+      without a restart like every other value on that document. Flushing and expiring are
+      two reasons to change; they are two services.
+      The rows are ordered and filtered CLIENT-side and carry no index on LastSeen: SQLite
+      refuses a DateTimeOffset in both an ORDER BY and a comparison (the idiom
+      RunRetentionService already uses), so an index no query can use would be a write cost
+      with no reader.
+
+  - category: Implementation
+    chose: "AgentSmithDbContext's Run-child convention moved into RunChildConfiguration"
+    over: "Letting the context grow past the 120-line rule"
+    reason: |
+      The context sat exactly on the limit, so the new DbSet and ApplyConfiguration had
+      nowhere to go. The honest split was already implied by the file: applying a CONVENTION
+      across eight entity types is not the same responsibility as declaring the model, and
+      RunRecordIdentityConfiguration.Apply was already the precedent for that shape.

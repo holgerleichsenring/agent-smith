@@ -44,10 +44,18 @@ internal static class Permissions
 
     internal const string IdentityRead = "identity.read";
 
+    // 2026-08-26-7a51: the access surface decides its own permission instead of inheriting
+    // config.write. A custom role bundling config.write is legal, and the settings route
+    // that used to carry the role mapping would have let such a caller grant themselves
+    // admin — and with it secrets.read and secrets.write, which this catalog deliberately
+    // kept separable.
+    internal const string AccessRead = "access.read";
+    internal const string AccessWrite = "access.write";
+
     internal static IReadOnlyList<string> All { get; } =
     [
         RunsRead, RunsWatch, RunsControl, RunsDelete, ProjectsInit, CatalogRead,
         DiagnosticsRead, DiagnosticsProbe, ConfigRead, ConfigWrite, ConfigExport,
-        ConfigImport, SecretsRead, SecretsWrite, IdentityRead,
+        ConfigImport, SecretsRead, SecretsWrite, IdentityRead, AccessRead, AccessWrite,
     ];
 }

@@ -45,6 +45,9 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<ConfigEntity> ConfigEntities => Set<ConfigEntity>();
     public DbSet<ConfigEntityVersion> ConfigEntityVersions => Set<ConfigEntityVersion>();
     public DbSet<ConfigRef> ConfigRefs => Set<ConfigRef>();
+    // 2026-08-26-7a51: the callers this installation has seen, so a role is granted to a
+    // person picked from a list rather than to an identifier typed from a console.
+    public DbSet<ObservedCallerEntity> ObservedCallers => Set<ObservedCallerEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,35 +65,12 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigRefConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new RunPhaseConfiguration()); // p0466
-        ConfigureRunChildren(modelBuilder);
+        modelBuilder.ApplyConfiguration(new ObservedCallerConfiguration()); // 2026-08-26-7a51
+        new RunChildConfiguration().Apply(modelBuilder);
         // p0388a: applied AFTER the child loop so the per-step trail index is
         // added alongside — not instead of — the uniform RunId index.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
         new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-25-61f1
-    }
-
-    // Run children carry a plain indexed RunId — NOT an enforced FK. A child
-    // (an artifact, a trail event) can be written before/without its Run row
-    // (projection ordering, the container path), and an enforced FK would LOSE
-    // that data on a constraint failure. So the Run.* collections are unmapped
-    // in-memory holders (populated by DbRunStore via RunId queries), and each
-    // child gets a length-capped, indexed RunId column instead of a relationship.
-    private static void ConfigureRunChildren(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<Run>().Ignore(r => r.Repos).Ignore(r => r.Steps).Ignore(r => r.Events)
-            .Ignore(r => r.Decisions).Ignore(r => r.LlmCalls).Ignore(r => r.Artifacts).Ignore(r => r.Sandboxes);
-
-        Type[] children =
-        [
-            typeof(RunRepo), typeof(RunStep), typeof(RunEvent), typeof(RunDecision),
-            typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox), typeof(RunPhase),
-        ];
-        foreach (var child in children)
-        {
-            var entity = modelBuilder.Entity(child);
-            entity.Property("RunId").HasMaxLength(PersistenceLimits.IndexedString);
-            entity.HasIndex("RunId");
-        }
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

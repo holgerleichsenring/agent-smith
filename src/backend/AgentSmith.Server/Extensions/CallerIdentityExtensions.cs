@@ -4,6 +4,7 @@ using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Startup;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -34,6 +35,13 @@ internal static class CallerIdentityExtensions
         // authorization handler (itself a singleton) keep asking it per request.
         services.AddSingleton<IStoredRoleMapping, StoredRoleMapping>();
         services.AddSingleton<RoleMappingSource>();
+        // 2026-08-26-7a51: the resolver notes the caller into an in-memory buffer and
+        // returns — the write is somewhere else, so the authorization path never waits on
+        // a database and never refuses anybody because a row could not be stored.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<CallerObservationBuffer>();
+        services.AddSingleton<ICallerObservations>(sp => sp.GetRequiredService<CallerObservationBuffer>());
+        services.AddSingleton<AdminRoute>();
         services.AddSingleton<CallerIdentityResolver>();
         // Registered whether or not an authority is, because the anonymous requirements
         // route reads it and that route is mapped unconditionally.

@@ -93,7 +93,8 @@ public sealed class RoleMappingMigrationTests
         var source = new RoleMappingSource(
             new StoredRoleMapping(harness.Store, NullLogger<StoredRoleMapping>.Instance), auth);
         source.AdoptStore();
-        var resolver = new CallerIdentityResolver(source, Server.Auth.ResolverUnderTest.Grant(null));
+        var resolver = Server.Auth.ResolverUnderTest.Resolver(
+            source, Server.Auth.ResolverUnderTest.Grant(null));
         var caller = Server.Auth.ResolverUnderTest.Caller(auth, ("roles", "auditor"));
 
         resolver.Resolve(caller).Permissions.Should().NotContain("config.read");
