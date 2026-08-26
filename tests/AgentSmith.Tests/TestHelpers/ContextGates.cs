@@ -16,7 +16,8 @@ internal static class ContextGates
     private static readonly ContextDefectReport Report = new(new ContextSchemaPointer(Schema));
 
     public static ContextDocumentGate Build() =>
-        new(new ContextStackImageRule(), Rule(), Report, new ContextSingleValueNormaliser(Schema));
+        new(new ContextStackImageRule(), Rule(), Report, new ContextSingleValueNormaliser(Schema),
+            new ContextReadingFilter());
 
     public static ContextSchemaRule Rule() => new(Schema, Report);
 

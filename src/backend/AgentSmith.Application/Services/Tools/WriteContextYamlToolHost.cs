@@ -82,9 +82,17 @@ public sealed class WriteContextYamlToolHost : IToolHost
         string repo,
         [Description("Context name, e.g. 'default' or 'api'. Becomes the directory under .agentsmith/contexts/.")]
         string context_name,
-        [Description("Document object: { meta: { workdir, project?, version?, type?: [archetype,…], purpose?, domain? }, " +
-                     "stack?: { lang?, image?, resources?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
+        // 2026-08-26-04b6: the description asks for JUDGEMENT and MECHANISM only. A reading —
+        // a value the repository still states for itself — is accepted and then discarded, so a
+        // model working from an older prompt is not punished for offering one.
+        [Description("Document object: { meta: { workdir, type?: [archetype,…], purpose?, domain? }, " +
+                     "stack?: { lang?, image?, resources? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
+                     "Do NOT restate what the repository already states about itself — the build " +
+                     "file's frameworks, versions and packages, the workflow's CI platform, the " +
+                     "folder names as layers. Those are dropped. State what somebody DECIDED " +
+                     "(meta.purpose, quality.limits, behavior) and what the orchestrator ACTS ON " +
+                     "(meta.workdir, meta.domain, stack.lang, stack.image). " +
                      "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
                      "meta.domain is OPTIONAL: one word naming a profile that supplies this context's " +
                      "toolchain image and verification commands; a context declaring one may omit " +
