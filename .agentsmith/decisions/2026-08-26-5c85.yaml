@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-26-5c85
+
+decisions:
+  - category: Architecture
+    chose: "A discovered repo is named by its path RELATIVE to the connection's group"
+    over: "path_with_namespace verbatim, or keeping the bare slug"
+    reason: |
+      A repo ref is written connection/pattern and the connection already pins the group, so
+      the full path would force every existing ref and glob to repeat the group
+      ('conn/group/team-a/api') and would change the meaning of every top-level ref that
+      works today. The bare slug is the defect: with include_subgroups=true two projects
+      sharing a slug are one indistinguishable name, and a ref that spells the subgroup
+      ('conn/team-a/api') compares against 'api' and never matches. The group-relative path
+      keeps every top-level name byte-identical and gives a subgroup repo exactly the
+      segment an operator would write to disambiguate it. The prefix strips
+      case-insensitively because GitLab paths are case-preserving but not case-sensitive.
+
+  - category: TradeOff
+    chose: "with_shared=false on the group projects listing"
+    over: "Keeping shared projects and letting them fall back to the bare slug"
+    reason: |
+      The endpoint returns projects SHARED into the group by default, and their
+      path_with_namespace does not start with the group — under prefix-stripping, the
+      fallback would be the ROUTINE path for them and their names would stay exactly as
+      ambiguous as today's. A shared project does not live under the group: its namespace is
+      foreign, and a static ref cannot even build its URL because ConnectionRepoUrlBuilder
+      prefixes the connection group. Discovery now lists what the group OWNS. Operator-visible
+      shift: a glob that matched a shared project stops matching it — named in the phase and
+      the PR, and the discovery fallback that remains logs a warning instead of passing silently.
+
+  - category: Architecture
+    chose: "FilesystemToolHost routes by the LONGEST registered runner key at a segment boundary"
+    over: "The first-path-segment lookup"
+    reason: |
+      The master addresses multi-repo files as '<repoName>/<path>'. Splitting at the first
+      '/' can never find a repo registered as 'team-a/api' — every read and write on it
+      returns the unknown-prefix error, so a subgroup repo would have been discoverable but
+      uneditable (adversarial spec review finding). Exact refs can already put '/' into a
+      repo name today, so the defect was latent; discovery names would have made it the
+      standard outcome. Longest-match at a '/' boundary keeps single-segment behaviour
+      byte-identical and lets 'team-a/api' win over a repo named 'team-a'. Extracted to
+      RepoPathRouter because FilesystemToolHost sits on its file-length ratchet entry and
+      may not grow.
+
+  - category: Testing
+    chose: "Parse (internal, taking the group) is the discovery test seam"
+    over: "An HTTP seam for DiscoverAsync"
+    reason: |
+      The provider holds a private static HttpClient, so DiscoverAsync is unwritable as a
+      unit test without injecting an HTTP handler this phase does not otherwise need. The
+      defect and the fix both live in the API-to-DiscoveredRepo mapping, which Parse IS;
+      InternalsVisibleTo already serves AgentSmith.Tests, and
+      SourceProviderFactory.ResolveGitLabTarget is pinned the same way.

@@ -122,22 +122,15 @@ public sealed class FilesystemToolHost : IToolHost
         // strict single-repo mode would reject the prompt's own examples. When
         // the prefix matches the only repo, strip it; otherwise fall through to
         // pass-through (lets operators paste bare paths in single-repo CLI runs).
-        var idx = path?.IndexOf('/') ?? -1;
-        var first = idx < 0 ? path ?? string.Empty : path![..idx];
-        if (_runners.Count <= 1)
+        var runners = _runners;
+        var (key, matched) = RepoPathRouter.MatchLongestKey(runners, path);
+        if (matched is not null)
         {
-            if (_runners.TryGetValue(first, out var only))
-            {
-                var bare = idx < 0 ? "." : path![(idx + 1)..];
-                return (only, string.IsNullOrEmpty(bare) ? "." : bare, null);
-            }
-            return (_runners[_defaultRepo], path ?? string.Empty, null);
+            var bare = key.Length >= (path?.Length ?? 0) ? "." : path![(key.Length + 1)..];
+            return (matched, string.IsNullOrEmpty(bare) ? "." : bare, null);
         }
-        if (_runners.TryGetValue(first, out var runner))
-        {
-            var bare = idx < 0 ? "." : path![(idx + 1)..];
-            return (runner, string.IsNullOrEmpty(bare) ? "." : bare, null);
-        }
+        if (runners.Count <= 1)
+            return (runners[_defaultRepo], path ?? string.Empty, null);
         return (null, string.Empty,
             $"Error: path '{path}' must start with a repo name on a multi-repo project. " +
             $"Prefix it with one of the known repos, e.g. '{FirstRepoName()}/{path}'. " +
