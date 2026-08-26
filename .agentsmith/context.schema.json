@@ -959,7 +959,7 @@
       "properties": {
         "done": {
           "type": "object",
-          "description": "Completed work. Key = version/phase, value = an index line: what shipped, in what area, and the pointer into phases/done/. The cap is 400 characters, ratcheted per entry by PhaseRecordLengthRatchetTests; 3000 is the absolute ceiling no entry may exceed, baselined or not.",
+          "description": "Completed work. Key = version/phase, value = an index line: what shipped, in what area, and the pointer into phases/done/. The cap is the one PhaseRecordIndexLine.MaxChars names — the writer composes every line to fit it, and PhaseRecordLengthRatchetTests ratchets the entries written by hand. 3000 is the absolute ceiling no entry may exceed, baselined or not.",
           "additionalProperties": {
             "type": "string",
             "maxLength": 3000
