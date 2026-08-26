@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-26-364f
+
+goal: "Writing a context.yaml preserves the sections the typed document does not model, so a re-init stops deleting the chronicle, the decisions and the integrations it never read."
+
+applies_to: "backend (the context write path)"
+
+requires:
+  - 2026-08-25-c9c7
+
+scope:
+  in: "The context write becomes a read-modify-write over the whole file: the sections the typed document carries are replaced, everything else is preserved byte-for-byte where the format allows, and a file that cannot be parsed is reported rather than overwritten."
+  out: "Which fields the typed document SHOULD carry — that is *a context keeps judgement and drops readings*, and it is only safe once this exists. Writing new sections, which is *a finished phase is recorded in its context*. Recovering what past re-inits already deleted."
+
+decisions:
+  - key: |
+      A RE-INIT DELETES state, methodology, integrations, data AND decisions TODAY. The typed
+      ContextYamlDocument models meta, stack, arch, quality, behavior, prerequisites and
+      registry_auth — nothing else. WriteContextYamlToolHost serialises that record and writes
+      the WHOLE FILE, so every section outside it is gone the moment a context is rewritten.
+      In this repository that is 476 KB of chronicle; in a target repository it is every
+      decision the runs recorded.
+  - key: |
+      THE CODEBASE ALREADY KNOWS AND ALREADY HAS THE PATTERN. ContextYamlRegistryAuthCodec.Upsert
+      deserialises the file into a generic map, replaces one key and re-serialises — and its
+      docstring states the reason verbatim: "sections the typed ContextYamlDocument does not
+      model (state, integrations, …) survive the rewrite untouched." One path was written
+      correctly for one section; the write that matters was not. This phase does not invent a
+      mechanism, it applies the one that is there.
+  - key: |
+      REPLACE THE MODELLED KEYS, TOUCH NOTHING ELSE. The write is not a merge of two documents:
+      what the typed document carries REPLACES its key outright, because the writer's job is to
+      state that section afresh. What it does not carry is not the writer's business, and the
+      absence of a key in a write is not an instruction to delete it — the same rule p0392a
+      states for the config store, applied to the file this product tells its users to keep.
+  - key: |
+      AN UNPARSEABLE FILE IS REPORTED, NEVER REPLACED. Read-modify-write has one failure mode
+      the whole-file write does not: a file that does not parse. Overwriting it would turn a
+      recoverable edit into the data loss this phase exists to stop, so the write is refused
+      with the parse error, which is also the shape *a context may name what the list forgot*
+      gave every other refusal.
+  - key: |
+      COMMENTS AND FORMATTING SURVIVE WHERE THE SERIALISER ALLOWS, AND THE LIMIT IS STATED. A
+      generic-map round trip loses comments and normalises flow style — including the
+      yaml-language-server header that makes an editor validate the file. That is a real cost
+      and it is smaller than deleting whole sections, so it is paid and written down rather
+      than discovered later. A targeted splice would keep them and cannot express "replace this
+      section", which is what a write must do.
+
+steps:
+  - id: the-write-round-trips-the-whole-file
+    action: "Read the existing context.yaml, replace only the keys the typed document carries, and write the merged map — falling back to the typed document alone when no file exists yet."
+    new:
+      - "the context upsert and its parse-failure refusal"
+  - id: the-unmodelled-sections-are-proven-to-survive
+    action: "Cover state, methodology, integrations, data and decisions with a round-trip test each, so a future field added to the typed document cannot silently start deleting a neighbour."
+
+tests:
+  - "Write_AnExistingContextWithState_KeepsStateVerbatim"
+  - "Write_AnExistingContextWithMethodologyIntegrationsData_KeepsThemAll"
+  - "Write_AnExistingContextWithDecisions_KeepsThem"
+  - "Write_AModelledSection_IsReplacedNotMerged"
+  - "Write_ASectionTheDocumentOmits_IsLeftAsItWas"
+  - "Write_NoFileYet_WritesTheTypedDocumentAlone"
+  - "Write_AnUnparseableFile_IsRefusedAndNamesTheParseError"
+  - "Write_AnUnparseableFile_LeavesItOnDisk"
+  - "ReInit_AContextWithAChronicle_StillHasItAfterwards"
+
+done:
+  - "a re-init preserves state, methodology, integrations, data and decisions"
+  - "a section the writer states is replaced outright, and one it omits is left alone"
+  - "a file that cannot be parsed is refused with its error and stays on disk"
+  - "a context that does not exist yet is written from the typed document as before"
+  - "backend build green, full suite green"
