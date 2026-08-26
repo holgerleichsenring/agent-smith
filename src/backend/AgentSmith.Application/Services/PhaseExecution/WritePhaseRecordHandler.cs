@@ -17,11 +17,19 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 /// sandbox working tree (mirroring WriteRunResultHandler's per-repo record
 /// fan-out), so CommitAndPR force-stages it with the change set and the
 /// target repo carries the same planned→done record this project lives.
+/// <para>
+/// 2026-08-26-31e5: and the <c>state.done</c> line that NAMES that file. The pointer has
+/// shipped since p0315d and the index never did, so the chronicle existed as loose files
+/// nobody assembled and a repository agent-smith had worked in for months still described
+/// only its first day. Every repo that gets the pointer gets the line.
+/// </para>
 /// </summary>
 public sealed partial class WritePhaseRecordHandler(
     ISandboxFileReaderFactory readerFactory,
     ExecutedPhaseMarker executedPhases,
-    IEventPublisher eventPublisher,
+    PhaseRecordPublisher publisher,
+    PhaseRecordIndexLine indexLine,
+    PhaseIndexWriter indexWriter,
     SandboxTargets sandboxTargets,
     ILogger<WritePhaseRecordHandler> logger)
     : ICommandHandler<WritePhaseRecordContext>
@@ -42,18 +50,27 @@ public sealed partial class WritePhaseRecordHandler(
         var relativePath = Path.Combine(
             ".agentsmith", "phases", "done", $"{draft.PhaseId}-{Slug(draft.Goal)}.yaml");
 
+        var line = indexLine.Compose(draft.Goal, relativePath.Replace('\\', '/'));
+        if (line is null)
+            return CommandResult.Fail(
+                $"Phase record pointer alone exceeds {PhaseRecordIndexLine.MaxChars} characters: {relativePath}");
+
         var body = Specs.PhaseRecordBody.For(draft, context.Pipeline);
         var repos = context.Pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
             && r is { Count: > 0 } ? r : null;
-        await PublishAsync(context, draft, body, cancellationToken);
+        await publisher.PublishAsync(context.Pipeline, draft, body, cancellationToken);
         if (repos is null)
         {
             var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
             await WriteAsync(sandbox, context.Repository.LocalPath, relativePath, body, cancellationToken);
+            await indexWriter.WriteAsync(
+                context.Pipeline, sandbox, null, context.Repository.LocalPath,
+                draft.PhaseId, line, cancellationToken);
             return CommandResult.Ok($"Phase record {relativePath} written (single sandbox)");
         }
 
         var written = 0;
+        var indexed = 0;
         foreach (var repo in repos)
         {
             var matches = sandboxTargets.SandboxesForRepo(context.Pipeline, repo);
@@ -64,25 +81,14 @@ public sealed partial class WritePhaseRecordHandler(
             }
             await WriteAsync(matches[0].Value, context.Repository.LocalPath, relativePath, body, ct: cancellationToken);
             written++;
+            if (await indexWriter.WriteAsync(
+                    context.Pipeline, matches[0].Value, matches[0].Key, context.Repository.LocalPath,
+                    draft.PhaseId, line, cancellationToken))
+                indexed++;
         }
         await executedPhases.MarkAsync(context.Pipeline, repos, draft, cancellationToken);
-        return CommandResult.Ok($"Phase record {relativePath} written in {written} repo(s)");
-    }
-
-    /// <summary>
-    /// p0466: the same record, to the server. The working-tree copy travels to the pull
-    /// request and dies with the sandbox; a phase you can open after the run needs a copy
-    /// the server holds, and the event stream is the only channel a spawned orchestrator
-    /// has to it.
-    /// </summary>
-    private Task PublishAsync(
-        WritePhaseRecordContext context, PhaseDraft draft, string body, CancellationToken ct)
-    {
-        if (!context.Pipeline.TryGet<string>(ContextKeys.RunId, out var runId)
-            || string.IsNullOrEmpty(runId))
-            return Task.CompletedTask;
-        return eventPublisher.PublishAsync(
-            new PhaseRecordedEvent(runId, draft.PhaseId, body, DateTimeOffset.UtcNow), ct);
+        return CommandResult.Ok(
+            $"Phase record {relativePath} written in {written} repo(s), indexed in {indexed}");
     }
 
     private async Task WriteAsync(

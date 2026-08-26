@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.PhaseExecution;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Architecture;
@@ -25,7 +26,9 @@ namespace AgentSmith.Tests.Architecture;
 /// </summary>
 public sealed class PhaseRecordLengthRatchetTests
 {
-    private const int MaxChars = 400;
+    // 2026-08-26-31e5: the number lives with the writer that composes every line to fit it.
+    // A second literal here would be a cap this repository enforces and the product does not.
+    private const int MaxChars = PhaseRecordIndexLine.MaxChars;
     private const int CompressionCeiling = 3000;
     private const string BaselineFile = "phase-record-length-baseline.tsv";
 

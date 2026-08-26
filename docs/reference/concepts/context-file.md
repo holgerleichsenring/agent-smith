@@ -33,6 +33,25 @@ so the file teaches a reader how the program got its shape. It is long because
 entries have been wordy, which the 400-character index-line cap attacks directly —
 not a reason to remove the one section written by whoever made the call.
 
+## `state.done` is written by the run
+
+When a phase finishes in a target repository, agent-smith writes the executed spec to
+`.agentsmith/phases/done/{id}-{slug}.yaml` **and** the `state.done` line that names it,
+in the context whose sandbox carried the change. Every repository that gets the record
+file gets the line.
+
+The line is an index entry, not an essay: the goal, cut at a word boundary, then
+`-> .agentsmith/phases/done/…`. It is composed to FIT the cap rather than refused for
+exceeding it — the step runs after the work is committed, so a refusal would fail a run
+nobody could go back and shorten. The reasoning belongs in the spec the pointer names.
+
+The entry is keyed by phase id and upserted: a re-run replaces its own line rather than
+adding a second one under the same key, which would make the file unparseable. New
+entries go first, so the section reads newest to oldest.
+
+The edit is a splice. Everything else in the file — the schema header, your comments,
+your flow style — is left exactly as it was.
+
 ## Where the classification lives
 
 In the schema. Every field in `.agentsmith/context.schema.json` carries a `$comment`
