@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.138.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.137.0...v0.138.0) (2026-08-26)
+
+
+### Features
+
+* a discovered repo carries its subgroup path (2026-08-26-5c85) ([1f41ce5](https://github.com/holgerleichsenring/agent-smith/commit/1f41ce53ff8521f29248b46e3aecaaeb61f7d3ea))
+* a discovered repo carries its subgroup path (2026-08-26-5c85) ([d5241ce](https://github.com/holgerleichsenring/agent-smith/commit/d5241cec833c7462f7a93fc3f0825de46ea90090))
+
+
+### Bug Fixes
+
+* **phases:** the record entry is an index line, not the argument ([10bd05e](https://github.com/holgerleichsenring/agent-smith/commit/10bd05e5a1d66309ece5fdba34ad801434d65ed1))
+
 ## [0.137.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.136.0...v0.137.0) (2026-08-26)
 
 
