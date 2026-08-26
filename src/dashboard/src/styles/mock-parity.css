@@ -828,3 +828,76 @@
 .mock-viewer .statusline .head-actions button { font-size: 12px; padding: 4px 12px; }
 .mock-viewer header h1 { overflow-wrap: anywhere; white-space: normal; }
 .mock-viewer .ident .fv { overflow-wrap: anywhere; white-space: normal; }
+
+/* ===== access surface (2026-08-26-7a51) ==================================== */
+/* Ported from design/mockups/access.html. Tokens the shell already carries are
+   reused verbatim (--bg, --panel, --line, --accent, --ink-2/3, --idle all match
+   the mock's hexes); the four the mock adds are declared here. */
+.mock-access {
+  --line-strong: #d3ccbe;
+  --ink-mid: #36342e;
+  --primary-deep: #15803d;
+  --directory: #7c6bd8;
+  --directory-wash: #f1eefc;
+}
+.mock-access .legend { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin: 0 0 22px; font-size: 12.5px; color: var(--ink-3); }
+.mock-access .legend .sep { color: var(--idle); margin: 0 3px; }
+
+.mock-access .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.mock-access .tab { border: 0; background: none; font: inherit; font-size: 14px; font-weight: 500; color: var(--ink-2); padding: 9px 15px 11px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 7px; }
+.mock-access .tab:hover { color: var(--ink-mid); }
+.mock-access .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.mock-access .tab .n { font-family: var(--mono); font-size: 11px; color: var(--ink-3); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
+.mock-access .tab[aria-selected="true"] .n { color: var(--primary-deep); background: var(--accent-wash); border-color: var(--accent); }
+
+.mock-access .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.mock-access .search { flex: 1 1 230px; min-width: 180px; font: inherit; font-size: 13.5px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--bg); color: var(--ink); }
+.mock-access .filters { display: flex; gap: 4px; }
+.mock-access .filter { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; font: inherit; font-size: 12.5px; color: var(--ink-2); padding: 5px 11px; cursor: pointer; }
+.mock-access .filter[aria-pressed="true"] { background: var(--accent-wash); color: var(--primary-deep); border-color: var(--accent); font-weight: 500; }
+.mock-access .adder { margin-left: auto; display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.mock-access .addfield { font: inherit; font-size: 13px; font-family: var(--mono); padding: 7px 11px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 260px; }
+.mock-access .addrole { font: inherit; font-family: var(--mono); font-size: 13px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); cursor: pointer; }
+.mock-access .addgo { border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+.mock-access .addgo:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.mock-access .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.mock-access table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.mock-access thead th { text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3); padding: 11px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--panel); }
+.mock-access tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.mock-access tbody tr:last-child td { border-bottom: 0; }
+.mock-access .who-name { font-weight: 600; color: var(--ink); }
+.mock-access .who-sub { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.mock-access .seen { color: var(--ink-2); white-space: nowrap; font-size: 12.5px; }
+.mock-access .pending { color: var(--ink-3); font-style: italic; }
+.mock-access .empty { padding: 26px 16px; text-align: center; color: var(--ink-3); font-size: 13px; }
+
+.mock-access .more { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 11px; flex-wrap: wrap; }
+.mock-access .tally { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mock-access .more-btn { border: 1px solid var(--line-strong); background: var(--bg); border-radius: 9px; font: inherit; font-size: 13px; color: var(--ink-mid); padding: 7px 15px; cursor: pointer; }
+
+.mock-access .roles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mock-access .chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 9px 3px 8px; font-size: 12px; font-weight: 500; border: 1px solid transparent; white-space: nowrap; }
+.mock-access .chip .src { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; }
+.mock-access .chip-directory { background: var(--directory-wash); color: var(--directory); border-color: var(--directory); }
+.mock-access .chip-here { background: var(--accent-wash); color: var(--primary-deep); border-color: var(--accent); }
+.mock-access .chip-none { color: var(--ink-3); font-style: italic; font-size: 12px; }
+.mock-access .chip button { border: 0; background: none; padding: 0; margin-left: 1px; color: inherit; cursor: pointer; font-size: 13px; line-height: 1; opacity: 0.55; font-family: inherit; }
+.mock-access .chip button:hover { opacity: 1; }
+.mock-access .grant { font: inherit; font-size: 12px; font-family: var(--mono); border: 1px dashed var(--line-strong); border-radius: 999px; padding: 3px 10px; background: var(--bg); color: var(--ink-2); cursor: pointer; }
+.mock-access .forget { border: 0; background: none; color: var(--ink-3); cursor: pointer; font: inherit; font-size: 12px; }
+.mock-access .forget:hover { color: var(--bad); }
+
+.mock-access .rolecards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+.mock-access .rolecard { border: 1px solid var(--line); border-radius: 12px; padding: 15px 16px; background: var(--bg); }
+.mock-access .rolecard h3 { margin: 0 0 3px; font-size: 15px; font-weight: 600; font-family: var(--mono); }
+.mock-access .rolecard .carried { font-size: 12px; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 9px; margin: 11px 0 0; }
+.mock-access .rolecard .carried b { color: var(--ink-mid); font-weight: 600; font-variant-numeric: tabular-nums; }
+.mock-access .matrix td.perm { font-family: var(--mono); font-size: 12.5px; color: var(--ink-mid); }
+.mock-access .matrix th.role, .mock-access .matrix td.role { text-align: center; }
+.mock-access .matrix thead th.role { color: var(--ink-mid); font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 600; font-family: var(--mono); }
+.mock-access .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.mock-access .dash { color: var(--idle); }
+.mock-access .warn { margin: 0 0 18px; padding: 11px 14px; border: 1px dashed var(--line-strong); border-radius: 10px; font-size: 12.5px; color: var(--ink-2); background: var(--panel); }
+
+@media (max-width: 860px) { .mock-access .rolecards { grid-template-columns: 1fr; } }

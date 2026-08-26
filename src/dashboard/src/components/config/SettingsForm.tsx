@@ -13,15 +13,13 @@ import type {
   PrimaryProviderSetting,
   QueueSetting,
   RegistriesSetting,
-  RoleMappingSetting,
   SandboxSetting,
   SettingKey,
   SettingShapes,
   SettingValue,
   SkillsSetting,
 } from "@/lib/configApi";
-import { useState } from "react";
-import { CheckField, DrawerSection, MultiPickField, NumberField, TextField } from "./formFields";
+import { CheckField, DrawerSection, NumberField, TextField } from "./formFields";
 
 // p0353: the per-settings typed forms. One case per settings key — flat docs are a
 // straightforward field list; the nested pipeline-cost-cap (default + per-pipeline +
@@ -87,14 +85,6 @@ export function SettingsForm({
       return <PipelineStorageForm value={value as PipelineStorageSetting} onChange={onChange} />;
     case "pipeline_data_flow":
       return <PipelineDataFlowForm value={value as PipelineDataFlowSetting} onChange={onChange} />;
-    case "role_mapping":
-      return (
-        <RoleMappingForm
-          value={value as RoleMappingSetting}
-          onChange={onChange}
-          capabilities={capabilities}
-        />
-      );
   }
 }
 
@@ -489,201 +479,5 @@ function RegistriesForm({
         Add a feed
       </button>
     </>
-  );
-}
-
-// 2026-08-25-1806: the role mapping — two claim names, the custom role bundles, and the
-// group values those roles are granted through. A bundle is built by PICKING from the
-// closed permission catalog: the server drops a permission it does not know and reports
-// it, and an operator should not be able to reach that state by typing.
-
-function RoleMappingForm({
-  value,
-  onChange,
-  capabilities,
-}: {
-  value: RoleMappingSetting;
-  onChange: (v: SettingValue) => void;
-  capabilities: ConfigCapabilities | null;
-}) {
-  const set = patcher(value, onChange);
-  const builtIn = capabilities?.builtInRoles ?? [];
-  const roleNames = Object.keys(value.roles);
-  return (
-    <>
-      <TextField label="Role claim" value={value.roleClaim} onChange={(v) => set({ roleClaim: v })}
-        mono placeholder="roles" testId="setting-rolemapping-roleclaim"
-        help="the claim role NAMES are read out of, verbatim" />
-      <TextField label="Group claim" value={value.groupClaim} onChange={(v) => set({ groupClaim: v })}
-        mono placeholder="groups" testId="setting-rolemapping-groupclaim"
-        help="the claim group values are read out of; a nested role claim maps groups instead" />
-
-      <DrawerSection title="Roles" summary={`${roleNames.length} custom`} defaultOpen
-        testId="setting-rolemapping-roles">
-        <p className="help" data-testid="setting-rolemapping-builtins">
-          {builtIn.length > 0
-            ? `${builtIn.join(", ")} ship with the product and are always available.`
-            : "The built-in roles are not known — the capabilities descriptor did not load."}
-        </p>
-        <RoleBundles value={value} set={set} capabilities={capabilities} />
-      </DrawerSection>
-
-      <DrawerSection title="Group mappings" summary={`${Object.keys(value.groupRoles).length} set`}
-        defaultOpen testId="setting-rolemapping-groups">
-        <GroupMappings value={value} set={set} roleNames={[...builtIn, ...roleNames]} />
-      </DrawerSection>
-    </>
-  );
-}
-
-function RoleBundles({
-  value,
-  set,
-  capabilities,
-}: {
-  value: RoleMappingSetting;
-  set: (patch: Partial<RoleMappingSetting>) => void;
-  capabilities: ConfigCapabilities | null;
-}) {
-  const permissions = capabilities?.permissions ?? [];
-  const builtIn = capabilities?.builtInRoles ?? [];
-  const setBundle = (name: string, bundle: string[]) =>
-    set({ roles: { ...value.roles, [name]: bundle } });
-  const remove = (name: string) => {
-    const next = { ...value.roles };
-    delete next[name];
-    set({ roles: next });
-  };
-  return (
-    <>
-      {Object.keys(value.roles).length === 0 && <span className="help">no custom roles</span>}
-      {Object.entries(value.roles).map(([name, bundle]) => (
-        <div key={name} className="field" data-testid={`setting-rolemapping-role-${name}`}>
-          {/* A mapping migrated from a file can already hold a name the server ignores;
-              the add box refuses new ones, so this is the only way to still see it. */}
-          {builtIn.some((b) => b.toLowerCase() === name.toLowerCase()) && (
-            <span className="help" data-testid={`setting-rolemapping-role-${name}-collides`}
-              style={{ color: "var(--bad)" }}>
-              This has the name of a built-in role, so the server ignores it — a built-in
-              bundle is never replaced. Rename it or remove it.
-            </span>
-          )}
-          <MultiPickField
-            label={name}
-            values={bundle}
-            options={permissions}
-            onChange={(next) => setBundle(name, next)}
-            testId={`setting-rolemapping-role-${name}-permissions`}
-            help="pick from the permission catalog"
-            empty="the permission catalog is not available"
-          />
-          <button type="button" className="pick" onClick={() => remove(name)}
-            data-testid={`setting-rolemapping-role-${name}-remove`} style={{ color: "var(--bad)" }}>
-            Remove role
-          </button>
-        </div>
-      ))}
-      <AddName
-        label="Add a role"
-        placeholder="auditor"
-        testId="setting-rolemapping-role-add"
-        taken={[...Object.keys(value.roles), ...(capabilities?.builtInRoles ?? [])]}
-        takenHint="that name is already in use — a built-in bundle is never replaced"
-        onAdd={(name) => setBundle(name, [])}
-      />
-    </>
-  );
-}
-
-function GroupMappings({
-  value,
-  set,
-  roleNames,
-}: {
-  value: RoleMappingSetting;
-  set: (patch: Partial<RoleMappingSetting>) => void;
-  roleNames: string[];
-}) {
-  const setGroup = (group: string, roles: string[]) =>
-    set({ groupRoles: { ...value.groupRoles, [group]: roles } });
-  const remove = (group: string) => {
-    const next = { ...value.groupRoles };
-    delete next[group];
-    set({ groupRoles: next });
-  };
-  return (
-    <>
-      {Object.keys(value.groupRoles).length === 0 && (
-        <span className="help">no group is mapped onto a role</span>
-      )}
-      {Object.entries(value.groupRoles).map(([group, roles]) => (
-        <div key={group} className="field" data-testid={`setting-rolemapping-group-${group}`}>
-          <MultiPickField
-            label={group}
-            values={roles}
-            options={roleNames}
-            onChange={(next) => setGroup(group, next)}
-            testId={`setting-rolemapping-group-${group}-roles`}
-            help="the roles holding this group grants"
-            empty="no roles to grant"
-          />
-          <button type="button" className="pick" onClick={() => remove(group)}
-            data-testid={`setting-rolemapping-group-${group}-remove`} style={{ color: "var(--bad)" }}>
-            Remove mapping
-          </button>
-        </div>
-      ))}
-      <AddName
-        label="Map a group"
-        placeholder="the group value your directory sends"
-        testId="setting-rolemapping-group-add"
-        taken={Object.keys(value.groupRoles)}
-        takenHint="that group is already mapped"
-        onAdd={(group) => setGroup(group, [])}
-      />
-    </>
-  );
-}
-
-// A name is typed once, here, and everything it is then given is picked. The taken set is
-// backend truth (the built-in role names come from the capabilities descriptor), so the
-// one state the server would report as a finding is refused before it can be saved.
-function AddName({
-  label,
-  placeholder,
-  testId,
-  taken,
-  takenHint,
-  onAdd,
-}: {
-  label: string;
-  placeholder: string;
-  testId: string;
-  taken: string[];
-  takenHint: string;
-  onAdd: (name: string) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const name = draft.trim();
-  const collides = taken.some((t) => t.toLowerCase() === name.toLowerCase());
-  return (
-    <div className="field" data-testid={testId}>
-      <label>{label}</label>
-      <input type="text" className="mono" value={draft} placeholder={placeholder}
-        data-testid={`${testId}-input`} onChange={(e) => setDraft(e.target.value)} />
-      {name.length > 0 && collides && (
-        <span className="help" data-testid={`${testId}-collision`} style={{ color: "var(--bad)" }}>
-          {takenHint}
-        </span>
-      )}
-      <button type="button" className="pick" data-testid={`${testId}-confirm`}
-        disabled={name.length === 0 || collides}
-        onClick={() => {
-          onAdd(name);
-          setDraft("");
-        }}>
-        Add
-      </button>
-    </div>
   );
 }

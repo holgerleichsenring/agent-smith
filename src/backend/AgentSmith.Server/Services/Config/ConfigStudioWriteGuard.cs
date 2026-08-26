@@ -32,13 +32,26 @@ internal static class ConfigStudioWriteGuard
     // up live (no restart). The signal is best-effort and post-commit — a signal
     // failure must never fail an already-durable write, and the known validation
     // exceptions short-circuit BEFORE signalling (no epoch bump on a rejected write).
-    internal static async Task<IResult> GuardSignalingAsync(
+    internal static Task<IResult> GuardSignalingAsync(
         HttpContext ctx, IConfigReloadSignal reload, ISystemEventPublisher events, Func<IResult> action)
     {
+        ArgumentNullException.ThrowIfNull(action);
+        return GuardSignalingAsync(ctx, reload, events, () => Task.FromResult(action()));
+    }
+
+    /// <summary>
+    /// 2026-08-26-7a51: the same ceremony for a write that has to await — the access
+    /// surface reads its own answer back, and a removal that trips the admin invariant has
+    /// to arrive as the 400 an edited form's would.
+    /// </summary>
+    internal static async Task<IResult> GuardSignalingAsync(
+        HttpContext ctx, IConfigReloadSignal reload, ISystemEventPublisher events, Func<Task<IResult>> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
         IResult result;
         try
         {
-            result = action();
+            result = await action();
         }
         catch (StaleConfigVersionException ex)
         {
