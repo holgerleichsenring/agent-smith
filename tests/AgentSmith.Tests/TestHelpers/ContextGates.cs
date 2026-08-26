@@ -12,6 +12,14 @@ internal static class ContextGates
 {
     private static readonly ContextSchemaProvider Schema = new();
 
+    private static readonly ContextDefectReport Report = new(new ContextSchemaPointer(Schema));
+
     public static ContextDocumentGate Build() =>
-        new(new ContextStackImageRule(), new ContextSchemaRule(Schema));
+        new(new ContextStackImageRule(), Rule(), Report, new ContextSingleValueNormaliser(Schema));
+
+    public static ContextSchemaRule Rule() => new(Schema, Report);
+
+    public static ContextDefectReport DefectReport() => Report;
+
+    public static ContextSingleValueNormaliser Normaliser() => new(Schema);
 }

@@ -46,7 +46,9 @@ public sealed class BootstrapToolHostFactory(
             contextYamlSerializer,
             contextDocumentGate);
         var tools = new AgenticToolSurface().Bootstrap(fs, log, writeContextYaml);
-        return new BootstrapToolBundle(tools, fs.GetChanges, log.GetDecisions);
+        // 2026-08-26-167c: the round asks the TOOL what happened, not the sandbox.
+        return new BootstrapToolBundle(
+            tools, fs.GetChanges, log.GetDecisions, () => writeContextYaml.Outcome);
     }
 }
 
@@ -59,4 +61,5 @@ public sealed class BootstrapToolHostFactory(
 public sealed record BootstrapToolBundle(
     IList<AITool> Tools,
     Func<IReadOnlyList<CodeChange>> GetChanges,
-    Func<IReadOnlyList<PlanDecision>> GetDecisions);
+    Func<IReadOnlyList<PlanDecision>> GetDecisions,
+    Func<ContextWriteOutcome> GetContextWrite);

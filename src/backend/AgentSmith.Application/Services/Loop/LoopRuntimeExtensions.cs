@@ -61,6 +61,11 @@ public static class LoopRuntimeExtensions
         // 2026-08-25-c9c7: the gate write_context_yaml judges a context document with.
         services.AddSingleton<ContextSchemaProvider>();
         services.AddSingleton<ContextStackImageRule>();
+        // 2026-08-26-167c: the rejection's own parts — pointer into the schema,
+        // the grouped report, and the single-value-reads-as-a-list normaliser.
+        services.AddSingleton<ContextSchemaPointer>();
+        services.AddSingleton<ContextDefectReport>();
+        services.AddSingleton<ContextSingleValueNormaliser>();
         services.AddSingleton<ContextSchemaRule>();
         services.AddSingleton<ContextDocumentGate>();
         services.AddSingleton<PlanOutputValidator>();
