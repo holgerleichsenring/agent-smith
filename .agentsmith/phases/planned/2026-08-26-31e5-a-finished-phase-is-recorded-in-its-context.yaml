@@ -6,7 +6,7 @@ goal: "A phase that finished in a target repository leaves an index line in the 
 applies_to: "backend (the phase-record step, the context write path) + docs"
 
 requires:
-  - 2026-08-26-04b6
+  - 2026-08-26-364f
   - p0315d
 
 scope:

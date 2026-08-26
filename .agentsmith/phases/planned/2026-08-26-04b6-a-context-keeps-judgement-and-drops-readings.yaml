@@ -7,6 +7,7 @@ applies_to: "backend (context schema, the write path, the document model) + the 
 
 requires:
   - 2026-08-26-167c
+  - 2026-08-26-364f
 
 scope:
   in: "Every context field is classified as judgement, mechanism or reading; the readings stop being written and stop being asked for; a context written before this phase stays valid and loses nothing on disk until it is rewritten; and the shipped schema, template and docs say which is which."
@@ -38,11 +39,22 @@ decisions:
       tool that writes context.yaml discards the readings instead of refusing them: a model that
       still offers them is not punished, and the file simply does not carry them. The prompt's
       own correction follows and is only cosmetic by then.
+  # CORRECTED after review: the original claim here was false. A re-init did not "simply
+  # write the smaller document" — it deleted every section the typed document does not model.
+  # That is why 2026-08-26-364f now comes first.
   - key: |
-      AN EXISTING CONTEXT LOSES NOTHING UNTIL IT IS REWRITTEN. The dropped fields stay ACCEPTED
-      by the schema — no installation is invalidated, no file is migrated, and a re-init simply
-      writes the smaller document. Deleting them from disk would be a rewrite of files this
-      product does not own.
+      AN EXISTING CONTEXT LOSES NOTHING UNTIL IT IS REWRITTEN — WHICH IS ONLY TRUE ONCE THE
+      WRITE PRESERVES WHAT IT DOES NOT MODEL. The dropped fields stay ACCEPTED by the schema, so
+      no installation is invalidated and no file is migrated. But a whole-file write deletes
+      unmodelled neighbours, so this phase cannot ship before *a context write preserves what it
+      does not model*.
+  - key: |
+      THE CLASSIFICATION IS THE DELIVERABLE, AND THE PROMPT IS A READER. The raw context.yaml is
+      pasted verbatim into every master prompt, and a shipped analyzer master is told to treat
+      the declared type as ground truth — so "no code reads it" was the wrong question. A field
+      is judged by whether a reader can act on it, and the model is a reader. The phase produces
+      the field-by-field table BEFORE anything is dropped, because two of nineteen fields named
+      in prose is not a classification.
   - key: |
       meta.purpose IS THE ONE LINE NOBODY CAN DERIVE, AND IT SURVIVES EVERYTHING. What a module
       is FOR appears in no file. It is also already load-bearing — the ticket-to-repo classifier
