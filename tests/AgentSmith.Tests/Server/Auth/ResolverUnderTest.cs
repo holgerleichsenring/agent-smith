@@ -2,6 +2,7 @@ using System.Security.Claims;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Security;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Server.Auth;
 
@@ -18,7 +19,7 @@ internal static class ResolverUnderTest
     /// an installation is in before its mapping has been migrated into the config store.
     /// </summary>
     public static CallerIdentityResolver With(TokenAuthorityConfig auth, string? grant = null) =>
-        new(new RoleMappingSource(new StoredMappingStub(null), auth), Grant(grant));
+        Resolver(new RoleMappingSource(new StoredMappingStub(null), auth), Grant(grant));
 
     /// <summary>
     /// A resolver whose mapping comes from the STORE, which is where it comes from once the
@@ -30,8 +31,18 @@ internal static class ResolverUnderTest
     {
         var source = new RoleMappingSource(stored, auth);
         source.AdoptStore();
-        return new CallerIdentityResolver(source, Grant(grant));
+        return Resolver(source, Grant(grant));
     }
+
+    /// <summary>
+    /// 2026-08-26-7a51: the resolver with its observation sink supplied. A test that cares
+    /// what was noted passes its own; every other one gets a buffer nothing ever drains.
+    /// </summary>
+    public static CallerIdentityResolver Resolver(
+        RoleMappingSource source, AdminGrant grant, ICallerObservations? observations = null) =>
+        new(source, grant,
+            observations ?? new CallerObservationBuffer(TimeProvider.System),
+            TimeProvider.System, NullLogger<CallerIdentityResolver>.Instance);
 
     public static AdminGrant Grant(string? value, List<string>? asked = null) =>
         new(name =>

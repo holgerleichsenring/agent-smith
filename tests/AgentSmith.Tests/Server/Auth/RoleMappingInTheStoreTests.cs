@@ -113,7 +113,7 @@ public sealed class RoleMappingInTheStoreTests
         var stored = new StoredMappingStub(new RoleMappingConfig());
         var source = new RoleMappingSource(stored, auth);
         source.AdoptStore();
-        var resolver = new CallerIdentityResolver(
+        var resolver = ResolverUnderTest.Resolver(
             source, ResolverUnderTest.Grant("sub:locked-out", asked));
 
         var identity = resolver.Resolve(ResolverUnderTest.Caller(auth, ("sub", "locked-out")));

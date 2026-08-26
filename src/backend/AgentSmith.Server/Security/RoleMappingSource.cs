@@ -37,7 +37,10 @@ internal sealed class RoleMappingSource(IStoredRoleMapping stored, TokenAuthorit
         lock (_gate)
         {
             if (_view is null || !ReferenceEquals(_view.Mapping, mapping))
-                _view = ResolvedRoleMapping.From(mapping);
+                // 2026-08-26-7a51: the name claim is bootstrap, so it is captured once and
+                // paired with whatever mapping is in force — a person grant is only ever
+                // matched against the claim the pipeline actually named callers by.
+                _view = ResolvedRoleMapping.From(mapping, auth.NameClaim);
             return _view;
         }
     }

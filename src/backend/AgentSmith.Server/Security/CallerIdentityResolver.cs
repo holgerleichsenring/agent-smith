@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using AgentSmith.Contracts.Models.Access;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Security;
@@ -13,8 +15,19 @@ namespace AgentSmith.Server.Security;
 /// 2026-08-25-1806: the mapping is asked for per call rather than captured at startup, so a
 /// role bundle saved in the Config Studio governs the very next request.
 /// </para>
+/// <para>
+/// 2026-08-26-7a51: a role an administrator granted a PERSON unions in beside the
+/// directory's, and the caller is noted so the next grant is picked rather than typed.
+/// Noting is best-effort in both directions: it happens after the identity is built, and a
+/// caller is never refused because their observation could not be taken.
+/// </para>
 /// </summary>
-internal sealed class CallerIdentityResolver(RoleMappingSource mapping, AdminGrant grant)
+internal sealed class CallerIdentityResolver(
+    RoleMappingSource mapping,
+    AdminGrant grant,
+    ICallerObservations observations,
+    TimeProvider clock,
+    ILogger<CallerIdentityResolver> logger)
 {
     private const string SubjectClaim = "sub";
 
@@ -25,23 +38,50 @@ internal sealed class CallerIdentityResolver(RoleMappingSource mapping, AdminGra
 
         var groups = current.Reader.GroupClaimValues(caller);
         var held = Held(current, caller, groups);
+        var roleValues = current.Reader.RoleClaimValues(caller);
+        Note(current, caller, roleValues, groups);
         return new CallerIdentity(
             Authenticated: true,
             Subject: caller.Identity.Name ?? caller.FindFirst(SubjectClaim)?.Value,
             Issuer: caller.FindFirst("iss")?.Value ?? caller.Claims.FirstOrDefault()?.Issuer,
             current.Mapping.RoleClaim, current.Mapping.GroupClaim,
-            current.Reader.RoleClaimValues(caller), groups,
+            roleValues, groups,
             held, Permissions(current, caller, held),
-            [.. current.Catalog.Findings.Concat(grant.Findings).Concat(GroupOverageDetector.Findings(caller))]);
+            [.. current.Catalog.Findings.Concat(grant.Findings).Concat(current.Persons.Findings)
+                .Concat(GroupOverageDetector.Findings(caller))]);
     }
 
     private IReadOnlyList<string> Held(
         ResolvedRoleMapping current, ClaimsPrincipal caller, IReadOnlyList<string> groups)
     {
-        var held = current.Reader.Roles(caller);
-        return grant.Holds(groups, caller.FindFirst(SubjectClaim)?.Value)
-            ? [.. held.Append(BuiltInRoles.Admin).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)]
-            : held;
+        var held = current.Reader.Roles(caller).Concat(current.Persons.Roles(caller));
+        if (grant.Holds(groups, caller.FindFirst(SubjectClaim)?.Value))
+            held = held.Append(BuiltInRoles.Admin);
+        return [.. held.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)];
+    }
+
+    // The subject is the real 'sub' and never the name-claim value: a grant is written
+    // against one of the two and an environment grant matches the other, so a record that
+    // stored only one could not say which of them it held.
+    private void Note(
+        ResolvedRoleMapping current, ClaimsPrincipal caller,
+        IReadOnlyList<string> roleValues, IReadOnlyList<string> groups)
+    {
+        var subject = caller.FindFirst(SubjectClaim)?.Value ?? caller.Identity?.Name;
+        if (string.IsNullOrEmpty(subject)) return;
+        var now = clock.GetUtcNow();
+        try
+        {
+            observations.Observe(new ObservedCaller(
+                subject, current.NameClaim, caller.Identity?.Name ?? subject,
+                roleValues, groups, GroupOverageDetector.GroupsWereOmitted(caller), now, now));
+        }
+        catch (Exception ex)
+        {
+            // An observation nobody could take is a surface that lists one caller fewer,
+            // never a caller who is refused.
+            logger.LogWarning(ex, "The caller could not be noted for the access surface");
+        }
     }
 
     /// <summary>
