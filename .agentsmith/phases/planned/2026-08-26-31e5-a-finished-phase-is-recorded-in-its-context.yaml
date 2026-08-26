@@ -10,7 +10,7 @@ requires:
   - p0315d
 
 scope:
-  in: "The index entry for a finished phase, written into the state.done of the context its spec applies to, appended rather than inserted, length-enforced where it is written, and skipped for a run that carries no phase spec."
+  in: "The index entry for a finished phase, written into the state.done of the context whose sandbox carried the change, upserted by phase id, always short enough to fit, and skipped for a run that carries no phase spec."
   out: "Backfilling entries for phases already finished in a target repository — the pointers exist, and inventing index lines for work nobody watched is fiction. Trimming a state.done that has grown, which is *the record is an index not an essay* territory."
 
 decisions:
@@ -22,12 +22,13 @@ decisions:
       context.yaml of a repository agent-smith has worked in for months still describes only its
       first day. Here that section is the most valuable thing in the file; there it is absent.
   - key: |
-      APPENDED, NOT INSERTED AT THE TOP. This project's own context grew by prepending, so two
-      branches touching the same context collide on the same first line every time. Appending
-      moves the collision to the last line, where the resolution is "keep both" and a human
-      settles it in seconds. A file per entry would avoid the collision entirely and is
-      rejected: the value of state.done is that a reader learns the application by reading ONE
-      file, and a directory of fragments is not that.
+      NEWEST FIRST, AS THIS REPOSITORY ALREADY WRITES IT. An earlier draft argued appending would
+      soften merge conflicts; measured, it does not — two branches inserting after `done:` and
+      two inserting after the last entry both produce one hunk resolved by keeping both. What
+      the choice does decide is whether a target repository reads in the opposite order from
+      this one. It does not: newest first, one convention. A file per entry would avoid conflicts
+      entirely and is rejected — the value of state.done is that a reader learns the application
+      from ONE file, and a directory of fragments is not that.
   - key: |
       THE LENGTH IS ENFORCED WHERE IT IS WRITTEN, BECAUSE THE RATCHET ONLY EXISTS HERE.
       PhaseRecordLengthRatchetTests guards this repository. A target repository has no such
@@ -36,11 +37,25 @@ decisions:
       test that is not there — and says so, so the summary can be shortened rather than
       silently truncated.
   - key: |
-      THE ENTRY GOES TO THE CONTEXT THE SPEC NAMES. A repository has several contexts; a phase
-      changes one of them, and its spec already says which through applies_to. A repository with
-      exactly one context needs no such statement. A spec that names none in a multi-context
-      repository is a defect in the spec, and it is reported rather than guessed at, because
-      guessing writes the chronicle of one component into another's file.
+      THE SANDBOX ROUTES THE ENTRY, NOT applies_to. An earlier draft routed by the spec's
+      applies_to — which is not in the phase schema, is set by nothing in the product, is absent
+      from 48% of the specs here, and where present reads "backend" or "backend + dashboard",
+      naming an AREA and never a context. It cannot route. The sandbox can: the change was made
+      in one, SandboxTargets already resolves its context name, and the handler already holds
+      SandboxTargets. The context that owns the change is the context the change was made in.
+  - key: |
+      UPSERT BY PHASE ID, BECAUSE A RE-RUN IS A DESIGNED PATH. state.done is a YAML MAPPING keyed
+      by phase id, and the parking preset deliberately excludes the record step from the work it
+      skips ahead over, precisely so a repeated phase is still recorded. Appending a second entry
+      for the same id yields a duplicate key — which makes the file unparseable, not merely
+      untidy. The entry replaces its own id or adds it.
+  - key: |
+      THE LINE ALWAYS FITS, BECAUSE THE COMMIT ALREADY HAPPENED. The record step runs AFTER
+      CommitPhaseWork, so refusing an over-long line fails a run whose work is already committed
+      and leaves nobody who could shorten it. Measured over the specs here, one entry in seven
+      would exceed the cap. The line is composed to fit — the pointer, then as much of the goal
+      as the cap allows, cut at a word boundary — and only a pointer that alone will not fit is
+      an error worth stopping for.
   - key: |
       A RUN WITHOUT A PHASE SPEC RECORDS NOTHING, WHICH IS THE EXISTING RULE. p0393 already
       established that the step runs in the one code-changing preset and that an ordinary ticket
@@ -52,26 +67,28 @@ steps:
     new:
       - "the phase index entry and its length rule"
   - id: the-entry-reaches-the-right-context
-    action: "Resolve the context from the spec's applies_to, defaulting to the sole context when a repository has one, and report a multi-context repository whose spec names none."
-  - id: the-entry-is-appended
-    action: "Append to state.done in the resolved context, creating the section when a repository has never had one, and leaving every other part of the document untouched."
+    action: "Resolve the context from the sandbox the change was made in, and write the line in every repository the record file is written to, so a pointer never lands without the line that names it."
+  - id: the-entry-is-upserted
+    action: "Upsert the entry by phase id into state.done, newest first, creating the section with the shape the schema requires when a repository has never had one."
   - id: the-record-step-writes-both
     action: "Write the index line alongside the phase record so one step produces the pointer and the line that names it, staged into the same change set."
 
 tests:
-  - "Record_APhaseFinished_AppendsAnIndexLineNamingItsFile"
+  - "Record_APhaseFinished_WritesAnIndexLineNamingItsFile"
   - "Record_APhaseFinished_LeavesTheRestOfTheContextByteIdentical"
   - "Record_AContextWithNoStateSection_GetsOneWithTheEntry"
-  - "Record_ASecondPhase_AppendsAfterTheFirst"
-  - "Record_AnEntryOverTheCap_IsRefusedAndSaysWhy"
+  - "Record_ASecondPhase_JoinsTheFirstNewestFirst"
+  - "Record_TheSamePhaseTwice_WritesOneLine"
+  - "Record_AnOverLongGoal_IsCutAtAWordBoundaryAndStillFits"
+  - "Record_ACreatedStateSection_ValidatesAgainstTheSchema"
   - "Record_ARunWithNoPhaseSpec_WritesNoLine"
-  - "Record_AMultiContextRepoWhoseSpecNamesNoContext_IsReported"
-  - "Record_ASingleContextRepo_NeedsNoAppliesTo"
+  - "Record_AMultiRepoRun_LeavesNoPointerWithoutItsLine"
+  - "Record_TheContext_IsTheOneTheSandboxCarried"
 
 done:
   - "a finished phase leaves both a record file and the line that names it"
   - "the line lands in the context its spec applies to, appended, with nothing else changed"
-  - "an entry that will not fit the cap is refused with its reason, not truncated"
+  - "every entry fits the cap by construction, and a re-run leaves one line not two"
   - "a repository that never had a state section gets one"
   - "a run without a phase spec writes nothing, as before"
   - "backend build green, full suite green"
