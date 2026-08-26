@@ -1,5 +1,6 @@
 *	/hub/jobs	runs.read
 *	/hub/jobs/negotiate	runs.read
+DELETE	/api/access/people/{id}	access.write
 DELETE	/api/config/agents/{id}	config.write
 DELETE	/api/config/connections/{id}	config.write
 DELETE	/api/config/mcp-servers/{id}	config.write
@@ -10,6 +11,7 @@ DELETE	/api/config/trackers/{id}	config.write
 DELETE	/api/runs	runs.delete
 DELETE	/api/runs/{runId}	runs.delete
 DELETE	/api/runs/{runId}/judgements	runs.control
+GET	/api/access	access.read
 GET	/api/auth/requirements	anonymous
 GET	/api/catalog	catalog.read
 GET	/api/catalog/skills/{name}	catalog.read
@@ -72,6 +74,7 @@ POST	/webhook	anonymous
 POST	/webhook/github	anonymous
 POST	/webhook/gitlab	anonymous
 POST	/webhook/jira	anonymous
+PUT	/api/access	access.write
 PUT	/api/config/agents/{id}	config.write
 PUT	/api/config/connections/{id}	config.write
 PUT	/api/config/mcp-servers/{id}	config.write
