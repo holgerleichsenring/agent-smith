@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-26-7a51
+
+goal: "An administrator grants a role to a person from the dashboard, picking from the callers this installation has actually seen, without waiting on a directory team to create a group first."
+
+applies_to: "backend (person grants, the observation record, the admin invariant, access permissions) + dashboard (the access surface) + persistence migrations + docs"
+
+requires:
+  - 2026-08-25-1806
+  - p0503d
+
+scope:
+  in: "A person grant carrying the claim it was written against; an observed-caller record so a grant is picked rather than typed; the access surface as people, groups, roles and claims; an admin invariant enforced on every write to the mapping; the surface's own permissions; and custom roles becoming read-only."
+  out: "Any directory lookup — no Graph, no LDAP, no group search. A group nobody has carried is typed in. Authentication, which stays with the directory. AGENTSMITH_ADMIN_GRANT, which stays an environment variable because it is the way back in. p0392a's stale-view fencing, which this phase does not fix and does not depend on."
+
+decisions:
+  - key: |
+      A GRANT DECIDES A ROLE AND NEVER DECIDES ACCESS. Signing in stays with the directory:
+      CallerIdentityResolver returns Anonymous before the mapping is consulted at all, so no
+      grant can reach a caller the directory refused. The grant list therefore never becomes a
+      second, stale answer to "who exists" — it answers only "what may they do". p0503d refused
+      a user store because identity belongs to the directory; that reasoning covers
+      AUTHENTICATION and was over-applied to AUTHORISATION.
+  - key: |
+      THE FEATURE ALREADY EXISTS AS AN ENVIRONMENT VARIABLE. AGENTSMITH_ADMIN_GRANT is a
+      per-person assignment list: one role, an unreadable syntax, changeable only by
+      redeploying. The need was real enough to build and then disguised as an escape hatch.
+      This makes it a first-class surface and leaves the variable where it is, because a
+      lockout escape reached through the surface it rescues is not one.
+  - key: |
+      A GRANT STORES THE CLAIM IT WAS WRITTEN AGAINST, NOT JUST A VALUE. name_claim is bootstrap
+      and binds into NameClaimType at startup; a bare-string grant is matched against whatever
+      Identity.Name happens to be TODAY. Written under preferred_username and later read under
+      email, `alice@corp.com` can match a different person entirely — the cross-claim collision
+      AdminGrant's mandatory prefix exists to refuse, rebuilt inside the surface meant to be its
+      safe version. Each grant persists {claim, value} and resolves only while claim is the
+      configured name_claim; one that no longer matches grants nothing and says so through the
+      findings channel. This is a storage shape, so it cannot be retrofitted after grants exist.
+  - key: |
+      A NAME CLAIM THE HOLDER CAN CHANGE IS SELF-SERVICE ESCALATION, AND THE SURFACE SAYS SO.
+      Reassignment after somebody leaves is the mild version. The sharp one is that email and
+      preferred_username are self-assertable in common directory configurations — a person who
+      can edit their own email can claim a grant written for someone else. sub is opaque and
+      never reused. The surface warns whenever name_claim is not sub, and the docs say why.
+  - key: |
+      THE ADMIN INVARIANT IS A PROPERTY OF THE SAVED DOCUMENT, NOT A CHECK ON ONE ENDPOINT.
+      Written as "refuse removing the last admin" it is bypassed three ways that never touch the
+      settings route — import (which decomposes straight into the doc store), revert (which
+      writes a prior document through), and the 1806 migration itself — and it counts the wrong
+      thing, because an installation whose admins come from the role claim holds no grants at
+      all while a group_claim edit still empties them. So: a role_mapping that reaches the store
+      must leave at least one route to admin — a person grant, a group_roles entry mapping to
+      admin, a directory role claim this installation cannot see, or a non-empty parsed
+      AGENTSMITH_ADMIN_GRANT. Enforced where every write passes. As a whole-document invariant
+      it also survives two administrators saving concurrently, which a delta check does not.
+  - key: |
+      A SAVE MUST PRESERVE WHAT ITS SURFACE DOES NOT RENDER. A settings PUT deserialises the
+      body onto a FRESH RawAgentSmithConfig, so every field the request omits silently reverts
+      to its initializer default. A people-only pane would therefore reset role_claim to "roles"
+      on the first grant — emptying every directory-derived role on a Keycloak-shaped
+      installation — and delete the custom roles this phase promises to keep. The surface
+      renders the claim names as their own pane and round-trips every field it does not edit.
+      This is why "the pane is replaced" needed to become "the pane grows".
+  - key: |
+      A GROUP GRANT ALREADY EXISTS AND IS CALLED group_roles. Adding a second group-to-role field
+      to the same document would give two fields one meaning: both would union, removing one
+      would leave the role resolving from the other, and the invariant would count one of them.
+      The Groups pane edits group_roles. Only PERSON grants are new.
+  - key: |
+      THERE IS NO SIGN-IN TO HOOK, SO THE RECORD IS OF AN OBSERVED CALLER. This server holds no
+      session: a bearer token is validated on every request, and the resolver is a synchronous
+      method on a singleton authorization handler with nowhere to await a write. A row per
+      validated token is one upsert per request per caller — on SQLite, the default, taking the
+      write lock on the authorization path, with the dashboard's polling and the hub handshake
+      multiplying it. The record is coalesced in memory, written off the request path at most
+      once per subject per window, and fails open: a caller is never refused because their
+      observation could not be stored.
+  - key: |
+      THE SURFACE GETS ITS OWN PERMISSIONS, BECAUSE config.write IS CURRENTLY ENOUGH TO BECOME
+      ADMIN. The settings route is gated on config.write, and a custom role bundling config.write
+      is legal — so such a caller can grant themselves admin and collect secrets.read and
+      secrets.write, which the catalog deliberately kept separable. That escalation exists today
+      through 1806's pane; this phase turns it into a button, so it decides the permission
+      instead of inheriting one: access.read and access.write, held by admin alone.
+  - key: |
+      GRANTS ARE CONFIGURATION AND ARE ALSO PERSONAL DATA. A grant is an operator's decision —
+      versioned, attributed, revertible — and it travels in a config export, because the whole
+      raw config does. The observation record does not: it is observation, changes with nobody
+      deciding anything, and must never reach another installation. Saying "records are not
+      exported" would be a true sentence hiding a false impression, so the surface offers ONE
+      action that removes a person: their grant and their record together.
+  - key: |
+      CUSTOM ROLES BECOME READ-ONLY RATHER THAN REMOVED. They came from p0503d's catalog rather
+      than a request and make the surface harder to read for a case nobody has. Deleting the
+      data would drop everyone holding one to zero permissions, so an existing custom role is
+      rendered, round-tripped verbatim and reported — new ones are refused on save.
+
+steps:
+  - id: a-caller-is-observed-without-a-write-per-request
+    action: "Record an observed caller — the real sub, the name-claim value with its claim name, the role and group values carried, first and last seen — coalesced in memory and flushed off the request path, failing open. Plus the retention window as a configurable field and the hosted service that enforces it."
+    new:
+      - "the observation record, its store, its coalescing writer and its retention service"
+  - id: the-record-has-a-table-on-both-providers
+    action: "Add the persistence migration and model snapshot for the record on the default provider and on SQL Server."
+  - id: a-person-grant-remembers-its-claim
+    action: "Add person grants to the role-mapping document as claim-and-value pairs, resolved additively beside the directory's roles only while the claim is the configured name_claim, with a finding when it is not."
+  - id: every-write-leaves-a-route-to-admin
+    action: "Enforce the admin invariant at the single point every role_mapping write passes, covering the settings save, import, revert and the migration, and refuse with the reason."
+    new:
+      - "the admin invariant and its refusal"
+  - id: the-surface-has-its-own-permissions
+    action: "Add access.read and access.write to the catalog, bundle them into admin alone, declare them on the new routes and regenerate the route-permission baseline."
+  - id: custom-roles-become-read-only
+    action: "Refuse a new custom role on save while rendering, round-tripping and reporting one an installation already has."
+  - id: the-access-surface
+    action: "Grow the roles-and-claims pane into people, groups, roles and claims — searchable and paged, the permission matrix under roles, adding by hand where nothing has been seen, the name-claim warning, and one action that removes a person entirely."
+    new:
+      - "the access surface and its four panes"
+  - id: the-first-login-walkthrough-is-rewritten
+    action: "Update the access-control docs: p0503d's first-login walkthrough now ends at the access surface, and the name-claim risk is stated."
+
+tests:
+  - "Observation_ManyRequestsFromOneCaller_WritesOnceNotPerRequest"
+  - "Observation_StoreUnavailable_TheCallerIsStillServed"
+  - "Observation_Refused_RecordsNothing"
+  - "Observation_GroupOverage_IsMarkedRatherThanRecordedAsNoGroups"
+  - "Observation_BeyondTheRetentionWindow_IsRemoved"
+  - "Grant_ToAPerson_ResolvesOnTheNextRequestWithoutARestart"
+  - "Grant_WrittenAgainstAnotherClaim_ResolvesNothingAndIsReported"
+  - "Grant_AndADirectoryRole_AreBothHeld"
+  - "Grant_ToSomeoneNeverSeen_AppliesOnTheirFirstRequest"
+  - "Grant_DifferingOnlyInCase_DoesNotMatch"
+  - "GroupRoles_KeyWithALeadingSlash_MatchesTheUnprefixedValue"
+  - "Save_FromThePeoplePane_LeavesTheClaimNamesAsTheyWere"
+  - "CustomRole_AlreadyConfigured_SurvivesAnUnrelatedSave"
+  - "CustomRole_New_IsRefused"
+  - "Invariant_SaveRemovingTheLastAdmin_IsRefusedWithTheReason"
+  - "Invariant_ImportWithNoRouteToAdmin_IsRefused"
+  - "Invariant_RevertToADocumentWithNoRouteToAdmin_IsRefused"
+  - "Invariant_WithAParsableEnvironmentAdmin_AllowsTheRemoval"
+  - "Invariant_WithAnUnparsableEnvironmentGrant_StillRefuses"
+  - "Invariant_TwoAdminsSavingConcurrently_LeavesARouteToAdmin"
+  - "Access_RoutesNeedAccessPermissions_NotConfigWrite"
+  - "Access_ConfigWriteAlone_CannotGrantARole"
+  - "RemovePerson_RemovesTheGrantAndTheRecordTogether"
+  - "Surface_ManyPeople_PagesAndSearches"
+  - "Surface_NameClaimIsNotSub_WarnsAboutSelfAssertedValues"
+
+done:
+  - "an administrator grants a role to a person from the dashboard, applying without a restart"
+  - "a grant is picked from the callers actually observed, and typed only where nothing has been"
+  - "a grant resolves only against the claim it was written for"
+  - "no write to the mapping — save, import, revert or migration — can leave the installation with no route to admin"
+  - "the access surface needs its own permission, and config.write alone cannot grant a role"
+  - "observing a caller costs no write per request and never refuses one"
+  - "removing a person removes their grant and their record in one action"
+  - "a custom role that exists keeps working and survives an unrelated save; a new one is refused"
+  - "dashboard build green, dashboard tests green, backend build green, full suite green"
