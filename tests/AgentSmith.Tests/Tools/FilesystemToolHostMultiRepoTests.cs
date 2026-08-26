@@ -99,6 +99,46 @@ public sealed class FilesystemToolHostMultiRepoTests
             Times.Never);
     }
 
+    // 2026-08-26-5c85: a discovered GitLab repo can carry its subgroup path, so
+    // routing resolves by the longest registered key at a segment boundary — not
+    // by the first path segment, which would never find 'team-a/api'.
+    [Fact]
+    public async Task ReadFile_SlashNamedRepo_ResolvesItsRunner()
+    {
+        var harness = new Harness().WithRepo("server").WithRepo("team-a/api");
+
+        var result = await harness.Host.ReadFile("team-a/api/src/Foo.cs");
+
+        result.Should().NotStartWith("Error");
+        harness.GetSandbox("team-a/api").Verify(s => s.RunStepAsync(
+            It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+        harness.GetSandbox("server").Verify(s => s.RunStepAsync(
+            It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ReadFile_SlashNamedRepo_DoesNotShadowItsParentSegment()
+    {
+        var harness = new Harness().WithRepo("team-a").WithRepo("team-a/api");
+
+        await harness.Host.ReadFile("team-a/api/src/Foo.cs");
+
+        harness.GetSandbox("team-a/api").Verify(s => s.RunStepAsync(
+            It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+        harness.GetSandbox("team-a").Verify(s => s.RunStepAsync(
+            It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        await harness.Host.ReadFile("team-a/README.md");
+
+        harness.GetSandbox("team-a").Verify(s => s.RunStepAsync(
+            It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
     [Fact]
     public async Task RunCommand_SingleRepo_NoRepoArg_DispatchesToTheOne()
     {

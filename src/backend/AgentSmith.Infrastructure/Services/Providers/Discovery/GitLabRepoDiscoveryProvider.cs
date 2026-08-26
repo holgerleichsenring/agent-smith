@@ -33,9 +33,12 @@ public sealed class GitLabRepoDiscoveryProvider(SecretsProvider secrets, ILogger
 
         for (var page = 1; ; page++)
         {
+            // 2026-08-26-5c85: with_shared=false — a project shared INTO the group has a
+            // foreign namespace, so it can neither be named relative to the group nor
+            // reached by a static ref (the URL builder prefixes the connection group).
             var url = $"{apiHost}/api/v4/groups/{group}/projects" +
-                      $"?include_subgroups=true&per_page={PageSize}&page={page}";
-            var batch = Parse(await GetPageAsync(url, token, connection, cancellationToken));
+                      $"?include_subgroups=true&with_shared=false&per_page={PageSize}&page={page}";
+            var batch = Parse(await GetPageAsync(url, token, connection, cancellationToken), connection.Group);
             all.AddRange(batch);
             if (batch.Count < PageSize) break;
         }
@@ -56,7 +59,10 @@ public sealed class GitLabRepoDiscoveryProvider(SecretsProvider secrets, ILogger
         return await response.Content.ReadAsStringAsync(cancellationToken);
     }
 
-    private static IReadOnlyList<DiscoveredRepo> Parse(string body)
+    // 2026-08-26-5c85: internal — the test seam. The static HttpClient leaves
+    // DiscoverAsync without an HTTP seam, so the API→DiscoveredRepo mapping is
+    // pinned directly (same pattern as SourceProviderFactory.ResolveGitLabTarget).
+    internal IReadOnlyList<DiscoveredRepo> Parse(string body, string group)
     {
         var projects = JsonSerializer.Deserialize<List<GitLabProject>>(body);
         if (projects is null) return Array.Empty<DiscoveredRepo>();
@@ -64,16 +70,38 @@ public sealed class GitLabRepoDiscoveryProvider(SecretsProvider secrets, ILogger
             .Where(p => !string.IsNullOrEmpty(p.Path))
             .Select(p => new DiscoveredRepo
             {
-                Name = p.Path!,
+                Name = NamespaceRelativeName(p, group),
                 Url = p.HttpUrlToRepo ?? string.Empty,
                 DefaultBranch = p.DefaultBranch,
             })
             .ToList();
     }
 
+    // 2026-08-26-5c85: the bare slug is not unique across subgroups, so a repo is
+    // named by its path RELATIVE to the connection's group ('team-a/api'); top-level
+    // projects keep their short name. A project the group prefix cannot be stripped
+    // from keeps the bare slug — degrading to the old (ambiguous) name beats failing
+    // the whole connection, but never silently.
+    private string NamespaceRelativeName(GitLabProject project, string group)
+    {
+        var prefix = group.Trim('/') + "/";
+        var full = project.PathWithNamespace;
+        if (!string.IsNullOrEmpty(full)
+            && full.Length > prefix.Length
+            && full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return full[prefix.Length..];
+
+        logger.LogWarning(
+            "GitLab discovery: project '{Project}' (path_with_namespace: '{Full}') does not live " +
+            "under group '{Group}' — keeping its bare path as the repo name.",
+            project.Path, full, group);
+        return project.Path!;
+    }
+
     private sealed class GitLabProject
     {
         [JsonPropertyName("path")] public string? Path { get; set; }
+        [JsonPropertyName("path_with_namespace")] public string? PathWithNamespace { get; set; }
         [JsonPropertyName("http_url_to_repo")] public string? HttpUrlToRepo { get; set; }
         [JsonPropertyName("default_branch")] public string? DefaultBranch { get; set; }
     }

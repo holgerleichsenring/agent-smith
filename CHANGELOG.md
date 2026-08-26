@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.138.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.137.0...v0.138.0) (2026-08-26)
+
+
+### Features
+
+* a discovered repo carries its subgroup path (2026-08-26-5c85) ([1f41ce5](https://github.com/holgerleichsenring/agent-smith/commit/1f41ce53ff8521f29248b46e3aecaaeb61f7d3ea))
+* a discovered repo carries its subgroup path (2026-08-26-5c85) ([d5241ce](https://github.com/holgerleichsenring/agent-smith/commit/d5241cec833c7462f7a93fc3f0825de46ea90090))
+
+
+### Bug Fixes
+
+* **phases:** the record entry is an index line, not the argument ([10bd05e](https://github.com/holgerleichsenring/agent-smith/commit/10bd05e5a1d66309ece5fdba34ad801434d65ed1))
+
+## [0.137.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.136.0...v0.137.0) (2026-08-26)
+
+
+### Features
+
+* an admin grants a role to a person ([5e135c4](https://github.com/holgerleichsenring/agent-smith/commit/5e135c48f8dda168ee5c7e77c99df3f6bb77842c))
+* an admin grants a role to a person (2026-08-26-7a51) ([bc41696](https://github.com/holgerleichsenring/agent-smith/commit/bc41696fefc37a8e0be938ba8e032e99a5eb7d4b))
+* **auth:** a role mapping changes without a restart (2026-08-25-1806) ([a31af1c](https://github.com/holgerleichsenring/agent-smith/commit/a31af1cec2f6e32d105918155730c606cc163066))
+* the role mapping is configured in the UI, and a refused token says which check refused it ([0973a33](https://github.com/holgerleichsenring/agent-smith/commit/0973a330773fe4be4ee4382ec97038bce99a0b9d))
+
+
+### Bug Fixes
+
+* **dashboard:** a pathless reply URL is a callback only when it carries one ([2ce38fd](https://github.com/holgerleichsenring/agent-smith/commit/2ce38fd31fd158614270f8bd2daabab1e872ce8c))
+
 ## [0.136.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.135.0...v0.136.0) (2026-08-25)
 
 
