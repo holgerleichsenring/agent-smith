@@ -34,6 +34,28 @@ public class RepoGlobExpanderTests
     public void Ref_BareName_IsNotConnectionRef() =>
         RepoGlobRef.IsConnectionRef("legacy-repo-name").Should().BeFalse();
 
+    // 2026-08-26-5c85: discovered GitLab names can carry a subgroup prefix
+    // ('team-a/api'). '*' compiles to '.*', which crosses '/', so the universal
+    // glob keeps matching — and a bare slug no longer selects a subgroup repo.
+    [Theory]
+    [InlineData("*", "team-a/api", true)]
+    [InlineData("team-*", "team-a/api", true)]
+    [InlineData("team-a/*", "team-a/api", true)]
+    [InlineData("api", "team-a/api", false)]
+    public void Matcher_StarPattern_MatchesAcrossSlash(string pattern, string name, bool expected) =>
+        RepoGlobMatcher.IsMatch(pattern, name).Should().Be(expected);
+
+    [Fact]
+    public void Expand_ExactSubgroupRef_MatchesDiscoveredRepo()
+    {
+        var snapshot = Seeded("conn", Repo("team-a/api"), Repo("team-b/api"));
+        var expander = new RepoGlobExpander(snapshot, new ThrowingRefresher(), NullLogger<RepoGlobExpander>.Instance);
+
+        var result = expander.Expand("p", new[] { RepoGlobRef.Parse("conn/team-a/api") }, Connections("conn"));
+
+        result.Should().ContainSingle().Which.Name.Should().Be("team-a/api");
+    }
+
     [Fact]
     public void Expand_GlobWithExclude_SelectsMatchingMinusExcluded()
     {
