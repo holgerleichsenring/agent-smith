@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.137.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.136.0...v0.137.0) (2026-08-26)
+
+
+### Features
+
+* an admin grants a role to a person ([5e135c4](https://github.com/holgerleichsenring/agent-smith/commit/5e135c48f8dda168ee5c7e77c99df3f6bb77842c))
+* an admin grants a role to a person (2026-08-26-7a51) ([bc41696](https://github.com/holgerleichsenring/agent-smith/commit/bc41696fefc37a8e0be938ba8e032e99a5eb7d4b))
+* **auth:** a role mapping changes without a restart (2026-08-25-1806) ([a31af1c](https://github.com/holgerleichsenring/agent-smith/commit/a31af1cec2f6e32d105918155730c606cc163066))
+* the role mapping is configured in the UI, and a refused token says which check refused it ([0973a33](https://github.com/holgerleichsenring/agent-smith/commit/0973a330773fe4be4ee4382ec97038bce99a0b9d))
+
+
+### Bug Fixes
+
+* **dashboard:** a pathless reply URL is a callback only when it carries one ([2ce38fd](https://github.com/holgerleichsenring/agent-smith/commit/2ce38fd31fd158614270f8bd2daabab1e872ce8c))
+
 ## [0.136.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.135.0...v0.136.0) (2026-08-25)
 
 
