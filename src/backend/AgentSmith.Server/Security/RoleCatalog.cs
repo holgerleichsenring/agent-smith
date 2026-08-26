@@ -4,7 +4,7 @@ namespace AgentSmith.Server.Security;
 
 /// <summary>
 /// p0503d: what a role NAME means, once an installation has had its say. The three
-/// built-in bundles plus whatever the auth block adds, keyed case-insensitively — Entra
+/// built-in bundles plus whatever the mapping adds, keyed case-insensitively — Entra
 /// emits an app-role value as the operator capitalised it and Keycloak lowercases, so an
 /// ordinal lookup would resolve <c>Admin</c> to nothing.
 /// <para>
@@ -21,10 +21,13 @@ internal sealed class RoleCatalog
 
     private readonly List<string> _findings = [];
 
-    public RoleCatalog(TokenAuthorityConfig auth)
+    // 2026-08-25-1806: built from the stored mapping rather than the bootstrap block, and
+    // rebuilt whenever that mapping changes — the findings belong to the mapping that
+    // produced them, so they are computed with it rather than once at startup.
+    public RoleCatalog(RoleMappingConfig mapping)
     {
         foreach (var (name, bundle) in BuiltInRoles.All) _roles[name] = bundle;
-        foreach (var (name, bundle) in auth.Roles) Add(name, bundle);
+        foreach (var (name, bundle) in mapping.Roles) Add(name, bundle);
     }
 
     /// <summary>Configuration diagnoses, not caller diagnoses: they are the same for everyone.</summary>

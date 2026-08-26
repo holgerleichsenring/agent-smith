@@ -17,6 +17,13 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// through a group membership this block maps onto a role. Nothing here assigns a role to
 /// a person; that happens at the identity provider, and there is no screen for it.
 /// </para>
+/// <para>
+/// 2026-08-25-1806: the four mapping fields below are now the migration SEED rather than
+/// what runs. <see cref="RoleMappingConfig"/> in the config store is what resolves a role,
+/// and an installation whose mapping is still in its file has it imported once. They stay
+/// bound here because a file that has not migrated must keep being read — dropping them
+/// would lock out everyone the mapping let in.
+/// </para>
 /// </summary>
 public sealed class TokenAuthorityConfig
 {
@@ -29,14 +36,15 @@ public sealed class TokenAuthorityConfig
     public bool Enforce { get; init; }
 
     /// <summary>
-    /// The claim carrying role NAMES, read verbatim. Entra emits app roles under
-    /// <c>roles</c>; a Keycloak realm nests them under <c>realm_access.roles</c>, which no
-    /// flat claim name can address — that installation maps groups instead.
+    /// 2026-08-25-1806: the seed for <see cref="RoleMappingConfig.RoleClaim"/>. Entra emits
+    /// app roles under <c>roles</c>; a Keycloak realm nests them under
+    /// <c>realm_access.roles</c>, which no flat claim name can address — that installation
+    /// maps groups instead.
     /// </summary>
-    public string RoleClaim { get; init; } = "roles";
+    public string RoleClaim { get; init; } = RoleMappingConfig.DefaultRoleClaim;
 
-    /// <summary>The claim carrying group values, mapped onto roles by <see cref="GroupRoles"/>.</summary>
-    public string GroupClaim { get; init; } = "groups";
+    /// <summary>2026-08-25-1806: the seed for <see cref="RoleMappingConfig.GroupClaim"/>.</summary>
+    public string GroupClaim { get; init; } = RoleMappingConfig.DefaultGroupClaim;
 
     /// <summary>
     /// The claim a caller is NAMED by — on the identity page and in a config change's
@@ -45,14 +53,10 @@ public sealed class TokenAuthorityConfig
     /// </summary>
     public string NameClaim { get; init; } = "sub";
 
-    /// <summary>Group value -> the roles holding it grants. A caller in two mapped groups holds both.</summary>
+    /// <summary>2026-08-25-1806: the seed for <see cref="RoleMappingConfig.GroupRoles"/>.</summary>
     public Dictionary<string, List<string>> GroupRoles { get; init; } = [];
 
-    /// <summary>
-    /// Roles this installation adds to the built-in three, as bundles over the catalog.
-    /// Additive: a name that collides with a built-in role does NOT replace it, and a
-    /// permission the catalog does not contain is dropped rather than granted.
-    /// </summary>
+    /// <summary>2026-08-25-1806: the seed for <see cref="RoleMappingConfig.Roles"/>.</summary>
     public Dictionary<string, List<string>> Roles { get; init; } = [];
 
     /// <summary>An authority is the one thing without which nothing else here can work.</summary>

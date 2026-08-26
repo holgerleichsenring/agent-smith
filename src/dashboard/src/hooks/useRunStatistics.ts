@@ -9,13 +9,15 @@ import { fetchRunStatistics, type RunStatistics } from "@/lib/runStoryApi";
 export interface UseRunStatisticsResult {
   statistics: RunStatistics | null;
   loading: boolean;
-  error: string | null;
+  /** The thrown value, not its message — a refusal reaching the story view is
+   *  rendered as the state it is. */
+  error: Error | null;
 }
 
 export function useRunStatistics(runId: string | null): UseRunStatisticsResult {
   const [statistics, setStatistics] = useState<RunStatistics | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!runId) return;
@@ -29,7 +31,7 @@ export function useRunStatistics(runId: string | null): UseRunStatisticsResult {
       })
       .catch((err: unknown) => {
         if (ctrl.signal.aborted) return;
-        setError(err instanceof Error ? err.message : String(err));
+        setError(err instanceof Error ? err : new Error(String(err)));
         setLoading(false);
       });
     return () => ctrl.abort();

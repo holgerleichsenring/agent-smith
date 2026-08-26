@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Security;
@@ -10,31 +9,36 @@ namespace AgentSmith.Server.Security;
 /// role means, and the environment grant unions an administrator in whatever either says.
 /// The <c>permission</c> claims p0503b reads straight off a token stay in the union, so an
 /// authority that states permissions directly keeps working.
+/// <para>
+/// 2026-08-25-1806: the mapping is asked for per call rather than captured at startup, so a
+/// role bundle saved in the Config Studio governs the very next request.
+/// </para>
 /// </summary>
-internal sealed class CallerIdentityResolver(
-    TokenAuthorityConfig auth, CallerRoleReader roles, RoleCatalog catalog, AdminGrant grant)
+internal sealed class CallerIdentityResolver(RoleMappingSource mapping, AdminGrant grant)
 {
     private const string SubjectClaim = "sub";
 
     public CallerIdentity Resolve(ClaimsPrincipal caller)
     {
-        if (caller.Identity?.IsAuthenticated != true) return Anonymous();
+        var current = mapping.Current();
+        if (caller.Identity?.IsAuthenticated != true) return Anonymous(current);
 
-        var groups = roles.GroupClaimValues(caller);
-        var held = Held(caller, groups);
+        var groups = current.Reader.GroupClaimValues(caller);
+        var held = Held(current, caller, groups);
         return new CallerIdentity(
             Authenticated: true,
             Subject: caller.Identity.Name ?? caller.FindFirst(SubjectClaim)?.Value,
             Issuer: caller.FindFirst("iss")?.Value ?? caller.Claims.FirstOrDefault()?.Issuer,
-            auth.RoleClaim, auth.GroupClaim,
-            roles.RoleClaimValues(caller), groups,
-            held, Permissions(caller, held),
-            [.. catalog.Findings.Concat(grant.Findings).Concat(GroupOverageDetector.Findings(caller))]);
+            current.Mapping.RoleClaim, current.Mapping.GroupClaim,
+            current.Reader.RoleClaimValues(caller), groups,
+            held, Permissions(current, caller, held),
+            [.. current.Catalog.Findings.Concat(grant.Findings).Concat(GroupOverageDetector.Findings(caller))]);
     }
 
-    private IReadOnlyList<string> Held(ClaimsPrincipal caller, IReadOnlyList<string> groups)
+    private IReadOnlyList<string> Held(
+        ResolvedRoleMapping current, ClaimsPrincipal caller, IReadOnlyList<string> groups)
     {
-        var held = roles.Roles(caller);
+        var held = current.Reader.Roles(caller);
         return grant.Holds(groups, caller.FindFirst(SubjectClaim)?.Value)
             ? [.. held.Append(BuiltInRoles.Admin).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)]
             : held;
@@ -47,14 +51,20 @@ internal sealed class CallerIdentityResolver(
     /// says why they hold nothing, and the refusal would be a 403 naming a permission they
     /// cannot see the catalog of.
     /// </summary>
-    private IReadOnlyList<string> Permissions(ClaimsPrincipal caller, IReadOnlyList<string> held) =>
-        [.. catalog.Permissions(held)
+    private static IReadOnlyList<string> Permissions(
+        ResolvedRoleMapping current, ClaimsPrincipal caller, IReadOnlyList<string> held) =>
+        [.. current.Catalog.Permissions(held)
             .Concat(caller.FindAll(PermissionClaims.Type).Select(claim => claim.Value))
             .Append(Security.Permissions.IdentityRead)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)];
 
-    private CallerIdentity Anonymous() => new(
+    // A caller who presented nothing and one whose token was refused both arrive here as
+    // the same anonymous principal. 2026-08-25-1806 tells them apart on the ANONYMOUS
+    // requirements route instead of this one, because an enforcing installation refuses
+    // this route to exactly the caller who needs the answer.
+    private static CallerIdentity Anonymous(ResolvedRoleMapping current) => new(
         Authenticated: false, Subject: null, Issuer: null,
-        auth.RoleClaim, auth.GroupClaim, [], [], [], [], catalog.Findings);
+        current.Mapping.RoleClaim, current.Mapping.GroupClaim, [], [], [], [],
+        current.Catalog.Findings);
 }

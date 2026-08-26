@@ -14,6 +14,11 @@ namespace AgentSmith.Server.Extensions;
 /// an authenticated principal. A page that refused the caller it exists for would answer
 /// 403 naming a permission out of a catalog they have no way to read.
 /// </para>
+/// <para>
+/// 2026-08-25-1806: a REFUSED token is named on <c>/api/auth/requirements</c> rather than
+/// here. An enforcing installation answers this route 401 to precisely the caller whose
+/// token it rejected, so the one route that can carry that answer is the anonymous one.
+/// </para>
 /// </summary>
 internal static class IdentityEndpoints
 {

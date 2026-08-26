@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-3277
+
+decisions:
+  - category: Architecture
+    chose: "Every converted loader holds the thrown VALUE and reads its message at render time"
+    over: "Making getJson/readJson resolve to a discriminated result union"
+    reason: |
+      2026-08-25-4530 named this exact gap as a trade-off: the refusal survives the throw and a
+      loader storing `err.message` discards it at the last step. The union is what the spec's
+      test names suggest and it costs fifteen client modules and every caller a signature
+      change, plus a branch at each of them, in code paths that have nothing to do with
+      sign-in. Holding the value is one line per loader and no exported signature that did not
+      already have to change. `refusalIn()` already reads the type back off a caught value, so
+      nothing new was needed at the boundary.
+      The reasoning lives ONCE, on refusalIn() in apiResponse.ts, where the type is defined.
+      Fifteen copies of the same sentence is fifteen things to disagree with each other.
+
+  - category: Implementation
+    chose: "The refusal surface is rendered where the surface replaces a whole pane"
+    over: "Rendering it at every converted site, or building a second smaller one"
+    reason: |
+      2026-08-25-4530 built RefusalSurface and it is reused verbatim — it already offers sign-in
+      for a 401 and offers NO sign-in for a 403, because signing in again returns the same token
+      carrying the same roles. Eight surfaces replace their entire content on a load failure and
+      therefore have room for the one action that resolves it: the run's record (RunWhy), the
+      configuration catalog (ConfigStudio), the change history (ChangesView), a settings
+      singleton (SettingsStudio), the connections, the skill catalog, the resolved
+      configuration, the expectation metrics, and the pull-requests page.
+      Surfaces that carry a message in a field row, a form footer or a button tooltip keep their
+      sentence — the refusal's own message is that sentence — and reading `.message` at render
+      instead of at catch costs them nothing while leaving the type intact.
+
+  - category: Implementation
+    chose: "The pull-requests page stopped keeping a boolean"
+    over: "Leaving it alone as the one loader that never held a message either"
+    reason: |
+      It caught the thrown value and set `true`, so a refused caller read \"retry from the rail
+      once the API is reachable\" about an API that was reachable and had answered. It is a full
+      page with nothing but a list on it, which makes it the surface with the most room for the
+      action and the least excuse for not offering it. A 500 still renders that same sentence,
+      byte for byte.
+
+  - category: Scope
+    chose: "The markdown/trail hooks were NOT converted"
+    over: "Converting every hook that stores a caught error as a string"
+    reason: |
+      useTrail, useSpecMarkdown, usePlanMarkdown, useResultMarkdown and useAnalyzeMarkdown do
+      not call the HTTP client at all — they invoke JobsHub over SignalR, which raises the
+      library's own errors and can never produce an ApiRefusal. Converting them would be a
+      signature change bought with nothing: no refusal can arrive to be held. The hub's own
+      refusal story is the connection handshake, which is not this phase.
+
+  - category: Scope
+    chose: "The four run-action buttons were NOT converted"
+    over: "Teaching cancel / delete / clear-terminal / answer to report a refusal"
+    reason: |
+      CancelRunButton, DeleteRunButton, ClearTerminalRunsButton and PendingQuestionCard call
+      apiFetch directly and check `res.ok` themselves, so they never receive a thrown ApiRefusal
+      — they WRITE the string \"HTTP 403\" and put it in a button tooltip. Making them refusal-
+      aware means routing them through `refused()` and finding somewhere other than a `title`
+      attribute to put a panel: a behaviour change, not a mechanical conversion, and out of this
+      phase's scope. Named here rather than left to be rediscovered.
+
+  - category: Scope
+    chose: "Loaders that DISCARD the error entirely were left alone"
+    over: "Converting them to hold a value they never render"
+    reason: |
+      useRunSteps, useRunPhases, useRunDecisions, useRunTrace, useRunStepEvents, useFindings,
+      the provider's changes count and useAuthRequirements all swallow the failure on purpose and
+      render an honest empty or absent state instead of a number nobody can trust. Holding a
+      value that reaches no surface changes nothing an operator can see, and each of those
+      silences is a decision an earlier phase argued for.
+      Also untouched: every catch around JSON parsing, frontmatter, formatting and localStorage
+      — those never see an API response — and useCallerIdentity, which 2026-08-25-4530 already
+      built refusal-aware and is the pattern the rest now follow.
+
+  - category: Implementation
+    chose: "EntityDrawer's save error stays a sentence"
+    over: "Rendering the refusal surface inside the editing drawer"
+    reason: |
+      The drawer's error is a one-line report between the form fields and the footer buttons,
+      about an action the operator just took with the form still on screen. A panel there would
+      push the fields off, and the action that resolves a refused SAVE is not a control the
+      drawer can offer — the form itself is what the operator came for. It holds the thrown
+      value like every other converted loader, so the decision is reversible in one line.

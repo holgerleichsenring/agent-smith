@@ -55,6 +55,8 @@ vi.mock("@/lib/configApi", () => {
       ],
       agentProviders: ["azure-openai", "anthropic"],
       resolutionStrategies: ["tag", "repo"],
+      permissions: [],
+      builtInRoles: [],
       pipelines: ["feature-implementation"],
       roles: [
         { key: "coding", optional: false },

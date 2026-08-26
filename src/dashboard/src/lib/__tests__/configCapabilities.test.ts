@@ -28,6 +28,8 @@ function serverPayload(kind: string): ConfigCapabilities {
     ],
     agentProviders: [],
     resolutionStrategies: [],
+    permissions: [],
+    builtInRoles: [],
     pipelines: [],
     roles: [],
   } as unknown as ConfigCapabilities;

@@ -43,6 +43,14 @@ public sealed class RawAgentSmithConfig
     /// </summary>
     public TokenAuthorityConfig? Auth { get; set; }
 
+    /// <summary>
+    /// 2026-08-25-1806: what a role name means here, and which claims it is read out of.
+    /// A singleton config doc like every other one — stored, edited in the studio, and
+    /// applied to the next request. Its bootstrap counterpart under <see cref="Auth"/> is
+    /// only the seed an installation that has not migrated is imported from.
+    /// </summary>
+    public RoleMappingConfig RoleMapping { get; set; } = new();
+
     /// <summary>p0423: whether a run records its conversation, not only its numbers.</summary>
     public TraceConfig Trace { get; set; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; set; } = new();

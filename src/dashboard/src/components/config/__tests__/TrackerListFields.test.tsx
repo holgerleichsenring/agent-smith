@@ -38,6 +38,8 @@ const CAPABILITIES = {
   connectionTypes: [],
   agentProviders: [],
   resolutionStrategies: [],
+  permissions: [],
+  builtInRoles: [],
   pipelines: [],
   roles: [],
 };
