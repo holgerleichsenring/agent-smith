@@ -23,6 +23,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
 {
     public const string ToolName = "write_context_yaml";
     private const int WriteTimeoutSeconds = 30;
+    private const string WrittenPrefix = "context.yaml written:";
 
     private readonly IReadOnlyDictionary<string, ISandbox> _sandboxes;
     private readonly string _defaultRepo;
@@ -36,6 +37,11 @@ public sealed class WriteContextYamlToolHost : IToolHost
     // to what discovery actually resolved. Null / empty for a repo => genuine bootstrap,
     // any name allowed.
     private readonly ContextNameGuard _nameGuard;
+    // 2026-08-26-167c: what THIS round did, so the round can stop deciding by
+    // "a file exists" — a question a re-init answers yes to before it starts.
+    private bool _written;
+    private string? _lastRefusal;
+    private string? _lastContext;
 
     public WriteContextYamlToolHost(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
@@ -51,6 +57,11 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _gate = gate;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
+
+    /// <summary>This round's write outcome — never a question about the disk.</summary>
+    public ContextWriteOutcome Outcome => new(
+        _written, _lastRefusal,
+        _lastContext is not null && _budget.IsExhausted(_lastContext));
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
     {
@@ -93,6 +104,16 @@ public sealed class WriteContextYamlToolHost : IToolHost
         JsonElement document,
         CancellationToken ct = default)
     {
+        _lastContext = context_name;
+        var message = await AttemptAsync(repo, context_name, document, ct);
+        if (message.StartsWith(WrittenPrefix, StringComparison.Ordinal)) _written = true;
+        else _lastRefusal = message;
+        return message;
+    }
+
+    private async Task<string> AttemptAsync(
+        string repo, string context_name, JsonElement document, CancellationToken ct)
+    {
         if (string.IsNullOrWhiteSpace(context_name))
             return "Error: context_name is required.";
         if (context_name.Contains('/') || context_name.Contains('\\') || context_name.Contains(".."))
@@ -128,7 +149,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         var result = await sandbox!.RunStepAsync(step, progress: null, ct);
         return result.ExitCode != 0
             ? $"Error: write failed — {result.ErrorMessage ?? "unknown"}"
-            : $"context.yaml written: {(string.IsNullOrEmpty(repo) ? string.Empty : repo + "/")}{path}";
+            : $"{WrittenPrefix} {(string.IsNullOrEmpty(repo) ? string.Empty : repo + "/")}{path}";
     }
 
     private bool TryResolveSandbox(string repo, out ISandbox? sandbox, out string? error)
