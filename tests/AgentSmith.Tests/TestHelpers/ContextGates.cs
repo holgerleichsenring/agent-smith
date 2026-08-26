@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Application.Services.Validation;
+using AgentSmith.Infrastructure.Services;
 
 namespace AgentSmith.Tests.TestHelpers;
 
@@ -22,4 +23,18 @@ internal static class ContextGates
     public static ContextDefectReport DefectReport() => Report;
 
     public static ContextSingleValueNormaliser Normaliser() => new(Schema);
+
+    /// <summary>
+    /// 2026-08-26-364f: the writer assembled the way DI assembles it, so a test proves the
+    /// REAL read-modify-write rather than a stand-in that could not delete anything.
+    /// </summary>
+    public static SandboxContextYamlWriter Writer() =>
+        new(new ContextYamlSectionUpsert(new ContextYamlBuilders()));
+
+    /// <summary>
+    /// The real emitter. A mock returns null YAML, which the write path used to put on
+    /// disk unnoticed — a fixture that cannot produce a file cannot prove one survived.
+    /// </summary>
+    public static AgentSmith.Contracts.Services.IContextYamlSerializer Serializer() =>
+        new ContextYamlSerializer(new ContextYamlBuilders());
 }

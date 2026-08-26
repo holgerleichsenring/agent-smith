@@ -155,7 +155,7 @@ public sealed class WriteContextYamlToolHostTests
             ["client"] = _sandboxMock.Object,
         };
         return new WriteContextYamlToolHost(
-            sandboxes, defaultRepo: "client", _serializer, ContextGates.Build());
+            sandboxes, defaultRepo: "client", _serializer, ContextGates.Build(), ContextGates.Writer());
     }
 
     private static bool Capture(Step step, out Step? captured)

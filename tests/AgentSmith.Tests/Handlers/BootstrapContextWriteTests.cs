@@ -105,8 +105,8 @@ public sealed class BootstrapContextWriteTests
             Mock.Of<IDecisionLogger>(),
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
-            Mock.Of<IContextYamlSerializer>(),
-            ContextGates.Build()),
+            ContextGates.Serializer(),
+            ContextGates.Build(), ContextGates.Writer()),
         // The re-init shape: a context.yaml is already on the sandbox before the round.
         BootstrapReaderStubs.ReaderFactoryReturning(
             contextYaml: ExistingOnDisk, codingPrinciples: null),

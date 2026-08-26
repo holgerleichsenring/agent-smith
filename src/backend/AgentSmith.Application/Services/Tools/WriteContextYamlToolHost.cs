@@ -4,7 +4,6 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
@@ -22,13 +21,14 @@ namespace AgentSmith.Application.Services.Tools;
 public sealed class WriteContextYamlToolHost : IToolHost
 {
     public const string ToolName = "write_context_yaml";
-    private const int WriteTimeoutSeconds = 30;
-    private const string WrittenPrefix = "context.yaml written:";
 
     private readonly IReadOnlyDictionary<string, ISandbox> _sandboxes;
     private readonly string _defaultRepo;
     private readonly IContextYamlSerializer _serializer;
     private readonly ContextDocumentGate _gate;
+    // 2026-08-26-364f: the file is read before it is written, so the sections the typed
+    // document does not model survive a re-init instead of being deleted by it.
+    private readonly SandboxContextYamlWriter _writer;
     // 2026-08-25-c9c7: per-round, so a document the model cannot make valid stops
     // being re-invited instead of spending the loop's iteration cap.
     private readonly ContextWriteRejectionBudget _budget = new();
@@ -48,6 +48,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         string defaultRepo,
         IContextYamlSerializer serializer,
         ContextDocumentGate gate,
+        SandboxContextYamlWriter writer,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
         string? defaultRepoName = null)
     {
@@ -55,6 +56,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _defaultRepo = defaultRepo;
         _serializer = serializer;
         _gate = gate;
+        _writer = writer;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
 
@@ -106,7 +108,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
     {
         _lastContext = context_name;
         var message = await AttemptAsync(repo, context_name, document, ct);
-        if (message.StartsWith(WrittenPrefix, StringComparison.Ordinal)) _written = true;
+        if (message.StartsWith(SandboxContextYamlWriter.WrittenPrefix, StringComparison.Ordinal)) _written = true;
         else _lastRefusal = message;
         return message;
     }
@@ -143,13 +145,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         if (!TryResolveSandbox(repo, out var sandbox, out var err))
             return err!;
 
-        var path = $".agentsmith/contexts/{context_name}/context.yaml";
-        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
-            TimeoutSeconds: WriteTimeoutSeconds, Path: path, Content: yaml);
-        var result = await sandbox!.RunStepAsync(step, progress: null, ct);
-        return result.ExitCode != 0
-            ? $"Error: write failed — {result.ErrorMessage ?? "unknown"}"
-            : $"{WrittenPrefix} {(string.IsNullOrEmpty(repo) ? string.Empty : repo + "/")}{path}";
+        return await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
     }
 
     private bool TryResolveSandbox(string repo, out ISandbox? sandbox, out string? error)
