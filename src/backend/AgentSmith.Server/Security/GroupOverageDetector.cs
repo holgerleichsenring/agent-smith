@@ -18,6 +18,14 @@ internal static class GroupOverageDetector
 {
     private static readonly string[] Markers = ["_claim_names", "_claim_sources", "hasgroups"];
 
+    /// <summary>
+    /// 2026-08-26-7a51: whether the directory left the group claim out. An observation
+    /// that recorded such a caller as carrying no groups would be a record of a fact that
+    /// is not true, and the two states have opposite remedies.
+    /// </summary>
+    public static bool GroupsWereOmitted(ClaimsPrincipal caller) =>
+        Markers.Any(marker => caller.HasClaim(claim => claim.Type == marker));
+
     public static IReadOnlyList<string> Findings(ClaimsPrincipal caller) =>
         [.. Markers.Where(marker => caller.HasClaim(claim => claim.Type == marker))
             .Select(marker =>

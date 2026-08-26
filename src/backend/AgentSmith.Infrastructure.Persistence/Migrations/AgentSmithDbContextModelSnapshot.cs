@@ -231,6 +231,50 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("DialogueAnswers");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ObservedCallerEntity", b =>
+                {
+                    b.Property<string>("Subject")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("FirstSeen")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GroupValues")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("GroupsOmitted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("LastSeen")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameClaim")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameValue")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RoleValues")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Subject");
+
+                    b.ToTable("ObservedCallers");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.QueuedTicket", b =>
                 {
                     b.Property<long>("Id")
