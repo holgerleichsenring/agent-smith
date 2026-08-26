@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-26-66e2
+
+goal: "The bootstrap master's worked example writes the shapes the context schema declares, and stops telling the model to default to an architecture style it did not observe."
+
+applies_to: "the skills repository (project-bootstrap and context-generator masters) + the embedded skills pin here"
+
+requires:
+  - 2026-08-26-167c
+
+scope:
+  in: "The worked example in the bootstrap master uses the declared shapes and pattern values that exist; the default-to-Layered instruction goes; a skills release and the embedded pin bump that carries it here."
+  out: "The schema's tolerance for a single value, which 2026-08-26-167c ships and which keeps every other prompt working — including a customer's own."
+
+decisions:
+  - key: |
+      THIS IS THE HALF THAT COULD NOT SHIP WITH THE OTHER. The master reaches the build as a
+      tarball verified by SHA256 from a GitHub release, so correcting it costs a release there
+      and a pin bump here. 2026-08-26-167c therefore made the schema accept the shorthand, which
+      repairs the run without waiting. What is left is the prompt still being wrong on its own
+      terms — it shows a map field written as a string and names a pattern the catalog does not
+      contain — and a prompt that teaches a shape nobody validates is a defect with a delay.
+  - key: |
+      "DEFAULT CONSERVATIVELY TO Layered" IS THE LINE THAT PRODUCED A FALSE CONTEXT. Told to
+      guess when unsure, a model guesses, and the guess validates. A context that says Layered
+      about an npm code generator is worse than one that says nothing, because nothing invites a
+      question and a wrong answer does not. The instruction becomes: name what you observed.
+
+steps:
+  - id: the-example-matches-the-declared-shapes
+    action: "Correct the worked example in the bootstrap master and the context-generator master — declared shapes, pattern values from the catalog — and remove the default-to-Layered instruction."
+  - id: the-pin-carries-it-here
+    action: "Release the skills package and bump SkillsCatalogVersion and SkillsCatalogSha256, deleting the superseded tarball so the build fetches the new one."
+
+tests:
+  - "Prompt_TheEmbeddedBootstrapExample_ValidatesAgainstTheShippedSchema"
+  - "Prompt_TheEmbeddedMasters_NameNoPatternOutsideTheCatalog"
+
+done:
+  - "the shipped example validates against the shipped schema on its own, not by the schema's tolerance"
+  - "no master instructs a model to default to an architecture style"
+  - "the pin names the release that carries it, and the build verifies its digest"
