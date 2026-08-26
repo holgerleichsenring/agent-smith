@@ -16,7 +16,22 @@ export interface AuthRequirements {
   /** The issuer tokens are validated against. Null when none is configured. */
   authority: string | null;
   audience: string | null;
+  /** 2026-08-25-1806: which check refused THIS request's token, out of the server's
+   *  closed vocabulary — null when none was presented, or when it was accepted. It is
+   *  read here rather than off /api/identity because an enforcing server answers that
+   *  route 401 to exactly the caller whose token it rejected. */
+  tokenRefusal: TokenRefusal | null;
 }
+
+/** The server's closed refusal vocabulary. An unknown value renders as the generic one. */
+export type TokenRefusal =
+  | "expired"
+  | "not_yet_valid"
+  | "audience"
+  | "issuer"
+  | "signature"
+  | "malformed"
+  | "rejected";
 
 export async function fetchAuthRequirements(signal?: AbortSignal): Promise<AuthRequirements> {
   return getJson<AuthRequirements>("/api/auth/requirements", signal);

@@ -1,0 +1,152 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-1806
+
+decisions:
+  - category: Architecture
+    chose: "The role mapping is a SETTINGS SINGLETON in the existing taxonomy (role_mapping)"
+    over: "A new endpoint pair, or a mapping-shaped table of its own"
+    reason: |
+      p0349 made a config type exactly one taxonomy entry plus a C# record, and p0353 turned
+      every singleton into an editable typed form whose save is attributed, versioned,
+      revertible and epoch-signalled. Declaring role_mapping there buys all of it at once:
+      the studio route, the Changes row, the revert, the live epoch bump and the YAML export
+      round-trip. A second mechanism would have had to re-earn every one of them, and would
+      have been the second place a config write can happen.
+      The four values moved (roles, group_roles, role_claim, group_claim) and nothing else:
+      authority, audience and enforce genuinely precede the database — AddServerAuthentication
+      registers the whole JwtBearer pipeline at startup, and name_claim goes into
+      TokenValidationParameters.NameClaimType at that same moment.
+
+  - category: Architecture
+    chose: "The mapping is asked for per request through RoleMappingSource, and the readers are rebuilt on instance identity"
+    over: "Scoped RoleCatalog / CallerRoleReader registrations, or rebuilding them on every call"
+    reason: |
+      p0503d's readers were singletons built from the startup auth block — the lifetime, not
+      any ordering constraint, is what froze the mapping. They cannot simply become scoped:
+      CallerIdentityResolver is injected into PermissionRequirementHandler, which the
+      authorization stack registers as a SINGLETON, and ValidateScopes is on.
+      So the source stays a singleton and hands out an immutable ResolvedRoleMapping
+      (mapping + catalog + reader together, so one request cannot resolve its role NAMES from
+      one version and their PERMISSIONS from another). The store hands back the same
+      RoleMappingConfig instance until a write reassembles its document, so reference identity
+      is a free and exact "this changed" signal — one lock and one comparison per request,
+      and a rebuild only when a save actually happened.
+
+  - category: Architecture
+    chose: "A narrow IStoredRoleMapping port over IConfigStore"
+    over: "Injecting IConfigStore into the role resolver"
+    reason: |
+      Role resolution needs one thing of the store, and an authorization path that could reach
+      the rest of it is a wider door than it needs. It also makes the failure mode explicit:
+      Read() returns null when the store cannot answer, which is what lets the seed keep
+      governing instead of every caller silently losing their roles. A test states what is
+      stored in two lines instead of stubbing fifteen store members.
+
+  - category: Architecture
+    chose: "A MIGRATION that runs once at boot, plus a seed that governs until it has spoken"
+    over: "Reading the file as a permanent fallback whenever the store looks empty"
+    reason: |
+      An installation with roles: and group_roles: in its file has a working mapping today, and
+      a release that stopped reading it would lock out everyone that mapping let in. So the
+      file's values are imported once, when the store holds no role_mapping row and the file
+      declares something worth keeping.
+      A permanent emptiness-based fallback was rejected because it has a wart with teeth: an
+      operator who CLEARS the mapping in the studio would get the file's copy back and could
+      never remove it through the UI. RoleMappingSource.AdoptStore() is the migration saying
+      "the store holds the answer now" — before that call the seed governs, after it the store
+      is the only answer, and a failed migration therefore leaves the installation exactly as
+      it was rather than role-less.
+
+  - category: Implementation
+    chose: "The migration runs eagerly in ServerHostFactory, not as an IStartupProbe or a hosted service"
+    over: "A probe beside the other six, or a BackgroundService"
+    reason: |
+      A hosted service can start after Kestrel, so a request could be answered from the file
+      while the next one is answered from an empty store. A probe is the right MOMENT but the
+      wrong contract — IStartupProbe reports on a dependency and this one writes; calling a
+      write a probe is how the abstraction stops meaning anything. It is a WebApplication
+      extension invoked between UseServerAuthentication and RunProbesAsync, it catches
+      everything, and it reports what it could not do through the same findings list.
+
+  - category: Architecture
+    chose: "A refused token is named on GET /api/auth/requirements, not on GET /api/identity"
+    over: "Adding the refusal to CallerIdentity, or to both"
+    reason: |
+      The identity page is unreachable in exactly the case that needs the answer: with enforce
+      on, a token the server rejected gets 401 from /api/identity and the dashboard renders
+      "you are signed out" — which sends an operator to sign in again and get the same 401.
+      The requirements route is anonymous by design and already answers a caller with nothing
+      to present, so it is the one channel that survives the failure it has to explain.
+      One source, not two: a second copy on CallerIdentity would eventually disagree.
+
+  - category: Security
+    chose: "The caller is told WHICH CHECK refused their token, from a closed vocabulary"
+    over: "The validation message (IDX10214 / IDX10205 and their detail), or a bare boolean"
+    reason: |
+      This route answers anybody who can reach the server, so what it says has to be safe for
+      an unauthenticated caller. A validation message names the values the check ran against
+      and is not a stable contract; a bare boolean does not separate "wrong audience" from
+      "expired", which is the whole point — those have different fixes.
+      Seven classifications (expired, not_yet_valid, audience, issuer, signature, malformed,
+      rejected) are enough to act on and repeat nothing back that the caller did not send. The
+      expected authority and audience are shown alongside, which this route already published
+      before this phase. The detail stays in the server's log.
+
+  - category: Implementation
+    chose: "The permission catalog rides ConfigCapabilities as init-only properties the host supplies"
+    over: "A new endpoint, or Build() taking the catalog as parameters"
+    reason: |
+      p0345c already established the capabilities descriptor as "everything a form needs before
+      it can be filled in", and the closed permission catalog answers exactly that question —
+      a second endpoint would be a second copy of a closed list.
+      They are init-only and set by the Server's endpoint rather than by
+      ConfigStudioCapabilities.Build, because the catalog is the SERVER's authorization
+      vocabulary and does not belong to the config contracts. It also left Build's four call
+      sites untouched.
+
+  - category: Implementation
+    chose: "A bundle is built with a pick set over the catalog; only a NAME is ever typed"
+    over: "Free-text permission entry validated on save"
+    reason: |
+      RoleCatalog drops an unknown permission and reports a finding — the studio's job is to
+      make that state hard to reach at all, not to reproduce the rule in TypeScript. So
+      permissions are picked (MultiPickField, extracted from MultiRefSelect so the pick DOM is
+      one implementation), group mappings pick from the role names the installation knows, and
+      the only free text is a new role or group NAME.
+      The one finding that stays reachable — a custom role named after a built-in — is refused
+      at the add box using the built-in names the capabilities descriptor supplies, and a name
+      already stored that way (imported from a file) is called out on its own row, because the
+      add box cannot refuse what is already there.
+
+  - category: Implementation
+    chose: "A per-replica ConfigStoreReloadHostedService watching the config epoch"
+    over: "Leaving the store's document to reload only on the replica that took the write"
+    reason: |
+      DbConfigStore reloads its assembled document on its own writes, so a single-process
+      installation applied a saved mapping immediately. Across replicas it did not: a save on
+      one pod left the others answering from the document they assembled at boot, and "applies
+      without a restart" would have been true of one pod in three.
+      It mirrors SkillsCatalogReloadHostedService exactly — same cheap epoch GET, same
+      every-replica reasoning (the cached document is per-pod), boot is a baseline never a
+      reload, and a no-Redis graph idles forever. Every studio read gets fresher as a side
+      effect, which was already the intent of p0353.
+
+  - category: Implementation
+    chose: "JwtBearerSetup was split out of ServerAuthenticationExtensions"
+    over: "Adding the OnAuthenticationFailed handler where the rest of the options are configured"
+    reason: |
+      The 120-line file rule refused the addition, and the honest split was already implied by
+      the file: WHETHER the pipeline is registered (an authority is configured or it is not) is
+      a different decision from WHAT the handler then validates. The setup object is built at
+      the composition root with the auth block in hand rather than resolved, for p0503e's
+      reason — the options delegate runs before the container is usable, and the block being
+      validated against must be the same instance the registration was given.
+
+  - category: Scope
+    chose: "AGENTSMITH_ADMIN_GRANT stays an environment variable"
+    over: "Moving it into the store beside the mapping it rescues"
+    reason: |
+      It is the way back in. A lockout escape hatch reached through the surface it rescues is
+      not one: an installation whose mapping locked everyone out of the Config Studio cannot
+      use the Config Studio to fix the grant. Environment variables are changed where the
+      deployment is, which is the point rather than an inconsistency.

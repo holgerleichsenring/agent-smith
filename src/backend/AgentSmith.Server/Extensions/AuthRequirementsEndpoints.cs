@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgentSmith.Server.Extensions;
@@ -23,8 +24,13 @@ internal static class AuthRequirementsEndpoints
 {
     internal static WebApplication MapAuthRequirementsEndpoints(this WebApplication app)
     {
+        // 2026-08-25-1806: the refusal recorded for THIS request rides along — an enforcing
+        // installation refuses /api/identity to the very caller whose token it rejected, so
+        // this route is where "the server did not accept your token" can still be said.
         app.MapGet("/api/auth/requirements",
-                ([FromServices] TokenAuthorityConfig auth) => Results.Ok(AuthRequirements.From(auth)))
+                (HttpContext ctx, [FromServices] TokenAuthorityConfig auth,
+                    [FromServices] RefusedToken refused) =>
+                    Results.Ok(AuthRequirements.From(auth) with { TokenRefusal = refused.Reason(ctx) }))
             .Anonymous("a caller with no token is the one who needs to read what a token must be");
         return app;
     }

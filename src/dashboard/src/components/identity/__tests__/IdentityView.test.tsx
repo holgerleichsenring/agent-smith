@@ -1,22 +1,40 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IdentityView } from "../IdentityView";
 import { RuntimeSettingsProvider } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import { DEFAULT_RUNTIME_SETTINGS } from "@/lib/runtimeSettings/runtimeSettings";
 import { ApiRefusal } from "@/lib/apiResponse";
 import type { CallerIdentity } from "@/lib/identityApi";
+import type { AuthRequirements } from "@/lib/authRequirementsApi";
 
 // 2026-08-25-4530: the surface p0503d's endpoint exists for. The case it was
 // built for is a caller with NO roles — the first login of an installation that
 // has just configured an authority, where the only way to write a mapping is to
 // read what the directory actually sent.
-const server = vi.hoisted(() => ({ identity: vi.fn(), signIn: vi.fn() }));
+const server = vi.hoisted(() => ({
+  identity: vi.fn(),
+  signIn: vi.fn(),
+  requirements: vi.fn(),
+}));
 vi.mock("@/lib/identityApi", () => ({ fetchIdentity: () => server.identity() }));
+// 2026-08-25-1806: the anonymous route now also says whether THIS caller's token was
+// refused — the one answer an enforcing server still gives the caller it rejected.
+vi.mock("@/lib/authRequirementsApi", () => ({
+  fetchAuthRequirements: () => server.requirements(),
+}));
 vi.mock("@/lib/auth/session", () => ({
   startAuthSession: () => Promise.resolve(null),
   signIn: server.signIn,
   signOut: vi.fn(),
 }));
+
+const requirements = (over: Partial<AuthRequirements> = {}): AuthRequirements => ({
+  enforced: true,
+  authority: "https://login.example/realm",
+  audience: "agent-smith",
+  tokenRefusal: null,
+  ...over,
+});
 
 const identity = (over: Partial<CallerIdentity> = {}): CallerIdentity => ({
   authenticated: true,
@@ -46,6 +64,8 @@ describe("IdentityView", () => {
   beforeEach(() => {
     server.identity.mockReset();
     server.signIn.mockReset();
+    server.requirements.mockReset();
+    server.requirements.mockResolvedValue(requirements());
   });
 
   it("Identity_SignedInWithNoRoles_ShowsTheClaimAndTheValuesThatArrived", async () => {
@@ -88,6 +108,45 @@ describe("IdentityView", () => {
     renderView();
 
     expect(await screen.findByTestId("refusal-surface")).toHaveTextContent("You are signed out");
+  });
+
+  it("Identity_TokenRefused_SaysSoRatherThanShowingAnEmptyMapping", async () => {
+    // The state the page used to render as "nothing arrived" against every field, which
+    // sends an operator to write a mapping when the audience is what is wrong.
+    server.requirements.mockResolvedValue(requirements({ tokenRefusal: "audience" }));
+    server.identity.mockRejectedValue(new ApiRefusal("/api/identity", 401, "sign-in", []));
+
+    renderView();
+
+    const refused = await screen.findByTestId("identity-token-refused");
+    await waitFor(() => expect(refused).toHaveTextContent("not issued for the audience"));
+    expect(refused).toHaveAttribute("data-refusal", "audience");
+    expect(refused).toHaveTextContent("agent-smith");
+    expect(refused).toHaveTextContent("No role mapping can change this");
+    expect(screen.queryByTestId("identity-facts")).toBeNull();
+    expect(screen.queryByTestId("identity-no-roles")).toBeNull();
+  });
+
+  it("Identity_TokenAcceptedWithNoRole_StillShowsWhatArrived", async () => {
+    // The control for the case above: nothing was refused, so this IS a mapping to write.
+    server.requirements.mockResolvedValue(requirements({ tokenRefusal: null }));
+    server.identity.mockResolvedValue(identity({ groupClaimValues: ["/platform-operators"] }));
+
+    renderView();
+
+    expect(await screen.findByTestId("identity-facts")).toBeInTheDocument();
+    expect(screen.getByTestId("identity-no-roles")).toBeInTheDocument();
+    expect(screen.queryByTestId("identity-token-refused")).toBeNull();
+  });
+
+  it("Identity_TokenExpired_NamesTheExpiryRatherThanTheAudience", async () => {
+    server.requirements.mockResolvedValue(requirements({ tokenRefusal: "expired" }));
+    server.identity.mockResolvedValue(identity({ authenticated: false }));
+
+    renderView();
+
+    const refused = await screen.findByTestId("identity-token-refused");
+    await waitFor(() => expect(refused).toHaveTextContent("has expired"));
   });
 
   it("Identity_NoAuthorityConfigured_SaysNothingSignsIn", async () => {

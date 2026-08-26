@@ -40,6 +40,11 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Persistence, r => r.Persistence, (r, v) => r.Persistence = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.PipelineCostCap, r => r.PipelineCostCap,
             (r, v) => r.PipelineCostCap = v),
+        // 2026-08-25-1806: the role mapping is a singleton doc like any other, which is
+        // what gives it the studio form, the attributed change row and the live epoch
+        // without a second mechanism being written for it.
+        ConfigDocDescriptor.Singleton(ConfigDocTypes.RoleMapping, r => r.RoleMapping,
+            (r, v) => r.RoleMapping = v),
     ];
 
     private static IEnumerable<ConfigDocEdge> ProjectEdges(JsonElement doc)

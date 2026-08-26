@@ -14,12 +14,13 @@ let inflight: Promise<ConfigCapabilities> | null = null;
 
 export interface UseCapabilities {
   capabilities: ConfigCapabilities | null;
-  error: string | null;
+  /** The thrown value, not its message. */
+  error: Error | null;
 }
 
 export function useCapabilities(): UseCapabilities {
   const [capabilities, setCapabilities] = useState<ConfigCapabilities | null>(cached);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (cached) return;
@@ -32,7 +33,7 @@ export function useCapabilities(): UseCapabilities {
       })
       .catch((err: Error) => {
         inflight = null; // allow a later mount to retry
-        if (alive) setError(err.message);
+        if (alive) setError(err);
       });
     return () => {
       alive = false;

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { ConfigChange } from "@/lib/configApi";
 import { fetchChanges, revertChange } from "@/lib/configApi";
 import { CHANGE_KIND_SINGULAR } from "./entities";
+import { refusalIn } from "@/lib/apiResponse";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // p0345: the Changes view — the attributed, revertible audit trail that is THE
 // argument for a DB-backed config over a hand-edited map. Each row carries who /
@@ -15,7 +17,7 @@ import { CHANGE_KIND_SINGULAR } from "./entities";
 export function ChangesView({ onReverted }: { onReverted?: () => void }) {
   const [changes, setChanges] = useState<ConfigChange[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [reverting, setReverting] = useState<string | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -25,7 +27,7 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
       setChanges(await fetchChanges(signal));
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      setError((err as Error).message);
+      setError(err as Error);
     } finally {
       setLoading(false);
     }
@@ -44,17 +46,19 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
       await load();
       onReverted?.();
     } catch (err) {
-      setError((err as Error).message);
+      setError(err as Error);
     } finally {
       setReverting(null);
     }
   }
 
   if (loading) return <div className="empty">Loading changes…</div>;
+  const refusal = refusalIn(error);
+  if (refusal) return <RefusalSurface refusal={refusal} surface="the change history" />;
   if (error)
     return (
       <div data-testid="config-changes-error" className="empty" style={{ color: "var(--bad)" }}>
-        {error}
+        {error.message}
       </div>
     );
 

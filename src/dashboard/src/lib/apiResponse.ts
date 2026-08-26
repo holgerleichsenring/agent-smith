@@ -75,7 +75,16 @@ export async function refusalOf(res: Response, path = "the API"): Promise<ApiRef
   return null;
 }
 
-/** The refusal a caught failure carries, or null when it is an ordinary one. */
+/**
+ * The refusal a caught failure carries, or null when it is an ordinary one.
+ *
+ * 2026-08-25-3277: this is why a loader holds the value it CAUGHT rather than
+ * the message it read off it. The refusal survives the throw — a loader that
+ * stores `err.message` loses the type at the last step, and the panel that
+ * would have offered a sign-in button renders a sentence instead. Reading the
+ * message at render time costs a loader nothing and leaves the type intact for
+ * the surfaces with room for the action that resolves it.
+ */
 export function refusalIn(thrown: unknown): ApiRefusal | null {
   return thrown instanceof ApiRefusal ? thrown : null;
 }

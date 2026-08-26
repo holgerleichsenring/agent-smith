@@ -208,6 +208,12 @@ export interface ConfigCapabilities {
   resolutionStrategies: string[];
   pipelines: string[];
   roles: ModelRoleCapability[];
+  /** 2026-08-25-1806: the CLOSED permission catalog the server enforces. A role bundle
+   *  is built by picking from it — the server drops a permission it does not contain and
+   *  reports it, and a form that only offers what exists makes that hard to reach. */
+  permissions: string[];
+  /** The role names the product ships. A custom bundle under one of these is ignored. */
+  builtInRoles: string[];
 }
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {
@@ -558,7 +564,8 @@ export type SettingKey =
   | "registries"
   | "primary_provider"
   | "pipeline_storage"
-  | "pipeline_data_flow";
+  | "pipeline_data_flow"
+  | "role_mapping";
 
 export interface OrchestratorSetting {
   registry: string;
@@ -648,6 +655,16 @@ export interface PipelineDataFlowSetting {
   enforce: boolean;
 }
 
+/** 2026-08-25-1806: what a role NAME means here, and the two claims a role name is read
+ *  out of. `roles` bundles the closed permission catalog; `groupRoles` maps a directory
+ *  group value onto role names. Both are name -> list of names. */
+export interface RoleMappingSetting {
+  roleClaim: string;
+  groupClaim: string;
+  roles: Record<string, string[]>;
+  groupRoles: Record<string, string[]>;
+}
+
 /** Maps each settings key to its wire shape. */
 export interface SettingShapes {
   orchestrator: OrchestratorSetting;
@@ -662,6 +679,7 @@ export interface SettingShapes {
   primary_provider: PrimaryProviderSetting;
   pipeline_storage: PipelineStorageSetting;
   pipeline_data_flow: PipelineDataFlowSetting;
+  role_mapping: RoleMappingSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

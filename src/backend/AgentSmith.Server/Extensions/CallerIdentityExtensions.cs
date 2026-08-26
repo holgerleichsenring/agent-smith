@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Startup;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Extensions;
@@ -26,9 +28,17 @@ internal static class CallerIdentityExtensions
         // grant is a value this composition root supplies, and a test states what is set
         // instead of mutating the process every other test in the suite shares.
         services.AddSingleton(_ => new AdminGrant(Environment.GetEnvironmentVariable));
-        services.AddSingleton<RoleCatalog>();
-        services.AddSingleton<CallerRoleReader>();
+        // 2026-08-25-1806: the mapping and its two readers are no longer startup values.
+        // The source hands out the mapping in force and rebuilds the readers when a save
+        // changes it, so a singleton lifetime here freezes nothing — which is what lets an
+        // authorization handler (itself a singleton) keep asking it per request.
+        services.AddSingleton<IStoredRoleMapping, StoredRoleMapping>();
+        services.AddSingleton<RoleMappingSource>();
         services.AddSingleton<CallerIdentityResolver>();
+        // Registered whether or not an authority is, because the anonymous requirements
+        // route reads it and that route is mapped unconditionally.
+        services.AddSingleton<RefusedToken>();
+        services.AddSingleton<RoleMappingMigration>();
         return services;
     }
 }
