@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-26-31e5
+
+goal: "A phase that finished in a target repository leaves an index line in the context it changed, so the chronicle the pointer already writes has somewhere to be read from."
+
+applies_to: "backend (the phase-record step, the context write path) + docs"
+
+requires:
+  - 2026-08-26-04b6
+  - p0315d
+
+scope:
+  in: "The index entry for a finished phase, written into the state.done of the context its spec applies to, appended rather than inserted, length-enforced where it is written, and skipped for a run that carries no phase spec."
+  out: "Backfilling entries for phases already finished in a target repository — the pointers exist, and inventing index lines for work nobody watched is fiction. Trimming a state.done that has grown, which is *the record is an index not an essay* territory."
+
+decisions:
+  - key: |
+      THE POINTER HAS SHIPPED SINCE p0315d AND THE INDEX NEVER DID. That phase writes the
+      executed spec to .agentsmith/phases/done/{id}-{slug}.yaml in every target repo, which is
+      why a customer repository has a done/ directory. What it does not write is the state.done
+      line that names it — so the chronicle exists as loose files nobody assembles, and the
+      context.yaml of a repository agent-smith has worked in for months still describes only its
+      first day. Here that section is the most valuable thing in the file; there it is absent.
+  - key: |
+      APPENDED, NOT INSERTED AT THE TOP. This project's own context grew by prepending, so two
+      branches touching the same context collide on the same first line every time. Appending
+      moves the collision to the last line, where the resolution is "keep both" and a human
+      settles it in seconds. A file per entry would avoid the collision entirely and is
+      rejected: the value of state.done is that a reader learns the application by reading ONE
+      file, and a directory of fragments is not that.
+  - key: |
+      THE LENGTH IS ENFORCED WHERE IT IS WRITTEN, BECAUSE THE RATCHET ONLY EXISTS HERE.
+      PhaseRecordLengthRatchetTests guards this repository. A target repository has no such
+      test, so a wordy entry would go unchallenged and the section would bloat exactly the way
+      it did here before the cap. The writer refuses to exceed the cap rather than trusting a
+      test that is not there — and says so, so the summary can be shortened rather than
+      silently truncated.
+  - key: |
+      THE ENTRY GOES TO THE CONTEXT THE SPEC NAMES. A repository has several contexts; a phase
+      changes one of them, and its spec already says which through applies_to. A repository with
+      exactly one context needs no such statement. A spec that names none in a multi-context
+      repository is a defect in the spec, and it is reported rather than guessed at, because
+      guessing writes the chronicle of one component into another's file.
+  - key: |
+      A RUN WITHOUT A PHASE SPEC RECORDS NOTHING, WHICH IS THE EXISTING RULE. p0393 already
+      established that the step runs in the one code-changing preset and that an ordinary ticket
+      carries no spec. The index follows the pointer: no spec, no file, no line.
+
+steps:
+  - id: the-entry-is-composed-from-the-spec
+    action: "Compose the index line from the phase spec — what shipped, in what area, and the pointer to the record the phase-record step wrote — refusing rather than truncating when it will not fit the cap."
+    new:
+      - "the phase index entry and its length rule"
+  - id: the-entry-reaches-the-right-context
+    action: "Resolve the context from the spec's applies_to, defaulting to the sole context when a repository has one, and report a multi-context repository whose spec names none."
+  - id: the-entry-is-appended
+    action: "Append to state.done in the resolved context, creating the section when a repository has never had one, and leaving every other part of the document untouched."
+  - id: the-record-step-writes-both
+    action: "Write the index line alongside the phase record so one step produces the pointer and the line that names it, staged into the same change set."
+
+tests:
+  - "Record_APhaseFinished_AppendsAnIndexLineNamingItsFile"
+  - "Record_APhaseFinished_LeavesTheRestOfTheContextByteIdentical"
+  - "Record_AContextWithNoStateSection_GetsOneWithTheEntry"
+  - "Record_ASecondPhase_AppendsAfterTheFirst"
+  - "Record_AnEntryOverTheCap_IsRefusedAndSaysWhy"
+  - "Record_ARunWithNoPhaseSpec_WritesNoLine"
+  - "Record_AMultiContextRepoWhoseSpecNamesNoContext_IsReported"
+  - "Record_ASingleContextRepo_NeedsNoAppliesTo"
+
+done:
+  - "a finished phase leaves both a record file and the line that names it"
+  - "the line lands in the context its spec applies to, appended, with nothing else changed"
+  - "an entry that will not fit the cap is refused with its reason, not truncated"
+  - "a repository that never had a state section gets one"
+  - "a run without a phase spec writes nothing, as before"
+  - "backend build green, full suite green"
