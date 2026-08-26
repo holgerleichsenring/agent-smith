@@ -67,6 +67,8 @@ public static class LoopRuntimeExtensions
         services.AddSingleton<ContextDefectReport>();
         services.AddSingleton<ContextSingleValueNormaliser>();
         services.AddSingleton<ContextSchemaRule>();
+        // 2026-08-26-04b6: the readings the write path discards rather than refuses.
+        services.AddSingleton<ContextReadingFilter>();
         services.AddSingleton<ContextDocumentGate>();
         // 2026-08-26-364f: the read-modify-write that puts the document on disk.
         services.AddSingleton<SandboxContextYamlWriter>();

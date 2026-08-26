@@ -125,6 +125,7 @@ nav:
       - Ticket lifecycle:            reference/concepts/ticket-lifecycle.md
       - Branch persistence:          reference/concepts/branch-persistence.md
       - Phases & runs:               reference/concepts/phases-and-runs.md
+      - The context file:            reference/concepts/context-file.md
       - Self-documentation:          reference/concepts/self-documentation.md
       - Multi-agent orchestration:   reference/concepts/multi-agent-orchestration.md
       - Multi-skill architecture:    reference/concepts/multi-skill.md
