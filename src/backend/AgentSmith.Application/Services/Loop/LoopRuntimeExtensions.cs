@@ -68,6 +68,8 @@ public static class LoopRuntimeExtensions
         services.AddSingleton<ContextSingleValueNormaliser>();
         services.AddSingleton<ContextSchemaRule>();
         services.AddSingleton<ContextDocumentGate>();
+        // 2026-08-26-364f: the read-modify-write that puts the document on disk.
+        services.AddSingleton<SandboxContextYamlWriter>();
         services.AddSingleton<PlanOutputValidator>();
         services.AddSingleton<DiffOutputValidator>();
         services.AddSingleton<BootstrapOutputValidator>();

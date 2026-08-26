@@ -21,7 +21,8 @@ public sealed class WriteContextYamlDomainTests
             defaultRepo: "repo",
             serializer: new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
-            gate: AgentSmith.Tests.TestHelpers.ContextGates.Build());
+            gate: AgentSmith.Tests.TestHelpers.ContextGates.Build(),
+            writer: AgentSmith.Tests.TestHelpers.ContextGates.Writer());
 
     private static JsonElement Doc(string json) => JsonDocument.Parse(json).RootElement;
 
