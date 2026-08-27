@@ -10,6 +10,15 @@ namespace AgentSmith.Application.Services.Preflight.Checks;
 /// ls-remote-equivalent probe) proves the token/SSH key can actually reach it —
 /// otherwise the failure surfaces mid-run when checkout dies inside a sandbox.
 /// Local repos have nothing to authenticate and are skipped.
+/// <para>
+/// 2026-08-27-7098: a project's OWN repos are probed too. An installation that
+/// discovers its repositories through a connection declares none individually, so
+/// this check skipped itself entirely on exactly the installations whose start
+/// later died on an unreachable remote. The glob expander materialises each
+/// discovered repository into the project as a full connection — credentials and
+/// all — so probing those probes the connection, without a paginated listing per
+/// connection at every startup.
+/// </para>
 /// </summary>
 public sealed class RepoAccessCheck(
     IPreflightConfigSource configSource,
@@ -25,17 +34,18 @@ public sealed class RepoAccessCheck(
         if (config is null)
             return PreflightCheckResult.Skip("agentsmith.yml failed to load — see config-schema");
 
-        var remotes = config.Repos.Where(r => r.Value.Type != RepoType.Local).ToList();
+        var remotes = Remotes(config);
         if (remotes.Count == 0)
-            return PreflightCheckResult.Skip("no remote repos configured (local paths need no auth)");
+            return PreflightCheckResult.Skip(
+                "no remote repo or connection configured (local paths need no auth)");
 
         var lines = new List<string>();
         var failures = new List<string>();
-        foreach (var (name, repo) in remotes)
+        foreach (var repo in remotes)
         {
             var probe = await sourceFactory.Create(repo).ProbeAsync(cancellationToken);
-            if (probe.Ok) lines.Add($"{name} ({repo.Type}): ok {probe.LatencyMs}ms");
-            else failures.Add($"{name} ({repo.Type}): {probe.Error}");
+            if (probe.Ok) lines.Add($"{repo.Name} ({repo.Type}): ok {probe.LatencyMs}ms");
+            else failures.Add($"{repo.Name} ({repo.Type}): {probe.Error}");
         }
 
         if (failures.Count > 0)
@@ -46,4 +56,15 @@ public sealed class RepoAccessCheck(
 
         return PreflightCheckResult.Pass(string.Join(" | ", lines));
     }
+
+    // Deduplicated by what is actually reached: two projects sharing one connection
+    // resolve the same remote twice, and probing it twice proves nothing new.
+    private static IReadOnlyList<RepoConnection> Remotes(AgentSmithConfig config) =>
+        [.. config.Repos.Values
+            .Concat(config.Projects.Values.SelectMany(p => p.Repos))
+            .Where(r => r.Type != RepoType.Local)
+            .DistinctBy(Target, StringComparer.OrdinalIgnoreCase)];
+
+    private static string Target(RepoConnection repo) =>
+        $"{repo.Type}|{repo.Url ?? repo.Path ?? repo.Name}|{repo.Auth}";
 }

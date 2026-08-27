@@ -23,6 +23,9 @@ internal static class ServerEndpointExtensions
     {
         app.MapHealthEndpoints()
            .MapStartupFindingsEndpoints()
+           // 2026-08-27-729e: the same surface asked calmly — what this installation runs,
+           // rather than what is wrong with it.
+           .MapInstallationIdentityEndpoints()
            // 2026-08-25-4530: unconditional for the findings route's reason — it explains
            // an installation whose dashboard cannot reach anything else.
            .MapAuthRequirementsEndpoints()

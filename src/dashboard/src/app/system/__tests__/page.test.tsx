@@ -62,4 +62,14 @@ describe("System route (rail-driven master/detail)", () => {
     expect(screen.getByTestId("rollup-cost")).toBeInTheDocument();
     expect(screen.queryByTestId("subsystem-detail-tracker")).not.toBeInTheDocument();
   });
+
+  // 2026-08-27-729e: the installation read-out is a segment like connections, reached from
+  // the rail's release line — not a permanent panel in the banner stack, which names what
+  // is wrong rather than what is running.
+  it("SystemPage_InstallationSlug_RendersTheInstallationReadOut", () => {
+    renderView("installation");
+
+    expect(screen.getByTestId("installation-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("subsystem-detail-tracker")).not.toBeInTheDocument();
+  });
 });
