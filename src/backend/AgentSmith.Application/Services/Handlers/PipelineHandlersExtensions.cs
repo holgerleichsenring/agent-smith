@@ -198,10 +198,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<Triage.MasterQuestionCheckpoint>();
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
-        services.AddTransient<ICommandHandler<CommitPhaseWorkContext>,
-            PhaseExecution.CommitPhaseWorkHandler>(); // p0437
-        services.AddTransient<PhaseExecution.ExecutedPhaseMarker>(); // p0466
-        services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();
+        services.AddPhaseExecution(); // 2026-08-26-31e5
         services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddSingleton<HttpProbeRunner>();
         return services.AddScanPipelines(); // p0429

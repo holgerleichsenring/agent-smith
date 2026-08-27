@@ -4,7 +4,6 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
@@ -22,12 +21,14 @@ namespace AgentSmith.Application.Services.Tools;
 public sealed class WriteContextYamlToolHost : IToolHost
 {
     public const string ToolName = "write_context_yaml";
-    private const int WriteTimeoutSeconds = 30;
 
     private readonly IReadOnlyDictionary<string, ISandbox> _sandboxes;
     private readonly string _defaultRepo;
     private readonly IContextYamlSerializer _serializer;
     private readonly ContextDocumentGate _gate;
+    // 2026-08-26-364f: the file is read before it is written, so the sections the typed
+    // document does not model survive a re-init instead of being deleted by it.
+    private readonly SandboxContextYamlWriter _writer;
     // 2026-08-25-c9c7: per-round, so a document the model cannot make valid stops
     // being re-invited instead of spending the loop's iteration cap.
     private readonly ContextWriteRejectionBudget _budget = new();
@@ -36,12 +37,18 @@ public sealed class WriteContextYamlToolHost : IToolHost
     // to what discovery actually resolved. Null / empty for a repo => genuine bootstrap,
     // any name allowed.
     private readonly ContextNameGuard _nameGuard;
+    // 2026-08-26-167c: what THIS round did, so the round can stop deciding by
+    // "a file exists" — a question a re-init answers yes to before it starts.
+    private bool _written;
+    private string? _lastRefusal;
+    private string? _lastContext;
 
     public WriteContextYamlToolHost(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
         string defaultRepo,
         IContextYamlSerializer serializer,
         ContextDocumentGate gate,
+        SandboxContextYamlWriter writer,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
         string? defaultRepoName = null)
     {
@@ -49,8 +56,14 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _defaultRepo = defaultRepo;
         _serializer = serializer;
         _gate = gate;
+        _writer = writer;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
+
+    /// <summary>This round's write outcome — never a question about the disk.</summary>
+    public ContextWriteOutcome Outcome => new(
+        _written, _lastRefusal,
+        _lastContext is not null && _budget.IsExhausted(_lastContext));
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
     {
@@ -69,9 +82,17 @@ public sealed class WriteContextYamlToolHost : IToolHost
         string repo,
         [Description("Context name, e.g. 'default' or 'api'. Becomes the directory under .agentsmith/contexts/.")]
         string context_name,
-        [Description("Document object: { meta: { workdir, project?, version?, type?: [archetype,…], purpose?, domain? }, " +
-                     "stack?: { lang?, image?, resources?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
+        // 2026-08-26-04b6: the description asks for JUDGEMENT and MECHANISM only. A reading —
+        // a value the repository still states for itself — is accepted and then discarded, so a
+        // model working from an older prompt is not punished for offering one.
+        [Description("Document object: { meta: { workdir, type?: [archetype,…], purpose?, domain? }, " +
+                     "stack?: { lang?, image?, resources? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
+                     "Do NOT restate what the repository already states about itself — the build " +
+                     "file's frameworks, versions and packages, the workflow's CI platform, the " +
+                     "folder names as layers. Those are dropped. State what somebody DECIDED " +
+                     "(meta.purpose, quality.limits, behavior) and what the orchestrator ACTS ON " +
+                     "(meta.workdir, meta.domain, stack.lang, stack.image). " +
                      "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
                      "meta.domain is OPTIONAL: one word naming a profile that supplies this context's " +
                      "toolchain image and verification commands; a context declaring one may omit " +
@@ -92,6 +113,16 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "clamped down to it.")]
         JsonElement document,
         CancellationToken ct = default)
+    {
+        _lastContext = context_name;
+        var message = await AttemptAsync(repo, context_name, document, ct);
+        if (message.StartsWith(SandboxContextYamlWriter.WrittenPrefix, StringComparison.Ordinal)) _written = true;
+        else _lastRefusal = message;
+        return message;
+    }
+
+    private async Task<string> AttemptAsync(
+        string repo, string context_name, JsonElement document, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(context_name))
             return "Error: context_name is required.";
@@ -122,13 +153,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         if (!TryResolveSandbox(repo, out var sandbox, out var err))
             return err!;
 
-        var path = $".agentsmith/contexts/{context_name}/context.yaml";
-        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
-            TimeoutSeconds: WriteTimeoutSeconds, Path: path, Content: yaml);
-        var result = await sandbox!.RunStepAsync(step, progress: null, ct);
-        return result.ExitCode != 0
-            ? $"Error: write failed — {result.ErrorMessage ?? "unknown"}"
-            : $"context.yaml written: {(string.IsNullOrEmpty(repo) ? string.Empty : repo + "/")}{path}";
+        return await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
     }
 
     private bool TryResolveSandbox(string repo, out ISandbox? sandbox, out string? error)

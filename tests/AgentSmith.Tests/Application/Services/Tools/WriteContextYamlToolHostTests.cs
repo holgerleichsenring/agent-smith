@@ -101,7 +101,7 @@ public sealed class WriteContextYamlToolHostTests
             {
               "meta": { "workdir": ".", "project": "Listener" },
               "stack": { "lang": "C#", "image": "mcr.microsoft.com/dotnet/sdk:8.0" },
-              "arch": { "style": ["Layered"], "patterns": ["Mediator"], "hosting": "Generic Host" },
+              "arch": { "style": ["Layered"], "hosting": "Generic Host", "messaging": ["Outbox"] },
               "quality": { "lang": "english-only" }
             }
             """).RootElement;
@@ -120,7 +120,9 @@ public sealed class WriteContextYamlToolHostTests
         result.Should().StartWith("context.yaml written:");
         captured!.Content.Should().NotContain("value_kind", "arch/quality values must serialize as real content");
         captured.Content.Should().Contain("Generic Host", "a freeform arch key survives verbatim");
-        captured.Content.Should().Contain("Mediator");
+        // 2026-08-26-04b6: a freeform LIST too — arch.patterns was the list here until that
+        // phase classified it a reading, and the converter is what this test pins.
+        captured.Content.Should().Contain("Outbox");
     }
 
     [Fact]
@@ -155,7 +157,7 @@ public sealed class WriteContextYamlToolHostTests
             ["client"] = _sandboxMock.Object,
         };
         return new WriteContextYamlToolHost(
-            sandboxes, defaultRepo: "client", _serializer, ContextGates.Build());
+            sandboxes, defaultRepo: "client", _serializer, ContextGates.Build(), ContextGates.Writer());
     }
 
     private static bool Capture(Step step, out Step? captured)

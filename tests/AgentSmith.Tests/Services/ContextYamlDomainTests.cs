@@ -21,7 +21,7 @@ public sealed class ContextYamlDomainTests
     public void ContextYaml_MetaDomainRoundTrips_ThroughReaderWriterAndDiscovery()
     {
         var document = new ContextYamlDocument(
-            new ContextYamlMeta(Workdir: "warehouse", Project: "Sample", Domain: "sample-domain"),
+            new ContextYamlMeta(Workdir: "warehouse", Domain: "sample-domain"),
             new ContextYamlStack(Lang: "python", Image: "python:3.12-bookworm"));
 
         var yaml = _sut.Serialize(document);

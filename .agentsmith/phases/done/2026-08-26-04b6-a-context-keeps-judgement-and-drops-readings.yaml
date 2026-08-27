@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-26-04b6
+
+goal: "A context carries what someone decided and what the orchestrator acts on, and stops carrying a stale copy of what the repository already states about itself."
+
+applies_to: "backend (context schema, the write path, the document model) + the shipped schema, samples and docs"
+
+requires:
+  - 2026-08-26-167c
+
+scope:
+  in: "Every context field is classified as judgement, mechanism or reading; the readings stop being written and stop being asked for; a context written before this phase stays valid and loses nothing on disk until it is rewritten; and the shipped schema, template and docs say which is which."
+  out: "state, which is the chronicle and is the most valuable thing in the file. decisions and registry_auth, which are records rather than readings. The bootstrap master's own wording, which lives behind a release train — *the master stops asking for readings*."
+
+decisions:
+  - key: |
+      THE TEST IS JUDGEMENT OR READING, NOT COST. A field earns its place if someone DECIDED it
+      or the orchestrator ACTS on it. A reading — a value copied out of a file that is still in
+      the repository — is worthless on the day it is written and wrong soon after: `sdks` lists
+      `MediatR@12.3.0` while the csproj is one `dotnet add package` away from disagreeing, and
+      nothing can tell which is true. Deleting it removes no knowledge; it removes a second
+      copy that can only diverge.
+  - key: |
+      state IS THE COUNTEREXAMPLE AND IT STAYS. Every entry there records a decision and what
+      came of it, so the file teaches a reader how the program got its shape. It is long because
+      entries have been wordy, which is a discipline problem the record cap already attacks —
+      not a reason to remove the one section written by whoever made the call.
+  - key: |
+      arch WOULD BE A JUDGEMENT IF ANYONE MADE ONE. "We build in layers" is a decision. But
+      nobody decides it here — an agent that skimmed the repository once picks a label, which is
+      a guess wearing a taxonomy. *a context may name what the list forgot* made that guess
+      cheap rather than fatal; this phase says it should not be asked for. The same applies to
+      quality.principles as observed: in a live context every one of them was a csproj flag read
+      back out, and the authored coding-principles.md is where intent already lives.
+  - key: |
+      THE WRITE PATH DROPS THEM, WHICH IS WHY THIS WORKS WITHOUT A SKILLS RELEASE. The prompt
+      that asks for these fields ships in the skills tarball behind a release and a pin. So the
+      tool that writes context.yaml discards the readings instead of refusing them: a model that
+      still offers them is not punished, and the file simply does not carry them. The prompt's
+      own correction follows and is only cosmetic by then.
+  - key: |
+      AN EXISTING CONTEXT LOSES NOTHING UNTIL IT IS REWRITTEN. Every field this phase touches is
+      one the typed document already carries, so the write path's habit of replacing whole
+      neighbouring sections — real, and fixed by *a context write preserves what it does not
+      model* — does not bear on it. No installation is invalidated and no file is migrated.
+  - key: |
+      THE MODEL IS THE READER, WHICH CHANGES THE ARGUMENT AND NOT THE ANSWER. The raw
+      context.yaml is pasted verbatim into every master prompt, and a shipped analyzer master is
+      told to treat the declared type as ground truth. So "no code reads it" was the wrong test.
+      The right one is what a reader can act on — and a guessed label is worse than a silent
+      field, because it is acted on. arch.style still goes, for the reason it was always going:
+      nobody decided it.
+  - key: |
+      THE CLASSIFICATION IS THE DELIVERABLE. Two fields named in prose is not a classification;
+      the schema has nineteen. The phase produces the field-by-field table first — judgement,
+      mechanism or reading, one clause each — and only then does anything change. A table is
+      also the only form in which the next added field can be argued rather than assumed.
+  - key: |
+      DEPRECATED, NOT DELETED FROM THE SCHEMA. The schema root is additionalProperties:false, so
+      removing a property from `properties` does not stop asking for it — it starts REFUSING it,
+      and every context written before this phase fails on the first run, this repository's own
+      included. The properties stay, marked deprecated with a comment; the tool description, the
+      template and the masters are where asking actually stops.
+  - key: |
+      meta.purpose IS THE ONE LINE NOBODY CAN DERIVE, AND IT SURVIVES EVERYTHING. What a module
+      is FOR appears in no file. It is also already load-bearing — the ticket-to-repo classifier
+      reasons from it before a checkout exists — so it is both the most human field and one of
+      the few the orchestrator reads.
+
+steps:
+  - id: every-field-is-classified
+    action: "Classify every context field as judgement, mechanism or reading in the schema itself, so the distinction is checkable rather than remembered."
+  - id: the-readings-stop-being-written
+    action: "Drop the reading fields on the write path so a document that still offers them is accepted and the file does not carry them."
+  - id: the-schema-stops-asking
+    action: "Mark the readings deprecated in the shipped schema — kept accepted, since the root refuses anything it does not declare — and take them out of the template and samples."
+  - id: the-docs-say-which-is-which
+    action: "State the judgement-or-reading test in the context reference, so the next field added is argued rather than assumed."
+
+tests:
+  - "Write_ADocumentCarryingReadings_StoresThemNowhere"
+  - "Write_ADocumentCarryingReadings_IsNotRefused"
+  - "Write_TheJudgementFields_AreStoredVerbatim"
+  - "Schema_AContextWrittenBeforeThisPhase_StillValidates"
+  - "Schema_EveryFieldIsClassified"
+  - "Schema_ADeprecatedFieldIsStillAccepted"
+  - "Schema_The167cVocabularyPointers_AreUnchanged"
+  - "Summary_TheOrchestratorFields_AreUnchanged"
+  - "Purpose_Absent_IsStillTheOneFieldWorthAsking"
+  - "State_IsUntouched"
+
+done:
+  - "a freshly written context carries judgement and mechanism, and no readings"
+  - "a model that still offers a reading is accepted rather than refused"
+  - "a context written before this phase still validates and is not rewritten"
+  - "state, decisions and registry_auth are untouched"
+  - "the reference states the test a new field has to pass"
+  - "backend build green, full suite green"

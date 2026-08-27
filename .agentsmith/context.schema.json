@@ -4,7 +4,7 @@
   "title": "Compact Context Specification",
   "description": "Token-efficient project context for AI assistants. Drop a .context.yaml in your repo root.",
   "type": "object",
-  "$comment": "2026-08-25-056d: only meta is required, because meta is the only block the typed writer (ContextYamlDocument) always emits — and inside it only workdir, the one field the runtime genuinely enforces. state is written by the methodology, never by the writer, so requiring it would refuse every freshly bootstrapped context.",
+  "$comment": "2026-08-25-056d: only meta is required, because meta is the only block the typed writer (ContextYamlDocument) always emits — and inside it only workdir, the one field the runtime genuinely enforces. state is written by the methodology, never by the writer, so requiring it would refuse every freshly bootstrapped context. 2026-08-26-04b6: every field below is classified in its own $comment. JUDGEMENT = somebody decided it. MECHANISM = the orchestrator acts on it. READING = a copy of something the repository still states, wrong the day after it is written — those are deprecated: still ACCEPTED, because this root is additionalProperties:false and removing a property would refuse every context written before, but no longer written by the tool, asked for in its description, or shown in the template.",
   "required": [
     "meta"
   ],
@@ -19,6 +19,7 @@
       "additionalProperties": false,
       "properties": {
         "project": {
+          "$comment": "READING — the repository's own name, which every run already carries. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "string",
           "description": "Repository or solution name",
           "examples": [
@@ -27,11 +28,13 @@
           ]
         },
         "workdir": {
+          "$comment": "MECHANISM — the sandbox coordinator clones at this path, so /work is this sub-tree.",
           "type": "string",
           "description": "Sub-tree this context applies to, relative to the repo root. '.' = repo root (single-stack default, contexts/default/). Monorepo example: 'src/Server', 'client', 'docs'. Required per p0161 — sandbox coordinator clones at this path so /work = sub-tree root inside the sandbox.",
           "examples": [".", "src/Server", "client", "docs"]
         },
         "version": {
+          "$comment": "READING — a semver copied out of the build file, stale on the next release. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "string",
           "description": "Current project version (semver)",
           "pattern": "^\\d+\\.\\d+\\.\\d+",
@@ -41,13 +44,19 @@
           ]
         },
         "type": {
+          "$comment": "JUDGEMENT — the archetypes this system was built as; they key the behavior sections and the analyzer master reads them as ground truth.",
           "type": "array",
           "description": "System archetypes, pick 1-3",
           "minItems": 1,
           "maxItems": 4,
           "items": {
             "type": "string",
-            "enum": [
+            "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because the archetype list can never cover every system; the constraint that stays is length and shape.",
+            "description": "One system archetype. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+            "minLength": 2,
+            "maxLength": 30,
+            "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+            "examples": [
               "crud",
               "api",
               "pipeline",
@@ -62,15 +71,18 @@
           }
         },
         "purpose": {
+          "$comment": "JUDGEMENT — what a module is FOR appears in no file, and the ticket-to-repo classifier reasons from it before a checkout exists.",
           "type": "string",
           "description": "One sentence, max 100 chars: what it does, for whom",
           "maxLength": 100
         },
         "repo": {
+          "$comment": "READING — the clone URL the run is already given. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "string",
           "description": "Repository URL (optional)"
         },
         "domain": {
+          "$comment": "MECHANISM — names the catalog profile that supplies this context's toolchain image and its verify commands.",
           "type": "string",
           "description": "p0504: one word naming a profile in the skills catalog (profiles/<name>/profile.yaml). The profile supplies the toolchain image this context's sandbox runs in when stack.image is absent, and the ordered verification commands the repository is gated by. An unknown domain refuses the run before any sandbox is created.",
           "pattern": "^[a-z0-9][a-z0-9_-]*$",
@@ -79,6 +91,7 @@
       }
     },
     "methodology": {
+      "$comment": "MECHANISM — the plugin version the spec-first tooling compares against to decide whether a project's methodology files need syncing.",
       "type": "object",
       "description": "Which release of the Specification-First methodology this context was bootstrapped against. Written by bootstrap-project and read by update-project to decide whether the templates need syncing.",
       "required": [
@@ -103,6 +116,7 @@
       "additionalProperties": false,
       "properties": {
         "runtime": {
+          "$comment": "READING — the framework version, stated by the build file one edit away from disagreeing. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "string",
           "description": "Primary runtime/framework",
           "examples": [
@@ -121,6 +135,7 @@
           ]
         },
         "lang": {
+          "$comment": "MECHANISM — resolves the fallback toolchain image when no image is named.",
           "type": "string",
           "description": "Primary language",
           "examples": [
@@ -139,6 +154,7 @@
           ]
         },
         "image": {
+          "$comment": "MECHANISM — the exact toolchain image the sandbox runs; it wins over the language table.",
           "type": "string",
           "description": "p0265: exact sandbox toolchain Docker image whose runtime can BOTH build and run this stack's tests. Must be from a trusted registry (mcr.microsoft.com, ghcr.io, or a Docker Hub official-library image) and a git-bearing tag (full -bookworm/-bullseye, an mcr .../sdk tag, or buildpack-deps:...-scm). Wins over the language convention table.",
           "examples": [
@@ -150,6 +166,7 @@
           ]
         },
         "resources": {
+          "$comment": "MECHANISM — the sandbox's CPU and memory quantities, applied by the resource resolver.",
           "type": "object",
           "description": "p0268: per-stack sandbox CPU/memory as Kubernetes quantities. Sizes the sandbox between the operator project override and the global default. All four fields are required together or omit the block entirely.",
           "additionalProperties": false,
@@ -183,6 +200,7 @@
           }
         },
         "frameworks": {
+          "$comment": "READING — the application frameworks, already listed in the build file. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Application frameworks this stack is built on. Emitted by the typed writer (ContextYamlStack.Frameworks) since p0193 and declared here only in 2026-08-25-056d — for everything in between, a context that named its frameworks failed the schema its own writer emits. Third field to drift this way after p0265's stack.image and p0272's prerequisites.",
           "items": {
@@ -201,6 +219,7 @@
           }
         },
         "frontend": {
+          "$comment": "READING — the frontend toolchain, already listed in the package manifest. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Frontend frameworks and tools",
           "items": {
@@ -230,6 +249,7 @@
           }
         },
         "infra": {
+          "$comment": "READING — the deployment surface, already stated by the container file and the manifests in the tree. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Infrastructure and deployment",
           "items": {
@@ -277,6 +297,7 @@
           }
         },
         "testing": {
+          "$comment": "READING — the test frameworks, already stated by the test project's own references. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Testing frameworks and tools",
           "items": {
@@ -307,6 +328,7 @@
           }
         },
         "ci": {
+          "$comment": "READING — the CI platform, already stated by the workflow files in the tree. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "CI/CD platforms",
           "items": {
@@ -326,6 +348,7 @@
           }
         },
         "sdks": {
+          "$comment": "READING — a pinned library list one package addition away from disagreeing with the manifest, and nothing can tell which of the two is true. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Significant SDKs and libraries",
           "items": {
@@ -367,6 +390,7 @@
       }
     },
     "prerequisites": {
+      "$comment": "MECHANISM — the operator-owned command run once before the coding agent gets control.",
       "type": "string",
       "description": "Operator-owned setup command run ONCE before the coding agent gets control (EnsurePrerequisitesHandler), in the same sandbox so its effects persist to later steps. Typically a dependency install (npm ci, dotnet restore). p0272: it can also carry an auth command that consumes operator-injected sandbox.secrets — wrap it in `sh -c \"…\"` so the pod's shell expands the env vars (the handler tokenizes and runs without a shell, so a bare $VAR would not expand), and reference the secrets by name, never by value.",
       "examples": [
@@ -381,11 +405,17 @@
       "additionalProperties": true,
       "properties": {
         "style": {
+          "$comment": "READING — a taxonomy label an agent picks by skimming the tree once; nobody decided it. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Architecture styles",
           "items": {
             "type": "string",
-            "enum": [
+            "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a style list can never cover every architecture; the constraint that stays is length and shape.",
+            "description": "One architecture style. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+            "minLength": 2,
+            "maxLength": 30,
+            "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+            "examples": [
               "CleanArch",
               "Hexagonal",
               "Onion",
@@ -407,11 +437,17 @@
           }
         },
         "patterns": {
+          "$comment": "READING — the patterns an agent recognised in the tree, not the ones anybody chose. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Key design patterns used",
           "items": {
             "type": "string",
-            "enum": [
+            "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a pattern catalogue can never cover every pattern; the constraint that stays is length and shape.",
+            "description": "One design pattern. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+            "minLength": 2,
+            "maxLength": 30,
+            "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+            "examples": [
               "Repository",
               "UnitOfWork",
               "MediatR",
@@ -452,6 +488,7 @@
           }
         },
         "layers": {
+          "$comment": "READING — the project folders, in the order the tree already shows them. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "Code layers, ordered inner to outer. Use # comments for one-line explanation.",
           "items": {
@@ -486,6 +523,7 @@
           ]
         },
         "bounded-contexts": {
+          "$comment": "READING — read off the folder names by the same skim; a boundary somebody actually drew belongs in decisions. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "description": "DDD bounded contexts (optional)",
           "items": {
@@ -500,11 +538,17 @@
       "additionalProperties": true,
       "properties": {
         "api": {
+          "$comment": "JUDGEMENT — the surface this system offers and who may call it.",
           "type": "object",
           "properties": {
             "style": {
               "type": "string",
-              "enum": [
+              "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because an API-style list can never cover every protocol; the constraint that stays is length and shape.",
+              "description": "The API style. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+              "minLength": 2,
+              "maxLength": 30,
+              "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+              "examples": [
                 "REST",
                 "GraphQL",
                 "gRPC",
@@ -547,6 +591,7 @@
           }
         },
         "pipeline": {
+          "$comment": "JUDGEMENT — the named pipelines, what triggers them and what they do on failure.",
           "type": "object",
           "description": "Named pipelines with triggers and steps",
           "additionalProperties": {
@@ -577,6 +622,7 @@
               },
               "error": {
                 "type": "string",
+                "$comment": "2026-08-26-167c: DECIDED — stays closed. The error strategy is chosen between behaviours the pipeline runtime implements, not observed in the code.",
                 "enum": [
                   "stop-on-first-failure",
                   "skip-and-log",
@@ -589,6 +635,7 @@
           }
         },
         "worker": {
+          "$comment": "JUDGEMENT — the background jobs and the schedule somebody chose for them.",
           "type": "object",
           "description": "Named background workers",
           "additionalProperties": {
@@ -605,6 +652,7 @@
           }
         },
         "listener": {
+          "$comment": "JUDGEMENT — what the system reacts to and what that reaction is for.",
           "type": "object",
           "description": "Named event listeners",
           "additionalProperties": {
@@ -640,11 +688,17 @@
           }
         },
         "ui": {
+          "$comment": "JUDGEMENT — the delivery form of the user-facing surface and the pages it offers.",
           "type": "object",
           "properties": {
             "type": {
               "type": "string",
-              "enum": [
+              "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a UI-type list can never cover every delivery shape; the constraint that stays is length and shape.",
+              "description": "The UI delivery type. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+              "minLength": 2,
+              "maxLength": 30,
+              "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+              "examples": [
                 "SPA",
                 "SSR",
                 "MPA",
@@ -694,16 +748,19 @@
           }
         },
         "agent": {
+          "$comment": "JUDGEMENT — what goal the autonomous behaviour pursues and within what bounds.",
           "type": "object",
           "description": "Agentic behavior (autonomous, goal-driven)",
           "additionalProperties": true
         },
         "stream": {
+          "$comment": "JUDGEMENT — the continuous flow this system processes and what it does to it.",
           "type": "object",
           "description": "Stream processing behavior",
           "additionalProperties": true
         },
         "rules": {
+          "$comment": "JUDGEMENT — the policies the engine evaluates and what they decide.",
           "type": "object",
           "description": "Rule engine behavior",
           "additionalProperties": true
@@ -717,6 +774,7 @@
       "properties": {
         "lang": {
           "type": "string",
+          "$comment": "JUDGEMENT — the language policy for code, comments and commits. 2026-08-26-167c: DECIDED — stays closed. A language policy has three states and picking one is a decision, not a description.",
           "enum": [
             "english-only",
             "german-allowed",
@@ -725,6 +783,7 @@
           "description": "Language policy for code, comments, commits"
         },
         "limits": {
+          "$comment": "JUDGEMENT — the numbers the review is held to; a decision with enforcement behind it.",
           "type": "object",
           "properties": {
             "method-lines": {
@@ -742,6 +801,7 @@
           }
         },
         "principles": {
+          "$comment": "READING — measured in a live context, every entry was a build-file flag read back out, and the authored coding-principles.md is where the intent already lives. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "items": {
             "type": "string",
@@ -763,17 +823,29 @@
           }
         },
         "naming": {
-          "type": "object",
+                    "$comment": "JUDGEMENT — the conventions somebody chose, in the form a reader can apply. 2026-08-26-167c: a map OR a sentence. The shipped project-bootstrap master's worked example writes a string here, and a sentence carries the same information to the only audience this field has, which is a reader. additionalProperties applies to the map form only.",
+          "type": [
+            "object",
+            "string"
+          ],
+          "description": "Naming conventions: either rule-per-kind (classes, fields, interfaces, …) or one sentence describing them.",
+          "maxLength": 400,
           "additionalProperties": {
             "type": "string"
           }
         },
         "testing": {
+          "$comment": "JUDGEMENT — the test structure, naming and coverage expectation somebody set.",
           "type": "object",
           "properties": {
             "style": {
               "type": "string",
-              "enum": [
+              "$comment": "2026-08-26-167c: DESCRIPTIVE — opened. The known values became suggestions because a style list can never cover every test convention; the constraint that stays is length and shape.",
+              "description": "The test structure style. Any honest 2-30 character value is accepted — the examples are suggestions, not a closed list; a placeholder such as todo, tbd, unknown or n/a is refused.",
+              "minLength": 2,
+              "maxLength": 30,
+              "pattern": "^(?!(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][AaDd]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Nn]/?[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Xx][Xx][Xx]+|[?]+)$)[A-Za-z0-9][A-Za-z0-9 #+./_-]*$",
+              "examples": [
                 "AAA",
                 "GWT",
                 "BDD",
@@ -791,6 +863,7 @@
       }
     },
     "integrations": {
+      "$comment": "JUDGEMENT — which external systems this one talks to and what each is FOR: a sentence no file in the tree carries.",
       "type": "object",
       "description": "External systems",
       "additionalProperties": {
@@ -798,6 +871,7 @@
         "properties": {
           "type": {
             "type": "string",
+            "$comment": "2026-08-26-167c: DECIDED — stays closed. Direction is exhaustive by construction: inbound, outbound, bidirectional or storage.",
             "enum": [
               "inbound",
               "outbound",
@@ -826,6 +900,7 @@
       }
     },
     "data": {
+      "$comment": "JUDGEMENT — the persistence choices: engine, mapper, migration strategy and the access pattern somebody picked.",
       "type": "object",
       "description": "Persistence and storage",
       "additionalProperties": {
@@ -839,6 +914,7 @@
           },
           "migrations": {
             "type": "string",
+            "$comment": "2026-08-26-167c: DECIDED — stays closed. A migration strategy is chosen, not observed; these five are the strategies that exist.",
             "enum": [
               "code-first",
               "db-first",
@@ -872,6 +948,7 @@
       }
     },
     "state": {
+      "$comment": "JUDGEMENT — the chronicle. Every entry records a decision and what came of it, which is what teaches a reader how the program got its shape.",
       "type": "object",
       "description": "Project progress",
       "required": [
@@ -882,7 +959,7 @@
       "properties": {
         "done": {
           "type": "object",
-          "description": "Completed work. Key = version/phase, value = an index line: what shipped, in what area, and the pointer into phases/done/. The cap is 400 characters, ratcheted per entry by PhaseRecordLengthRatchetTests; 3000 is the absolute ceiling no entry may exceed, baselined or not.",
+          "description": "Completed work. Key = version/phase, value = an index line: what shipped, in what area, and the pointer into phases/done/. The cap is the one PhaseRecordIndexLine.MaxChars names — the writer composes every line to fit it, and PhaseRecordLengthRatchetTests ratchets the entries written by hand. 3000 is the absolute ceiling no entry may exceed, baselined or not.",
           "additionalProperties": {
             "type": "string",
             "maxLength": 3000
@@ -933,6 +1010,7 @@
       }
     },
     "decisions": {
+      "$comment": "JUDGEMENT — a record of a choice and the reason for it.",
       "type": "array",
       "description": "Architecture Decision Records (compact)",
       "items": {
@@ -960,6 +1038,7 @@
       }
     },
     "registry_auth": {
+      "$comment": "MECHANISM — the auth files staged into the sandbox, replayed without an LLM on every run.",
       "type": "object",
       "description": "p0375: templated private-registry auth staging. Each file is written into the sandbox user's home config scope with every __AS_TOKEN_<host>__ placeholder replaced host-side by the matching registries: token. Placeholders only — never a real secret. A present section is authoritative: the LLM stager is skipped and the template is replayed every run.",
       "required": [

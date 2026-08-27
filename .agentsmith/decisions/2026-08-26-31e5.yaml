@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-26-31e5
+
+decisions:
+  - category: Architecture
+    chose: "The SANDBOX routes the index entry to a context; SandboxTargets already resolves the context name for the sandbox the change was made in"
+    over: "Routing by the phase spec's applies_to"
+    reason: |
+      applies_to is in no schema, is set by nothing in src/, is absent from 48% of the
+      specs in this repository, and where present reads "backend" or "backend + dashboard"
+      — an AREA, never a context name. It cannot route.
+      The sandbox can: the change was made in one, ContextKeys.SandboxDiscoveries already
+      carries that sandbox's RemoteContextDiscovery, and the record handler already holds
+      SandboxTargets to find the sandbox per repo. The context that owns the change is the
+      context the change was made in. The discovery also carries the workdir, which is what
+      lets a context that was discovered but has no file on this sandbox be seeded rather
+      than skipped — a pointer nothing indexes is the defect this phase exists to fix.
+  - category: Architecture
+    chose: "state.done is edited by a TEXTUAL SPLICE that leaves every other line byte-identical"
+    over: "The generic-map round trip 2026-08-26-364f uses for the typed document's sections"
+    reason: |
+      The two writes are not the same operation. The context WRITE has to say "this section
+      is now that", which only a round trip can express, and it happens on a bootstrap.
+      The index line is one entry inside one mapping, and the step runs on EVERY finished
+      phase — a round trip would strip a target repository's yaml-language-server header
+      and its operator's comments on the first phase and never give them back.
+      ContextStateBlock locates the state / done lines and the indentation the entries are
+      written at; ContextYamlStateDoneCodec inserts or replaces exactly one line and then
+      RE-PARSES the result, refusing rather than leaving a mangled file behind. An inline
+      `state:` or a `done:` written as anything but a block (other than an empty `{}`) is
+      reported instead of guessed at.
+  - category: Implementation
+    chose: "Upsert by phase id, newest first"
+    over: "Appending every entry, or a file per entry"
+    reason: |
+      state.done is a YAML MAPPING keyed by phase id, and the parking preset deliberately
+      excludes the record step from the work it skips ahead over — precisely so a repeated
+      phase is still recorded. A second entry under the same key is a duplicate key, which
+      makes the file unparseable rather than merely untidy. The entry replaces its own id
+      or is added first.
+      Newest first because a target repository must not read in the opposite order from
+      this one; measured, insertion position makes no difference to merge conflicts (both
+      ends produce one hunk resolved by keeping both). A file per entry would avoid
+      conflicts entirely and is rejected: the value of state.done is that a reader learns
+      the application from ONE file, and a directory of fragments is not that.
+  - category: Implementation
+    chose: "The line is composed to fit, and the cap lives in PhaseRecordIndexLine.MaxChars alone"
+    over: "Refusing an over-long line, and restating 400 in the schema and the ratchet test"
+    reason: |
+      The record step runs AFTER CommitPhaseWork, so refusing an over-long line would fail
+      a run whose work is already committed and leave nobody who could shorten it. Measured
+      over the specs here, one goal in seven exceeds the cap. The line is the pointer plus
+      as much of the goal as fits, cut at a word boundary and marked with an ellipsis so a
+      reader can see it was cut. Only a pointer that alone will not fit is an error worth
+      stopping the step for.
+      PhaseRecordLengthRatchetTests guards THIS repository and a target repository has no
+      such test, so the number that matters is the one the writer composes against. The
+      ratchet now reads PhaseRecordIndexLine.MaxChars and the schema's description names it
+      instead of restating 400 — a second literal would be a cap this repository enforces
+      and the product does not.
+  - category: Implementation
+    chose: "PhaseRecordPublisher and PhaseExecutionExtensions were extracted before the line was added"
+    over: "Adding a baseline entry for the two files the change would have grown"
+    reason: |
+      WritePhaseRecordHandler sat at 101 lines against a hard cap of 120 and was NOT
+      baselined — the index line would have taken it most of the way there. Sending the
+      record to the server (p0466) is not the same responsibility as writing it into a
+      working tree, so it became PhaseRecordPublisher rather than moved code, and the
+      handler ended at 107.
+      The DI registry then failed the ratchet at 221 → 225. The phase-execution steps had
+      accumulated in the middle of a god registration file; they now register themselves
+      through AddPhaseExecution, the registry is 218, and the baseline was tightened to
+      match so the room this made cannot be silently spent later.

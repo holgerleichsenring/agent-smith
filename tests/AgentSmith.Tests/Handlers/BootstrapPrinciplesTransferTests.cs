@@ -182,11 +182,13 @@ public sealed class BootstrapPrinciplesTransferTests
             Mock.Of<IDecisionLogger>(),
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
-            Mock.Of<IContextYamlSerializer>(),
-            ContextGates.Build()),
+            ContextGates.Serializer(),
+            ContextGates.Build(), ContextGates.Writer()),
         BootstrapReaderStubs.ReaderFactoryReturning(
             contextYaml: "meta:\n  workdir: server\n", codingPrinciples: existingPrinciples),
         transfer,
+        new BootstrapContextWriteVerdict(),
+        new BootstrapOutputRecorder(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);
 
@@ -221,16 +223,20 @@ public sealed class BootstrapPrinciplesTransferTests
         public string User { get; set; } = string.Empty;
     }
 
+    // 2026-08-26-167c: the stub also calls write_context_yaml, because a round is now
+    // green only when THIS round wrote one — an existing file on the sandbox is no
+    // longer an answer to that question.
     private sealed class CapturingChatClient(CapturedPrompt sink) : IChatClient
     {
-        public Task<ChatResponse> GetResponseAsync(
+        public async Task<ChatResponse> GetResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null,
             CancellationToken cancellationToken = default)
         {
             var list = messages.ToList();
             sink.System = list.FirstOrDefault(m => m.Role == ChatRole.System)?.Text ?? string.Empty;
             sink.User = list.FirstOrDefault(m => m.Role == ChatRole.User)?.Text ?? string.Empty;
-            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")));
+            await BootstrapToolCall.WriteContextYamlAsync(options, BootstrapToolCall.ValidDocument);
+            return new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"));
         }
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
