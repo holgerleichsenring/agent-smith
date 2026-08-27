@@ -257,6 +257,53 @@ public sealed class InitRunLauncherTests : IDisposable
         BodyOf(response).RunId.Should().BeNull();
     }
 
+    [Fact]
+    public async Task Start_Accepted_ReturnsARunIdWithoutDoingTheWork()
+    {
+        // 2026-08-27-7098: the work the press must not wait for was the corpse sweep —
+        // two namespace-wide pod listings, a live-run read over the database and Redis,
+        // and one untimed delete per corpse, none of which decides this verdict. It is
+        // leader housekeeping (HousekeepingLeaderHostedService, CapacityQueuePump) and
+        // admission may not depend on it again, which is what the second assertion pins.
+        var response = await ProjectInitEndpoints.InitAsync(
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
+
+        StatusOf(response).Should().Be(StatusCodes.Status200OK);
+        BodyOf(response).RunId.Should().NotBeNullOrEmpty();
+        typeof(InitRunAdmission).GetConstructors().Single().GetParameters()
+            .Select(p => p.ParameterType).Should().NotContain(typeof(ISandboxCorpseReaper));
+    }
+
+    [Fact]
+    public async Task Start_Refused_CarriesAReasonInTheBody()
+    {
+        _probe = DenyingProbe("namespace quota is full");
+
+        var refused = await ProjectInitEndpoints.InitAsync(
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
+        var unknown = await ProjectInitEndpoints.InitAsync(
+            "not-configured", new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
+
+        StatusOf(refused).Should().Be(StatusCodes.Status503ServiceUnavailable);
+        BodyOf(refused).Reason.Should().Be("namespace quota is full");
+        StatusOf(unknown).Should().Be(StatusCodes.Status400BadRequest);
+        BodyOf(unknown).Reason.Should().Contain("not-configured");
+    }
+
+    [Fact]
+    public async Task Start_AlreadyRunning_StillAnswersImmediately()
+    {
+        var first = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+
+        var response = await ProjectInitEndpoints.InitAsync(
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
+
+        StatusOf(response).Should().Be(StatusCodes.Status409Conflict);
+        BodyOf(response).RunId.Should().Be(first.RunId);
+        BodyOf(response).Reason.Should().Contain(first.RunId!);
+        _enqueued.Should().ContainSingle();
+    }
+
     private static int? StatusOf(IResult result) => ((IStatusCodeHttpResult)result).StatusCode;
 
     private static InitLaunchResponse BodyOf(IResult result) =>
@@ -272,8 +319,7 @@ public sealed class InitRunLauncherTests : IDisposable
         NullLogger<InitRunLauncher>.Instance);
 
     private InitRunAdmission NewAdmission() => new(
-        StubFootprintCalculator(), NewBudget(), new NoOpSandboxCorpseReaper(), _probe,
-        NullLogger<InitRunAdmission>.Instance);
+        StubFootprintCalculator(), NewBudget(), _probe, NullLogger<InitRunAdmission>.Instance);
 
     private ICapacityBudget NewBudget() => new DbCapacityBudget(
         _provider.GetRequiredService<IServiceScopeFactory>(),

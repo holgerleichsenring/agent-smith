@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Services.Diagnostics;
 using AgentSmith.Server.Services.Startup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -18,6 +19,10 @@ internal static class BuildIdentityExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton(BuildIdentity.FromEnvironment());
         services.AddSingleton<IBuildMismatchDetector, BuildMismatchDetector>();
+        // 2026-08-27-729e: the read-out rides the same unconditional registration as the
+        // comparison it reports the inputs to.
+        services.AddSingleton<IPersistenceStateReader, InfraConnectivityProbe>();
+        services.AddSingleton<InstallationIdentityReporter>();
         return services;
     }
 }
