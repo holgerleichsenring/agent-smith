@@ -13,6 +13,7 @@ import { SubsystemDetail } from "@/components/system/SubsystemDetail";
 import { CatalogBrowser } from "@/components/system/CatalogBrowser";
 import { ConfigView } from "@/components/system/ConfigView";
 import { ConnectionsView } from "@/components/system/ConnectionsView";
+import { InstallationIdentityView } from "@/components/system/InstallationIdentityView";
 import { ExpectationMetricsView } from "@/components/system/ExpectationMetricsView";
 import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 import { PageHead } from "@/components/system/PageHead";
@@ -27,6 +28,7 @@ import type { HubConnectionState } from "@microsoft/signalr";
 //   segment null                            → default subsystem (tracker)
 //   tracker|webhooks|chat                    → SubsystemPage (KPI strip + stream)
 //   config                                   → ConfigView (resolved-config sheet, then the read-events stream) (p0266)
+//   installation                             → InstallationIdentityView (what this installation runs) (2026-08-27-729e)
 //   catalog                                  → CatalogBrowser
 //   cost|today                              → RollupCards metric strip (p0209c)
 //   expectations                             → ExpectationMetricsView (p0329)
@@ -62,6 +64,9 @@ export function SystemView({ segment }: { segment: string | null }) {
   const { connectionState, systemActivity } = useJobsHub();
 
   const isConnections = segment === "connections";
+  // 2026-08-27-729e: what this installation RUNS — a read-out like connections, answered
+  // by one server call, not an event stream.
+  const isInstallation = segment === "installation";
   // p0329: expectation metrics — a REST-fed rollup like connections, not an
   // event-stream subsystem.
   const isExpectations = segment === "expectations";
@@ -80,7 +85,9 @@ export function SystemView({ segment }: { segment: string | null }) {
   return (
     <div className="mock-shell mock-system" data-testid="system-page">
       <main className="main">
-        {isConnections ? (
+        {isInstallation ? (
+          <InstallationIdentityView />
+        ) : isConnections ? (
           // p0292: the connections subsystem is an ACTIVE diagnostics surface — it
           // probes each configured repo/tracker on demand, not an event stream.
           <ConnectionsView />
