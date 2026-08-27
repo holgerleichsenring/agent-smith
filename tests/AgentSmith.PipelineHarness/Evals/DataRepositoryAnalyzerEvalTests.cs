@@ -67,7 +67,11 @@ public sealed class DataRepositoryAnalyzerEvalTests(ITestOutputHelper output)
         var analyzer = new ProjectAnalyzer(
             new ToolLoopChatFactory(client, modelId),
             new PackagedMasterPromptCatalog("project-analyzer-system", "project-analyzer-master"),
-            new ProjectMapJsonReader(), new EvalRunContext(), new AgenticToolSurface(),
+            new ProjectMapJsonReader(),
+            new ProjectMapFinalizer(
+                new ProjectMapJsonReader(), new EvalRunContext(),
+                NullLogger<ProjectMapFinalizer>.Instance),
+            new EvalRunContext(), new AgenticToolSurface(),
             NullLogger<ProjectAnalyzer>.Instance);
         var sandbox = new InProcessSandbox(
             "p0505-analyzer-eval", repository, ownsWorkDir: false, NullLogger.Instance);

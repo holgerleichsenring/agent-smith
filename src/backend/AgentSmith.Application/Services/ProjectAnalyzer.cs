@@ -14,16 +14,17 @@ namespace AgentSmith.Application.Services;
 /// Drives an <see cref="IChatClient"/> through the read-only scout tool
 /// subset (ReadFile + Grep + ListFiles) and parses the model's terminal JSON
 /// into a <see cref="ProjectMap"/>. The prompt states the tool-call budget;
-/// when an attempt burns the budget without terminal JSON, a finalize turn
-/// continues the SAME conversation with tools disabled to demand the JSON
-/// from the evidence already gathered (p0385). One fresh retry after that;
-/// failure after the retry surfaces to the handler as an exception. JSON
-/// decoding is delegated to <see cref="IProjectMapJsonReader"/>.
+/// when an attempt burns the budget without terminal JSON,
+/// <see cref="IProjectMapFinalizer"/> continues the SAME conversation with tools
+/// disabled to demand the JSON from the evidence already gathered (p0385). One
+/// fresh retry after that; failure after the retry surfaces to the handler as an
+/// exception. JSON decoding is delegated to <see cref="IProjectMapJsonReader"/>.
 /// </summary>
 public sealed class ProjectAnalyzer(
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     IProjectMapJsonReader mapJsonReader,
+    IProjectMapFinalizer finalizer,
     IRunContextAccessor runContext,
     AgenticToolSurface toolSurface,
     ILogger<ProjectAnalyzer> logger) : IProjectAnalyzer
@@ -32,11 +33,6 @@ public sealed class ProjectAnalyzer(
     // AND passed to Create as the FunctionInvokingChatClient iteration cap, so the
     // number the model plans against can't drift from the one the loop enforces.
     private const int ExplorationBudget = 25;
-
-    private const string FinalizeInstruction =
-        "Your exploration budget is exhausted. Reply now with ONLY the JSON object "
-        + "describing the repository, based on the evidence you gathered so far. "
-        + "Omit fields you found no evidence for. No prose, no tool calls.";
 
     public async Task<ProjectMap> AnalyzeAsync(
         string repositoryPath, AgentConfig agent, ISandbox sandbox,
@@ -50,12 +46,6 @@ public sealed class ProjectAnalyzer(
             + "Start by listing the root directory.";
         var fs = new FilesystemToolHost(sandbox, repositoryPath);
         var tools = toolSurface.Scout(fs);
-        // p0374: the analyzer is a mechanical read → JSON-ProjectMap task using the
-        // SCOUT tool surface — route it to the SCOUT model (a cheap exploration model)
-        // instead of PRIMARY (the expensive coding model). Primary here sent 450k+
-        // tokens per run through the flagship model at flagship input pricing for
-        // work a scout model does fine (with the existing 2-attempt parse retry).
-        var chat = chatClientFactory.Create(agent, TaskType.Scout, ExplorationBudget);
         var options = new ChatOptions
         {
             Tools = tools,
@@ -65,6 +55,17 @@ public sealed class ProjectAnalyzer(
         var lastError = string.Empty;
         for (var attempt = 1; attempt <= 2; attempt++)
         {
+            // p0374: a mechanical read → JSON-ProjectMap task on the SCOUT tool surface
+            // routes to the SCOUT model, not PRIMARY — this sent 450k+ tokens per run
+            // through the flagship model at flagship input pricing.
+            // 2026-08-27-3eb1: a client PER ATTEMPT, and the agent's compaction settings
+            // handed to it. The whole sweep is ONE GetResponseAsync in which every tool
+            // result is appended to one message list, so it needs the same in-flight
+            // reduction the coding master gets; and the reducer's fold watermark is an
+            // absolute index, so a client reused across attempts would meet attempt 2's
+            // two-message list holding attempt 1's watermark and summary.
+            var chat = chatClientFactory.Create(
+                agent, TaskType.Scout, ExplorationBudget, masterLoopHooks: null, agent.Compaction);
             var messages = new List<ChatMessage>
             {
                 new(ChatRole.System, systemPrompt),
@@ -78,7 +79,7 @@ public sealed class ProjectAnalyzer(
                 attempt, response.Usage?.InputTokenCount ?? 0, response.Usage?.OutputTokenCount ?? 0);
             if (mapJsonReader.TryRead(response.Text ?? string.Empty, out var map, out _))
                 return map!;
-            var (finalMap, finalError) = await FinalizeAsync(
+            var (finalMap, finalError) = await finalizer.FinalizeAsync(
                 chat, options, messages, response, attempt, repoName, cancellationToken);
             if (finalMap is not null)
                 return finalMap;
@@ -91,48 +92,10 @@ public sealed class ProjectAnalyzer(
             "analyzer prompt or upgrading the model.");
     }
 
-    // p0385: the exploration budget ran out (or the reply was prose) — continue the
-    // SAME conversation, evidence retained, and demand the JSON with tool use
-    // disabled. A shallow map from partial evidence beats a blank-restart retry
-    // that deterministically hits the same cap again.
-    private async Task<(ProjectMap? Map, string Error)> FinalizeAsync(
-        IChatClient chat, ChatOptions options, List<ChatMessage> messages,
-        ChatResponse exploration, int attempt, string? repoName,
-        CancellationToken cancellationToken)
-    {
-        messages.AddRange(exploration.Messages);
-        messages.Add(new ChatMessage(ChatRole.User, FinalizeInstruction));
-        using var _scope = runContext.BeginCallScope(
-            "project-analyzer", "BootstrapDiscover", repoName);
-        var response = await chat.GetResponseAsync(
-            messages, FinalizeOptions(options), cancellationToken);
-        if (mapJsonReader.TryRead(response.Text ?? string.Empty, out var map, out var error))
-            return (map, string.Empty);
-        logger.LogWarning(
-            "ProjectAnalyzer attempt {Attempt} finalize turn still unparseable: {Error}. "
-            + "Raw response (truncated): {Raw}",
-            attempt, error, Truncate(response.Text));
-        return (null, error);
-    }
-
-    // Tools stay declared (Anthropic rejects a request whose history contains tool
-    // blocks without the tools param) but ToolMode=None forbids further calls.
-    private static ChatOptions FinalizeOptions(ChatOptions options) => new()
-    {
-        Tools = options.Tools,
-        ToolMode = ChatToolMode.None,
-        MaxOutputTokens = options.MaxOutputTokens,
-    };
-
     private static string ComposePrompt(string userPrompt, int attempt, string lastError) =>
         attempt == 1
             ? userPrompt
             : userPrompt
               + $"\n\nYour previous response could not be parsed as JSON: {lastError}\n"
               + "Respond again with ONLY the JSON object, no surrounding prose, no code fences.";
-
-    private static string Truncate(string? text, int max = 2000) =>
-        string.IsNullOrEmpty(text) ? "<empty>"
-        : text.Length <= max ? text
-        : text[..max] + $"… (+{text.Length - max} more chars)";
 }

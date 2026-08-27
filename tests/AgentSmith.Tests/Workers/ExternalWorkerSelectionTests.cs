@@ -74,6 +74,8 @@ public sealed class ExternalWorkerSelectionTests
             new LlmRateLimiterRegistry(NullLogger<LlmRateLimiterRegistry>.Instance),
             new ThrottleWaitReporter(),
             new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
+            new CompactionSummaryRequest(),
+            new WindowDerivedCompaction(),
             NullLoggerFactory.Instance);
 
     private static ExternalWorkerChatClientBuilder NewWorkerBuilder()

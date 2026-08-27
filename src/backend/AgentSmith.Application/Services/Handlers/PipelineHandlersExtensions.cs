@@ -68,7 +68,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();
         services.AddTransient<Memory.RunNarrativeMemoryWriter>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
-        services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>();
+        services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>().AddTransient<IProjectMapFinalizer, ProjectMapFinalizer>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
         services.AddTransient<ICommandHandler<AnalyzePrDiffContext>, AnalyzePrDiffHandler>();
         services.AddTransient<IUnifiedDiffParser, UnifiedDiffParser>();

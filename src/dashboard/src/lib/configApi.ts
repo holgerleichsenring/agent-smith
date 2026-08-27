@@ -293,11 +293,13 @@ export async function fetchConnectionRepos(
 }
 
 /** One per-role model entry (p0345c AgentEntity v2) — model name plus the
- *  optional Azure deployment and per-call token cap. */
+ *  optional Azure deployment, per-call output cap and (2026-08-27-3eb1) the
+ *  input window the deployment accepts. */
 export interface AgentModelEntry {
   model: string;
   deployment?: string;
   maxTokens?: number;
+  contextWindowTokens?: number;
 }
 
 export interface AgentPricingEntry {
