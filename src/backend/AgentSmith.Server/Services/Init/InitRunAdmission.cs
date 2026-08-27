@@ -6,16 +6,23 @@ namespace AgentSmith.Server.Services.Init;
 
 /// <summary>
 /// p0489: the SYNCHRONOUS admission gate for a manual init. Same sequence the
-/// spawn path admits a ticket with — footprint, record, corpse reap, namespace
-/// quota probe, atomic reserve — but a run that does not fit is REFUSED with the
-/// reason instead of queued: the capacity queue re-validates a ticket's native
-/// status every tick and a ticketless entry has nothing to re-validate. A refused
-/// launch releases the recorded footprint, so it leaves no reservation behind.
+/// spawn path admits a ticket with — footprint, record, namespace quota probe,
+/// atomic reserve — but a run that does not fit is REFUSED with the reason instead
+/// of queued: the capacity queue re-validates a ticket's native status every tick
+/// and a ticketless entry has nothing to re-validate. A refused launch releases the
+/// recorded footprint, so it leaves no reservation behind.
+/// <para>
+/// 2026-08-27-7098: the corpse sweep is NOT here. It is leader housekeeping —
+/// two namespace-wide pod listings, a live-run read across the database and Redis,
+/// and one untimed delete per corpse — and running it before answering made the
+/// operator wait through all of it for a verdict none of it decides. It still runs
+/// on the housekeeping loop and in the capacity queue's own tick, which is where a
+/// sweep that frees quota for a QUEUED run belongs.
+/// </para>
 /// </summary>
 public sealed class InitRunAdmission(
     IRunFootprintCalculator footprintCalculator,
     ICapacityBudget capacityBudget,
-    ISandboxCorpseReaper corpseReaper,
     ISandboxCapacityProbe capacityProbe,
     ILogger<InitRunAdmission> logger)
 {
@@ -24,7 +31,6 @@ public sealed class InitRunAdmission(
     {
         var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, ct);
         await capacityBudget.RecordAsync(runId, footprint, ct);
-        await corpseReaper.ReapCorpsesAsync(ct);
 
         var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)
