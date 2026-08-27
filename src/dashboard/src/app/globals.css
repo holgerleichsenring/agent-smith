@@ -33,6 +33,17 @@
   --radius-full: 9999px;
 }
 
+/* 2026-08-27-1ed6: the shell's header row height. Read by the layout's scroll container
+   and by the rail's full height, so the three can never disagree by a few pixels. */
+:root {
+  --topbar-h: 52px;
+}
+
+@utility shell-main {
+  height: calc(100vh - var(--topbar-h));
+  overflow-y: auto;
+}
+
 @layer base {
   html {
     background: var(--color-canvas);
