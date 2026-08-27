@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-27-3eb1
+
+goal: "The analyzer's sweep stays inside the window of the model running it, whatever the repository's size, and a window too small for its own compaction threshold is reported before a run reaches it."
+
+applies_to: "backend (the scout chat chain, the model window, preflight)"
+
+requires:
+  - p0385
+
+scope:
+  in: "The context reduction that already exists for the coding master reaches the scout chain; the input window becomes a stated property of a model role beside its output cap; the exploration finalises on token pressure as well as on iteration count; and preflight reports a threshold that cannot fire below the window."
+  out: "A table of window sizes per model name — the exact staleness this repository keeps rediscovering. Raising ExplorationBudget, which is the opposite of the fix. Which model a role should use, which is an operator's decision."
+
+decisions:
+  - key: |
+      THE VOLUME WAS MEASURED BEFORE AND THE SYMPTOM WAS MOVED, NOT FIXED. p0385's own comment
+      records that this sweep sent "450k+ tokens per run" and answers it by switching the role
+      from the flagship model to a scout — cheaper per token, and with a SMALLER window. 450k
+      fits in neither; it survived only where the window happened to be a million. A run against
+      a large monorepo now dies at 140k with HTTP 400, four times in a row, and the size of the
+      repository is the only variable.
+  - key: |
+      THE REDUCTION EXISTS AND IS SIMPLY NOT CONNECTED. ChatClientFactory inserts the compaction
+      middleware BELOW UseFunctionInvocation, so it folds while the tool loop is still running —
+      exactly the shape this needs, because the whole sweep is ONE GetResponseAsync and the
+      function-invoking client appends every tool result to the same message list. It is skipped
+      when master-loop hooks are absent, which is every scout call. Connecting it is a condition,
+      not a mechanism.
+  - key: |
+      THE WINDOW IS AN INPUT PROPERTY AND THE CONFIG ONLY KNOWS THE OUTPUT ONE. A model role
+      states max_tokens, which is the OUTPUT cap; nothing states what the model will accept. So
+      a compaction threshold of 200000 could sit beside a deployment that refuses at 128000 and
+      nothing anywhere could notice. The window joins model and deployment as a stated property
+      of the role, because it is a property of the DEPLOYMENT — the name promises nothing, as a
+      role reading `model: gpt-4.1-mini` against a 4o-mini deployment demonstrated.
+  - key: |
+      NO TABLE OF MODEL WINDOWS. A built-in map from model name to window size is the same
+      artifact this repository has now removed twice: a reading that is wrong the day a provider
+      ships a variant, and unfalsifiable in between. The operator states the window for the
+      deployment they created, or states nothing and gets no threshold — and is told which.
+  - key: |
+      FINALISE ON PRESSURE AS WELL AS ON COUNT. The exploration already ends gracefully when the
+      iteration budget runs out: FinalizeInstruction demands the JSON from the evidence gathered
+      so far, and a shallow map beats a blank restart. Token pressure deserves the same exit —
+      it is the same situation reached by a different route. Reduction keeps the sweep going;
+      this is what happens when reduction is not enough or not configured.
+  - key: |
+      A THRESHOLD THAT CANNOT FIRE IS A CONFIGURATION DEFECT AND PREFLIGHT SAYS SO. With a
+      window known and a compaction threshold set, `max_context_tokens × trigger_ratio ≥ window`
+      means the fold can never happen before the provider refuses. That is checkable at startup,
+      it is exactly the state an installation was in tonight, and it belongs beside the existing
+      llm-reachable check rather than in a run's stack trace.
+
+steps:
+  - id: the-scout-chain-reduces-too
+    action: "Insert the existing compaction middleware into the scout chain, so the sweep folds while the tool loop is still running rather than only in the master's chain."
+  - id: a-role-states-the-window-it-answers-in
+    action: "Add the input window to a model role beside model, deployment and the output cap, carried through the factory and absent by default."
+  - id: the-sweep-finalises-under-pressure
+    action: "End the exploration and demand the JSON when the conversation approaches the stated window, by the same path the iteration budget already takes."
+  - id: preflight-names-a-threshold-that-cannot-fire
+    action: "Report at startup when a role's compaction threshold multiplied by its trigger ratio is not below the stated window, and when a threshold is set for a role whose window is unstated."
+  - id: the-refusal-teaches-the-configuration
+    action: "When a provider refuses for context length, name the role, the window it reported and the setting that would have prevented it."
+
+tests:
+  - "Scout_ALongSweep_FoldsBeforeTheProviderRefuses"
+  - "Scout_AShortSweep_IsUnchangedAndFoldsNothing"
+  - "Scout_CompactionUnconfigured_BehavesAsItDoesToday"
+  - "Role_TheWindowIsAbsent_NoThresholdIsDerived"
+  - "Role_TheWindowIsStated_ItReachesTheChain"
+  - "Sweep_ApproachingTheWindow_FinalisesInsteadOfOverflowing"
+  - "Sweep_Finalised_StillReturnsAParseableMap"
+  - "Preflight_AThresholdAtOrAboveTheWindow_IsReported"
+  - "Preflight_AThresholdWithNoStatedWindow_IsReported"
+  - "Preflight_AThresholdBelowTheWindow_IsSilent"
+  - "Refusal_ForContextLength_NamesTheRoleAndTheWindow"
+
+done:
+  - "a sweep of a large repository completes on a small-window model"
+  - "the window is a stated property of a role, and absent by default"
+  - "a threshold that cannot fire before the provider refuses is reported at startup"
+  - "a context-length refusal names the role, the window and the setting"
+  - "an installation that states no window behaves exactly as it does today"
+  - "backend build green, full suite green"
