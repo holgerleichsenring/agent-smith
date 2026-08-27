@@ -9,7 +9,7 @@ requires:
   - p0385
 
 scope:
-  in: "The context reduction that already exists for the coding master reaches the scout chain; the input window becomes a stated property of a model role beside its output cap; the exploration finalises on token pressure as well as on iteration count; and preflight reports a threshold that cannot fire below the window."
+  in: "A tool result is bounded before it reaches the model; the context reduction that already exists for the coding master reaches the scout chain; the input window becomes a stated property of a model role; the sweep finalises under pressure from inside the middleware; and preflight reports a threshold that cannot fire below the window."
   out: "A table of window sizes per model name — the exact staleness this repository keeps rediscovering. Raising ExplorationBudget, which is the opposite of the fix. Which model a role should use, which is an operator's decision."
 
 decisions:
@@ -40,11 +40,37 @@ decisions:
       ships a variant, and unfalsifiable in between. The operator states the window for the
       deployment they created, or states nothing and gets no threshold — and is told which.
   - key: |
-      FINALISE ON PRESSURE AS WELL AS ON COUNT. The exploration already ends gracefully when the
-      iteration budget runs out: FinalizeInstruction demands the JSON from the evidence gathered
-      so far, and a shallow map beats a blank restart. Token pressure deserves the same exit —
-      it is the same situation reached by a different route. Reduction keeps the sweep going;
-      this is what happens when reduction is not enough or not configured.
+      THE LEAK IS AN UNBOUNDED TOOL RESULT, AND REDUCTION IS ONLY THE RECOVERY. list_files caps
+      at 1000 entries and grep at 1000 lines; directory_tree has NO entry cap and NO byte cap and
+      returns whatever the tree produced, and read_file returns up to a megabyte verbatim. At
+      depth four on a large monorepo one call can exceed a 128k window before compaction has
+      anything to fold. Bounding the result is the fix; folding what accumulates is what keeps a
+      long sweep alive afterwards. A phase that shipped only the second would be treating the
+      symptom again.
+  - key: |
+      FINALISING UNDER PRESSURE HAPPENS INSIDE THE MIDDLEWARE, BECAUSE THERE IS NOWHERE ELSE.
+      The 25 iterations run inside ONE GetResponseAsync and the analyzer regains control only
+      when it returns — there is no hook, no callback and no exception seam, and the attempt loop
+      has no try/catch, so a provider refusal at iteration twenty leaves the method entirely. The
+      middleware is the only code that sees each iteration: crossing the hard bound, it forwards
+      a CLONED options with tool choice disabled plus the finalize instruction, the loop ends on
+      a tool-free reply, and the analyzer parses on its normal path. Cloned, because the
+      function-invoking client hands the same options object down every iteration.
+  - key: |
+      REDUCTION WITHOUT THE WINDOW IS A NO-OP HERE, SO THE TWO ARE ONE CHANGE. The defaults are
+      200000 x 0.7, a trigger at 140000 — above the 128000 that refused, which is exactly the
+      reported 140-146k death. Connecting the middleware while the threshold still comes from a
+      default fixes nothing on the installation that reported this.
+  - key: |
+      THE SCOUT GETS COMPACTION, NOT THE MASTER'S HOOKS. Passing a hooks record to reuse the
+      middleware also inserts the loop governor, inert but real. The factory takes the compaction
+      settings directly instead — no record built to smuggle one field past a signature.
+  - key: |
+      THE FOLD ITSELF MUST NOT OVERFLOW. The summarizer truncates each tool result at 2000
+      characters and caps nothing in aggregate, so folding a hundred results can be the call that
+      refuses. The serialized middle is bounded, and the estimator's blind spot is stated: it
+      counts message content only, never the tool definitions, so it undercounts every sweep by
+      the size of the tool surface.
   - key: |
       A THRESHOLD THAT CANNOT FIRE IS A CONFIGURATION DEFECT AND PREFLIGHT SAYS SO. With a
       window known and a compaction threshold set, `max_context_tokens × trigger_ratio ≥ window`
@@ -53,12 +79,16 @@ decisions:
       llm-reachable check rather than in a run's stack trace.
 
 steps:
+  - id: a-tool-result-is-bounded-before-it-reaches-the-model
+    action: "Cap directory_tree on entries the way list_files already is, and bound a single tool result on the scout path with a truncation marker, so no one call can fill the window."
   - id: the-scout-chain-reduces-too
     action: "Insert the existing compaction middleware into the scout chain, so the sweep folds while the tool loop is still running rather than only in the master's chain."
   - id: a-role-states-the-window-it-answers-in
-    action: "Add the input window to a model role beside model, deployment and the output cap, carried through the factory and absent by default."
+    action: "Add the input window to the model ROLE beside model, deployment and the output cap — absent by default so record equality holds — carried through the factory, the studio entity and the agent form."
   - id: the-sweep-finalises-under-pressure
-    action: "End the exploration and demand the JSON when the conversation approaches the stated window, by the same path the iteration budget already takes."
+    action: "In the middleware, on crossing the hard bound, forward cloned options with tool choice disabled plus the finalize instruction, and reset the fold watermark between attempts so a retry does not inherit the previous summary."
+  - id: the-frozen-files-make-room
+    action: "Extract from ChatClientFactory, CompactingChatClient and ProjectAnalyzer before adding to them — all three sit exactly on their length baselines, and the summarizer prompt is the obvious lift."
   - id: preflight-names-a-threshold-that-cannot-fire
     action: "Report at startup when a role's compaction threshold multiplied by its trigger ratio is not below the stated window, and when a threshold is set for a role whose window is unstated."
   - id: the-refusal-teaches-the-configuration
@@ -71,6 +101,10 @@ tests:
   - "Role_TheWindowIsAbsent_NoThresholdIsDerived"
   - "Role_TheWindowIsStated_ItReachesTheChain"
   - "Sweep_ApproachingTheWindow_FinalisesInsteadOfOverflowing"
+  - "Sweep_ASecondAttempt_DoesNotInheritTheFirstFold"
+  - "Tree_ALargeRepository_IsCappedLikeListFiles"
+  - "ToolResult_OverTheBound_IsTruncatedWithAMarker"
+  - "Fold_AVeryLargeMiddle_IsBoundedBeforeItIsSummarised"
   - "Sweep_Finalised_StillReturnsAParseableMap"
   - "Preflight_AThresholdAtOrAboveTheWindow_IsReported"
   - "Preflight_AThresholdWithNoStatedWindow_IsReported"
@@ -78,6 +112,7 @@ tests:
   - "Refusal_ForContextLength_NamesTheRoleAndTheWindow"
 
 done:
+  - "no single tool result can fill the window on its own"
   - "a sweep of a large repository completes on a small-window model"
   - "the window is a stated property of a role, and absent by default"
   - "a threshold that cannot fire before the provider refuses is reported at startup"
