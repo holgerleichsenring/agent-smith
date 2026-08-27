@@ -78,8 +78,8 @@ public sealed class BootstrapPerContextTests
             Mock.Of<IDecisionLogger>(),
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
-            Mock.Of<IContextYamlSerializer>(),
-            ContextGates.Build());
+            ContextGates.Serializer(),
+            ContextGates.Build(), ContextGates.Writer());
 
         var bundle = factory.Create(Mock.Of<ISandbox>(), "/repo", repoName: "api", contextName: "api");
 
@@ -96,9 +96,11 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
             BootstrapReaderStubs.NullReaderFactory(),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -124,9 +126,11 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
             BootstrapReaderStubs.NullReaderFactory(),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -170,9 +174,11 @@ public sealed class BootstrapPerContextTests
         var existing = "meta:\n  workdir: server\nstack:\n  lang: node\n";
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
             BootstrapReaderStubs.ReaderFactoryReturning(existing),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -195,9 +201,11 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>(), ContextGates.Build()),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
             BootstrapReaderStubs.NullReaderFactory(),
             PrinciplesTransferStubs.NoTemplates(),
+            new BootstrapContextWriteVerdict(),
+            new BootstrapOutputRecorder(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");

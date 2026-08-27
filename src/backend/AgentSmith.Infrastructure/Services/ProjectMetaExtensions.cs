@@ -27,6 +27,10 @@ public static class ProjectMetaExtensions
         services.AddSingleton<IContextYamlParser, ContextYamlParser>();
         // p0375: registry_auth section read/upsert through the same builder config.
         services.AddSingleton<IContextYamlRegistryAuthCodec, ContextYamlRegistryAuthCodec>();
+        // 2026-08-26-364f: the same round trip for the write that states most of the file.
+        services.AddSingleton<IContextYamlSectionUpsert, ContextYamlSectionUpsert>();
+        // 2026-08-26-31e5: the state.done splice — the chronicle is edited, never rewritten.
+        services.AddSingleton<IContextYamlStateDoneCodec, ContextYamlStateDoneCodec>();
         services.AddSingleton<Func<PipelineContext, IRunStateConcepts>>(_ => CreateRunStateConcepts);
         return services;
     }
