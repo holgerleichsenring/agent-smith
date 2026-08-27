@@ -9,6 +9,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
+using AgentSmith.Infrastructure.Services.Providers.Agent;
+
 namespace AgentSmith.Tests.Services.Diagnostics;
 
 /// <summary>
@@ -59,6 +61,8 @@ public sealed class ChatClientFactoryProbeTests
             Mock.Of<ILlmRateLimiterRegistry>(),
             new AgentSmith.Infrastructure.Services.RateLimiting.ThrottleWaitReporter(),
             new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
+            new CompactionSummaryRequest(),
+            new WindowDerivedCompaction(),
             NullLoggerFactory.Instance);
 
     private sealed class FakeBuilder(IChatClient client) : IChatClientBuilder

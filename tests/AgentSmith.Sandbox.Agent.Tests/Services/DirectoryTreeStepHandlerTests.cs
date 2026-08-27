@@ -34,6 +34,37 @@ public sealed class DirectoryTreeStepHandlerTests : IDisposable
         result.OutputContent.Should().Contain("a.cs");
     }
 
+    // 2026-08-27-3eb1: directory_tree was the one read tool with no cap at all, and it is
+    // the first call a repository sweep makes. A monorepo's tree arrived as ONE unbounded
+    // tool result appended to the conversation for the rest of the run.
+    [Fact]
+    public async Task DirectoryTree_MoreEntriesThanTheCap_TruncatesAndSaysSo()
+    {
+        for (var i = 0; i < SizeLimits.DirectoryTreeMaxEntries + 50; i++)
+            File.WriteAllText(Path.Combine(_tempDir, $"f{i:D5}.txt"), "");
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.DirectoryTree,
+            Path: _tempDir);
+
+        var result = await NewHandler().HandleAsync(step, _ => Task.CompletedTask, CancellationToken.None);
+
+        result.ExitCode.Should().Be(0);
+        result.OutputContent.Should().Contain("truncated at 1000 entries");
+        result.OutputContent!.Split('\n').Should().HaveCountLessThan(
+            SizeLimits.DirectoryTreeMaxEntries + 5, "the root line, 1000 entries and the marker");
+    }
+
+    [Fact]
+    public async Task DirectoryTree_FewerEntriesThanTheCap_HasNoMarker()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "only.txt"), "");
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.DirectoryTree,
+            Path: _tempDir);
+
+        var result = await NewHandler().HandleAsync(step, _ => Task.CompletedTask, CancellationToken.None);
+
+        result.OutputContent.Should().NotContain("truncated");
+    }
+
     [Fact]
     public async Task DirectoryTree_HonoursMaxDepth()
     {

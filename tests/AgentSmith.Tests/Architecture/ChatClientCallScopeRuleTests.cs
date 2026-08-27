@@ -40,6 +40,12 @@ public sealed class ChatClientCallScopeRuleTests
         // already-scoped messages on a transient network drop; the outer call's
         // BeginCallScope flows via AsyncLocal through the retry + backoff.
         "TransientRetryChatClient.cs",
+        // 2026-08-27-3eb1: pass-through decorators around an already-scoped call — one
+        // re-throws a provider context-length refusal with the role and window named, the
+        // other appends a finalize instruction and switches ToolMode off. Both delegate
+        // the caller's own invocation; the scope flows via AsyncLocal.
+        "ContextLengthRefusalChatClient.cs",
+        "ContextPressureFinalizingChatClient.cs",
         // p0191: pass-through decorator that mutates the message list before
         // delegating; the outer call's BeginCallScope is still live.
         "SensitiveToolHistoryScrubChatClient.cs",

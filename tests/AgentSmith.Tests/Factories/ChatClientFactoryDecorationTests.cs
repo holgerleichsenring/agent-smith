@@ -8,6 +8,8 @@ using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Infrastructure.Services.Providers.Agent;
+
 namespace AgentSmith.Tests.Factories;
 
 public sealed class ChatClientFactoryDecorationTests
@@ -55,6 +57,8 @@ public sealed class ChatClientFactoryDecorationTests
                 NullLogger<AgentSmith.Infrastructure.Services.RateLimiting.LlmRateLimiterRegistry>.Instance),
             new AgentSmith.Infrastructure.Services.RateLimiting.ThrottleWaitReporter(),
             new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
+            new CompactionSummaryRequest(),
+            new WindowDerivedCompaction(),
             NullLoggerFactory.Instance);
 
     private sealed class StubBuilder : IChatClientBuilder

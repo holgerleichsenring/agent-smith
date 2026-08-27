@@ -49,7 +49,7 @@ public sealed class CompactingChatClient : DelegatingChatClient
     private const int CharsPerTokenEstimate = 4;
 
     private readonly CompactionConfig _config;
-    private readonly MasterLoopHooks _hooks;
+    private readonly MasterLoopHooks? _hooks;
     private readonly Func<IReadOnlyList<ChatMessage>, CancellationToken, Task<string>> _summarize;
     private readonly ILogger? _logger;
 
@@ -64,7 +64,7 @@ public sealed class CompactingChatClient : DelegatingChatClient
     public CompactingChatClient(
         IChatClient inner,
         CompactionConfig config,
-        MasterLoopHooks hooks,
+        MasterLoopHooks? hooks,
         Func<IReadOnlyList<ChatMessage>, CancellationToken, Task<string>> summarize,
         ILogger? logger = null)
         : base(inner)
@@ -171,9 +171,9 @@ public sealed class CompactingChatClient : DelegatingChatClient
     private string BuildPinText()
     {
         var sb = new StringBuilder();
-        var ledger = _hooks.RenderLedgerForPin?.Invoke();
+        var ledger = _hooks?.RenderLedgerForPin?.Invoke();
         if (!string.IsNullOrWhiteSpace(ledger)) sb.AppendLine(ledger).AppendLine();
-        var working = _hooks.RenderWorkingStateForPin?.Invoke();
+        var working = _hooks?.RenderWorkingStateForPin?.Invoke();
         if (!string.IsNullOrWhiteSpace(working)) sb.AppendLine(working);
         return sb.ToString().TrimEnd();
     }
