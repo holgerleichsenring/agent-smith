@@ -1,72 +1,83 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-08-27-729e
 
-goal: "An operator reads the version of every component and the state of the database off the dashboard, and an installation whose images do not come from one release says so."
+goal: "An operator reads what this installation is running — build, agent version per project, database provider and whether its migrations are current — without opening a container."
 
-applies_to: "backend (a build-and-store report) + dashboard (where it is read)"
+applies_to: "backend (an identity read-out) + dashboard (the rail footer and a system segment)"
 
 requires:
   - p0391a
 
 scope:
-  in: "The release and revision of the server, the dashboard and the sandbox agent, the database provider and whether its migrations are current, all on one surface; and a finding when the three images do not name the same release."
-  out: "The target images a run works INSIDE — those are the customer's own and carry no agent-smith version. Fixing a mismatch, which is a redeploy. The run-time agent-version resolution, which already exists and already explains itself."
+  in: "A calm read-out of what the server already knows: its own build, the agent version each project resolves to including the case where none can be derived, the persistence provider and the pending-migration count — surfaced in the rail and on the system view."
+  out: "A finding for components that disagree — BOTH already exist and are not rebuilt. Asserting that all three images name one release, which no server-side code can know. The target images a run works inside, which are the customer's own."
 
 decisions:
   - key: |
-      THE NUMBERS EXIST AND ARE SHOWN NOWHERE. The dashboard bundles NEXT_PUBLIC_RELEASE_VERSION
-      and NEXT_PUBLIC_BUILD_REVISION at build time and renders neither — the release constant is
-      read by no component at all, and the revision is used only as a query parameter for the
-      staleness comparison. The server carries its own build identity for the same comparison.
-      So the version is visible exactly when it is WRONG, through the mismatch banner, and never
-      when somebody simply wants to know it.
+      THE DISAGREEMENT FINDINGS ALREADY SHIP, SO THIS PHASE ONLY ADDS THE CALM READING. A first
+      draft proposed a finding when server, dashboard and agent name different releases. Both
+      halves of that exist: BuildMismatchDetector compares the caller's bundle against the
+      server, and PinnedAgentProbe reports a project whose agent version is pinned away from the
+      server's own. What does not exist is the version being readable when nothing is wrong.
   - key: |
-      THE THREE IMAGES ARE ONE RELEASE OR THEY ARE A DEFECT. Server, dashboard and sandbox agent
-      are built together and published together; a customer builds none of them. When they do
-      not name the same release the installation is in a state nobody chose — and it fails late
-      and obscurely, as a locally built server did when the agent version could not be derived
-      because the image carried no release variable. That is checkable the moment all three
-      report themselves.
+      THE DASHBOARD'S RELEASE CANNOT REACH A SERVER-SIDE REPORT, SO IT IS NOT ASKED TO. The
+      bundle carries its release as an inlined constant and sends only its REVISION as a query
+      parameter — the mismatch detector constructs the caller's version as null on purpose. So
+      the read-out is a SERVER fact (its own build, the agent version, the database) and the
+      dashboard renders its own release beside it, out of the bundle that is doing the
+      rendering. Two facts and one local constant, honestly labelled, beats one endpoint
+      pretending to know all three.
   - key: |
-      THE DATABASE IS PART OF "WHAT AM I RUNNING". Provider and pending-migration count decide
-      whether a run can even be recorded, and the probe already computes both for the infra
-      check. Reporting them costs a projection, and their absence is why "did my migration run"
-      is currently answered by reading container logs.
+      THE AGENT VERSION IS PER PROJECT AND HAS A THIRD ANSWER. Resolution is pinned, derived from
+      the server's own release, or UNDERIVABLE — and the third throws, because a locally built
+      image carries no release variable. That is exactly the installation this read-out exists
+      for, so the route catches it the way the pinned probe already does and reports
+      "underivable — this build carries no release variable" as a LINE, not as an exception.
   - key: |
-      IT GOES WHERE THE DEGRADED BANNER ALREADY IS. p0391a put "what is wrong with this
-      installation" above every route and the mismatch banner joined it. This is the same
-      question asked calmly rather than in alarm, so it belongs on the same surface — read at a
-      glance, not hunted for in a settings page.
+      THE PENDING COUNT IS COMPUTED AND THEN THROWN AWAY. The infra probe counts pending
+      migrations and folds the number into a status string. Reporting it means widening what the
+      probe returns rather than counting again — and counting again in a second place is how two
+      answers to one question start.
   - key: |
-      THE TARGET IMAGES ARE NOT PART OF THIS. What a run works inside is the customer's own
-      toolchain image, named by a context or a profile, and it has no agent-smith version to
-      agree with. Only the three images this project publishes are checked against each other.
+      A PERMANENT PANEL DOES NOT BELONG IN THE BANNER STACK. Those banners exist to name what is
+      WRONG, above every route; a version that is always there would turn an alarm channel into
+      furniture — the reasoning the sign-in rail already applied when it refused to render a
+      sign-out for a session that cannot exist. One line in the rail footer, the detail on the
+      system view where diagnostics already live.
+  - key: |
+      THE ROUTE IS ANONYMOUS AND MUST ANSWER WITHOUT AN AUTHORITY. It says what an installation
+      is, which is what somebody who cannot sign in most needs. That puts it in the golden of
+      anonymous routes, which two enforcement suites call unauthenticated — so it answers 200
+      with no authority configured and on a hand-built image, or those suites go red.
 
 steps:
-  - id: each-component-reports-itself
-    action: "Collect the release and revision of the server, the dashboard and the sandbox agent, plus the database provider and its pending-migration count, into one anonymous report beside the existing findings route."
+  - id: the-server-states-what-it-runs
+    action: "Add an anonymous read-out of the server build, the per-project agent version including the underivable case, the persistence provider and the pending-migration count, declaring its anonymous reason and regenerating the route baseline."
     new:
-      - "the installation identity report"
-  - id: a-split-release-is-a-finding
-    action: "Record a finding when the three components do not name the same release, naming each one and what it says."
-  - id: the-dashboard-shows-it
-    action: "Render the report where the degraded and mismatch banners already live — component versions, the database provider, and whether migrations are pending."
+      - "the installation identity read-out"
+  - id: the-pending-count-survives-the-probe
+    action: "Widen what the infra probe returns so the pending-migration count reaches the read-out instead of being folded into a status string."
+  - id: the-rail-says-it-in-one-line
+    action: "Render release and a pending-migrations marker in the rail footer, with the dashboard's own release read from its bundle, linking to the detail."
     new:
-      - "the installation identity surface"
+      - "the rail identity line"
+  - id: the-system-view-carries-the-detail
+    action: "Add the read-out as a segment on the system view, beside the other diagnostics surfaces."
 
 tests:
-  - "Report_AllThreeFromOneRelease_NamesItOnce"
-  - "Report_AServerWithNoReleaseVariable_SaysSoInsteadOfGuessing"
+  - "Report_TheServerBuild_IsTheOneTheServerCarries"
+  - "Report_AProjectWithAPinnedAgent_NamesThePin"
+  - "Report_AProjectWithADerivedAgent_SaysDerived"
+  - "Report_ABuildWithNoReleaseVariable_ReportsUnderivableInsteadOfThrowing"
   - "Report_ThePendingMigrationCount_IsTheOneTheProbeComputes"
   - "Report_TheProvider_IsTheConfiguredOne"
-  - "Finding_ThreeComponentsDisagree_NamesEachAndItsRelease"
-  - "Finding_AllThreeAgree_IsSilent"
-  - "Surface_MigrationsPending_SaysHowMany"
-  - "Surface_NoAuthorityAndNoMismatch_StillShowsTheVersions"
+  - "Route_AnsweredWithoutAToken_AndWithNoAuthorityConfigured"
+  - "Rail_MigrationsPending_ShowsTheMarker"
+  - "Rail_EverythingCurrent_StillShowsTheRelease"
 
 done:
-  - "the version of server, dashboard and sandbox agent is readable without opening a container"
-  - "the database provider and whether its migrations are current are on the same surface"
-  - "images from different releases are a named finding rather than a late run failure"
-  - "a target image is not compared against anything"
+  - "the server build, the agent version per project, the provider and the migration state are readable in the dashboard"
+  - "a build that can derive no agent version says so instead of failing the route"
+  - "the count comes from the probe that already computes it, not from a second reading"
+  - "the existing mismatch and pinned-agent findings are untouched"
   - "backend build green, dashboard build and tests green, full suite green"
