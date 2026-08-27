@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.139.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.138.0...v0.139.0) (2026-08-27)
+
+
+### Features
+
+* a context file keeps what was decided, and a rewrite no longer loses it ([d3c42a7](https://github.com/holgerleichsenring/agent-smith/commit/d3c42a75f10fbf2ff10272125b360a8b3555922c))
+* a context keeps judgement and drops readings (2026-08-26-04b6) ([e885e6f](https://github.com/holgerleichsenring/agent-smith/commit/e885e6fa453da5c3b85332f3037fc619b85d4843))
+* a context may name what the list forgot (2026-08-26-167c) ([ad916b1](https://github.com/holgerleichsenring/agent-smith/commit/ad916b16f1cd32bd968f2bc26380e6ffc3d88aab))
+* a context write preserves what it does not model (2026-08-26-364f) ([80f17ae](https://github.com/holgerleichsenring/agent-smith/commit/80f17ae9db56bd867e53cc507eeabc95f0e7c699))
+* a finished phase is recorded in its context (2026-08-26-31e5) ([9955c31](https://github.com/holgerleichsenring/agent-smith/commit/9955c315f6a74c3d9c7aa814d63e5e9ba9801807))
+
 ## [0.138.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.137.0...v0.138.0) (2026-08-26)
 
 
