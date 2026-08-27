@@ -23,6 +23,7 @@ GET	/api/config/connections	config.read
 GET	/api/config/connections/{id}/repos	config.read
 GET	/api/config/export.yml	config.export,secrets.read
 GET	/api/config/findings	anonymous
+GET	/api/config/installation	anonymous
 GET	/api/config/mcp-servers	config.read
 GET	/api/config/projects	config.read
 GET	/api/config/repos	config.read
