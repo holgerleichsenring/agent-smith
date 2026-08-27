@@ -26,7 +26,7 @@ import { isOpenPullRequest } from "@/lib/prStatus";
 // p0209a: persistent left app rail. p0343c (pixel identity): the rail emits the
 // ratified mocks' .side DOM verbatim — .brand (logo block + name), .nav-h section
 // headings and .nav items with .ni icons and .nc counts. Runs routes show MONITOR
-// (live bucket counts, hot needs-you) + SYSTEM + ROLLUPS styled consistently;
+// (live bucket counts, hot needs-you) + SYSTEM + INSIGHT styled consistently;
 // /config routes show the CATALOG (mock icons + live counts), SETTINGS, ACCESS and
 // THIS INSTALLATION.
 // 2026-08-27-1ed6: the rail shows the RUNNING SYSTEM and nothing that is a setting.
@@ -54,12 +54,15 @@ const SUBSYSTEM_ITEMS: Array<RailItem & { id: SubsystemId }> = [
   { id: "catalog", label: "Skill catalog & vocabulary", href: "/system/catalog" },
 ];
 
-const ROLLUPS: Array<RailItem & { icon: string }> = [
-  { id: "cost", label: "Cost", href: "/system/cost", icon: "◍" },
-  { id: "today", label: "Today's activity", href: "/system/today", icon: "◔" },
-  // p0329: ratification outcomes → expectation-hit-rate / first-PR-acceptance.
-  { id: "expectations", label: "Expectations", href: "/system/expectations", icon: "✓" },
-];
+// 2026-08-27-7463: one INSIGHT entry replaces the three rollup entries. "Rollup"
+// named how a number is computed; the operator reading it wants to know what it
+// tells them, and all three readings are on one page now.
+const INSIGHT: RailItem & { icon: string } = {
+  id: "overview",
+  label: "Overview",
+  href: "/overview",
+  icon: "◍",
+};
 
 // The catalog entities the config rail lists, with the mock's icons.
 const CATALOG_KINDS: Array<{ kind: ConfigEntityKind; icon: string }> = [
@@ -209,10 +212,13 @@ export function AppRail() {
             />
           ))}
 
-          <Section label="Rollups" style={{ marginTop: 10 }} />
-          {ROLLUPS.map((r) => (
-            <AppRailItem key={r.id} label={r.label} href={r.href} icon={r.icon} active={isActive(r.href)} />
-          ))}
+          <Section label="Insight" style={{ marginTop: 10 }} />
+          <AppRailItem
+            label={INSIGHT.label}
+            href={INSIGHT.href}
+            icon={INSIGHT.icon}
+            active={isActive(INSIGHT.href)}
+          />
         </>
       )}
     </nav>

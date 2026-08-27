@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-27-7463
+
+goal: "Spend, run outcomes and how often runs met what was asked of them read on one Overview page, replacing three rollup pages each too thin to be worth opening."
+
+applies_to: "dashboard (the rollup surfaces — three segments drawn into one page, one of them dissolved)"
+
+requires:
+  - 2026-08-27-1ed6
+
+scope:
+  in: "One Overview page with three sections: spend, with a breakdown of which project and pipeline it went to; runs by outcome; and the ratified criteria with their outcomes. One Insight rail entry replaces the three rollup entries, and the three old paths redirect to it."
+  out: "New endpoints and new server-side aggregation. Every figure is grouped from a response the dashboard already receives. A cost-per-run figure, which needs spend and runs to share a denominator neither carries today."
+
+decisions:
+  - key: |
+      THREE PAGES OF THREE CARDS EACH IS THE COMPLAINT. The operator called the rollups right but
+      thin, and thin is what a page is when it holds one strip of numbers. Together the same
+      readings fill a screen worth navigating to, and the comparison actually made — what was
+      spent against what came back — becomes possible without holding one page in your head while
+      opening another.
+  - key: |
+      TODAY'S ACTIVITY IS NOT MOVED, IT IS DISSOLVED — EVERY ONE OF ITS SIX NUMBERS IS ALREADY ON
+      THE SUBSYSTEM PAGE IT DESCRIBES. Tickets scanned, triggered, skipped and poll cycles render
+      on the Tracker page; webhooks received and actioned on the Webhooks page; all off the same
+      server snapshot the rollup reads. The page is a second copy of two strips, so it is deleted
+      rather than carried onto the Overview, and the Overview spends that room on runs by
+      outcome, which no page shows.
+  - key: |
+      THE BREAKDOWN GROUPS A RESPONSE THAT ALREADY ARRIVES. Spend today is three scalars summed
+      off the run list; there is no cost endpoint and none is added. Which project and pipeline
+      the money went to is a GROUPING of the same run snapshots the rail and the run list already
+      hold — new on screen, but not a new question asked of the server. The distinction matters:
+      a second query for a number a first query could answer is how two truths for one figure
+      begin.
+  - key: |
+      ONE HUB READ FEEDS THE WHOLE PAGE. The run-overview hook is per mount, each with its own
+      fetch and its own subscription — composing two views that call it would add two more of
+      both per page load. The Overview calls it once and passes the values down, which also makes
+      it impossible for two sections to show different totals.
+  - key: |
+      THE SECTIONS ARE SECTION HEADS, NOT PAGE HEADS. The rollup views each render a page head
+      and the expectation view has none — its head lives in the caller. Composed as they are,
+      that is two h1 rows and a headless block under a third. So the views are refactored to
+      render section heads under one page head, which is the real work the word "composing" was
+      hiding.
+  - key: |
+      A SECTION THAT CANNOT ANSWER SAYS SO IN ITS OWN BOX. The reads fail independently —
+      criteria can be empty on an installation that has spent money. Each section carries its own
+      empty and failed state, so one missing answer does not blank the other two.
+  - key: |
+      THE OLD PATHS REDIRECT IN THE NEXT CONFIG, NOT IN THE VIEW. Both routes are client
+      optional-catch-alls, so a redirect inside the view would render the old page and the
+      redirect at once. Declaring them as config redirects means the old path never reaches the
+      view, and the parity suite moves to the Overview rather than asserting both answers.
+  - key: |
+      INSIGHT, NOT ROLLUPS. "Rollup" names how the number is computed; the operator reading it
+      wants to know what it tells them.
+
+steps:
+  - id: the-overview-holds-the-three-readings
+    action: "Add an Overview segment with spend, runs by outcome and criteria outcomes, reading the run overview once and passing it down, each section keeping its own loading, empty and failed state."
+    new:
+      - "the overview page"
+  - id: the-spend-says-where-it-went
+    action: "Group the run snapshots already held by project and pipeline so the spend section shows which work the money went to, without asking the server anything new."
+  - id: the-rollup-views-become-sections
+    action: "Refactor the cost and expectation views to render section heads under one page head instead of page heads of their own, and delete the today rollup whose every number the subsystem pages already carry."
+  - id: the-rail-offers-one-insight-entry
+    action: "Replace the three rollup rail entries with one Insight → Overview entry, and add its place to the places table."
+  - id: the-old-rollup-paths-still-land
+    action: "Declare redirects from the cost, today and expectations paths to the Overview, and remove those segments from the system view."
+  - id: the-parity-suite-follows-the-page
+    action: "Re-point the parity suite's rollup routes and KPI assertions at the Overview, and correct the rail-filter tests that use a rollup path as an unrelated location."
+
+tests:
+  - "Overview_TheSpendFigure_IsTheOneTheCostViewRead"
+  - "Overview_TheBreakdown_SumsToTheHeadlineSpend"
+  - "Overview_TheRunOutcomes_MatchTheBucketsTheRailCounts"
+  - "Overview_TheCriteriaOutcomes_AreTheOnesTheExpectationViewRead"
+  - "Overview_ReadsTheRunOverviewOnce_ForAllSections"
+  - "Overview_CriteriaEmpty_LeavesTheOtherTwoSectionsRendered"
+  - "Overview_OneSectionFailing_DoesNotBlankThePage"
+  - "Overview_RendersOnePageHead_AndSectionHeadsBelowIt"
+  - "Rail_HasOneInsightEntry_AndNoRollupSection"
+  - "Route_TheOldRollupPaths_LandOnTheOverview"
+
+done:
+  - "spend with its breakdown, runs by outcome and criteria outcomes read on one page"
+  - "no figure on it comes from a request the dashboard was not already making"
+  - "the today rollup is gone and none of its numbers left the product"
+  - "a failing or empty section costs its own box and not the page"
+  - "the three old paths land on the Overview, and the parity suite asserts the page that ships"
+  - "dashboard build and tests green, full suite green"

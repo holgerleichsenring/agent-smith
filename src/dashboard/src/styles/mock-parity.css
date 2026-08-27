@@ -722,6 +722,10 @@
 .mock-system .rows .lrow:only-child { border-radius: var(--r); }
 .mock-system .lrow .id { font-family: var(--mono); font-size: 12px; font-weight: 600; }
 .mock-system .lrow .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 2026-08-27-7463: the proportion bar the Overview's spend rows carry, the same
+   4px accent meter the runs and viewer scopes already draw. */
+.mock-system .meter { display: block; height: 4px; border-radius: 3px; background: var(--line-2); margin-top: 6px; overflow: hidden; }
+.mock-system .meter > span { display: block; height: 100%; background: var(--accent); }
 
 /* the newest-event tail line under a stream's section rule */
 .mock-system .tail-line { display: flex; align-items: baseline; gap: 10px; margin: 14px 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); }
