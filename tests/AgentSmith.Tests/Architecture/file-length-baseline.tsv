@@ -126,7 +126,6 @@
 139	AgentSmith.Infrastructure.Core/Services/NewFormatSkillValidator.cs
 139	AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs
 138	AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs
-138	AgentSmith.Application/Services/ProjectAnalyzer.cs
 137	AgentSmith.Application/Services/ApiScanFindingsCompressor.cs
 137	AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs
 137	AgentSmith.Application/Services/PipelineQueueConsumer.cs

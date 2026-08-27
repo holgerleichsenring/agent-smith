@@ -41,7 +41,14 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
             sb.Append(System.IO.Path.GetFileName(path.TrimEnd('/', '\\')));
             sb.Append('/');
             sb.Append('\n');
-            Render(path, depth: 1, maxDepth, excludeRegexes, prefix: "", sb);
+            // 2026-08-27-3eb1: entries are counted DOWN so the recursion can stop; the
+            // budget is the same 1000 list_files uses.
+            var budget = SizeLimits.DirectoryTreeMaxEntries;
+            Render(path, depth: 1, maxDepth, excludeRegexes, prefix: "", sb, ref budget);
+            if (budget <= 0)
+                sb.Append("… [truncated at ")
+                  .Append(SizeLimits.DirectoryTreeMaxEntries)
+                  .Append(" entries — narrow the root or lower max_depth]\n");
             return Task.FromResult(Success(step, sw, sb.ToString().TrimEnd('\n')));
         }
         catch (Exception ex)
@@ -51,9 +58,11 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
         }
     }
 
-    private static void Render(string dir, int depth, int maxDepth, Regex[] excludes, string prefix, StringBuilder sb)
+    private static void Render(
+        string dir, int depth, int maxDepth, Regex[] excludes, string prefix,
+        StringBuilder sb, ref int budget)
     {
-        if (depth > maxDepth) return;
+        if (depth > maxDepth || budget <= 0) return;
         IEnumerable<string> children;
         try { children = Directory.EnumerateFileSystemEntries(dir); }
         catch { return; }
@@ -62,8 +71,9 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
             .OrderBy(c => !Directory.Exists(c))
             .ThenBy(c => c, StringComparer.Ordinal)
             .ToList();
-        for (var i = 0; i < list.Count; i++)
+        for (var i = 0; i < list.Count && budget > 0; i++)
         {
+            budget--;
             var entry = list[i];
             var isLast = i == list.Count - 1;
             var name = System.IO.Path.GetFileName(entry);
@@ -74,7 +84,7 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
             if (isDir) sb.Append('/');
             sb.Append('\n');
             if (isDir)
-                Render(entry, depth + 1, maxDepth, excludes, prefix + (isLast ? "    " : "│   "), sb);
+                Render(entry, depth + 1, maxDepth, excludes, prefix + (isLast ? "    " : "│   "), sb, ref budget);
         }
     }
 

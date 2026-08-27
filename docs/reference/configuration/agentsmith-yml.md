@@ -62,9 +62,16 @@ projects:
         #   ollama        ✗  NoOp placeholder — same long-loop cost; follow-up phase
 
       models:                       # Multi-model routing (optional)
+        # max_tokens is the OUTPUT cap. context_window_tokens (optional, unset by
+        # default) is the INPUT window the DEPLOYMENT behind the role accepts — the
+        # model name does not imply it. State it and the tool loop for that role folds
+        # its history and finalises before the provider refuses; leave it unset and
+        # nothing is derived. Preflight's context-window check reports a compaction
+        # threshold that could never fire below a stated window.
         scout:
           model: claude-haiku-4-5-20251001
           max_tokens: 4096
+          context_window_tokens: 200000
         primary:
           model: claude-sonnet-4-20250514
           max_tokens: 8192
