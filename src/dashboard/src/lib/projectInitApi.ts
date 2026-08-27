@@ -50,11 +50,19 @@ export async function startProjectInit(
       reason: body.reason ?? "An initialization is already running.",
     };
   }
-  return {
-    outcome: "refused",
-    runId: null,
-    reason: body.reason ?? `Could not start the initialization (HTTP ${res.status}).`,
-  };
+  return { outcome: "refused", runId: null, reason: refusalReason(body.reason, res.status) };
+}
+
+// 2026-08-27-7098: the reason is the message and the status rides ALONG with it — it is
+// what an operator quotes when they ask for help. The code stopped being the message the
+// moment the server started sending a reason for every refusal, including the unplanned
+// ones; a body that still carries none is a server too broken to say, and then the code
+// is all there is.
+function refusalReason(reason: string | null | undefined, status: number): string {
+  const stated = reason?.trim();
+  return stated
+    ? `${stated} (HTTP ${status})`
+    : `Could not start the initialization (HTTP ${status}).`;
 }
 
 // A refusal body is the reason the button renders; a body that is not JSON must

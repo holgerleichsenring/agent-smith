@@ -21,7 +21,7 @@ namespace AgentSmith.Server.Services.Diagnostics;
 internal sealed class InfraConnectivityProbe(
     IConnectionMultiplexer redis,
     IServiceScopeFactory scopeFactory,
-    ILogger<InfraConnectivityProbe> logger) : IInfraConnectivityProbe, IPreflightInfraProbe
+    ILogger<InfraConnectivityProbe> logger) : IInfraConnectivityProbe, IPreflightInfraProbe, IPersistenceStateReader
 {
     public string? RedisUnavailableReason => null;
 
@@ -45,26 +45,42 @@ internal sealed class InfraConnectivityProbe(
     public async Task<ConnectionProbeResult> ProbePersistenceAsync(CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
+        var state = await ReadPersistenceStateAsync(cancellationToken);
+        return Verdict(state) is { } problem
+            ? ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, problem)
+            : ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+    }
+
+    /// <summary>
+    /// 2026-08-27-729e: the read BOTH answers come from. The probe above folds this into a
+    /// reachability verdict; the installation report states it as it is.
+    /// </summary>
+    public async Task<PersistenceState> ReadPersistenceStateAsync(CancellationToken cancellationToken)
+    {
         try
         {
             using var scope = scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>();
-            var reachable = await db.Database.CanConnectAsync(cancellationToken);
-            if (!reachable)
-                return ConnectionProbeResult.Unreachable(
-                    stopwatch.ElapsedMilliseconds, "database not reachable");
+            if (!await db.Database.CanConnectAsync(cancellationToken))
+                return PersistenceState.Unreachable("database not reachable");
 
-            var pending = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).Count();
-            return pending == 0
-                ? ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds)
-                : ConnectionProbeResult.Unreachable(
-                    stopwatch.ElapsedMilliseconds,
-                    $"{pending} pending migration(s) — run 'agentsmith database migrate'");
+            var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
+            return new PersistenceState(true, pending.Count(), null);
         }
         catch (Exception ex)
         {
             logger.LogDebug(ex, "Persistence probe failed");
-            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+            return PersistenceState.Unreachable(ex.Message);
         }
     }
+
+    // A schema behind its migrations is not usable, so the probe still calls it unreachable.
+    private static string? Verdict(PersistenceState state) =>
+        state switch
+        {
+            { Reachable: false } => state.Error ?? "database not reachable",
+            { PendingMigrations: > 0 } =>
+                $"{state.PendingMigrations} pending migration(s) — run 'agentsmith database migrate'",
+            _ => null,
+        };
 }
