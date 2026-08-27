@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-27-7098
+
+goal: "Pressing start answers immediately — accepted, or refused with the reason — and the work that can fail happens in the run, where its failure is visible."
+
+applies_to: "backend (the init endpoint, its readiness answer) + dashboard (the start control)"
+
+requires:
+  - p0391a
+
+scope:
+  in: "The start endpoint accepts or refuses at once and never leaves the control waiting; a refusal names its reason rather than a status code; and the reachability a run depends on is answered before the button is pressed rather than discovered inside it."
+  out: "Making a run succeed — a run that starts and then fails is a correct outcome, and its failure belongs in the run. Retrying a refused start."
+
+decisions:
+  - key: |
+      A START IS AN ACCEPTANCE, NOT THE WORK. Pressing start currently waits while the endpoint
+      does enough to answer, and what the control shows when that goes wrong is
+      "Could not start the initialization (HTTP 500)" — the fallback that fires precisely when
+      the server sent no reason. A long wait ending in a status code is the worst of both: it
+      costs the operator time and then tells them nothing. Accept and hand back a run id, or
+      refuse and say why.
+  - key: |
+      THE OPERATOR IS RIGHT THAT A LATER FAILURE IS FINE. A run whose push is refused, whose
+      directory is unreachable, whose token lacks a scope — those are run failures, visible on
+      the run, with a trail. What must not happen is that the same information is discovered
+      only after twenty minutes of work, or that it surfaces as a number on a button.
+  - key: |
+      REACHABILITY IS KNOWN BEFORE THE PRESS, NOT DURING IT. Preflight already answers this class
+      of question at startup for the tracker and the model. The repository check skips itself
+      whenever no repository is declared individually — which is every installation that
+      discovers its repositories through a connection, and therefore exactly the installations
+      that just failed. The connection itself is the thing that must answer.
+  - key: |
+      A STATUS CODE IS NEVER THE MESSAGE. The client already prefers a reason from the body and
+      falls back to the code; the defect is on the sending side, where a failure leaves no
+      reason to send. Every refusal names what was wrong. The code stays in the text, because
+      it is what an operator quotes when they ask for help — the operator said as much.
+
+steps:
+  - id: the-endpoint-answers-at-once
+    action: "Return the acceptance or the refusal without waiting for work that belongs to the run, and give the control a run id it can follow."
+  - id: a-refusal-carries-its-reason
+    action: "Answer every refusal with a reason in the body, so the control never has to invent one from a status code."
+  - id: the-connection-is-checked-not-skipped
+    action: "Make the repository preflight answer for a configured connection rather than skipping when no repository is declared individually."
+  - id: the-control-shows-what-came-back
+    action: "Render the reason the server sent, keeping the status code alongside it rather than instead of it."
+
+tests:
+  - "Start_Accepted_ReturnsARunIdWithoutDoingTheWork"
+  - "Start_Refused_CarriesAReasonInTheBody"
+  - "Start_AnUnexpectedFailure_StillCarriesAReason"
+  - "Start_AlreadyRunning_StillAnswersImmediately"
+  - "Control_ARefusalWithAReason_ShowsTheReason"
+  - "Control_ARefusalWithNoReason_StillNamesTheCode"
+  - "Preflight_AConnectionThatCannotBeReached_IsReported"
+  - "Preflight_AConnectionThatAnswers_IsSilent"
+  - "Preflight_NoConnectionConfigured_SkipsWithItsReason"
+
+done:
+  - "pressing start answers at once, accepted or refused"
+  - "a refusal names what was wrong, with the status code alongside"
+  - "an unreachable connection is reported before a run is started, not inside one"
+  - "a run that starts and later fails is still a correct outcome"
+  - "backend build green, dashboard build and tests green, full suite green"

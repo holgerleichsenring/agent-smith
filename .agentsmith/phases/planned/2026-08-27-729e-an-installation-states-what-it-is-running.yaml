@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-27-729e
+
+goal: "An operator reads the version of every component and the state of the database off the dashboard, and an installation whose images do not come from one release says so."
+
+applies_to: "backend (a build-and-store report) + dashboard (where it is read)"
+
+requires:
+  - p0391a
+
+scope:
+  in: "The release and revision of the server, the dashboard and the sandbox agent, the database provider and whether its migrations are current, all on one surface; and a finding when the three images do not name the same release."
+  out: "The target images a run works INSIDE — those are the customer's own and carry no agent-smith version. Fixing a mismatch, which is a redeploy. The run-time agent-version resolution, which already exists and already explains itself."
+
+decisions:
+  - key: |
+      THE NUMBERS EXIST AND ARE SHOWN NOWHERE. The dashboard bundles NEXT_PUBLIC_RELEASE_VERSION
+      and NEXT_PUBLIC_BUILD_REVISION at build time and renders neither — the release constant is
+      read by no component at all, and the revision is used only as a query parameter for the
+      staleness comparison. The server carries its own build identity for the same comparison.
+      So the version is visible exactly when it is WRONG, through the mismatch banner, and never
+      when somebody simply wants to know it.
+  - key: |
+      THE THREE IMAGES ARE ONE RELEASE OR THEY ARE A DEFECT. Server, dashboard and sandbox agent
+      are built together and published together; a customer builds none of them. When they do
+      not name the same release the installation is in a state nobody chose — and it fails late
+      and obscurely, as a locally built server did when the agent version could not be derived
+      because the image carried no release variable. That is checkable the moment all three
+      report themselves.
+  - key: |
+      THE DATABASE IS PART OF "WHAT AM I RUNNING". Provider and pending-migration count decide
+      whether a run can even be recorded, and the probe already computes both for the infra
+      check. Reporting them costs a projection, and their absence is why "did my migration run"
+      is currently answered by reading container logs.
+  - key: |
+      IT GOES WHERE THE DEGRADED BANNER ALREADY IS. p0391a put "what is wrong with this
+      installation" above every route and the mismatch banner joined it. This is the same
+      question asked calmly rather than in alarm, so it belongs on the same surface — read at a
+      glance, not hunted for in a settings page.
+  - key: |
+      THE TARGET IMAGES ARE NOT PART OF THIS. What a run works inside is the customer's own
+      toolchain image, named by a context or a profile, and it has no agent-smith version to
+      agree with. Only the three images this project publishes are checked against each other.
+
+steps:
+  - id: each-component-reports-itself
+    action: "Collect the release and revision of the server, the dashboard and the sandbox agent, plus the database provider and its pending-migration count, into one anonymous report beside the existing findings route."
+    new:
+      - "the installation identity report"
+  - id: a-split-release-is-a-finding
+    action: "Record a finding when the three components do not name the same release, naming each one and what it says."
+  - id: the-dashboard-shows-it
+    action: "Render the report where the degraded and mismatch banners already live — component versions, the database provider, and whether migrations are pending."
+    new:
+      - "the installation identity surface"
+
+tests:
+  - "Report_AllThreeFromOneRelease_NamesItOnce"
+  - "Report_AServerWithNoReleaseVariable_SaysSoInsteadOfGuessing"
+  - "Report_ThePendingMigrationCount_IsTheOneTheProbeComputes"
+  - "Report_TheProvider_IsTheConfiguredOne"
+  - "Finding_ThreeComponentsDisagree_NamesEachAndItsRelease"
+  - "Finding_AllThreeAgree_IsSilent"
+  - "Surface_MigrationsPending_SaysHowMany"
+  - "Surface_NoAuthorityAndNoMismatch_StillShowsTheVersions"
+
+done:
+  - "the version of server, dashboard and sandbox agent is readable without opening a container"
+  - "the database provider and whether its migrations are current are on the same surface"
+  - "images from different releases are a named finding rather than a late run failure"
+  - "a target image is not compared against anything"
+  - "backend build green, dashboard build and tests green, full suite green"
