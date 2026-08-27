@@ -76,7 +76,7 @@ verifies it.
     refused with `401` — an absent signature header included. A platform with **no** secret
     configured is not verified at all and every delivery is accepted; that is the state
     every shipped template ships in, and it is safe only where the endpoint is not reachable
-    from the internet. The System → Connections panel says which platforms are in that state
+    from the internet. The Configuration → Connection check panel says which platforms are in that state
     and names any that already accepted an unsigned delivery.
 
 ## Endpoints

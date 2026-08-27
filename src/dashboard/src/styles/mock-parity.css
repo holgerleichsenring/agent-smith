@@ -78,14 +78,30 @@
   position: sticky;
   top: 0;
   align-self: start;
-  height: 100vh;
+  /* 2026-08-27-1ed6: the shell is two rows now — the rail stands under the header, so its
+     full height is the viewport minus that row, not all of it. */
+  height: calc(100vh - var(--topbar-h));
 }
 .mock-shell .brand { display: flex; align-items: center; gap: 9px; padding: 6px 10px 14px; }
 .mock-shell .brand .logo { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 14px; }
 .mock-shell .brand .bn { font-weight: 680; letter-spacing: -0.01em; }
-.mock-shell .tabs { display: flex; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin: 0 6px 14px; }
-.mock-shell .tabs a { flex: 1; text-align: center; font-size: 12.5px; font-weight: 560; color: var(--ink-2); text-decoration: none; padding: 6px 8px; border-radius: 7px; }
-.mock-shell .tabs a.on { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
+
+/* ===== shared header (runs-list.html / config-studio.html ".topbar") =====
+   2026-08-27-1ed6: the place on the left, the way into configuration and who is signed in
+   on the right. It spans both grid columns, so the rail hangs beneath it. */
+.mock-shell.topbar { display: flex; align-items: center; gap: 10px; height: var(--topbar-h); padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.mock-shell.topbar .tb-place { font-size: 13.5px; font-weight: 620; letter-spacing: -0.01em; color: var(--ink); }
+.mock-shell.topbar .tb-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; position: relative; }
+.mock-shell.topbar .tb-btn { font: inherit; font-size: 12.5px; font-weight: 560; color: var(--ink-2); background: none; border: 1px solid transparent; border-radius: 9px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.mock-shell.topbar .tb-btn:hover { background: var(--panel-2); color: var(--ink); }
+.mock-shell.topbar .tb-icon { padding: 7px; }
+.mock-shell.topbar .tb-account { position: relative; }
+.mock-shell.topbar .tb-who { font: inherit; font-size: 12.5px; font-weight: 560; color: var(--ink-2); background: none; border: 1px solid transparent; border-radius: 9px; padding: 5px 9px 5px 5px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.mock-shell.topbar .tb-who:hover { background: var(--panel-2); color: var(--ink); }
+.mock-shell.topbar .tb-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; font-size: 11.5px; font-weight: 700; flex: none; }
+.mock-shell.topbar .tb-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(32, 21, 21, 0.08); padding: 4px; display: flex; flex-direction: column; z-index: 40; }
+.mock-shell.topbar .tb-menu a, .mock-shell.topbar .tb-menu button { font: inherit; font-size: 12.5px; font-weight: 520; text-align: left; color: var(--ink-2); background: none; border: 0; border-radius: 7px; padding: 8px 10px; cursor: pointer; text-decoration: none; }
+.mock-shell.topbar .tb-menu a:hover, .mock-shell.topbar .tb-menu button:hover { background: var(--panel-2); color: var(--ink); }
 .mock-shell .nav-h { font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 6px 12px 4px; }
 .mock-shell .nav { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; cursor: pointer; color: var(--ink-2); font-size: 13.5px; font-weight: 520; text-decoration: none; }
 .mock-shell .nav:hover { background: var(--panel-2); color: var(--ink); }
@@ -94,9 +110,6 @@
 .mock-shell .nav .nc { margin-left: auto; font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--ink-3); background: var(--panel-2); border-radius: 20px; padding: 1px 8px; min-width: 22px; text-align: center; }
 .mock-shell .nav.on .nc { background: var(--panel); color: var(--accent); }
 .mock-shell .nav .nc.hot { background: var(--run-wash); color: var(--run); font-weight: 700; }
-.mock-shell .tracker-foot { margin-top: auto; padding: 12px; border-top: 1px solid var(--line-2); font-size: 11.5px; color: var(--ink-3); display: flex; flex-direction: column; gap: 6px; }
-.mock-shell .tracker-foot .tf { display: flex; align-items: center; gap: 7px; }
-.mock-shell .tracker-foot .td { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
 
 /* shared answer/quick-reply primitives (runs-list.html; reused inside the
    viewer's dialogue drawer, which hosts the same PendingQuestionCard) */
@@ -634,7 +647,6 @@
    full pane (wrapping per the rules above). */
 .mock-viewer .trace-grid > :last-child p { max-width: 1080px; }
 /* idle variants for the honest liveness states the mock hard-coded green */
-.mock-shell .tracker-foot .td.idle { background: var(--idle); }
 .mock-runs .inflow .id.idle { background: var(--idle); color: var(--idle); animation: none; }
 /* mock elements that became real <button>s need their UA chrome reset */
 .mock-viewer button.beat { font: inherit; text-align: left; border: 0; background: transparent; }

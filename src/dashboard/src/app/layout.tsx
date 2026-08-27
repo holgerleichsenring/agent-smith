@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { AppHeader } from "@/components/shell/AppHeader";
 import { AppRail } from "@/components/shell/AppRail";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { DegradedBanner } from "@/components/shell/DegradedBanner";
@@ -50,13 +51,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   throw in the rail or the banner escapes error.tsx and blanks the
                   document. Each gets its own boundary: the rail failing must not
                   cost the operator the run they were reading. */}
-                <div className="grid min-h-screen grid-cols-[230px_1fr]">
+                {/* 2026-08-27-1ed6: two ROWS — the header spans both columns above the
+                  rail and the scroll container, so it never scrolls away and the rail's
+                  full height is the viewport minus the header rather than all of it. */}
+                <div className="grid min-h-screen grid-cols-[230px_1fr] grid-rows-[auto_1fr]">
+                  <RenderBoundary surface="app header">
+                    <AppHeader />
+                  </RenderBoundary>
                   <RenderBoundary surface="navigation rail">
                     <AppRail />
                   </RenderBoundary>
                   {/* p0391a: the server always starts, so "it came up" no longer means
                     "it is fine" — the banner names what is down, above every route. */}
-                  <main className="h-screen overflow-y-auto">
+                  <main className="shell-main">
                     <RenderBoundary surface="installation health banner">
                       <DegradedBanner />
                     </RenderBoundary>

@@ -24,8 +24,9 @@ const HUB = {
 };
 vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => HUB }));
 
-// The REST-fed pages (config / catalog / connections / expectations) resolve to
-// their honest empty states so each route settles deterministically.
+// The REST-fed pages (config / catalog / expectations) resolve to their honest empty
+// states so each route settles deterministically. 2026-08-27-1ed6: connections left this
+// view for /config/connection-check.
 vi.mock("@/lib/configApi", () => ({
   fetchConfig: vi.fn(() =>
     Promise.resolve({ projects: [], repos: [], trackers: [], agents: [] }),
@@ -36,10 +37,6 @@ vi.mock("@/lib/catalogApi", () => ({
     Promise.resolve({ ready: false, masters: [], skills: [], concepts: [] }),
   ),
   fetchSkillBody: vi.fn(() => Promise.resolve(null)),
-}));
-vi.mock("@/lib/diagnosticsApi", () => ({
-  fetchConnections: vi.fn(() => Promise.resolve({ connections: [], webhooks: [] })),
-  probeConnection: vi.fn(),
 }));
 vi.mock("@/lib/expectationsApi", () => ({ fetchExpectationMetrics: vi.fn() }));
 
@@ -58,7 +55,6 @@ const renderView = (segment: string) =>
 const SETTLE: Record<string, string> = {
   config: "config-view-empty",
   catalog: "catalog-browser-unready",
-  connections: "connections-empty",
   expectations: "expectations-empty",
 };
 
@@ -68,7 +64,6 @@ const ROUTES = [
   "chat",
   "config",
   "catalog",
-  "connections",
   "cost",
   "today",
   "expectations",

@@ -13,6 +13,12 @@ The dashboard is a Next.js app shipped as its own image (`holgerleichsenring/age
 
 The dashboard proxies to the server (`AGENTSMITH_BACKEND_URL`, in compose `http://server:8081`) so the browser stays same-origin. The server's UI API allows loopback callers always and other origins via `AGENTSMITH_DASHBOARD_ORIGIN`. There is no built-in login — it's read-only plus cancel, and you put it behind whatever auth proxy your team already uses.
 
+## The shell
+
+Every route sits under one header and one rail. The **header** names the place you are on, and carries the two things that belong to no single page: a **gear** that opens configuration in one click, and the **account** — who is signed in, with the identity page and sign-out behind it. Where no authority is configured there is nothing to show, so nothing is shown.
+
+The **rail** shows the running system and nothing that is a setting: the monitor buckets with live counts, the subsystems (the tracker entry names the tracker it has actually seen polling), and the rollups. Under `/config` the same rail lists the catalog, the settings singletons, Permissions, and a **This installation** group — the installation read-out, the connection check and Changes — plus the way back to runs.
+
 ## Runs
 
 The runs list is dense on purpose — one line per run, Azure-DevOps-style: status glyph, pipeline name, ticket title, repos, real `x/y` step progress while running, cost so far, age. Filter chips for running / queued / failed / done. New runs appear live; nothing needs a refresh.
@@ -46,7 +52,7 @@ The `/system` view is the answer to "is this thing alive and why didn't my ticke
 
 ## Connections
 
-System → Connections is the runtime diagnostics page (p0292/p0293): every configured connection — trackers, repo connections, LLM agents, sandbox backend, Redis, database, chat adapters — with a probe button per row and a "Test all". Probes are the cheapest authenticated call against the real dependency, so a red row is a real problem, named. Webhooks get a "secret configured / last delivery seen" panel instead of a probe button (you can't actively probe an inbound webhook from the server side).
+Configuration → This installation → Connection check is the runtime diagnostics page (p0292/p0293; it lived under System → Connections until 2026-08-27-1ed6, and that path still redirects here): every configured connection — trackers, repo connections, LLM agents, sandbox backend, Redis, database, chat adapters — with a probe button per row and a "Test all". Probes are the cheapest authenticated call against the real dependency, so a red row is a real problem, named. Webhooks get a "secret configured / last delivery seen" panel instead of a probe button (you can't actively probe an inbound webhook from the server side).
 
 The same probes back `agent-smith doctor` and the server's startup preflight on `/health` — one probe implementation, three consumers.
 
@@ -54,7 +60,7 @@ The same probes back `agent-smith doctor` and the server's startup preflight on 
 
 ![The configuration studio, with projects wired to their agent, tracker and repos, and every reference picked from the catalog](../../assets/screenshots/config-projects.png)
 
-Configuration is a UI now, not only a YAML file you hand-edit. The **Configuration** tab is a relational catalog — projects, agents, trackers, repositories, connections, MCP servers, secrets — that you create and edit in place. The defining rule is **refs are picked, never typed**: a project points at its agent, tracker and repos by choosing them from the catalog, so it can't reference an agent that doesn't exist, and a connection-scoped repo ref either resolves or is flagged. No hand-edited config map, no dangling reference discovered at runtime.
+Configuration is a UI now, not only a YAML file you hand-edit. Reached from the header's gear, **Configuration** is a relational catalog — projects, agents, trackers, repositories, connections, MCP servers, secrets — that you create and edit in place. The defining rule is **refs are picked, never typed**: a project points at its agent, tracker and repos by choosing them from the catalog, so it can't reference an agent that doesn't exist, and a connection-scoped repo ref either resolves or is flagged. No hand-edited config map, no dangling reference discovered at runtime.
 
 Each project card shows its wiring at a glance — **agent → project ← tracker · repos** — plus the pipeline it triggers. Every change lands in **Changes** (an audit trail of what changed and when), and **Export agentsmith.yml** renders the whole catalog back to the on-disk file at any point. Secrets are referenced by name, never shown.
 
