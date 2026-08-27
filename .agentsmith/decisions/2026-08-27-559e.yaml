@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-27-559e
+
+decisions:
+  - category: Architecture
+    chose: "A .mock-overview scope, added as a third class on the Overview page root"
+    over: "Editing the .mock-system rules the page inherits, or a page-level style block"
+    reason: |
+      Every rule this phase adds — the column bound, the card row, the panel row, the
+      truncating work label — is scoped under .mock-overview, and no shared rule was
+      touched. 2026-08-27-1ed6 learned this the hard way: deleting one .mock-shell .tabs
+      rule visibly changed the Access page. .mock-system is worn by Tracker, Webhooks,
+      Repositories, Installation and the connection check, all of which keep the strip
+      layout that suits them; a page-scoped class means the Overview cannot take a shape
+      away from any of them. Tokens, radii, the shadow and the 4px meter geometry are the
+      ones .mock-system already declares, so the page stays inside the design system.
+  - category: Implementation
+    chose: "The column is bound to 1240px, and .mock-system's own 1500px bound was left alone"
+    over: "Trusting the spec's premise that the system scope carries no bound at all"
+    reason: |
+      The premise the phase was written against is not quite what the stylesheet says:
+      .mock-system .main has carried max-width 1500px since p0343d, so the page was bounded
+      — at a width wide enough that three stacked full-width strips still read as three
+      stacked pages. The correction is therefore a TIGHTER bound for this page only, at
+      1240px, which is what a three-card row over a two-panel row wants. Left-aligned, not
+      centred: every other page in the product opens hard against the rail, and a centred
+      Overview would be the only page that does not.
+  - category: Implementation
+    chose: "The spend card's detail line names today's spend and the 7-day call count"
+    over: "The largest single run, which the approved mockup draws beneath the headline"
+    reason: |
+      The largest single run is not a figure this page computes — it would be a new max
+      over the same snapshots, and the phase's own scope says every figure stays the one
+      2026-08-27-7463 shipped. Folding the strip's three cost cells into one card keeps all
+      three readings (kcard-cost-week as the headline, kcard-cost-today and
+      kcard-cost-calls-7d as its detail) and adds nothing. This is the one departure from
+      the approved layout's wording; if the operator wants the largest single run, it is a
+      new derivation and belongs to a successor phase that can state where it comes from.
+  - category: TradeOff
+    chose: "The run card names succeeded, failed and cancelled; needs-you, running and queued leave the page"
+    over: "Keeping all seven readings by stacking two detail lines on the card"
+    reason: |
+      The three that leave are exactly the buckets AppRail counts on every page of the
+      product, off the same bucketRuns call — which is why the seven-cell strip read as a
+      rail count restated rather than as an answer. deriveRunOutcomes still computes all
+      seven and the test still pins them against bucketRuns, so nothing was removed from
+      the derivation; the card shows the total and how the finished ones ended, which is
+      the reading no other surface carries. A run in flight is one click away in the rail.
+  - category: Architecture
+    chose: "The criteria read is lifted into useExpectationMetrics and passed to both the card and the panel"
+    over: "Leaving the fetch inside ExpectationMetricsView and giving the card its own read"
+    reason: |
+      The Overview now shows the criteria outcomes twice — as a card figure and as a panel
+      — and two owners of the read means two requests per page load for a number the first
+      already answered, which is the trap 2026-08-27-7463 avoided for the run overview by
+      reading useJobsHub once at the top. The hook holds the effect verbatim; the view
+      became a pure renderer of the four states it can be in, and both the card and the
+      panel derive their hit rate from one sumOutcomeCounts over the same per-project
+      counts, so they cannot disagree. Overview_ReadsTheCriteriaOnce_ForTheCardAndThePanel
+      pins the single read.
+  - category: Implementation
+    chose: "The work label truncates with its full repo set on the element's title attribute"
+    over: "Wrapping the label onto a second line, or shortening the set to 'repo +2'"
+    reason: |
+      A breakdown row exists to be compared against its neighbours, and a row stretched to
+      fit a three-repo label makes every proportion bar a different length for a reason
+      that has nothing to do with money. Wrapping keeps the value but makes the rows
+      different heights, which costs the same comparison; an abbreviation loses the value
+      outright. Truncation with the full set on title keeps the row one line, keeps the
+      bars comparable, and keeps the answer reachable. The grid item gets min-width 0 in
+      the same scope, because a grid item's automatic minimum size would otherwise let the
+      label grow the track it sits in regardless of the ellipsis.
+  - category: Scope
+    chose: "ProjectCard moved into ExpectationProjectCard.tsx and the percent helper into lib"
+    over: "Leaving ExpectationMetricsView as one 190-line file with three responsibilities"
+    reason: |
+      The view was already carrying the fetch, the overall-KPI sums, the per-project card
+      and its own state machine. Lifting the fetch out was required by the single-read
+      decision above; with the file open, the project card is a separate thing that renders
+      and the percent formatter is a pure function two callers now need. The view is left
+      holding only the states the panel can be in. No behaviour moved with them — the
+      per-project testids and the honest dash for an unmeasured rate are unchanged, and
+      ExpectationMetricsView's own tests still drive it through the hook that fetches.
+  - category: Scope
+    chose: "Structural assertions in the existing Overview and parity tests were rewritten; every value assertion was kept"
+    over: "Keeping the old assertions green by leaving the strips in place beside the cards"
+    reason: |
+      Four assertions named the layout this phase exists to replace: two .health/.metric
+      class checks in the parity suite, the overview-spend-strip / overview-runs-strip
+      testids, and the needs-you / running / queued cells. Each was re-pointed at the card
+      that now carries the same figure, and the derivation checks behind them
+      (deriveCostRollup, deriveSpendBreakdown, deriveRunOutcomes against bucketRuns) are
+      untouched — so what the suite proves about the NUMBERS is exactly what it proved
+      before. Nothing was deleted to make a test pass.
+  - category: TradeOff
+    chose: "The layout ships proven by the unit suite and read off the stylesheet, not off a screenshot"
+    over: "Standing the dashboard up against demo data and looking at the rendered page"
+    reason: |
+      jsdom computes no layout, so the card grid, the two-column panel row, the 1240px
+      bound and the ellipsis are asserted as structure and class, not as rendered pixels —
+      the tests pin that three .ov-card elements sit in .ov-cards and two .ov-panel
+      elements sit in .ov-panels, and the CSS that shapes them is read by review. The repo
+      carries no browser-driven test tooling, and standing the real page up needs the
+      backend and a populated ledger. This is worth naming, because the layout the previous
+      phase shipped was also green.

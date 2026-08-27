@@ -135,8 +135,10 @@ describe("System & overview pages — parity design system (p0343d)", () => {
     expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent("$2.44");
     expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent("$2.44");
     expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent("19");
-    expect(screen.getByTestId("kcard-cost-today").className).toContain("metric");
-    expect(overview.container.querySelector(".health")).not.toBeNull();
+    // 2026-08-27-559e: the figures read from cards now, not from a strip.
+    expect(screen.getByTestId("overview-spend-card").className).toContain("ov-card");
+    expect(overview.container.querySelector(".ov-cards")).not.toBeNull();
+    expect(overview.container.querySelector(".ov-panels")).not.toBeNull();
     // RUNS BY OUTCOME — the same run, counted where it belongs.
     expect(screen.getByTestId("kcard-runs-total")).toHaveTextContent("1");
     expect(screen.getByTestId("kcard-runs-succeeded")).toHaveTextContent("1");

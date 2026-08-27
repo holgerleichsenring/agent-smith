@@ -2,6 +2,11 @@
 
 import type { SpendSlice } from "@/hooks/useSpendBreakdown";
 
+// 2026-08-27-559e: a run over several repositories names every one of them on
+// its work line, and that line used to set the row's width. It is truncated
+// with the full set kept on the element's title, because a breakdown row exists
+// to be compared against its neighbours and a row stretched to fit its label
+// makes every proportion bar incomparable.
 // 2026-08-27-7463: the breakdown rows — one line per repo-set and pipeline, the
 // amount, and a bar drawn at the slice's share of the total. The section keeps
 // its own loading and empty states: the run list is one of three answers this
@@ -39,7 +44,9 @@ function SpendRow({ slice }: { slice: SpendSlice }) {
     <div className="lrow" data-testid={`overview-spend-row-${slice.key}`}>
       <span className="id">{slice.pipeline}</span>
       <span>
-        {slice.work}
+        <span className="ov-work" title={slice.work} data-testid={`overview-spend-work-${slice.key}`}>
+          {slice.work}
+        </span>
         <span className="meter" aria-hidden>
           <span style={{ width: `${Math.round(slice.share * 100)}%` }} />
         </span>

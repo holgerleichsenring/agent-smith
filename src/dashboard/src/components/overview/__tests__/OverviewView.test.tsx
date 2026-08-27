@@ -14,6 +14,8 @@ import * as expectationsApi from "@/lib/expectationsApi";
 // that the breakdown adds up to the headline it sits under, that the run
 // overview is read ONCE for the whole page, and that a section which cannot
 // answer costs its own box and not the page.
+// 2026-08-27-559e: and that those readings render as three CARDS over two
+// PANELS — the figures unchanged, their layout replaced.
 
 const useJobsHub = vi.hoisted(() => vi.fn());
 vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => useJobsHub() }));
@@ -136,11 +138,15 @@ describe("Overview", () => {
     expect(outcomes.queued).toBe(buckets.queued.length);
     expect(outcomes.finished).toBe(buckets.finished.length);
 
+    // 2026-08-27-559e: the in-flight buckets are still derived off bucketRuns —
+    // the card names the terminal outcomes, and the rail carries needs-you,
+    // running and queued on every page.
+    expect(outcomes.needsYou).toBe(1);
+    expect(outcomes.running).toBe(1);
+    expect(outcomes.queued).toBe(1);
+
     renderOverview();
     expect(screen.getByTestId("kcard-runs-total")).toHaveTextContent(String(runs.length));
-    expect(screen.getByTestId("kcard-runs-needs-you")).toHaveTextContent("1");
-    expect(screen.getByTestId("kcard-runs-running")).toHaveTextContent("1");
-    expect(screen.getByTestId("kcard-runs-queued")).toHaveTextContent("1");
     // The finished bucket, split by how those runs ended.
     expect(screen.getByTestId("kcard-runs-succeeded")).toHaveTextContent("1");
     expect(screen.getByTestId("kcard-runs-failed")).toHaveTextContent("1");
@@ -179,8 +185,8 @@ describe("Overview", () => {
   it("Overview_CriteriaEmpty_LeavesTheOtherTwoSectionsRendered", async () => {
     renderOverview();
     expect(await screen.findByTestId("expectations-empty")).toBeInTheDocument();
-    expect(screen.getByTestId("overview-spend-strip")).toBeInTheDocument();
-    expect(screen.getByTestId("overview-runs-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-spend-card")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();
   });
 
   it("Overview_OneSectionFailing_DoesNotBlankThePage", async () => {
@@ -188,8 +194,8 @@ describe("Overview", () => {
     renderOverview();
     expect(await screen.findByTestId("expectations-error")).toHaveTextContent("upstream is down");
     // The two readings that did answer are still on screen, in their own boxes.
-    expect(screen.getByTestId("overview-spend-strip")).toBeInTheDocument();
-    expect(screen.getByTestId("overview-runs-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-spend-card")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();
     expect(screen.getByTestId("overview-page")).toBeInTheDocument();
   });
 
@@ -207,7 +213,7 @@ describe("Overview", () => {
     });
     renderOverview();
     expect(screen.getByTestId("overview-spend-empty")).toBeInTheDocument();
-    expect(screen.getByTestId("overview-runs-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();
   });
 
   it("Overview_RendersOnePageHead_AndSectionHeadsBelowIt", () => {
@@ -215,10 +221,144 @@ describe("Overview", () => {
     const heads = container.querySelectorAll(".m-head h1");
     expect(heads).toHaveLength(1);
     expect(heads[0]).toHaveTextContent("Overview");
+    // 2026-08-27-559e: the section heads that remain are the two panels' own —
+    // the three figures moved into cards, which carry a label, not a head.
     const sections = [...container.querySelectorAll(".section-head h2")].map((h) => h.textContent);
-    expect(sections).toContain("Spend");
     expect(sections).toContain("Where the money went");
-    expect(sections).toContain("Runs by outcome");
     expect(sections).toContain("Criteria outcomes");
+  });
+  // ===== 2026-08-27-559e: cards over panels ================================
+
+  it("Overview_TheThreeFigures_RenderAsThreeCards", () => {
+    const { container } = renderOverview();
+    // The page is a bounded column of its own scope, not a .mock-system page
+    // whose strips run whatever width the display has.
+    expect(container.querySelector(".mock-overview .main")).not.toBeNull();
+    const cards = container.querySelectorAll(".ov-cards > .ov-card");
+    expect(cards).toHaveLength(3);
+    expect(cards[0]).toBe(screen.getByTestId("overview-spend-card"));
+    expect(cards[1]).toBe(screen.getByTestId("overview-runs-card"));
+    expect(cards[2]).toBe(screen.getByTestId("overview-criteria-card"));
+    // Each card is a label, one figure and one line of detail.
+    for (const card of cards) {
+      expect(card.querySelector(".k")).not.toBeNull();
+      expect(card.querySelector(".v")).not.toBeNull();
+      expect(card.querySelector(".d")).not.toBeNull();
+    }
+    // The spend headline is the trailing week; today and the call count are its detail.
+    expect(screen.getByTestId("overview-spend-card").querySelector(".v")).toContainElement(
+      screen.getByTestId("kcard-cost-week"),
+    );
+    expect(screen.getByTestId("overview-spend-card").querySelector(".d")).toContainElement(
+      screen.getByTestId("kcard-cost-today"),
+    );
+  });
+
+  it("Overview_TheOutcomeCard_NamesTheOutcomesWithoutASevenCellStrip", () => {
+    renderOverview();
+    const card = screen.getByTestId("overview-runs-card");
+    expect(card.querySelector(".v")).toContainElement(screen.getByTestId("kcard-runs-total"));
+    expect(card).toHaveTextContent("1 succeeded · 1 failed · 1 cancelled");
+    // The seven equal cells are gone: the rail already counts the in-flight
+    // buckets on every page, and repeating them read as a rail count restated.
+    expect(screen.queryByTestId("overview-runs-strip")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("kcard-runs-needs-you")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("kcard-runs-running")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("kcard-runs-queued")).not.toBeInTheDocument();
+  });
+
+  it("Overview_TheBreakdownAndCriteria_ShareOneRow", () => {
+    const { container } = renderOverview();
+    const row = container.querySelector(".ov-panels");
+    expect(row).not.toBeNull();
+    const panels = [...row!.children];
+    expect(panels).toHaveLength(2);
+    // The breakdown takes the wider left column, the criteria the right.
+    expect(panels[0]).toBe(screen.getByTestId("overview-spend"));
+    expect(panels[1]).toBe(screen.getByTestId("expectations-view"));
+    for (const panel of panels) {
+      expect(panel.className).toContain("ov-panel");
+      expect(panel.querySelector(".section-head h2")).not.toBeNull();
+    }
+  });
+
+  it("Overview_ARepoSetLongerThanItsRow_IsTruncatedAndKeepsItsFullValue", () => {
+    overview = {
+      active: [],
+      recent: [
+        snap({
+          runId: "wide",
+          repos: [
+            "platform-identity-service",
+            "platform-billing-service",
+            "platform-notification-service",
+          ],
+        }),
+      ],
+      systemActivity: null,
+    };
+    useJobsHub.mockReturnValue({ overview });
+    const slices = deriveSpendBreakdown(overview, Date.now());
+    expect(slices).toHaveLength(1);
+
+    renderOverview();
+    const label = screen.getByTestId(`overview-spend-work-${slices[0].key}`);
+    // The row is truncated by its own rule rather than stretched by its label,
+    // and the whole repo set stays reachable on the element.
+    expect(label.className).toContain("ov-work");
+    expect(label).toHaveAttribute("title", slices[0].work);
+    expect(label).toHaveTextContent(slices[0].work);
+  });
+
+  it("Overview_NoCriteriaRecorded_RendersTheEmptyStateInsideThePanel", async () => {
+    renderOverview();
+    const panel = await screen.findByTestId("expectations-view");
+    expect(panel.className).toContain("ov-panel");
+    // The empty state costs the panel, not the bottom half of the page.
+    expect(within(panel).getByTestId("expectations-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-criteria-card")).toHaveTextContent("none ratified yet");
+    expect(screen.getByTestId("overview-spend-card")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();
+  });
+
+  it("Overview_EveryFigure_IsTheOneTheSectionsAlreadyRead", async () => {
+    mockedExpectations.fetchExpectationMetrics.mockResolvedValue({
+      total: 5,
+      projects: [
+        {
+          project: "alpha",
+          counts: { total: 5, verbatim: 1, edited: 2, rejected: 1, unratified: 1 },
+          expectationHitRate: 0.25,
+          firstPrAcceptance: 0.6,
+          averageEditDistance: 8,
+          months: [],
+        },
+      ],
+    });
+    const cost = deriveCostRollup(overview, Date.now());
+    const outcomes = deriveRunOutcomes(mergeNewestFirst(overview.active, overview.recent));
+    renderOverview();
+
+    expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent(`$${cost.week.toFixed(2)}`);
+    expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent(`$${cost.today.toFixed(2)}`);
+    expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent(
+      cost.llmCalls.toLocaleString(),
+    );
+    expect(screen.getByTestId("kcard-runs-total")).toHaveTextContent(String(outcomes.total));
+    expect(screen.getByTestId("kcard-runs-succeeded")).toHaveTextContent(String(outcomes.succeeded));
+    expect(screen.getByTestId("kcard-runs-failed")).toHaveTextContent(String(outcomes.failed));
+    expect(screen.getByTestId("kcard-runs-cancelled")).toHaveTextContent(String(outcomes.cancelled));
+    // The criteria card is the panel's own hit rate: 1 verbatim / 4 ratified.
+    expect(await screen.findByTestId("exp-metric-hit-rate")).toHaveTextContent("25%");
+    const card = screen.getByTestId("overview-criteria-card");
+    expect(card.querySelector(".v")).toHaveTextContent("25%");
+    expect(card).toHaveTextContent("1 of 4 ratified criteria verified");
+  });
+
+  it("Overview_ReadsTheCriteriaOnce_ForTheCardAndThePanel", () => {
+    renderOverview();
+    // The card and the panel show the same outcomes; a read owned by either
+    // would be a second request for a number the first already answered.
+    expect(mockedExpectations.fetchExpectationMetrics).toHaveBeenCalledTimes(1);
   });
 });

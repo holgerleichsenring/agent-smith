@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-27-559e
+
+goal: "The Overview reads as three cards above two side-by-side panels in a bounded column, instead of full-width metric strips stacked down the page."
+
+applies_to: "dashboard (the Overview page — its layout only)"
+
+requires:
+  - 2026-08-27-7463
+
+scope:
+  in: "The Overview's layout: a row of three cards (spend, runs, criteria met) over a two-column row holding the spend breakdown and the criteria outcomes, inside a bounded column. A repo set too long for its row is truncated rather than stretching it. The empty criteria state sits inside its panel."
+  out: "What the page reads or computes — every figure stays the one 7463 shipped. The other system pages, which keep the strip layout that suits them."
+
+decisions:
+  - key: |
+      THE SPEC DESCRIBED STRUCTURE AND THE PAGE INHERITED A LAYOUT. 7463 said "section heads under
+      one page head", which is what shipped: the three rollup strips stacked down a page with no
+      column bound, on a wide display running the full 2000px. That is the three thin pages
+      re-stacked, which is the complaint the phase existed to answer. The mockup the operator
+      approved is cards over panels; this phase builds that and nothing else.
+  - key: |
+      THREE CARDS, NOT A SEVEN-CELL STRIP. Runs by outcome shipped as seven equal cells — runs,
+      needs-you, running, queued, succeeded, failed, cancelled — which reads as a rail count
+      repeated, not as an answer. The card carries the total and names the outcomes beneath it,
+      so the eye lands on one number per card and the three cards compare.
+  - key: |
+      A REPO SET IS AS LONG AS THE INSTALLATION MAKES IT. A run over three repositories names all
+      three on one line, and today that line sets the row's width. It truncates with its full
+      value available on hover, because a breakdown row exists to be compared against its
+      neighbours, and a row that stretches to fit its label makes every bar incomparable.
+  - key: |
+      AN EMPTY SECTION IS EMPTY INSIDE ITS BOX. The criteria section renders its empty state at
+      page scale today, so an installation that has negotiated nothing sees a page whose bottom
+      half is one sentence. Inside a panel it costs the panel.
+
+steps:
+  - id: the-page-holds-a-bounded-column
+    action: "Bound the Overview's column the way the runs page bounds its own, so the content stops stretching on a wide display."
+  - id: the-three-readings-become-cards
+    action: "Lay the spend, run-outcome and criteria-met figures out as three cards in a row, each with its headline figure and its detail beneath, and drop the seven-cell outcome strip."
+    new:
+      - "the overview card row"
+  - id: the-two-tables-sit-side-by-side
+    action: "Put the spend breakdown and the criteria outcomes in a two-column row of panels, collapsing to one column on a narrow display."
+  - id: a-long-repo-set-does-not-stretch-its-row
+    action: "Truncate a breakdown label too long for its row, keeping the full value reachable, so the proportion bars stay comparable."
+  - id: an-empty-section-costs-its-panel
+    action: "Render the criteria empty and failed states inside the panel rather than at page scale."
+
+tests:
+  - "Overview_TheThreeFigures_RenderAsThreeCards"
+  - "Overview_TheOutcomeCard_NamesTheOutcomesWithoutASevenCellStrip"
+  - "Overview_TheBreakdownAndCriteria_ShareOneRow"
+  - "Overview_ARepoSetLongerThanItsRow_IsTruncatedAndKeepsItsFullValue"
+  - "Overview_NoCriteriaRecorded_RendersTheEmptyStateInsideThePanel"
+  - "Overview_EveryFigure_IsTheOneTheSectionsAlreadyRead"
+
+done:
+  - "the Overview reads as the approved mockup: three cards over two panels in a bounded column"
+  - "no figure changed — the page computes exactly what it computed before"
+  - "a run over several repositories does not stretch its breakdown row"
+  - "an installation with no ratified criteria loses a panel, not half a page"
+  - "dashboard build and tests green, full suite green"
