@@ -32,11 +32,12 @@ public sealed class AgenticToolSurface
             .Cast<AITool>()
             .ToList();
 
-    /// <summary>Scout / investigator surface: read-only fs + (optional) web_fetch.</summary>
+    /// <summary>Scout / investigator surface: read-only fs + (optional) web_fetch.
+    /// 2026-08-27-3eb1: every result bounded — the sweep is one message list.</summary>
     public IList<AITool> Scout(FilesystemToolHost fs, WebToolHost? web = null) =>
         fs.GetTools(Models.SkillExecutionPhase.Plan, investigatorMode: null)
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
-            .Cast<AITool>()
+            .Select(BoundedResultTool.Wrap)
             .ToList();
 
     /// <summary>

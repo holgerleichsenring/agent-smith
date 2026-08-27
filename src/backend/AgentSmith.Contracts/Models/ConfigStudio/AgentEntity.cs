@@ -31,8 +31,12 @@ public sealed record AgentEntity(
     }
 }
 
-/// <summary>One role's model routing: model id, optional Azure deployment, optional token budget.</summary>
-public sealed record AgentModelAssignment(string Model, string? Deployment = null, int? MaxTokens = null);
+/// <summary>
+/// One role's model routing: model id, optional Azure deployment, optional output-token
+/// budget, and (2026-08-27-3eb1) the optional input window the deployment accepts.
+/// </summary>
+public sealed record AgentModelAssignment(
+    string Model, string? Deployment = null, int? MaxTokens = null, int? ContextWindowTokens = null);
 
 /// <summary>The agent's pricing table: model name → USD per million tokens.</summary>
 public sealed record AgentPricing(IReadOnlyDictionary<string, AgentModelPricing> Models)

@@ -39,6 +39,8 @@ public static class AgentProviderExtensions
         // p0427: the factory records a traced run's conversation, so the writer must exist
         // wherever the factory does. The null default keeps an untraced graph free.
         services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();
+        services.AddSingleton<CompactionSummaryRequest>();
+        services.AddSingleton<WindowDerivedCompaction>();
         services.AddSingleton<IChatClientFactory, ChatClientFactory>();
         services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
         return services;
