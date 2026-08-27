@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ExpectationMetricsView } from "@/components/system/ExpectationMetricsView";
+import { useExpectationMetrics } from "@/hooks/useExpectationMetrics";
 import * as api from "@/lib/expectationsApi";
 
 // p0329: the expectation-metrics rollup — populated projects render both
@@ -14,6 +15,13 @@ const mockedApi = api as unknown as {
 };
 
 const counts = { total: 5, verbatim: 1, edited: 2, rejected: 1, unratified: 1 };
+
+// 2026-08-27-559e: the panel takes the read rather than making it, so the tests
+// drive it through the hook that owns the fetch — the same path the Overview
+// composes, endpoint included.
+function CriteriaPanel() {
+  return <ExpectationMetricsView {...useExpectationMetrics()} />;
+}
 
 describe("ExpectationMetricsView", () => {
   beforeEach(() => {
@@ -43,7 +51,7 @@ describe("ExpectationMetricsView", () => {
       ],
     });
 
-    render(<ExpectationMetricsView />);
+    render(<CriteriaPanel />);
 
     expect(await screen.findByTestId("expectations-project-alpha")).toBeInTheDocument();
     expect(screen.getByTestId("expectations-hit-rate-alpha")).toHaveTextContent("25%");
@@ -55,7 +63,7 @@ describe("ExpectationMetricsView", () => {
   it("renders the honest empty-state when no ratifications exist", async () => {
     mockedApi.fetchExpectationMetrics.mockResolvedValue({ total: 0, projects: [] });
 
-    render(<ExpectationMetricsView />);
+    render(<CriteriaPanel />);
 
     expect(await screen.findByTestId("expectations-empty")).toBeInTheDocument();
   });

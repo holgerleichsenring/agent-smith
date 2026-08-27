@@ -1,50 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  fetchExpectationMetrics,
-  type ExpectationMetrics,
-  type OutcomeCounts,
-  type ProjectExpectationMetrics,
-} from "@/lib/expectationsApi";
+import type { ExpectationMetrics } from "@/lib/expectationsApi";
+import type { ExpectationRead } from "@/hooks/useExpectationMetrics";
 import { SystemMetricStrip, type MetricCell } from "@/components/system/SystemMetricStrip";
 import { SectionHead } from "@/components/system/SectionHead";
+import { ExpectationProjectCard } from "@/components/system/ExpectationProjectCard";
+import { percentOrDash, ratifiedCount, sumOutcomeCounts } from "@/lib/expectationTotals";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
-// p0329: the System → Expectations rollup — expectation-hit-rate and
-// first-PR-acceptance per project, derived from production ratification
-// outcomes (p0328). Honest empty-state: until a negotiated run records a
-// ratification there is NO number to show, and the page says so instead of
-// rendering zeros as if they were measurements.
-// 2026-08-27-7463: the view is a SECTION of the Overview now, so it opens with
-// its own section head instead of borrowing a page head from its caller — and
-// the head renders whatever the endpoint answers, so a failed or empty read
-// costs this box and leaves the readings beside it standing.
-// p0343d: parity re-dress — here
-// the overall KPIs render as the mock's .health strip (overall rates are exact
-// sums of the per-project counts, no new aggregation semantics; avg edit
-// distance is per-project data and only surfaces in the strip when a single
-// project reports one), and each project is an .ecard with its real rates.
+// p0329: expectation-hit-rate and first-PR-acceptance per project, derived from
+// production ratification outcomes (p0328). Honest empty-state: until a
+// negotiated run records a ratification there is NO number to show, and the
+// view says so instead of rendering zeros as if they were measurements.
+// p0343d: the overall KPIs render as the mock's .health strip (overall rates
+// are exact sums of the per-project counts, no new aggregation semantics; avg
+// edit distance is per-project data and only surfaces in the strip when a
+// single project reports one).
+// 2026-08-27-559e: it is the narrower of the Overview's two panels, and it
+// takes the read rather than making it — the criteria card above it shows the
+// same outcomes, and a read owned here would be a second request for a number
+// the first already answered. Every state it can be in, empty and failed
+// included, renders INSIDE the panel: an installation that has negotiated
+// nothing loses a panel, not the bottom half of the page.
 
-export function ExpectationMetricsView() {
-  const [data, setData] = useState<ExpectationMetrics | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchExpectationMetrics(controller.signal)
-      .then(setData)
-      .catch((e: Error) => {
-        if (e.name !== "AbortError") setError(e);
-      });
-    return () => controller.abort();
-  }, []);
-
+export function ExpectationMetricsView({ data, error }: ExpectationRead) {
   const refusal = refusalIn(error);
-
   return (
-    <section data-testid="expectations-view">
+    <section className="ov-panel" data-testid="expectations-view">
       <SectionHead
         title="Criteria outcomes"
         sub="hit rate = drafts ratified verbatim; first-PR acceptance = PRs built on an accepted contract"
@@ -61,121 +44,78 @@ export function ExpectationMetricsView() {
           Loading expectation metrics…
         </div>
       ) : data.total === 0 ? (
-        <div className="empty" data-testid="expectations-empty">
-          <div className="ei" aria-hidden>
-            ✓
-          </div>
-          No ratification outcomes recorded yet. Expectation negotiation writes one
-          outcome per fix-bug / add-feature run — metrics appear after the first
-          negotiated run completes.
-        </div>
+        <EmptyCriteria />
       ) : (
-        <>
-          <SystemMetricStrip testId="expectations-kpis" cells={overallCells(data)} />
-          <section>
-            <SectionHead
-              title="Per project"
-              count={data.projects.length}
-              sub="rates never render as 0% without a measurement"
-            />
-            <div style={{ height: 14 }} />
-            <div className="list">
-              {data.projects.map((p) => (
-                <ProjectCard key={p.project} metrics={p} />
-              ))}
-            </div>
-          </section>
-        </>
+        <PopulatedCriteria data={data} />
       )}
     </section>
   );
 }
 
-const percent = (value: number | null): string =>
-  value === null ? "—" : `${Math.round(value * 100)}%`;
+function EmptyCriteria() {
+  return (
+    <div className="empty" data-testid="expectations-empty">
+      <div className="ei" aria-hidden>
+        ✓
+      </div>
+      No ratification outcomes recorded yet. Expectation negotiation writes one outcome
+      per fix-bug / add-feature run — metrics appear after the first negotiated run
+      completes.
+    </div>
+  );
+}
+
+function PopulatedCriteria({ data }: { data: ExpectationMetrics }) {
+  return (
+    <>
+      <SystemMetricStrip testId="expectations-kpis" cells={overallCells(data)} />
+      <section>
+        <SectionHead
+          title="Per project"
+          count={data.projects.length}
+          sub="rates never render as 0% without a measurement"
+        />
+        <div style={{ height: 14 }} />
+        <div className="list">
+          {data.projects.map((p) => (
+            <ExpectationProjectCard key={p.project} metrics={p} />
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
 
 // Overall rates from the exact per-project counts: hit rate = verbatim /
 // human-ratified (total − unratified); first-PR acceptance = (verbatim +
 // edited) / all negotiated. Both are the same definitions the backend applies
 // per project — summed, not re-modeled.
 function overallCells(data: ExpectationMetrics): MetricCell[] {
-  const sum = data.projects.reduce<OutcomeCounts>(
-    (acc, p) => ({
-      total: acc.total + p.counts.total,
-      verbatim: acc.verbatim + p.counts.verbatim,
-      edited: acc.edited + p.counts.edited,
-      rejected: acc.rejected + p.counts.rejected,
-      unratified: acc.unratified + p.counts.unratified,
-    }),
-    { total: 0, verbatim: 0, edited: 0, rejected: 0, unratified: 0 },
-  );
-  const ratified = sum.total - sum.unratified;
-  const withEditDistance = data.projects.filter((p) => p.averageEditDistance !== null);
+  const sum = sumOutcomeCounts(data.projects);
+  const ratified = ratifiedCount(sum);
+  const reporting = data.projects.filter((p) => p.averageEditDistance !== null);
+  // Edit distance is per-project data: averaging averages would invent a
+  // figure, so it surfaces here only when exactly one project reports one.
   const editDistance =
-    withEditDistance.length === 1 ? Math.round(withEditDistance[0].averageEditDistance!) : null;
+    reporting.length === 1 ? Math.round(reporting[0].averageEditDistance!) : null;
   return [
     { label: "Negotiated", value: sum.total, testId: "exp-metric-negotiated" },
     {
       label: "Hit rate",
-      value: ratified > 0 ? percent(sum.verbatim / ratified) : "—",
+      value: ratified > 0 ? percentOrDash(sum.verbatim / ratified) : "—",
       small: `${sum.verbatim} verbatim`,
       testId: "exp-metric-hit-rate",
     },
     {
       label: "First-PR acceptance",
-      value: sum.total > 0 ? percent((sum.verbatim + sum.edited) / sum.total) : "—",
+      value: sum.total > 0 ? percentOrDash((sum.verbatim + sum.edited) / sum.total) : "—",
       testId: "exp-metric-acceptance",
     },
     {
       label: "Avg edit distance",
       value: editDistance ?? "—",
-      small: editDistance === null && withEditDistance.length > 1 ? "per project below" : undefined,
+      small: editDistance === null && reporting.length > 1 ? "per project below" : undefined,
       testId: "exp-metric-edit-distance",
     },
   ];
-}
-
-function ProjectCard({ metrics }: { metrics: ProjectExpectationMetrics }) {
-  const c = metrics.counts;
-  return (
-    <div className="ecard" data-testid={`expectations-project-${metrics.project}`}>
-      <div className="ec-top">
-        <div className="ec-ic" aria-hidden>
-          ✓
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div className="ec-name">{metrics.project}</div>
-          <div className="ec-sub">
-            {c.total} negotiated · {c.verbatim} verbatim · {c.edited} edited ·{" "}
-            {c.rejected} rejected · {c.unratified} unratified
-            {metrics.averageEditDistance !== null &&
-              ` · avg edit distance ${Math.round(metrics.averageEditDistance)}`}
-          </div>
-        </div>
-        <div className="ec-right">
-          <span className="tybadge">
-            hit rate{" "}
-            <b data-testid={`expectations-hit-rate-${metrics.project}`}>
-              {percent(metrics.expectationHitRate)}
-            </b>
-          </span>
-          <span className="tybadge">
-            first-PR{" "}
-            <b data-testid={`expectations-acceptance-${metrics.project}`}>
-              {percent(metrics.firstPrAcceptance)}
-            </b>
-          </span>
-        </div>
-      </div>
-      {metrics.months.length > 0 && (
-        <div className="ec-body">
-          <span className="msub mono">
-            {metrics.months
-              .map((m) => `${m.month}: ${m.counts.verbatim + m.counts.edited}/${m.counts.total} accepted`)
-              .join(" · ")}
-          </span>
-        </div>
-      )}
-    </div>
-  );
 }
