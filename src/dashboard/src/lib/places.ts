@@ -20,6 +20,10 @@ const RUN_WHY_PLACE = "Run · why";
 const FIXED_PLACES: Record<string, string> = {
   "/": "Runs",
   "/pull-requests": "Pull requests",
+  // 2026-08-27-7463: the one Insight destination — spend, runs by outcome and
+  // criteria outcomes, where /system/cost, /system/today and /system/expectations
+  // used to be three pages.
+  "/overview": "Overview",
   "/identity": "Your identity",
   "/system": "System",
   "/system/tracker": "Tracker",
@@ -27,9 +31,6 @@ const FIXED_PLACES: Record<string, string> = {
   "/system/chat": "Chat dispatchers",
   "/system/config": "Config file reads",
   "/system/catalog": "Skill catalog & vocabulary",
-  "/system/cost": "Cost",
-  "/system/today": "Today's activity",
-  "/system/expectations": "Expectations",
   // The configuration subtree. A bare /config serves the first catalog kind, so it is
   // that kind's place — the header names what is on screen, not the area it belongs to.
   "/config": ENTITY_LABEL[ENTITY_KINDS[0]],

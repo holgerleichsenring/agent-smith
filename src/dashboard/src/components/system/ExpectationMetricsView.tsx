@@ -8,6 +8,7 @@ import {
   type ProjectExpectationMetrics,
 } from "@/lib/expectationsApi";
 import { SystemMetricStrip, type MetricCell } from "@/components/system/SystemMetricStrip";
+import { SectionHead } from "@/components/system/SectionHead";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
@@ -16,7 +17,11 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 // outcomes (p0328). Honest empty-state: until a negotiated run records a
 // ratification there is NO number to show, and the page says so instead of
 // rendering zeros as if they were measurements.
-// p0343d: parity re-dress — the page head moved to SystemView's .m-head; here
+// 2026-08-27-7463: the view is a SECTION of the Overview now, so it opens with
+// its own section head instead of borrowing a page head from its caller — and
+// the head renders whatever the endpoint answers, so a failed or empty read
+// costs this box and leaves the readings beside it standing.
+// p0343d: parity re-dress — here
 // the overall KPIs render as the mock's .health strip (overall rates are exact
 // sums of the per-project counts, no new aggregation semantics; avg edit
 // distance is per-project data and only surfaces in the strip when a single
@@ -39,7 +44,12 @@ export function ExpectationMetricsView() {
   const refusal = refusalIn(error);
 
   return (
-    <div data-testid="expectations-view">
+    <section data-testid="expectations-view">
+      <SectionHead
+        title="Criteria outcomes"
+        sub="hit rate = drafts ratified verbatim; first-PR acceptance = PRs built on an accepted contract"
+      />
+      <div style={{ height: 14 }} />
       {refusal ? (
         <RefusalSurface refusal={refusal} surface="the expectation metrics" />
       ) : error ? (
@@ -63,11 +73,11 @@ export function ExpectationMetricsView() {
         <>
           <SystemMetricStrip testId="expectations-kpis" cells={overallCells(data)} />
           <section>
-            <div className="section-head">
-              <h2>Per project</h2>
-              <span className="cnt">{data.projects.length}</span>
-              <span className="sh-sub">rates never render as 0% without a measurement</span>
-            </div>
+            <SectionHead
+              title="Per project"
+              count={data.projects.length}
+              sub="rates never render as 0% without a measurement"
+            />
             <div style={{ height: 14 }} />
             <div className="list">
               {data.projects.map((p) => (
@@ -77,7 +87,7 @@ export function ExpectationMetricsView() {
           </section>
         </>
       )}
-    </div>
+    </section>
   );
 }
 

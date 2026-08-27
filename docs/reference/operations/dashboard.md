@@ -48,7 +48,24 @@ The `/system` view is the answer to "is this thing alive and why didn't my ticke
 
 - Per-subsystem status (webhooks, pollers, queue consumer, chat adapters, housekeeping) with live/idle freshness and a live event tail per subsystem.
 - **The trigger log**: every received webhook and poll cycle with its verdict — actioned, or skipped with the reason (no matching project, no trigger label, signature invalid). The "why didn't this ticket trigger" question stops being a log-grepping session.
-- Today's activity and cost rollups.
+
+## Overview
+
+Insight → Overview is the reading of the system rather than a part of it (2026-08-27-7463;
+`/system/cost`, `/system/today` and `/system/expectations` were three pages until then and
+still redirect here):
+
+- **Spend** — today, the trailing 7 days and the LLM calls behind it, with a breakdown of
+  which repos and which pipeline the week's money went to. Every figure is grouped from the
+  run list the dashboard already holds; there is no cost endpoint and no second truth.
+- **Runs by outcome** — the same buckets the rail counts (needs-you, running, queued), with
+  the finished ones split into succeeded, failed and cancelled.
+- **Criteria outcomes** — expectation hit rate and first-PR acceptance per project, from the
+  recorded ratification outcomes. Rates never render as 0% without a measurement.
+
+The old "today's activity" rollup is gone rather than moved: its tickets scanned/triggered/
+skipped and poll cycles read on the Tracker page, and its webhooks received/actioned on the
+Webhooks page, off the same server snapshot it used.
 
 ## Connections
 

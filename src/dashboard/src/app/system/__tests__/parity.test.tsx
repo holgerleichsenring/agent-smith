@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SystemView } from "@/components/system/SystemView";
+import { OverviewView } from "@/components/overview/OverviewView";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 import type { OverviewSnapshot, RunSnapshot, SystemActivitySnapshot } from "@/types/hub-events";
@@ -8,8 +9,11 @@ import * as expectationsApi from "@/lib/expectationsApi";
 
 // p0343d: the system/rollup pages join the parity design system. Two contracts:
 // every rail route under /system renders inside the .mock-shell/.mock-system
-// parity scope as a first-class page (.m-head title row), and the rollup pages'
+// parity scope as a first-class page (.m-head title row), and the pages'
 // .health strips carry the REAL numbers from their existing data sources.
+// 2026-08-27-7463: the suite follows the page. The cost, today and expectations
+// segments are gone from /system, and the KPI assertions that proved their strips
+// carried real numbers now assert them on the Overview that renders them.
 
 // Stable hub instance — useSystemEvents' effect deps on `client`, so a fresh
 // object per render would loop the effect. Fields are mutated per test.
@@ -55,21 +59,11 @@ const renderView = (segment: string) =>
 const SETTLE: Record<string, string> = {
   config: "config-view-empty",
   catalog: "catalog-browser-unready",
-  expectations: "expectations-empty",
 };
 
-const ROUTES = [
-  "tracker",
-  "webhooks",
-  "chat",
-  "config",
-  "catalog",
-  "cost",
-  "today",
-  "expectations",
-];
+const ROUTES = ["tracker", "webhooks", "chat", "config", "catalog"];
 
-describe("System & rollup pages — parity design system (p0343d)", () => {
+describe("System & overview pages — parity design system (p0343d)", () => {
   beforeEach(() => {
     HUB.overview = null;
     HUB.systemActivity = null;
@@ -93,27 +87,9 @@ describe("System & rollup pages — parity design system (p0343d)", () => {
     }
   });
 
-  it("RollupPages_MetricStrips_RenderRealKpis", async () => {
-    // COST — real run ledger numbers flow into the .metric cells.
-    const now = new Date().toISOString();
-    const run = {
-      runId: "r1",
-      startedAt: now,
-      finishedAt: now,
-      costUsd: 2.44,
-      llmCalls: 19,
-    } as unknown as RunSnapshot;
-    HUB.overview = { active: [run], recent: [] } as unknown as OverviewSnapshot;
-
-    const cost = renderView("cost");
-    expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent("$2.44");
-    expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent("$2.44");
-    expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent("19");
-    expect(screen.getByTestId("kcard-cost-today").className).toContain("metric");
-    expect(cost.container.querySelector(".health")).not.toBeNull();
-    cost.unmount();
-
-    // TODAY — the server-truth 24h counters.
+  it("SystemPages_TodaysNumbers_StillRenderOnTheirSubsystemPages", async () => {
+    // 2026-08-27-7463: the today rollup was deleted, not moved — all six of its
+    // numbers are on the subsystem page each describes, off the same snapshot.
     HUB.systemActivity = {
       ticketsScanned: 4838,
       ticketsTriggered: 3,
@@ -124,13 +100,48 @@ describe("System & rollup pages — parity design system (p0343d)", () => {
       pollCyclesFinished: 104,
       eventsPerSource: {},
     };
-    const today = renderView("today");
-    expect(screen.getByTestId("kcard-tickets-scanned")).toHaveTextContent("4838");
-    expect(screen.getByTestId("kcard-tickets-triggered")).toHaveTextContent("3");
-    expect(screen.getByTestId("kcard-poll-cycles")).toHaveTextContent("104");
-    expect(screen.getByTestId("kcard-webhooks-received")).toHaveTextContent("7");
-    expect(screen.getByTestId("kcard-tickets-scanned").className).toContain("metric");
-    today.unmount();
+    const tracker = renderView("tracker");
+    expect(screen.getByTestId("sys-metric-tickets-scanned")).toHaveTextContent("4838");
+    expect(screen.getByTestId("sys-metric-tickets-triggered")).toHaveTextContent("3");
+    expect(screen.getByTestId("sys-metric-tickets-skipped")).toHaveTextContent("4835");
+    expect(screen.getByTestId("sys-metric-poll-cycles")).toHaveTextContent("104");
+    tracker.unmount();
+
+    const webhooks = renderView("webhooks");
+    expect(screen.getByTestId("sys-metric-webhooks-received")).toHaveTextContent("7");
+    expect(screen.getByTestId("sys-metric-webhooks-actioned")).toHaveTextContent("2");
+    webhooks.unmount();
+  });
+
+  it("OverviewPage_MetricStrips_RenderRealKpis", async () => {
+    // COST — real run ledger numbers flow into the .metric cells, on the page
+    // that renders them now.
+    const now = new Date().toISOString();
+    const run = {
+      runId: "r1",
+      pipeline: "fix-bug",
+      repos: ["server"],
+      startedAt: now,
+      finishedAt: now,
+      costUsd: 2.44,
+      llmCalls: 19,
+      status: "success",
+    } as unknown as RunSnapshot;
+    HUB.overview = { active: [run], recent: [] } as unknown as OverviewSnapshot;
+
+    const overview = render(<OverviewView />);
+    expect(overview.container.querySelector(".mock-shell.mock-system")).not.toBeNull();
+    expect(overview.container.querySelector(".m-head h1")).not.toBeNull();
+    expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent("$2.44");
+    expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent("$2.44");
+    expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent("19");
+    expect(screen.getByTestId("kcard-cost-today").className).toContain("metric");
+    expect(overview.container.querySelector(".health")).not.toBeNull();
+    // RUNS BY OUTCOME — the same run, counted where it belongs.
+    expect(screen.getByTestId("kcard-runs-total")).toHaveTextContent("1");
+    expect(screen.getByTestId("kcard-runs-succeeded")).toHaveTextContent("1");
+    await screen.findByTestId("expectations-empty");
+    overview.unmount();
 
     // EXPECTATIONS — overall rates from the recorded ratification outcomes.
     mockedExpectations.fetchExpectationMetrics.mockResolvedValue({
@@ -146,7 +157,7 @@ describe("System & rollup pages — parity design system (p0343d)", () => {
         },
       ],
     });
-    renderView("expectations");
+    render(<OverviewView />);
     expect(await screen.findByTestId("exp-metric-negotiated")).toHaveTextContent("5");
     // 1 verbatim / 4 human-ratified (5 − 1 unratified) = 25%
     expect(screen.getByTestId("exp-metric-hit-rate")).toHaveTextContent("25%");

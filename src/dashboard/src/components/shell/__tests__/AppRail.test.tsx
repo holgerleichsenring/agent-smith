@@ -11,7 +11,7 @@ import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 // p0218: AppRail reads the shared system backlog via the EventStore, so renders
 // go through a provider wired to a silent source.
 // p0343b: the rail is contextual — these tests cover the RUNS mode (monitor counts,
-// subsystems, rollups); the config mode lives in config/__tests__/AppRailConfig.test.tsx
+// subsystems, insight); the config mode lives in config/__tests__/AppRailConfig.test.tsx
 // next to the studio it belongs to.
 // 2026-08-27-1ed6: the rail shows the running system and nothing else — no toggle into
 // configuration (the header's gear is the one entrance), no tracker footer, no Connections
@@ -92,12 +92,12 @@ beforeEach(() => {
 });
 
 describe("AppRail", () => {
-  it("AppRail_RunsMode_RendersMonitorSystemRollupsSections_InOrder", () => {
+  it("AppRail_RunsMode_RendersMonitorSystemInsightSections_InOrder", () => {
     renderRail();
-    const sections = ["Monitor", "System", "Rollups"].map(
+    const sections = ["Monitor", "System", "Insight"].map(
       (l) => screen.getByTestId(`app-rail-section-${l}`),
     );
-    // DOM order follows section order: Monitor before System before Rollups.
+    // DOM order follows section order: Monitor before System before Insight.
     expect(sections[0].compareDocumentPosition(sections[1]))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(sections[1].compareDocumentPosition(sections[2]))
@@ -119,6 +119,23 @@ describe("AppRail", () => {
     // And nothing that is a setting is left in it.
     expect(screen.queryByTestId("rail-identity")).toBeNull();
     expect(screen.queryByTestId("rail-release")).toBeNull();
+  });
+
+  it("Rail_HasOneInsightEntry_AndNoRollupSection", () => {
+    renderRail();
+    // 2026-08-27-7463: three rollup entries became one Insight → Overview entry.
+    expect(screen.queryByTestId("app-rail-section-Rollups")).toBeNull();
+    expect(screen.getByTestId("app-rail-section-Insight")).toBeInTheDocument();
+    expect(screen.getByTestId("app-rail-item-Overview")).toHaveAttribute("href", "/overview");
+    for (const gone of ["Cost", "Today's activity", "Expectations"]) {
+      expect(screen.queryByTestId(`app-rail-item-${gone}`)).toBeNull();
+    }
+  });
+
+  it("Rail_TheInsightEntry_IsActiveOnTheOverview", () => {
+    usePathname.mockReturnValue("/overview");
+    renderRail();
+    expect(screen.getByTestId("app-rail-item-Overview")).toHaveAttribute("data-active", "true");
   });
 
   it("AppRail_ActiveItem_DerivesFromCurrentRoute", () => {
