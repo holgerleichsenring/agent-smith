@@ -75,7 +75,7 @@ internal static class ConfigCatalogMapper
     }
 
     private static AgentModelAssignment ToAssignment(ModelAssignment assignment) =>
-        new(assignment.Model, assignment.Deployment, assignment.MaxTokens);
+        new(assignment.Model, assignment.Deployment, assignment.MaxTokens, assignment.ContextWindowTokens);
 
     // p0345c: full tracker surface — identity + tracker-owned workflow + polling.
     // Empty raw collections surface as null ("nothing declared"), matching the

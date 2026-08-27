@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-27-3eb1
+
+decisions:
+  - category: Architecture
+    chose: "Create gains a compaction parameter; the compaction the caller wants is an ARGUMENT"
+    over: "Carrying it on MasterLoopHooks, which the analyzer would then have to construct"
+    reason: |
+      MasterLoopHooks is all-optional, and CompactingChatClient only reaches it through
+      BuildPinText — null renderers give an empty pin, so a hooks record carrying nothing
+      but a CompactionConfig would work. It would also make ChatClientFactory insert
+      MasterLoopGovernorChatClient, because that wrapper is conditioned on hooks being
+      non-null, not on any hook being set: the analyzer would silently acquire the coding
+      master's budget fence and ledger-reminder injection. A record whose presence means
+      something other than what its fields say is the wrapper-shim shape. The overload
+      carries a DEFAULT INTERFACE IMPLEMENTATION forwarding to the four-argument one, the
+      pattern ProbeAsync already uses on this interface, so none of the 20 test doubles
+      had to change.
+  - category: Architecture
+    chose: "The window is a property of the model ROLE (ModelAssignment.ContextWindowTokens), absent by default"
+    over: "A built-in map from model name to window size, or a single per-agent setting"
+    reason: |
+      A role already states model, deployment and max_tokens — but max_tokens is the OUTPUT
+      cap and says nothing about what the deployment will ACCEPT, which is how a compaction
+      threshold of 200000 came to sit beside a deployment that refuses at 128000. The window
+      belongs beside the deployment because it is a property of the deployment: the model
+      name promises nothing. A built-in table is the artifact this repository has removed
+      twice — wrong the day a provider ships a variant and unfalsifiable in between. Absent
+      by default means an installation that states nothing derives nothing and runs the
+      chain it ran before; preflight names which roles those are.
+  - category: Architecture
+    chose: "Finalise-under-pressure lives in a middleware below UseFunctionInvocation"
+    over: "A check in ProjectAnalyzer.AnalyzeAsync around GetResponseAsync"
+    reason: |
+      AnalyzeAsync regains control only when GetResponseAsync RETURNS, and the whole sweep —
+      25 tool iterations, every result appended to one message list — happens inside that
+      one call. A 400 at iteration 20 leaves the method; the attempt loop has no try/catch,
+      so there is nothing for the caller to do about it in time. The middleware re-enters on
+      every iteration, which is the only place the pressure is visible while there is still
+      a conversation to finalise. It sits INSIDE CompactingChatClient so it measures the
+      view actually forwarded: reduction gets first refusal, and this fires when reduction
+      was not enough or is switched off.
+  - category: Implementation
+    chose: "The finalize turn forwards CLONED ChatOptions with ToolMode=None and Tools still populated"
+    over: "Setting ToolMode on the caller's options, or clearing Tools"
+    reason: |
+      FunctionInvokingChatClient hands the SAME ChatOptions instance down on every
+      iteration, so mutating it would end the loop permanently rather than for this turn —
+      Sweep_Finalised_DoesNotMutateTheCallersOptions pins that. Tools stay declared because
+      a provider rejects a request whose history carries tool blocks without the tools
+      parameter, the reason ProjectAnalyzer's own finalize options already keep them.
+  - category: Implementation
+    chose: "A client per ATTEMPT in ProjectAnalyzer"
+    over: "Adding a Reset() to CompactingChatClient"
+    reason: |
+      The fold watermark (_foldedUpTo) is an ABSOLUTE index into the message list and the
+      summary is cumulative. One client reused across both attempts would meet attempt 2's
+      two-message list holding attempt 1's watermark and summary — a reduced view assembled
+      from indices that no longer exist. A fresh client has no state to reset, and it costs
+      nothing: Create builds decorators, not connections. A Reset() would also be a second
+      way to be correct that nothing forces anyone to call.
+  - category: Implementation
+    chose: "directory_tree gains an ENTRY cap; one scout tool result gains a CHARACTER cap"
+    over: "Leaving the tool surface alone and relying on compaction to absorb it"
+    reason: |
+      list_files caps at 1000 entries and grep at 1000 lines, but directory_tree had no
+      entry cap and no byte cap at all — an unbounded StringBuilder returned verbatim — and
+      it is the first call a repository sweep makes. read_file returns up to 1 MB, a quarter
+      of a 128k window in one reply. Compaction can only fold what has already been paid
+      for, and on a single-pass sweep an oversized result is carried for the rest of the
+      conversation. The character cap sits on the scout surface (AgenticToolSurface.Scout),
+      not inside the tool hosts, so the coding master's read_file is untouched.
+  - category: Implementation
+    chose: "The serialized compaction middle is bounded in aggregate, not only per result"
+    over: "Keeping the 2000-char-per-result truncation as the only limit"
+    reason: |
+      SerializeForSummary truncated each tool result at 2000 chars with no total — a fold of
+      300 evicted messages was a 600k-char summarizer prompt, so the call that exists to
+      ESCAPE a context overflow could cause one. The cap keeps the oldest messages and names
+      how many it dropped: everything after the cut is still verbatim in the forwarded tail
+      or reachable at the next fold, while the front of the middle is about to be gone for
+      good. CompactionConfig.SummaryModel and .DeploymentName are dead — the summarizer is
+      built from the agent's Summarization role and ignores both — so no messaging leans on
+      them.
+  - category: Architecture
+    chose: "Preflight FAILS a threshold that cannot fire, and PASSES with the roles that state no window named"
+    over: "Failing both cases"
+    reason: |
+      AgentConfig.Compaction defaults to a live CompactionConfig, so 'a threshold is set'
+      is true of every installation and nothing can distinguish an operator's 200000 from
+      the default one. Failing the unstated case would therefore red-flag every default
+      install for a setting it never opted into. The arithmetic case is unambiguous and
+      fails; the unstated case is reported in the passing message, which is what decision
+      key 4 asks for — 'states nothing and gets no threshold, and is told which'. The
+      FixHint says plainly that the trigger ratio is NOT reachable from the config studio
+      (AgentCompactionSettings omits it), so the operator is not sent to a UI that cannot
+      fix what the check reports.
+  - category: Implementation
+    chose: "The context-length refusal is classified on the provider's error TEXT"
+    over: "Classifying on an exception type"
+    reason: |
+      Neither the OpenAI nor the Anthropic SDK gives this refusal a distinct type — it
+      arrives as HttpRequestException or ClientResultException carrying the provider's
+      body. TransientRetryChatClient already matches 'invalid_request_error' by text for
+      the same reason. The alternative was to let the bare provider text surface, which
+      names neither which of an agent's seven roles produced it nor any setting: four runs
+      in a row died on it and left the operator nothing to change.
+  - category: Refactoring
+    chose: "Three extractions before any addition: CompactionSummaryRequest, ProjectMapFinalizer, RawAgentModelPatch"
+    over: "Adding baseline entries or letting the ratcheted files grow"
+    reason: |
+      ChatClientFactory (260), ProjectAnalyzer (138) and RawConfigPatch (198) each sat
+      exactly on their FileLengthRatchetTests baseline, where a file may only shrink. Each
+      extraction is a responsibility, not a code move: composing a summarizer prompt is not
+      a factory's job, closing a conversation is not the same reason to change as sweeping
+      a repository, and per-role model routing is not the same reason to change as patching
+      an agent's other sections. ProjectAnalyzer dropped to 101 lines and LEFT the
+      baseline; the other two stay listed at their old numbers, which the ratchet allows —
+      the file-length baseline is deliberately not re-tightened, since dozens of unrelated
+      entries are equally stale and lowering them here would block work this phase never
+      touched.
