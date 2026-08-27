@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.140.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.139.0...v0.140.0) (2026-08-27)
+
+
+### Features
+
+* a repository sweep fits the model window ([4b17553](https://github.com/holgerleichsenring/agent-smith/commit/4b17553fda070a94c670b0ea9016c4a1a6e03497))
+* a repository sweep fits the model window (2026-08-27-3eb1) ([93670ae](https://github.com/holgerleichsenring/agent-smith/commit/93670ae941aa810e9b684d106f65ade80ec764a4))
+
 ## [0.139.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.138.0...v0.139.0) (2026-08-27)
 
 
