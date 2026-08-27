@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-27-7098
+
+decisions:
+  - category: Architecture
+    chose: "The corpse sweep leaves the admission gate entirely — the constructor no longer takes a reaper"
+    over: "Wrapping the sweep in a timeout, or firing it as a background task from the same method"
+    reason: |
+      The sweep is two namespace-wide pod listings, a live-run read across the database
+      AND Redis, and one untimed k8s DELETE per corpse in an unbounded loop — and it
+      decides nothing about the verdict the operator is waiting for. Its own docstring
+      already called it leader housekeeping that "also runs at capacity-claim time", so
+      taking it off the request path removes an addition, not a responsibility: it still
+      runs on HousekeepingLeaderHostedService's loop and inside CapacityQueuePump's tick,
+      which is where a sweep that frees quota for a QUEUED run belongs. A timeout would
+      have kept the wait and only bounded it; a fire-and-forget from the request would
+      have kept the coupling while making the failure invisible. Removing the constructor
+      parameter is what makes the decision enforceable, and
+      Start_Accepted_ReturnsARunIdWithoutDoingTheWork asserts exactly that, because a
+      behavioural assertion cannot see a dependency that is no longer injectable.
+      The capacity probe below it stays: it is already fail-open (KubernetesCapacityProbe
+      admits on any probe failure) and it is the thing the verdict IS.
+  - category: Architecture
+    chose: "One IExceptionHandler at the composition root, answering with the exception's own reason"
+    over: "A try/catch inside the init endpoint that turns a throw into a 503 with a reason"
+    reason: |
+      The endpoint already carried a reason on every outcome it DECLARED — started,
+      already-running, no-capacity, unknown-project all name one. What had no answer was
+      the outcome nobody declared, and there was no exception handling registered anywhere
+      in the server at all: no UseExceptionHandler, no AddProblemDetails, no
+      IExceptionHandler. So ASP.NET's default empty-body 500 was every route's answer to
+      every unplanned failure, and the init button was simply the first surface that said
+      so out loud. Catching in the endpoint would have fixed one button and left the queue
+      enqueue, the run repository, the footprint calculation and every other route on the
+      same silent path. The handler is registered once and sits OUTERMOST — ahead of
+      routing, CORS and authentication — because it can only answer for what runs inside
+      it. It declines rather than throws when the response has already started or the
+      caller hung up, since neither can be answered at all.
+  - category: TradeOff
+    chose: "The body carries the exception type and message verbatim"
+    over: "A fixed sentence, or ProblemDetails' generic 'An error occurred while processing your request'"
+    reason: |
+      A generic sentence is the empty body again with extra steps: the operator still has
+      to open a container to learn what broke. This is a self-hosted operator tool whose
+      findings surface already quotes the causes it catches — ServerHostFactory writes
+      "Cause: {ex.Message}" into a startup finding served over HTTP — so the standard is
+      set and consistency is worth more here than a hypothetical disclosure. The type is
+      included because a message alone is sometimes only "Object reference not set", and
+      the stack trace stays in the log where it belongs.
+  - category: Implementation
+    chose: "The repo preflight probes config.Projects[*].Repos, deduplicated by target"
+    over: "Probing the configured CONNECTIONS by listing each one's repositories"
+    reason: |
+      RepoAccessCheck skipped itself whenever config.Repos was empty — which is every
+      installation that discovers its repositories through a connection, and therefore
+      exactly the installations whose start later died on an unreachable remote. The
+      repositories are not missing, they are somewhere else: RepoGlobExpander materialises
+      each discovered repository into ResolvedProject.Repos as a FULL RepoConnection,
+      carrying the connection's type, organization and auth. Probing those probes the
+      connection, using the same sourceFactory.Create(repo).ProbeAsync the check already
+      called, and adds no new provider surface. Probing the connection object instead
+      would mean a paginated repository listing per connection at every single startup —
+      a real cost, on the boot path, for an answer the materialised repos already give.
+      Deduplication is by type + url/path + auth rather than by name, because two projects
+      sharing one connection resolve the same remote twice and probing it twice proves
+      nothing new.
+  - category: Implementation
+    chose: "The status code is appended to the server's reason, not used instead of it"
+    over: "Dropping the status once a reason is always present"
+    reason: |
+      The operator said the code is what they quote when they ask for help, and the phase
+      records it. With a reason now on every refusal the code is no longer load-bearing as
+      a message — but it is still the shortest thing a person can read out. So it rides
+      alongside: "<reason> (HTTP 503)". The fallback sentence survives untouched for the
+      one case that can still produce no reason at all — a body that is not JSON, an
+      intermediary's HTML error page — where the code really is all there is.

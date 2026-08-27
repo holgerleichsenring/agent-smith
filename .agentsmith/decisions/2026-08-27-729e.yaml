@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-27-729e
+
+decisions:
+  - category: Architecture
+    chose: "No new mismatch finding — the split-release step is served by the two detectors that already exist"
+    over: "A three-component comparison recording its own finding, as the phase's second step reads"
+    reason: |
+      A split release is ALREADY a finding, twice over. BuildMismatchDetector compares the
+      caller's bundle against this server and names both, and PinnedAgentProbe reports every
+      project pinned away from this server's release and names both. A third detector over
+      the same facts would be a second thing to keep true, and the first time the two
+      disagreed an operator would have no way to tell which was lying. So the phase ships
+      the READ-OUT, which genuinely did not exist, and leaves the judgement where it is.
+      The spec's tests for that step are written against the existing detectors rather than
+      deleted: Finding_ThreeComponentsDisagree_NamesEachAndItsRelease and
+      Finding_AllThreeAgree_IsSilent pin what those two already answer, so the decision not
+      to rebuild is recorded in the suite and not only here.
+  - category: Architecture
+    chose: "The report is a SERVER fact; the dashboard's release joins it in the browser"
+    over: "Sending the dashboard's release to the server so one document names all three"
+    reason: |
+      The dashboard's release cannot reach the server today and that is deliberate: the
+      findings request carries `?build=<revision>` and nothing else, and the detector
+      constructs the caller's version as null on purpose, because the revision is what tells
+      two builds of ONE release apart — about nine builds in ten carry their predecessor's
+      version string. Adding a second query parameter to make the server able to state a
+      number the browser already holds buys nothing and gives the server a fact it cannot
+      verify. So the read-out states what the server knows — its own build, the agent build
+      per project, the database — and the browser renders its own stamped constant beside
+      it, labelled as its own. That also means the dashboard's line is true when the server
+      is not answering at all, which is when the question is usually asked.
+  - category: Implementation
+    chose: "One line per project for the sandbox agent, with three outcomes: pinned, derived, underivable"
+    over: "A single sandbox-agent version for the installation"
+    reason: |
+      There is no project-free agent version. AgentVersionResolver.Resolve takes a
+      ResolvedProject because a pin is declared per project — from
+      projects.<name>.sandbox.agent_version, or the global knob that fills it — so any
+      single number would have been invented. The third outcome is the one that matters:
+      the resolver THROWS on a build carrying no AGENTSMITH_RELEASE_VERSION, which is the
+      locally built server that failed late and obscurely and is half the reason this phase
+      exists. PinnedAgentProbe swallows that throw because a configuration fault is the
+      configuration probe's to report; the reporter swallows it the same way and states
+      "underivable" as a line, because on a read-out "this build cannot say" IS the answer.
+  - category: Implementation
+    chose: "The persistence probe's read was widened into a typed PersistenceState both answers fold from"
+    over: "Counting the pending migrations a second time in the reporter"
+    reason: |
+      The count already existed at the probe and was spent immediately on a status sentence
+      — which is exactly why "did my migration run" was answered by reading container logs.
+      A second count would be a second query that can disagree with the first, on a page
+      whose entire purpose is to be believed. So ReadPersistenceStateAsync is the one read:
+      ProbePersistenceAsync folds it into its reachability verdict, and the report states it
+      as it is. Report_ThePendingMigrationCount_IsTheOneTheProbeComputes drives the real
+      probe over an unmigrated in-memory schema and asserts the report's number and the
+      verdict's sentence carry the same count.
+  - category: Architecture
+    chose: "The route is anonymous and unconditional, beside the findings route"
+    over: "A permissioned route under the dashboard gate"
+    reason: |
+      An operator asking "which build am I on" is usually asking BECAUSE the authority, the
+      database or the configuration is not answering — a read-out that needs the thing it
+      reports on cannot report on it, which is p0391a's ruling for the findings route and is
+      the same ruling here. That puts it in the anonymous set two enforcement suites walk
+      unauthenticated, so the two absences it has to survive are tested directly:
+      InstallationIdentityServedTests boots the real composition with no authority and then
+      with no release variable at all, and asserts 200 both times. Its dependency on the
+      persistence reader rides the same unconditional registration as the build identity it
+      reports beside; nothing it needs comes from the dashboard gate.
+  - category: TradeOff
+    chose: "The rail footer gets one line; the detail is a /system segment"
+    over: "A permanent panel in the banner stack above every route, as the phase's fourth decision reads"
+    reason: |
+      The banner stack names what is WRONG — degraded, auth misconfigured, builds differ —
+      and each banner earns its place by being absent most of the time. A panel that is
+      always there stops being read within a week; that is the reasoning RailIdentity
+      already applied to "who is signed in", one line above this one. So the rail carries a
+      single line reading THIS bundle's own stamp, which needs no request and survives a
+      server that is not answering, and it links to the segment where server, dashboard,
+      agent and database can be read side by side. The mismatch banner keeps its job: it
+      fires when something is wrong, and this answers when nothing is.

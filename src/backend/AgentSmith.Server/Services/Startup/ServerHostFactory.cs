@@ -34,12 +34,12 @@ public static class ServerHostFactory
         await builder.Services.AddJobSpawnerAsync(
             builder.Configuration,
             LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
-        builder.Services.AddServerPreflight().AddStartupProbes().AddBuildIdentity();
+        builder.Services.AddServerPreflight().AddStartupProbes().AddBuildIdentity().AddFailureReasons();
         // A test substitutes an absent dependency here; production passes nothing.
         substitutions?.Invoke(builder.Services);
 
         var app = builder.Build();
-        app.MapServerEndpoints();
+        app.UseFailureReasons().MapServerEndpoints();
         if (DashboardApiExtensions.IsEnabled) app.MapDashboardApi();
         // p0503b: after the map calls, because MapDashboardApi is where UseCors is
         // registered and a preflight must be answered before anything can refuse it.

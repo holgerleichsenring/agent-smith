@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-27-7098
+
+goal: "Pressing start answers at once, a failure that reaches the caller carries a reason instead of a bare status, and a repository a run will clone is probed before the press rather than inside the run."
+
+applies_to: "backend (the admission path, the exception answer, the repo preflight) + dashboard (the reason it renders)"
+
+requires:
+  - p0391a
+
+scope:
+  in: "The corpse sweep leaves the request path; an unhandled failure answers with a reason instead of an empty body; the repository preflight probes the repos projects actually resolve to rather than skipping when none are declared one by one; and the control shows the reason with the status beside it."
+  out: "Making a run succeed — a run that starts and then fails is a correct outcome. The capacity probe, which is already fail-open. A connection-level reachability probe, which would add a paginated listing per connection at every startup."
+
+decisions:
+  - key: |
+      THE WAIT IS A CORPSE SWEEP ON THE REQUEST PATH. Admission calls the sandbox corpse reaper
+      synchronously before answering: two cluster listings on the first pass, a live-run read
+      across database and cache, then one delete per corpse in an unbounded loop with no timeout
+      anywhere. That is the long wait, not the queue and not the run. The reaper is already
+      leader housekeeping that runs periodically; it does not need to run again while somebody
+      is holding a button.
+  - key: |
+      THE BARE 500 IS THE ABSENCE OF AN EXCEPTION ANSWER, NOT A MISSING REASON. Every declared
+      outcome of the endpoint already carries one. What produces "HTTP 500" on the control is an
+      unhandled throw — a queue that cannot be reached, a store that refuses — meeting a server
+      with NO exception-handling middleware registered at all, which answers with an empty body.
+      One handler at the composition root fixes this endpoint and every other bodyless failure
+      the server can produce.
+  - key: |
+      A LATER FAILURE IS A CORRECT OUTCOME. A run whose push is refused or whose directory is
+      unreachable fails in the run, on the run's surface, with its trail. Nothing here tries to
+      prevent that. What this phase refuses is spending the operator's time first and then
+      answering with a number.
+  - key: |
+      THE PREFLIGHT PROBES RESOLVED REPOSITORIES, NOT CONNECTIONS. The repository check reads the
+      declared repository list and skips when it is empty — which is every installation that
+      discovers repositories through a connection, and therefore exactly the ones that fail
+      later. But probing the CONNECTION would add a paginated listing per connection at every
+      start, on a check that currently spends nothing. The repositories each project resolves to
+      are already expanded by then: probe those, deduplicated, through the same per-repository
+      probe the check was always built to make.
+  - key: |
+      THE STATUS CODE STAYS, BESIDE THE REASON. The operator asked for it explicitly: a code is
+      what somebody quotes when they ask for help. It is never the message, and it is never
+      removed.
+
+steps:
+  - id: the-sweep-leaves-the-request-path
+    action: "Take the corpse sweep out of admission, leaving it to the periodic housekeeping that already runs it, so a press answers on one store round trip."
+  - id: an-unhandled-failure-still-answers
+    action: "Register an exception answer at the composition root so a failure reaches the caller as a reason rather than an empty body, for this endpoint and every other."
+    new:
+      - "the exception answer"
+  - id: the-preflight-probes-what-a-run-will-clone
+    action: "Probe the repositories each project resolves to, deduplicated by target, instead of skipping when no repository is declared individually."
+  - id: the-control-keeps-the-code-beside-the-reason
+    action: "Append the status to the reason the server sent rather than using it only when no reason arrived."
+
+tests:
+  - "Start_Accepted_AnswersWithoutSweepingCorpses"
+  - "Start_AlreadyRunning_StillAnswersImmediately"
+  - "Start_AnUnhandledFailure_AnswersWithAReason"
+  - "Start_ADeclaredRefusal_KeepsItsOwnReason"
+  - "Preflight_ARepoDiscoveredThroughAConnection_IsProbed"
+  - "Preflight_TheSameRepoInTwoProjects_IsProbedOnce"
+  - "Preflight_NoRepositoriesAnywhere_SkipsWithItsReason"
+  - "Preflight_AnUnreachableRepo_IsReportedBeforeAnyRunStarts"
+  - "Control_AReasonAndAStatus_ShowsBoth"
+
+done:
+  - "pressing start answers on a store round trip, with no cluster sweep in the way"
+  - "a failure that reaches the caller carries a reason, whatever threw it"
+  - "a repository discovered through a connection is probed at startup"
+  - "the status code is shown beside the reason, never instead of it"
+  - "the corpse sweep still runs, on the schedule that already runs it"
+  - "backend build green, dashboard build and tests green, full suite green"
