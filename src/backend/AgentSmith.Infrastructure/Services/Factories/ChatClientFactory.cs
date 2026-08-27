@@ -28,6 +28,8 @@ public sealed class ChatClientFactory(
     ILlmRateLimiterRegistry rateLimiterRegistry,
     RateLimiting.ThrottleWaitReporter waitReporter,
     Contracts.Runs.IRunTraceWriter trace,
+    CompactionSummaryRequest summaryRequest,
+    WindowDerivedCompaction windowCompaction,
     ILoggerFactory loggerFactory)
     : IChatClientFactory
 {
@@ -68,6 +70,11 @@ public sealed class ChatClientFactory(
     public IChatClient Create(
         AgentConfig agent, TaskType task, int? maxIterations = null,
         MasterLoopHooks? masterLoopHooks = null)
+        => Create(agent, task, maxIterations, masterLoopHooks, compaction: null);
+
+    public IChatClient Create(
+        AgentConfig agent, TaskType task, int? maxIterations,
+        MasterLoopHooks? masterLoopHooks, CompactionConfig? compaction)
     {
         var assignment = GetAssignment(agent, task);
         var effectiveType = assignment.ProviderType ?? agent.Type;
@@ -127,18 +134,35 @@ public sealed class ChatClientFactory(
         // never re-receives them on subsequent iterations.
         var scrubbed = new SensitiveToolHistoryScrubChatClient(recorded);
 
+        // 2026-08-27-3eb1: a context-length refusal names the role, the window it ran
+        // against and the setting that would have prevented it — innermost, so nothing
+        // above rewrites the provider's own words first.
+        var diagnosed = new ContextLengthRefusalChatClient(
+            scrubbed, task.ToString(), assignment.Model ?? effectiveType,
+            assignment.ContextWindowTokens, _logger);
+
         if (!ToolBearingTasks.Contains(task))
-            return scrubbed;
+            return diagnosed;
 
         // p0341c/p0341d: for the coding master's open loop, insert (innermost first) the
         // compaction middleware then the governor, both BELOW UseFunctionInvocation so they
         // re-enter on every tool iteration. Chain: FIC -> governor (budget fence + reminder)
         // -> compactor (thread-preserving in-flight reduction) -> provider. Null hooks keep
         // the plain chain (sub-agents, scan/planning calls).
-        IChatClient loopInner = scrubbed;
-        if (masterLoopHooks?.Compaction is { IsEnabled: true } compaction)
+        // 2026-08-27-3eb1: the same reduction now reaches any tool loop whose role states
+        // a window — the scout sweep is ONE GetResponseAsync in which the function-invoking
+        // client appends every tool result to one message list. The finalizer sits INSIDE
+        // the compactor so it measures the view that is actually forwarded.
+        IChatClient loopInner = diagnosed;
+        if (assignment.ContextWindowTokens is { } window and > 0)
+            loopInner = new ContextPressureFinalizingChatClient(
+                loopInner, window, task.ToString(),
+                loggerFactory.CreateLogger<ContextPressureFinalizingChatClient>());
+        var effective = masterLoopHooks?.Compaction
+            ?? windowCompaction.Derive(compaction, assignment.ContextWindowTokens);
+        if (effective is { IsEnabled: true })
             loopInner = new CompactingChatClient(
-                loopInner, compaction, masterLoopHooks,
+                loopInner, effective, masterLoopHooks,
                 BuildCompactionSummarizer(agent),
                 loggerFactory.CreateLogger<CompactingChatClient>());
         if (masterLoopHooks is not null)
@@ -160,60 +184,10 @@ public sealed class ChatClientFactory(
         var summarizer = Create(agent, TaskType.Summarization); // non-tool path — no recursion
         return async (middle, ct) =>
         {
-            var prompt = new List<ChatMessage>
-            {
-                new(ChatRole.System, CompactionSummaryPrompt),
-                new(ChatRole.User, SerializeForSummary(middle)),
-            };
             var response = await summarizer.GetResponseAsync(
-                prompt, new ChatOptions { MaxOutputTokens = 1024 }, ct);
+                summaryRequest.Build(middle), new ChatOptions { MaxOutputTokens = 1024 }, ct);
             return response.Text ?? string.Empty;
         };
-    }
-
-    // p0362: the summary must carry the CONCLUSION drawn from each file, not just its
-    // name. "read WolverineExtension.cs" forces a re-read to recover what it said;
-    // "WolverineExtension.cs defines the naming contract as X" does not. The re-read
-    // spiral is the conclusion getting dropped — one level below the ticket-paraphrase
-    // failure p0357 pinned away.
-    private const string CompactionSummaryPrompt =
-        "You are a context compactor for a coding agent's conversation. Summarize the "
-        + "messages below, preserving: for each file read or modified, its path AND the "
-        + "load-bearing conclusion the agent drew from it (the contract, API shape, "
-        + "invariant, or fact it went looking for — 'X defines Y', never just 'read X'); "
-        + "key decisions and their reasoning; error messages and how they were resolved; "
-        + "and the current state of the implementation. Omit raw file contents, redundant "
-        + "tool call/result pairs, and verbose command output (note only the outcome). "
-        + "The agent must not need to re-read a file merely to recover a conclusion this "
-        + "summary dropped. Be concise but complete — this summary continues the work.";
-
-    private static string SerializeForSummary(IReadOnlyList<ChatMessage> messages)
-    {
-        var sb = new System.Text.StringBuilder();
-        foreach (var m in messages)
-        {
-            var role = m.Role == ChatRole.Assistant ? "Assistant"
-                : m.Role == ChatRole.Tool ? "Tool"
-                : m.Role == ChatRole.System ? "System" : "User";
-            foreach (var c in m.Contents)
-            {
-                switch (c)
-                {
-                    case TextContent t when !string.IsNullOrEmpty(t.Text):
-                        sb.Append('[').Append(role).Append("] ").AppendLine(t.Text);
-                        break;
-                    case FunctionCallContent call:
-                        sb.Append("[Assistant] called ").AppendLine(call.Name);
-                        break;
-                    case FunctionResultContent result:
-                        var text = result.Result?.ToString() ?? string.Empty;
-                        if (text.Length > 2000) text = text[..2000] + " …[truncated]";
-                        sb.Append("[Tool result] ").AppendLine(text);
-                        break;
-                }
-            }
-        }
-        return sb.ToString();
     }
 
     private IChatClient WrapWithRateLimit(
@@ -229,6 +203,8 @@ public sealed class ChatClientFactory(
     }
 
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => GetAssignment(agent, task).MaxTokens;
+    public int? GetContextWindowTokens(AgentConfig agent, TaskType task) =>
+        GetAssignment(agent, task).ContextWindowTokens;
     public string GetModel(AgentConfig agent, TaskType task) => GetAssignment(agent, task).Model;
 
     private ModelAssignment GetAssignment(AgentConfig agent, TaskType task)

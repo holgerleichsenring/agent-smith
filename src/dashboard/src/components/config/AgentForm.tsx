@@ -383,6 +383,23 @@ function ModelRoleRow({
             }
           />
         </div>
+        {/* 2026-08-27-3eb1: the INPUT window of the deployment behind this role. Blank
+            emits undefined — an unstated window derives no compaction threshold. */}
+        <div className="field" style={{ flex: 1 }}>
+          <label>context window</label>
+          <input
+            type="number"
+            className="mono"
+            data-testid={`form-field-${role}-contextWindowTokens`}
+            value={entry.contextWindowTokens ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...entry,
+                contextWindowTokens: e.target.value.trim() === "" ? undefined : Number(e.target.value),
+              })
+            }
+          />
+        </div>
       </div>
     </div>
   );

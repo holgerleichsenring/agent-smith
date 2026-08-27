@@ -19,6 +19,9 @@ public static class PreflightServiceCollectionExtensions
         services.AddSingleton<IPreflightConfigSource, PreflightConfigSource>();
         services.AddSingleton<IPreflightCheck, ConfigSchemaCheck>();
         services.AddSingleton<IPreflightCheck, LlmReachableCheck>();
+        // 2026-08-27-3eb1: spends nothing — a compaction threshold that cannot fire
+        // before the role's stated window is arithmetic, not a round-trip.
+        services.AddSingleton<IPreflightCheck, ContextWindowThresholdCheck>();
         services.AddSingleton<IPreflightCheck>(sp => new TrackerAuthCheck(
             sp.GetRequiredService<IPreflightConfigSource>(),
             sp.GetRequiredService<Contracts.Providers.ITicketProviderFactory>(),

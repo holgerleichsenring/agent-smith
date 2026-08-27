@@ -23,7 +23,7 @@ public static class RawConfigPatch
         agent.ApiVersion = entity.ApiVersion;
         if (entity.NetworkTimeoutSeconds is { } timeout) agent.NetworkTimeoutSeconds = timeout;
 
-        PatchModels(entity, agent);
+        RawAgentModelPatch.Apply(entity, agent);
         if (entity.Pricing is { } pricing)
             agent.Pricing.Models = pricing.Models.ToDictionary(
                 kv => kv.Key,
@@ -54,41 +54,6 @@ public static class RawConfigPatch
             agent.Retry.MaxDelayMs = retry.MaxDelayMs;
         }
         return agent;
-    }
-
-    private static void PatchModels(AgentEntity entity, AgentConfig agent)
-    {
-        if (entity.Models.TryGetValue("coding", out var coding) && !string.IsNullOrWhiteSpace(coding.Model))
-        {
-            agent.Model = coding.Model;
-            agent.Deployment = coding.Deployment;
-        }
-        var registryRoles = entity.Models.Where(kv => kv.Key != "coding").ToList();
-        if (registryRoles.Count == 0) return;
-
-        agent.Models ??= new ModelRegistryConfig();
-        foreach (var (role, assignment) in registryRoles)
-            PatchAssignment(agent.Models, role, assignment);
-    }
-
-    private static void PatchAssignment(ModelRegistryConfig registry, string role, AgentModelAssignment source)
-    {
-        var target = role switch
-        {
-            "scout" => registry.Scout,
-            "primary" => registry.Primary,
-            "planning" => registry.Planning,
-            "reasoning" => registry.Reasoning ??= new ModelAssignment(),
-            "summarization" => registry.Summarization,
-            "contextGeneration" => registry.ContextGeneration,
-            "codeMapGeneration" => registry.CodeMapGeneration,
-            _ => throw new ConfigurationException(
-                $"Unknown agent model role '{role}' (known: coding, scout, primary, planning, " +
-                "reasoning, summarization, contextGeneration, codeMapGeneration)."),
-        };
-        target.Model = source.Model;
-        target.Deployment = source.Deployment;
-        if (source.MaxTokens is { } maxTokens) target.MaxTokens = maxTokens;
     }
 
     public static RawTrackerEntry Tracker(TrackerEntity entity, RawTrackerEntry? existing)
