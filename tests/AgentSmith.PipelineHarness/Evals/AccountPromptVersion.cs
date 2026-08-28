@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.PipelineHarness.Evals;
 
@@ -24,12 +25,22 @@ public static class AccountPromptVersion
     /// base can be searched and where one cannot. Digesting only the base-less variant would
     /// have keyed a report on wording the fixtures — which all carry a base — never see.
     /// </para>
+    /// <para>
+    /// 2026-08-25-6f12: and the FULL-REACH ASK, which is appended to that prompt on the last
+    /// call an account makes. It is instructions the account reads, so a change to it is a
+    /// change to the thing under test — and left out of the key, the first measurement of
+    /// this phase overwrote its predecessor's committed baseline instead of standing beside
+    /// it.
+    /// </para>
     /// </summary>
     public static string Current { get; } = Digest(
         SpecAccountPrompt.For(["a criterion"], string.Empty, [], ["Sample.Server"])
         + SpecAccountPrompt.For(
             ["a criterion"], string.Empty, [], ["Sample.Server"],
-            baseSearchable: ["Sample.Server"]));
+            baseSearchable: ["Sample.Server"])
+        + AccountFullReachAsk.Message(
+            [new CriterionAccount("a criterion", AccountDisposition.NotSatisfied)],
+            ["Sample.Server"]));
 
     private static string Digest(string prompt) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(prompt)))[..8].ToLowerInvariant();

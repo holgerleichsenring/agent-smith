@@ -14,9 +14,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 internal static class AccountTools
 {
-    /// <summary>Room for every search the account may run, plus the turn that asks and the
-    /// turn that answers.</summary>
-    internal const int MaxIterations = BranchSearch.MaxSearches + 2;
+    /// <summary>Room for every search a PASS may run, plus the turn that asks and the turn
+    /// that answers. The iteration cap is per request, so each pass gets this over again —
+    /// which is why 2026-08-25-6f12 had to make the SEARCH allowance per pass too.</summary>
+    internal const int MaxIterations = AccountSearchBudget.PerPass + 2;
 
     /// <summary>What a citation may name: a path the diff covers, a command that was listed,
     /// or a search the account ran itself. p0484: the third was missing, so a criterion the
