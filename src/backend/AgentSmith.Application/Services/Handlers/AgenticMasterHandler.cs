@@ -183,11 +183,9 @@ public sealed class AgenticMasterHandler(
             ["ExpectationSection"] = Expectations.ExpectationPromptSection.Build(context.Pipeline),
             // p0393a: the CURRENT phase's markdown companion — the ticket spans this phase
             // must honour, carried byte-identical. ADDITIONAL context, never a replacement
-            // for the pinned ticket (p0357). SpecSection is the name the skill catalog uses
-            // from v4.1 on; WorkSpecSection is the same content under the pre-v4.1 pin's
-            // name, and it goes when the embedded pin bumps past that release.
+            // for the pinned ticket (p0357). 2026-08-28-489a removed the pre-v4.1 alias
+            // that bound the same content twice: no master in the supported catalog uses it.
             ["SpecSection"] = Specs.SpecPromptSection.Build(context.Pipeline),
-            ["WorkSpecSection"] = Specs.SpecPromptSection.Build(context.Pipeline),
             // p0341: the seeded checklist, so the master opens on it. Masters without
             // the placeholder (older pins) simply never render it — Render is a no-op.
             ["ProgressLedgerSection"] = progress.GetLedger().IsEmpty

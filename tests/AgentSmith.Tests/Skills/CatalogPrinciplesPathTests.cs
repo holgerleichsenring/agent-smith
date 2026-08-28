@@ -25,12 +25,12 @@ public sealed class CatalogPrinciplesPathTests : IDisposable
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
 
-    [Theory]
-    [InlineData("principles")]                 // catalog >= 4.0.0
-    [InlineData("skills/coding/principles")]   // catalog < 4.0.0
-    public void Compose_EitherCatalogLayout_FindsTheTemplates(string subPath)
+    [Fact]
+    public void Compose_TheCatalogLayout_FindsTheTemplates()
     {
-        var dir = Path.Combine(_root, subPath.Replace('/', Path.DirectorySeparatorChar));
+        // 2026-08-28-489a: one layout. The pre-4.0.0 location was a case here until the
+        // supported floor became the release that carries the current one.
+        var dir = Path.Combine(_root, "principles");
         Directory.CreateDirectory(Path.Combine(dir, "deltas"));
         File.WriteAllText(Path.Combine(dir, "core.md"), "CORE RULES");
         File.WriteAllText(Path.Combine(dir, "deltas", "csharp.md"), "CSHARP DELTA");
@@ -43,12 +43,24 @@ public sealed class CatalogPrinciplesPathTests : IDisposable
     }
 
     [Fact]
-    public void Compose_NeitherLayoutPresent_ReturnsNull()
+    public void Compose_NoPrinciplesPresent_ReturnsNull()
     {
         Directory.CreateDirectory(_root);
 
         CreateSut().Compose("csharp").Should().BeNull(
             "a catalog shipping no principles hands authorship to the bootstrap skill");
+    }
+
+    [Fact]
+    public void Compose_TheLegacyLocation_IsNotProbed()
+    {
+        // A catalog laid out the pre-4.0.0 way is below the supported floor, and reading it
+        // would keep alive the one path that made an old pin look like a current one.
+        var legacy = Path.Combine(_root, "skills", "coding", "principles");
+        Directory.CreateDirectory(legacy);
+        File.WriteAllText(Path.Combine(legacy, "core.md"), "CORE RULES");
+
+        CreateSut().Compose("csharp").Should().BeNull();
     }
 
     [Fact]
