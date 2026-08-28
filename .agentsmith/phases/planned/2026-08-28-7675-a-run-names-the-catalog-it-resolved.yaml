@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-7675
+
+goal: "A run says which catalog it resolved and whether that catalog is below the floor the binary was built against, so an old pin stops being invisible."
+
+applies_to: "backend (the principles composition's three silent exits, the bootstrap outcome, a floor comparison at catalog resolution)"
+
+requires:
+  - 2026-08-28-c5e7
+
+scope:
+  in: "The three paths on which the principles composition returns nothing, made visible with the catalog origin it read; the bootstrap outcome naming who authored the principles; and one comparison at resolution reporting a catalog older than the embedded pin's own floor."
+  out: >
+    REMOVING ANY TOLERANCE. The legacy principles location and the pre-v4.1 prompt-token
+    alias both stay until an operator's pins have moved — that is the successor *the
+    legacy catalog locations go*, and it is blocked on configuration, not on code.
+    REFUSING an old pin: a floor that refuses would stop two deployments that are
+    running today. This phase makes the situation legible; deciding it is the operator's.
+
+decisions:
+  - key: |
+      THE PREMISE THAT NO OLD PIN IS IN USE IS FALSE ON THIS MACHINE, AND THAT IS WHY THIS
+      PHASE EXISTS BEFORE ANY REMOVAL. Two operator configs pin the catalog explicitly at
+      v3.21.0 and v3.24.0, and an explicit version wins over the embedded one. So the
+      deployments are resolving a catalog from the 3.x line: no profiles, no principles at
+      the current location, none of the master wording since. Removing the legacy path first
+      would have taken principles away from a running system, silently.
+  - key: |
+      THE COMPOSITION HAS THREE SILENT EXITS, NOT ONE. The directory is missing and nothing
+      is logged; the core file is missing and it is logged at debug; a read throws and the
+      catch says nothing. Only the middle one was ever visible, and only to someone reading
+      debug output.
+  - key: |
+      THE THROWN-EXIT STAYS QUIET AND THE OTHER TWO SPEAK AT INFORMATION. Command-line tooling
+      composes outside the server's lifecycle, and the harness fixture catalog ships no
+      principles at all — so warning on every miss would train the operator to ignore the
+      warning. What is reported is which catalog was read and that principles came from the
+      skill instead of the catalog.
+  - key: |
+      A LOG LINE IS NOT WHERE AN OPERATOR LOOKS, SO THE OUTCOME CARRIES IT TOO. Two of the
+      three bootstrap principles modes already reach the run record; the third — the one that
+      hands authorship to the skill — falls through to a generic file-count message. The mode
+      that needs explaining is the one that has none.
+  - key: |
+      THE FLOOR IS A COMPARISON, NOT A GATE. The binary knows the catalog it embeds; a
+      resolved catalog older than that is a fact worth stating once per run. Refusing it is a
+      separate decision with a blast radius on live deployments, and this phase does not take
+      it.
+
+steps:
+  - id: the-composition-says-what-it-read
+    action: "The two silent exits report the catalog origin and that no principles were found; the thrown exit stays quiet and says why in a comment."
+  - id: the-outcome-names-the-author
+    action: "The bootstrap result for skill-authored principles names the mode and the catalog origin."
+  - id: an-older-catalog-is-named
+    action: "Catalog resolution compares the resolved version against the embedded pin and reports once when it is older."
+
+tests:
+  - "Compose_ACatalogWithoutPrinciples_ReportsTheOriginItRead"
+  - "BootstrapRound_SkillWritesMode_TheResultNamesTheCatalogItRead"
+  - "CatalogResolution_AVersionBelowTheEmbeddedPin_IsReported"
+  - "CatalogResolution_TheEmbeddedPin_ReportsNothing"
+
+done:
+  - "a run on an old pin says so, once, with the version it resolved"
+  - "a bootstrap whose principles came from the skill says that in the run record"
+  - "no tolerance was removed by this phase"
+  - "build green, full suite green"

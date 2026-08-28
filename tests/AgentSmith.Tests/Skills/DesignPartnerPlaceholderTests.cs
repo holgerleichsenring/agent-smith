@@ -9,9 +9,8 @@ namespace AgentSmith.Tests.Skills;
 /// shows is the shape an operator copies. Until this phase it showed <c>pNNNN</c>, which
 /// matches NEITHER id pattern — the master was teaching a shape the schema rejects.
 /// <para>
-/// Armed at the pin, the way p0504 armed its packaging assertion: the master only carries
-/// the new wording once a catalog release ships it, so below the pin this asserts the
-/// packaged master is still readable and states what is outstanding.
+/// 2026-08-28-3302: no longer armed at the pin. The pinned catalog carries the minted
+/// placeholder, and an assertion that skips itself below a floor reads as one that holds.
 /// </para>
 /// </summary>
 public sealed class DesignPartnerPlaceholderTests
@@ -23,16 +22,11 @@ public sealed class DesignPartnerPlaceholderTests
     {
         var master = PackagedMaster.Read("design-partner-master");
 
-        if (PackagedMaster.Pin < MintedPlaceholderFrom)
-        {
-            master.Should().NotBeNullOrWhiteSpace(
-                "the pinned catalog must still be readable while it predates the new placeholder");
-            return;
-        }
-
         master.Should().NotMatchRegex(
             @"\bpNNNN",
-            "pNNNN matches neither id pattern, so a draft copying it is rejected by the schema");
+            $"the pin is {PackagedMaster.Pin} and the minted placeholder ships from "
+            + $"{MintedPlaceholderFrom} — pNNNN matches neither id pattern, so a draft "
+            + "copying it is rejected by the schema");
 
         PlaceholderIds(master).Should().NotBeEmpty(
             "the master must still show an example id for an operator to copy")

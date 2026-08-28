@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-489a
+
+goal: "The binary stops reading catalog layouts older than the one it embeds, once no configuration resolves such a catalog."
+
+applies_to: "backend (the pre-4.0.0 principles location, the pre-v4.1 prompt-token alias, and the two tests that pin them)"
+
+requires:
+  - 2026-08-28-7675
+
+scope:
+  in: "The pre-4.0.0 principles location dropped from the reader and from the two test helpers that mirror it, and the pre-v4.1 prompt-token alias dropped with its double binding."
+  out: >
+    EVERYTHING UNTIL THE PRECONDITION HOLDS. Two operator configs pin the catalog at
+    v3.21.0 and v3.24.0; an explicit version wins over the embedded pin, so those
+    deployments resolve a 3.x catalog whose principles live at the old location. This
+    phase starts when they do not.
+
+decisions:
+  - key: |
+      BOTH TOLERANCES CARRY THEIR OWN EXPIRY NOTE, AND NEITHER HAS EXPIRED YET. The principles
+      reader says "drop the legacy path once no pin below 4.0.0 is in use"; the prompt-token
+      alias says its entry goes "when the embedded skills pin moves past the release that
+      renamed it". The embedded pin has moved — but the pin an operator NAMES wins over the
+      embedded one, and two configs still name a 3.x release.
+  - key: |
+      THE PRECONDITION IS CONFIGURATION, NOT CODE, WHICH IS WHY IT IS A PHASE AND NOT A
+      COMMENT. Nothing in the tree can prove those pins have moved; the predecessor makes an
+      old pin visible in the run so the operator can see which deployments still carry one.
+  - key: |
+      THE ALIAS IS ALREADY UNUSED BY THE EMBEDDED CATALOG, AND THAT IS NOT THE SAME AS SAFE.
+      The pinned master declares only the current slot name, so the alias renders for nobody
+      at 4.7.0 — but the same 3.x pins that keep the principles path alive are exactly the
+      catalogs whose masters use the old slot.
+  - key: |
+      TWO TEST SURFACES PIN THE OLD LAYOUT AND ONE OF THEM ARGUES THE OPPOSITE OF THIS PHASE.
+      A theory feeds the legacy layout as a case, and its sibling's reason calls a catalog
+      without templates "a legitimate state". Both move with the code, or the suite keeps
+      asserting the tolerance the phase removed.
+
+steps:
+  - id: the-legacy-principles-location-goes
+    action: "The principles reader probes the current location only; the theory case and the test helper that mirror it go with it."
+  - id: the-renamed-slot-loses-its-alias
+    action: "The pre-v4.1 prompt-token alias and its double binding are deleted."
+  - id: the-reason-says-what-is-true-now
+    action: "The sibling test's reason is rewritten: a catalog without principles templates is a catalog below the supported floor."
+
+tests:
+  - "Compose_TheLegacyLocation_IsNotProbed"
+  - "MasterPrompt_TheRenamedSlot_HasNoAlias"
+
+done:
+  - "no configuration in use resolves a catalog below the embedded pin — verified before starting"
+  - "no principles path or prompt-token alias exists for a catalog older than the embedded pin"
+  - "build green, full suite green"
