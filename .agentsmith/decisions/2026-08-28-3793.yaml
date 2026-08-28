@@ -1,0 +1,151 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-3793
+
+decisions:
+  - category: Architecture
+    chose: "The target check became a seam — IImportTargetPolicy — with the CLI's EmptyTargetCheck as the default and ServerRestorePolicy replacing it in the server's composition"
+    over: "A second reader, a flag on ReadAsync, or weakening EmptyTargetCheck so both callers share one rule"
+    reason: |
+      DataArchiveReader called EmptyTargetCheck directly, so the server could not have used
+      2af6's reader at all: the observed-caller row the operator's own sign-in produces would
+      have refused every restore. The rule is the ONLY thing that differs between the two
+      callers, so it is the only thing that moved behind an interface. The CLI's rule is
+      untouched and still refuses on any row in any table.
+
+  - category: Implementation
+    chose: "The policy runs INSIDE the import's transaction, not before it"
+    over: "Leaving the check where 2af6 put it, ahead of BeginTransactionAsync"
+    reason: |
+      The server's policy CLEARS rows (see the next decision), and a clear outside the
+      transaction survives a failed import — an installation whose config store was emptied
+      and not refilled has no role mapping, which after RoleMappingSource.AdoptStore() can
+      lock every non-bootstrap caller out. Inside the transaction a failure anywhere puts the
+      cleared rows back. The CLI's behaviour is unchanged: it still throws before a row is
+      written, now inside a transaction that rolls back.
+
+  - category: Implementation
+    chose: "ServerRestorePolicy refuses on a recorded run and DELETES the four bookkeeping rows a server writes about itself"
+    over: "Only refusing on a recorded run and letting the archive's rows collide with them"
+    reason: |
+      A DEPARTURE from what the spec's decision literally says, and it is what makes the
+      phase work. Tolerating rows in observed_callers and the config trio is not enough: the
+      archive carries those same tables with keys of its own, so the insert hits the primary
+      key (config_entity Id 1 is the migrated role mapping) or the (EntityType, EntityId)
+      alternate key and the whole restore fails on a constraint. Refusing "only by something
+      that would actually collide" therefore requires removing the server's own bookkeeping
+      first. Both are replaced by the archive's copies moments later, inside one transaction.
+      ServerRestorePolicyTests asserts the clearing AND that a refusal leaves it alone.
+
+  - category: Implementation
+    chose: "The restore reloads through ConfigStudioWriteGuard.GuardSignalingAsync only on success"
+    over: "Wrapping the whole restore in the guard, as the YAML import wraps its whole body"
+    reason: |
+      The guard signals the epoch for anything that returns without throwing one of its two
+      validation exceptions — including a 409 refusal. A refused restore changes nothing, so
+      it must signal nothing. The refusal is caught outside the guard and the guard wraps
+      exactly the two steps a successful restore owes the running server: store.Load() and
+      the epoch bump. Import_AfterARestore_TheConfigStoreIsReloadedAndTheEpochSignalled reads
+      GetAgents() BEFORE the import so the store has cached its empty catalog — without the
+      reload it would still be serving that answer.
+
+  - category: Implementation
+    chose: "Synchronous response writes are switched on for the export route alone"
+    over: "Leaving Kestrel's default, or setting AllowSynchronousIO for the whole server"
+    reason: |
+      NOT in the spec, and found only because the export was tested over real HTTP:
+      ZipArchive closes every entry by writing its data descriptor through Stream.Write, with
+      no async path, and Kestrel refuses that by default. The failure arrives AFTER the
+      headers — a truncated body under a 200 — which is precisely the mode the spec accepts
+      for a mid-stream fault and would therefore have hidden it. A handler-level test could
+      not have seen it: the response stream would have been a MemoryStream.
+
+  - category: Implementation
+    chose: "The upload ceiling is raised through IHttpMaxRequestBodySizeFeature inside the handler, to eight gibibytes"
+    over: "A [RequestSizeLimit] attribute on the endpoint, or raising Kestrel's limit in ServerHostFactory"
+    reason: |
+      The feature is the documented per-request switch and is testable without a server; the
+      attribute's minimal-API support depends on middleware this host does not obviously run,
+      and the host-wide setting would widen every other route. Eight gibibytes is an explicit
+      number rather than "no limit", because a stated ceiling is a decision and null is the
+      absence of one. Import_TheSameWeightAtARouteThatRaisedNothing_IsRefusedForItsSize is
+      the control: the same server refuses the same weight at /api/config/import.
+
+  - category: Tooling
+    chose: "The over-the-ceiling case uploads a REAL archive of 12 rows of random base64, and asserts the file is over 30 MB before posting it"
+    over: "Posting junk bytes, or an archive that happened to be whatever size the seed produced"
+    reason: |
+      A test that passes because no archive was ever large enough proves nothing. Random
+      base64 is what makes it affordable: compressible rows would need hundreds of megabytes
+      in the database to clear thirty on the wire, because the ceiling applies to the ZIP.
+      IT WAS RUN: the archive measured over 30 MB and the import returned 200 with all twelve
+      rows.
+
+  - category: Security
+    chose: "Two new permissions, archive.export and archive.import, neither borrowing the configuration grant"
+    over: "Reusing config.export / config.import, or a single archive.transfer"
+    reason: |
+      An archive is the installation in clear — ticket text, prompts, artifacts and the
+      config store's secrets — so whoever may take one may read everything the installation
+      has ever done. ArchivePermissionTests refuses a caller holding config.read AND
+      config.export AND secrets.read, which is exactly the bundle a route reusing the config
+      permission would have let through. The pair is split for the reason the config pair is:
+      taking a copy and replacing the database are separable acts.
+
+  - category: Scope
+    chose: "A preview endpoint states the tables and row counts, and the surface says the SIZE is unknown until the file is written"
+    over: "Estimating a byte size from the row counts so the surface could state one up front"
+    reason: |
+      A departure from the spec's test name Surface_NamesTheTablesRowCountsAndSize_Before-
+      TheDownload, recorded because the name asks for a number nobody has. The archive is
+      produced as it streams — nothing knows its size until it has been written — and an
+      estimate derived from row counts would be a guess wearing a fact's clothes. The surface
+      names the tables and the counts before, and the byte size the moment the file arrives.
+      The two dashboard cases are named for what they actually assert.
+
+  - category: TradeOff
+    chose: "The download streams into a save dialog where the browser has one and falls back to a buffered blob where it does not, saying which happened"
+    over: "Always buffering (what the config export does), or claiming the browser never holds the file"
+    reason: |
+      The bearer token is injected by the one fetch helper, so a plain link cannot carry the
+      request and the response has to be read by script. showSaveFilePicker + pipeTo keeps
+      the tab out of it; without it the tab holds the whole archive, and the panel says so in
+      those words rather than pretending otherwise. A cancelled dialog is an AbortError, not
+      a silent fall back to the path the operator just declined.
+
+  - category: Scope
+    chose: "Added an empty SQLite migration named WidenMoneyPrecision, and read the target's schema head in DataArchiveRefusalTests instead of spelling it"
+    over: "Committing on a red suite, or relaxing the cross-provider schema-head test"
+    reason: |
+      OUT OF THIS PHASE'S SCOPE and repaired because it was broken on main and blocks every
+      phase commit. 2026-08-28-b883 widened the money columns on SQL Server only and
+      deliberately added no SQLite migration; 2026-08-28-2af6 then made the head migration's
+      NAME the cross-provider schema identity. Merged, the two mean SQLite reports
+      AddObservedCallers where SQL Server reports WidenMoneyPrecision — so
+      Manifest_TheTwoProvidersSchemaHeads_CompareEqual fails, and every SQLite-to-SQL-Server
+      import would be refused, which is the one journey the archive exists for. The empty
+      migration is the honest fix: the logical schemas ARE the same and SQLite has nothing to
+      alter. Spelling the head in a refusal message was the same bug in a second place.
+
+  - category: Tooling
+    chose: "Taught the Redis fake StringIncrement"
+    over: "Substituting a recording IConfigReloadSignal into the boot"
+    reason: |
+      The epoch is a counter and the mock answered default for INCR, which the write guard's
+      best-effort catch swallows — so "the restore signalled the epoch" would have passed
+      over a signal that never happened. With the increment implemented the test runs the
+      REAL RedisConfigReloadSignal and reads the epoch back through it.
+
+  - category: Tooling
+    chose: "Widened PipelineConcurrencyGateTests' one-second wait to thirty, and trimmed the large-archive rows from four megabytes to three"
+    over: "Leaving both and re-running the gate until it went green"
+    reason: |
+      A second out-of-scope repair, and it is the phase gate's own report. The gate runs
+      three test projects at once; deflating a thirty-megabyte archive is the heaviest thing
+      in the suite, and the first casualty of that load was a one-second WaitAsync in an
+      unrelated test — the starvation MigratedStoreTemplate already documents ("the first
+      casualty is whichever test asserts a wall-clock bound"). The wait is a liveness bound,
+      not a latency one: at thirty seconds it still fails a permit that is never released and
+      stops reporting a busy machine as a defect. The rows were trimmed in the same breath so
+      the phase pays for its own claim as cheaply as the claim allows — twelve times three
+      megabytes still lands a fifth clear of the ceiling, which the test asserts before it
+      posts.

@@ -10,17 +10,24 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Persistence.Services.Archive;
 
 /// <summary>
-/// 2026-08-28-2af6: writes an archive back into an empty store. It refuses first — the
-/// schema head by name, then every table's emptiness — writes the tables in the order the
-/// model declares with the audit stamping suspended and the provider's identity insertion
-/// switched on where it is needed, advances each generator past the copied keys, and
-/// verifies against the manifest before it commits. Anything that fails takes the whole
-/// import down with it: one transaction, no half-copied database.
+/// 2026-08-28-2af6: writes an archive back into a store this installation says is fit to
+/// receive one. It refuses first — the schema head by name, then the target policy —
+/// writes the tables in the order the model declares with the audit stamping suspended and
+/// the provider's identity insertion switched on where it is needed, advances each
+/// generator past the copied keys, and verifies against the manifest before it commits.
+/// Anything that fails takes the whole import down with it: one transaction, no
+/// half-copied database.
+/// <para>
+/// 2026-08-28-3793: the target policy runs INSIDE the transaction. A policy that clears
+/// the rows it tolerates — the server's does, because a running server writes about itself
+/// before anyone can ask for a restore — must be undone with the import when a later table
+/// fails.
+/// </para>
 /// </summary>
 public sealed class DataArchiveReader(
     ArchiveTableOrder order,
     ArchiveSchemaCheck schema,
-    EmptyTargetCheck empty,
+    IImportTargetPolicy target,
     ArchiveTableImporter importer,
     IdentityInsertSwitch identity,
     IdentitySequenceAdvancer advancer,
@@ -44,7 +51,6 @@ public sealed class DataArchiveReader(
         var manifest = await ManifestAsync(zip, cancellationToken);
         var types = order.Of(db.Model);
         await schema.VerifyAsync(db, manifest, cancellationToken);
-        await empty.VerifyAsync(db, types, cancellationToken);
         return await WriteAsync(db, zip, manifest, types, cancellationToken);
     }
 
@@ -53,6 +59,7 @@ public sealed class DataArchiveReader(
         IReadOnlyList<IEntityType> types, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await target.EnforceAsync(db, types, ct);
         using var stamping = db.SuspendAuditStamping();
         var written = new List<ArchivedTable>(types.Count);
         foreach (var type in types) written.Add(await TableAsync(db, zip, type, ct));
