@@ -16,6 +16,8 @@ const AUTHORITY = "https://login.example.com/realms/sample";
 const CLIENT_ID = "dashboard";
 const ACCESS_TOKEN = "at-from-the-authority";
 
+const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 const SETTINGS: RuntimeAuthSettings = {
   authority: AUTHORITY,
   clientId: CLIENT_ID,
@@ -107,6 +109,37 @@ function clientFor(navigator: CapturingNavigator): UserManager {
   return new UserManager(authoritySettings(SETTINGS, ORIGIN), navigator as unknown as never);
 }
 
+/** 2026-08-28-0f46: the state a SILENT request leaves behind, written the way
+ *  the library writes it. No code verifier: this state is never exchanged here,
+ *  and PKCE is the business of the window that asked for it. */
+const SILENT_STATE_ID = "the-silent-request";
+
+function seedSilentState(): void {
+  window.sessionStorage.setItem(
+    `oidc.${SILENT_STATE_ID}`,
+    JSON.stringify({
+      id: SILENT_STATE_ID,
+      request_type: "si:s",
+      created: Math.floor(Date.now() / 1000),
+      authority: AUTHORITY,
+      client_id: CLIENT_ID,
+      redirect_uri: `${ORIGIN}/signin-callback`,
+      scope: "openid profile",
+    }),
+  );
+}
+
+/** The one message a waiting window is listening for. In jsdom the frame's
+ *  parent IS this window, so the post is observable right here. */
+function messageToTheWindowAbove(): Promise<string> {
+  return new Promise((resolve) => {
+    window.addEventListener("message", (event: MessageEvent) => {
+      const data = event.data as { source?: string; url?: string } | null;
+      if (data?.source === "oidc-client") resolve(data.url ?? "");
+    });
+  });
+}
+
 /** Runs a real sign-in redirect and hands back the URL the authority would
  *  return to, so the code exchange is driven by a genuine PKCE state. */
 async function redirectedBack(
@@ -180,6 +213,55 @@ describe("AuthSession.complete", () => {
   });
 });
 
+// 2026-08-28-0f46: the reply route is the ordinary one — the library points its
+// hidden frame at redirect_uri and this phase deliberately registers no second
+// URL — so what arrives there can be either kind of answer. Completing a silent
+// answer as a redirect notified nobody (only the silent path posts the message
+// the waiting window blocks on) AND removed the state key that window still
+// needed, so the wait always ran out at ten seconds. These drive the real
+// library over a real silent state.
+describe("AuthSession.complete on a silent return", () => {
+  it("SilentReturn_DispatchesOnTheRequestTypeTheAnswerCarries", async () => {
+    stubAuthority();
+    seedSilentState();
+    const store = new AccessTokenStore();
+    const session = new AuthSession(clientFor(new CapturingNavigator()), store);
+    const notified = messageToTheWindowAbove();
+
+    await session.complete(`${ORIGIN}/signin-callback?code=the-code&state=${SILENT_STATE_ID}`);
+
+    // The message the waiting window is blocked on, which a redirect completion
+    // never sends — and no token exchange happened in this document at all.
+    expect(await notified).toContain(`state=${SILENT_STATE_ID}`);
+    expect(session.isSilentReturn).toBe(true);
+    expect(session.error).toBeNull();
+    expect(store.read()).toBeNull();
+  });
+
+  it("SilentReturn_LeavesTheParentsStateKeyInPlace", async () => {
+    stubAuthority();
+    seedSilentState();
+    const session = new AuthSession(clientFor(new CapturingNavigator()), new AccessTokenStore());
+
+    await session.complete(`${ORIGIN}/signin-callback?code=the-code&state=${SILENT_STATE_ID}`);
+
+    // Frame and window share this storage. The window still has to read this
+    // state and spend the single-use code itself; a redirect completion here
+    // consumes both and leaves it failing on the step after the one it waited on.
+    expect(window.sessionStorage.getItem(`oidc.${SILENT_STATE_ID}`)).not.toBeNull();
+  });
+
+  it("SilentReturn_AnUnknownState_IsARefusalRatherThanAThrow", async () => {
+    stubAuthority();
+    const session = new AuthSession(clientFor(new CapturingNavigator()), new AccessTokenStore());
+
+    await session.complete(`${ORIGIN}/signin-callback?code=the-code&state=nobody-asked-for-this`);
+
+    expect(session.isSilentReturn).toBe(false);
+    expect(session.error).not.toBeNull();
+  });
+});
+
 describe("AuthSession.restore", () => {
   it("Restore_NoDirectorySession_LeavesTheStoreEmptyAndNothingThrows", async () => {
     stubAuthority();
@@ -208,9 +290,36 @@ describe("AuthSession.restore", () => {
     const session = new AuthSession(client, store);
 
     await session.restore();
+    // 2026-08-28-0f46: the restore no longer WAITS for the silent attempt — it
+    // adopts what the attempt brings back whenever that lands. So the assertion
+    // waits where the boot deliberately does not.
+    await settle();
 
     expect(store.read()).toBe(ACCESS_TOKEN);
     expect(navigator.urls).toEqual([]);
+  });
+
+  it("Restore_AHeldSessionThatIsStillLive_NeverAsksTheAuthorityAnything", async () => {
+    stubAuthority();
+    const navigator = new CapturingNavigator();
+    const client = clientFor(navigator);
+    const silently = vi.spyOn(client, "signinSilent");
+    // What a reload finds: the library's own user store, in session storage.
+    await client.storeUser({
+      access_token: ACCESS_TOKEN,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      toStorageString: () => JSON.stringify({
+        access_token: ACCESS_TOKEN,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        profile: { sub: "a-person" },
+      }),
+    } as never);
+    const store = new AccessTokenStore();
+
+    await new AuthSession(client, store).restore();
+
+    expect(store.read()).toBe(ACCESS_TOKEN);
+    expect(silently).not.toHaveBeenCalled();
   });
 });
 
