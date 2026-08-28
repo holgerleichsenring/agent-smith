@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-3793
+
+goal: "An operator takes the data archive from the dashboard and restores one into a fresh installation, without shell access to the machine the database runs on."
+
+applies_to: "backend (two guarded endpoints for the archive) + dashboard (the installation surface that offers them)"
+
+requires:
+  - 2026-08-28-2af6
+  - 2026-08-27-1ed6
+  - p0353
+
+scope:
+  in: "Two endpoints — one streaming an archive out, one taking one in — behind their own permission, the config reload a restore has to trigger, and the controls on the installation surface, showing what an archive contains and naming the rule that refused a restore."
+  out: "A second archive format. Scheduling, retention, or copying an archive anywhere on its own. Restoring into an installation that has been used — the rule below decides what 'used' means, and it stays narrow on purpose."
+
+decisions:
+  - key: |
+      THE SERVER PATH IS THE CONVENIENT ONE, NOT THE RELIABLE ONE, AND THE ORDER MATTERS. The CLI
+      exists first and works against the database because the case that matters most is an
+      installation whose server will not start. This phase adds the path for the ordinary case —
+      an operator with a browser and no shell on the database host — and inherits every rule the
+      format already enforces.
+  - key: |
+      "EMPTY" CANNOT MEAN "NO ROWS ANYWHERE", BECAUSE A RUNNING SERVER FILLS TWO TABLES BEFORE
+      ANYONE CAN PRESS THE BUTTON. Every authenticated caller is written to the observed-caller
+      table within half a minute, so the operator's own sign-in guarantees a row; and a boot with
+      roles in the bootstrap block migrates a role mapping into the config store. A literal
+      emptiness rule would refuse every restore the endpoint will ever be offered. The rule is
+      therefore: no run has ever been recorded. That is the thing a restore would collide with,
+      it is one cheap probe, and the two tables a live server fills are named as the exception
+      rather than discovered as a bug.
+  - key: |
+      A RESTORE THAT DOES NOT RELOAD LEAVES THE SERVER SERVING THE CONFIGURATION IT NO LONGER
+      HAS. The archive carries the config store, and the running server holds it in memory behind
+      an epoch signal. The existing YAML import already reloads and signals; a restore that
+      writes the same tables and skips it hands back an installation whose behaviour matches the
+      database it just replaced only after a restart nobody was told to perform.
+  - key: |
+      A FULL ARCHIVE IS NOT A CONFIGURATION READ, SO IT DOES NOT BORROW THAT PERMISSION. It
+      carries ticket text, prompts, artifacts and the config store's secrets in clear. Whoever
+      may take one may read everything the installation has ever done, which is a different
+      grant from reading or editing configuration, and it is stated as its own.
+  - key: |
+      THE EXPORT STREAMS AND THE IMPORT DOES NOT, AND THAT ASYMMETRY IS THE FORMAT'S. A zip is
+      read from its end, so an import must have the whole file before it can consult the
+      manifest it is required to check first: the upload lands in a temporary file and is read
+      from there. The export has no such constraint and is written as it is produced.
+  - key: |
+      THE DEFAULT UPLOAD CEILING IS THIRTY MEGABYTES, WHICH IS SMALLER THAN ANY ARCHIVE WORTH
+      RESTORING. Nothing raises it today because nothing has needed to. The import endpoint
+      raises it for itself rather than for the whole server, so one large upload does not widen
+      every other route.
+  - key: |
+      THE BROWSER CANNOT STREAM A DOWNLOAD IT HAS TO AUTHENTICATE. The bearer token is injected
+      by the single fetch helper, so a plain link cannot carry it and the existing config export
+      reads its whole response into memory. For an archive that is a tab-sized problem, so the
+      download is fetched as a stream and written through a save dialog where the browser
+      supports one, falling back to the buffered path with the size stated up front. What is
+      NOT claimed is that the browser half never holds the file.
+  - key: |
+      A MID-STREAM FAILURE PRODUCES A BROKEN FILE, AND THAT IS THE RIGHT OUTCOME. Once the
+      response headers are out the error handler cannot rewrite the status, so an export that
+      dies half way sends a truncated body under a 200. A zip's directory sits at the end, so
+      the file simply will not open — which is a better failure than a plausible archive missing
+      its last tables.
+  - key: |
+      INSTALLATION, NOT CONFIGURATION. The controls belong beside the versions and the database
+      state, where an operator already goes to find out what this installation is — the surface
+      1ed6 moved under configuration for exactly that reading.
+
+steps:
+  - id: the-server-streams-an-archive-out
+    action: "Add an endpoint that streams the archive the persistence project writes, behind its own permission, without buffering it whole."
+  - id: the-server-takes-an-archive-in
+    action: "Add an endpoint that spools an uploaded archive to a temporary file, reads it under the format's own refusal rules with its own upload ceiling, and reports which rule stopped it."
+  - id: a-restored-installation-reloads-its-configuration
+    action: "Reload the config store and signal the epoch after a restore, so the running server serves the configuration it now holds."
+  - id: the-refusal-rule-is-about-runs-not-rows
+    action: "Refuse a restore when a run has ever been recorded, rather than when any table holds a row, so the tables a live server fills on its own do not refuse every restore."
+  - id: the-installation-surface-offers-both
+    action: "Put the download and the restore on the installation surface, naming the tables and row counts an archive would carry, stating that it is unredacted and how large it is."
+  - id: a-refusal-reads-as-a-sentence
+    action: "Render a refused restore as the cause it names — a differing schema head or an installation that has already run something — rather than as a failed request."
+
+tests:
+  - "Export_WithoutThePermission_IsRefused"
+  - "Export_IsWrittenAsItIsProduced_NotBufferedWhole"
+  - "Import_AnInstallationThatHasRunNothing_IsAccepted"
+  - "Import_AnInstallationWithASignedInCaller_IsStillAccepted"
+  - "Import_AnInstallationThatHasRecordedARun_IsRefusedWithTheCause"
+  - "Import_ASchemaHeadThatDiffers_IsRefusedWithTheCause"
+  - "Import_AnArchiveLargerThanTheDefaultCeiling_IsAccepted"
+  - "Import_AfterARestore_TheConfigStoreIsReloadedAndTheEpochSignalled"
+  - "Surface_NamesTheTablesRowCountsAndSize_BeforeTheDownload"
+  - "Surface_SaysTheArchiveIsUnredacted"
+  - "Surface_ARefusedRestore_ShowsTheCauseNotAStatusCode"
+
+done:
+  - "an operator with a browser can take an archive and restore one"
+  - "a restore is refused only by something that would actually collide, not by the server's own bookkeeping"
+  - "a restored installation serves the configuration it now holds, without a restart"
+  - "taking an archive needs its own permission, not the configuration grant"
+  - "an archive larger than the default upload ceiling is accepted"
+  - "the operator is told what the file contains and how large it is before it leaves the server"
+  - "backend build green, dashboard build and tests green, full suite green"

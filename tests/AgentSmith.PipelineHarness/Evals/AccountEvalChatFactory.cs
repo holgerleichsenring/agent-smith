@@ -37,7 +37,17 @@ internal sealed class AccountEvalChatFactory(IChatClient client, string modelId)
 /// </summary>
 internal sealed class PromptScriptedChatClient(Func<string, string> answer) : IChatClient
 {
+    private readonly List<string> _offeredTools = [];
+    private readonly List<string> _prompts = [];
+
     public int InvocationCount { get; private set; }
+
+    /// <summary>2026-08-28-c310: every tool name this client was offered, so a test can assert
+    /// what the account under test could actually call rather than what it answered.</summary>
+    public IReadOnlyList<string> OfferedTools => _offeredTools;
+
+    /// <summary>What the account was shown, for a test that asserts the evidence reached it.</summary>
+    public IReadOnlyList<string> Prompts => _prompts;
 
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
@@ -45,6 +55,10 @@ internal sealed class PromptScriptedChatClient(Func<string, string> answer) : IC
     {
         InvocationCount++;
         var prompt = string.Join("\n", messages.Select(m => m.Text));
+        _prompts.Add(prompt);
+        foreach (var tool in options?.Tools ?? [])
+            if (!_offeredTools.Contains(tool.Name, StringComparer.Ordinal))
+                _offeredTools.Add(tool.Name);
         return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, answer(prompt))));
     }
 

@@ -368,7 +368,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<decimal?>("BudgetCapUsd")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 10)
+                        .HasColumnType("decimal(18,10)");
 
                     b.Property<string>("BudgetTier")
                         .HasColumnType("nvarchar(max)");
@@ -383,7 +384,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal>("CostTotalUsd")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 10)
+                        .HasColumnType("decimal(18,10)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -862,7 +864,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<decimal>("CostUsd")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 10)
+                        .HasColumnType("decimal(18,10)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");

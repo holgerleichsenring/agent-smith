@@ -60,6 +60,10 @@ public sealed class FakeRedisStreams
             });
         db.Setup(d => d.StringGetAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
             .Returns((RedisKey key, CommandFlags _) => Task.FromResult(State.StringGet(key.ToString())));
+        db.Setup(d => d.StringIncrementAsync(
+                It.IsAny<RedisKey>(), It.IsAny<long>(), It.IsAny<CommandFlags>()))
+            .Returns((RedisKey key, long _, CommandFlags _) =>
+                Task.FromResult(State.StringIncrement(key.ToString())));
         db.Setup(d => d.KeyDeleteAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
             .Returns((RedisKey key, CommandFlags _) => Task.FromResult(State.KeyDelete(key.ToString())));
     }
