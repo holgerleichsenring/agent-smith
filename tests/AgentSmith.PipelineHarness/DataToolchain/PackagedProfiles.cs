@@ -12,10 +12,9 @@ namespace AgentSmith.PipelineHarness.DataToolchain;
 /// same parser a run uses — so the gate polices the artefact that reaches a
 /// sandbox, not a second copy of the YAML written in this repository.
 /// <para>
-/// Armed at the pin, like p0504's packaging test: a profile authored in the skills
-/// catalog only exists in a binary once <c>SkillsCatalogVersion</c> names a release
-/// that carries it. Below that pin <see cref="Find"/> returns null and the callers
-/// state what is still outstanding instead of asserting over an empty tarball.
+/// 2026-08-28-3302: no longer armed at the pin. The embedded catalog carries the
+/// profiles, so a null lookup is a defect to assert on rather than a state to skip
+/// over; <see cref="ProfilesFrom"/> survives as the floor a failure message names.
 /// </para>
 /// </summary>
 public sealed class PackagedProfiles : IDisposable
@@ -28,9 +27,6 @@ public sealed class PackagedProfiles : IDisposable
         Path.GetTempPath(), "agentsmith-p0513-" + Guid.NewGuid().ToString("N"));
 
     public Version Pin => Version.Parse(_catalog.Version.TrimStart('v', 'V'));
-
-    /// <summary>True once the pinned catalog is new enough to carry profiles at all.</summary>
-    public bool Armed => Pin >= ProfilesFrom;
 
     public DomainProfile? Find(string domain)
     {
@@ -45,17 +41,6 @@ public sealed class PackagedProfiles : IDisposable
         Extract();
         return new FileDomainProfileCatalog(
             new PinnedCatalogPath(_root), NullLogger<FileDomainProfileCatalog>.Instance).KnownDomains;
-    }
-
-    /// <summary>Every entry name in the pinned tarball, so a below-pin test can still assert.</summary>
-    public IReadOnlyList<string> Entries()
-    {
-        using var reader = OpenTar(out var gz, out var tarball);
-        var names = new List<string>();
-        while (reader.GetNextEntry() is { } entry) names.Add(entry.Name.TrimStart('.', '/'));
-        gz.Dispose();
-        tarball.Dispose();
-        return names;
     }
 
     private void Extract()

@@ -72,24 +72,17 @@ public sealed class DomainProfileCatalogTests : IDisposable
     }
 
     /// <summary>
-    /// Armed at the pin: the profiles a domain resolves to only exist in a run once the
-    /// embedded catalog ships them, so this asserts the packaging the moment the pin moves
-    /// and states what is still outstanding until then.
+    /// 2026-08-28-3302: no longer armed at the pin. The embedded catalog ships profiles,
+    /// so a tarball without them is a defect to name rather than a state to skip over.
     /// </summary>
     [Fact]
     public void Packaging_ProfilesDirectory_IsInTheTarball()
     {
-        if (PackagedMaster.Pin < ProfilesFrom)
-        {
-            EntriesInPinnedCatalog().Should().NotBeEmpty(
-                "the pinned catalog must still be readable while it predates profiles/");
-            return;
-        }
-
         EntriesInPinnedCatalog()
             .Should().Contain(e => e.StartsWith("profiles/", StringComparison.Ordinal),
-                "package.sh SOURCES must ship profiles/ — a profile that does not ship is a "
-                + "domain no run can resolve");
+                $"the embedded pin is {PackagedMaster.Pin} and profiles ship from "
+                + $"{ProfilesFrom} — a profile that does not ship is a domain no run can "
+                + "resolve, so a pin below that floor fails here rather than in a run");
     }
 
     private static IReadOnlyList<string> EntriesInPinnedCatalog()

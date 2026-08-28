@@ -17,21 +17,22 @@ public sealed class DataProfileGateTests : IDisposable
     private readonly MeasuredCommandsSource _source = new();
     private readonly MeasuredCommandGate _gate = new();
 
-    // Below the pin the profile is not in the binary yet, so there is nothing to
-    // police — but the tarball must still be readable, or this would pass because
-    // the read broke rather than because the profile is clean.
-    private DomainProfile? Profile()
+    // 2026-08-28-3302: one guard, and it asserts. This used to arm at the pin and
+    // return null below it, and every caller then returned early — an assertion that
+    // does not run reads exactly like one that holds.
+    private DomainProfile Profile()
     {
-        if (_profiles.Armed) return _profiles.Find(Domain);
-        _profiles.Entries().Should().NotBeEmpty(
-            "the pinned catalog must stay readable while it predates profiles/");
-        return null;
+        var profile = _profiles.Find(Domain);
+        profile.Should().NotBeNull(
+            $"the embedded pin is {_profiles.Pin} and profiles ship from "
+            + $"{PackagedProfiles.ProfilesFrom} — a pin below that carries no profile to police");
+        return profile!;
     }
 
     [Fact]
     public void Profile_Data_DeclaresOnlyCommandsTheMeasuredTableRecordsAsDeclarable()
     {
-        if (Profile() is not { } profile) return;
+        var profile = Profile();
 
         _gate.Undeclarable(profile, _source.Load()).Should().BeEmpty(
             $"every command '{Domain}' declares must be a row this repository measured as "
@@ -55,7 +56,7 @@ public sealed class DataProfileGateTests : IDisposable
     [Fact]
     public void Profile_Data_DeclaresNoBundleSchemaCommand()
     {
-        if (Profile() is not { } profile) return;
+        var profile = Profile();
 
         profile.Verify.Should().NotContain(
             c => c.Command.Contains(BundleSchemaCheck, StringComparison.Ordinal),
@@ -67,7 +68,7 @@ public sealed class DataProfileGateTests : IDisposable
     [Fact]
     public void Profile_Data_TheImagePassesThePackagingGate()
     {
-        if (Profile() is not { } profile) return;
+        var profile = Profile();
 
         // 2026-08-25-014d: the gate is the registry policy, judged with the default
         // (unconfigured) boundary — a profile ships in the binary, so it has to clear the
