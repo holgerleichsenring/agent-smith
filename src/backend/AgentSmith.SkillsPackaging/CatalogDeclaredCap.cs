@@ -10,17 +10,26 @@ namespace AgentSmith.SkillsPackaging;
 /// The two repositories cannot reference each other's source, so a cap raised on
 /// either side used to leave the other behind in silence. Here a disagreement stops
 /// the build that vendors the catalog — the moment both numbers are visible at once.
-/// A catalog released before this file existed declares nothing and is accepted;
-/// the per-master cap still gates every description in it.
+/// 2026-08-28-a08d: a catalog carrying no declaration is REFUSED. It used to be
+/// accepted because releases before p0518 shipped none — from the embedded pin the
+/// file always exists, so its absence is a package missing a file its own release
+/// gate writes, not an older release. The gate runs over the vendored tarball
+/// alone, so a mounted directory and a customer overlay are out of its reach.
 /// </para>
 /// </summary>
 internal static class CatalogDeclaredCap
 {
     public const string EntryPath = "skills/description-cap.txt";
 
+    /// <summary>The cap this build enforces — the number a catalog must declare.</summary>
+    public static int Enforced => SkillDescriptionRule.MaxChars;
+
     public static string? Violation(string? content)
     {
-        if (content is null) return null;
+        if (content is null)
+            return $"{EntryPath} is missing: the catalog's own release gate writes it, so a "
+                + "tarball without it is an incomplete package — and the two caps are then "
+                + "invisible to each other again.";
         var declared = Parse(content);
         if (declared is null)
             return $"{EntryPath} declares no cap: expected a line holding just the number.";

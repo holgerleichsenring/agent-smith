@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-a08d
+
+decisions:
+  - category: Design
+    chose: "Refuse an embedded catalog that declares no description cap"
+    over: "Keeping the allowance for catalogs released before the declaration existed"
+    reason: |
+      The allowance named its own expiry: releases before p0518 shipped no such file. The
+      embedded pin now carries one, so an absent declaration stops being an older release and
+      becomes a package missing a file the catalog's own release gate writes — and with it the
+      cross-repository lock that keeps two caps from drifting apart in silence.
+  - category: Scope
+    chose: "State that the gate's reach is the vendored tarball alone"
+    over: "Letting the refusal read as a rule about every catalog"
+    reason: |
+      The gate runs from the build target that vendors the embedded catalog, so a mounted
+      directory, a customer overlay and the harness fixture catalog — which ships no cap file
+      — are never handed to it. Without that sentence the change reads as breaking every
+      path-mode deployment, which it does not.
+  - category: Design
+    chose: "Expose the enforced number on the gate and have the test builders write it"
+    over: "Naming the rule type in the tests, or hardcoding 200"
+    reason: |
+      The rule type is compiled into two assemblies under one namespace, so a test cannot name
+      it without an extern alias. Hardcoding the number would recreate the two-copies problem
+      p0518 closed. The gate already IS the authority on what this build enforces, so it
+      answers with it — one number, one home, and the builders stay honest.

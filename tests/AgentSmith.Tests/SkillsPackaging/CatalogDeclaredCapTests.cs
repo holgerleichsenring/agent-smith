@@ -29,10 +29,11 @@ public sealed class CatalogDeclaredCapTests
         CatalogDeclaredCap.Violation("# only comments\n").Should().Contain("declares no cap");
 
     [Fact]
-    public void Violation_CatalogPredatingTheDeclaration_IsAccepted() =>
-        // A tarball released before p0518 carries no such file. Its masters are still
-        // gated one by one; only the cross-repository lock is dormant until the pin moves.
-        CatalogDeclaredCap.Violation(null).Should().BeNull();
+    public void Violation_CatalogWithoutTheDeclaration_IsRefused() =>
+        // 2026-08-28-a08d: it used to be accepted, because releases before p0518 shipped no
+        // such file. From the embedded pin the file always exists, so its absence is an
+        // incomplete package rather than an older release.
+        CatalogDeclaredCap.Violation(null).Should().Contain("is missing");
 
     [Theory]
     [InlineData("skills/description-cap.txt")]
