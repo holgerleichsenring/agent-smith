@@ -14,8 +14,20 @@ export interface CostRollup {
   llmCalls: number;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEK_MS = 7 * DAY_MS;
+export const DAY_MS = 24 * 60 * 60 * 1000;
+export const WEEK_MS = 7 * DAY_MS;
+
+/**
+ * The instant a run's spend counts at: when it finished, or when it started while
+ * it still runs. NaN for a snapshot carrying no readable timestamp — a caller
+ * windowing on it drops the run rather than placing it at the epoch.
+ *
+ * 2026-08-27-7463: exported so the spend BREAKDOWN windows runs by exactly the
+ * rule the headline uses. Two copies of this choice are two spend figures.
+ */
+export function costWindowTimestampMs(run: RunSnapshot): number {
+  return run.finishedAt ? Date.parse(run.finishedAt) : Date.parse(run.startedAt);
+}
 
 export function useCostRollup(
   overview: OverviewSnapshot | null,
@@ -40,9 +52,7 @@ export function deriveCostRollup(
   const weekCutoff = nowMs - WEEK_MS;
 
   const accumulate = (run: RunSnapshot) => {
-    const tsMs = run.finishedAt
-      ? Date.parse(run.finishedAt)
-      : Date.parse(run.startedAt);
+    const tsMs = costWindowTimestampMs(run);
     if (Number.isNaN(tsMs)) return;
     if (tsMs < weekCutoff) return;
     week += run.costUsd;

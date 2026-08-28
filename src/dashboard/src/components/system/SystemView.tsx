@@ -12,10 +12,6 @@ import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SubsystemDetail } from "@/components/system/SubsystemDetail";
 import { CatalogBrowser } from "@/components/system/CatalogBrowser";
 import { ConfigView } from "@/components/system/ConfigView";
-import { ConnectionsView } from "@/components/system/ConnectionsView";
-import { InstallationIdentityView } from "@/components/system/InstallationIdentityView";
-import { ExpectationMetricsView } from "@/components/system/ExpectationMetricsView";
-import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 import { PageHead } from "@/components/system/PageHead";
 import { SystemMetricStrip, type MetricCell } from "@/components/system/SystemMetricStrip";
 import type { SystemActivitySnapshot } from "@/types/hub-events";
@@ -28,10 +24,7 @@ import type { HubConnectionState } from "@microsoft/signalr";
 //   segment null                            → default subsystem (tracker)
 //   tracker|webhooks|chat                    → SubsystemPage (KPI strip + stream)
 //   config                                   → ConfigView (resolved-config sheet, then the read-events stream) (p0266)
-//   installation                             → InstallationIdentityView (what this installation runs) (2026-08-27-729e)
 //   catalog                                  → CatalogBrowser
-//   cost|today                              → RollupCards metric strip (p0209c)
-//   expectations                             → ExpectationMetricsView (p0329)
 // p0343d: every route renders as a first-class page in the parity vocabulary —
 // the .mock-shell/.mock-system scope, an .m-head title row, a .health KPI strip
 // where the page has real numbers, section rules + rows/cards below. Data,
@@ -40,11 +33,15 @@ import type { HubConnectionState } from "@microsoft/signalr";
 // satisfying Next's Page-type contract while staying unit-testable on the slug.
 
 const SUBSYSTEM_IDS = SUBSYSTEMS.map((s) => s.id) as SubsystemId[];
-const ROLLUP_IDS = ["cost", "today"] as const;
 const DEFAULT_SUBSYSTEM: SubsystemId = "tracker";
 
+// 2026-08-27-1ed6: `installation` and `connections` left this view for /config — what an
+// installation IS and whether its dependencies answer are configuration questions, not
+// subsystems of the running system this view watches.
+// 2026-08-27-7463: `cost`, `today` and `expectations` left it for /overview — a rollup is
+// a reading OF the system, not a part of it, and three of them make one page.
 // Page voice for the three event-stream subsystems (config/catalog carry their
-// own heads below; connections and the rollups render theirs in-view).
+// own heads below).
 const STREAM_META: Record<"tracker" | "webhooks" | "chat", { title: string; sub: string }> = {
   tracker: {
     title: "Tracker",
@@ -63,17 +60,8 @@ const STREAM_META: Record<"tracker" | "webhooks" | "chat", { title: string; sub:
 export function SystemView({ segment }: { segment: string | null }) {
   const { connectionState, systemActivity } = useJobsHub();
 
-  const isConnections = segment === "connections";
-  // 2026-08-27-729e: what this installation RUNS — a read-out like connections, answered
-  // by one server call, not an event stream.
-  const isInstallation = segment === "installation";
-  // p0329: expectation metrics — a REST-fed rollup like connections, not an
-  // event-stream subsystem.
-  const isExpectations = segment === "expectations";
-  const isRollup = segment != null && (ROLLUP_IDS as readonly string[]).includes(segment);
-  const subsystem: SubsystemId = isRollup
-    ? DEFAULT_SUBSYSTEM
-    : segment != null && (SUBSYSTEM_IDS as string[]).includes(segment)
+  const subsystem: SubsystemId =
+    segment != null && (SUBSYSTEM_IDS as string[]).includes(segment)
       ? (segment as SubsystemId)
       : DEFAULT_SUBSYSTEM;
 
@@ -85,23 +73,7 @@ export function SystemView({ segment }: { segment: string | null }) {
   return (
     <div className="mock-shell mock-system" data-testid="system-page">
       <main className="main">
-        {isInstallation ? (
-          <InstallationIdentityView />
-        ) : isConnections ? (
-          // p0292: the connections subsystem is an ACTIVE diagnostics surface — it
-          // probes each configured repo/tracker on demand, not an event stream.
-          <ConnectionsView />
-        ) : isExpectations ? (
-          <>
-            <PageHead
-              title="Expectations"
-              sub="How often the drafted expectation hit the mark: hit rate is the share of drafts humans ratified verbatim; first-PR acceptance is the share of runs whose PR was built against a human-accepted contract."
-            />
-            <ExpectationMetricsView />
-          </>
-        ) : isRollup ? (
-          <RollupCardsView view={segment as RollupView} />
-        ) : subsystem === "catalog" ? (
+        {subsystem === "catalog" ? (
           // p0221: the catalog subsystem is a system reference — it renders the
           // catalog's actual contents, not just its load-event stream.
           <>

@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-27-7463
+
+decisions:
+  - category: Architecture
+    chose: "The Overview is its own route, /overview, with its own page file"
+    over: "An `overview` segment of the /system optional-catch-all, which is what the spec's step wording implies"
+    reason: |
+      The spec's own decision — one hub read feeds the whole page — cannot hold inside
+      SystemView. SystemView calls useJobsHub itself for the connection pill and the
+      activity snapshot, so an Overview rendered as one of its segments would mount the
+      hook twice: two fetches of /api/runs and two SubscribeOverview calls per page load,
+      and two places a total could come from. A route of its own reads it once, at the
+      top, and passes the values down. It also puts the URL where the rail says the
+      operator is: Insight is not a subsystem of the running system, and /system/overview
+      would have claimed it was.
+  - category: Architecture
+    chose: "The old paths redirect from route files that call redirect(), one per path"
+    over: "next.config.ts redirects, which is what the spec's decision names"
+    reason: |
+      Both mechanisms satisfy the decision's actual requirement — that the old path never
+      reaches the view, because /system is a client optional-catch-all and a redirect
+      decided inside the view renders the old page AND the redirect. 2026-08-27-1ed6 moved
+      /system/installation and /system/connections with route files three weeks of habit
+      ago; a second, different mechanism for the same job would mean the next person
+      looking for "where do the old paths go" has two places to look. A static segment
+      also wins over the catch-all by Next's own precedence, so the redirect is decided
+      before any client component mounts — which is the property the spec was buying.
+      Route_TheOldRollupPaths_LandOnTheOverview pins all three.
+  - category: Implementation
+    chose: "The spend breakdown groups by the run's REPO SET and pipeline"
+    over: "Grouping by project and pipeline, which is what the spec's scope says"
+    reason: |
+      RunSnapshot carries no project — not in the TypeScript mirror and not in the C#
+      record behind it. AppRail already declines to draw a Projects section for exactly
+      this reason ("a per-project rail count would be fabricated"), and inferring a project
+      from a repo would print a guess as a fact. Repos are on every snapshot, so that is
+      the honest work dimension. Recovering the project would mean joining the config
+      catalog — a second request for a figure the first request already answers, which the
+      spec's own decision rules out. A multi-repo run is ONE slice under its whole repo
+      set rather than one slice per repo: booking it to each would count one run's money
+      twice and the breakdown would stop adding up to the headline.
+  - category: Implementation
+    chose: "The breakdown reuses the headline's window, timestamp rule and iteration order"
+    over: "Re-deriving the 7-day window in the breakdown module"
+    reason: |
+      Overview_TheBreakdown_SumsToTheHeadlineSpend is a property, not a coincidence, so it
+      is built rather than asserted after the fact: useCostRollup exports WEEK_MS and
+      costWindowTimestampMs, and deriveSpendBreakdown walks active-then-recent
+      undeduplicated exactly as deriveCostRollup does. Two copies of "when does a run
+      count" is how one number becomes two.
+  - category: Implementation
+    chose: "The three rollup component files are deleted and replaced by an overview section"
+    over: "Keeping RollupCards with its `today` view removed"
+    reason: |
+      With the today rollup dissolved, RollupCards.tsx was a two-view switch with one view
+      left, CostRollupCard.tsx exported a component nothing rendered plus the cost KPI
+      extractor, and TodayActivityCard.tsx was dead in both halves. What remains — the
+      three cost cells and their testids, which the parity suite asserts by name — moved
+      into SpendSection, where the section that renders them lives. The `Kpi` interface
+      went with them: it was MetricCell minus one field.
+  - category: TradeOff
+    chose: "No sparkline on the spend card, though the mockup draws one"
+    over: "Deriving a 7-day daily series from the same run snapshots"
+    reason: |
+      The series is derivable in the arithmetic sense and misleading in every other: the
+      dashboard's recent list is capped at 20 runs (50 in debug), so the early days of the
+      window are truncated by however busy the installation has been. A headline that is
+      short by a capped tail is a known approximation; a SHAPE that is short by a capped
+      tail reads as history and is wrong in a way nobody can see. The proportion bars on
+      the breakdown rows carry the comparison the sparkline was there to make.
+  - category: Implementation
+    chose: "ExpectationMetricsView renders its own section head, states and all"
+    over: "The Overview wrapping it in a head, as SystemView used to wrap it in a PageHead"
+    reason: |
+      The head has to render when the read fails or comes back empty — that is what "a
+      section that cannot answer says so in its own box" means — and a head owned by the
+      caller is a head the caller has to remember to keep. The view now opens with
+      SectionHead and renders its refusal, error, loading, empty or populated body below
+      it, so the box exists whatever the endpoint says. The same component replaced the
+      hand-written .section-head markup the "Per project" sub-section carried.
+  - category: Scope
+    chose: "Today's six numbers were verified on the subsystem pages before the rollup was deleted"
+    over: "Trusting the spec's claim that they are already there"
+    reason: |
+      SystemView's streamKpis renders tickets scanned/triggered/skipped and poll cycles on
+      Tracker and received/actioned on Webhooks, off the same SystemActivitySnapshot the
+      rollup read. The parity suite now asserts exactly that, as
+      SystemPages_TodaysNumbers_StillRenderOnTheirSubsystemPages — so the claim that
+      deleting the page cost the product nothing is checked by a test rather than by a
+      sentence in a spec.
+  - category: Implementation
+    chose: "A .mock-system .meter rule, copied from the runs and viewer scopes"
+    over: "Inline widths and colours on the proportion bar"
+    reason: |
+      The bar already exists twice in the parity stylesheet under .mock-runs and
+      .mock-viewer, with the same 4px accent geometry. Scoping a third copy to
+      .mock-system keeps the Overview inside the design system instead of beside it; only
+      the per-row width is inline, because only the width is data.

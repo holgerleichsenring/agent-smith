@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-27-1ed6
+
+decisions:
+  - category: Architecture
+    chose: "The connection check is served at /config/connection-check, not /config/connections"
+    over: "The literal path move the spec's step implies — /system/connections → /config/connections"
+    reason: |
+      /config/connections is already taken, and by a different question about the same word:
+      it is the CATALOG of connection entities, one of the seven kinds the config rail
+      generates from ENTITY_KINDS. Serving the diagnostic probe page there would have hidden
+      an editable catalog behind a read-out and made the rail's own generated href a lie. The
+      check therefore keeps its own name in the subtree, the old /system/connections
+      redirects to it, and Route_TheConnectionCatalog_KeepsItsOwnPath pins that the catalog
+      slug still reaches the studio. This is the one departure from the spec's wording; the
+      spec's decision — that the two routes MOVE rather than being excepted from the rail's
+      startsWith("/config") test — is unaffected.
+  - category: Architecture
+    chose: "The places table maps a PATH to a place, with the run views matched rather than listed"
+    over: "A per-rail-entry label table, or a segment-prefix guess like routeSurfaceName's"
+    reason: |
+      Five monitor entries share the path "/" and differ only by ?bucket=, which the root
+      layout may not read — a search-param hook there fails the build for every statically
+      rendered route, which is why RunBucketFilter uses the History API. So "/" is one place,
+      the query is dropped before the lookup, and Places_TheHomePath_IsOnePlaceNotFiveBuckets
+      asserts the table holds no query rows at all. A run id is minted per run, so /jobs/{id}
+      and /jobs/{id}/why are the one pair matched by shape instead of tabulated. Everything
+      else is a literal path, and an unknown path resolves to null: the header renders no
+      place rather than guessing one, because a guessed place is wrong exactly when a route
+      was added without thinking about the header.
+  - category: Implementation
+    chose: "The config places are derived from ENTITY_KINDS/ENTITY_LABEL and SETTING_KEYS/SETTING_LABEL"
+    over: "Importing AppRail's local CATALOG_KINDS, or writing the labels out a second time"
+    reason: |
+      Copied labels drift on the first rename, and that is precisely what the rail-href test
+      would then fail on — after the operator has already seen the wrong name. CATALOG_KINDS
+      lives inside AppRail and carries only the rail's icons and rail order on top of
+      ENTITY_KINDS, so places.ts derives from the shared constants instead and pulls no
+      client component into a pure module. Places_EveryRailHref_ResolvesToAPlace renders BOTH
+      rail modes and asserts every href the rail emits resolves, so the derivation is checked
+      against the rail rather than trusted.
+  - category: Implementation
+    chose: "A two-ROW grid with the header spanning both columns, and one --topbar-h token"
+    over: "A header inside <main>, or a header above the existing single-row grid"
+    reason: |
+      <main> is the scroll container (h-screen overflow-y-auto), so a header inside it scrolls
+      away — the gear and the account would be reachable only from the top of a page. A header
+      above the grid leaves the rail's height:100vh intact and pushes the page taller than the
+      viewport by exactly the header's height, so the whole shell scrolls. The grid therefore
+      gains a row, the header spans both columns, and the header height becomes a token both
+      the rail (height: calc(100vh - var(--topbar-h))) and the scroll container (.shell-main)
+      read — three places that would otherwise disagree by a few pixels each time one changed.
+  - category: Implementation
+    chose: "The account is an avatar button whose menu holds the identity page and sign-out"
+    over: "Keeping the rail identity's flat block, name over sign-out, in the header"
+    reason: |
+      The header has one row and two other tenants; a name plus a permanent sign-out is a
+      wide block that pushes the place label around and offers a destructive action at the
+      same weight as reading a name. The two properties 2026-08-25-4530 documented are moved
+      verbatim rather than reimplemented: HeaderIdentity returns null before any hook mounts
+      when no authority is configured, and the token subscription and identity read live in
+      the inner component, so an installation nobody can sign into asks nothing of the
+      identity endpoint. Both are asserted in AppHeader.test.tsx, including that the endpoint
+      is never called.
+  - category: TradeOff
+    chose: "The Tracker rail entry takes the observed tracker name; the footer goes"
+    over: "Keeping the footer, or dropping the tracker name with it"
+    reason: |
+      The footer's two lines duplicated the Tracker and Webhooks entries directly above them —
+      same activity, same freshness — with one exception: the tracker's NAME, read off its
+      newest event, which the constant rail label cannot say. So the entry becomes
+      "Tracker · <name>" when an event has named one and keeps its plain label until then
+      (a name nobody has seen is worse than no name), and the footer's block, its
+      testids and its .tracker-foot CSS are gone. Without that move, which tracker is
+      configured would have stopped being visible anywhere in the shell.
+  - category: TradeOff
+    chose: "Deleting .mock-shell .tabs, accepting that it changes the Access tab bar"
+    over: "Keeping the rule alive because a second surface renders elements with that class"
+    reason: |
+      The rule was written for the rail's Runs|Configuration pill and was leaking into
+      AccessStudio, which renders .tabs inside .mock-shell .mock-access as an UNDERLINE bar.
+      The access mockup (design/mockups/access.html) defines .tabs with a bottom border and
+      no fill at all, so the pill's background, border, radius and padding were never
+      intended there — removing the rail's rule moves that surface toward its own ratified
+      mockup rather than away from it. Recorded because it is a visual change on a surface
+      this phase does not otherwise touch.
+  - category: Scope
+    chose: "The two moved read-outs keep their .mock-shell/.mock-system page scope"
+    over: "Re-dressing them in the config studio's shell now that they live under /config"
+    reason: |
+      The spec's out-scope is explicit: this phase moves where they live and how they are
+      reached, not what they show. So the config route wraps them in exactly the DOM
+      SystemView gave them, and the phase's diff on those two views is zero lines. Whether a
+      read-out under /config should look like the studio is a real question and a later one.

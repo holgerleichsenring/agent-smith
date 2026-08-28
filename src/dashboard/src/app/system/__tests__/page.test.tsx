@@ -55,21 +55,24 @@ describe("System route (rail-driven master/detail)", () => {
     expect(screen.getByTestId("subsystem-detail-tracker")).toBeInTheDocument();
   });
 
-  it("SystemPage_RollupSlug_RendersRollupCards", () => {
-    renderView("cost");
-    // p0209c: the cost/today slugs now render the RollupCards KPI grid in place
-    // of the p0209b placeholder.
-    expect(screen.getByTestId("rollup-cost")).toBeInTheDocument();
-    expect(screen.queryByTestId("subsystem-detail-tracker")).not.toBeInTheDocument();
+  // 2026-08-27-7463: the three rollup slugs left this view for the Overview. Their
+  // paths redirect, so nothing reaches SystemView with them — and if anything did,
+  // it must not render a rollup here.
+  it("SystemPage_TheRollupSlugs_NoLongerRenderHere", () => {
+    for (const segment of ["cost", "today", "expectations"]) {
+      const view = renderView(segment);
+      expect(screen.queryByTestId("expectations-view")).not.toBeInTheDocument();
+      expect(screen.getByTestId("subsystem-detail-tracker")).toBeInTheDocument();
+      view.unmount();
+    }
   });
 
-  // 2026-08-27-729e: the installation read-out is a segment like connections, reached from
-  // the rail's release line — not a permanent panel in the banner stack, which names what
-  // is wrong rather than what is running.
-  it("SystemPage_InstallationSlug_RendersTheInstallationReadOut", () => {
+  // 2026-08-27-1ed6: the installation read-out and the connection check left this view for
+  // /config — an installation is not a subsystem of the running system. An unknown segment
+  // falls to the default subsystem, as it always has.
+  it("SystemPage_TheMovedSegments_NoLongerRenderHere", () => {
     renderView("installation");
-
-    expect(screen.getByTestId("installation-view")).toBeInTheDocument();
-    expect(screen.queryByTestId("subsystem-detail-tracker")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("installation-view")).not.toBeInTheDocument();
+    expect(screen.getByTestId("subsystem-detail-tracker")).toBeInTheDocument();
   });
 });

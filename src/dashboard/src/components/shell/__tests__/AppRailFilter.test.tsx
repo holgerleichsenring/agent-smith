@@ -58,8 +58,8 @@ describe("the rail's monitor items are a filter", () => {
   });
 
   it("AwayFromTheHomeScreen_NoBucketClaimsToBeOnScreen", () => {
-    usePathname.mockReturnValue("/system/cost");
-    renderRail("/system/cost");
+    usePathname.mockReturnValue("/system/tracker");
+    renderRail("/system/tracker");
     for (const label of ["All runs", "Needs you", "Running", "Queued", "Finished"]) {
       expect(screen.getByTestId(`app-rail-item-${label}`)).toHaveAttribute("data-active", "false");
     }
@@ -82,8 +82,8 @@ describe("the rail's monitor items are a filter", () => {
   });
 
   it("ChoosingABucketFromAnotherPage_NavigatesHomeWithIt", () => {
-    usePathname.mockReturnValue("/system/cost");
-    renderRail("/system/cost");
+    usePathname.mockReturnValue("/system/tracker");
+    renderRail("/system/tracker");
     fireEvent.click(screen.getByTestId("app-rail-item-Finished"));
     expect(push).toHaveBeenCalledWith("/?bucket=finished");
   });
