@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Skills;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -19,6 +21,8 @@ namespace AgentSmith.Tests.Skills;
 /// </summary>
 public sealed class CatalogPrinciplesPathTests : IDisposable
 {
+    private const string Origin = "embedded v4.7.0 at /stub";
+
     private readonly string _root = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
 
     [Theory]
@@ -44,15 +48,32 @@ public sealed class CatalogPrinciplesPathTests : IDisposable
         Directory.CreateDirectory(_root);
 
         CreateSut().Compose("csharp").Should().BeNull(
-            "a catalog without the templates is a pre-p0379 pin, which is a legitimate state");
+            "a catalog shipping no principles hands authorship to the bootstrap skill");
     }
 
-    private CatalogPrinciplesTemplateSource CreateSut()
+    [Fact]
+    public void Compose_ACatalogWithoutPrinciples_ReportsTheOriginItRead()
+    {
+        // 2026-08-28-7675: null hands principles authorship to the bootstrap skill, which is
+        // a mode rather than a fault — but it used to happen without a word, so a run whose
+        // principles the skill wrote read exactly like one that got the authored core.
+        Directory.CreateDirectory(_root);
+        var logger = new CapturingLogger<CatalogPrinciplesTemplateSource>();
+
+        CreateSut(logger).Compose("csharp").Should().BeNull();
+
+        logger.Lines.Should().ContainSingle(l => l.Contains(Origin, StringComparison.Ordinal)
+            && l.Contains("bootstrap skill authors", StringComparison.Ordinal));
+    }
+
+    private CatalogPrinciplesTemplateSource CreateSut(
+        ILogger<CatalogPrinciplesTemplateSource>? logger = null)
     {
         var path = new Mock<ISkillsCatalogPath>();
         path.Setup(p => p.Root).Returns(_root);
+        path.Setup(p => p.Origin).Returns(Origin);
         return new CatalogPrinciplesTemplateSource(
-            path.Object, NullLogger<CatalogPrinciplesTemplateSource>.Instance);
+            path.Object, logger ?? NullLogger<CatalogPrinciplesTemplateSource>.Instance);
     }
 
     public void Dispose()

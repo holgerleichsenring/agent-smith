@@ -20,9 +20,17 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class BootstrapPrinciplesTransfer(
     IPrinciplesTemplateSource templates,
+    ISkillsCatalogPath catalogPath,
     ILogger<BootstrapPrinciplesTransfer> logger)
 {
     private const int WriteTimeoutSeconds = 30;
+
+    // Unresolved is itself an answer: it says the catalog was never bound for this run.
+    private string ResolvedCatalogOrigin()
+    {
+        try { return catalogPath.Origin; }
+        catch (InvalidOperationException) { return "unresolved"; }
+    }
 
     public async Task<PrinciplesTransferResult> ApplyAsync(
         PipelineContext pipeline, ISandbox sandbox, string repoName,
@@ -32,7 +40,8 @@ public sealed class BootstrapPrinciplesTransfer(
         var language = ResolveComponentLanguage(pipeline, repoName, contextName, projectMap);
         var composed = templates.Compose(language);
         if (composed is null)
-            return new PrinciplesTransferResult(PrinciplesMode.SkillWrites);
+            return new PrinciplesTransferResult(
+                PrinciplesMode.SkillWrites, CatalogOrigin: ResolvedCatalogOrigin());
 
         if (!string.IsNullOrWhiteSpace(existingPrinciples))
         {
