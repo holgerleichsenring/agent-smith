@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-c310
+
+decisions:
+  - category: Architecture
+    chose: "The harness gathers through DeliveryEvidence.GatherAsync, the gatherer a run gathers with"
+    over: "Widening the harness's private diff loop to also collect the base refs"
+    reason: |
+      Two gathering paths drift, and the value of the eval is that its input equals a run's
+      input BY CONSTRUCTION rather than by anyone remembering to keep two loops in step. The
+      private copy had already drifted once — it threw away DiffResult.BaseRef, so BranchSearch
+      was built with no refs, BaseSearchable was empty, AccountTools omitted search_base and
+      AccountEvidenceRules.Base rendered nothing. The account under test could not answer a
+      question about the base while the corpus carries a fixture that turns on exactly that.
+      Widening the copy would have fixed today's symptom and left tomorrow's.
+  - category: Implementation
+    chose: "No new access mechanism — DeliveryEvidence is reached through the InternalsVisibleTo the harness already has"
+    over: "Making DeliveryEvidence public, or adding an assembly attribute"
+    reason: |
+      AgentSmith.Application.csproj already carries InternalsVisibleTo for AgentSmith.PipelineHarness
+      (added by p0413a so the scripted client could match a prompt constant rather than a copy of
+      its wording). Widening a production type's visibility to serve a test is the thing that
+      mechanism exists to avoid.
+  - category: Implementation
+    chose: "AccountToolParity throws when the tools offered are fewer than the tools a run offers"
+    over: "Recording a per-fixture Problem, or asserting the tool list only in a unit test"
+    reason: |
+      A missing tool fails nothing on its own — it lowers a score, and a lowered score is
+      indistinguishable from a worse account. That silent lowering IS the defect this phase
+      fixes, so the harness has to be unable to produce a number under it. The expected list is
+      read from production's own AccountTools.For, so the check compares the account under test
+      against the account rather than against a second copy of its rules.
+  - category: Implementation
+    chose: "A public ScoreAsync overload taking already-materialised repositories"
+    over: "A fixture file that declares 'this clone has no base'"
+    reason: |
+      The fixture builder always writes refs/remotes/origin/main and origin/HEAD, because that is
+      where the production resolver looks; no fixture JSON can express a clone that names no base.
+      The overload lets a test materialise a fixture, drop the remote refs the way a shallow clone
+      lacks them, and score through the same harness code — proving that path still produces an
+      entry with only search_branch offered, rather than throwing.
+  - category: Implementation
+    chose: "Preserve the fail-shape: a diff that cannot be taken yields a FixtureEntry with a Problem"
+    over: "Letting the gatherer's Failures surface as an exception"
+    reason: |
+      DeliveryEvidence returns Failures instead of null, so the message now names WHICH repository
+      failed and on what basis — the same sentence PhaseAccounting produces. The old code returned
+      null on the first failed diff and said only 'the delivery diff could not be taken'. A fixture
+      that cannot be diffed must still be reported, because an eval that throws reports nothing at
+      all about the other four.
+  - category: Scope
+    chose: "The account itself is untouched; the reading stands as taken"
+    reason: |
+      The phase makes the instrument faithful and takes the first reading. Tuning the account to
+      improve the number it just produced would destroy the only thing the number is for. What the
+      reading justifies is a later phase.
+  - category: TradeOff
+    chose: "The baseline is recorded at gpt-4.1 against account prompt 19496a10"
+    reason: |
+      FIRST BASELINE, 2026-08-28, real Azure OpenAI calls over all five fixtures:
+      false negatives 1/4 (25 %), false positives 0/2 (0 %), no fixture failed to score.
+      The single false negative is universal-across-windows — the account read the split
+      delivery and refused a met criterion on the ground that only Sample.Worker carried the
+      broker extension, which is the union-across-windows reading failing, not a base problem.
+      The vacuous-conditional fixture, the one this phase's fix was needed for, PASSED and did so
+      by searching the base: its citation is the pattern 'TopicTransport|UseTopicTransport' and
+      its note reasons about what the base did not contain. Report committed at
+      tests/AgentSmith.PipelineHarness/Reports/account-deliveries/account-eval-gpt-4.1-19496a10.md.
+  - category: Implementation
+    chose: "PromptScriptedChatClient records the tool names and prompts it was offered"
+    over: "A separate recording client alongside it"
+    reason: |
+      The assertion that matters is what the account under test could actually CALL, which is
+      observable only at the chat client. A second client would have to be kept in step with the
+      scripted one for no gain; two read-only lists on the existing one change nothing about how
+      it answers.
