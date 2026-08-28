@@ -191,7 +191,7 @@ public sealed class PrinciplesTemplateContentTests
         if (PrinciplesDirectory() is not null) return true;
         Console.WriteLine(
             "PrinciplesTemplateContentTests SKIPPED: skills checkout has no " +
-            "principles/core.md or skills/coding/principles/core.md (no checkout). " +
+            "principles/core.md (no checkout). " +
             "Point AGENTSMITH_TEST_SKILLS_DIR at an agent-smith-skills checkout with the p0379 templates.");
         return false;
     }

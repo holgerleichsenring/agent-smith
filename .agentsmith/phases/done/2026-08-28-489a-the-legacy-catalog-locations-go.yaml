@@ -11,27 +11,30 @@ requires:
 scope:
   in: "The pre-4.0.0 principles location dropped from the reader and from the two test helpers that mirror it, and the pre-v4.1 prompt-token alias dropped with its double binding."
   out: >
-    EVERYTHING UNTIL THE PRECONDITION HOLDS. Two operator configs pin the catalog at
-    v3.21.0 and v3.24.0; an explicit version wins over the embedded pin, so those
-    deployments resolve a 3.x catalog whose principles live at the old location. This
-    phase starts when they do not.
+    THE SKILL-WRITES MODE, which stays: a catalog with no principles still hands
+    authorship to the bootstrap skill, and the harness fixture catalog ships none.
+    That is a mode, not a layout. The visibility the predecessor added stays too —
+    it is what makes a catalog below the floor legible instead of silent.
 
 decisions:
   - key: |
-      BOTH TOLERANCES CARRY THEIR OWN EXPIRY NOTE, AND NEITHER HAS EXPIRED YET. The principles
+      BOTH TOLERANCES CARRY THEIR OWN EXPIRY NOTE, AND BOTH HAVE NOW EXPIRED. The principles
       reader says "drop the legacy path once no pin below 4.0.0 is in use"; the prompt-token
       alias says its entry goes "when the embedded skills pin moves past the release that
-      renamed it". The embedded pin has moved — but the pin an operator NAMES wins over the
-      embedded one, and two configs still name a 3.x release.
+      renamed it". The embedded pin has moved to the release that carries both, and 4.7.0 is
+      the supported floor.
   - key: |
-      THE PRECONDITION IS CONFIGURATION, NOT CODE, WHICH IS WHY IT IS A PHASE AND NOT A
-      COMMENT. Nothing in the tree can prove those pins have moved; the predecessor makes an
-      old pin visible in the run so the operator can see which deployments still carry one.
+      THE PRECONDITION WAS ANSWERED BY THE OPERATOR, AND THE EVIDENCE THAT DELAYED IT WAS
+      STALE. A review found two configs pinning v3.21.0 and v3.24.0 and this phase was held
+      back for them. Those files are gone as an authority: configuration moved into the
+      entity-document store in p0349, and the operator states there is no deployment below
+      4.7.0. A file left on disk is not a deployment, and letting one override an explicit
+      instruction is what turned a decided question back into an open one.
   - key: |
-      THE ALIAS IS ALREADY UNUSED BY THE EMBEDDED CATALOG, AND THAT IS NOT THE SAME AS SAFE.
-      The pinned master declares only the current slot name, so the alias renders for nobody
-      at 4.7.0 — but the same 3.x pins that keep the principles path alive are exactly the
-      catalogs whose masters use the old slot.
+      THE ALIAS IS UNUSED BY EVERY MASTER IN THE PINNED CATALOG, WHICH WAS CHECKED RATHER
+      THAN ASSUMED. The embedded tarball was unpacked and searched: no SKILL.md references
+      the pre-v4.1 slot name, and the drift test that would catch a fixture still using it
+      is green. The double binding rendered the same content under two names for nobody.
   - key: |
       TWO TEST SURFACES PIN THE OLD LAYOUT AND ONE OF THEM ARGUES THE OPPOSITE OF THIS PHASE.
       A theory feeds the legacy layout as a case, and its sibling's reason calls a catalog
@@ -51,6 +54,6 @@ tests:
   - "MasterPrompt_TheRenamedSlot_HasNoAlias"
 
 done:
-  - "no configuration in use resolves a catalog below the embedded pin — verified before starting"
+  - "the supported floor is the embedded pin, and nothing reads a layout below it"
   - "no principles path or prompt-token alias exists for a catalog older than the embedded pin"
   - "build green, full suite green"

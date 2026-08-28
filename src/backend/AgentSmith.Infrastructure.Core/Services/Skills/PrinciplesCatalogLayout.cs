@@ -16,15 +16,11 @@ internal sealed class PrinciplesCatalogLayout(ISkillsCatalogPath catalogPath)
 
     // p0312a moved the templates to the catalog root: they are shared content, not a
     // skill, and the masters-only catalog has no category directory left to hold them.
-    // Both paths are probed because the backend and the catalog version move independently
-    // — the pin is operator configuration, so a 4.0.0 binary can face a 3.x catalog and a
-    // 3.x binary a 4.0.0 one. Drop the legacy path once no pin below 4.0.0 is in use;
-    // 2026-08-28-489a is that phase, and it is blocked on operator configuration.
-    private static readonly string[] SubPaths =
-    [
-        "principles",              // catalog >= 4.0.0
-        "skills/coding/principles" // catalog < 4.0.0
-    ];
+    // 2026-08-28-489a: the pre-4.0.0 location is gone. It was probed because a pin is
+    // operator configuration and an older catalog could reach this reader; 4.7.0 is the
+    // supported floor, so a catalog without principles here is below it, not laid out
+    // differently.
+    private const string SubPath = "principles";
 
     /// <summary>The catalog in one operator-checkable phrase, or <see cref="Unresolved"/>.</summary>
     public string Origin
@@ -41,13 +37,8 @@ internal sealed class PrinciplesCatalogLayout(ISkillsCatalogPath catalogPath)
     {
         try
         {
-            foreach (var subPath in SubPaths)
-            {
-                var dir = Path.Combine(catalogPath.Root, subPath);
-                if (System.IO.Directory.Exists(dir)) return dir;
-            }
-
-            return null;
+            var dir = Path.Combine(catalogPath.Root, SubPath);
+            return System.IO.Directory.Exists(dir) ? dir : null;
         }
         catch (InvalidOperationException)
         {
