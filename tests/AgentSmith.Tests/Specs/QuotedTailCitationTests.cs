@@ -42,7 +42,7 @@ public sealed class QuotedTailCitationTests
 
     private static CriterionAccount Resolve(string citation, params string[] commands) =>
         new CitationResolver(CitedFileIndex.FromDiff(string.Empty), commands)
-            .Resolve(new AccountRow("criterion", true, citation, "note"));
+            .Resolve(new AccountRow("criterion", AccountDisposition.Satisfied, citation, "note"));
 
     /// <summary>The premise of every case below: the fixture really is shortened, and its
     /// last character really is a quote. Without both, the rest proves nothing.</summary>
@@ -62,7 +62,7 @@ public sealed class QuotedTailCitationTests
     {
         var line = EvidenceLine();
 
-        Resolve(ShownCommand(), line).Satisfied.Should().BeTrue(
+        Resolve(ShownCommand(), line).IsSatisfied.Should().BeTrue(
             "the account cited the whole of what it was shown, and the command's own closing "
             + "quote is not the grammar's");
     }
@@ -74,7 +74,7 @@ public sealed class QuotedTailCitationTests
     {
         var line = EvidenceLine();
 
-        Resolve(ShownCommand() + "'", line).Satisfied.Should().BeTrue();
+        Resolve(ShownCommand() + "'", line).IsSatisfied.Should().BeTrue();
     }
 
     /// <summary>A whole evidence line copied across goes through the quoted-span reading,
@@ -84,7 +84,7 @@ public sealed class QuotedTailCitationTests
     {
         var line = EvidenceLine();
 
-        Resolve(line, line).Satisfied.Should().BeTrue();
+        Resolve(line, line).IsSatisfied.Should().BeTrue();
     }
 
     /// <summary>p0481's guarantee is not spent to buy this one: the visible head of a
@@ -95,7 +95,7 @@ public sealed class QuotedTailCitationTests
         var line = EvidenceLine();
         var head = ShownCommand().Split('…')[0];
 
-        Resolve(head, line).Satisfied.Should().BeFalse(
+        Resolve(head, line).IsSatisfied.Should().BeFalse(
             "a head does not tell two sibling commands apart, quote or no quote");
     }
 
@@ -104,6 +104,6 @@ public sealed class QuotedTailCitationTests
     public void Citation_ADifferentCommandEndingInAQuote_StillDoesNotResolve()
     {
         Resolve("dotnet test /work/Other.Server/Other.Server.sln --logger \"console;verbosity=minimal\"",
-            EvidenceLine()).Satisfied.Should().BeFalse();
+            EvidenceLine()).IsSatisfied.Should().BeFalse();
     }
 }

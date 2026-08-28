@@ -40,7 +40,7 @@ public sealed class VerbatimCitationTests
 
     private static CriterionAccount Resolve(string citation, params string[] commands) =>
         new CitationResolver(CitedFileIndex.FromDiff(string.Empty), commands)
-            .Resolve(new AccountRow("criterion", true, citation, "note"));
+            .Resolve(new AccountRow("criterion", AccountDisposition.Satisfied, citation, "note"));
 
     /// <summary>The refusal itself: the whole shown command, copied character for character.
     /// </summary>
@@ -52,7 +52,7 @@ public sealed class VerbatimCitationTests
 
         shown.Length.Should().Be(186, "the refused citation was 186 characters");
         shown.Should().EndWith("\"", "the last character is the command's own, not the grammar's");
-        Resolve(shown, line).Satisfied.Should().BeTrue(
+        Resolve(shown, line).IsSatisfied.Should().BeTrue(
             "a verbatim copy of what the line showed names the command that ran");
     }
 
@@ -64,7 +64,7 @@ public sealed class VerbatimCitationTests
     {
         var line = EvidenceLine();
 
-        Resolve(ShownCommand() + "'", line).Satisfied.Should().BeTrue();
+        Resolve(ShownCommand() + "'", line).IsSatisfied.Should().BeTrue();
     }
 
     /// <summary>The guarantee p0481 bought and this phase does not spend: two commands of one
@@ -75,7 +75,7 @@ public sealed class VerbatimCitationTests
         var line = EvidenceLine();
         var head = ShownCommand().Split('…')[0];
 
-        Resolve(head, line).Satisfied.Should().BeFalse();
+        Resolve(head, line).IsSatisfied.Should().BeFalse();
     }
 
     /// <summary>Adding a reading must not let a citation resolve against a command nobody
@@ -84,7 +84,7 @@ public sealed class VerbatimCitationTests
     public void Citation_CommandThatNeverRan_StillRefused()
     {
         Resolve("dotnet test Other.Server.sln --logger \"console;verbosity=minimal\"", EvidenceLine())
-            .Satisfied.Should().BeFalse();
+            .IsSatisfied.Should().BeFalse();
     }
 
     /// <summary>A whole evidence line copied across still resolves through its quoted span.
@@ -94,7 +94,7 @@ public sealed class VerbatimCitationTests
     {
         var line = EvidenceLine();
 
-        Resolve(line, line).Satisfied.Should().BeTrue();
+        Resolve(line, line).IsSatisfied.Should().BeTrue();
         EvidenceCommand.Quoted(line).Should().NotBeEmpty("the line quotes the command it reports");
     }
 

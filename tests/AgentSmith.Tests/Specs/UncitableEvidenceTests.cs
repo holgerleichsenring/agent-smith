@@ -14,7 +14,7 @@ public sealed class UncitableEvidenceTests
 {
     private static CriterionAccount Resolve(string citation, params string[] commands) =>
         new CitationResolver(CitedFileIndex.FromDiff(string.Empty), commands)
-            .Resolve(new AccountRow("criterion", true, citation, "note"));
+            .Resolve(new AccountRow("criterion", AccountDisposition.Satisfied, citation, "note"));
 
     private static string Notice()
     {
@@ -35,7 +35,7 @@ public sealed class UncitableEvidenceTests
         var notice = Notice();
         notice.Should().StartWith("not every command", "the fixture is the real notice");
 
-        Resolve(notice, notice).Satisfied.Should().BeFalse(
+        Resolve(notice, notice).IsSatisfied.Should().BeFalse(
             "a notice reports that evidence is missing; it is not evidence");
     }
 
@@ -43,6 +43,6 @@ public sealed class UncitableEvidenceTests
     public void Citation_APipelineStep_IsStillCitedByName()
     {
         Resolve("DependencyAuditCommand", "DependencyAuditCommand: 0 advisories")
-            .Satisfied.Should().BeTrue("a step names itself before the colon and is cited by that");
+            .IsSatisfied.Should().BeTrue("a step names itself before the colon and is cited by that");
     }
 }

@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-6f12
+
+decisions:
+  - category: Architecture
+    chose: "AccountSearchBudget — an allowance PER PASS, with the full-reach pass opening its own before it asks"
+    over: "Raising BranchSearch.MaxSearches, or giving the full-reach pass a second BranchSearch instance"
+    reason: |
+      A bigger shared pool is still one pool, and the windows still empty it — the live run
+      spent exactly 12 of 12 in each windowed pass, so any ceiling the windows can reach is a
+      ceiling this pass can arrive to find gone. The budget is therefore a fence, not a
+      number: each pass opens a fresh allowance and a pass that has not opened yet cannot be
+      drawn on by the one running.
+
+      A second BranchSearch would have given the pass its own searches and its own EVIDENCE,
+      and the phase requires both passes to resolve through ONE resolver — a citation naming
+      the windowed pass's search has to still resolve. One instance, one evidence list, one
+      resolver; only the allowance is per pass.
+
+      The type is new rather than a field because BranchSearch.cs sat at exactly 120 lines
+      and the ratchet forbids growth. It came out at 117 — the exhausted message lived twice
+      inside it and now lives once, in the type that owns the rule.
+  - category: Implementation
+    chose: "BranchSearch.MaxSearches DELETED in favour of AccountSearchBudget.PerPass"
+    over: "Keeping the old constant as an alias"
+    reason: |
+      The constant's name said 'per account' and the rule is now 'per pass'. An alias would
+      have left four call sites reading the old sentence while the code meant the new one.
+      Three of the four were tests, which is where a stale name does its damage quietly.
+  - category: Architecture
+    chose: "AccountEvidence — one record carrying the file list, the commands, the searchable repositories, the base-searchable ones and the tools"
+    over: "Threading the five values through every call site as parameters"
+    reason: |
+      The third pass was not writable otherwise: its own arguments plus those five put the
+      method past any readable signature, and AccountCalls already passed the same five to
+      two methods. The record also names the seam the passes differ on — the BODY is the one
+      thing that changes between a window and the full-reach call, and now it is the one
+      argument that does.
+  - category: Implementation
+    chose: "AccountSecondPass renamed to AccountAnswerMerge, and the full-reach pass merges through it"
+    over: "A second merge written for the third pass"
+    reason: |
+      Two copies of 'what may a later answer say' are two possible authors of one wrong
+      verdict. The rule is unchanged — 2026-08-25-9749's rank ordering, raising only — and
+      the type is now named for what it does rather than for which pass calls it, because
+      'second pass' read as a lie the moment a third one used it.
+  - category: Scope
+    chose: "The pass asks about every row that is not SATISFIED, not-applicable included"
+    over: "Asking only about outstanding rows"
+    reason: |
+      A satisfied row is an answer and is never re-asked — that is the spec's out: and the
+      standing rule. A not-applicable row is not an answer about the branch, it is a claim
+      about the base, and 2026-08-25-9749 explicitly left it to be raised here through the
+      same precedence. The merge can only raise, so including it cannot cost anything: the
+      test pins that a not-applicable row survives a later not-satisfied answer.
+  - category: Scope
+    chose: "The full-reach call carries NO diff body at all"
+    over: "Showing it the first window, or a re-cut larger window"
+    reason: |
+      The pass exists because no window can hold the criterion's subjects. Handing it one
+      window would ask the same unanswerable question again with a different slice, which is
+      the re-ask for a change of mind the spec refuses. Its evidence is the complete file
+      list and the search tools, which is what the spec's own wording says.
+
+      The stated cost: with no body, a citation naming a PATH proves less here than in a
+      windowed pass — the file list says a file changed, not what it now contains. The
+      resolver admits it because the file list is evidence the spec named; a rule demanding
+      a SEARCH citation on this pass alone was not built, because it is not what the phase
+      was asked for and it would refuse correct answers.
+  - category: Implementation
+    chose: "The correction pass keeps sharing the windowed allowance"
+    over: "Opening a fresh allowance for it too"
+    reason: |
+      The spec asks for capacity the WINDOWED pass cannot consume, for the full-reach pass.
+      Giving the correction one as well is a second behaviour change measured by nothing.
+      The consequence is stated rather than hidden: a windowed pass that spends everything
+      still leaves the correction answering 'No search left'. The correction carries an
+      objection about citation FORM, which is the case least dependent on looking again.
+  - category: Tooling
+    chose: "AccountPromptVersion digests the full-reach ask as well"
+    over: "Keeping the key over SpecAccountPrompt's two variants alone"
+    reason: |
+      Found by making the mistake: the first measurement of this phase OVERWROTE
+      2026-08-25-9749's committed baseline, because the wording that changed is appended to
+      the prompt rather than inside it and the digest never saw it. The ask is instructions
+      the account reads, so it is part of the thing under test. The 9749 report was restored
+      from git and this phase's measurement now lands under its own key.
+
+      Still not digested: AccountReAsk's correction message, on the same argument. That is a
+      pre-existing hole this phase did not open and did not close.
+  - category: TradeOff
+    chose: "Reporting the eval as a SPREAD over seven runs, and committing the last run taken"
+    over: "Committing the best of the seven, or reporting the single last number as the rate"
+    reason: |
+      MEASURED, gpt-4.1 over the five committed fixtures:
+        before (2026-08-25-9749, prompt 1d708432, one run): false negatives 1/4, false
+          positives 0/2. The one false negative was universal-across-windows.
+        after (prompt 109539bd, seven runs): false negatives 0,0,0,0,1,1,2 out of 4;
+          false positives 0,0,0,0,0,0,1 out of 2.
+
+      universal-across-windows — this phase's target — is settled by the full-reach pass in
+      four of the seven runs, and a console-logged run shows the pass really searching BOTH
+      repositories for it, so the mechanism works by looking rather than by luck. But the
+      corpus is five fixtures read once per run and the draw-to-draw spread is wider than
+      the effect: 'false negatives 0/4' is one draw, not a rate, and saying the fixture is
+      CLOSED would be reading noise as a result.
+
+      The false positive in the seventh run is reported as what it is. It is the account
+      closing 'every publish route names its exchange through the shared name formatter' on
+      a search of its own choosing that found nothing — p0483's standing hazard, which this
+      pass gives one more occasion to reach. It appeared in one run of seven and in no run
+      of the baseline, and the baseline had fewer occasions.
+
+      The committed report is the LAST run taken, including its false positive, rather than
+      the most flattering of the seven. Choosing among draws is how a measurement becomes a
+      decoration.
+  - category: TradeOff
+    chose: "Reverted a paragraph telling the account to search for identifiers rather than the criterion's words"
+    over: "Keeping it, on the evidence that prose patterns were the observed failure"
+    reason: |
+      The console-logged run showed the real failure mode — the account searching
+      'broker|conventional local routing|topology', words that occur in the criterion and in
+      no source file, then reading exit 1 as an absence. The paragraph was written against
+      exactly that and MEASURED WORSE: four runs gave false positives in two of them, both
+      the account closing an unmet criterion on a badly chosen pattern that found nothing.
+      Pushing on 'search for the code' pushed on the wrong axis, so it came out.
+  - category: Scope
+    chose: "Named, not fixed: the delivery FILE LIST collapses identical paths across repositories"
+    over: "Prefixing the list with each repository, inside this phase"
+    reason: |
+      Both fixture repositories carry src/Messaging/Installer.cs, and CitedFileIndex reads
+      only the diff --git lines, so a two-repository delivery shows ONE path where there are
+      two files. An account asked about 'each applicable host' then cannot see from the list
+      that there are two hosts — one run's refusal said so in those words. It is not this
+      phase's subject, it predates it, and it affects the windowed pass identically; a
+      successor should give the list the repository the combined diff already writes above
+      each part.

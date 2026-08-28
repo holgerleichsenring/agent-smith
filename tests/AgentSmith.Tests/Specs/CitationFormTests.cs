@@ -29,7 +29,7 @@ public sealed class CitationFormTests
     {
         var account = Resolve(Heredoc, ServerRan, WorkerRan);
 
-        account.Satisfied.Should().BeTrue(
+        account.IsSatisfied.Should().BeTrue(
             "the account copied the command verbatim, which is the form the prompt asks for");
     }
 
@@ -46,7 +46,7 @@ public sealed class CitationFormTests
         var prose = "python3 assertion inventory in Sample.Server and Sample.Worker "
             + "(both exited 0: \"PASS: no owned references found\")";
 
-        Resolve(prose, ServerRan, WorkerRan).Satisfied.Should().BeFalse(
+        Resolve(prose, ServerRan, WorkerRan).IsSatisfied.Should().BeFalse(
             "a description names no command, however accurately it reports what they did");
     }
 
@@ -60,15 +60,15 @@ public sealed class CitationFormTests
                 CitedFileIndex.FromDiff(string.Empty),
                 [ServerRan, "Sample.Server: build 'dotnet build Sample.sln' exited 0"])
             .Resolve(new AccountRow(
-                "criterion", true, null, "note", [Heredoc, "dotnet build Sample.sln"]));
+                "criterion", AccountDisposition.Satisfied, null, "note", [Heredoc, "dotnet build Sample.sln"]));
 
-        account.Satisfied.Should().BeTrue("every element names a command that ran");
+        account.IsSatisfied.Should().BeTrue("every element names a command that ran");
     }
 
     [Fact]
     public void CitationResolver_CitationTakenFromCommandOutput_StillDoesNotResolve()
     {
-        Resolve("PASS: no owned references found", ServerRan).Satisfied.Should().BeFalse(
+        Resolve("PASS: no owned references found", ServerRan).IsSatisfied.Should().BeFalse(
             "p0469 closed this and this phase does not reopen it");
     }
 
@@ -90,13 +90,13 @@ public sealed class CitationFormTests
         // criterion on a command nobody executed.
         var mixed = "api: build 'dotnet build' exited 0; worker: build 'never ran' exited 0";
 
-        Resolve(mixed, "api: build 'dotnet build' exited 0").Satisfied.Should().BeFalse(
+        Resolve(mixed, "api: build 'dotnet build' exited 0").IsSatisfied.Should().BeFalse(
             "a citation that merely starts with a real command names the invented one too");
     }
 
     private static CriterionAccount Resolve(string citation, params string[] commands) =>
         new CitationResolver(CitedFileIndex.FromDiff(string.Empty), commands)
-            .Resolve(new AccountRow("criterion", true, citation, "note"));
+            .Resolve(new AccountRow("criterion", AccountDisposition.Satisfied, citation, "note"));
 
     private static string EvidenceCommandFor(string line) => EvidenceCommand.InEvidence(line);
 }

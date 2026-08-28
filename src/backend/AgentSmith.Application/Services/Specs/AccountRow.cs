@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
@@ -11,12 +13,18 @@ namespace AgentSmith.Application.Services.Specs;
 /// separator that could join two of them — semicolon, pipe, ampersand, newline — occurs
 /// inside commands. One element is one whole thing.
 /// </param>
+/// <param name="Antecedent">
+/// 2026-08-25-9749: on a <see cref="AccountDisposition.NotApplicable"/> claim, the
+/// precondition the account takes to be false. A claim that names none is read as not
+/// satisfied — an unnamed antecedent cannot be audited and cannot be overruled.
+/// </param>
 public sealed record AccountRow(
     string Criterion,
-    bool Satisfied,
+    AccountDisposition Disposition,
     string? Citation = null,
     string? Note = null,
-    IReadOnlyList<string>? Citations = null)
+    IReadOnlyList<string>? Citations = null,
+    string? Antecedent = null)
 {
     /// <summary>Everything this row cites, whichever field carried it. A bare string reads
     /// as a one-element list so an older answer still resolves.</summary>

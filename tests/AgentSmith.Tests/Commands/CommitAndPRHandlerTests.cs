@@ -335,8 +335,8 @@ public class CommitAndPRHandlerTests
         var pipeline = NewPipelineWithSandbox();
         RunAccountLedger.Record(pipeline, [new SpecAccount("repo",
         [
-            new CriterionAccount("the endpoint rejects an anonymous call", true, "Auth.cs:20"),
-            new CriterionAccount("the audit ran", true, "DependencyAuditCommand", Mechanical: true),
+            new CriterionAccount("the endpoint rejects an anonymous call", AccountDisposition.Satisfied, "Auth.cs:20"),
+            new CriterionAccount("the audit ran", AccountDisposition.Satisfied, "DependencyAuditCommand", Mechanical: true),
         ])]);
 
         await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);

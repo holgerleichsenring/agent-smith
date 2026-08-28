@@ -18,8 +18,11 @@ public static class SpecAccountReader
         if (json is null) return null;
         try
         {
-            return JsonSerializer.Deserialize<List<AccountRow>>(
-                json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // 2026-08-25-9749: read as the wire shape, which carries both the three-state
+            // disposition and the two-state bool it replaced, then map to the typed row.
+            return JsonSerializer.Deserialize<List<AccountRowJson>>(
+                json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?.Select(row => row.ToRow()).ToList();
         }
         catch (JsonException)
         {
