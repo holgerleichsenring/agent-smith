@@ -151,17 +151,6 @@ public sealed class PrinciplesTemplateContentTests
         public string Origin => Root;
     }
 
-    // 2026-08-28-6403: probed the way CatalogPrinciplesTemplateSource probes it, from the
-    // catalog ROOT. Resolving only the pre-4.0.0 path made every test in this file return
-    // early the moment the catalog moved principles/ to the root — the assertions about
-    // delta shape and identical composition have been inert since, and a test that cannot
-    // find its input is indistinguishable from one whose input is correct.
-    private static readonly string[] PrinciplesSubPaths =
-    [
-        "principles",              // catalog >= 4.0.0
-        "skills/coding/principles" // catalog < 4.0.0
-    ];
-
     [Fact]
     public void PrinciplesTemplates_AreFoundInTheCatalog()
     {
@@ -181,9 +170,12 @@ public sealed class PrinciplesTemplateContentTests
         if (skillsRoot is null) return null;
         var catalogRoot = Path.GetDirectoryName(skillsRoot.TrimEnd(Path.DirectorySeparatorChar));
         if (catalogRoot is null) return null;
-        return PrinciplesSubPaths
-            .Select(sub => Path.Combine(catalogRoot, sub.Replace('/', Path.DirectorySeparatorChar)))
-            .FirstOrDefault(dir => File.Exists(Path.Combine(dir, "core.md")));
+        // 2026-08-28-6403: resolved from the catalog ROOT, the way the production reader
+        // resolves it — pointing at the pre-4.0.0 path made every test in this file return
+        // early once the catalog moved principles/ to the root.
+        // 2026-08-28-489a: one location, because the reader now probes one.
+        var dir = Path.Combine(catalogRoot, "principles");
+        return File.Exists(Path.Combine(dir, "core.md")) ? dir : null;
     }
 
     private static bool PrinciplesTemplatesAvailable()
