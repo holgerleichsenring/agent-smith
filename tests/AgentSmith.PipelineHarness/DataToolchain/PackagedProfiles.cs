@@ -39,6 +39,14 @@ public sealed class PackagedProfiles : IDisposable
             new PinnedCatalogPath(_root), NullLogger<FileDomainProfileCatalog>.Instance).Find(domain);
     }
 
+    /// <summary>Every domain the pinned catalog carries, read through the production catalog.</summary>
+    public IReadOnlyList<string> KnownDomains()
+    {
+        Extract();
+        return new FileDomainProfileCatalog(
+            new PinnedCatalogPath(_root), NullLogger<FileDomainProfileCatalog>.Instance).KnownDomains;
+    }
+
     /// <summary>Every entry name in the pinned tarball, so a below-pin test can still assert.</summary>
     public IReadOnlyList<string> Entries()
     {

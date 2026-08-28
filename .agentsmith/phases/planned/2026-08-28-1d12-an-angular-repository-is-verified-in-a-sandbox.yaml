@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-1d12
+
+goal: "An Angular repository builds, lints and runs its tests inside the sandbox, in an image measured to carry the browser those tests need."
+
+applies_to: "backend (a reference target, a measurement of the node toolchain, the smoke) + docs"
+
+requires:
+  - p0505
+
+scope:
+  in: "A reference Angular repository, a measurement of its build, lint and test commands on a clean tree and on a named defect in each candidate image, the image the repository then declares, and a smoke running the code pipeline against it."
+  out: >
+    A DOMAIN PROFILE FOR ANGULAR. A framework is a stack, and a stack names its image in
+    its own context.yaml — the profile mechanism exists for repositories whose toolchain
+    is not derivable from a language. Browser-driven end-to-end verification, which is
+    p0308. The java stack, which is its own phase.
+
+decisions:
+  - key: |
+      THE TABLE'S NODE IMAGE CANNOT RUN THE ONE COMMAND THAT MATTERS, AND THAT IS THE WHOLE
+      PHASE. node:20-bookworm carries node and git and no browser; the default Angular test
+      runner needs one, so a repository that builds fine reds on its tests for a reason that has
+      nothing to do with its code. Which image fixes that is measured, not assumed — the
+      Microsoft-published browser image and a node image with a headless browser installed as a
+      prerequisite are both candidates and both are cheap to measure.
+  - key: |
+      THE MEASUREMENT IS THE SAME GRID p0505 ESTABLISHED, BECAUSE THE FAILURE MODE IS THE SAME. A
+      command that cannot succeed reds on every tree, clean ones included, and reads as a gate
+      until someone checks. Clean and defect, per candidate image, recorded.
+  - key: |
+      NO NEW ROW IN THE LANGUAGE TABLE. p0520 retires that table in favour of the repository
+      naming its image; adding an entry now would be one more row to remove and would hide the
+      decision inside the binary, where a customer cannot see it.
+  - key: |
+      THE REFERENCE REPOSITORY IS MINIMAL AND CARRIES ONE REAL DEFECT PER GATE. A generated
+      starter with a failing test, a type error and a lint violation exercises the three gates
+      separately; anything larger measures the starter template rather than the toolchain.
+
+steps:
+  - id: the-reference-exists
+    action: "A minimal Angular reference repository with a context.yaml naming its image, plus one defect variant per gate."
+  - id: the-commands-are-measured
+    action: "Measure build, lint and test on clean and on each defect in every candidate image, recording exit codes and versions."
+  - id: the-repository-declares-what-survived
+    action: "The reference declares the image and the commands the measurement supports."
+  - id: the-pipeline-runs-against-it
+    action: "A smoke running the code pipeline against the reference, ending in a pull request with a green verify."
+
+tests:
+  - "AngularReference_DeclaresAnImageTheTrustPolicyAccepts"
+  - "AngularMeasurement_EveryDeclaredCommand_IsGreenOnCleanAndRedOnItsDefect"
+
+done:
+  - "an Angular run ends in a pull request whose build, lint and test gates all executed"
+  - "the image the reference declares is recorded with the measurement that chose it"
+  - "no new entry was added to the language table"
+  - "build green, full suite green"

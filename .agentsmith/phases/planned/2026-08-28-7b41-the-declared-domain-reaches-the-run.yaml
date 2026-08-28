@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-7b41
+
+goal: "The domain a repository declares reaches the run that resolves it, so the profile mechanism stops being a set of parts that pass their tests and never meet."
+
+applies_to: "backend (the remote context discovery that drops the parsed domain, and the test that would have caught it)"
+
+requires:
+  - p0504
+  - 2026-08-28-c5e7
+
+scope:
+  in: "The parsed meta.domain carried through both production construction sites of the remote discovery, and a test driving the real parser and resolver over a domain-declaring context.yaml instead of a hand-built record."
+  out: >
+    EVERY CONSUMER, which is already written and correct — the image chain, the verify
+    stages, the preflight check. Nothing about what a domain then does; this phase only
+    makes the value arrive.
+
+decisions:
+  - key: |
+      THE FIELD IS PARSED, CARRIED AND THEN DROPPED AT THE ONE PLACE THAT MATTERS.
+      ContextYamlSerializer reads meta.domain into the summary; SandboxLanguageResolver builds
+      the discovery with seven positional arguments at both call sites and the eighth, Domain,
+      takes its default of null. Every consumer downstream reads discovery.Domain, so the
+      mechanism resolves nothing in production: no profile image, no verify stage, and a
+      preflight check that reports "no context declares meta.domain" for a repository that does.
+  - key: |
+      IT SHIPPED GREEN BECAUSE EVERY TEST HAND-BUILDS THE RECORD. The domain tests construct
+      RemoteContextDiscovery directly with a domain in hand, which proves the consumers and
+      says nothing about the producer. A defaulted optional parameter is invisible at a call
+      site; only a test that goes through the parser and the resolver could see it.
+  - key: |
+      THE REGRESSION TEST GOES THROUGH THE PRODUCER, NOT AROUND IT. One test parsing a real
+      domain-declaring context.yaml through the resolver and asserting the discovery carries the
+      domain is the whole guard, and it is the guard that was missing.
+  - key: |
+      THE PIN COMES FIRST, AND THE ORDER IS NOT COSMETIC. With the wire repaired and a catalog
+      that carries no profiles, ContextDomainCheck refuses every repository declaring a domain —
+      the mechanism would go from silently doing nothing to loudly refusing work. Bumping the
+      pin first means this phase can only improve the outcome.
+
+steps:
+  - id: the-discovery-carries-the-domain
+    action: "Both construction sites of the remote discovery pass the parsed domain."
+  - id: the-producer-is-tested
+    action: "A resolver test over a context.yaml declaring meta.domain asserts the resulting discovery carries it, for the discovery path and the explicit-context path."
+
+tests:
+  - "ResolveAll_AContextDeclaringADomain_CarriesItIntoTheDiscovery"
+  - "ResolveContext_AContextDeclaringADomain_CarriesItIntoTheDiscovery"
+
+done:
+  - "a repository declaring meta.domain resolves its profile's image and verify stages in a real run"
+  - "preflight reports the declared domain instead of reporting that none was declared"
+  - "no consumer changed"
+  - "build green, full suite green"

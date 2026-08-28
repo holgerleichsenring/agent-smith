@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-c5ca
+
+goal: "A domain profile carries the install its image lacks, so every repository declaring that domain stops repeating the same prerequisite line to get a toolchain the domain already implies."
+
+applies_to: "backend (profile-declared prerequisites in the prerequisite step) + skills catalog (the field and its validator)"
+
+requires:
+  - p0504
+  - 2026-08-28-3e23
+
+scope:
+  in: "An ordered prerequisite list a profile may declare, carrying the same presence condition a verify command has, run before the repository's own prerequisite, with the validator rule for the new field and the documentation of what a profile now brings."
+  out: >
+    REPLACING THE IMAGE. A profile whose image already carries its tools declares no
+    prerequisite, and installing at run time is the fallback for what an image lacks, not
+    an alternative to publishing one. Deriving an install from the repository's files —
+    p0224 removed exactly that and this phase does not bring it back.
+
+decisions:
+  - key: |
+      THE PROFILE IS THE ONLY PLACE THAT KNOWS WHAT ITS COMMANDS NEED. A profile declares an
+      image and the commands measured in it. When the two disagree — an image reachable but
+      missing a tool, a customer mirror one release behind — the repair is the same line copied
+      into every repository, and the profile is the one file that could carry it once.
+  - key: |
+      THE PROFILE RUNS FIRST, THE REPOSITORY RUNS AFTER, AND BOTH RUN. Making the repository's
+      line REPLACE the profile's would mean a repository adding one install of its own silently
+      loses the domain's toolchain, and the failure appears later as a missing command. Additive
+      ordering is the only shape where declaring more cannot take something away.
+  - key: |
+      THE PRESENCE CONDITION IS REUSED, NOT REINVENTED. p0513 established that one domain word
+      covers repositories of different shapes and that a command must state the path it needs.
+      An install is the same kind of statement — a dbt adapter is pointless in a repository with
+      no dbt project — and a second condition mechanism would be a second taxonomy to keep true.
+  - key: |
+      EACH ENTRY IS ONE COMMAND EXECUTED THROUGH A SHELL, WHICH IS THE EXISTING CONSTRAINT MADE
+      EXPLICIT. The prerequisite handler splits one line and runs it with no shell, so every real
+      install already arrives as sh -c "…". The list makes ordering explicit instead of hiding it
+      inside one operator-authored string, and each entry keeps that same execution shape.
+  - key: |
+      A FAILING PROFILE INSTALL FAILS THE RUN, LOUDLY AND BY NAME. The alternative — continue and
+      let the verify stage report "command not found" — turns a missing tool into a claim about
+      the repository's code, which is the class of false report this mechanism exists to end.
+
+steps:
+  - id: the-profile-may-declare-an-install
+    action: "A profile carries an ordered prerequisite list, each entry a stage label, a command and the optional path it needs present."
+  - id: the-step-runs-both-sources
+    action: "The prerequisite step runs the profile's entries in order at the context workdir, then the repository's own line, failing the run with the stage and output of the first non-zero exit."
+  - id: the-catalog-validates-the-field
+    action: "The packaging validator holds the new field to the same rules as verify: a stage, a command, and a relative in-tree path when a condition is given."
+
+tests:
+  - "ProfilePrerequisite_ItsCondition_SkipsWhereThePathIsAbsent"
+  - "ProfilePrerequisite_RunsBeforeTheRepositoryLine"
+  - "ProfilePrerequisite_ANonZeroExit_FailsTheRunWithTheStage"
+  - "ProfilePrerequisite_ARepositoryLine_DoesNotReplaceTheProfileList"
+
+done:
+  - "a repository declaring only the domain gets the domain's toolchain with no prerequisite of its own"
+  - "a repository with its own prerequisite still runs it, after the profile's"
+  - "a profile declaring no prerequisites behaves exactly as before"
+  - "build green, full suite green"
