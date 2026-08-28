@@ -1,57 +1,72 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-08-28-cee2
 
-goal: "A bundle-only repository is verified by a command measured in the form it can actually run, instead of by nothing at all."
+goal: "A bundle-bearing repository is verified by one command measured in the form it can run, and the guards that assert no bundle command exists are replaced rather than quietly deleted."
 
-applies_to: "backend (the measurement and its table) + skills catalog (the profile stage, if it survives)"
+applies_to: "backend (a fixture variant, the measurement, the two p0513 guards) + skills catalog (the profile stage, if it survives)"
 
 requires:
   - p0513
   - 2026-08-28-3e23
 
 scope:
-  in: "A measurement of the bundle schema check in the form a repository can run it — the schema obtained from the CLI at run time and applied to the repository's own bundle files — across the three shapes and their defects, and its declaration in the profile only if the measurement supports it."
+  in: "A bundle fixture variant carrying no resources directory, a measurement of the schema-from-CLI-then-check form across the two bundle-bearing shapes and every defect, the declaration of the surviving single line, and the replacement of the two guards that assert the profile declares no bundle command."
   out: >
     THE COMMAND THAT NEEDS A WORKSPACE. bundle validate resolves authentication before it
-    validates and is a gate only once a run can hold a credential; measuring it belongs
-    after *the target environment answers before the master*, and it is a distinct
-    measurement because a connected command is different evidence. Deploying a bundle.
+    validates, so it is a gate only once a run can hold a credential — a distinct
+    measurement, after the phases that make that possible. Deploying a bundle.
 
 decisions:
   - key: |
-      THE ONE MEASURED BUNDLE GATE IS UNDECLARABLE AS MEASURED, WHICH IS WHY THIS PHASE EXISTS.
-      check-jsonschema went red on every named bundle defect and green on the clean tree — the
-      only offline bundle gate the grid produced — but it ran against a schema file the harness
-      injected and named the fixture's own file paths. p0513 refused to declare it rather than
-      guess a runnable form, and left this successor.
+      ONE JOINED LINE IS DECLARED, NOT TWO, BECAUSE THE GATE COMPARES STRINGS. The evidence gate
+      admits only rows whose verdict is declarable and matches the profile's command byte for
+      byte. The schema-emitting half is recorded on every variant as detecting no defect, so it
+      can never clear the gate on its own; the two halves are measured as diagnostics and the
+      declared artefact is the single joined line, quoted verbatim in this spec so the row and the
+      profile string are provably the same text.
   - key: |
-      THE RUNNABLE FORM HAS TWO PARTS THAT CAN EACH FAIL SEPARATELY, SO BOTH ARE MEASURED.
-      Obtaining the schema from the CLI is one command whose green the grid already records; a
-      glob over a repository's own bundle files is the other, and a glob that matches nothing must
-      not read as a pass. A single line joining them hides which half was measured.
+      TWO GUARDS SAY THE PROFILE DECLARES NO BUNDLE COMMAND, AND RETIRING THEM IS A SPEC DECISION.
+      p0513 asserts that the profile contains no check-jsonschema command and that a bundle-only
+      shape resolves zero commands. Both go red the moment anything is declared here. Their
+      replacements are named in this phase's tests, so the retirement is visible rather than an
+      implementer's cleanup.
   - key: |
-      IF IT DOES NOT SURVIVE, NOTHING IS DECLARED AND THE PROFILE SAYS WHY. A bundle repository
-      verified by nothing is an honest state that the profile's documentation already carries; a
-      command declared on hope reds a clean repository and, because verify stops at the first
-      failure, hides every gate behind it.
+      THE EMPTY-GLOB CASE MUST BE MEASURED OR THE GATE REDS A CLEAN REPOSITORY. Every existing
+      bundle variant carries a resources directory, and the verify runner executes through a
+      shell that passes an unmatched glob through literally. Whether the checker then exits
+      non-zero is measured nowhere, and the failure it would produce is a red on a clean
+      repository — the thing the profile's own documentation exists to prevent. A no-resources
+      variant is added and recorded, which changes that shape's fixture hash and forces a full
+      re-measurement.
   - key: |
-      THE CONDITION IS databricks.yml, THE FILE THAT DEFINES THE SHAPE. It is what distinguishes a
-      bundle-bearing tree from a dbt-only one, and it is the file the check reads first.
+      TWO SHAPES, NOT THREE. The script runs the bundle commands on the bundle and combined
+      shapes; the dbt shape has no bundle file, so a row there would be noise recorded as
+      broken-on-clean.
+  - key: |
+      IF NOTHING SURVIVES, NOTHING IS DECLARED AND THE PROFILE SAYS SO. A bundle repository
+      verified by nothing is an honest state already written in the profile's documentation; a
+      command declared on hope reds a clean tree and hides every gate behind it.
 
 steps:
+  - id: the-shape-without-resources-exists
+    action: "A bundle fixture variant carrying a clean bundle file and no resources directory."
   - id: the-runnable-form-is-measured
-    action: "Measure the schema-from-CLI and the repository-glob halves across the three shapes and every defect variant, in the published image, recording exit codes on clean and on defect."
+    action: "Measure the joined schema-from-CLI-then-check line, and each half as a diagnostic, across the two bundle-bearing shapes and every variant, in the published image."
   - id: the-table-records-it
-    action: "Add the measured rows to the table with the tool versions and image that produced them."
+    action: "Add the measured rows with the versions, image and architecture that produced them, and re-record the changed fixture hash."
   - id: the-profile-declares-only-what-survived
-    action: "Declare the surviving command in the profile conditioned on databricks.yml, or record in the profile's documentation that the bundle shape remains unverified and why."
+    action: "Declare the surviving line conditioned on the bundle file, or record in the profile's documentation that the bundle shape stays unverified and why."
+  - id: the-guards-are-replaced
+    action: "Replace the two p0513 guards with their positive counterparts."
 
 tests:
-  - "MeasuredTable_TheBundleForm_IsRecordedOnCleanAndOnDefect"
-  - "Profile_DeclaresNoCommandTheTableDoesNotRecordAsDeclarable"
+  - "MeasuredTable_TheJoinedBundleForm_IsRecordedOnCleanAndOnDefect"
+  - "MeasuredTable_ABundleTreeWithoutResources_IsRecorded"
+  - "Profile_TheBundleCheck_IsConditionedOnTheBundleFile"
+  - "BundleOnlyShape_ResolvesTheBundleCheckAndNothingElse"
 
 done:
-  - "the bundle check is either declared with measured evidence or documented as absent with the reason"
-  - "a clean bundle-only repository stays green"
-  - "a repository with a bundle defect goes red on that stage"
+  - "a bundle-only repository resolves the bundle stage, asserted through the stage resolver rather than through the run's aggregate verdict"
+  - "a clean bundle tree with no resources directory does not go red"
+  - "a bundle defect goes red on that stage"
   - "build green, full suite green"

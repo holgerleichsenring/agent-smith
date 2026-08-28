@@ -1,64 +1,55 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-08-28-c5ca
 
-goal: "A domain profile carries the install its image lacks, so every repository declaring that domain stops repeating the same prerequisite line to get a toolchain the domain already implies."
+goal: "A domain profile carries the install its image lacks. DEFERRED: no profile has an install to declare until an image provably cannot carry a measured tool."
 
-applies_to: "backend (profile-declared prerequisites in the prerequisite step) + skills catalog (the field and its validator)"
+applies_to: "backend (the prerequisite step) + skills catalog (the field and its validator) — not now"
 
 requires:
-  - p0504
   - 2026-08-28-3e23
 
 scope:
-  in: "An ordered prerequisite list a profile may declare, carrying the same presence condition a verify command has, run before the repository's own prerequisite, with the validator rule for the new field and the documentation of what a profile now brings."
+  in: "Nothing yet. This spec records the design that survived review and the trigger that starts it."
   out: >
-    REPLACING THE IMAGE. A profile whose image already carries its tools declares no
-    prerequisite, and installing at run time is the fallback for what an image lacks, not
-    an alternative to publishing one. Deriving an install from the repository's files —
-    p0224 removed exactly that and this phase does not bring it back.
+    EVERYTHING, UNTIL THE TRIGGER FIRES: the first profile whose published image provably
+    cannot carry a measured tool — a licence-bound CLI, a per-customer adapter, or a
+    mirror pin the image cannot pre-bake — or a second repository in the same domain shown
+    to repeat the same prerequisite line.
 
 decisions:
   - key: |
-      THE PROFILE IS THE ONLY PLACE THAT KNOWS WHAT ITS COMMANDS NEED. A profile declares an
-      image and the commands measured in it. When the two disagree — an image reachable but
-      missing a tool, a customer mirror one release behind — the repair is the same line copied
-      into every repository, and the profile is the one file that could carry it once.
+      THE FIELD WOULD SHIP WITH NO AUTHOR AND NO READER. The catalog has one profile, and its
+      sibling phase bakes exactly the measured toolchain into a published image and re-measures
+      against it. On the day this shipped, no profile would declare a prerequisite and every
+      criterion would be satisfiable only by synthetic fixtures — the same shape as the defect
+      the pin phase was written to repair, entered deliberately.
   - key: |
-      THE PROFILE RUNS FIRST, THE REPOSITORY RUNS AFTER, AND BOTH RUN. Making the repository's
-      line REPLACE the profile's would mean a repository adding one install of its own silently
-      loses the domain's toolchain, and the failure appears later as a missing command. Additive
-      ordering is the only shape where declaring more cannot take something away.
+      THE REPETITION THE GOAL CITED IS NOT THE REPETITION THAT EXISTS. What a data repository
+      actually repeats is two FILES the profile does not ship — the connection profile and the
+      linter configuration — and no install command supplies a file. The phase named a pain it
+      could not relieve.
   - key: |
-      THE PRESENCE CONDITION IS REUSED, NOT REINVENTED. p0513 established that one domain word
-      covers repositories of different shapes and that a command must state the path it needs.
-      An install is the same kind of statement — a dbt adapter is pointless in a repository with
-      no dbt project — and a second condition mechanism would be a second taxonomy to keep true.
+      THE CONDITION MECHANISM HAS THE WRONG POLARITY FOR AN INSTALL, AND THIS IS THE DESIGN NOTE
+      THAT MATTERS WHEN IT IS BUILT. The existing condition answers a REPOSITORY-SHAPE question:
+      does this tree carry the files the command was measured on. An install answers an IMAGE
+      question: is the tool already here. Conditioned on shape, the install runs on every run of
+      every matching repository, including on an image that already carries the tools. The
+      honest form gates on a probe of the tool, not on the repository's files.
   - key: |
-      EACH ENTRY IS ONE COMMAND EXECUTED THROUGH A SHELL, WHICH IS THE EXISTING CONSTRAINT MADE
-      EXPLICIT. The prerequisite handler splits one line and runs it with no shell, so every real
-      install already arrives as sh -c "…". The list makes ordering explicit instead of hiding it
-      inside one operator-authored string, and each entry keeps that same execution shape.
+      ADDITIVE ORDERING IS NOT SAFE, WHICH IS THE OTHER THING TO CARRY FORWARD. A repository
+      line installing its own requirements after the profile's silently replaces the pinned
+      versions the measurement recorded, and the verify gate then runs against a toolchain the
+      table says nothing about. The exit is idempotence plus a version comparison reported the
+      way an incompatible image is already reported — not a swap of the order.
   - key: |
-      A FAILING PROFILE INSTALL FAILS THE RUN, LOUDLY AND BY NAME. The alternative — continue and
-      let the verify stage report "command not found" — turns a missing tool into a claim about
-      the repository's code, which is the class of false report this mechanism exists to end.
+      IT WOULD ALSO BYPASS THE EVIDENCE GATE AS WRITTEN. The gate that refuses an unmeasured
+      command reads the verify list only, so a prerequisite field would be a place where any
+      command is declarable with no measurement at all. Whichever phase builds this either
+      extends that gate or records explicitly why installs sit outside it.
 
 steps:
-  - id: the-profile-may-declare-an-install
-    action: "A profile carries an ordered prerequisite list, each entry a stage label, a command and the optional path it needs present."
-  - id: the-step-runs-both-sources
-    action: "The prerequisite step runs the profile's entries in order at the context workdir, then the repository's own line, failing the run with the stage and output of the first non-zero exit."
-  - id: the-catalog-validates-the-field
-    action: "The packaging validator holds the new field to the same rules as verify: a stage, a command, and a relative in-tree path when a condition is given."
-
-tests:
-  - "ProfilePrerequisite_ItsCondition_SkipsWhereThePathIsAbsent"
-  - "ProfilePrerequisite_RunsBeforeTheRepositoryLine"
-  - "ProfilePrerequisite_ANonZeroExit_FailsTheRunWithTheStage"
-  - "ProfilePrerequisite_ARepositoryLine_DoesNotReplaceTheProfileList"
+  - id: deferred
+    action: "Not started. When the trigger fires, this spec is the starting point and its decisions are the constraints."
 
 done:
-  - "a repository declaring only the domain gets the domain's toolchain with no prerequisite of its own"
-  - "a repository with its own prerequisite still runs it, after the profile's"
-  - "a profile declaring no prerequisites behaves exactly as before"
-  - "build green, full suite green"
+  - "not applicable — deferred with a named trigger"

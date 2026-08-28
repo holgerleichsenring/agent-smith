@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-5caa
+
+goal: "A domain profile may carry a principles document, so a data repository is bootstrapped with dbt and warehouse rules that belong to no single language."
+
+applies_to: "backend (the profile field, the composition and its ordering) + skills catalog (the document, the validator, the format)"
+
+requires:
+  - 2026-08-28-2989
+  - 2026-08-28-7b41
+
+scope:
+  in: "A principles document a profile may name, carried through the profile model and the catalog reader, composed after core and the language delta for a repository whose domain resolved, with a precedence rule stated in the format document and a validator refusing a named document that does not exist."
+  out: >
+    THE COLD-INIT CASE, WHICH THIS PHASE CANNOT CLOSE AND SAYS SO. Enforcement tooling.
+    Any language delta.
+
+decisions:
+  - key: |
+      THE COMPOSITION RUNS BEFORE THE DOMAIN IS KNOWN ON A COLD INIT, AND THAT LIMIT IS STATED
+      RATHER THAN PAPERED OVER. The framework composes and writes the principles file, THEN calls
+      the bootstrap skill, and it is that skill which writes the context.yaml carrying the domain.
+      So on a repository with no committed context.yaml there is no domain to compose with; the
+      document lands from the second init onward, and on re-init the existing principles file is
+      preserved rather than recomposed. The successor that closes it is *the composition reads the
+      domain the repository already declares* — named here so the gap is visible.
+  - key: |
+      A DOMAIN IS A THIRD TIER, NOT A SECOND DELTA, AND IT NEEDS A PRECEDENCE RULE. Deltas carry
+      one language's mechanisms; a domain crosses languages and may contradict a delta it sits
+      beside. It composes after the delta and may override it by naming the rule it replaces —
+      the same contract deltas already use against the core — and the format document says so, or
+      two documents rule on layout with nothing deciding between them.
+  - key: |
+      THE READER SILENTLY DROPS UNKNOWN FIELDS, WHICH MAKES THE OBVIOUS OMISSION INVISIBLE. The
+      profile deserializer ignores unmatched properties, so a principles field added to the YAML
+      and not to the model ships green and does nothing. The model property is named as its own
+      step for that reason.
+  - key: |
+      THE VALIDATOR MUST REFUSE A DOCUMENT THAT IS NOT THERE. A named file that does not exist
+      degrades to the same silence as a pre-principles catalog, which is the trap this mechanism
+      would otherwise repeat.
+  - key: |
+      THE DOCUMENT'S RULES ARE CITED CONVENTIONS, AND THE ONE THAT IS NOT IS MARKED AS A CHOICE.
+      Model layering, ref over hard-coded relations and tests declared with the model are the
+      tool's published guidance. Refusing notebook JSON in favour of the source format is an
+      argument about reviewability and testability, not a published convention — it is written as
+      a project choice, in the tier where a choice belongs.
+
+steps:
+  - id: the-profile-carries-a-document
+    action: "A profile may name a principles document; the field is added to the profile model and the catalog reader together, and the catalog validator refuses a name with no file."
+  - id: the-composition-appends-it
+    action: "The composition takes an optional domain and appends its document after the language delta, unchanged when no domain resolved."
+  - id: the-format-states-the-third-tier
+    action: "The format document describes the third tier and its override contract."
+  - id: the-data-document-exists
+    action: "The data domain's principles document, each rule cited, with the notebook-format rule written as a project choice."
+
+tests:
+  - "ProfileWithAPrinciplesDocument_IsReadIntoTheProfile"
+  - "Compose_ADomainDeclared_AppendsTheDomainDocumentAfterTheDelta"
+  - "Compose_NoDomainDeclared_IsByteIdenticalToTodaysComposition"
+  - "Validator_AProfileNamingAMissingDocument_IsRefused"
+
+done:
+  - "a repository whose domain resolved composes core, its delta and the domain document"
+  - "a repository with no domain composes exactly what it composes today"
+  - "the cold-init limitation is stated in the docs with its named successor"
+  - "build green, full suite green"

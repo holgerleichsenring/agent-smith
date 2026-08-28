@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-5f71
+
+goal: "A run that executed no verification command stops being reported as a success, so an unverified delivery and a verified one are told apart by the run itself."
+
+applies_to: "backend (the verify handler's zero-stage outcome and what the run does with it)"
+
+requires:
+  - p0393
+
+scope:
+  in: "The outcome of a run in which no repository resolved a single verification command, made distinguishable from a verified run, with the existing per-repository skip for an untouched branch left as it is."
+  out: >
+    RESOLVING COMMANDS FOR STACKS THAT DECLARE NONE — the reference and profile phases do
+    that per stack. Failing a run that legitimately ships no source change: the branch-level
+    skip is a different question and stays.
+
+decisions:
+  - key: |
+      THE MESSAGE ALREADY SAYS THE RUN IS UNVERIFIED AND THE VERDICT SAYS SUCCESS. The verify
+      handler returns Ok with a message stating that no repository declared a build or test
+      command and the run is UNVERIFIED, so the phase records done and the pull request opens.
+      Two reviewers reached this independently from opposite directions — a data repository and
+      an Angular repository both land in that branch, and in both cases a run that executed no
+      gate is the EXPECTED output of doing nothing.
+  - key: |
+      THIS IS WHY EVERY NEW STACK PHASE NEEDS A CRITERION IT CANNOT SATISFY BY ACCIDENT. Until
+      this changes, "a green run" proves nothing about a stack the orchestrator cannot verify,
+      and each stack phase has to assert the outcome string instead. One change here retires
+      that duplicated criterion.
+  - key: |
+      THE PER-REPOSITORY SKIP FOR AN UNTOUCHED BRANCH IS NOT THE SAME THING AND IS NOT TOUCHED. A
+      repository whose branch carries no source change has nothing to build, which is a fact
+      about the delivery. A run where NO repository resolved any command is a fact about the
+      orchestrator's coverage.
+
+steps:
+  - id: no-stage-anywhere-is-its-own-outcome
+    action: "A run in which no repository resolved a verification command reports an outcome distinct from a verified one, naming what was searched per repository."
+  - id: the-existing-resolution-failure-shape-is-reused
+    action: "The unverified outcome follows the shape the .NET entry-point resolution failure already uses, rather than a new vocabulary."
+
+tests:
+  - "Verify_NoRepositoryResolvedACommand_IsNotReportedAsVerified"
+  - "Verify_OneRepositoryResolvedACommand_IsUnchanged"
+  - "Verify_ABranchWithNoSourceChange_StillSkipsThatRepository"
+
+done:
+  - "a run that executed no verification command is distinguishable from one that did, in the run's own outcome"
+  - "runs that verify something behave exactly as before"
+  - "build green, full suite green"
