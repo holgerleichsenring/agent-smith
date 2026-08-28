@@ -7,7 +7,9 @@ import SignInCallbackPage from "../page";
 // visible reason when the authority refused.
 
 const replace = vi.hoisted(() => vi.fn());
-const boot = vi.hoisted(() => ({ session: null as { returnTo: string; error: string | null } | null }));
+const boot = vi.hoisted(() => ({
+  session: null as { returnTo: string; error: string | null; isSilentReturn?: boolean } | null,
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
@@ -35,6 +37,20 @@ describe("SignInCallbackPage", () => {
     render(<SignInCallbackPage />);
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+  });
+
+  // 2026-08-28-0f46: the hidden frame of a silent sign-in loads THIS route — the
+  // library points it at the ordinary reply URL and this phase registers no
+  // second one. Its answer has already been posted to the window that asked, so
+  // routing it would only boot a second copy of the dashboard inside a document
+  // about to be removed, inside the ten seconds that window is counting.
+  it("Callback_ASilentReturn_NavigatesNowhereAtAll", async () => {
+    boot.session = { returnTo: "/jobs", error: null, isSilentReturn: true };
+
+    render(<SignInCallbackPage />);
+    await waitFor(() => expect(screen.getByText(/Signing in/)).toBeInTheDocument());
+
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("Callback_TheAuthorityRefused_SaysSoAndStaysPut", async () => {
