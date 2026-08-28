@@ -151,12 +151,39 @@ public sealed class PrinciplesTemplateContentTests
         public string Origin => Root;
     }
 
+    // 2026-08-28-6403: probed the way CatalogPrinciplesTemplateSource probes it, from the
+    // catalog ROOT. Resolving only the pre-4.0.0 path made every test in this file return
+    // early the moment the catalog moved principles/ to the root — the assertions about
+    // delta shape and identical composition have been inert since, and a test that cannot
+    // find its input is indistinguishable from one whose input is correct.
+    private static readonly string[] PrinciplesSubPaths =
+    [
+        "principles",              // catalog >= 4.0.0
+        "skills/coding/principles" // catalog < 4.0.0
+    ];
+
+    [Fact]
+    public void PrinciplesTemplates_AreFoundInTheCatalog()
+    {
+        // The guard that tells the two skips apart. No checkout is a legitimate skip;
+        // a checkout whose principles this file cannot find is the defect that made
+        // every other test here assert nothing, and it looked exactly the same.
+        if (TestSkillsRoot.Resolve() is null) return;
+
+        PrinciplesDirectory().Should().NotBeNull(
+            "a resolvable skills checkout carries principles, and failing to find them "
+            + "silently turns every assertion in this file into an early return");
+    }
+
     private static string? PrinciplesDirectory()
     {
         var skillsRoot = TestSkillsRoot.Resolve();
         if (skillsRoot is null) return null;
-        var dir = Path.Combine(skillsRoot, "coding", "principles");
-        return File.Exists(Path.Combine(dir, "core.md")) ? dir : null;
+        var catalogRoot = Path.GetDirectoryName(skillsRoot.TrimEnd(Path.DirectorySeparatorChar));
+        if (catalogRoot is null) return null;
+        return PrinciplesSubPaths
+            .Select(sub => Path.Combine(catalogRoot, sub.Replace('/', Path.DirectorySeparatorChar)))
+            .FirstOrDefault(dir => File.Exists(Path.Combine(dir, "core.md")));
     }
 
     private static bool PrinciplesTemplatesAvailable()
@@ -164,7 +191,7 @@ public sealed class PrinciplesTemplateContentTests
         if (PrinciplesDirectory() is not null) return true;
         Console.WriteLine(
             "PrinciplesTemplateContentTests SKIPPED: skills checkout has no " +
-            "skills/coding/principles/core.md (pre-p0379 catalog or no checkout). " +
+            "principles/core.md or skills/coding/principles/core.md (no checkout). " +
             "Point AGENTSMITH_TEST_SKILLS_DIR at an agent-smith-skills checkout with the p0379 templates.");
         return false;
     }

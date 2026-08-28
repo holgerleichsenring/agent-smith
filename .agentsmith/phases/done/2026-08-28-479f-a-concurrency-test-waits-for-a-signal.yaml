@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-479f
+
+goal: "The skill-call concurrency test waits for the signal it is actually about instead of for the clock, so a busy machine stops blocking every phase commit."
+
+applies_to: "backend tests (the concurrency limit test and the reaper loop test)"
+
+requires: []
+
+scope:
+  in: "Two tests that waited on the clock now wait on the event they are about: the concurrency limit test awaits the call entering the gate instead of sleeping, and the reaper test awaits announced progress instead of polling every five milliseconds until a deadline."
+  out: >
+    THE TESTS THAT WAIT ON A REAL TIMER IN PRODUCTION CODE. The fan-out back-pressure
+    test waits for a send the decorator abandons after a real 50 ms delay, and the
+    waiting-run drain and sandbox liveness watcher are the same shape; making those
+    deterministic means injecting a time provider into the code under test, which is a
+    production change and its own phase. This one removes the two tests that CREATE the
+    starvation the others then fail under.
+
+decisions:
+  - key: |
+      A FIFTY-MILLISECOND SLEEP IS A GUESS ABOUT THE SCHEDULER, AND THE SUITE STOPPED HONOURING
+      IT. The test starts two calls against a limit of one, sleeps 50 ms and asserts the second
+      has not completed. What it means is "once the first call is inside the gate, the second
+      cannot proceed" — and the first call can say that itself. Under three parallel test
+      processes the sleep now takes tens of seconds, and the two-second waits after it expire.
+  - key: |
+      THE FAILURE IS INDISTINGUISHABLE FROM A REAL ONE, WHICH IS WHY IT IS WORTH A PHASE. It
+      blocked four consecutive gate runs of two unrelated phases while being green in isolation.
+      A gate that fails for reasons the commit did not cause teaches people to retry until green,
+      which is the same as not having a gate.
+  - key: |
+      THE POLL WAS ALSO A STARVATION SOURCE, NOT ONLY A VICTIM OF ONE. The reaper tests
+      polled a condition every five milliseconds for up to thirty seconds, three tests over,
+      inside a suite that runs three test processes at once — timers and continuations
+      competing with the very loop they were waiting for. Replacing the poll with an
+      announcement removes work from the pool instead of adding a longer wait to it.
+  - key: |
+      THE BUDGETS ARE KEPT AS HANG-DETECTORS, NOT REMOVED. A hang must still fail rather than run forever, and a
+      generous ceiling under a starved thread pool is what separates a hang from a slow machine.
+  - key: |
+      THE ASSERTION KEEPS ITS MEANING. With the first call holding the only slot, the second
+      cannot have completed — the claim is about the semaphore, not about elapsed time, and it is
+      now made at the moment the first call is provably inside.
+
+steps:
+  - id: the-test-waits-for-the-call
+    action: "The scripted first response signals when it has been entered; the test awaits that signal instead of sleeping, then asserts the second call has not completed."
+  - id: the-loop-announces-its-progress
+    action: "The scan counter and the fake clock hand out a task per milestone, and the reaper test awaits those instead of polling a condition to a deadline."
+
+tests:
+  - "ExecuteAsync_ConcurrencyLimitReached_BlocksUntilSlotAvailable"
+  - "RunAsync_MonotonicGapExceedsThreshold_SuppressesVerdictsForGraceWindow"
+  - "RunAsync_AfterGraceWindow_ReapsAgain"
+
+done:
+  - "both tests pass in the full parallel suite on a loaded machine"
+  - "the concurrency test still fails if the limit stops blocking"
+  - "the reaper tests still fail if the loop stops progressing"
+  - "build green, full suite green"
