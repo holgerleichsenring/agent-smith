@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-6403
+
+goal: "The principles tests read the catalog where the principles actually live, so the assertions about composition stop passing by returning early."
+
+applies_to: "backend (the principles test helper) + skills catalog (the format document and the bootstrap master's prose)"
+
+requires:
+  - p0379
+
+scope:
+  in: "The test helper's principles path probed the way the production reader probes it, and every document still naming the pre-4.0.0 path corrected: the delta format, the bootstrap master's prose."
+  out: >
+    AUTHORING ANY DELTA — the python and java phases do that. Changing what the principles
+    say. Changing the production reader, which already probes both paths correctly.
+
+decisions:
+  - key: |
+      THE CONTENT TESTS ASSERT NOTHING TODAY. The helper resolves the catalog's principles under
+      the pre-4.0.0 path, which the masters-only catalog no longer has, so the availability check
+      returns null and every test in that file returns early with a console note. The assertions
+      that two repositories of one stack compose identically, and that each delta follows the
+      format, have been inert since the catalog moved.
+  - key: |
+      THIS BLOCKS THE PHASES THAT WOULD RELY ON IT. A python delta and a java delta each want a
+      "the composition is unchanged for every other stack" guarantee, and that guarantee is
+      exactly the test that does not run. Fixing the path first is what makes those phases
+      provable rather than plausible.
+  - key: |
+      THE PROBE MIRRORS THE PRODUCTION READER RATHER THAN HARDCODING THE NEW PATH. The reader
+      already tries the current location and falls back to the historical one, so a test that
+      hardcodes either is a second convention that can disagree with the first.
+  - key: |
+      THE STALE PATH IS WRITTEN DOWN IN TWO MORE PLACES AND ALL THREE MOVE TOGETHER. The delta
+      format tells an author where to put a new delta, and the bootstrap master's prose describes
+      where principles come from. Correcting one and leaving the others is how the next author
+      writes a file to a path nothing reads.
+
+steps:
+  - id: the-helper-probes-both-paths
+    action: "The principles test helper resolves the catalog's principles the way the production reader does."
+  - id: the-documents-name-the-real-path
+    action: "The delta format and the bootstrap master's prose name where deltas and the core actually live."
+
+tests:
+  - "PrinciplesTemplates_AreFoundInTheCatalog"
+  - "Deltas_FollowDeltaFormat_AdditionsAndOverridesSections"
+  - "Compose_SameStackTwoRepos_ProduceIdenticalPrinciples"
+
+done:
+  - "the principles content tests execute their assertions instead of returning early"
+  - "no document names a principles path the catalog does not have"
+  - "build green, full suite green"

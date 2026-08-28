@@ -1,58 +1,70 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-08-28-ef5e
 
-goal: "A reference data repository declares the domain and carries the two files the profile does not ship, and one offline run against it ends in a pull request the verify gate passed."
+goal: "A reference data repository declares the domain and carries what the profile does not ship, and one harness run over it executes both profile stages instead of reporting nothing to verify."
 
-applies_to: "backend (a reference target and the smoke that runs against it) + docs"
+applies_to: "backend (a reference fixture, the docker-tier layout and seed for the code preset) + docs"
 
 requires:
+  - 2026-08-28-c5e7
+  - 2026-08-28-7b41
   - 2026-08-28-3e23
 
 scope:
-  in: "A reference repository carrying a dbt project and a bundle in one tree, a context.yaml declaring the domain and nothing else, the profiles.yml and .sqlfluff the profile documents as repository inputs, a smoke entry running the code pipeline against it, and a docs page describing how a data repository is prepared."
+  in: "A reference repository carrying a dbt project and a bundle in one tree with its context.yaml, coding-principles.md, profiles.yml and .sqlfluff; a docker-tier layout and seed entry for the code preset over it; and an assertion that the run resolved and ran the profile's stages."
   out: >
-    CREDENTIALS AND ANY LIVE WORKSPACE — the successor *the target environment answers
-    before the master*. A nested dbt project: p0513 recorded that shape as UNMEASURED
-    and this reference does not imply it works by demonstrating it. Customer material of
-    any kind — the reference carries no customer, project or target identifier.
+    CREDENTIALS AND ANY LIVE WORKSPACE — the successors that make a target answer. A
+    nested dbt project, which p0513 recorded as UNMEASURED. Customer material of any kind.
+    THE UNVERIFIED-AS-SUCCESS HOLE this reference sits next to: a run resolving no stage
+    returns Ok, and closing that is *a run with no gate does not read as verified*.
 
 decisions:
   - key: |
-      THE MEASUREMENT FIXTURES ARE NOT A REFERENCE AND MUST NOT BE PROMOTED INTO ONE. Every
-      DataFixture variant declares meta.workdir, a project name and stack.lang, and deliberately
-      declares NO domain and NO image — they exist to be run by a script, not by the pipeline,
-      and their content hashes are pinned by the table's header. Editing one to carry a domain
-      invalidates the evidence the profile's gate rests on.
+      THE MEASUREMENT FIXTURES ARE NOT A REFERENCE. Every DataFixture variant declares workdir,
+      project and stack.lang and deliberately declares no domain and no image; they are driven by
+      a script, and their content hashes are pinned by the table's header, so editing one to carry
+      a domain invalidates the evidence the profile's gate rests on.
   - key: |
-      THE REFERENCE IS THE FIRST THING THAT ANSWERS "WHAT DO WE ASK THE CUSTOMER TO DO". The
-      profile ships neither profiles.yml nor .sqlfluff, and without them a clean repository goes
-      red — a fact discovered in a customer's first run is a fact discovered too late. The
-      reference carries both, so the answer is a repository to copy rather than a paragraph.
+      THE RUN IS NOT OFFLINE, AND SAYING SO WAS WRONG. The table records the dbt pair as
+      network-dependent: with no network the clean fixture goes RED, because dbt deps fetches from
+      the package hub. What the measurement established is that no CREDENTIAL is needed, not that
+      no network is. The reference run needs egress to the package hub and to the registry, and
+      the phase says so instead of discovering it.
   - key: |
-      THE RUN IS OFFLINE AND SAYS SO. profiles.yml resolves its connection through env_var, and
-      with no credentials injected the parse still succeeds because dbt parse never reaches a
-      warehouse. That is the property the measurement established, and the reference is where it
-      stops being a table and becomes a run.
+      THE MECHANISM IS THE DOCKER TIER, NAMED. The smoke skill is an operator checklist whose
+      deepest code path is a dry run and which is read-only on git state, so "a smoke entry"
+      named nothing. What runs a preset end to end over a fake remote is the harness's docker
+      tier — and it has no code-preset case today, so this phase adds the layout and the seed
+      alongside the existing ones. The tier needs Redis and a docker network, so it is not a CI
+      gate and is not claimed as one.
   - key: |
-      ONE TREE CARRYING BOTH SHAPES, BECAUSE THAT IS WHAT when_present EXISTS FOR. A repository
-      with dbt_project.yml and models and databricks.yml exercises the condition mechanism in the
-      only way that distinguishes it from an unconditional list.
+      A PULL-REQUEST URL PROVES NOTHING IN THE HARNESS. The local provider returns a constant
+      URL, so "ends in a pull request" is satisfied by a string. What the harness can observe is
+      the work branch on the bare remote and the verify outcome naming the two profile stages as
+      run — that is the criterion.
+  - key: |
+      THE REFERENCE NEEDS coding-principles.md OR THE PIPELINE ABORTS. The bootstrap gate refuses
+      the code pipeline unless every context has both a context.yaml and a coding-principles.md.
+      The reference carries one; authoring the data principles themselves is a separate phase and
+      the reference does not wait for it.
 
 steps:
   - id: the-reference-exists
-    action: "A reference repository with a dbt project and a bundle in one tree, its context.yaml declaring only meta.workdir and meta.domain, plus the profiles.yml and .sqlfluff the profile names as repository inputs."
-  - id: the-pipeline-runs-against-it
-    action: "A smoke entry running the code pipeline against the reference with a seeded ticket, ending in a branch, a pull request and a green verify."
+    action: "A reference repository with a dbt project and a bundle in one tree, its context.yaml declaring meta.workdir and meta.domain and no stack, plus coding-principles.md, profiles.yml and .sqlfluff."
+  - id: the-tier-can-run-the-code-preset
+    action: "A docker-tier layout and seed entry for the code preset over the reference, driven by the existing preset runner."
+  - id: the-run-executes-the-profile-stages
+    action: "A docker-tier test asserting the work branch exists on the bare remote and the verify outcome names both profile stages as having run and exited zero."
   - id: the-preparation-is-written-down
     action: "A docs page stating what a data repository declares, what it must bring, and what the profile brings."
 
 tests:
   - "ReferenceDataRepo_DeclaresADomainTheEmbeddedCatalogCarries"
   - "ReferenceDataRepo_CarriesTheInputsTheProfileDoesNotShip"
-  - "ReferenceDataRepo_DeclaresNoImageOfItsOwn"
+  - "CodePresetOverTheReference_RunsBothProfileStages"
 
 done:
-  - "a run against the reference produces a pull request with both profile stages green"
-  - "the profile's sql-lint stage runs and the bundle files are present without a stage claiming to check them"
+  - "the run resolves the profile image and both stages, and the verify outcome is not the unverified message"
+  - "the work branch carries the change on the bare remote"
   - "no fixture under DataFixture changed and the table's hashes still match"
   - "build green, full suite green"

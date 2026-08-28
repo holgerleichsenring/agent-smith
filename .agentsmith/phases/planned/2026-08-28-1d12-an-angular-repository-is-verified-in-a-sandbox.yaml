@@ -1,58 +1,69 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-08-28-1d12
 
-goal: "An Angular repository builds, lints and runs its tests inside the sandbox, in an image measured to carry the browser those tests need."
+goal: "An Angular repository builds, lints and tests inside the sandbox through a domain profile, in an image measured to carry git, node and the browser its tests need."
 
-applies_to: "backend (a reference target, a measurement of the node toolchain, the smoke) + docs"
+applies_to: "backend (a reference fixture, image capability measurement) + skills catalog (the angular profile)"
 
 requires:
-  - p0505
+  - 2026-08-28-c5e7
+  - 2026-08-28-7b41
+  - 2026-08-28-5f71
 
 scope:
-  in: "A reference Angular repository, a measurement of its build, lint and test commands on a clean tree and on a named defect in each candidate image, the image the repository then declares, and a smoke running the code pipeline against it."
+  in: "A capability measurement of the candidate images, an angular profile declaring the build, lint and test commands that survived measurement on a reference repository, the reference itself, and a harness run asserting the stages ran."
   out: >
-    A DOMAIN PROFILE FOR ANGULAR. A framework is a stack, and a stack names its image in
-    its own context.yaml — the profile mechanism exists for repositories whose toolchain
-    is not derivable from a language. Browser-driven end-to-end verification, which is
-    p0308. The java stack, which is its own phase.
+    A ROW IN THE LANGUAGE TABLE — the repository or its profile names the image. Browser-driven
+    end-to-end verification. The java stack.
 
 decisions:
   - key: |
-      THE TABLE'S NODE IMAGE CANNOT RUN THE ONE COMMAND THAT MATTERS, AND THAT IS THE WHOLE
-      PHASE. node:20-bookworm carries node and git and no browser; the default Angular test
-      runner needs one, so a repository that builds fine reds on its tests for a reason that has
-      nothing to do with its code. Which image fixes that is measured, not assumed — the
-      Microsoft-published browser image and a node image with a headless browser installed as a
-      prerequisite are both candidates and both are cheap to measure.
+      THE PROFILE IS THE ONLY ROUTE THAT CAN CARRY THESE GATES, SO IT IS IN SCOPE. Verify stages
+      come from a declared build and test command on the analyzer's project map, or from a domain
+      profile. context.yaml has no ci block at all, so a repository cannot declare them; and the
+      declared pair is exactly two stages, so a LINT gate exists only through a profile. The
+      earlier draft put the profile out of scope and then promised three gates — that is the
+      contradiction this rewrite removes.
   - key: |
-      THE MEASUREMENT IS THE SAME GRID p0505 ESTABLISHED, BECAUSE THE FAILURE MODE IS THE SAME. A
-      command that cannot succeed reds on every tree, clean ones included, and reads as a gate
-      until someone checks. Clean and defect, per candidate image, recorded.
+      THE IMAGE IS MEASURED FOR WHAT IT CARRIES, NOT ASSUMED FROM ITS NAME. The name-based
+      git check was deleted and its probe is unbuilt, so an image without git kills the run at
+      checkout, by surprise. The candidates are measured for git, node and a usable browser
+      before any command is measured. The node image carries no browser, and a browser cannot be
+      installed through the prerequisite step — that step runs one command with no shell.
   - key: |
-      NO NEW ROW IN THE LANGUAGE TABLE. p0520 retires that table in favour of the repository
-      naming its image; adding an entry now would be one more row to remove and would hide the
-      decision inside the binary, where a customer cannot see it.
+      REGISTRY TRUST IS CONFIGURATION-DEPENDENT AND THE REFERENCE MUST NOT HIDE IT. Official
+      library images are accepted only while the operator names no registries of their own; an
+      operator with a mirror loses them, and a PROFILE image outside the boundary refuses the run
+      outright rather than falling through.
   - key: |
-      THE REFERENCE REPOSITORY IS MINIMAL AND CARRIES ONE REAL DEFECT PER GATE. A generated
-      starter with a failing test, a type error and a lint violation exercises the three gates
-      separately; anything larger measures the starter template rather than the toolchain.
+      A REDUCED GRID, NOT THE FULL MEASUREMENT MATRIX. The full shape-by-defect grid earns its
+      keep where an evidence gate holds a profile's declared list to a measured table. Here one
+      clean and one defect per gate, plus the capability rows, is what the code rewards — these
+      commands have no ambiguity of the kind that made a warehouse CLI red on a clean tree.
+  - key: |
+      A GREEN RUN IS NOT THE CRITERION UNTIL THE UNVERIFIED OUTCOME IS FIXED. A run that resolves
+      no command reports success today, so "the smoke is green" is the expected output of doing
+      nothing. This phase depends on the outcome change and asserts the stages by name.
 
 steps:
+  - id: the-images-are-measured-for-what-they-carry
+    action: "Measure git, node and a usable browser in each candidate image, recording the result per image."
   - id: the-reference-exists
-    action: "A minimal Angular reference repository with a context.yaml naming its image, plus one defect variant per gate."
+    action: "A minimal Angular reference repository with one defect variant per gate."
   - id: the-commands-are-measured
-    action: "Measure build, lint and test on clean and on each defect in every candidate image, recording exit codes and versions."
-  - id: the-repository-declares-what-survived
-    action: "The reference declares the image and the commands the measurement supports."
+    action: "Measure build, lint and test on clean and on each defect in the surviving image."
+  - id: the-profile-declares-what-survived
+    action: "An angular profile declaring the image and the measured commands, each conditioned on the file it needs."
   - id: the-pipeline-runs-against-it
-    action: "A smoke running the code pipeline against the reference, ending in a pull request with a green verify."
+    action: "A harness run over the reference asserting the profile's stages ran and exited zero."
 
 tests:
-  - "AngularReference_DeclaresAnImageTheTrustPolicyAccepts"
-  - "AngularMeasurement_EveryDeclaredCommand_IsGreenOnCleanAndRedOnItsDefect"
+  - "AngularImage_CarriesGitNodeAndABrowser"
+  - "AngularProfile_DeclaresAnImageTheTrustPolicyAccepts"
+  - "AngularRun_ResolvesAndRunsEveryDeclaredStage"
 
 done:
-  - "an Angular run ends in a pull request whose build, lint and test gates all executed"
-  - "the image the reference declares is recorded with the measurement that chose it"
-  - "no new entry was added to the language table"
+  - "an Angular run executes build, lint and test as named stages, not as an unverified pass"
+  - "the image was chosen by a recorded capability measurement"
+  - "no entry was added to the language table"
   - "build green, full suite green"
