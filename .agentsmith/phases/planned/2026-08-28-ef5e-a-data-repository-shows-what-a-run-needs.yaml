@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-ef5e
+
+goal: "A reference data repository declares the domain and carries the two files the profile does not ship, and one offline run against it ends in a pull request the verify gate passed."
+
+applies_to: "backend (a reference target and the smoke that runs against it) + docs"
+
+requires:
+  - 2026-08-28-3e23
+
+scope:
+  in: "A reference repository carrying a dbt project and a bundle in one tree, a context.yaml declaring the domain and nothing else, the profiles.yml and .sqlfluff the profile documents as repository inputs, a smoke entry running the code pipeline against it, and a docs page describing how a data repository is prepared."
+  out: >
+    CREDENTIALS AND ANY LIVE WORKSPACE — the successor *the target environment answers
+    before the master*. A nested dbt project: p0513 recorded that shape as UNMEASURED
+    and this reference does not imply it works by demonstrating it. Customer material of
+    any kind — the reference carries no customer, project or target identifier.
+
+decisions:
+  - key: |
+      THE MEASUREMENT FIXTURES ARE NOT A REFERENCE AND MUST NOT BE PROMOTED INTO ONE. Every
+      DataFixture variant declares meta.workdir, a project name and stack.lang, and deliberately
+      declares NO domain and NO image — they exist to be run by a script, not by the pipeline,
+      and their content hashes are pinned by the table's header. Editing one to carry a domain
+      invalidates the evidence the profile's gate rests on.
+  - key: |
+      THE REFERENCE IS THE FIRST THING THAT ANSWERS "WHAT DO WE ASK THE CUSTOMER TO DO". The
+      profile ships neither profiles.yml nor .sqlfluff, and without them a clean repository goes
+      red — a fact discovered in a customer's first run is a fact discovered too late. The
+      reference carries both, so the answer is a repository to copy rather than a paragraph.
+  - key: |
+      THE RUN IS OFFLINE AND SAYS SO. profiles.yml resolves its connection through env_var, and
+      with no credentials injected the parse still succeeds because dbt parse never reaches a
+      warehouse. That is the property the measurement established, and the reference is where it
+      stops being a table and becomes a run.
+  - key: |
+      ONE TREE CARRYING BOTH SHAPES, BECAUSE THAT IS WHAT when_present EXISTS FOR. A repository
+      with dbt_project.yml and models and databricks.yml exercises the condition mechanism in the
+      only way that distinguishes it from an unconditional list.
+
+steps:
+  - id: the-reference-exists
+    action: "A reference repository with a dbt project and a bundle in one tree, its context.yaml declaring only meta.workdir and meta.domain, plus the profiles.yml and .sqlfluff the profile names as repository inputs."
+  - id: the-pipeline-runs-against-it
+    action: "A smoke entry running the code pipeline against the reference with a seeded ticket, ending in a branch, a pull request and a green verify."
+  - id: the-preparation-is-written-down
+    action: "A docs page stating what a data repository declares, what it must bring, and what the profile brings."
+
+tests:
+  - "ReferenceDataRepo_DeclaresADomainTheEmbeddedCatalogCarries"
+  - "ReferenceDataRepo_CarriesTheInputsTheProfileDoesNotShip"
+  - "ReferenceDataRepo_DeclaresNoImageOfItsOwn"
+
+done:
+  - "a run against the reference produces a pull request with both profile stages green"
+  - "the profile's sql-lint stage runs and the bundle files are present without a stage claiming to check them"
+  - "no fixture under DataFixture changed and the table's hashes still match"
+  - "build green, full suite green"

@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-c5e7
+
+goal: "The embedded catalog carries the domain profiles, and every shipped pin states the same version, so a repository declaring a domain meets a catalog that has one."
+
+applies_to: "backend (the embedded skills catalog pin) + config + docs"
+
+requires:
+  - p0504
+  - p0513
+
+scope:
+  in: "The embedded pin moved from v4.6.0 to v4.7.0 with its SHA256 and tarball, every shipped configuration and document that states the pinned version moved with it, and one assertion that the embedded catalog carries a profile at all."
+  out: >
+    THE TOOLCHAIN IMAGE THE PROFILE NAMES, which exists in no registry — the successor
+    *the data toolchain image is published*. THE DROPPED DOMAIN — the parsed meta.domain
+    never reaches the discovery, which is *the declared domain reaches the run* and is
+    ordered after this phase deliberately. The profile's content: authored in
+    agent-smith-skills, pinned here.
+
+decisions:
+  - key: |
+      THE MECHANISM SHIPPED WITHOUT ITS CONTENT. p0504 and p0513 are done here: the image chain
+      resolves a profile image, the verify stages run a profile's commands, and ContextDomainCheck
+      refuses an unknown domain before any sandbox. The catalog that CARRIES the profiles shipped
+      as skills 4.7.0 while the binary embeds v4.6.0, which has no profiles/ directory — so with
+      KnownDomains empty, a correct declaration and a typo produce the identical refusal.
+  - key: |
+      THE BUMP IS PURELY ADDITIVE, WHICH WAS CHECKED BY DIFFING THE TWO TARBALLS RATHER THAN BY
+      READING A CHANGELOG. v4.7.0 adds profiles/README.md, profiles/dbt-databricks/README.md,
+      profiles/dbt-databricks/profile.yaml and skills/description-cap.txt, and changes
+      skills/_masters/design-partner-master/SKILL.md (counter ids to minted-id placeholders).
+      Nothing is removed, all fourteen masters still ship and coding-agent-master is byte-identical,
+      so no prompt-content test can move. SHA256
+      c6a464e23d860f46fff7520b2d66bc3d9367e6771fdb4dd34eceb321a67b6cb1, 67689 bytes.
+  - key: |
+      THE PROOF IS ASSERTIONS THAT ARM THEMSELVES AT THIS PIN, NOT NEW TESTS. DomainProfileCatalogTests
+      and PackagedProfiles both carry ProfilesFrom = 4.7.0 and gate DataProfileGateTests and
+      DataProfileShapeTests behind it; DesignPartnerPlaceholderTests arms on the same bump. They
+      state the gap today and assert the fact the moment the pin moves, with no test edited. A new
+      test asserting the same thing would be one more copy. The one uncovered claim — that the
+      EMBEDDED artefact carries any profile at all — gets the single new assertion.
+  - key: |
+      THE PIN IS STATED IN FOUR PLACES AND ONLY ONE OF THEM IS BUILD-CHECKED. The example config,
+      the deployment config and the skills document each repeat the version as text, and p0487 put
+      the example config's copy there deliberately. After a bump that only touches the csproj, a
+      shipped configuration names a catalog the binary does not carry and no build goes red — the
+      same file's comment three lines above still says v4.0.0, which is that rot already happening.
+      The deployment config is the sharp one: it pins the version EXPLICITLY, so it overrides the
+      embedded catalog and would keep the profile-less one in production.
+  - key: |
+      THE LIVE PREFLIGHT CANNOT BE A DONE-CRITERION HERE. ContextDomainCheck iterates configured
+      repositories remotely; with no configured repository declaring a domain it returns a skip,
+      which is green for the wrong reason, and neither the gate nor CI has such a configuration.
+      The claim this phase can settle is over the embedded artefact; the live check is an operator
+      verification, recorded as such.
+
+steps:
+  - id: the-pin-moves
+    action: "Set SkillsCatalogVersion to v4.7.0 and SkillsCatalogSha256 to the published asset's hash, replace the checked-in tarball, and correct the stale size in the comment above it."
+  - id: every-shipped-pin-agrees
+    action: "Move the version stated in the shipped example config and the skills documentation to the same pin, and any local operator config that repeats it."
+  - id: the-embedded-catalog-carries-a-profile
+    action: "One assertion that the embedded catalog resolves at least the domain the shipped profile declares."
+
+tests:
+  - "EmbeddedCatalog_KnownDomains_CarriesTheShippedProfile"
+
+done:
+  - "the embedded catalog resolves dbt-databricks to an image and two verify commands"
+  - "the assertions armed at this pin run instead of returning early"
+  - "no shipped config or document states a version other than the pinned one"
+  - "the build's catalog SHA256 and description-cap validation pass"
+  - "build green, full suite green, the dotnet and legal presets still run"

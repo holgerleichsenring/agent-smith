@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-384a
+
+goal: "A Java repository builds and tests inside the sandbox from an image it names itself, with a java delta beside the core principles so its conventions are written down."
+
+applies_to: "backend (a reference target, a measurement, the smoke) + skills catalog (the java delta) + docs"
+
+requires:
+  - p0379
+  - 2026-08-28-1d12
+
+scope:
+  in: "A reference Maven repository with a defect per gate, a measurement of its build and test commands in the image it declares, a java delta following the delta format, and a smoke running the code pipeline against it."
+  out: >
+    GRADLE, which is a second build tool and a second measurement, named as the successor
+    a customer with a Gradle estate needs. A row in the language table — the repository
+    names its image. Application servers, containers and anything the repository deploys
+    to.
+
+decisions:
+  - key: |
+      JAVA HAS NOTHING TODAY AND THE GAP IS TWO FILES, NOT A MECHANISM. There is no java entry in
+      the language table and no java delta, so a Java repository lands on the generic image and
+      is bootstrapped with principles that name another language's mechanisms. Both are content,
+      and the mechanisms that carry them already exist.
+  - key: |
+      THE IMAGE IS AN OFFICIAL LIBRARY IMAGE, WHICH THE TRUST RULE ALREADY ACCEPTS. A Maven image
+      with a bundled JDK has no namespace segment on Docker Hub and therefore clears the boundary
+      with no policy change; whether it carries git is proven by the checkout the measurement
+      runs, not by its name.
+  - key: |
+      THE MEASUREMENT MATTERS MORE HERE THAN IT LOOKS. A Maven build with no local repository
+      downloads its world on first run, so the same command can be green with a warm cache and
+      time out cold — the measurement records the cold case, which is the one a sandbox always
+      has.
+  - key: |
+      THE DELTA IS DOCUMENTED CONVENTION, NOT HOUSE STYLE. Package and type naming, test
+      placement under the standard source layout, the assertion library the build already
+      carries, and the formatter the ecosystem publishes — each is the ecosystem's published
+      convention, which is what makes two repositories compose identically.
+
+steps:
+  - id: the-reference-exists
+    action: "A minimal Maven reference repository with a context.yaml naming its image, plus one defect variant per gate."
+  - id: the-commands-are-measured
+    action: "Measure build and test on clean and on each defect with a cold dependency cache, recording exit codes, versions and wall time."
+  - id: the-java-delta-exists
+    action: "A java delta covering every hook the core names, following the delta format."
+  - id: the-pipeline-runs-against-it
+    action: "A smoke running the code pipeline against the reference, ending in a pull request with a green verify."
+
+tests:
+  - "JavaReference_DeclaresAnImageTheTrustPolicyAccepts"
+  - "JavaDelta_HasBothMandatorySections"
+  - "JavaMeasurement_ColdCacheBuild_CompletesInsideTheStepTimeout"
+
+done:
+  - "a Java run ends in a pull request whose build and test gates both executed"
+  - "a bootstrapped Java repository receives core plus the java delta"
+  - "the measured cold-cache timings are recorded against the step timeout they must fit"
+  - "build green, full suite green"
