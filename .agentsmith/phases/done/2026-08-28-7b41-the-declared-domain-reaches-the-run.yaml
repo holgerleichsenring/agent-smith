@@ -34,6 +34,10 @@ decisions:
       domain-declaring context.yaml through the resolver and asserting the discovery carries the
       domain is the whole guard, and it is the guard that was missing.
   - key: |
+      THE CONTEXT LOG LINE IS LEFT ALONE. Reporting the resolved domain there is the obvious
+      diagnostic, and it grows a file the length ratchet already holds above its limit, where
+      the only permitted direction is shorter. The fix is line-neutral instead.
+  - key: |
       THE PIN COMES FIRST, AND THE ORDER IS NOT COSMETIC. With the wire repaired and a catalog
       that carries no profiles, ContextDomainCheck refuses every repository declaring a domain —
       the mechanism would go from silently doing nothing to loudly refusing work. Bumping the
