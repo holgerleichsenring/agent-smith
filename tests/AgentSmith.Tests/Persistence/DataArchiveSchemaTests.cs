@@ -96,6 +96,54 @@ public sealed class DataArchiveSchemaTests : IDisposable
     }
 
     [Fact]
+    public void ArchiveRowCodec_TheSameAmountAtTwoScales_EncodesToOneLine()
+    {
+        using var db = MigratedStoreTemplate.Context(_store);
+        var type = db.Model.FindEntityType(typeof(RunLlmCall))!;
+        var codec = new ArchiveRowCodec();
+
+        // What each provider hands back for one stored amount: SQL Server returns its
+        // column's scale, SQLite's text column returns what was written.
+        var wide = codec.Encode(type, Call(13.3400000000m));
+        var narrow = codec.Encode(type, Call(13.34m));
+
+        wide.Should().Be(narrow,
+            "the same data must yield the same archive whichever provider it was read from");
+        wide.Should().Contain("\"CostUsd\":13.34");
+        ((RunLlmCall)codec.Decode(type, wide)).CostUsd.Should().Be(13.34m);
+
+        RunLlmCall Call(decimal cost) => new()
+        {
+            Id = 1,
+            RunId = "r",
+            CostUsd = cost,
+            CreatedAt = FullStoreSeed.SeededAt,
+            UpdatedAt = FullStoreSeed.SeededAt,
+        };
+    }
+
+    [Fact]
+    public void ArchiveRowCodec_AnAmountFinerThanTheOldScale_KeepsEveryDigit()
+    {
+        using var db = MigratedStoreTemplate.Context(_store);
+        var type = db.Model.FindEntityType(typeof(RunLlmCall))!;
+        var codec = new ArchiveRowCodec();
+        var row = new RunLlmCall
+        {
+            Id = 1,
+            RunId = "r",
+            CostUsd = 0.000000025m,
+            CreatedAt = FullStoreSeed.SeededAt,
+            UpdatedAt = FullStoreSeed.SeededAt,
+        };
+
+        var back = (RunLlmCall)codec.Decode(type, codec.Encode(type, row));
+
+        back.CostUsd.Should().Be(0.000000025m,
+            "dropping trailing zeros must not drop a digit that carries value");
+    }
+
+    [Fact]
     public void ArchiveRowCodec_ALineMissingAColumn_SaysWhichOne()
     {
         using var db = MigratedStoreTemplate.Context(_store);
