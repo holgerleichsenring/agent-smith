@@ -33,26 +33,26 @@ public sealed class CitationListTests
 
     [Fact]
     public void AccountRow_BareCitationString_ReadsAsAOneElementList() =>
-        new AccountRow("c", true, Scan).Cited.Should().ContainSingle().Which.Should().Be(Scan);
+        new AccountRow("c", AccountDisposition.Satisfied, Scan).Cited.Should().ContainSingle().Which.Should().Be(Scan);
 
     [Fact]
     public void AccountRow_CitationsArray_ReadsEveryElement() =>
-        new AccountRow("c", true, null, null, [Scan, TestThenScan])
+        new AccountRow("c", AccountDisposition.Satisfied, null, null, [Scan, TestThenScan])
             .Cited.Should().HaveCount(2);
 
     [Fact]
     public void CitationResolver_TheLiveRefusal_TwoCommandsAsTwoElements_Resolves() =>
-        Resolve([Scan, TestThenScan]).Satisfied.Should().BeTrue(
+        Resolve([Scan, TestThenScan]).IsSatisfied.Should().BeTrue(
             "both commands ran; as two elements there is nothing to split");
 
     [Fact]
     public void CitationResolver_TwoCommandsJoinedBySemicolonInOneElement_DoesNotResolve() =>
-        Resolve([$"{Scan}; {TestThenScan}"]).Satisfied.Should().BeFalse(
+        Resolve([$"{Scan}; {TestThenScan}"]).IsSatisfied.Should().BeFalse(
             "one element is one command, and nothing is split to rescue it");
 
     [Fact]
     public void CitationResolver_OneElementNamingNothingThatRan_RefusesTheWholeRow() =>
-        Resolve([Scan, "dotnet nonsense"]).Satisfied.Should().BeFalse(
+        Resolve([Scan, "dotnet nonsense"]).IsSatisfied.Should().BeFalse(
             "citing one real command and one invented still fails");
 
     [Fact]
@@ -66,11 +66,11 @@ public sealed class CitationListTests
             +// changed
             """;
         new CitationResolver(CitedFileIndex.FromDiff(diff), Ran)
-            .Resolve(new AccountRow("c", true, null, null, ["src/Sample.cs", Scan]))
-            .Satisfied.Should().BeTrue("a row may cite a file and a command together");
+            .Resolve(new AccountRow("c", AccountDisposition.Satisfied, null, null, ["src/Sample.cs", Scan]))
+            .IsSatisfied.Should().BeTrue("a row may cite a file and a command together");
     }
 
     private static CriterionAccount Resolve(IReadOnlyList<string> citations) =>
         new CitationResolver(CitedFileIndex.FromDiff(string.Empty), Ran)
-            .Resolve(new AccountRow("no MediatR references", true, null, null, citations));
+            .Resolve(new AccountRow("no MediatR references", AccountDisposition.Satisfied, null, null, citations));
 }

@@ -107,9 +107,9 @@ public sealed class AccountSearchLoopTests
         var search = new BranchSearch(
             new Dictionary<string, ISandbox> { [Repo] = sandbox }, NullLogger.Instance);
 
-        for (var i = 0; i <= BranchSearch.MaxSearches + 3; i++)
+        for (var i = 0; i <= AccountSearchBudget.PerPass + 3; i++)
             await search.SearchBranch(Repo, $"pattern{i}");
 
-        sandbox.Ran.Should().HaveCount(BranchSearch.MaxSearches);
+        sandbox.Ran.Should().HaveCount(AccountSearchBudget.PerPass);
     }
 }

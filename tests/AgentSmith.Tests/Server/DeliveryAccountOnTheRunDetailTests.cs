@@ -36,7 +36,7 @@ public sealed class DeliveryAccountOnTheRunDetailTests
 
         var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
             expectation, verification: null,
-            Accounts(new CriterionAccount("the gate's criterion", true, "src/A.cs", "found it"))));
+            Accounts(new CriterionAccount("the gate's criterion", AccountDisposition.Satisfied, "src/A.cs", "found it"))));
 
         view.Criteria.Should().ContainSingle()
             .Which.Text.Should().Be("the gate's criterion",
@@ -67,7 +67,7 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     {
         var json = RunStorySnapshotBuilder.BuildAcceptanceJson(
             expectation: null, verification: null,
-            Accounts(new CriterionAccount("a ratified criterion", false, null, "no file shows it")));
+            Accounts(new CriterionAccount("a ratified criterion", AccountDisposition.NotSatisfied, null, "no file shows it")));
 
         json.Should().NotBeNull("the handler publishes when either payload exists");
         Deserialize(json).Criteria.Should().ContainSingle()
@@ -84,7 +84,7 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     {
         var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
             null, null,
-            Accounts(new CriterionAccount("a criterion", true, "src/Messaging/Installer.cs", "found"))));
+            Accounts(new CriterionAccount("a criterion", AccountDisposition.Satisfied, "src/Messaging/Installer.cs", "found"))));
 
         view.Criteria.Single().Citation.Should().Be("src/Messaging/Installer.cs",
             "a verdict a reader cannot check in twenty seconds is a verdict nobody checks");

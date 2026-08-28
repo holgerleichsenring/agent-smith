@@ -67,7 +67,7 @@ public sealed class PhaseRepairTests
     private static SpecAccount Account(string[] outstanding, string? problem = null) =>
         new(
             RepoKey: "server",
-            Criteria: [.. outstanding.Select(c => new CriterionAccount(c, Satisfied: false))],
+            Criteria: [.. outstanding.Select(c => new CriterionAccount(c, Disposition: AccountDisposition.NotSatisfied))],
             Problem: problem);
 
     /// <summary>

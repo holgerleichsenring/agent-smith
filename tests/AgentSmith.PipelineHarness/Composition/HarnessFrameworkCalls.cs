@@ -113,8 +113,10 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
 
     private static CriterionAccount Row(string criterion, string? citation, string? withheld) =>
         string.Equals(criterion, withheld, StringComparison.Ordinal)
-            ? new CriterionAccount(criterion, false, null, "the case withheld this one")
+            ? new CriterionAccount(criterion, AccountDisposition.NotSatisfied, null, "the case withheld this one")
             : new CriterionAccount(
-                criterion, citation is not null, citation,
+                criterion,
+                citation is not null ? AccountDisposition.Satisfied : AccountDisposition.NotSatisfied,
+                citation,
                 citation is null ? "the branch changed no source" : "harness account");
 }

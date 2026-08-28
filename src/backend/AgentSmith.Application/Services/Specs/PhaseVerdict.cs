@@ -46,13 +46,7 @@ public static class PhaseVerdict
         ArgumentNullException.ThrowIfNull(mechanical);
         ArgumentNullException.ThrowIfNull(accounts);
         if (accounts.Count == 0) return mechanical;
-
-        var unaccounted = accounts.Where(a => a.Problem is not null).ToList();
-        if (unaccounted.Count > 0)
-            return CommandResult.Fail(
-                "The phase could not be accounted for: "
-                + string.Join("; ", unaccounted.Select(a => $"{a.RepoKey} — {a.Problem}"))
-                + ". An unaccounted phase is not a delivered one.");
+        if (Unaccounted(accounts) is { } unaccounted) return CommandResult.Fail(unaccounted);
 
         var outstanding = Outstanding(accounts);
         if (outstanding.Count > 0)
@@ -60,10 +54,24 @@ public static class PhaseVerdict
                 $"{outstanding.Count} criterion(s) of the ratified phase are not satisfied by "
                 + $"the branch:\n- {string.Join("\n- ", outstanding)}");
 
+        // 2026-08-25-9749: nothing outstanding is not yet a delivery — a phase that satisfied
+        // NOTHING has proven nothing, however much it declined to judge.
+        if (NothingProven.Refusal(accounts, "phase") is { } nothing) return CommandResult.Fail(nothing);
+
         var satisfied = accounts.Sum(a => a.Criteria.Count);
         return CommandResult.Ok(
             $"{mechanical.Message} — and all {satisfied} ratified criterion(s) are accounted "
             + $"for across {accounts.Count} repo(s).");
+    }
+
+    private static string? Unaccounted(IReadOnlyList<SpecAccount> accounts)
+    {
+        var unaccounted = accounts.Where(a => a.Problem is not null).ToList();
+        return unaccounted.Count == 0
+            ? null
+            : "The phase could not be accounted for: "
+              + string.Join("; ", unaccounted.Select(a => $"{a.RepoKey} — {a.Problem}"))
+              + ". An unaccounted phase is not a delivered one.";
     }
 
     /// <summary>

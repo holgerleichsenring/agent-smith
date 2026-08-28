@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.PipelineHarness.Evals;
 
 /// <summary>
@@ -28,17 +30,30 @@ public sealed record AccountEvalReport(
         IReadOnlyList<CriterionOutcome> Criteria,
         string? Problem);
 
-    /// <summary>What the truth was, what the account said, and what that costs.</summary>
+    /// <summary>
+    /// What the truth was, what the account said, and what that costs.
+    /// <para>
+    /// 2026-08-25-9749: the account's answer is a DISPOSITION, and the two rates are scored
+    /// on what the run ACTS ON rather than on the word. Only "not satisfied" blocks a run, so
+    /// only "not satisfied" over a met criterion is a false negative. Everything that does
+    /// NOT block — satisfied and not applicable alike — over an unmet criterion is a false
+    /// positive, which is what stops the third disposition from buying a lower refusal rate
+    /// with criteria quietly waved through.
+    /// </para>
+    /// </summary>
     public sealed record CriterionOutcome(
         string Criterion,
         bool TruthIsMet,
-        bool AccountSatisfied,
+        AccountDisposition AccountDisposition,
         string? Citation,
         string? Note)
     {
-        public bool IsFalseNegative => TruthIsMet && !AccountSatisfied;
-        public bool IsFalsePositive => !TruthIsMet && AccountSatisfied;
-        public bool Agrees => TruthIsMet == AccountSatisfied;
+        /// <summary>Whether the run is stopped by this row.</summary>
+        public bool Blocks => AccountDisposition is Domain.Models.AccountDisposition.NotSatisfied;
+
+        public bool IsFalseNegative => TruthIsMet && Blocks;
+        public bool IsFalsePositive => !TruthIsMet && !Blocks;
+        public bool Agrees => TruthIsMet != Blocks;
     }
 
     private IEnumerable<CriterionOutcome> All => Entries.SelectMany(e => e.Criteria);

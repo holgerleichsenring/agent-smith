@@ -42,7 +42,7 @@ public sealed class PhaseVerdictTests
         var verdict = PhaseVerdict.From(Green, [
             Account(Satisfied("packages updated", "src/Api/Api.csproj")),
             new SpecAccount("worker-repo", [
-                new CriterionAccount("packages updated", false, Note: "nothing in the diff touches a manifest")])]);
+                new CriterionAccount("packages updated", AccountDisposition.NotSatisfied, Note: "nothing in the diff touches a manifest")])]);
 
         verdict.IsSuccess.Should().BeFalse();
         verdict.Message.Should().Contain("worker-repo: packages updated");
@@ -70,9 +70,60 @@ public sealed class PhaseVerdictTests
         verdict.Message.Should().Be(Green.Message);
     }
 
+    /// <summary>
+    /// 2026-08-25-9749: a criterion the base disproves is settled, not open. Handed back as
+    /// outstanding it becomes an instruction to BUILD the thing another criterion of the same
+    /// phase forbids — a wrong no is not a wasted repair pass, it is the wrong work.
+    /// </summary>
+    [Fact]
+    public void PhaseVerdict_ANotApplicableCriterion_IsNotHandedBackForRepair()
+    {
+        var accounts = new[]
+        {
+            Account(
+                Satisfied("packages updated", "src/Api/Api.csproj"),
+                Declined("the transport is configured on every host that had one")),
+        };
+
+        PhaseVerdict.Outstanding(accounts).Should().BeEmpty();
+        PhaseVerdict.IsRepairable(accounts).Should().BeFalse();
+        PhaseVerdict.From(Green, accounts).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PhaseVerdict_EveryCriterionNotApplicable_IsNotAPass()
+    {
+        var verdict = PhaseVerdict.From(Green, [Account(
+            Declined("the transport is configured on every host that had one"),
+            Declined("every previously shortened subscription keeps its shortening"))]);
+
+        verdict.IsSuccess.Should().BeFalse(
+            "not applicable is not a pass — a delivery has to prove something");
+    }
+
+    [Fact]
+    public void PhaseVerdict_ARefusalWithNothingOutstanding_NamesWhatItDeclinedToJudge()
+    {
+        var accounts = new[] { Account(Declined("the transport is configured on every host that had one")) };
+
+        var verdict = PhaseVerdict.From(Green, accounts);
+
+        verdict.Message.Should().Contain("the transport is configured on every host that had one");
+        verdict.Message.Should().Contain(Antecedent,
+            "an operator can only overrule an antecedent the refusal names");
+        PhaseVerdict.IsRepairable(accounts).Should().BeFalse(
+            "there is no outstanding criterion for a repair pass to close");
+    }
+
+    private const string Antecedent = "a previously configured transport";
+
+    private static CriterionAccount Declined(string criterion) =>
+        new(criterion, AccountDisposition.NotApplicable,
+            "repo@origin/main: the account searched 'Transport' exited 1", Antecedent: Antecedent);
+
     private static SpecAccount Account(params CriterionAccount[] criteria) =>
         new("sample-repo", criteria);
 
     private static CriterionAccount Satisfied(string criterion, string citation) =>
-        new(criterion, true, citation);
+        new(criterion, AccountDisposition.Satisfied, citation);
 }

@@ -70,10 +70,19 @@ internal static class AcceptanceSnapshot
     /// there is no person to name and saying so is more honest than borrowing a name.</summary>
     private const string RatifiedByThePhaseSpec = "the ratified phase spec";
 
+    /// <summary>2026-08-25-9749: the account's third disposition reaches the page as the
+    /// status the page already had a word for. The run detail has rendered not_applicable
+    /// since the master's own dispositions carried it; the delivery account could not say
+    /// it, and every declined criterion arrived as "unmet".</summary>
     private static AcceptanceCriterionView Row(CriterionAccount criterion) =>
-        new(criterion.Criterion,
-            criterion.Satisfied ? AcceptanceCriterionStatuses.Met : AcceptanceCriterionStatuses.Unmet,
-            criterion.Note, criterion.Citation);
+        new(criterion.Criterion, Status(criterion.Disposition), criterion.Note, criterion.Citation);
+
+    private static string Status(AccountDisposition disposition) => disposition switch
+    {
+        AccountDisposition.Satisfied => AcceptanceCriterionStatuses.Met,
+        AccountDisposition.NotApplicable => AcceptanceCriterionStatuses.NotApplicable,
+        _ => AcceptanceCriterionStatuses.Unmet,
+    };
 
     private static AcceptanceCriterionView CriterionOf(string text, AcceptanceDisposition? disposition)
     {

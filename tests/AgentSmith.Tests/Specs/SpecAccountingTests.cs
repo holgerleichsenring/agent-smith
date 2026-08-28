@@ -345,8 +345,12 @@ public sealed class SpecAccountingTests
             "api", ["no MassTransit remains"], Diff, Commands,
             new AgentConfig(), search, Tracker(), CancellationToken.None);
 
-        client.ToolsOffered.Should().ContainSingle().Which.Name.Should().Be("search_branch");
-        client.Prompts.Single().Should().Contain("search_branch").And.Contain("api");
+        // 2026-08-25-6f12: the account now makes a second call — the full-reach pass, for the
+        // criterion this answer left unsatisfied — so the assertion is that EVERY call was
+        // offered the tool, which is the claim the phase that wrote it was making.
+        client.ToolsOffered.Should().NotBeEmpty()
+            .And.OnlyContain(tool => tool.Name == "search_branch");
+        client.Prompts[0].Should().Contain("search_branch").And.Contain("api");
     }
 
     /// <summary>A run whose sandboxes are gone still takes an account, and it must not be

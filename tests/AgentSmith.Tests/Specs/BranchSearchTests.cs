@@ -110,10 +110,10 @@ public sealed class BranchSearchTests
         var sandbox = new SearchSandbox(1, null);
         var search = For(sandbox);
 
-        for (var i = 0; i <= BranchSearch.MaxSearches; i++)
+        for (var i = 0; i <= AccountSearchBudget.PerPass; i++)
             await search.SearchBranch("Sample.Server", $"pattern{i}");
 
-        sandbox.Ran.Should().HaveCount(BranchSearch.MaxSearches);
+        sandbox.Ran.Should().HaveCount(AccountSearchBudget.PerPass);
         (await search.SearchBranch("Sample.Server", "one more")).Should().Contain("No search left");
     }
 

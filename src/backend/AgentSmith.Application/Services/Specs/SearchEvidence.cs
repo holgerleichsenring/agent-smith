@@ -16,10 +16,23 @@ internal sealed class SearchEvidence
 {
     private readonly Lock _sync = new();
     private readonly List<string> _lines = [];
+    private readonly List<string> _baseAbsences = [];
 
     public IReadOnlyList<string> Lines
     {
         get { lock (_sync) return [.. _lines]; }
+    }
+
+    /// <summary>
+    /// 2026-08-25-9749: the subset that PROVES AN ABSENCE IN THE BASE — a search of a real
+    /// base ref that ran and matched nothing. It is the only evidence that can admit a
+    /// not-applicable disposition, and it is kept as its own list rather than re-derived
+    /// from a line's wording, because a rule that reads a sentence back is a rule one
+    /// rewording breaks silently.
+    /// </summary>
+    public IReadOnlyList<string> BaseAbsences
+    {
+        get { lock (_sync) return [.. _baseAbsences]; }
     }
 
     /// <summary>
@@ -44,6 +57,13 @@ internal sealed class SearchEvidence
     {
         var where = baseRef is null ? repository : $"{repository}@{baseRef}";
         var ran = exitCode is 0 or 1 ? string.Empty : " and could not run, so it proves nothing";
-        lock (_sync) _lines.Add($"{where}: the account searched '{pattern}' exited {exitCode}{ran}");
+        var line = $"{where}: the account searched '{pattern}' exited {exitCode}{ran}";
+        lock (_sync)
+        {
+            _lines.Add(line);
+            // Exit 1 is grep finding nothing, which over a real base ref is the proof a
+            // conditional's antecedent was never true here.
+            if (baseRef is not null && exitCode == 1) _baseAbsences.Add(line);
+        }
     }
 }

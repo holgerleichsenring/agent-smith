@@ -12,9 +12,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// allows.
 /// </para>
 /// <para>
-/// Both callers get the same complete file list. The correction demands a path copied
-/// exactly as the FILE LIST prints it, so a correction shown one window's list was asking a
-/// criterion whose file lives elsewhere to comply with a list that cannot hold it.
+/// Every caller gets the same complete file list, carried by <see cref="AccountEvidence"/>.
+/// The correction demands a path copied exactly as the FILE LIST prints it, so a correction
+/// shown one window's list was asking a criterion whose file lives elsewhere to comply with a
+/// list that cannot hold it.
 /// </para>
 /// </summary>
 public sealed class AccountCalls(SpecAccountCall call)
@@ -26,16 +27,14 @@ public sealed class AccountCalls(SpecAccountCall call)
     /// </summary>
     public async Task<IReadOnlyList<AccountRow>?> AskEveryAsync(
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria,
-        IReadOnlyList<string> windows, IReadOnlyList<string> commandResults,
-        IReadOnlyList<string>? searchable, IList<AITool>? tools, CitedFileIndex deliveryFiles,
-        IReadOnlyList<string>? baseSearchable, PipelineCostTracker costTracker, CancellationToken ct)
+        IReadOnlyList<string> windows, AccountEvidence evidence,
+        PipelineCostTracker costTracker, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(windows);
         var answers = new List<IReadOnlyList<AccountRow>>();
         foreach (var window in windows.Count == 0 ? [string.Empty] : windows)
         {
-            var rows = await call.AskAsync(
-                chat, repoKey, criteria, window, searchable, commandResults, costTracker, ct,
-                tools: tools, deliveryFiles: deliveryFiles, baseSearchable: baseSearchable);
+            var rows = await AskAsync(chat, repoKey, criteria, window, evidence, costTracker, ct);
             if (rows is not null) answers.Add(rows);
         }
         return answers.Count == 0 ? null : AccountWindowMerge.Of(answers);
@@ -45,10 +44,31 @@ public sealed class AccountCalls(SpecAccountCall call)
     /// a criterion reported not satisfied is an answer, not a formatting failure.</summary>
     public Task<IReadOnlyList<AccountRow>?> AskCorrectionAsync(
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria, string window,
-        IReadOnlyList<string>? searchable, IReadOnlyList<string> commandResults,
-        IList<AITool>? tools, CitedFileIndex deliveryFiles, string correction,
-        IReadOnlyList<string>? baseSearchable, PipelineCostTracker costTracker, CancellationToken ct) =>
-        call.AskAsync(
-            chat, repoKey, criteria, window, searchable, commandResults, costTracker, ct,
-            correction, tools, deliveryFiles, baseSearchable);
+        AccountEvidence evidence, string correction,
+        PipelineCostTracker costTracker, CancellationToken ct) =>
+        AskAsync(chat, repoKey, criteria, window, evidence, costTracker, ct, correction);
+
+    /// <summary>
+    /// 2026-08-25-6f12: the full-reach pass — NO diff body at all. A criterion whose subjects
+    /// were split across windows is unanswerable from any one window's body by construction,
+    /// so the body is the one thing this call does not carry: it is settled from the complete
+    /// file list and from searching the branch and its base.
+    /// </summary>
+    public Task<IReadOnlyList<AccountRow>?> AskWithFullReachAsync(
+        IChatClient chat, string repoKey, IReadOnlyList<string> criteria,
+        AccountEvidence evidence, string instruction,
+        PipelineCostTracker costTracker, CancellationToken ct) =>
+        AskAsync(chat, repoKey, criteria, string.Empty, evidence, costTracker, ct, instruction);
+
+    private Task<IReadOnlyList<AccountRow>?> AskAsync(
+        IChatClient chat, string repoKey, IReadOnlyList<string> criteria, string window,
+        AccountEvidence evidence, PipelineCostTracker costTracker, CancellationToken ct,
+        string? appended = null)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+        return call.AskAsync(
+            chat, repoKey, criteria, window, evidence.Searchable, evidence.CommandResults,
+            costTracker, ct, appended, evidence.Tools, evidence.DeliveryFiles,
+            evidence.BaseSearchable);
+    }
 }
