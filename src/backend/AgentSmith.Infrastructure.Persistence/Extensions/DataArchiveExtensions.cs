@@ -22,7 +22,9 @@ public static class DataArchiveExtensions
         services.AddSingleton<MigrationHeadName>();
         services.AddSingleton<GeneratedKeyProperty>();
         services.AddSingleton<ArchiveSchemaCheck>();
-        services.AddSingleton<EmptyTargetCheck>();
+        // 2026-08-28-3793: the CLI's policy is the default, and the server replaces this
+        // one registration with its own rule.
+        services.AddSingleton<IImportTargetPolicy, EmptyTargetCheck>();
         services.AddSingleton<ArchiveTableImporter>();
         services.AddSingleton<IdentityInsertSwitch>();
         services.AddSingleton<IdentitySequenceAdvancer>();
