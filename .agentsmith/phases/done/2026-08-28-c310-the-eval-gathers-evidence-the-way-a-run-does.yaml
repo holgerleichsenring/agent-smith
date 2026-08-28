@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-c310
+
+goal: "The delivery-account eval hands the account the same evidence a run hands it, base refs included, and its first baseline is recorded so the next change to the account can be measured."
+
+applies_to: "backend (the account eval harness) + the committed baseline report"
+
+requires:
+  - 2026-08-25-7035
+  - 2026-08-25-0eae
+
+scope:
+  in: "The eval harness gathering its evidence through the same code a run uses, so the account under test has the base-ref search tool the account in production has. Then producing and committing the first baseline report."
+  out: "Any change to the account itself. This phase makes the instrument faithful and takes the first reading; what the reading then justifies is a later phase."
+
+decisions:
+  - key: |
+      THE HARNESS HAS ITS OWN COPY OF EVIDENCE GATHERING, AND THE COPY LOSES THE BASE REFS. A run
+      gathers through DeliveryEvidence, which keeps the ref each repository was diffed against and
+      hands it to BranchSearch; the harness reimplements the loop and constructs BranchSearch with
+      no refs at all. So `search_base` is absent from the tool list, the base evidence rule renders
+      empty, and the account under test cannot answer a question about the base.
+  - key: |
+      ONE FIXTURE IN THE CORPUS IS A FACT ABOUT THE BASE, SO THE INSTRUMENT IS NOT MERELY
+      INCOMPLETE BUT WRONG. The vacuous-conditional fixture turns on what the base did or did not
+      contain. Scoring it against an account that cannot see the base measures a different
+      component than the one that runs, and a baseline taken that way would certify a defect.
+  - key: |
+      THE FIX IS TO DELETE THE COPY, NOT TO WIDEN IT. Passing refs into the harness's own loop
+      would leave two gathering paths that drift. Calling the same gatherer a run calls means the
+      eval's input is the run's input by construction — which is the only property that makes a
+      score transferable.
+  - key: |
+      THE BASELINE IS THE DELIVERABLE, NOT A SIDE EFFECT. Fourteen phases tuned this component
+      with no measurement, and the eval that ended that has never once been run. A committed
+      report turns the next change from an argument into a diff. Until it exists, this phase is
+      not done.
+
+steps:
+  - id: the-harness-gathers-through-the-run-s-own-code
+    action: "Replace the harness's private diff loop with the gatherer a run uses, and give the account under test the base refs that gatherer returns."
+  - id: the-tool-list-under-test-matches-production
+    action: "Assert that the account under test is offered the same search tools a run offers it, so a missing tool fails the harness instead of silently lowering a score."
+  - id: the-first-baseline-is-recorded
+    action: "Run the eval against the corpus and commit the report it writes, so the next change to the account has a prior reading to diff against."
+
+tests:
+  - "Harness_TheAccountUnderTest_IsOfferedTheBaseSearchTool"
+  - "Harness_TheEvidence_CarriesTheBaseRefEachRepositoryWasDiffedAgainst"
+  - "Harness_AFixtureWithNoBase_StillScoresWithoutThrowing"
+
+done:
+  - "the account under test reads the evidence a run would hand it, base refs included"
+  - "a missing search tool fails the harness rather than lowering a score quietly"
+  - "the first baseline report is committed, with its false-negative and false-positive rates"
+  - "build green, full suite green"
