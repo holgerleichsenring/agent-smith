@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.142.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.141.0...v0.142.0) (2026-08-28)
+
+
+### Features
+
+* a criterion no window satisfied is re-asked (2026-08-25-6f12) ([5f3f237](https://github.com/holgerleichsenring/agent-smith/commit/5f3f23795892703f5bdb55ffb27ae05b722e0823))
+* a criterion no window satisfied is re-asked, on a budget the windows cannot spend ([4643df8](https://github.com/holgerleichsenring/agent-smith/commit/4643df81d9112abb7f66f248397e3d5f35007753))
+* a not-applicable criterion cites its base search (2026-08-25-9749) ([e42412c](https://github.com/holgerleichsenring/agent-smith/commit/e42412c866aa7d7db7da933c2a3e997c9a4f5382))
+* an installation exports every table it holds (2026-08-28-2af6) ([1decaf1](https://github.com/holgerleichsenring/agent-smith/commit/1decaf13687c303c497f4ef0fead9b686a3d2c75))
+* an installation exports every table it holds, and a cost column keeps every digit ([8e6f6ca](https://github.com/holgerleichsenring/agent-smith/commit/8e6f6cac36b8a0366a6e7c6692739041ad781600))
+* the eval gathers evidence the way a run does (2026-08-28-c310) ([a47cdd6](https://github.com/holgerleichsenring/agent-smith/commit/a47cdd63f797983f89d25b3bd0e8c6c1da4983e2))
+* the server hands out the archive it holds (2026-08-28-3793) ([8668598](https://github.com/holgerleichsenring/agent-smith/commit/8668598cee3f2eb8d7169a119a4cfea90c207d65))
+
+
+### Bug Fixes
+
+* a cost column keeps every digit it is given (2026-08-28-b883) ([fe144e2](https://github.com/holgerleichsenring/agent-smith/commit/fe144e20f3c775744426f1bb501553e7556d50b3))
+* the archive encodes one amount one way, and one variable means one thing (2026-08-28-2af6, 2026-08-28-b883) ([b18bab4](https://github.com/holgerleichsenring/agent-smith/commit/b18bab40f21af5c599b28fd5cac30c4b395b8a98))
+
 ## [0.141.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.140.0...v0.141.0) (2026-08-28)
 
 
