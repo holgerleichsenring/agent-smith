@@ -21,6 +21,15 @@ namespace AgentSmith.Tests.Commands;
 /// </summary>
 public sealed class LoadCatalogHandlerTests
 {
+    // 2026-08-28-7675: the pin the binary embeds, so a resolved catalog can be compared
+    // against it. v4.7.0 is the release these tests' bindings are read against.
+    private sealed class FakeEmbeddedCatalog : IEmbeddedSkillsCatalog
+    {
+        public string Version => "v4.7.0";
+
+        public Stream Open() => new MemoryStream();
+    }
+
     private sealed class FakeSkillLoader(IReadOnlyList<RoleSkillDefinition> roles) : ISkillLoader
     {
         public SkillConfig? LoadProjectSkills(string agentSmithDirectory) => null;
@@ -52,7 +61,8 @@ public sealed class LoadCatalogHandlerTests
         };
         var publisher = new RecordingEventPublisher();
         var handler = new LoadCatalogHandler(
-            new FakeSkillLoader(roles), publisher, NullLogger<LoadCatalogHandler>.Instance);
+            new FakeSkillLoader(roles), publisher, new FakeEmbeddedCatalog(),
+            NullLogger<LoadCatalogHandler>.Instance);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
@@ -84,7 +94,8 @@ public sealed class LoadCatalogHandlerTests
         };
         var publisher = new RecordingEventPublisher();
         var handler = new LoadCatalogHandler(
-            new FakeSkillLoader(roles), publisher, NullLogger<LoadCatalogHandler>.Instance);
+            new FakeSkillLoader(roles), publisher, new FakeEmbeddedCatalog(),
+            NullLogger<LoadCatalogHandler>.Instance);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
@@ -112,7 +123,8 @@ public sealed class LoadCatalogHandlerTests
         };
         var publisher = new RecordingEventPublisher();
         var handler = new LoadCatalogHandler(
-            new FakeSkillLoader(roles), publisher, NullLogger<LoadCatalogHandler>.Instance);
+            new FakeSkillLoader(roles), publisher, new FakeEmbeddedCatalog(),
+            NullLogger<LoadCatalogHandler>.Instance);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
@@ -141,7 +153,8 @@ public sealed class LoadCatalogHandlerTests
     {
         var publisher = new RecordingEventPublisher();
         var handler = new LoadCatalogHandler(
-            new FakeSkillLoader([]), publisher, NullLogger<LoadCatalogHandler>.Instance);
+            new FakeSkillLoader([]), publisher, new FakeEmbeddedCatalog(),
+            NullLogger<LoadCatalogHandler>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
 
@@ -174,11 +187,43 @@ public sealed class LoadCatalogHandlerTests
         result.Message.Should().StartWith("catalog v4.6.0:").And.NotContain("overlay");
     }
 
+    [Fact]
+    public async Task CatalogResolution_AVersionBelowTheEmbeddedPin_IsReported()
+    {
+        // An explicit skills.version wins over the embedded catalog, so a deployment can run
+        // a years-old pin while the binary ships a current one — and nothing said so.
+        var result = await RunWith(new CatalogResolution(
+            "/cache", "v3.24.0", SkillsSourceMode.Default,
+            "release://agentsmith-skills/v3.24.0", FromCache: true));
+
+        result.Message.Should().Contain("older than the embedded pin v4.7.0");
+    }
+
+    [Fact]
+    public async Task CatalogResolution_TheEmbeddedPin_ReportsNothing()
+    {
+        var result = await RunWith(new CatalogResolution(
+            "/cache", "v4.7.0", SkillsSourceMode.Embedded,
+            "embedded://agentsmith-skills/v4.7.0", FromCache: true));
+
+        result.Message.Should().NotContain("older than");
+    }
+
+    [Fact]
+    public async Task CatalogResolution_AnUnparsableVersion_MakesNoAgeClaim()
+    {
+        var result = await RunWith(new CatalogResolution(
+            "/mounted", "local", SkillsSourceMode.Path, "/mounted", FromCache: false));
+
+        result.Message.Should().NotContain("older than");
+    }
+
     private static async Task<CommandResult> RunWith(CatalogResolution resolution)
     {
         var handler = new LoadCatalogHandler(
             new FakeSkillLoader([Role("coding-agent-master", "master")]),
-            new RecordingEventPublisher(), NullLogger<LoadCatalogHandler>.Instance);
+            new RecordingEventPublisher(), new FakeEmbeddedCatalog(),
+            NullLogger<LoadCatalogHandler>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
         pipeline.Set(ContextKeys.ConceptVocabulary, VocabWith(2));
