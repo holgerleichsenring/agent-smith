@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 // policy in two: the REDESIGNED surfaces (runs home, run viewer, config studio)
 // live on the ratified mocks' shell (.mock-shell + the mock .main/.wrap).
 // p0343d closes the split: the System/Rollups pages join the same shell
-// (SystemView carries .mock-shell/.mock-system for all nine routes); only
+// (SystemView carries .mock-shell/.mock-system for its routes, and 2026-08-27-7463's
+// Overview carries it for the three readings that left them); only
 // embedded panes (the trace drawer's DetailPane) remain on content-shell. No
 // route may reintroduce a centered max-w outlier of its own.
 
@@ -18,6 +19,8 @@ const MOCK_SURFACES = [
   "app/jobs/[id]/page.tsx",
   "components/config/ConfigStudio.tsx",
   "components/system/SystemView.tsx",
+  // 2026-08-27-7463: the Overview is a first-class page on the same shell.
+  "components/overview/OverviewView.tsx",
 ];
 
 const CONTENT_SHELL_AREAS = [

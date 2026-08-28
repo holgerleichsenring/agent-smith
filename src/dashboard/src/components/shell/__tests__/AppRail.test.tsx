@@ -10,9 +10,12 @@ import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 
 // p0218: AppRail reads the shared system backlog via the EventStore, so renders
 // go through a provider wired to a silent source.
-// p0343b: the rail is contextual — these tests cover the RUNS mode (toggle,
-// monitor counts, footer); the config mode lives in config/__tests__/
-// AppRailConfig.test.tsx next to the studio it switches.
+// p0343b: the rail is contextual — these tests cover the RUNS mode (monitor counts,
+// subsystems, insight); the config mode lives in config/__tests__/AppRailConfig.test.tsx
+// next to the studio it belongs to.
+// 2026-08-27-1ed6: the rail shows the running system and nothing else — no toggle into
+// configuration (the header's gear is the one entrance), no tracker footer, no Connections
+// entry (the check lives under /config now).
 const renderRail = (store = silentEventStore()) =>
   render(
     <EventStoreProvider store={store}>
@@ -89,12 +92,12 @@ beforeEach(() => {
 });
 
 describe("AppRail", () => {
-  it("AppRail_RunsMode_RendersMonitorSystemRollupsSections_InOrder", () => {
+  it("AppRail_RunsMode_RendersMonitorSystemInsightSections_InOrder", () => {
     renderRail();
-    const sections = ["Monitor", "System", "Rollups"].map(
+    const sections = ["Monitor", "System", "Insight"].map(
       (l) => screen.getByTestId(`app-rail-section-${l}`),
     );
-    // DOM order follows section order: Monitor before System before Rollups.
+    // DOM order follows section order: Monitor before System before Insight.
     expect(sections[0].compareDocumentPosition(sections[1]))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(sections[1].compareDocumentPosition(sections[2]))
@@ -102,13 +105,37 @@ describe("AppRail", () => {
     expect(screen.getByTestId("app-rail")).toHaveAttribute("data-mode", "runs");
   });
 
-  it("AppRail_SegmentedToggle_RunsActiveOnRunsRoutes", () => {
+  it("Rail_RunsMode_HasNoToggleNoFooterAndNoConnectionsEntry", () => {
     usePathname.mockReturnValue("/jobs/r1");
     renderRail();
-    expect(screen.getByTestId("rail-toggle-runs")).toHaveAttribute("data-active", "true");
-    expect(screen.getByTestId("rail-toggle-config")).toHaveAttribute("data-active", "false");
-    expect(screen.getByTestId("rail-toggle-runs")).toHaveAttribute("href", "/");
-    expect(screen.getByTestId("rail-toggle-config")).toHaveAttribute("href", "/config");
+    // Configuration is entered by the header's gear — one entrance, not two.
+    expect(screen.queryByTestId("rail-toggle")).toBeNull();
+    expect(screen.queryByTestId("rail-toggle-runs")).toBeNull();
+    expect(screen.queryByTestId("rail-toggle-config")).toBeNull();
+    // The footer duplicated the Tracker and Webhooks entries above it.
+    expect(screen.queryByTestId("rail-footer")).toBeNull();
+    // The connection check is a question about the installation, asked under /config.
+    expect(screen.queryByTestId("app-rail-item-Connections")).toBeNull();
+    // And nothing that is a setting is left in it.
+    expect(screen.queryByTestId("rail-identity")).toBeNull();
+    expect(screen.queryByTestId("rail-release")).toBeNull();
+  });
+
+  it("Rail_HasOneInsightEntry_AndNoRollupSection", () => {
+    renderRail();
+    // 2026-08-27-7463: three rollup entries became one Insight → Overview entry.
+    expect(screen.queryByTestId("app-rail-section-Rollups")).toBeNull();
+    expect(screen.getByTestId("app-rail-section-Insight")).toBeInTheDocument();
+    expect(screen.getByTestId("app-rail-item-Overview")).toHaveAttribute("href", "/overview");
+    for (const gone of ["Cost", "Today's activity", "Expectations"]) {
+      expect(screen.queryByTestId(`app-rail-item-${gone}`)).toBeNull();
+    }
+  });
+
+  it("Rail_TheInsightEntry_IsActiveOnTheOverview", () => {
+    usePathname.mockReturnValue("/overview");
+    renderRail();
+    expect(screen.getByTestId("app-rail-item-Overview")).toHaveAttribute("data-active", "true");
   });
 
   it("AppRail_ActiveItem_DerivesFromCurrentRoute", () => {
@@ -184,13 +211,12 @@ describe("AppRail", () => {
     expect(screen.getByTestId("app-rail-item-Finished")).toHaveAttribute("href", "/?bucket=finished");
   });
 
-  it("AppRail_Footer_NoEventsYet_ShowsHonestIdleLines", () => {
+  it("Rail_NoTrackerEventYet_TheTrackerEntryKeepsItsPlainName", () => {
     renderRail();
-    expect(screen.getByTestId("rail-footer-tracker")).toHaveTextContent("tracker · no polls seen");
-    expect(screen.getByTestId("rail-footer-webhooks")).toHaveTextContent("webhooks · idle");
+    expect(screen.getByTestId("app-rail-item-Tracker · ticket polling")).toBeInTheDocument();
   });
 
-  it("AppRail_Footer_TrackerEvent_NamesTrackerAndFreshness", async () => {
+  it("Rail_TheTrackerEntry_CarriesTheObservedTrackerName", async () => {
     const fake = createFakeSource();
     renderRail(new EventStore(fake.source));
     const event: SystemEvent = {
@@ -209,9 +235,11 @@ describe("AppRail", () => {
       fake.emitSystem(event);
       await flush();
     });
-    // The footer names the tracker from its newest event and reuses the
-    // subsystem freshness ("polled now" for a just-emitted event).
-    expect(screen.getByTestId("rail-footer-tracker")).toHaveTextContent("azdo · polled now");
+    // The entry names the tracker from its newest event — the one fact the removed
+    // footer carried alone — and keeps the freshness it always showed.
+    const entry = screen.getByTestId("app-rail-item-Tracker · azdo");
+    expect(entry).toHaveAttribute("href", "/system/tracker");
+    expect(within(entry).getByText("now")).toBeInTheDocument();
   });
 });
 

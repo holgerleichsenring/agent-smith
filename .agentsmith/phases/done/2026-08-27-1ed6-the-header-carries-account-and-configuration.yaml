@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-27-1ed6
+
+goal: "An operator reaches configuration with one click on a header gear and sees who is signed in beside it, leaving the rail to show only the running system."
+
+applies_to: "dashboard (the app shell — a new header, the rail relieved of what is not navigation)"
+
+requires:
+  - 2026-08-25-4530
+  - 2026-08-27-729e
+
+scope:
+  in: "A header on every route carrying the current place on the left and, on the right, a gear that opens configuration and the signed-in account with its menu. The rail gives up its Runs|Configuration toggle, its identity block, its release line, its tracker footer and its Connections entry. The installation read-out and the connection check move under /config and join a 'This installation' group in the configuration rail, which also names its access entry Permissions."
+  out: "A theme the viewer chooses — no part of this dashboard has one today, and the mockup's Appearance entry is dropped from the account menu until a phase builds it. Any change to what the moved pages SHOW; this phase moves where they live and how they are reached."
+
+decisions:
+  - key: |
+      TWO ENTRANCES TO ONE PLACE IS THE DEFECT, NOT THE RAIL'S CONTENTS. The rail's toggle and a
+      header gear are the same destination reached two ways, and the operator asked why the left
+      one exists. It exists because the header did not. The gear is the entrance every other tool
+      puts there, so the toggle goes and the rail is left with one job: showing the running
+      system. Nothing in the rail is then a setting.
+  - key: |
+      THE GEAR IS A LINK, NOT A MENU. A first draft hung Configuration, Connection check and
+      Appearance under it. Two of the three did not belong to it — a connection check is
+      diagnosis and belongs beside the installation read-out, a theme is per person — and the
+      third was the only one anybody clicks. A menu whose entries are three unrelated things
+      costs a click to reach the one that was wanted.
+  - key: |
+      THE TWO DIAGNOSTIC ROUTES MOVE RATHER THAN BEING EXCEPTED. A draft kept /system/installation
+      and /system/connections where they are and taught the rail a LIST of routes that count as
+      config mode, because startsWith('/config') would throw the rail back to runs mode the
+      moment either opened. Reviewing that against the code killed it: the config page already
+      branches on its first slug segment (config/[[...slug]]/page.tsx), so two branches plus two
+      redirects is smaller than the exception list — and it leaves the URL agreeing with the rail
+      instead of contradicting it. The list would also have had to be remembered by every future
+      route.
+  - key: |
+      THE PLACE LABEL READS A TABLE OF PATHS, AND THE RAIL'S HREFS MUST ALL BE IN IT. The header
+      says where you are; a second list of names would drift on the first rename. But the rail's
+      entries are NOT expressible as that table — five monitor entries share the path "/" and
+      differ only by a query the root layout may not read (useSearchParams there fails the build
+      for every statically rendered route, which is why the bucket filter uses the History API).
+      So the table maps PATH to place — "/" is one place, "Runs" — and covers every route the
+      header appears on, the job detail and the config subtree included. A test asserts every
+      rail href resolves in it; the bucket entries are rail-only rows that do not.
+  - key: |
+      THE ACCOUNT KEEPS THE RAIL IDENTITY'S SILENCE. With no authority configured it renders
+      nothing at all, and the hooks mount only inside the inner component — the split 4530 wrote,
+      moved verbatim. Signed out with an authority present, it is a sign-in button in the
+      top-right corner, where it is looked for rather than at the foot of a rail where the
+      operator called it a needle in a haystack. Nothing else depended on the rail being the
+      identity surface: the callback route drives the session itself and the hub token factory
+      reads the module-level store.
+  - key: |
+      THE FOOTER GOES, AND ITS ONE UNIQUE FACT MOVES UP. The footer's freshness duplicates the
+      Tracker and Webhooks rail entries, which read the same activity. What it alone carried is
+      the tracker's NAME, taken off the newest event — the rail entry is labelled from a
+      constant. So the entry takes the observed name and the footer goes; otherwise which tracker
+      is configured stops being visible anywhere in the shell.
+  - key: |
+      DELETING THE RELEASE LINE REVERSES A DECISION RATIFIED THE SAME DAY, AND COSTS A FACT. 729e
+      put it in the rail precisely so the release reads without a request and without a click. It
+      is removed here because the operator called that corner lost, and because the read-out it
+      links to is now a named entry one click away. That is a real loss of a fact from every
+      route, accepted deliberately — the build-mismatch banner still speaks when the versions
+      actually disagree.
+  - key: |
+      "WHO MAY DO WHAT" BECOMES "PERMISSIONS" BECAUSE THE OPERATOR ASKED. The sentence was written
+      when the surface was new and needed explaining; a rail entry is a label, and everybody who
+      administers a system knows the word.
+
+steps:
+  - id: the-places-table-names-every-route
+    action: "Add an exported table mapping path to place label covering every route the header appears on — home, pull requests, job detail and its why view, identity, the system subsystems, and the config subtree including its generated catalog and settings entries — and assert every rail href resolves in it."
+    new:
+      - "the places table"
+  - id: the-header-says-where-you-are
+    action: "Add a header above every route rendering the place resolved from the table, inside its own render boundary, and change the layout to a two-row grid so the header does not scroll away and the rail's full height accounts for it."
+    new:
+      - "the app header"
+  - id: the-gear-opens-configuration
+    action: "Put a gear button in the header that navigates to the configuration area in one click, drawn as the conventional gear glyph rather than a text symbol."
+  - id: the-account-moves-into-the-header
+    action: "Move the rail identity into the header as an avatar button with a menu holding the identity page and sign-out, preserving its silence with no authority and its conditional hook mount, and delete the rail block and release line it replaces."
+  - id: the-diagnostic-routes-move-under-config
+    action: "Serve the installation read-out and the connection check from the config route's slug branch, redirect their old system paths, and remove those segments from the system view."
+  - id: the-rail-keeps-only-the-running-system
+    action: "Remove the Runs|Configuration toggle, the tracker footer and the Connections entry from the runs rail, and put the observed tracker name on the Tracker entry."
+  - id: the-configuration-rail-groups-the-installation
+    action: "Give the configuration rail a 'This installation' group holding the read-out, the connection check and Changes, a way back to runs, and rename the access entry to Permissions."
+  - id: the-invalidated-tests-follow-their-subjects
+    action: "Rewrite the rail tests that assert the toggle, the footer and the Rollups section order; move the identity tests onto the header; delete the release-line test; re-point the config-rail active-state tests; and update the two checked-in shell mockups and the operations doc so they describe the shipped shell."
+
+tests:
+  - "Places_EveryRailHref_ResolvesToAPlace"
+  - "Places_TheHomePath_IsOnePlaceNotFiveBuckets"
+  - "Header_TheCurrentPath_NamesThePlaceTheTableNamesIt"
+  - "Header_APathNotInTheTable_RendersNoPlaceRatherThanGuessing"
+  - "Header_TheGear_LinksToConfiguration"
+  - "Header_NoAuthorityConfigured_RendersNoAccountAndMountsNoIdentityHook"
+  - "Header_AnAuthorityAndNoToken_OffersSignIn"
+  - "Header_SignedIn_ShowsTheNameAndOffersSignOut"
+  - "Rail_RunsMode_HasNoToggleNoFooterAndNoConnectionsEntry"
+  - "Rail_TheTrackerEntry_CarriesTheObservedTrackerName"
+  - "Rail_TheInstallationReadOut_RendersInConfigMode"
+  - "Rail_TheConnectionCheck_RendersInConfigMode"
+  - "Rail_ConfigMode_NamesTheAccessEntryPermissions"
+  - "Rail_ConfigMode_OffersTheWayBackToRuns"
+  - "Route_TheOldInstallationAndConnectionPaths_LandOnTheirNewHomes"
+
+done:
+  - "the gear reaches configuration in one click and is the only entrance to it"
+  - "who is signed in reads in the top-right corner, and an installation with no authority shows nothing there"
+  - "the runs rail contains nothing that is a setting, and still names the tracker that is configured"
+  - "the installation read-out and the connection check live under the configuration path and their old paths redirect"
+  - "every rail destination has a place label, and one table holds them"
+  - "the rail, identity, release and config-rail tests describe what ships, and the checked-in mockups and operations doc match it"
+  - "dashboard build and tests green, full suite green"

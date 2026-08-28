@@ -21,16 +21,19 @@ import {
 } from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 import { AppRailItem } from "./AppRailItem";
-import { RailIdentity } from "./RailIdentity";
-import { RailRelease } from "./RailRelease";
 import { isOpenPullRequest } from "@/lib/prStatus";
 
 // p0209a: persistent left app rail. p0343c (pixel identity): the rail emits the
-// ratified mocks' .side DOM verbatim — .brand (logo block + name), the
-// Runs|Configuration .tabs pill, .nav-h section headings, .nav items with .ni
-// icons and .nc counts, and the .tracker-foot footer. Runs routes show MONITOR
-// (live bucket counts, hot needs-you) + SYSTEM + ROLLUPS styled consistently;
-// /config routes show the CATALOG (mock icons + live counts) + HISTORY.
+// ratified mocks' .side DOM verbatim — .brand (logo block + name), .nav-h section
+// headings and .nav items with .ni icons and .nc counts. Runs routes show MONITOR
+// (live bucket counts, hot needs-you) + SYSTEM + INSIGHT styled consistently;
+// /config routes show the CATALOG (mock icons + live counts), SETTINGS, ACCESS and
+// THIS INSTALLATION.
+// 2026-08-27-1ed6: the rail shows the RUNNING SYSTEM and nothing that is a setting.
+// The Runs|Configuration toggle left with the header's gear (two entrances to one
+// place), the identity block and release line moved into the header, and the tracker
+// footer went — its one unique fact, the observed tracker's NAME, rides the Tracker
+// entry's label instead.
 // Navigation stays URL-based: destinations derive from usePathname and the
 // monitor buckets from the shared ?bucket= filter, so selection is URL-stable
 // and refresh-/deep-link safe by construction.
@@ -51,12 +54,15 @@ const SUBSYSTEM_ITEMS: Array<RailItem & { id: SubsystemId }> = [
   { id: "catalog", label: "Skill catalog & vocabulary", href: "/system/catalog" },
 ];
 
-const ROLLUPS: Array<RailItem & { icon: string }> = [
-  { id: "cost", label: "Cost", href: "/system/cost", icon: "◍" },
-  { id: "today", label: "Today's activity", href: "/system/today", icon: "◔" },
-  // p0329: ratification outcomes → expectation-hit-rate / first-PR-acceptance.
-  { id: "expectations", label: "Expectations", href: "/system/expectations", icon: "✓" },
-];
+// 2026-08-27-7463: one INSIGHT entry replaces the three rollup entries. "Rollup"
+// named how a number is computed; the operator reading it wants to know what it
+// tells them, and all three readings are on one page now.
+const INSIGHT: RailItem & { icon: string } = {
+  id: "overview",
+  label: "Overview",
+  href: "/overview",
+  icon: "◍",
+};
 
 // The catalog entities the config rail lists, with the mock's icons.
 const CATALOG_KINDS: Array<{ kind: ConfigEntityKind; icon: string }> = [
@@ -104,8 +110,13 @@ export function AppRail() {
     select(bucket);
   };
   // p0345: the Configuration studio is a route subtree (/config/{section}) — any
-  // path under it flips the rail into catalog mode.
+  // path under it flips the rail into catalog mode. 2026-08-27-1ed6: the installation
+  // read-out and the connection check moved INTO that subtree, so the prefix is again
+  // the whole answer and no list of excepted routes is needed.
   const configMode = pathname.startsWith("/config");
+  // The tracker actually seen, on the entry that leads to it — a constant label cannot
+  // say which of several configured trackers is polling.
+  const trackerLabel = trackerLabelFor(activity.tracker);
 
   return (
     <nav
@@ -123,16 +134,6 @@ export function AppRail() {
             connected ? "bg-[var(--ok)]" : "bg-[var(--idle)]",
           )}
           aria-label={connected ? "connected" : "disconnected"}
-        />
-      </div>
-
-      <div className="tabs" data-testid="rail-toggle">
-        <ToggleHalf label="Runs" href="/" active={!configMode} testId="rail-toggle-runs" />
-        <ToggleHalf
-          label="Configuration"
-          href="/config"
-          active={configMode}
-          testId="rail-toggle-config"
         />
       </div>
 
@@ -202,64 +203,25 @@ export function AppRail() {
           {SUBSYSTEM_ITEMS.map((s) => (
             <AppRailItem
               key={s.id}
-              label={s.label}
+              /* 2026-08-27-1ed6: the Tracker entry names the tracker actually seen. */
+              label={s.id === "tracker" && trackerLabel ? trackerLabel : s.label}
               href={s.href}
               live={activity[s.id].live}
               freshness={activity[s.id].freshness}
               active={isActive(s.href)}
             />
           ))}
-          {/* p0292: Connections is an on-demand diagnostics page, not an
-              event-stream subsystem — no live/freshness signal, renders plain. */}
+
+          <Section label="Insight" style={{ marginTop: 10 }} />
           <AppRailItem
-            label="Connections"
-            href="/system/connections"
-            icon="◳"
-            active={isActive("/system/connections")}
+            label={INSIGHT.label}
+            href={INSIGHT.href}
+            icon={INSIGHT.icon}
+            active={isActive(INSIGHT.href)}
           />
-
-          <Section label="Rollups" style={{ marginTop: 10 }} />
-          {ROLLUPS.map((r) => (
-            <AppRailItem key={r.id} label={r.label} href={r.href} icon={r.icon} active={isActive(r.href)} />
-          ))}
-
-          <RailFooter tracker={activity.tracker} webhooks={activity.webhooks} />
         </>
       )}
-
-      {/* 2026-08-25-4530: who is signed in, below both modes — the rail is the
-          one surface on every route, and "who am I" is not a runs question or a
-          config question. Silent where no authority is configured. */}
-      <RailIdentity />
-      {/* 2026-08-27-729e: and which build it is — one line, beside who is signed in,
-          linking to the full read-out. */}
-      <RailRelease />
     </nav>
-  );
-}
-
-// p0343b: the mock's Runs|Configuration segmented toggle — the .tabs pill.
-function ToggleHalf({
-  label,
-  href,
-  active,
-  testId,
-}: {
-  label: string;
-  href: string;
-  active: boolean;
-  testId: string;
-}) {
-  return (
-    <Link
-      href={href}
-      data-testid={testId}
-      data-active={active ? "true" : "false"}
-      aria-current={active ? "page" : undefined}
-      className={active ? "on" : undefined}
-    >
-      {label}
-    </Link>
   );
 }
 
@@ -272,6 +234,11 @@ function ConfigRailSections({ pathname }: { pathname: string }) {
 
   return (
     <>
+      {/* 2026-08-27-1ed6: the way back. The rail no longer carries a two-way toggle —
+          configuration is entered by the header's gear and left by this. */}
+      <Link href="/" className="nav" data-testid="rail-back-to-runs">
+        <span className="ni">←</span>Runs
+      </Link>
       <Section label="Catalog" />
       {CATALOG_KINDS.map(({ kind, icon }) => (
         <AppRailItem
@@ -299,12 +266,28 @@ function ConfigRailSections({ pathname }: { pathname: string }) {
           because it needs access.read/access.write and not config.read/config.write. */}
       <Section label="Access" style={{ marginTop: 10 }} />
       <AppRailItem
-        label="Who may do what"
+        label="Permissions"
         href="/config/access"
         icon="◈"
         active={pathname === "/config/access"}
       />
-      <Section label="History" style={{ marginTop: 10 }} />
+      {/* 2026-08-27-1ed6: what THIS installation is — what it runs, whether its
+          dependencies answer, and what has been changed on it. The first two arrived
+          from /system, which is where the running system is watched; an installation is
+          not a subsystem of itself. */}
+      <Section label="This installation" style={{ marginTop: 10 }} />
+      <AppRailItem
+        label="Installation"
+        href="/config/installation"
+        icon="⬡"
+        active={pathname === "/config/installation"}
+      />
+      <AppRailItem
+        label="Connection check"
+        href="/config/connection-check"
+        icon="◳"
+        active={pathname === "/config/connection-check"}
+      />
       <AppRailItem
         label="Changes"
         href="/config/changes"
@@ -316,42 +299,14 @@ function ConfigRailSections({ pathname }: { pathname: string }) {
   );
 }
 
-// p0343b: the runs-mode rail footer — the mock's .tracker-foot. The tracker
-// line names the tracker seen on its newest event and reuses the SAME freshness
-// the SYSTEM items render; webhooks reduce to live/idle.
-function RailFooter({
-  tracker,
-  webhooks,
-}: {
-  tracker: SubsystemActivity;
-  webhooks: SubsystemActivity;
-}) {
-  const trackerName = newestTrackerName(tracker);
-  return (
-    <div className="tracker-foot" data-testid="rail-footer">
-      <div className="tf" data-testid="rail-footer-tracker">
-        <span className={cn("td", !tracker.live && "idle")} />
-        <span>
-          <b style={{ color: "var(--ink-2)" }}>{trackerName ?? "tracker"}</b>
-          {" · "}
-          {tracker.freshness === "—" ? "no polls seen" : `polled ${tracker.freshness}`}
-        </span>
-      </div>
-      <div className="tf" data-testid="rail-footer-webhooks">
-        <span className={cn("td", !webhooks.live && "idle")} />
-        <span>webhooks · {webhooks.live ? "live" : "idle"}</span>
-      </div>
-    </div>
-  );
-}
-
-// Every tracker-subsystem event carries the tracker's name — read it off the
-// newest one; null when no tracker event has been seen yet.
-function newestTrackerName(tracker: SubsystemActivity): string | null {
-  const newest = tracker.events[tracker.events.length - 1] as
-    | { tracker?: string }
-    | undefined;
-  return newest?.tracker ?? null;
+// Every tracker-subsystem event carries the tracker's name — read it off the newest one.
+// 2026-08-27-1ed6: this is the one fact the removed footer carried alone, so it rides the
+// Tracker entry's label; otherwise which tracker is configured stops being visible
+// anywhere in the shell. Null until an event names one — the entry keeps its plain name
+// rather than claiming a tracker nobody has seen.
+function trackerLabelFor(tracker: SubsystemActivity): string | null {
+  const newest = tracker.events[tracker.events.length - 1] as { tracker?: string } | undefined;
+  return newest?.tracker ? `Tracker · ${newest.tracker}` : null;
 }
 
 // p0347: the live count of OPENED pull requests for the Monitor rail item.

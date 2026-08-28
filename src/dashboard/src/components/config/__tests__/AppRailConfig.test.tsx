@@ -6,8 +6,10 @@ import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 
 // p0343b: on /config routes the rail flips into CATALOG mode — the entity list
-// with live counts replaces monitor/system/rollups, plus HISTORY (Changes).
-// The segmented toggle is the way between the two surfaces.
+// with live counts replaces monitor/system/rollups.
+// 2026-08-27-1ed6: the header's gear is the way IN and the rail's "← Runs" the way out,
+// so there is no toggle to assert. Changes joined the installation read-out and the
+// connection check under "This installation", and the access entry is called Permissions.
 
 const renderRail = () =>
   render(
@@ -104,23 +106,58 @@ describe("AppRail Configuration mode", () => {
   it("AppRail_SettingsRoute_MarksTheActiveSettingsItem", async () => {
     usePathname.mockReturnValue("/config/settings/orchestrator");
     renderRail();
-    expect(screen.getByTestId("rail-toggle-config")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("app-rail")).toHaveAttribute("data-mode", "config");
     expect(screen.getByTestId("app-rail-item-Orchestrator")).toHaveAttribute("data-active", "true");
   });
 
-  it("AppRail_ConfigRoute_HistoryShowsChangesCount", async () => {
+  it("AppRail_ConfigRoute_TheInstallationGroupShowsTheChangesCount", async () => {
     renderRail();
-    expect(screen.getByTestId("app-rail-section-History")).toBeInTheDocument();
+    expect(screen.getByTestId("app-rail-section-This installation")).toBeInTheDocument();
     const changes = await screen.findByTestId("app-rail-count-Changes");
     expect(changes).toHaveTextContent("2");
     expect(screen.getByTestId("app-rail-item-Changes")).toHaveAttribute("href", "/config/changes");
   });
 
-  it("AppRail_ConfigSubroute_TogglesConfigActive_AndMarksSection", async () => {
+  it("Rail_TheInstallationReadOut_RendersInConfigMode", async () => {
+    usePathname.mockReturnValue("/config/installation");
+    renderRail();
+    const item = screen.getByTestId("app-rail-item-Installation");
+    expect(item).toHaveAttribute("href", "/config/installation");
+    expect(item).toHaveAttribute("data-active", "true");
+  });
+
+  it("Rail_TheConnectionCheck_RendersInConfigMode", async () => {
+    usePathname.mockReturnValue("/config/connection-check");
+    renderRail();
+    const item = screen.getByTestId("app-rail-item-Connection check");
+    // NOT /config/connections — that path lists the connection catalog.
+    expect(item).toHaveAttribute("href", "/config/connection-check");
+    expect(item).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("app-rail-item-Connections")).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+  });
+
+  it("Rail_ConfigMode_NamesTheAccessEntryPermissions", async () => {
+    renderRail();
+    expect(screen.getByTestId("app-rail-item-Permissions")).toHaveAttribute(
+      "href",
+      "/config/access",
+    );
+    expect(screen.queryByTestId("app-rail-item-Who may do what")).toBeNull();
+  });
+
+  it("Rail_ConfigMode_OffersTheWayBackToRuns", async () => {
+    renderRail();
+    expect(screen.getByTestId("rail-back-to-runs")).toHaveAttribute("href", "/");
+    expect(screen.queryByTestId("rail-toggle")).toBeNull();
+  });
+
+  it("AppRail_ConfigSubroute_MarksTheSectionItsOn", async () => {
     usePathname.mockReturnValue("/config/projects");
     renderRail();
-    expect(screen.getByTestId("rail-toggle-config")).toHaveAttribute("data-active", "true");
-    expect(screen.getByTestId("rail-toggle-runs")).toHaveAttribute("data-active", "false");
+    expect(screen.getByTestId("app-rail")).toHaveAttribute("data-mode", "config");
     expect(await screen.findByTestId("app-rail-item-Projects")).toHaveAttribute("data-active", "true");
     expect(screen.getByTestId("app-rail-item-Agents")).toHaveAttribute("data-active", "false");
   });
