@@ -75,13 +75,18 @@ public sealed class MasterDescriptionValidatorTests
     private static string MasterSkillMd(string description) =>
         $"---\nname: m\ndescription: \"{description}\"\nrole: master\n---\nbody";
 
+    // 2026-08-28-a08d: every built tarball carries the cap declaration, because a catalog
+    // without one is now a violation of its own — and these tests are about description
+    // lengths, not about the packaging of the file that declares the limit.
     private static Stream BuildTarball(params (string Path, string Content)[] entries)
     {
         var buffer = new MemoryStream();
         using (var gz = new GZipStream(buffer, CompressionMode.Compress, leaveOpen: true))
         using (var tar = new TarWriter(gz))
         {
-            foreach (var (path, content) in entries)
+            var withCap = entries.Append(
+                (CatalogDeclaredCap.EntryPath, CatalogDeclaredCap.Enforced.ToString()));
+            foreach (var (path, content) in withCap)
             {
                 var entry = new PaxTarEntry(TarEntryType.RegularFile, path)
                 {
