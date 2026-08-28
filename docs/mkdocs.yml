@@ -188,6 +188,7 @@ nav:
       - Capacity & queueing:  reference/operations/capacity.md
       - Server resilience:    reference/operations/server-resilience.md
       - Metrics:              reference/operations/metrics.md
+      - Data archive:         reference/operations/data-archive.md
     - Chat & onboarding:
       - Slack:      reference/setup/slack.md
       - Teams:      reference/setup/teams.md

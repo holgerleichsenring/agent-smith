@@ -141,7 +141,6 @@
 132	AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs
 131	AgentSmith.Server/Services/LlmIntentParser.cs
 128	AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs
-129	AgentSmith.Cli/ServiceProviderFactory.cs
 129	AgentSmith.Infrastructure/Services/SensitiveToolHistoryScrubChatClient.cs
 128	AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs
 128	AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs
