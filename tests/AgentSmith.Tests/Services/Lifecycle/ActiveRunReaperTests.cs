@@ -77,7 +77,7 @@ public sealed class ActiveRunReaperTests
         SetupStaleCandidate(runId: null);
         using var cts = new CancellationTokenSource();
         var loop = NewReaper().RunAsync(ActiveRunReaper.LeaseFreshFor, ScanInterval, cts.Token);
-        await WaitForAsync(() => _scans.Count >= 2);
+        await AwaitAsync(_scans.ReachedAsync(2));
 
         _clock.Advance(TimeSpan.FromMinutes(6)); // the host slept past the stale threshold
         await WaitForIterationsAsync(2); // drain any iteration already past gap detection
@@ -96,7 +96,7 @@ public sealed class ActiveRunReaperTests
         _registry.Setup(r => r.IsLocallyActive("run-1")).Returns(false);
         using var cts = new CancellationTokenSource();
         var loop = NewReaper().RunAsync(ActiveRunReaper.LeaseFreshFor, ScanInterval, cts.Token);
-        await WaitForAsync(() => _scans.Count >= 1);
+        await AwaitAsync(_scans.ReachedAsync(1));
         _clock.Advance(TimeSpan.FromMinutes(6)); // suspend detected on the next iteration
         await WaitForIterationsAsync(2);
         var scansWhenSuppressed = _scans.Count;
@@ -109,58 +109,91 @@ public sealed class ActiveRunReaperTests
             await WaitForIterationsAsync(2);
         }
 
-        await WaitForAsync(() => _scans.Count > scansWhenSuppressed);
+        await AwaitAsync(_scans.ReachedAsync(scansWhenSuppressed + 1));
         _lease.Verify(l => l.ReleaseAsync("proj", Ticket, "run-1", It.IsAny<CancellationToken>()), Times.AtLeastOnce,
             "after one LeaseFreshFor window of grace the reaper resumes normal reaping");
         cts.Cancel();
         await loop;
     }
 
-    // p0423b: the budget is a HANG-DETECTOR, not a claim about speed. Progress is
-    // measured in loop iterations (see WaitForIterationsAsync) precisely so this test
-    // does not assert wall-clock timing — but the poll itself still needs to be
-    // scheduled, and on a two-core CI runner a burst of migration-applying test classes
-    // starves async continuations for seconds at a time. What is asserted is that the loop
-    // progresses at all rather than deadlocking.
-    // p0432: back down from 120s. The burst is gone — the suite migrates ONCE and hands out
-    // copies — so the guard can fail fast on a real deadlock again.
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(30);
-        while (!condition() && DateTime.UtcNow < deadline) await Task.Delay(5);
-        condition().Should().BeTrue("the reaper loop should have progressed within the wait budget");
-    }
+    // 2026-08-28-479f: the loop ANNOUNCES its progress and the test awaits that
+    // announcement. It used to poll every 5 ms until a 30 s deadline — a claim about
+    // scheduling dressed as a claim about progress, and a starvation source of its own:
+    // three tests each spinning a timer every 5 ms for up to 30 s, inside a suite that
+    // already runs three test processes at once. p0423b and p0432 swung the deadline to
+    // 120 s and back to 30 s; neither direction fixes a poll that competes with the loop
+    // it is waiting for.
+    //
+    // The ceiling that remains is a HANG-DETECTOR and nothing else: a reaper that never
+    // progresses must fail rather than hang the suite forever.
+    private static readonly TimeSpan HangCeiling = TimeSpan.FromSeconds(30);
+
+    private static Task AwaitAsync(Task reached) => reached.WaitAsync(HangCeiling);
 
     // Loop progress measured by the loop itself, not by wall clock: a reaper
     // iteration reads the monotonic clock at most three times (gap detection,
     // previous-iteration stamp, grace check), so a delta of 3N clock reads proves
     // at least N full iterations ran regardless of how loaded the test host is.
     private Task WaitForIterationsAsync(int iterations) =>
-        WaitForAsync(ReadsAhead(_clock, iterations * 3));
+        AwaitAsync(_clock.ReadsReachedAsync(_clock.Reads + iterations * 3));
 
-    private static Func<bool> ReadsAhead(MonotonicFakeTimeProvider clock, long delta)
+    /// <summary>A monotonically rising count that hands out a task per milestone.</summary>
+    private sealed class Milestones
     {
-        var baseline = clock.Reads;
-        return () => clock.Reads >= baseline + delta;
+        private readonly object _sync = new();
+        private readonly List<(long Target, TaskCompletionSource Reached)> _waiting = [];
+        private long _count;
+
+        public long Count { get { lock (_sync) return _count; } }
+
+        public void Increment()
+        {
+            List<TaskCompletionSource>? reached = null;
+            lock (_sync)
+            {
+                _count++;
+                for (var i = _waiting.Count - 1; i >= 0; i--)
+                {
+                    if (_waiting[i].Target > _count) continue;
+                    (reached ??= []).Add(_waiting[i].Reached);
+                    _waiting.RemoveAt(i);
+                }
+            }
+            if (reached is null) return;
+            foreach (var waiter in reached) waiter.TrySetResult();
+        }
+
+        public Task ReachedAsync(long target)
+        {
+            lock (_sync)
+            {
+                if (_count >= target) return Task.CompletedTask;
+                var waiter = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _waiting.Add((target, waiter));
+                return waiter.Task;
+            }
+        }
     }
 
     private sealed class ScanCounter
     {
-        private int _count;
-        public int Count => Volatile.Read(ref _count);
-        public void Increment() => Interlocked.Increment(ref _count);
+        private readonly Milestones _scans = new();
+        public long Count => _scans.Count;
+        public void Increment() => _scans.Increment();
+        public Task ReachedAsync(long target) => _scans.ReachedAsync(target);
     }
 
     // p0383: monotonic-clock fake — GetTimestamp/GetElapsedTime are the surfaces
     // under test (suspend-gap detection); ticks advance only when the test says so.
     private sealed class MonotonicFakeTimeProvider : TimeProvider
     {
+        private readonly Milestones _reads = new();
         private long _timestamp;
-        private long _reads;
-        public long Reads => Volatile.Read(ref _reads);
+        public long Reads => _reads.Count;
+        public Task ReadsReachedAsync(long target) => _reads.ReachedAsync(target);
         public override long GetTimestamp()
         {
-            Interlocked.Increment(ref _reads);
+            _reads.Increment();
             return Volatile.Read(ref _timestamp);
         }
         public override long TimestampFrequency => TimeSpan.TicksPerSecond;
