@@ -1,0 +1,147 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-2af6
+
+goal: "The CLI writes every table of an installation into one zip and reads it back into an empty database on the other provider, so a move between SQLite and SQL Server loses nothing."
+
+applies_to: "backend (a provider-neutral data archive in the persistence project, driven by the CLI)"
+
+requires:
+  - p0349
+  - 2026-08-28-b883
+
+scope:
+  in: "One archive holding every table the run store carries: a manifest naming the schema state, the provider it came from and a row count per table, and one line-delimited JSON file per table. Export and import as CLI commands naming their database the way the other database commands do, plus the import's own verification that it wrote what the manifest promised."
+  out: "Partial or selective export, and merging into a database that already holds rows — an import runs into an empty schema or refuses. Editing the archive as a supported workflow. Providers beyond SQLite and SQL Server: Postgres and MySQL are named in the enum but share the SQLite-typed migration set, so claiming them would be untested. The YAML config export, which stays what it is: a curated, editable document, not a copy of a table."
+
+decisions:
+  - key: |
+      THE ARCHIVE IS DATA, NOT SQL, BECAUSE ITS WHOLE PURPOSE IS TO CROSS PROVIDERS. SQL text is
+      bound to the dialect that produced it, which is the one thing a provider move must not
+      inherit. Moving one run by hand between SQLite and SQL Server in a live session hit three
+      failures in a row and all three were the format: the client tool's QUOTED_IDENTIFIER
+      default made every table with a filtered index refuse its inserts; a dollar-parenthesis
+      sequence inside artifact data was read as the tool's own variable substitution and
+      silently replaced; and a 50,728-character row exceeded the line limit and had to be split
+      into a CAST-and-concatenate chain. Beyond those, identity columns, booleans, date literals
+      and GUID columns each need a different answer per target. Written and read through the
+      same persistence layer that serves the application, none of that exists.
+  - key: |
+      ONE FILE PER TABLE, LINE-DELIMITED, INSIDE ONE ARCHIVE. A single document would have to be
+      held whole at both ends; the largest artifact rows are tens of kilobytes each and there
+      are thousands of them. One line per row streams in both directions, one file per table
+      makes a single table readable on its own, and the container keeps the set together with
+      its manifest so a half-copied move cannot look complete.
+  - key: |
+      THE MANIFEST IS WHAT MAKES AN IMPORT REFUSABLE. It names the schema state the archive was
+      taken at, the provider it came from, the application version, and the row count of every
+      table. An import compares the schema state to the target's own and refuses on a mismatch
+      rather than discovering it halfway through, and compares the counts afterwards rather than
+      trusting that it wrote everything.
+  - key: |
+      INTO AN EMPTY SCHEMA ONLY. Merging across twenty-two tables joined by foreign keys is a
+      different problem with different failure modes, and offering it here would make the
+      simple, needed case carry the risk of the complicated one. An import into a database that
+      already holds rows refuses and says which table stopped it.
+  - key: |
+      WRITE ORDER COMES FROM THE MODEL, AND THE GRAPH IS ONE EDGE. Only one foreign key is
+      enforced in the whole model — a config reference to its config entity — because every run
+      child relates by a plain indexed column on purpose. There are no cycles and no
+      self-references. Deriving the order from the declared model is still right, because a
+      table added next year orders itself; but nobody should build a cycle-breaking sort for
+      one edge.
+  - key: |
+      THE TARGET REFUSES THE COPIED KEY BEFORE IT EVER REACHES THE SEQUENCE QUESTION. Twenty of
+      the twenty-two tables key on a database-generated identity, and SQL Server rejects an
+      insert that carries its own key unless identity insertion is switched on for that table,
+      one table at a time on the same connection. So the import turns it on per table, writes,
+      turns it off — and only then advances the generator past the copied rows, because an
+      import that leaves the database unable to take its next row has not finished. On SQLite
+      neither step is needed, which is why this belongs to the provider and not to the format.
+  - key: |
+      THE PERSISTENCE LAYER STAMPS EVERY ROW IT SAVES, SO THE PLAIN SAVE PATH DESTROYS THE
+      ARCHIVE. The context sets CreatedAt on add and UpdatedAt on add or modify, for every
+      entity, because they all derive from one base. An import through that path gives all
+      twenty-two tables the wall-clock of the import and the row counts still match, so the
+      verification passes over the loss. The import therefore writes with the stamping
+      suspended, and a test reads the timestamps back rather than the counts.
+  - key: |
+      THE SCHEMA CHECK COMPARES MIGRATION NAMES, NOT MIGRATION IDS, OR IT REFUSES THE ONLY
+      JOURNEY THERE IS. The two providers keep separate migration assemblies with disjoint
+      histories — thirty entries against a squashed fifteen — and even a shared name carries a
+      different timestamp prefix. Comparing recorded ids would refuse every SQLite-to-SQL-Server
+      import, which is the entire purpose. The comparison is on the name after the prefix, and
+      a test asserts the two providers' heads compare equal.
+  - key: |
+      THE MANIFEST IS WRITTEN FIRST AND ITS COUNTS ARE TRUE, WHICH TAKES ONE TRANSACTION. A
+      running installation writes trail rows continuously, so counts taken in a pre-pass and
+      rows streamed afterwards disagree and the import fails a good archive. The export reads
+      inside one transaction so the counts and the rows are the same instant. The manifest is
+      the first entry in the zip so a reader meets it before any table.
+  - key: |
+      THE FORMAT IS A ZIP, AND THE IMPORT READS IT FROM A FILE. A zip's directory sits at its
+      end, so a reader that must consult the manifest before writing cannot work on a stream it
+      cannot seek. The CLI reads a path, which is seekable by construction.
+  - key: |
+      THE CLI TALKS TO A DATABASE, NOT TO A RUNNING SERVER. The case this exists for is
+      an operator replacing the store underneath an installation, and the neighbouring case is
+      one whose server will not start. An archive only a healthy server can produce is missing
+      exactly when it is wanted. It names its database the way the other database commands
+      already do — through the config file, whose secret references keep a connection string
+      off the command line and out of the shell history.
+  - key: |
+      THE ARCHIVE IS AS CONFIDENTIAL AS THE DATABASE, AND SAYS SO. It carries ticket text, model
+      prompts, artifacts and the configuration store's secrets in clear. It is not redacted —
+      a redacted copy would not restore — so the commands state what the file contains when they
+      write it, and the documentation says where such a file may be kept.
+
+steps:
+  - id: the-archive-has-a-shape-and-a-manifest
+    action: "Define the zip: a manifest first, carrying the schema head by name, the source provider, the application version and per-table row counts, followed by one line-delimited file per table. The reader and writer live in the persistence project, so both the CLI and the server can use them."
+    new:
+      - "the data archive manifest"
+  - id: an-export-streams-every-table-out
+    action: "Write every table of the store into the zip, a row at a time and inside one transaction, so the manifest's counts and the rows are the same instant."
+    new:
+      - "the data archive writer"
+  - id: an-import-refuses-before-it-writes
+    action: "Read the manifest from the file, refuse a schema head whose name differs from the target's and a target that already holds rows, and say which check stopped it."
+  - id: an-import-writes-in-dependency-order
+    action: "Write the tables in an order derived from the declared model, so foreign keys hold at every point of the copy."
+    new:
+      - "the data archive reader"
+  - id: the-import-writes-rows-that-carry-their-own-keys
+    action: "Write with the target's identity insertion enabled per table where the provider requires it, and with the persistence layer's timestamp stamping suspended, so keys and audit columns arrive as the archive holds them."
+  - id: the-next-row-still-gets-a-key
+    action: "Advance each provider's identity generator past the copied rows, so the first write after an import succeeds."
+  - id: an-import-proves-it-copied-everything
+    action: "Compare the row counts after writing against the manifest and fail loudly on a difference, naming the tables that disagree."
+  - id: the-cli-exports-and-imports-against-a-connection
+    action: "Add the export and import commands beside the existing config and database ones, naming their database the way those already do rather than talking to a running server, and stating what the archive contains when they write it."
+
+tests:
+  - "Archive_EveryTableInTheStore_IsWrittenToTheArchive"
+  - "Archive_TheManifest_IsTheFirstEntryInTheZip"
+  - "Manifest_TheTwoProvidersSchemaHeads_CompareEqual"
+  - "RoundTrip_TheAuditTimestamps_AreTheOnesTheArchiveCarried"
+  - "RoundTrip_ThePrimaryKeys_AreTheOnesTheArchiveCarried"
+  - "Archive_TheManifest_NamesTheSchemaStateAndRowCounts"
+  - "RoundTrip_SqliteToSqlServer_RestoresEveryRow"
+  - "RoundTrip_ARowWithShellSubstitutionText_SurvivesUnchanged"
+  - "RoundTrip_AVeryLongArtifactRow_SurvivesUnchanged"
+  - "Import_ASchemaStateThatDiffers_RefusesBeforeWriting"
+  - "Import_ATargetHoldingRows_RefusesAndNamesTheTable"
+  - "Import_WritesInDependencyOrder_SoForeignKeysHold"
+  - "Import_TheNextInsertAfterAnImport_GetsAFreeKey"
+  - "Import_ARowCountThatDisagrees_FailsAndNamesTheTable"
+  - "Cli_Export_WritesAnArchiveFromAConnectionString"
+  - "Cli_Import_ReadsAnArchiveIntoAnEmptyDatabase"
+
+done:
+  - "every table of an installation moves between SQLite and SQL Server with every row intact"
+  - "an imported row keeps its own key and its own timestamps, proven by reading them back"
+  - "an archive taken at one schema state cannot be written into another"
+  - "an import into a non-empty database refuses instead of merging"
+  - "the database can take its next row immediately after an import"
+  - "the copy is verified against the manifest, not assumed"
+  - "both commands work against the database directly, with no server running"
+  - "build green, full suite green"
