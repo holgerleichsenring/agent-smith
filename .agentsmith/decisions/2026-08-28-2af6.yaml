@@ -1,0 +1,164 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-2af6
+
+decisions:
+  - category: Architecture
+    chose: "The writer and reader live in AgentSmith.Infrastructure.Persistence, driven by a thin CLI verb"
+    over: "Building export/import inside AgentSmith.Cli beside DatabaseCommand and ConfigCommand"
+    reason: |
+      AgentSmith.Server references the persistence project and does NOT reference the CLI,
+      and 2026-08-28-3793 is already specced to put server endpoints on exactly this code.
+      In the CLI it would have to be moved before that phase could start. So the archive is
+      a persistence capability with its own DI extension (AddDataArchive), and ArchiveCommand
+      resolves IDataArchiveWriter / IDataArchiveReader and does nothing else.
+
+  - category: Architecture
+    chose: "The audit stamping is suspended by a scope the context hands out — db.SuspendAuditStamping()"
+    over: "Writing the rows with raw ADO inserts that never reach SaveChanges, or a bare mutable flag"
+    reason: |
+      AgentSmithDbContext.StampAudit sets CreatedAt on Added and UpdatedAt on Added-or-Modified
+      for every entity, because all twenty-two derive from EntityBase. An import through the
+      plain save path gives every row the wall-clock of the import while the row counts still
+      match, so a count check passes over the loss. The scope is an IDisposable
+      (AuditStampingSuspension) rather than a flag callers set and clear, so the stamping comes
+      back even when the import throws.
+      VERIFIED BY MUTATION, not by reading: with the suspension removed,
+      RoundTrip_TheAuditTimestamps_AreTheOnesTheArchiveCarried and
+      RoundTrip_EveryTable_RestoresEveryRow both fail. Raw inserts would have avoided the
+      stamping too, but at the cost of hand-writing per-dialect SQL — the one thing the format
+      decision exists to avoid.
+
+  - category: Implementation
+    chose: "EnableAsync/DisableAsync ask the provider themselves and no-op where it needs nothing"
+    over: "The reader asking IsRequiredFor first and branching around the two calls"
+    reason: |
+      SQL Server refuses an insert carrying its own identity value unless IDENTITY_INSERT is ON
+      for that table, one table at a time on the same connection; SQLite needs nothing. Folding
+      the question into the switch keeps the reader's per-table method straight-line AND makes
+      both public methods testable on SQLite, where they are proven to be inert. The SQL Server
+      half is proven by the cross-provider test.
+      VERIFIED BY MUTATION: forcing IsRequiredFor to false fails the cross-provider round trip
+      with "Cannot insert explicit value for identity column in table 'ActiveRuns'" — exactly
+      the failure the review predicted.
+
+  - category: Implementation
+    chose: "The explicit DBCC CHECKIDENT reseed stays, even though SQL Server 2022 already advances the seed"
+    over: "Dropping the step once measurement showed the next insert succeeds without it"
+    reason: |
+      A departure from what the review implied, recorded because it is the one place reality
+      differed. Mutating IdentitySequenceAdvancer.AdvanceAsync to a no-op left
+      RoundTrip_SqliteToSqlServer_RestoresEveryRow GREEN: under IDENTITY_INSERT, SQL Server
+      raises the current identity value to any larger inserted value on its own, so the reseed
+      is not what makes the next insert work on this engine. It is kept anyway — a small class that
+      makes the guarantee explicit and independent of engine version rather than
+      resting on a side effect — and this note exists so nobody later reads the code as proof
+      that the reseed is load-bearing. The SQLite side is a documented no-op: a rowid alias
+      already takes max+1.
+
+  - category: Architecture
+    chose: "The schema check compares the migration NAME after the timestamp prefix"
+    over: "Comparing the recorded migration ids the way EF stores them"
+    reason: |
+      The two providers keep separate migration assemblies with disjoint histories — about
+      thirty entries against a squashed fifteen — and even a shared migration carries a
+      different prefix on each side (20260826083039_AddObservedCallers against
+      20260826083043_AddObservedCallers). Comparing ids would refuse 100% of
+      SQLite-to-SQL-Server imports, which is the entire use case, while every same-provider
+      test stayed green. Manifest_TheTwoProvidersSchemaHeads_CompareEqual asserts the two heads
+      compare EQUAL and that their raw ids do not, so the reason survives the code.
+
+  - category: Implementation
+    chose: "One layered sweep over the model's foreign keys, with the remainder appended if a pass places nothing"
+    over: "A cycle-breaking topological sort, and over a hand-maintained table order"
+    reason: |
+      The model's enforced graph is ONE edge: config_ref to config_entity on the
+      (EntityType, EntityId) alternate key. Every run child relates by a plain indexed RunId
+      with no foreign key, deliberately, so a child can be written before or without its Run.
+      Deriving the order from the declared model still earns its keep — a table added next year
+      orders itself — but nobody should carry a cycle-breaker for one edge. The one-line
+      remainder fallback exists only so a future cycle cannot spin the loop forever; the import
+      would then fail on the constraint, loudly.
+
+  - category: Implementation
+    chose: "Rows are read and written through the model's own DbSet, reached non-generically by IEntityType"
+    over: "SELECT */INSERT over the raw connection, mapping provider values by hand"
+    reason: |
+      Raw ADO would have to undo each provider's storage choices itself — SQLite keeps
+      DateTimeOffset and decimal as TEXT, booleans as INTEGER — which is the per-target
+      answer the format decision exists to avoid. EntityTypeSet reflects Set<T>() once per
+      table so the query pipeline, the type mappings and the parameter binding are the ones
+      the application already runs on. ArchiveRowCodec reads and writes through
+      IProperty.PropertyInfo and THROWS on a shadow property rather than silently dropping the
+      column; the model has none today, and if one is added the archive says so instead of
+      losing it.
+
+  - category: Implementation
+    chose: "The export fails loudly when a table's streamed row count differs from the manifest's"
+    over: "Trusting one transaction's isolation to make the pre-pass counts and the streamed rows agree"
+    reason: |
+      The export does read inside one transaction, as the spec decided. But only SQLite's read
+      transaction is a true snapshot for free; on SQL Server under READ COMMITTED a busy
+      installation can still slip a row between the count and the stream, and the symptom would
+      be a good-looking archive that fails its import hours later on a count mismatch. Catching
+      it at the source turns that into an immediate, actionable message ("stop everything
+      writing to this database and export again"). Serializable isolation would also have
+      closed it, by blocking every writer for the length of a possibly long export.
+
+  - category: Scope
+    chose: "The whole import is one transaction, and the count verification runs inside it before the commit"
+    over: "Verifying after committing and reporting the difference"
+    reason: |
+      The failure this phase exists to prevent is a half-copied database. Verifying after a
+      commit would report the loss accurately and leave it in place; verifying before means a
+      disagreement takes the entire import down and the target is exactly as empty as it was.
+      Every refusal test asserts the refusal AND that the target is still empty afterwards.
+
+  - category: Security
+    chose: "The database is named through the config file; no connection string on argv"
+    over: "An --connection-string option on export/import, which is the shortest thing to type"
+    reason: |
+      A connection string on the command line lands in the process list and the shell history.
+      DatabaseCommand and ConfigCommand already reach a database through --config and the
+      config's ${secret} references, and ConfiguredStoreFactory is that same resolution modelled
+      once instead of copied a third time. The spec's test name
+      Cli_Export_WritesAnArchiveFromAConnectionString was renamed to
+      Cli_Export_WritesAnArchiveFromTheConfiguredDatabase to stop naming the interface that was
+      deliberately not built.
+
+  - category: Tooling
+    chose: "The cross-provider test is opt-in through a custom RequiresSqlServerFact that reports SKIPPED WITH A REASON"
+    over: "A plain [Fact] that returns early when the environment variable is absent"
+    reason: |
+      A test that quietly returns lets the phase's central claim pass unproven, and the phase
+      gate cannot tell the difference. xUnit 2.5 has no Assert.Skip, so the attribute sets
+      FactAttribute.Skip in its constructor: the runner then prints
+      "NOT RUN: set AGENTSMITH_TEST_DB_CONNSTR ..." and the summary counts a skip. The test
+      creates its OWN database per run and drops it, so it never touches an existing one.
+      IT WAS RUN: 2026-08-28, against SQL Server 2022 on localhost:1433 — passed, including the
+      full column-by-column comparison, the preserved keys and timestamps, and the insert after
+      the import.
+
+  - category: Tooling
+    chose: "The seed is generated FROM the model — two rows per table, all columns then all nullables null"
+    over: "Hand-written fixtures for the twenty-two entity types"
+    reason: |
+      A hand-written fixture proves the tables somebody remembered. FullStoreSeed walks
+      IEntityType and fills every mapped property by CLR type, so a table or a column added
+      next year is covered without anyone remembering, and an unsupported column type throws
+      rather than being skipped. Keys are seeded at 1007/1014 rather than 1..n precisely so a
+      target that regenerated them could not match. The comparison is the canonical encoding of
+      every row on both sides, sorted — not a row count, which is the check the audit-stamping
+      defect walks straight through. The two shapes that broke the hand transfer are seeded
+      explicitly: a dollar-parenthesis body and a 53,200-character one.
+
+  - category: Scope
+    chose: "CliInteractionRegistration was extracted from ServiceProviderFactory in the same commit"
+    over: "Adding the two archive registrations to a file the length ratchet had frozen at 129 lines"
+    reason: |
+      FileLengthRatchetTests baselines AgentSmith.Cli/ServiceProviderFactory.cs at 129 lines and
+      allows a listed file to get only SHORTER. The console-versus-Redis transport choice is a
+      registration decision of its own — which channel a one-shot run talks to its caller over —
+      so it moved to its own type. ServiceProviderFactory is 94 lines and has LEFT the baseline,
+      as the same rule requires of a file that drops under the limit. This is the only change in
+      this phase that touches code the archive does not own, and it is what the ratchet's own
+      failure message asks for.

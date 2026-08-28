@@ -3,17 +3,14 @@ using AgentSmith.Application.Services;
 using AgentSmith.Cli.Services;
 using AgentSmith.Cli.Services.Demo;
 using AgentSmith.Cli.Services.Preflight;
-using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Extensions;
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Models;
-using AgentSmith.Infrastructure.Services.Bus;
-using AgentSmith.Infrastructure.Services.Dialogue;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 
 namespace AgentSmith.Cli;
 
@@ -65,7 +62,10 @@ internal static class ServiceProviderFactory
         services.AddSingleton<Commands.ValidateConceptsCommand>();
         // p0391b: `agentsmith config validate` runs the server's own rules over a file.
         services.AddSingleton<ConfigValidator>();
-        RegisterDialogueAndProgress(services, headless, jobId, redisUrl);
+        // 2026-08-28-2af6: `archive export|import` — the store copy that crosses providers.
+        services.AddDataArchive();
+        services.AddSingleton<ConfiguredStoreFactory>();
+        services.AddCliInteraction(headless, jobId, redisUrl);
 
         if (!string.IsNullOrWhiteSpace(configPath))
         {
@@ -91,39 +91,4 @@ internal static class ServiceProviderFactory
             ValidateOnBuild = true,
             ValidateScopes = false,
         });
-
-    private static void RegisterDialogueAndProgress(
-        IServiceCollection services, bool headless, string jobId, string redisUrl)
-    {
-        var spawnedJobMode = !string.IsNullOrWhiteSpace(jobId) && !string.IsNullOrWhiteSpace(redisUrl);
-        if (spawnedJobMode)
-        {
-            var multiplexer = ConnectMultiplexer(redisUrl);
-            services.AddSingleton<IConnectionMultiplexer>(multiplexer);
-            services.AddSingleton<IMessageBus, RedisMessageBus>();
-            services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
-            services.AddSingleton<IProgressReporter>(sp =>
-                new RedisProgressReporter(
-                    sp.GetRequiredService<IMessageBus>(), jobId,
-                    sp.GetRequiredService<ILogger<RedisProgressReporter>>()));
-            return;
-        }
-
-        services.AddSingleton<IDialogueTransport>(sp =>
-            new ConsoleDialogueTransport(
-                Console.In, Console.Out,
-                sp.GetRequiredService<ILogger<ConsoleDialogueTransport>>()));
-        services.AddSingleton<IProgressReporter>(sp =>
-            new ConsoleProgressReporter(
-                sp.GetRequiredService<ILogger<ConsoleProgressReporter>>(), headless));
-    }
-
-    private static IConnectionMultiplexer ConnectMultiplexer(string redisUrl)
-    {
-        var options = ConfigurationOptions.Parse(redisUrl);
-        options.AbortOnConnectFail = false;
-        options.ConnectRetry = 3;
-        options.ConnectTimeout = 5000;
-        return ConnectionMultiplexer.Connect(options);
-    }
 }
