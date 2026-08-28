@@ -48,17 +48,14 @@ public sealed class SpecAccountant(
         // p0483: the account settles an absence by searching the branch itself, so the call
         // carries a tool and an iteration cap. Without a sandbox it falls back to the cited
         // evidence, which is what every account did before this.
-        var searchable = branchSearch?.Repositories;
-        var baseSearchable = branchSearch?.BaseSearchable;
-        var tools = AccountTools.For(branchSearch);
+        var evidence = AccountEvidence.For(diff, commandResults, branchSearch);
         var chat = chatClientFactory.Create(
-            agent, TaskType.Reasoning, tools is null ? null : AccountTools.MaxIterations);
+            agent, TaskType.Reasoning, evidence.Tools is null ? null : AccountTools.MaxIterations);
 
         // A diff too large for one call is SPLIT, never cut: evidence is monotone, so a
         // criterion satisfied by one window is satisfied, and the windows' answers union.
         // 2026-08-25-1360: derived ONCE, from the whole delivery, and handed to every call.
         // A window's own files are not the branch's files, and the heading says complete.
-        var deliveryFiles = CitedFileIndex.FromDiff(diff);
         var split = DiffWindows.Split(diff, windowBudgetChars);
         if (split.Count > 1)
             logger.LogInformation(
@@ -67,8 +64,7 @@ public sealed class SpecAccountant(
                 repoKey, split.Count);
 
         var answer = await calls.AskEveryAsync(
-            chat, repoKey, criteria, split, commandResults, searchable, tools,
-            deliveryFiles, baseSearchable, costTracker, cancellationToken);
+            chat, repoKey, criteria, split, evidence, costTracker, cancellationToken);
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
@@ -76,27 +72,39 @@ public sealed class SpecAccountant(
         // resolver made ahead of time can never see them — which is why the first live run
         // was refused for a criterion it had settled by looking.
         var reader = new AccountRowResolution(logger);
-        var rows = reader.Resolve(repoKey, criteria, answer,
+        IReadOnlyList<CriterionAccount> rows = reader.Resolve(repoKey, criteria, answer,
             AccountTools.ResolverOver(diff, commandResults, branchSearch));
+        rows = await CorrectAsync(
+            chat, repoKey, rows, split, evidence, diff, branchSearch, reader,
+            costTracker, cancellationToken);
 
+        // 2026-08-25-6f12: the last question, and the only one asked of the whole branch at
+        // once. A criterion whose subjects are split across windows is unanswerable by any
+        // one of them, so the union of their noes is an artefact of the cut, not a verdict.
+        return new SpecAccount(repoKey, await new AccountFullReachPass(calls, logger).SettleAsync(
+            chat, repoKey, rows, evidence, diff, branchSearch, reader,
+            costTracker, cancellationToken));
+    }
+
+    /// <summary>p0474: the citations that resolved against nothing, asked about once more with
+    /// the objection and the same evidence.</summary>
+    private async Task<IReadOnlyList<CriterionAccount>> CorrectAsync(
+        IChatClient chat, string repoKey, IReadOnlyList<CriterionAccount> rows,
+        IReadOnlyList<string> split, AccountEvidence evidence, string diff,
+        BranchSearch? branchSearch, AccountRowResolution reader,
+        PipelineCostTracker costTracker, CancellationToken cancellationToken)
+    {
         var unresolved = AccountReAsk.Unresolved(rows);
-        if (unresolved.Count == 0) return new SpecAccount(repoKey, rows);
+        if (unresolved.Count == 0) return rows;
         logger.LogInformation(
             "{Repo}: {Count} criterion(s) cited something that resolves against nothing — asking once more",
             repoKey, unresolved.Count);
-        // The correction demands a path copied exactly as the FILE LIST prints it, so it
-        // needs the same complete list. Shown windows[0]'s list, a criterion whose file
-        // lives in a later window was being asked to comply with a list that cannot hold it.
         var second = await calls.AskCorrectionAsync(
             chat, repoKey, [.. unresolved.Select(u => u.Criterion)],
-            split.Count > 0 ? split[0] : string.Empty,
-            searchable, commandResults, tools, deliveryFiles,
-            AccountReAsk.Message(unresolved), baseSearchable, costTracker, cancellationToken);
-        return new SpecAccount(repoKey, AccountSecondPass.Merge(
+            split.Count > 0 ? split[0] : string.Empty, evidence,
+            AccountReAsk.Message(unresolved), costTracker, cancellationToken);
+        return AccountAnswerMerge.Of(
             rows, unresolved, second, repoKey, reader,
-            AccountTools.ResolverOver(diff, commandResults, branchSearch)));
+            AccountTools.ResolverOver(diff, evidence.CommandResults, branchSearch));
     }
-
-    private const string RoleName = "spec-accountant";
-
 }
