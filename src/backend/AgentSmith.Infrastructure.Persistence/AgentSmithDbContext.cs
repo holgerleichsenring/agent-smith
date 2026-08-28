@@ -71,6 +71,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         // added alongside — not instead of — the uniform RunId index.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
         new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-25-61f1
+        new MoneyPrecisionConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-28-b883
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
