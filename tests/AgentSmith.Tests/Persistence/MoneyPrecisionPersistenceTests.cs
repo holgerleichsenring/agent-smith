@@ -12,7 +12,8 @@ namespace AgentSmith.Tests.Persistence;
 /// 2026-08-28-b883: a money column returns what it was handed. SQL Server typed the three
 /// money columns decimal(18,2), which rounds every per-call cost a model produces to 0.00.
 /// The round trip runs on SQLite always, and on SQL Server too whenever
-/// AGENTSMITH_TEST_DB_CONNSTR names an already-migrated database; the schema assertion
+/// AGENTSMITH_TEST_DB_CONNSTR names a SERVER, on which this creates and drops a database
+/// of its own — the reading the archive tests already apply to it. The schema assertion
 /// reads the model and the shipped snapshot, so it runs everywhere.
 /// </summary>
 public sealed class MoneyPrecisionPersistenceTests
@@ -86,20 +87,46 @@ public sealed class MoneyPrecisionPersistenceTests
 
     private static async Task<(decimal Call, decimal Total, decimal? Cap)> RoundTripAsync(string provider)
     {
-        using var sqlite = provider == SqliteProvider ? MigratedStoreTemplate.OpenCopy() : null;
+        // SQL Server gets a migrated database of this run's own — the variable names a
+        // SERVER, the same reading the archive's own SQL Server test applies to it.
+        if (provider != SqliteProvider)
+        {
+            await using var scratch = await ScratchSqlServer.MigratedAsync(SqlServerConnection!, "money");
+            try
+            {
+                return await WriteAndReadAsync(() => new AgentSmithDbContext(Options(scratch)));
+            }
+            finally
+            {
+                await scratch.Database.EnsureDeletedAsync();
+            }
+        }
+
+        using var sqlite = MigratedStoreTemplate.OpenCopy();
+        return await WriteAndReadAsync(() => NewContext(provider, sqlite));
+    }
+
+    private static DbContextOptions<AgentSmithDbContext> Options(AgentSmithDbContext migrated)
+    {
+        var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
+        builder.UseSqlServer(migrated.Database.GetConnectionString());
+        return builder.Options;
+    }
+
+    private static async Task<(decimal Call, decimal Total, decimal? Cap)> WriteAndReadAsync(
+        Func<AgentSmithDbContext> context)
+    {
         var runId = $"money-{Guid.NewGuid():N}";
-        await using (var write = NewContext(provider, sqlite))
+        await using (var write = context())
         {
             write.Runs.Add(NewRun(runId));
             write.RunLlmCalls.Add(new RunLlmCall { RunId = runId, Model = "test-model", CostUsd = CallCost });
             await write.SaveChangesAsync();
         }
 
-        await using var read = NewContext(provider, sqlite);
+        await using var read = context();
         var run = await read.Runs.AsNoTracking().SingleAsync(r => r.Id == runId);
         var call = await read.RunLlmCalls.AsNoTracking().SingleAsync(c => c.RunId == runId);
-        await read.RunLlmCalls.Where(c => c.RunId == runId).ExecuteDeleteAsync();
-        await read.Runs.Where(r => r.Id == runId).ExecuteDeleteAsync();
         return (call.CostUsd, run.CostTotalUsd, run.BudgetCapUsd);
     }
 

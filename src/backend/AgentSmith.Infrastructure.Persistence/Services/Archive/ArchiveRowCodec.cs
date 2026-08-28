@@ -13,7 +13,11 @@ namespace AgentSmith.Infrastructure.Persistence.Services.Archive;
 /// </summary>
 public sealed class ArchiveRowCodec
 {
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
+    private static readonly JsonSerializerOptions Json = new()
+    {
+        WriteIndented = false,
+        Converters = { new ArchiveDecimalConverter() },
+    };
 
     public string Encode(IEntityType type, object row)
     {
