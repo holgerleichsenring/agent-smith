@@ -46,12 +46,13 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
         var entry = trail.LastOrDefault(e =>
             string.Equals(e.CommandName, criterion.AnsweredBy, StringComparison.Ordinal));
         if (entry is null)
-            return new AccountRow(criterion.Statement, false, null,
+            return new AccountRow(criterion.Statement, AccountDisposition.NotSatisfied, null,
                 $"{criterion.AnsweredBy} never ran, so nothing answered this");
         if (!entry.Success)
-            return new AccountRow(criterion.Statement, false, null,
+            return new AccountRow(criterion.Statement, AccountDisposition.NotSatisfied, null,
                 $"{criterion.AnsweredBy} failed: {entry.Message}");
-        return new AccountRow(criterion.Statement, true, criterion.AnsweredBy, entry.Message);
+        return new AccountRow(
+            criterion.Statement, AccountDisposition.Satisfied, criterion.AnsweredBy, entry.Message);
     }
 
     private static IReadOnlyList<string> Succeeded(IReadOnlyList<ExecutionTrailEntry> trail) =>

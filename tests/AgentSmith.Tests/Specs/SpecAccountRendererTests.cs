@@ -16,8 +16,8 @@ public sealed class SpecAccountRendererTests
     {
         var text = SpecAccountRenderer.ToMarkdown([
             new SpecAccount("sample-repo", [
-                new CriterionAccount("packages reach their pinned versions", true, "src/Api/Api.csproj"),
-                new CriterionAccount("build and test are green", true, Mechanical: true)])]);
+                new CriterionAccount("packages reach their pinned versions", AccountDisposition.Satisfied, "src/Api/Api.csproj"),
+                new CriterionAccount("build and test are green", AccountDisposition.Satisfied, Mechanical: true)])]);
 
         text.Should().Contain("- [x] packages reach their pinned versions — `src/Api/Api.csproj`");
         text.Should().Contain("verified by command", "a green build is evidence of a different kind");
@@ -28,7 +28,7 @@ public sealed class SpecAccountRendererTests
     {
         var text = SpecAccountRenderer.ToMarkdown([
             new SpecAccount("worker-repo", [
-                new CriterionAccount("packages reach their pinned versions", false,
+                new CriterionAccount("packages reach their pinned versions", AccountDisposition.NotSatisfied,
                     Note: "nothing in the diff touches a manifest")])]);
 
         text.Should().Contain("- [ ] packages reach their pinned versions");

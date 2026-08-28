@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services;
@@ -54,7 +55,12 @@ public static class RunDeliveryGate
                 + $"\n- {string.Join("\n- ", outstanding)}"
                 + "\nRecorded as FAILED; what is missing is named above, not inferred.");
 
-        return DeliveryVerdict.Ok();
+        // 2026-08-25-9749: the run-level rail. A criterion the account declined is not a
+        // shortfall and never reaches the list above — which is exactly why the run has to
+        // ask separately whether anything at all was proven.
+        return NothingProven.Refusal(all, "run") is { } nothing
+            ? DeliveryVerdict.Fail(nothing + "\nRecorded as FAILED.")
+            : DeliveryVerdict.Ok();
     }
 
     private static IReadOnlyList<string> Outstanding(RunAccounts accounts) =>

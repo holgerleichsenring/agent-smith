@@ -22,9 +22,9 @@ public sealed class ScanAccountRenderingTests
     {
         var pipeline = new PipelineContext();
         RunAccountLedger.Record(pipeline, [Account(
-            new CriterionAccount("Known-vulnerable dependencies are identified", false, null,
+            new CriterionAccount("Known-vulnerable dependencies are identified", AccountDisposition.NotSatisfied, null,
                 "DependencyAuditCommand failed: restore returned 401"),
-            new CriterionAccount("Secrets in the working source are identified", true,
+            new CriterionAccount("Secrets in the working source are identified", AccountDisposition.Satisfied,
                 "StaticPatternScanCommand", Mechanical: true))]);
 
         var section = RunAccountSection.Build(pipeline);
@@ -49,7 +49,7 @@ public sealed class ScanAccountRenderingTests
     {
         var pipeline = new PipelineContext();
         RunAccountLedger.Record(pipeline,
-            [new SpecAccount("api", [new CriterionAccount("the endpoint returns 200", true, "Api.cs")])]);
+            [new SpecAccount("api", [new CriterionAccount("the endpoint returns 200", AccountDisposition.Satisfied, "Api.cs")])]);
 
         RunAccountSection.Build(pipeline).Should().Contain("## What this run accounted for");
     }

@@ -1,0 +1,121 @@
+{
+  "model_id": "gpt-4.1",
+  "prompt_version": "1d708432",
+  "generated_at": "2026-08-28T11:00:39.109902+00:00",
+  "entries": [
+    {
+      "fixture_id": "absence-no-legacy-bus",
+      "class": "absence",
+      "criteria": [
+        {
+          "criterion": "No source file in the repository references the legacy bus library.",
+          "truth_is_met": true,
+          "account_disposition": 2,
+          "citation": "LegacyBus",
+          "note": "A search for \u0027LegacyBus\u0027 returned no results in the repository.",
+          "blocks": false,
+          "is_false_negative": false,
+          "is_false_positive": false,
+          "agrees": true
+        }
+      ],
+      "problem": null
+    },
+    {
+      "fixture_id": "met-explicit-publish-routes",
+      "class": "met",
+      "criteria": [
+        {
+          "criterion": "Each applicable host contains an explicit broker extension with conventional local routing disabled, explicit publish routes where the host publishes, and listener bindings where the host consumes.",
+          "truth_is_met": true,
+          "account_disposition": 2,
+          "citation": "src/Messaging/Installer.cs",
+          "note": "Both hosts define a broker extension, disable conventional routing, and configure publish/listener bindings as appropriate.",
+          "blocks": false,
+          "is_false_negative": false,
+          "is_false_positive": false,
+          "agrees": true
+        },
+        {
+          "criterion": "Every publish route names its exchange through the shared name formatter rather than a literal string.",
+          "truth_is_met": false,
+          "account_disposition": 0,
+          "citation": null,
+          "note": "Publish routes use literal strings for exchange names rather than a formatter.",
+          "blocks": true,
+          "is_false_negative": false,
+          "is_false_positive": false,
+          "agrees": true
+        }
+      ],
+      "problem": null
+    },
+    {
+      "fixture_id": "universal-across-windows",
+      "class": "universal-across-windows",
+      "criteria": [
+        {
+          "criterion": "Each applicable host contains an explicit broker extension with conventional local routing disabled and topology appropriate to its publisher or consumer role.",
+          "truth_is_met": true,
+          "account_disposition": 0,
+          "citation": null,
+          "note": "Sample.Server configures publisher routing but Sample.Worker only disables local routing and uses the queue transport \u2014 it does not configure subscriptions or consumer topology corresponding to its role.",
+          "blocks": true,
+          "is_false_negative": true,
+          "is_false_positive": false,
+          "agrees": false
+        }
+      ],
+      "problem": null
+    },
+    {
+      "fixture_id": "unmet-missing-dead-letter",
+      "class": "unmet",
+      "criteria": [
+        {
+          "criterion": "Every listening queue has configured dead-letter handling.",
+          "truth_is_met": false,
+          "account_disposition": 0,
+          "citation": null,
+          "note": "No evidence of dead-letter handling configuration was found in the branch.",
+          "blocks": true,
+          "is_false_negative": false,
+          "is_false_positive": false,
+          "agrees": true
+        }
+      ],
+      "problem": null
+    },
+    {
+      "fixture_id": "vacuous-conditional-topic-transport",
+      "class": "vacuous-conditional",
+      "criteria": [
+        {
+          "criterion": "Every topic-transport publisher and consumer configuration uses the required subscription shortening and websocket transport, where the topic transport was previously configured.",
+          "truth_is_met": true,
+          "account_disposition": 1,
+          "citation": "Sample.Server@origin/main: the account searched \u0027topic-transport\u0027 exited 1",
+          "note": "No topic-transport configuration was present in the base, so the criterion does not apply.",
+          "blocks": false,
+          "is_false_negative": false,
+          "is_false_positive": false,
+          "agrees": true
+        }
+      ],
+      "problem": null
+    }
+  ],
+  "met_population": 4,
+  "unmet_population": 2,
+  "false_negatives": 1,
+  "false_positives": 0,
+  "false_negative_rate": 0.25,
+  "false_positive_rate": 0,
+  "classes_covered": [
+    "absence",
+    "met",
+    "universal-across-windows",
+    "unmet",
+    "vacuous-conditional"
+  ]
+}

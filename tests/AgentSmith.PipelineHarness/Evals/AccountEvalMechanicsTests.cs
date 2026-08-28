@@ -158,7 +158,7 @@ public sealed class AccountEvalMechanicsTests
     {
         var report = await ScoreAsync("met-explicit-publish-routes", answer: "[]");
 
-        report.Entries.Single().Criteria.Should().OnlyContain(c => !c.AccountSatisfied);
+        report.Entries.Single().Criteria.Should().OnlyContain(c => c.Blocks);
         report.FalseNegatives.Should().Be(1, "silence is what the gate acts on");
     }
 

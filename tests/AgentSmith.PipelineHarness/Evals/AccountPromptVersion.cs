@@ -16,10 +16,20 @@ namespace AgentSmith.PipelineHarness.Evals;
 /// </summary>
 public static class AccountPromptVersion
 {
-    /// <summary>The digest of the instructions, with the criteria, diff and command list held
-    /// constant so only the WORDING contributes.</summary>
+    /// <summary>
+    /// The digest of the instructions, with the criteria, diff and command list held constant
+    /// so only the WORDING contributes.
+    /// <para>
+    /// 2026-08-25-9749: BOTH variants, because the prompt now says different things where a
+    /// base can be searched and where one cannot. Digesting only the base-less variant would
+    /// have keyed a report on wording the fixtures — which all carry a base — never see.
+    /// </para>
+    /// </summary>
     public static string Current { get; } = Digest(
-        SpecAccountPrompt.For(["a criterion"], string.Empty, [], ["Sample.Server"]));
+        SpecAccountPrompt.For(["a criterion"], string.Empty, [], ["Sample.Server"])
+        + SpecAccountPrompt.For(
+            ["a criterion"], string.Empty, [], ["Sample.Server"],
+            baseSearchable: ["Sample.Server"]));
 
     private static string Digest(string prompt) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(prompt)))[..8].ToLowerInvariant();

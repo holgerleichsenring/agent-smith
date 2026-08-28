@@ -38,7 +38,7 @@ public sealed class RunDeliveryGateTests
         var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty.With("p1", [
             Account("api", Met("packages pinned", "src/Api/Api.csproj")),
             Account("worker", new CriterionAccount(
-                "packages pinned", false, Note: "nothing in the diff touches a manifest"))]), ratifiedCriteria: 2);
+                "packages pinned", AccountDisposition.NotSatisfied, Note: "nothing in the diff touches a manifest"))]), ratifiedCriteria: 2);
 
         verdict.Satisfied.Should().BeFalse();
         verdict.FailureReason.Should().Contain("worker: packages pinned");
@@ -54,7 +54,7 @@ public sealed class RunDeliveryGateTests
     public void EditsThatNeverReachedTheTree_CannotSatisfyACriterion()
     {
         var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty.With("p1", [
-            Account("api", new CriterionAccount("packages pinned", false,
+            Account("api", new CriterionAccount("packages pinned", AccountDisposition.NotSatisfied,
                 Note: "claimed satisfied by 'src/Api/Api.csproj', which the diff does not touch"))]), ratifiedCriteria: 2);
 
         verdict.Satisfied.Should().BeFalse();
@@ -67,7 +67,7 @@ public sealed class RunDeliveryGateTests
     {
         var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty
             .With("p1", [Account("api", Met("packages pinned", "src/Api/Api.csproj"))])
-            .With("p2", [Account("api", new CriterionAccount("call sites adapted", false))]),
+            .With("p2", [Account("api", new CriterionAccount("call sites adapted", AccountDisposition.NotSatisfied))]),
             ratifiedCriteria: 2);
 
         verdict.Satisfied.Should().BeFalse();
@@ -112,7 +112,7 @@ public sealed class RunDeliveryGateTests
     public void RerunningAPhase_ReplacesItsAccount_RatherThanCountingItTwice()
     {
         var accounts = RunAccounts.Empty
-            .With("p1", [Account("api", new CriterionAccount("packages pinned", false))])
+            .With("p1", [Account("api", new CriterionAccount("packages pinned", AccountDisposition.NotSatisfied))])
             .With("p1", [Account("api", Met("packages pinned", "src/Api/Api.csproj"))]);
 
         accounts.All.Should().ContainSingle();
@@ -139,6 +139,40 @@ public sealed class RunDeliveryGateTests
     private static SpecAccount Account(string repo, params CriterionAccount[] criteria) =>
         new(repo, criteria);
 
+    /// <summary>
+    /// 2026-08-25-9749: the run-level gate is the other bool reader outside the account's own
+    /// file. A declined criterion is not a shortfall — but a run that declined EVERYTHING has
+    /// proven nothing, and the gate says which criteria it declined to judge.
+    /// </summary>
+    [Fact]
+    public void RunDeliveryGate_ANotApplicableCriterion_IsNotAShortfall()
+    {
+        var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty.With("p1", [
+            Account("api",
+                Met("packages pinned", "src/Api/Api.csproj"),
+                Declined("the transport is configured on every host that had one"))]),
+            ratifiedCriteria: 2);
+
+        verdict.Satisfied.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RunDeliveryGate_EveryCriterionNotApplicable_FailsAndNamesThem()
+    {
+        var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty.With("p1", [
+            Account("api", Declined("the transport is configured on every host that had one"))]),
+            ratifiedCriteria: 1);
+
+        verdict.Satisfied.Should().BeFalse();
+        verdict.FailureReason.Should().Contain("the transport is configured on every host that had one");
+        verdict.FailureReason.Should().Contain("a previously configured transport");
+    }
+
+    private static CriterionAccount Declined(string criterion) =>
+        new(criterion, AccountDisposition.NotApplicable,
+            "api@origin/main: the account searched 'Transport' exited 1",
+            Antecedent: "a previously configured transport");
+
     private static CriterionAccount Met(string criterion, string citation) =>
-        new(criterion, true, citation);
+        new(criterion, AccountDisposition.Satisfied, citation);
 }

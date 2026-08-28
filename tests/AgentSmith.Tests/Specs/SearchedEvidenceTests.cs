@@ -37,7 +37,7 @@ public sealed class SearchedEvidenceTests
 
     private static CriterionAccount Resolve(BranchSearch search, string citation) =>
         AccountTools.ResolverOver(string.Empty, [], search)
-            .Resolve(new AccountRow("no MediatR remains", true, citation, "searched"));
+            .Resolve(new AccountRow("no MediatR remains", AccountDisposition.Satisfied, citation, "searched"));
 
     /// <summary>Exit 1 is the proof, so the line has to carry it — a reader that cannot see
     /// the status cannot tell an absence from a search that never ran.</summary>
@@ -82,7 +82,7 @@ public sealed class SearchedEvidenceTests
         var search = For(exitCode: 1);
         await search.SearchBranch(Repo, "MediatR");
 
-        Resolve(search, "MediatR").Satisfied.Should().BeTrue();
+        Resolve(search, "MediatR").IsSatisfied.Should().BeTrue();
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class SearchedEvidenceTests
         var search = For(exitCode: 1);
         await search.SearchBranch(Repo, "MediatR");
 
-        Resolve(search, "MassTransit").Satisfied.Should().BeFalse(
+        Resolve(search, "MassTransit").IsSatisfied.Should().BeFalse(
             "the standard does not move: a citation naming no evidence still fails");
     }
 
@@ -99,8 +99,8 @@ public sealed class SearchedEvidenceTests
     public void Citation_WithNoSearchAtAll_StillNeedsAFileOrACommand()
     {
         AccountTools.ResolverOver(string.Empty, [], null)
-            .Resolve(new AccountRow("no MediatR remains", true, "MediatR", "searched"))
-            .Satisfied.Should().BeFalse();
+            .Resolve(new AccountRow("no MediatR remains", AccountDisposition.Satisfied, "MediatR", "searched"))
+            .IsSatisfied.Should().BeFalse();
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class SearchedEvidenceTests
     public void AccountReAsk_Message_NamesTheSearchCitationForm()
     {
         var message = AccountReAsk.Message(
-            [new CriterionAccount("no MediatR remains", false, null, "claimed satisfied but cited nothing")]);
+            [new CriterionAccount("no MediatR remains", AccountDisposition.NotSatisfied, null, "claimed satisfied but cited nothing")]);
 
         message.Should().Contain("search_branch").And.Contain("PATTERN");
     }

@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Domain.Models;
 using System.Text.Json;
 
 namespace AgentSmith.PipelineHarness.Evals;
@@ -68,12 +69,22 @@ public static class AccountEvalReportWriter
         {
             var mark = outcome.Agrees ? "[x]" : outcome.IsFalseNegative ? "[FN]" : "[FP]";
             sb.AppendLine($"- {mark} truth={(outcome.TruthIsMet ? "met" : "unmet")}, "
-                + $"account={(outcome.AccountSatisfied ? "satisfied" : "not satisfied")}: "
+                + $"account={Disposition(outcome.AccountDisposition)}: "
                 + outcome.Criterion);
             if (outcome.Citation is not null) sb.AppendLine($"  - cited: {outcome.Citation}");
             if (outcome.Note is not null) sb.AppendLine($"  - note: {outcome.Note}");
         }
     }
+
+    /// <summary>2026-08-25-9749: the report prints the disposition, not a bool. A declined
+    /// criterion reading as "not satisfied" would hide the very answer this corpus exists to
+    /// let a human label.</summary>
+    private static string Disposition(AccountDisposition disposition) => disposition switch
+    {
+        AccountDisposition.Satisfied => "satisfied",
+        AccountDisposition.NotApplicable => "not applicable",
+        _ => "not satisfied",
+    };
 
     private static string Sanitize(string value)
     {
