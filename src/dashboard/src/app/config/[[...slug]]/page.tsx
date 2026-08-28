@@ -2,6 +2,7 @@ import { use } from "react";
 import { AccessStudio } from "@/components/access/AccessStudio";
 import { ConnectionsView } from "@/components/system/ConnectionsView";
 import { InstallationIdentityView } from "@/components/system/InstallationIdentityView";
+import { DataArchiveView } from "@/components/system/DataArchiveView";
 import { ConfigStudio, type StudioSection } from "@/components/config/ConfigStudio";
 import { SettingsStudio } from "@/components/config/SettingsStudio";
 import { isConfigEntityKind } from "@/components/config/entities";
@@ -39,7 +40,11 @@ export default function ConfigPage({ params }: PageProps) {
   if (slug?.[0] === "installation") {
     return (
       <DiagnosticPage>
+        {/* 2026-08-28-3793: the archive is a fact ABOUT this installation, so it sits with
+            the versions and the database state rather than in the config catalog. It loads
+            on its own: a read-out that cannot answer must not take the other one with it. */}
         <InstallationIdentityView />
+        <DataArchiveView />
       </DiagnosticPage>
     );
   }
