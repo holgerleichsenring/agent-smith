@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.141.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.140.0...v0.141.0) (2026-08-28)
+
+
+### Features
+
+* an installation states what it is running (2026-08-27-729e) ([53e57e5](https://github.com/holgerleichsenring/agent-smith/commit/53e57e509ce9cfb6c08c629ed83f8b2c2a7bd8ca))
+* starting a run answers at once (2026-08-27-7098) ([05dabe4](https://github.com/holgerleichsenring/agent-smith/commit/05dabe42cbcc323e737f1bcc2fa2eb4298d468e8))
+* starting a run answers at once, and an installation states what it is running ([415bde7](https://github.com/holgerleichsenring/agent-smith/commit/415bde7486c68f1b8626298177dce74cf8e2c186))
+* the header carries account and configuration (2026-08-27-1ed6) ([00260b4](https://github.com/holgerleichsenring/agent-smith/commit/00260b4fef4140a56f77926cd33d16d35e5d097a))
+* the header carries account and configuration, and one page replaces three rollups ([8c36713](https://github.com/holgerleichsenring/agent-smith/commit/8c36713f33706d823865b16bc2663660d2fc5d72))
+* the overview page replaces three rollups (2026-08-27-7463) ([2c7fbfa](https://github.com/holgerleichsenring/agent-smith/commit/2c7fbfabb660678e6a9f197262fdf042012913dc))
+* the overview reads as cards not strips (2026-08-27-559e) ([dd2e799](https://github.com/holgerleichsenring/agent-smith/commit/dd2e79989e7291a7994a0d60fad4d65de617e42e))
+
 ## [0.140.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.139.0...v0.140.0) (2026-08-27)
 
 
