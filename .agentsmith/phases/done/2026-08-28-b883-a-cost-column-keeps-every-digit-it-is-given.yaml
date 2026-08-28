@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-b883
+
+goal: "The money columns on SQL Server hold the fractions a model call actually costs, so moving to that provider stops rounding every call to zero."
+
+applies_to: "backend (the SQL Server column types for money, and a test that holds every provider to the same precision)"
+
+requires:
+  - p0346
+
+scope:
+  in: "The three money columns typed decimal(18,2) on SQL Server — a call's cost, a run's total, a run's budget cap — widened to hold what the application actually writes, with a test that fails if any provider stores less than it is given."
+  out: "Repairing values already rounded on an existing SQL Server installation; the digits are gone and no migration invents them. The SQLite typing, which is text and already exact."
+
+decisions:
+  - key: |
+      TWO DECIMAL PLACES IS ZERO FOR THE THING BEING MEASURED. A single model call costs
+      fractions of a cent — a live run's 72 calls ranged from 0.00032 to 0.034, and every one
+      of them rounds to 0.00 at two places. The column was typed for money as a person spends
+      it, and it stores money as a model spends it.
+  - key: |
+      THIS IS A PRECONDITION FOR THE DATA ARCHIVE, NOT A SEPARATE WISH. An import writes correct
+      values into columns that truncate them, and a row-count check confirms the copy while
+      every per-call cost reads zero. Widening first is what makes the archive's promise true.
+  - key: |
+      THE PROVIDERS MUST BE HELD TO ONE STANDARD BY A TEST, NOT BY MEMORY. SQLite stores decimal
+      as text and is exact by accident of its typing; SQL Server was given an explicit type and
+      it was the wrong one. A test that writes a representative call cost and reads it back on
+      every configured provider is what stops the next provider from repeating this.
+  - key: |
+      THE BUDGET CAP IS WIDENED TOO, THOUGH NOBODY HAS LOST A DIGIT THERE YET. It is the same
+      kind of number in the same table, and a column left at two places is the one that bites
+      the next time something writes a computed value into it.
+  - key: |
+      ALREADY-ROUNDED ROWS STAY ROUNDED, AND THAT IS SAID OUT LOUD. Widening a column does not
+      restore what was truncated on the way in. An installation that has run on SQL Server
+      carries zeros where per-call costs were; they can only be recovered from a source that
+      still has them.
+
+steps:
+  - id: the-money-columns-hold-what-is-written
+    action: "Widen the call cost, run total and budget cap on SQL Server to a scale that holds a per-call cost exactly, with a migration in the SQL Server migrations assembly."
+  - id: every-provider-returns-what-it-was-given
+    action: "Add a persistence test that writes a representative per-call cost and reads it back unchanged, running against each configured provider."
+
+tests:
+  - "Cost_APerCallFraction_ReadsBackExactlyOnEveryProvider"
+  - "Cost_ARunTotal_ReadsBackExactlyOnEveryProvider"
+  - "Cost_ABudgetCap_ReadsBackExactlyOnEveryProvider"
+  - "Migration_TheSqlServerSchema_TypesMoneyWiderThanTwoPlaces"
+
+done:
+  - "a per-call cost survives a write and read on SQL Server unchanged"
+  - "a test fails if any provider stores less precision than it is handed"
+  - "the migration is in the SQL Server assembly and the schema builds from empty"
+  - "build green, full suite green"

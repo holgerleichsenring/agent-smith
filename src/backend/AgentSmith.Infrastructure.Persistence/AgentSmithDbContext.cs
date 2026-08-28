@@ -2,6 +2,7 @@ using AgentSmith.Infrastructure.Persistence.Configurations;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Models;
+using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -71,6 +72,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         // added alongside — not instead of — the uniform RunId index.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
         new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-25-61f1
+        new MoneyPrecisionConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-28-b883
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -88,8 +90,21 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
         Database.BeginTransactionAsync(cancellationToken);
 
+    /// <summary>
+    /// 2026-08-28-2af6: stops the audit stamping for the life of the returned scope, so a
+    /// writer that already knows a row's CreatedAt/UpdatedAt keeps them. Without it a data
+    /// archive import gives all twenty-two tables the wall-clock of the import while every
+    /// row count still matches — a loss no count check can see.
+    /// </summary>
+    public IDisposable SuspendAuditStamping() => new AuditStampingSuspension(this);
+
+    internal void SetAuditSuspended(bool suspended) => _auditSuspended = suspended;
+
+    private bool _auditSuspended;
+
     private void StampAudit()
     {
+        if (_auditSuspended) return;
         var now = DateTimeOffset.UtcNow;
         foreach (var entry in ChangeTracker.Entries<EntityBase>())
         {

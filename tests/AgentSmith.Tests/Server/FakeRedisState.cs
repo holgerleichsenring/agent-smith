@@ -82,6 +82,21 @@ public sealed class FakeRedisState
         lock (_gate) return _strings.TryGetValue(key, out var v) ? v : RedisValue.Null;
     }
 
+    /// <summary>
+    /// 2026-08-28-3793: the config epoch is a counter, and a mock that answered default
+    /// for INCR let "the restore signalled the epoch" pass over a signal that never
+    /// happened — the write guard swallows a failing bump on purpose.
+    /// </summary>
+    public long StringIncrement(string key)
+    {
+        lock (_gate)
+        {
+            var next = (_strings.TryGetValue(key, out var current) ? long.Parse(current) : 0L) + 1;
+            _strings[key] = next.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return next;
+        }
+    }
+
     public bool KeyDelete(string key)
     {
         lock (_gate) return _strings.Remove(key);

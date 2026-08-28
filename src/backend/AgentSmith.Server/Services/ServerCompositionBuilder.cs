@@ -42,6 +42,9 @@ public static class ServerCompositionBuilder
             // DB-backed guard when AGENTSMITH_PERSISTENCE_PROVIDER is set). Must
             // run AFTER the overrides registered the NoOp default so RemoveAll wins.
             .AddRelationalPersistence()
+            // 2026-08-28-3793: the archive endpoints' graph — the persistence project's
+            // writer and reader, plus this server's own restore policy.
+            .AddDataArchiveTransfer()
             .AddSandbox()
             .AddSandboxGlobalConfig()
             .AddOrchestratorGlobalConfig()

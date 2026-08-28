@@ -12,6 +12,8 @@ DELETE	/api/runs	runs.delete
 DELETE	/api/runs/{runId}	runs.delete
 DELETE	/api/runs/{runId}/judgements	runs.control
 GET	/api/access	access.read
+GET	/api/archive/export	archive.export
+GET	/api/archive/preview	archive.export
 GET	/api/auth/requirements	anonymous
 GET	/api/catalog	catalog.read
 GET	/api/catalog/skills/{name}	catalog.read
@@ -49,6 +51,7 @@ GET	/api/runs/{runId}/trace	runs.read
 GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read
 GET	/api/runs/{runId}/trail	runs.read
 GET	/health	anonymous
+POST	/api/archive/import	archive.import
 POST	/api/config/agents	config.write
 POST	/api/config/changes/{id}/revert	config.write,secrets.write
 POST	/api/config/connections	config.write
