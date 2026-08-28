@@ -15,8 +15,25 @@ public sealed record SpecAccount(
     IReadOnlyList<CriterionAccount> Criteria,
     string? Problem = null)
 {
-    /// <summary>Nothing outstanding — and an account that could not be taken is not a pass.</summary>
-    public bool Delivered => Problem is null && Criteria.Count > 0 && Criteria.All(c => c.Satisfied);
+    /// <summary>
+    /// Nothing outstanding — and an account that could not be taken is not a pass.
+    /// <para>
+    /// 2026-08-25-9749: nor is an account that satisfied NOTHING, whatever it calls not
+    /// applicable. Without that clause the third disposition becomes a way to pass a phase
+    /// having proven nothing at all.
+    /// </para>
+    /// </summary>
+    public bool Delivered =>
+        Problem is null && Criteria.Count > 0 && Outstanding.Count == 0 && ProvesSomething;
 
-    public IReadOnlyList<CriterionAccount> Outstanding => [.. Criteria.Where(c => !c.Satisfied)];
+    /// <summary>The criteria that are a shortfall: not satisfied, and not declined.</summary>
+    public IReadOnlyList<CriterionAccount> Outstanding => [.. Criteria.Where(c => c.IsOutstanding)];
+
+    /// <summary>2026-08-25-9749: the criteria the account declined to judge. A refusal has to
+    /// be able to name them, or it is a failure with no criterion in it and no repair
+    /// possible — the shape the account was built to end.</summary>
+    public IReadOnlyList<CriterionAccount> Declined => [.. Criteria.Where(c => c.IsNotApplicable)];
+
+    /// <summary>At least one criterion is positively satisfied by the branch.</summary>
+    public bool ProvesSomething => Criteria.Any(c => c.IsSatisfied);
 }

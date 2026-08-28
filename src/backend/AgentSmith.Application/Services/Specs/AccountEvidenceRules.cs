@@ -34,9 +34,8 @@ internal static class AccountEvidenceRules
     /// <summary>
     /// 2026-08-25-0eae: the base is reachable, and the account is told so. A tool nobody is
     /// told about ships inert — the same way p0483's search would have, had its rule not been
-    /// written at the same time. What the base is FOR beyond looking is not stated here: how a
-    /// conditional is discharged is its own phase, and a rule that runs ahead of the
-    /// disposition it needs would invite an answer the account cannot express.
+    /// written at the same time. 2026-08-25-9749 adds what the base is FOR, now that the
+    /// disposition exists to express the answer.
     /// </summary>
     public static string Base(IReadOnlyList<string>? baseSearchable) =>
         baseSearchable is { Count: > 0 }
@@ -47,4 +46,38 @@ internal static class AccountEvidenceRules
               + "different fact from a search of the branch: one says what is there now, the\n"
               + "other what was there before."
             : string.Empty;
+
+    /// <summary>
+    /// 2026-08-25-9749: the third disposition, offered ONLY where a base can be searched.
+    /// It is admitted by a base search that ran and found nothing plus a named antecedent,
+    /// so where there is no base to search it could never be admitted — and a disposition
+    /// that always degrades to "not satisfied" is a false-refusal generator wearing the
+    /// costume of a fix.
+    /// </summary>
+    public static string NotApplicable(IReadOnlyList<string>? baseSearchable) =>
+        baseSearchable is { Count: > 0 }
+            ? "A criterion can also be CONDITIONAL — it applies only WHERE something was\n"
+              + "already the case (\"every host that already configures X …\", \"wherever Y was\n"
+              + "previously set up\"). If the base never contained that thing anywhere, the\n"
+              + "criterion has nothing to apply to. That is neither satisfied nor unsatisfied:\n"
+              + "answer \"not_applicable\", put the precondition you found absent in\n"
+              + "\"antecedent\", and cite the search_base pattern that found nothing. Without\n"
+              + "BOTH — a base search that ran and matched nothing, and a named antecedent —\n"
+              + "\"not_applicable\" is read as NOT SATISFIED. It is not a way to set a criterion\n"
+              + "aside: where the base DOES contain the precondition, answer normally, and a\n"
+              + "criterion that states a prohibition or a plain requirement is never conditional."
+            : string.Empty;
+
+    /// <summary>The answer shape, which carries the third disposition only where it can be
+    /// admitted. Naming a disposition the account cannot use is how a rule teaches an answer
+    /// the checker will refuse.</summary>
+    public static string AnswerShape(IReadOnlyList<string>? baseSearchable) =>
+        baseSearchable is { Count: > 0 }
+            ? "  [{\"criterion\": \"<verbatim>\", \"disposition\": \"satisfied\" | \"not_applicable\" | \"not_satisfied\",\n"
+              + "     \"citations\": [\"<one diff path, or one command copied whole>\", \"...\"],\n"
+              + "     \"antecedent\": \"<not_applicable only: the precondition the base does not contain>\",\n"
+              + "     \"note\": \"<one short sentence>\"}]"
+            : "  [{\"criterion\": \"<verbatim>\", \"disposition\": \"satisfied\" | \"not_satisfied\",\n"
+              + "     \"citations\": [\"<one diff path, or one command copied whole>\", \"...\"],\n"
+              + "     \"note\": \"<one short sentence>\"}]";
 }

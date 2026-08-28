@@ -35,9 +35,13 @@ internal static class AccountSecondPass
 
         var corrected = reader.Resolve(
             repoKey, [.. unresolved.Select(u => u.Criterion)], second, resolver);
+        // 2026-08-25-9749: the correction may only RAISE a disposition, by the same ranking
+        // the window merge uses. Reading it as "satisfied wins" would have made the second
+        // answer unable to say what the first one could.
         return [.. first.Select(row =>
             corrected.FirstOrDefault(c => string.Equals(
-                c.Criterion, row.Criterion, StringComparison.OrdinalIgnoreCase)) is { Satisfied: true } fixedRow
+                c.Criterion, row.Criterion, StringComparison.OrdinalIgnoreCase)) is { } fixedRow
+            && fixedRow.Disposition > row.Disposition
             ? fixedRow
             : row)];
     }

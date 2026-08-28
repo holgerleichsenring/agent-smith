@@ -33,14 +33,14 @@ public sealed class ShortenedCommandCitationTests
 
     private static CriterionAccount Resolve(string citation, params string[] commands) =>
         new CitationResolver(CitedFileIndex.FromDiff(string.Empty), commands)
-            .Resolve(new AccountRow("criterion", true, citation, "note"));
+            .Resolve(new AccountRow("criterion", AccountDisposition.Satisfied, citation, "note"));
 
     [Fact]
     public void Citation_TheShownCommandPlusTheGrammarsClosingQuote_Resolves()
     {
         var line = EvidenceLine();
 
-        Resolve(EvidenceCommand.InEvidence(line) + "'", line).Satisfied.Should().BeTrue(
+        Resolve(EvidenceCommand.InEvidence(line) + "'", line).IsSatisfied.Should().BeTrue(
             "a cut inside a shell literal leaves the line an unbalanced quote and the reader closes it");
     }
 
@@ -49,7 +49,7 @@ public sealed class ShortenedCommandCitationTests
     {
         var line = EvidenceLine();
 
-        Resolve(EvidenceCommand.InEvidence(line), line).Satisfied.Should().BeTrue();
+        Resolve(EvidenceCommand.InEvidence(line), line).IsSatisfied.Should().BeTrue();
     }
 
     /// <summary>
@@ -65,7 +65,7 @@ public sealed class ShortenedCommandCitationTests
         var line = EvidenceLine();
         var head = ShownCommand().Split('…')[0];
 
-        Resolve(head, line).Satisfied.Should().BeFalse(
+        Resolve(head, line).IsSatisfied.Should().BeFalse(
             "a head does not tell two sibling commands apart, and the tail is what does");
     }
 
@@ -82,9 +82,9 @@ public sealed class ShortenedCommandCitationTests
         var lines = log.Evidence();
         var shared = EvidenceCommand.InEvidence(lines[0]).Split('…')[0];
 
-        Resolve(shared, [.. lines]).Satisfied.Should().BeFalse(
+        Resolve(shared, [.. lines]).IsSatisfied.Should().BeFalse(
             "the head both searches share names neither of them in particular");
-        Resolve(EvidenceCommand.InEvidence(lines[1]), [.. lines]).Satisfied.Should().BeTrue(
+        Resolve(EvidenceCommand.InEvidence(lines[1]), [.. lines]).IsSatisfied.Should().BeTrue(
             "the whole shown command names exactly one of them");
     }
 
@@ -95,13 +95,13 @@ public sealed class ShortenedCommandCitationTests
     {
         var line = EvidenceLine();
 
-        Resolve(line, line).Satisfied.Should().BeTrue();
+        Resolve(line, line).IsSatisfied.Should().BeTrue();
     }
 
     [Fact]
     public void Citation_TrimmingTheQuotesLeavesNothing_DoesNotResolve()
     {
-        Resolve("'''", EvidenceLine()).Satisfied.Should().BeFalse(
+        Resolve("'''", EvidenceLine()).IsSatisfied.Should().BeFalse(
             "trimming shortens a citation, it never invents one");
     }
 
@@ -110,13 +110,13 @@ public sealed class ShortenedCommandCitationTests
     [Fact]
     public void Citation_ACommandThatNeverRan_StillDoesNotResolve()
     {
-        Resolve("rm -rf /'", EvidenceLine()).Satisfied.Should().BeFalse();
+        Resolve("rm -rf /'", EvidenceLine()).IsSatisfied.Should().BeFalse();
     }
 
     [Fact]
     public void Citation_AShortPrefixOfARealCommand_StillDoesNotResolve()
     {
-        Resolve("set -e'", EvidenceLine()).Satisfied.Should().BeFalse(
+        Resolve("set -e'", EvidenceLine()).IsSatisfied.Should().BeFalse(
             "p0473's floor keeps 'dotnet' from standing in for 'dotnet test'");
     }
 }

@@ -109,7 +109,8 @@ public sealed class AccountEvalHarness(
             {
                 rows.TryGetValue(criterion.Text, out var row);
                 return new AccountEvalReport.CriterionOutcome(
-                    criterion.Text, criterion.IsMet, row?.Satisfied ?? false,
+                    criterion.Text, criterion.IsMet,
+                    row?.Disposition ?? AccountDisposition.NotSatisfied,
                     row?.Citation, row?.Note ?? (row is null ? "the account did not answer" : null));
             }),
         ];

@@ -46,9 +46,9 @@ public sealed class CitedFileIndexTests
     {
         var resolver = new CitationResolver(CitedFileIndex.FromPaths(["src/Api/Swagger.cs"]), []);
 
-        var account = resolver.Resolve(new AccountRow("the spec is documented", true, "Swagger.cs"));
+        var account = resolver.Resolve(new AccountRow("the spec is documented", AccountDisposition.Satisfied, "Swagger.cs"));
 
-        account.Satisfied.Should().BeTrue();
+        account.IsSatisfied.Should().BeTrue();
         account.Citation.Should().Be("Swagger.cs");
     }
 
@@ -59,9 +59,9 @@ public sealed class CitedFileIndexTests
             CitedFileIndex.FromPaths([]), ["DependencyAuditCommand: 0 advisories"]);
 
         var account = resolver.Resolve(
-            new AccountRow("dependencies audited", true, "DependencyAuditCommand"));
+            new AccountRow("dependencies audited", AccountDisposition.Satisfied, "DependencyAuditCommand"));
 
-        account.Satisfied.Should().BeTrue();
+        account.IsSatisfied.Should().BeTrue();
         account.Mechanical.Should().BeTrue("a command's answer is evidence of a different kind");
     }
 
@@ -79,9 +79,9 @@ public sealed class CitedFileIndexTests
             ["api: the agent ran 'grep -rn Legacy src' exited 1 — output: no matches in src/Sample.cs"]);
 
         var account = resolver.Resolve(
-            new AccountRow("no owned file references the legacy library", true, "no matches in src/Sample.cs"));
+            new AccountRow("no owned file references the legacy library", AccountDisposition.Satisfied, "no matches in src/Sample.cs"));
 
-        account.Satisfied.Should().BeFalse("a string from a command's output is not the command");
+        account.IsSatisfied.Should().BeFalse("a string from a command's output is not the command");
     }
 
     /// <summary>The command itself still resolves — the check is narrowed, not closed.</summary>
@@ -93,9 +93,9 @@ public sealed class CitedFileIndexTests
             ["api: the agent ran 'grep -rn Legacy src' exited 1 — no output"]);
 
         var account = resolver.Resolve(
-            new AccountRow("no owned file references the legacy library", true, "grep -rn Legacy src"));
+            new AccountRow("no owned file references the legacy library", AccountDisposition.Satisfied, "grep -rn Legacy src"));
 
-        account.Satisfied.Should().BeTrue();
+        account.IsSatisfied.Should().BeTrue();
         account.Mechanical.Should().BeTrue();
     }
 

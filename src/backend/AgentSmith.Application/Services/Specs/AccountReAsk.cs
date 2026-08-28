@@ -25,7 +25,9 @@ internal static class AccountReAsk
         IReadOnlyList<CriterionAccount> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        return [.. rows.Where(r => !r.Satisfied
+        // 2026-08-25-9749: outstanding, not merely "not satisfied" — a criterion the base
+        // disproved is settled, and re-asking it would be asking it to change its mind.
+        return [.. rows.Where(r => r.IsOutstanding
             && r.Note?.StartsWith("claimed satisfied by", StringComparison.Ordinal) == true)];
     }
 

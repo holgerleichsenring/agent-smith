@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-25-9749
+
+decisions:
+  - category: Architecture
+    chose: "A three-valued AccountDisposition enum on AccountRow and CriterionAccount, with the bool Satisfied property DELETED"
+    over: "Keeping bool Satisfied as a computed convenience beside the new enum"
+    reason: |
+      Ten places read the row as a bool and the compiler is the only thing that can find all
+      ten. A convenience property would have let every one of them keep compiling while
+      reading "not applicable" as "not satisfied" — the exact half-migration the spec warned
+      about, and it would have hidden itself. The replacements are named IsSatisfied /
+      IsOutstanding / IsNotApplicable so no old call site resolves by accident.
+
+      The ten sites found and changed: SpecAccount.Delivered and SpecAccount.Outstanding;
+      AcceptanceSnapshot.Row; SpecAccountRenderer's mark and its two evidence arms;
+      CitationResolver.Resolve; AccountReAsk.Unresolved; AccountWindowMerge.Of;
+      AccountSecondPass.Merge; AccountRowResolution.Report; plus the two outside the
+      account's own file — SelectPhaseHandler's a.Delivered and RunDeliveryGate's Outstanding.
+      ScanCoverageAccountant and the harness's scripted accounts were an eleventh and twelfth
+      site the compiler surfaced; both build AccountRows and both were migrated.
+  - category: Architecture
+    chose: "The enum's declaration order IS the merge precedence, and the merge keeps the FIRST row at the highest rank"
+    over: "A separate rank table, or keeping p0422's 'first wins unless a later one is satisfied'"
+    reason: |
+      A rank table is a second place the ordering lives and a second place it can be wrong.
+      Writing it as NotSatisfied=0 < NotApplicable=1 < Satisfied=2 makes the merge a single
+      comparison and puts the justification next to the values it orders.
+
+      The old rule replaced an earlier not-satisfied row with a later one; the new rule keeps
+      the first at the winning rank. That is a deliberate behaviour change: with three states,
+      "later wins among equals" makes the answer depend on how the diff happened to be cut,
+      and the sibling phase 2026-08-25-6f12 merges its full-reach answer over this same union
+      by this same precedence. The only visible difference is which of several refusing
+      windows' NOTES survives.
+  - category: Architecture
+    chose: "not_applicable is admitted only by a cited base search that ran and matched nothing, plus a named antecedent; otherwise it degrades to not satisfied"
+    over: "Trusting the disposition the model wrote, or trying to check the antecedent itself"
+    reason: |
+      Whether an antecedent SHOULD be disprovable is not machine-checkable — no check
+      distinguishes 'every host that already configures X' from a prohibition or from a
+      default with no token to find. So the phase enforces what CAN be enforced and says so
+      out loud in NotApplicableAdmission's own documentation, leaving the judgement to be
+      MEASURED by the labelled corpus rather than pretended away by a rule.
+
+      Degradation, not rejection: a claim that fails admission becomes the not-satisfied it
+      would have been before this phase existed, so the mechanism can only ever make the
+      account stricter than the model asked for.
+  - category: Implementation
+    chose: "SearchEvidence keeps base absences as their own list, populated at Remember time"
+    over: "Re-deriving them by parsing the rendered evidence line"
+    reason: |
+      The line is prose — 'repo@ref: the account searched X exited 1'. A rule that reads that
+      sentence back is a rule one rewording breaks silently, and the direction it would break
+      in is the dangerous one: a branch search read as a base search would let 'what is there
+      now' discharge a question about 'what was there before'. The facts are known where the
+      search runs, so they are recorded there. Exit 1 over a real base ref is the only pair
+      that qualifies: exit 0 found the antecedent, exit >1 could not run.
+  - category: Implementation
+    chose: "The admitted row cites the base search's EVIDENCE LINE, not the pattern the model wrote"
+    over: "Echoing the model's own citation back"
+    reason: |
+      The line names the ref that was read. 'Not applicable over origin/main' and 'not
+      applicable over the branch itself' are two different claims and a reader — or an
+      operator overruling one — has to be able to tell them apart. The pattern alone cannot
+      carry that.
+  - category: Architecture
+    chose: "One NothingProven type, read by both PhaseVerdict and RunDeliveryGate"
+    over: "The rule written once in each"
+    reason: |
+      Two copies of a rule are two possible authors for one wrong verdict — the objection that
+      made RunDeliveryGate a single gate in the first place. The refusal NAMES the criteria it
+      declined and the antecedent each rests on, because refusing with an empty outstanding
+      list produces a failure nobody can act on, which is the shape the account exists to end.
+      SpecAccount.Delivered carries the same clause, which is what stops SelectPhaseHandler
+      skipping a phase whose every criterion was declined.
+  - category: Implementation
+    chose: "AccountRowJson as a wire-shape DTO that reads both 'disposition' and the older 'satisfied' bool"
+    over: "Deserialising straight into AccountRow, or a JsonConverter on the enum"
+    reason: |
+      A positional record with an enum parameter cannot read a bool field, and a converter on
+      the enum never sees the sibling property it would have to fall back to. The DTO also
+      makes the safe default explicit: anything unrecognised is NOT SATISFIED, because a
+      misspelled disposition is the account failing to answer.
+
+      The scripted harness clients still write 'satisfied': true|false, so this path is
+      exercised by the existing suite rather than only asserted about.
+  - category: Scope
+    chose: "The not_applicable rule and the answer shape carrying it are emitted ONLY where a base is searchable"
+    over: "Always offering the third disposition"
+    reason: |
+      Without a base search there is no evidence that can admit the claim, so the disposition
+      would always degrade — a false-refusal generator wearing the costume of a fix. This is
+      the rule 2026-08-25-0eae already set for the search_base tool itself, applied to the
+      words that describe it.
+  - category: TradeOff
+    chose: "The eval scores on what BLOCKS a run: false negative = met and refused; false positive = unmet and NOT refused, not-applicable included"
+    over: "Scoring not-applicable as agreement, or as a third outcome outside both rates"
+    reason: |
+      Not applicable does not stop a run, so on an unmet criterion it behaves exactly like a
+      pass and must be counted as one — otherwise this phase could buy a lower refusal rate by
+      teaching the account to decline whatever it cannot settle, and the number would not
+      move. The conservative reading is the one that can catch the defect this phase could
+      introduce.
+
+      MEASURED RESULT, gpt-4.1 over the five committed fixtures:
+        before (prompt 19496a10): false negatives 1/4 (25 %), false positives 0/2 (0 %)
+        after  (prompt 1d708432): false negatives 1/4 (25 %), false positives 0/2 (0 %)
+      Both rates are UNCHANGED. What changed is inside the vacuous-conditional fixture: the
+      account previously answered 'satisfied' with the note 'topic transport was not
+      previously configured, so the criterion is satisfied' — the right verdict reached by an
+      answer that is not true — and now answers 'not applicable', citing
+      'Sample.Server@origin/main: the account searched topic-transport exited 1'. The one
+      remaining false negative is the universal-across-windows fixture, which no window can
+      satisfy on its own; that is precisely what the sibling phase 2026-08-25-6f12 exists to
+      close, and 9749 was not expected to move it.
+  - category: Tooling
+    chose: "AccountPromptVersion digests BOTH prompt variants"
+    over: "Keeping the digest over the base-less variant alone"
+    reason: |
+      The prompt now says different things where a base can be searched and where one cannot,
+      and every fixture in the corpus carries a base. Digesting only the base-less wording
+      would key a committed report on text the measurement never sees, so the next change to
+      the rule under test could overwrite a baseline instead of appearing as a new one.
+  - category: Scope
+    chose: "AccountReAsk still re-asks only rows whose note begins 'claimed satisfied by'"
+    over: "Also re-asking a not-applicable claim that failed admission"
+    reason: |
+      A correction pass carries the objection, never the verdict, and its message is about
+      CITATION FORM. A not-applicable claim that failed admission usually failed on evidence,
+      not on formatting — it had no base search or named no antecedent — and re-asking it
+      would be asking the account to change its mind. Reach is the sibling phase's subject,
+      and a not-applicable row can be raised there through the same precedence.
+  - category: Implementation
+    chose: "AccountSecondPass merges by disposition RANK rather than by 'satisfied wins'"
+    over: "Leaving the correction able to produce only a satisfied row"
+    reason: |
+      Reading only 'satisfied' would make the second answer unable to say something the first
+      answer could, and it would contradict the precedence the window merge and the sibling
+      phase both use. Every unresolved row entering the second pass is not-satisfied, so the
+      rank rule can only raise — and a raised not-applicable still has to pass the admission
+      check, because it resolves through the same resolver.

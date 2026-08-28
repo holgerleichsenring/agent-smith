@@ -37,16 +37,27 @@ public static class SpecAccountRenderer
         return string.Join("\n", lines).TrimEnd() + "\n";
     }
 
-    private static string Row(CriterionAccount criterion)
+    private static string Row(CriterionAccount criterion) =>
+        $"- [{Mark(criterion.Disposition)}] {criterion.Criterion}{Evidence(criterion)}";
+
+    /// <summary>2026-08-25-9749: three marks, because three dispositions. A declined
+    /// criterion reading as an empty box would be indistinguishable from one the branch
+    /// failed, which is the whole defect this phase exists to end.</summary>
+    private static string Mark(AccountDisposition disposition) => disposition switch
     {
-        var mark = criterion.Satisfied ? "x" : " ";
-        var evidence = criterion switch
-        {
-            { Satisfied: true, Mechanical: true } => " — verified by command",
-            { Satisfied: true, Citation: not null } => $" — `{criterion.Citation}`",
-            { Note: not null } => $" — {criterion.Note}",
-            _ => string.Empty,
-        };
-        return $"- [{mark}] {criterion.Criterion}{evidence}";
-    }
+        AccountDisposition.Satisfied => "x",
+        AccountDisposition.NotApplicable => "~",
+        _ => " ",
+    };
+
+    private static string Evidence(CriterionAccount criterion) => criterion switch
+    {
+        { Disposition: AccountDisposition.Satisfied, Mechanical: true } => " — verified by command",
+        { Disposition: AccountDisposition.Satisfied, Citation: not null } => $" — `{criterion.Citation}`",
+        { Disposition: AccountDisposition.NotApplicable } =>
+            $" — not applicable: the base carries no {criterion.Antecedent}"
+            + (criterion.Citation is null ? string.Empty : $" (`{criterion.Citation}`)"),
+        { Note: not null } => $" — {criterion.Note}",
+        _ => string.Empty,
+    };
 }

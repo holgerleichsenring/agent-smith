@@ -21,11 +21,13 @@ internal static class AccountTools
     /// <summary>What a citation may name: a path the diff covers, a command that was listed,
     /// or a search the account ran itself. p0484: the third was missing, so a criterion the
     /// account had settled by LOOKING could not be reported — it was allowed to look and not
-    /// allowed to say so.</summary>
+    /// allowed to say so. 2026-08-25-9749 hands over the base absences separately, because a
+    /// not-applicable claim rests on that subset alone.</summary>
     internal static CitationResolver ResolverOver(
         string diff, IReadOnlyList<string> commandResults, BranchSearch? search) =>
         new(CitedFileIndex.FromDiff(diff),
-            search is null ? commandResults : [.. commandResults, .. search.Evidence]);
+            search is null ? commandResults : [.. commandResults, .. search.Evidence],
+            search?.BaseAbsences);
 
     /// <summary>Null rather than an empty list when there is no sandbox: an empty Tools
     /// collection and no Tools collection are the same call, and null is what says the

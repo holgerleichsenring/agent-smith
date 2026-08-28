@@ -21,11 +21,21 @@ internal static class SpecAccountLog
             return [(LogLevel.Warning, $"No account could be taken — {account.Problem}")];
         if (account.Delivered)
             return [(LogLevel.Information,
-                $"All {account.Criteria.Count} ratified criteria are accounted for")];
+                $"All {account.Criteria.Count} ratified criteria are accounted for"), .. Declined(account)];
         return
         [
             .. account.Outstanding.Select(o => (LogLevel.Warning,
                 $"OUTSTANDING — {o.Criterion}{(o.Note is null ? string.Empty : $" ({o.Note})")}")),
+            .. Declined(account),
         ];
     }
+
+    /// <summary>2026-08-25-9749: a criterion the account declined to judge is neither a pass
+    /// nor a shortfall, and it said neither — so it appeared in no log line at all. It is the
+    /// disposition most in need of an audit trail, being the one nothing else refuses.</summary>
+    private static IReadOnlyList<(LogLevel Level, string Message)> Declined(SpecAccount account) =>
+    [
+        .. account.Declined.Select(d => (LogLevel.Information,
+            $"NOT APPLICABLE — {d.Criterion} (the base carries no {d.Antecedent})")),
+    ];
 }

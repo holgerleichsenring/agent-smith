@@ -37,7 +37,7 @@ public sealed class PhaseEntryAccountTests
     [Fact]
     public async Task APhaseWhoseCriteriaTheBranchAlreadySatisfies_IsNotWorkedAgain()
     {
-        var accountant = new CountingAccountant(satisfied: true);
+        var accountant = new CountingAccountant(AccountDisposition.Satisfied);
         var pipeline = Pipeline(SourceDiff);
 
         var result = await Select(accountant, pipeline);
@@ -49,6 +49,24 @@ public sealed class PhaseEntryAccountTests
             "the record is how the branch says this phase is through");
     }
 
+    /// <summary>
+    /// 2026-08-25-9749: the entry account is the second of the two bool readers that live
+    /// outside the account's own file, and the easiest to miss. A phase whose every criterion
+    /// the base declares not applicable has PROVEN nothing — skipping it here would record it
+    /// as through on the strength of an answer about what was never there.
+    /// </summary>
+    [Fact]
+    public async Task SelectPhase_AnEntryAccountOfOnlyNotApplicable_DoesNotSkipThePhase()
+    {
+        var accountant = new CountingAccountant(AccountDisposition.NotApplicable);
+        var pipeline = Pipeline(SourceDiff);
+
+        var result = await Select(accountant, pipeline);
+
+        result.IsSuccess.Should().BeTrue();
+        result.DropAhead.Should().BeNull("the phase still has to be worked");
+    }
+
     /// <summary>A skipped phase that leaves no trace is indistinguishable from one that
     /// never ran — and the run would be reporting silence as delivery.</summary>
     [Fact]
@@ -56,7 +74,7 @@ public sealed class PhaseEntryAccountTests
     {
         var pipeline = Pipeline(SourceDiff);
 
-        var result = await Select(new CountingAccountant(satisfied: true), pipeline);
+        var result = await Select(new CountingAccountant(AccountDisposition.Satisfied), pipeline);
 
         result.Message.Should().Contain("already satisfied by the branch");
         result.Message.Should().Contain("src/Handler.cs", "an operator must see WHAT satisfied it");
@@ -75,7 +93,7 @@ public sealed class PhaseEntryAccountTests
     {
         var pipeline = Pipeline(SourceDiff);
 
-        var result = await Select(new CountingAccountant(satisfied: true, outstanding: "the tests pass"), pipeline);
+        var result = await Select(new CountingAccountant(AccountDisposition.Satisfied, outstanding: "the tests pass"), pipeline);
 
         result.DropAhead.Should().BeNull("one outstanding criterion is a phase with work left");
         pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
@@ -99,7 +117,7 @@ public sealed class PhaseEntryAccountTests
     [Fact]
     public async Task ABranchThatCarriesNothing_IsNeverAccountedForAtEntry()
     {
-        var accountant = new CountingAccountant(satisfied: true);
+        var accountant = new CountingAccountant(AccountDisposition.Satisfied);
 
         var result = await Select(accountant, Pipeline(string.Empty));
 
@@ -110,7 +128,7 @@ public sealed class PhaseEntryAccountTests
     [Fact]
     public async Task ABranchCarryingOnlyTheRunsOwnRecord_IsNoDelivery()
     {
-        var accountant = new CountingAccountant(satisfied: true);
+        var accountant = new CountingAccountant(AccountDisposition.Satisfied);
 
         await Select(accountant, Pipeline(RecordOnlyDiff));
 
@@ -120,7 +138,7 @@ public sealed class PhaseEntryAccountTests
     [Fact]
     public async Task ADiffThatCouldNotBeTaken_LeavesThePhaseToBeWorked()
     {
-        var accountant = new CountingAccountant(satisfied: true);
+        var accountant = new CountingAccountant(AccountDisposition.Satisfied);
 
         var result = await Select(accountant, Pipeline(SourceDiff, diffExitCode: 1));
 
@@ -131,7 +149,7 @@ public sealed class PhaseEntryAccountTests
     [Fact]
     public async Task APhaseWithoutRatifiedCriteria_IsNeverSkipped()
     {
-        var accountant = new CountingAccountant(satisfied: true);
+        var accountant = new CountingAccountant(AccountDisposition.Satisfied);
         var pipeline = Pipeline(SourceDiff, done: []);
 
         var result = await Select(accountant, pipeline);
@@ -197,7 +215,8 @@ public sealed class PhaseEntryAccountTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
-    private sealed class CountingAccountant(bool satisfied, string? outstanding = null) : ISpecAccountant
+    private sealed class CountingAccountant(
+        AccountDisposition disposition, string? outstanding = null) : ISpecAccountant
     {
         public int Calls { get; private set; }
 
@@ -209,10 +228,14 @@ public sealed class PhaseEntryAccountTests
         {
             Calls++;
             var rows = criteria
-                .Select(c => new CriterionAccount(c, satisfied, "src/Handler.cs"))
+                .Select(c => new CriterionAccount(
+                    c, disposition, "src/Handler.cs",
+                    Antecedent: disposition is AccountDisposition.NotApplicable
+                        ? "a previously configured transport"
+                        : null))
                 .Append(outstanding is null
                     ? null
-                    : new CriterionAccount(outstanding, false, null, "not on the branch"))
+                    : new CriterionAccount(outstanding, AccountDisposition.NotSatisfied, null, "not on the branch"))
                 .OfType<CriterionAccount>()
                 .ToList();
             return Task.FromResult(new SpecAccount(repoKey, rows));
