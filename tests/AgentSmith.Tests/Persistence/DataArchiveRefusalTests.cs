@@ -30,8 +30,10 @@ public sealed class DataArchiveRefusalTests : IDisposable
 
         var act = () => ImportAsync(tampered);
 
+        // 2026-08-28-3793: the target's head is READ, never spelled. Spelling it made this
+        // case fail on the next migration anyone added, which says nothing about the refusal.
         (await act.Should().ThrowAsync<DataArchiveException>()).Which.Message
-            .Should().Contain("ASchemaThisBuildHasNeverSeen").And.Contain("AddObservedCallers");
+            .Should().Contain("ASchemaThisBuildHasNeverSeen").And.Contain(await TargetHeadAsync());
         await TargetShouldBeEmptyAsync();
     }
 
@@ -108,6 +110,12 @@ public sealed class DataArchiveRefusalTests : IDisposable
                 ? t with { Rows = 99 }
                 : t)],
         };
+
+    private async Task<string> TargetHeadAsync()
+    {
+        await using var db = MigratedStoreTemplate.Context(_target);
+        return new MigrationHeadName().Of(await db.Database.GetAppliedMigrationsAsync());
+    }
 
     private async Task TargetShouldBeEmptyAsync()
     {

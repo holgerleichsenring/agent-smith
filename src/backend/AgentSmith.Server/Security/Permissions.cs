@@ -44,6 +44,15 @@ internal static class Permissions
 
     internal const string IdentityRead = "identity.read";
 
+    // 2026-08-28-3793: a whole-database archive is not a configuration read. It carries
+    // ticket text, prompts, artifacts and the config store's secrets in clear, so whoever
+    // may take one may read everything this installation has ever done — a different grant
+    // from reading or editing the configuration, and stated as its own. Export and import
+    // are separable for the reason the config pair is: taking a copy and replacing the
+    // database are not the same act.
+    internal const string ArchiveExport = "archive.export";
+    internal const string ArchiveImport = "archive.import";
+
     // 2026-08-26-7a51: the access surface decides its own permission instead of inheriting
     // config.write. A custom role bundling config.write is legal, and the settings route
     // that used to carry the role mapping would have let such a caller grant themselves
@@ -57,5 +66,6 @@ internal static class Permissions
         RunsRead, RunsWatch, RunsControl, RunsDelete, ProjectsInit, CatalogRead,
         DiagnosticsRead, DiagnosticsProbe, ConfigRead, ConfigWrite, ConfigExport,
         ConfigImport, SecretsRead, SecretsWrite, IdentityRead, AccessRead, AccessWrite,
+        ArchiveExport, ArchiveImport,
     ];
 }
