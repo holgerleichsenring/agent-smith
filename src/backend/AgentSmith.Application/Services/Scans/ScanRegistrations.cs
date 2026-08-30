@@ -43,6 +43,10 @@ public static class ScanRegistrations
         services.AddTransient<IScanCoverageAccountant, ScanCoverageAccountant>();
         services.AddTransient<ICommandHandler<RatifyScanContractContext>, RatifyScanContractHandler>();
         services.AddTransient<ICommandHandler<AccountScanCoverageContext>, AccountScanCoverageHandler>();
+        // 2026-08-30-18e3: the entry map the scan master states, checked against its read set.
+        services.AddTransient<StationMapResolver>();
+        services.AddSingleton<Tools.ScanStationToolFactory>();
+        services.AddTransient<ICommandHandler<AccountEntryStationsContext>, AccountEntryStationsHandler>();
         services.AddTransient<CitedCodeWindow>();
         services.AddTransient<RefutationVerdicts>();
         // p0429a: two evidence surfaces behind one routing factory — the source a repo

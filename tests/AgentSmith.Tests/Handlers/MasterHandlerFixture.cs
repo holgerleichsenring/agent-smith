@@ -74,6 +74,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
             dialogueTransport: null,
             new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
+            new AgentSmith.Application.Services.Tools.ScanStationToolFactory(),
             NullLogger<AgenticMasterHandler>.Instance);
 
     internal static AgenticMasterContext BuildContext(

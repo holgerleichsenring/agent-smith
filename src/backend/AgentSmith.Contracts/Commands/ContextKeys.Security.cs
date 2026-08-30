@@ -46,6 +46,17 @@ public static partial class ContextKeys
     /// contract and accounted for against the execution trail after delivery.</summary>
     public const string ScanContract = "ScanContract";
 
+    /// <summary>2026-08-30-18e3: the station claims the scan master recorded through its
+    /// own tool call, exactly as it stated them. Holds a StationClaimLog — a live collector
+    /// the master and its sub-agents append to, never a finished artefact.</summary>
+    public const string StationClaims = "StationClaims";
+
+    /// <summary>2026-08-30-18e3: the checked map — per entry group, the six stations of a
+    /// request, each located against the paths the scan really read or explicitly not.
+    /// A REPORTING surface: rendered into the delivered artefact and raising findings of
+    /// its own, never routed into the account the delivery gate reads.</summary>
+    public const string RequestStationMap = "RequestStationMap";
+
     /// <summary>2026-08-30-0ea8: the release of the verification standard this run
     /// consulted, set by the lens the moment it is asked for entries. 5.0 renumbered the
     /// whole standard against its predecessor, so a requirement id an answer cites means

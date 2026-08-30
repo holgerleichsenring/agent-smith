@@ -58,6 +58,7 @@ public sealed class AgenticMasterHandler(
     ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
     IDialogueTransport? dialogueTransport,
     AgenticToolSurface toolSurface,
+    ScanStationToolFactory stationTools, // 2026-08-30-18e3: record_entry_station, security master only
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
 {
@@ -671,9 +672,13 @@ public sealed class AgenticMasterHandler(
     {
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
         // master surface, including the read-only Review/scan surface.
+        // 2026-08-30-18e3: record_entry_station rides on the scan surface for the ONE master
+        // asked to state an entry map — the factory yields nothing for the other two, so the
+        // shared Review surface stays exactly what it is for them.
         if (isSpecDialog) return toolSurface.SpecDialog(fs, human, web, recall, remember);
         IList<AITool> BaseSurface() => isScanMaster
-            ? toolSurface.Review(fs, log, web, recall, remember)
+            ? [.. toolSurface.Review(fs, log, web, recall, remember),
+                .. stationTools.For(context.MasterSkillName, context.Pipeline)]
             : toolSurface.ReadWriteWithHuman(
                 fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
                 recall: recall, remember: remember);

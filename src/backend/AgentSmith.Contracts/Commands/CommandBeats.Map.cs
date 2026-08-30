@@ -87,6 +87,7 @@ public static partial class CommandBeats
         [CommandNames.RunReviewPhase] = RunBeat.Verify,
         [CommandNames.SubstantiateFindings] = RunBeat.Verify, // p0429
         [CommandNames.AccountScanCoverage] = RunBeat.Verify, // p0429
+        [CommandNames.AccountEntryStations] = RunBeat.Verify, // 2026-08-30-18e3
         [CommandNames.RunVerifyPhase] = RunBeat.Verify,
         [CommandNames.CommitPhaseWork] = RunBeat.Verify, // p0437
         [CommandNames.VerifyPhase] = RunBeat.Verify, // p0393
