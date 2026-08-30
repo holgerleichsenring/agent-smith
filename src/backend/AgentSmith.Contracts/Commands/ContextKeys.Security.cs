@@ -45,4 +45,10 @@ public static partial class ContextKeys
     /// this scan states it is looking for. Read by AcceptanceCriteria as the run's
     /// contract and accounted for against the execution trail after delivery.</summary>
     public const string ScanContract = "ScanContract";
+
+    /// <summary>2026-08-30-0ea8: the release of the verification standard this run
+    /// consulted, set by the lens the moment it is asked for entries. 5.0 renumbered the
+    /// whole standard against its predecessor, so a requirement id an answer cites means
+    /// nothing without the version that issued it.</summary>
+    public const string VerificationCatalogueVersion = "VerificationCatalogueVersion";
 }
