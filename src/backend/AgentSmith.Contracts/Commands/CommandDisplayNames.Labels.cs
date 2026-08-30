@@ -103,5 +103,6 @@ public static partial class CommandDisplayNames
         [CommandNames.RatifyScanContract] = "State what the scan looks for",
         [CommandNames.SubstantiateFindings] = "Substantiate findings",
         [CommandNames.AccountScanCoverage] = "Account for scan coverage",
+        [CommandNames.AccountEntryStations] = "Check the entry map",
     };
 }

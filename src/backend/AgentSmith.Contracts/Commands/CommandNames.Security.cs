@@ -33,6 +33,12 @@ public static partial class CommandNames
     /// trail, so the one delivery gate judges a scan like any other run.</summary>
     public const string AccountScanCoverage = "AccountScanCoverageCommand";
 
+    /// <summary>2026-08-30-18e3: checks the scan master's stated entry map against the paths
+    /// the run really read, and raises a finding for every station nothing located. Security
+    /// scan only — an api scan runs its source checkout fail-soft and often holds no source,
+    /// so a located station is a question it cannot be asked.</summary>
+    public const string AccountEntryStations = "AccountEntryStationsCommand";
+
     /// <summary>p0429: puts every finding the master did not address to a fresh instance
     /// asked to REFUTE it against the real code, so a candidate promoted by the master's
     /// silence cannot reach delivery as a critical unsubstantiated.</summary>

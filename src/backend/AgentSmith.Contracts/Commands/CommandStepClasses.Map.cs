@@ -14,6 +14,7 @@ public static partial class CommandStepClasses
         [CommandNames.RatifyScanContract] = Milestone, // p0429
         [CommandNames.SubstantiateFindings] = Milestone, // p0429
         [CommandNames.AccountScanCoverage] = Milestone, // p0429
+        [CommandNames.AccountEntryStations] = Milestone, // 2026-08-30-18e3
         [CommandNames.CheckoutSource] = Milestone,
         [CommandNames.TryCheckoutSource] = Milestone,
         [CommandNames.BootstrapProject] = Milestone,     // retired; old records still classify
