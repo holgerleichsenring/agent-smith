@@ -6,8 +6,8 @@ using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Builders;
 
-public sealed class AccountRequirementAnswersContextBuilder : IContextBuilder
+public sealed class AccountRequirementCitationsContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-        => new AccountRequirementAnswersContext(pipeline);
+        => new AccountRequirementCitationsContext(pipeline);
 }

@@ -87,13 +87,13 @@ public sealed class VerificationCatalogueTests
 
     [Theory]
     [MemberData(nameof(Stations))]
-    public void Catalogue_ASingleStationSelection_StaysWithinItsBound(VerificationStation station)
+    public void Catalogue_ASingleStationSelection_IsTheWholeLevelFloor(VerificationStation station)
     {
         var selection = Lens().For(new PipelineContext(), station);
 
-        selection.Requirements.Should().HaveCountLessThanOrEqualTo(AsvsVerificationLens.MaxEntriesPerStation,
-            "a station is asked what one agent can answer; thousands of questions is the "
-            + "unanswerable-question failure this bound exists to prevent");
+        selection.Requirements.Select(r => r.Id).Should().OnlyHaveUniqueItems(
+            "2026-08-30-03e1 retired the selection bound with the hand-out it paid for, so a "
+            + "station answers with every entry classified for it and no slice of them");
         selection.Requirements.Select(r => r.Level).Should().OnlyContain(level => level == "1" || level == "2",
             "the default floor is the first two levels");
         selection.Requirements.Should().NotBeEmpty();

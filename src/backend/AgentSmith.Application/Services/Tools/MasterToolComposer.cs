@@ -29,7 +29,7 @@ namespace AgentSmith.Application.Services.Tools;
 public sealed class MasterToolComposer(
     AgenticToolSurface toolSurface,
     ScanStationToolFactory stationTools, // 2026-08-30-18e3: record_entry_station
-    ScanRequirementToolFactory requirementTools, // 2026-08-30-3c12: the standard's entries
+    ScanRequirementToolFactory requirementTools, // 2026-08-30-03e1: the standard, on demand
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
     ISubAgentRunner subAgentRunner,
     SubAgentBudget subAgentBudget,
@@ -66,7 +66,7 @@ public sealed class MasterToolComposer(
 
     /// <summary>
     /// p0380: recall (read) and remember (memory-only proposal) join EVERY master surface,
-    /// including the read-only scan surface. 2026-08-30-18e3 / 3c12: the entry-map and
+    /// including the read-only scan surface. 2026-08-30-18e3 / 03e1: the entry-map and
     /// requirement tools ride on the scan surface for the ONE master asked to state a map —
     /// the factories yield nothing for the other two, so the shared Review surface stays
     /// exactly what it is for them.
@@ -86,8 +86,8 @@ public sealed class MasterToolComposer(
 
     /// <summary>
     /// The fan-out surface. A scan master keeps it too: it is exempted from the configured
-    /// master ceiling and falls to the per-request one, so one worker per entry group is the
-    /// only place the volume this asks for can be done at all.
+    /// master ceiling and falls to the per-request one, so one worker per entry group is
+    /// where a system with several families of entry points can be read at all.
     /// </summary>
     private IList<AITool> WithSubAgents(
         IList<AITool> master, Func<IList<AITool>> baseSurface, AgenticMasterContext context)

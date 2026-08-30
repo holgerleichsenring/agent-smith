@@ -9,6 +9,13 @@ requires:
   - 2026-08-30-0ea8
   - 2026-08-30-18e3
 
+# STRUCK BY 2026-08-30-03e1. The enumeration half of this phase never shipped: the skills
+# pin was never moved, so no run was ever handed a station's entries and no run ever owed an
+# answer per entry. Its citation settling, its per-group cap and its NOT ATTEMPTED
+# disposition were carried over; the hand-out tool, the answered-of-total denominator, the
+# unanswered row state, the read-versus-write axis and the asymmetry finding were removed.
+superseded_by: 2026-08-30-03e1
+
 scope:
   in: >
     The run fans out one sub-agent per entry group, which is where the capacity is — the scan master
@@ -40,31 +47,31 @@ steps:
   - id: a-child-answers-one-entry-group
     action: "The run fans out one sub-agent per entry group up to a declared cap; groups beyond it are recorded as not attempted."
   - id: the-lens-hands-each-child-its-entries
-    action: "For each station of its group the child is handed the catalogue entries that apply rather than recalling them."
+    action: "STRUCK (2026-08-30-03e1, never shipped): the catalogue answers a lookup when the scan has something to report; nothing is handed out."
   - id: an-answer-cites-a-requirement-and-a-place
     action: "Per-member answers carry a requirement id and a resolving location; a group-wide claim cites the members it covers; one that resolves against nothing is not counted as answered."
   - id: cannot-answer-names-the-missing-input
     action: "An entry the scan cannot decide is recorded with the input it would have needed."
   - id: writes-are-counted-apart-from-reads
-    action: "Each group's state-changing operations are enumerated and answered separately from its reads."
+    action: "STRUCK (2026-08-30-03e1, never shipped): the read/write axis needed a recorded met read row, which lookup-on-demand never files. A successor re-derives asymmetry from the station map."
   - id: the-answers-travel-on-a-bounded-carrier
     action: "Answers are emitted on their own carrier with a bounded payload per call, leaving the findings array untouched."
   - id: the-pin-carries-it-here
-    action: "The pin moves to a catalog release that already carries the station master, and the superseded artefact is removed."
+    action: "STRUCK (2026-08-30-03e1): withdrawn before it could ship a master calling a tool that no longer exists. 03e1 carries the pin."
 
 tests:
-  - "Requirements_AnUnmetEntry_BecomesAFindingCarryingItsRequirementId"
-  - "Requirements_APerMemberAnswerCitingNothingThatWasRead_IsNotCountedAsAnswered"
-  - "Requirements_AGroupWideClaimCitingNoMembers_IsNotCountedAsAnswered"
-  - "Requirements_ACannotAnswerEntry_NamesTheMissingInput"
-  - "Requirements_AGroupBeyondTheCap_IsRecordedNotAttempted"
-  - "Requirements_AGroupScopedOnReadAndUnscopedOnWrite_IsReported"
-  - "Requirements_UnmetAndCannotAnswerRows_NeverEnterTheRunAccounts"
-  - "Requirements_TheFindingsArray_IsUnchanged"
+  - "STRUCK -> Citation_ACitedFinding_BecomesAFindingCarryingItsRequirementId"
+  - "STRUCK -> Citation_AFindingCitingNothingThatWasRead_IsNotCountedAsLocated"
+  - "STRUCK -> Citation_AGroupWideFindingCitingNoMembers_IsNotCountedAsLocated"
+  - "STRUCK (never shipped): cannot-answer was a row of the enumeration"
+  - "STRUCK -> Citation_AGroupBeyondTheCap_IsRecordedNotAttempted"
+  - "STRUCK (never shipped): unreachable without a recorded met read row"
+  - "STRUCK -> Citation_CitedFindings_NeverEnterTheRunAccounts"
+  - "STRUCK -> Citation_TheFindingsArray_IsUnchanged"
 
 done:
-  - "a scan reports, per station and entry group, which requirements are met, unmet, undecidable and not attempted, each with a citation or a named missing input"
-  - "state-changing operations are answered separately from reads"
-  - "no requirement answer reaches the ledger the delivery gate reads"
-  - "the catalog release is out and the embedded pin names it"
+  - "STRUCK (never shipped) -> a scan reports, per station, whether it was examined and what it cited there"
+  - "STRUCK (never shipped): no successor until asymmetry is re-derived from the station map"
+  - "held: no requirement citation reaches the ledger the delivery gate reads"
+  - "STRUCK: the pin moves with 2026-08-30-03e1"
   - "build green, full suite green"

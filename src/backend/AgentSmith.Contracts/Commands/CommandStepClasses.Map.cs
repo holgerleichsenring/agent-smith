@@ -16,7 +16,7 @@ public static partial class CommandStepClasses
         [CommandNames.AccountScanCoverage] = Milestone, // p0429
         [CommandNames.AccountEntryStations] = Milestone, // 2026-08-30-18e3
         [CommandNames.AccountSurfaceDifference] = Milestone, // 2026-08-30-c6ec
-        [CommandNames.AccountRequirementAnswers] = Milestone, // 2026-08-30-3c12
+        [CommandNames.AccountRequirementCitations] = Milestone, // 2026-08-30-03e1
         [CommandNames.CheckoutSource] = Milestone,
         [CommandNames.TryCheckoutSource] = Milestone,
         [CommandNames.BootstrapProject] = Milestone,     // retired; old records still classify

@@ -63,15 +63,15 @@ internal static class MasterHandlerFixture
             BuildToolComposer(maxSubAgents),
             NullLogger<AgenticMasterHandler>.Instance);
 
-    /// <summary>2026-08-30-3c12: the master's tool surface, built the way the composition
-    /// root builds it — with the real verification lens, so the entries a scan master is
-    /// handed here are the entries the shipped binary hands it.</summary>
+    /// <summary>2026-08-30-03e1: the master's tool surface, built the way the composition
+    /// root builds it — with the real verification lens, so the entries a scan master can
+    /// look up here are the entries the shipped binary answers with.</summary>
     private static AgentSmith.Application.Services.Tools.MasterToolComposer BuildToolComposer(
         int maxSubAgents) =>
         new(new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
             new AgentSmith.Application.Services.Tools.ScanStationToolFactory(),
             new AgentSmith.Application.Services.Tools.ScanRequirementToolFactory(
-                Lens, new AgentSmith.Application.Services.Tools.RequirementAnswerRecorder(Lens)),
+                Lens, new AgentSmith.Application.Services.Tools.CitedFindingRecorder(Lens)),
             new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
                 new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
                 new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),

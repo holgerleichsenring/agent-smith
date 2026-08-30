@@ -5,9 +5,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Verification;
 
 /// <summary>
 /// 2026-08-30-0ea8: the published verification standard the binary ships, and the lens
-/// that says which of its entries apply to a station of a request and how many of them
-/// one station may be asked. Singletons: the checked-in export is parsed once per process
-/// and the lens holds the classification of every id it carries.
+/// that says which of its entries apply to a station of a request. Singletons: the
+/// checked-in export is parsed once per process and the lens holds the classification of
+/// every id it carries.
 /// </summary>
 public static class VerificationRegistrations
 {

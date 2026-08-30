@@ -1,0 +1,134 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-03e1
+
+decisions:
+  - category: Architecture
+    chose: "The catalogue answers a lookup the scan calls when it already has something to report"
+    over: "Handing each station its entries up front and expecting an answer per entry"
+    alternatives:
+      - "Rendering the entries into the master prompt — the same enumeration, paid for on every scan whether or not anything is found"
+      - "Keeping the hand-out and shortening the list — the shape is what fails, not its length"
+    reason: |
+      A verification standard answers "did you check this", not "what is wrong here". Held
+      against five issues one reviewer found on one repository, it covered two squarely and
+      missed three that a checklist structurally cannot reach: a logic flaw inside an identity
+      helper, a trust anchor in a configuration line, a security-shaped setting that does
+      nothing. The live re-run says the rest: with the machinery present but unpinned, six
+      scans produced ZERO of the five while the base prompt grew by three quarters. Enumeration
+      displaces investigation. The citation was the valuable half and survives whole — grounding
+      a claim in a named clause is what separates a report from an opinion — so only the agenda
+      is dropped.
+
+  - category: Architecture
+    chose: "A finding no entry covers is delivered UNCHANGED on the ordinary observation path, and every refusal on the citation path points at it"
+    over: "Refusing an uncited finding and leaving it nowhere to go"
+    alternatives:
+      - "A second disposition for 'no entry covers this' — a row in the coverage account for something that is simply a finding"
+    reason: |
+      Three of the five findings this phase exists for have no entry in the standard at all.
+      A rule that dropped them would suppress exactly the class the inversion exists to
+      recover, which would make this phase worse than the thing it replaces. So the three
+      refusals the recorder can issue — no requirement named, an id the standard does not
+      carry at that station, a group beyond the cap — each name the observation array as the
+      place the finding belongs, and the array itself is untouched: still a bare JSON array,
+      still the closed contract MergeMasterFindings reads.
+      Citation_AFindingNoEntryCovers_IsStillDeliveredOnTheOrdinaryPath pins it.
+
+  - category: Architecture
+    chose: "AsvsVerificationLens.MaxEntriesPerStation is deleted; a station resolves against its FULL level-floor set"
+    over: "Keeping twelve as a payload bound on the lookup"
+    alternatives:
+      - "Raising the bound — a larger arbitrary number is still a censor, just a quieter one"
+    reason: |
+      Twelve per station was a budget device: it kept a hand-out answerable by one worker.
+      With nothing enumerated it stops being a budget and becomes a censor — the effect
+      station classifies 79 entries at the floor, and the recorder validated against the same
+      slice, so a real finding citing the thirteenth-ranked entry would have been refused with
+      a message telling the model the standard does not carry it. That is a false statement
+      the product would have made about a published standard. The bound is gone from the lens
+      and from the recorder together, since a bound in only one of them is worse than either.
+
+  - category: Architecture
+    chose: "Examined is derived — the station's own located citation stands AND the read set holds other files beneath it"
+    over: "A model assertion that it examined the station"
+    alternatives:
+      - "Treating located as examined — the entry map already says located, and the two would stop being separable"
+      - "A read-count threshold — a number nobody can defend, and it would move with repository size"
+    reason: |
+      A scan that says it examined something is exactly the report this track was opened
+      against, so examined needs a referent the run can check without asking. Both halves come
+      from evidence already on the pipeline: the station map settles the location against the
+      read set (2026-08-30-18e3's rule, untouched), and ReadNeighbourhood asks whether the run
+      read anything else beneath the directory that location names. A scan that opened one
+      class and nothing around it LOOKED AT a station; it did not examine one, and the report
+      says which. The directory match is lenient in the same direction ReadPathNormalizer is,
+      because read paths arrive sandbox-prefixed while a claim is repo-relative and the risk
+      worth avoiding is calling real work unexamined.
+
+  - category: Architecture
+    chose: "The read-versus-write asymmetry finding is removed, and the read/write axis with it"
+    over: "Carrying EntryGroupRequirements.ReadWriteAsymmetries forward"
+    alternatives:
+      - "Keeping the axis and letting the asymmetry row become unreachable — a test asserting a state nothing can produce"
+    reason: |
+      3c12 called it the sharpest signal a scan can produce, and it cannot survive
+      lookup-on-demand: it requires a recorded MET row on the read side, and nobody files a met
+      row when nothing is enumerated. Kept, RequirementFindings.Asymmetric would have been
+      unreachable code behind an unsatisfiable test. It is removed deliberately rather than
+      left to rot, together with RequirementOperation, and the spec's scope.out names the
+      successor: re-derive asymmetry from the station map's own entries, which are recorded
+      whether or not anything is cited.
+
+  - category: Architecture
+    chose: "The per-group cap survives, and it never costs a finding"
+    over: "Deleting it with the rest of the enumeration budget"
+    alternatives:
+      - "Refusing a citation beyond the cap with no alternative route — the censor pattern this phase exists to remove"
+    reason: |
+      The cap is the one bound that still means something: NOT ATTEMPTED is a budget fact
+      about the run, distinct from a station the scan examined and found nothing at, and
+      collapsing the two lets a small run read as a thorough one. It binds the ACCOUNT, not
+      delivery — beyond the fifth group the refusal message sends the finding to the
+      observation array, where it is delivered exactly as any other finding is. The
+      disposition, the cap and the citation settling are what 3c12 leaves behind; the hand-out
+      tool, the answered-of-total denominator, the unanswered row state and the report header
+      built on it do not.
+
+  - category: Refactoring
+    chose: "AccountRequirementAnswers is renamed to AccountRequirementCitations across the preset and all five command-metadata maps"
+    over: "Keeping the command name and changing only what it does"
+    alternatives:
+      - "A second step beside the old one — two steps for one question, and the old one would have nothing to do"
+    reason: |
+      The step no longer settles answers; it settles what each station examined and delivers
+      what the scan cited. A name that says answers would be a stale claim in the one place
+      every reader and every operator surface reads first — the display name, the progress
+      label, the beat, the step class and the model-use map all carry it. Renaming costs six
+      mechanical edits and the diagram regenerates unchanged, because the step count and the
+      model-step count are what it draws.
+
+  - category: Testing
+    chose: "The tests build the REAL AsvsVerificationLens and read their requirement ids out of it"
+    over: "A stub lens with invented ids"
+    alternatives:
+      - "Hard-coding requirement ids from the checked-in export — a lens re-classification would silently make the test assert nothing"
+    reason: |
+      Carried from 3c12, and Citation_TheLookup_ReturnsTheFullFloorSetNotTwelve needs it
+      outright: the claim is about the SHIPPED table over the checked-in standard, that a real
+      station classifies more than twelve entries at the floor, so a stub would assert the
+      plumbing and not the thing. Citation_TheStationMap_BehavesExactlyAsBefore holds the other
+      end — the instrument this phase leans on is the one it must not have moved.
+
+  - category: Architecture
+    chose: "3c12 is retired in the SAME change: struck criteria, moved to done, and its unreleased master's enumeration half withdrawn in the skills catalog"
+    over: "A note in the record and a later cleanup"
+    alternatives:
+      - "Letting the skills PR that instructs list_station_requirements merge first — a release would then ship a master calling a tool the binary no longer has"
+    reason: |
+      3c12's pin step was still outstanding and its unreleased master (security-master 1.6.0,
+      skills PR #170) still instructs the withdrawn tool, so the two had to be retired
+      together or a release would ship a master calling something that does not exist. The
+      record says plainly that the enumeration NEVER SHIPPED — the pin was never moved, so no
+      run was ever handed a station's entries. The replacement master is a separate PR based
+      on origin/main that supersedes the enumeration half of #170; #170 is closed rather than
+      merged.

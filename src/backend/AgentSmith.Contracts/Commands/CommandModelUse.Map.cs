@@ -75,6 +75,6 @@ public static partial class CommandModelUse
         CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
         CommandNames.AccountEntryStations,
-        CommandNames.AccountRequirementAnswers,
+        CommandNames.AccountRequirementCitations,
     };
 }

@@ -6,12 +6,12 @@ namespace AgentSmith.Infrastructure.Core.Services.Verification;
 
 /// <summary>
 /// 2026-08-30-0ea8: selects the entries of the ingested standard that apply to one
-/// station of a request, at or under the level floor, up to the bound.
+/// station of a request, at or under the level floor.
 /// <para>
-/// THE BOUND IS THE POINT. The release carries 345 requirements; a station times an entry
-/// group times the rest is thousands of questions, and a question nobody can answer is
-/// worse than one nobody asked. Twelve per station keeps a whole group inside one
-/// sub-agent's reach.
+/// 2026-08-30-03e1: THE SELECTION IS NOT BOUNDED ANY MORE. Twelve per station was a budget
+/// device for a hand-out a worker had to answer entry by entry; nothing is handed out now,
+/// so the same number would only refuse a real finding against the thirteenth-ranked entry
+/// of a station that classifies seventy-nine. A lookup answers with the whole floor set.
 /// </para>
 /// <para>
 /// THE LENS MUST CLASSIFY EVERYTHING. A hand-kept mapping table rots silently; keyed
@@ -22,9 +22,6 @@ namespace AgentSmith.Infrastructure.Core.Services.Verification;
 /// </summary>
 internal sealed class AsvsVerificationLens : IVerificationLens
 {
-    /// <summary>How many entries a single station may be asked.</summary>
-    public const int MaxEntriesPerStation = 12;
-
     internal const string ResourceName = "AgentSmith.VerificationLens.tsv";
 
     /// <summary>The levels a station is asked unless a caller states otherwise: the
@@ -51,7 +48,6 @@ internal sealed class AsvsVerificationLens : IVerificationLens
             .Where(requirement => LevelFloor.Contains(requirement.Level))
             .Where(requirement => Applies(requirement.Id, station))
             .OrderBy(requirement => requirement.Level, StringComparer.Ordinal)
-            .Take(MaxEntriesPerStation)
             .ToArray();
         return new VerificationSelection(_catalogue.Version, AsvsRelease.Attribution, entries);
     }
