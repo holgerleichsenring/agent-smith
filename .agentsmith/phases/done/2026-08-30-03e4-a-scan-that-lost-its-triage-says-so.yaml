@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-03e4
+
+goal: "A scan whose master answer cannot be read reports a degraded outcome instead of delivering raw scanner findings under a successful run."
+
+applies_to: "backend (the merge step's fallback, the run outcome it produces, what the record and the delivered artefact say)"
+
+scope:
+  in: >
+    The branch where the master ran under the observation schema and produced no usable answer records
+    a reason on the run; the ratified criterion that says findings are triaged is then NOT satisfied,
+    naming that reason, so the existing delivery gate records the run for what it is; and the delivered
+    findings artefact carries the same mark in its own body, for the reader who never sees the run.
+  out: >
+    RETRYING OR REPAIRING THE ANSWER, and changing the master prompt — a phase that makes the master
+    state its answer in a shape the merge can always read is the successor, and it belongs in the
+    skills catalog, not here. Repeating a scan to agree with itself across samples: a separate phase
+    measures run-to-run agreement, and it cannot be built before this one, because today one run in
+    three degrades without saying so and would poison the agreement number.
+
+decisions:
+  - key: |
+      NO NEW RUN STATE — THE RATIFIED CONTRACT ALREADY SAYS THIS. A criterion that is not satisfied
+      already makes the delivery gate record the run as not delivered, and that is exactly what a scan
+      which did not triage deserves. The earlier draft invented a third outcome on the premise that
+      failing would discard the scanner findings; it would not, because delivery is step nineteen and
+      the account is step twenty-two. The findings ship either way; only the verdict changes.
+  - key: |
+      THE ACCOUNT STAYS MECHANICAL. No model is asked whether the scan triaged — the merge step states
+      a fact about its own branch, and the accountant reads that fact the way it reads the execution
+      trail. The doctrine that keeps this account trustworthy is untouched.
+  - key: |
+      THE MEASURED HARM IS INFLATION, NOT LOSS. Three identical runs against one repository delivered
+      25, 26 and 37 findings with 8, 8 and 16 critical; the third had lost its triage. The untriaged run
+      looks like the thorough one. Whoever reads only the artefact reads the failure as a result, so the
+      mark belongs in the artefact and not only in the run record.
+  - key: |
+      THE SCAN-COVERAGE ACCOUNT MUST STOP ANSWERING ITSELF. All three runs reported every ratified
+      criterion answered, including the one that says findings are triaged, in a run where nothing was.
+      A criterion whose answering step took the fallback branch is not answered, and the account is the
+      place that knows.
+
+steps:
+  - id: the-fallback-records-its-reason
+    action: "The merge step records a reason on the run when the master ran under the observation schema and produced no usable answer."
+  - id: an-untriaged-delivery-is-marked-where-it-is-read
+    action: "A findings artefact built from the fallback carries the mark in its own body, so a reader who never sees the run still sees it."
+  - id: the-triage-criterion-is-not-satisfied
+    action: "The ratified criterion that findings are triaged is reported not satisfied when that reason is present, naming it."
+
+tests:
+  - "Degraded_MasterAnswerUnreadable_RecordsAReasonOnTheRun"
+  - "Degraded_MasterAnswerUnreadable_DeliveredArtefactCarriesTheMark"
+  - "Degraded_MasterAnswerUnreadable_TriageCriterionIsNotSatisfied"
+  - "Degraded_MasterRanWithANonObservationSchema_IsNotRecordedAsDegraded"
+  - "Degraded_MasterAnswerReadable_OutcomeAndArtefactAreUnchanged"
+
+done:
+  - "a run whose master answer cannot be read is recorded as not delivered, naming why, and its artefact says so"
+  - "the healthy path is byte-identical to today in all three"
+  - "build green, full suite green"

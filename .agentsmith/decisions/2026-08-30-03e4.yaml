@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-03e4
+
+decisions:
+  - category: Architecture
+    chose: "No new run state — an unsatisfied criterion already makes RunDeliveryGate record the run as NOT DELIVERED"
+    over: "A third run outcome between success and failure, so the findings would still ship under a passing verdict"
+    reason: |
+      The third outcome was invented on a premise that is false in this codebase: that
+      failing the gate would discard the scanner findings. It would not. DeliverFindings is
+      step 19 of the security-scan preset and AccountScanCoverage is step 22, so the
+      artefact is already written when the verdict is computed. Nothing is lost by failing —
+      only the verdict changes, and "this scan did not triage" is exactly what the ratified
+      contract already knows how to say. Adding a state would have meant a second vocabulary
+      for run health, read by the dashboard, the ledger and the delivery gate, to express
+      something the first one expresses correctly.
+
+  - category: Architecture
+    chose: "Two of the four Skip branches are degradations; the other two are not"
+    over: "Marking every branch that leaves raw findings in place, which is what the log line does today"
+    reason: |
+      The distinction is whether a triage was OWED. When no master skill ran, and when the
+      master's output_schema is not observation (the coding path), nothing promised to
+      triage anything and the raw set is the intended delivery — marking those would fail
+      every coding run. When the master DID run under the observation schema and produced no
+      answer text, or an answer that is not a JSON array, the run made a promise it did not
+      keep. Degraded(pipeline, reason) sets the key and then calls Skip, so the two honest
+      branches keep the behaviour and the log line they have.
+
+  - category: Architecture
+    chose: "The account stays MECHANICAL — the merge step's own statement about its own branch"
+    over: "Asking a model whether the delivered findings look triaged"
+    reason: |
+      ScanCoverageAccountant's whole value is that no model is asked whether the scan
+      scanned; the evidence is the execution trail. A degraded triage is the same KIND of
+      evidence — a fact a step recorded about itself — so it is read the same way, and the
+      existing assertion that every row is Mechanical is untouched. The AgenticMaster step
+      itself succeeds in both cases, which is precisely why the trail alone could not tell
+      the two apart: the step ran fine, and what it was there to answer went unanswered.
+
+  - category: Implementation
+    chose: "One wording in ScanTriageNotice, framed per format, and EMPTY on a healthy run"
+    over: "Each output strategy phrasing the mark itself, or marking only the run record"
+    reason: |
+      The measured harm is inflation, not loss: three identical runs delivered 25, 26 and 37
+      findings (8, 8 and 16 critical) and the untriaged one looked like the thorough one.
+      Whoever reads only the artefact reads the failure as a result, so the mark has to be
+      in the artefact — and four independently worded marks would drift into four different
+      claims. Every accessor returns the empty string or null when the key is absent, so a
+      healthy run's Markdown, Summary, Console and SARIF output is byte-identical to before.
+      For SARIF the mark is a fact about the RUN, so it goes to runs[].invocations[] with
+      executionSuccessful false and a toolExecutionNotifications entry, not onto a result;
+      BuildSarifDocument's parameter is optional so no existing call site changed.
+
+  - category: TradeOff
+    chose: "Paid for the additions with two pure extractions — ExecutionLimitLabel and SarifUploadCompressor"
+    over: "Raising the four output strategies' rows in file-length-baseline.tsv"
+    reason: |
+      All four strategies sit in the p0402 ratchet, where a listed file may only get
+      SHORTER, and marking the artefact in four formats grows all four. Raising a baseline
+      row is the one thing the ratchet exists to forbid, so the growth was paid for instead.
+      ExecutionLimitLabel is the limit-hit switch that Console and Summary carried
+      IDENTICALLY twice, moved once; SarifUploadCompressor is the base64-gzip packer for the
+      Code Scanning upload API, which is a different reason to change than producing a
+      document. Both are verbatim moves with no behaviour change — Markdown's own variant of
+      the switch differs in casing and coverage and was deliberately left where it is,
+      because unifying it would have changed an artefact this phase promised not to touch.
+
+  - category: Scope
+    chose: "Left the master prompt and any retry of the unreadable answer out"
+    over: "Repairing the answer, or re-asking the master until the merge can read it"
+    reason: |
+      Making the master state its answer in a shape the merge can always read is a change to
+      the skills catalog, not to this repository, and it is the named successor. Measuring
+      run-to-run agreement is a separate phase that cannot be built before this one: today
+      one run in three degrades without saying so, and those runs would poison the agreement
+      number they were supposed to produce.

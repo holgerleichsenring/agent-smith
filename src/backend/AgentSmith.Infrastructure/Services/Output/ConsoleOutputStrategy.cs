@@ -18,10 +18,13 @@ public sealed class ConsoleOutputStrategy(
     public Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
         var output = BuildOutput(context);
+        // 2026-08-30-03e4: on BOTH branches — an untriaged scan with nothing to show is
+        // exactly the case where silence reads as a clean result. Empty on a healthy run.
+        var notice = ScanTriageNotice.Banner(context.Pipeline);
 
         if (string.IsNullOrWhiteSpace(output))
         {
-            Console.WriteLine("No findings to deliver.");
+            Console.WriteLine(notice + "No findings to deliver.");
             return Task.CompletedTask;
         }
 
@@ -30,7 +33,7 @@ public sealed class ConsoleOutputStrategy(
         Console.WriteLine("  Agent Smith Review");
         Console.WriteLine("═══════════════════════════════════════════════════");
         Console.WriteLine();
-        Console.WriteLine(output);
+        Console.WriteLine(notice + output);
         Console.WriteLine();
 
         if (context.Pipeline.TryGet<object>("PipelineCostTracker", out var tracker))
@@ -97,7 +100,7 @@ public sealed class ConsoleOutputStrategy(
             lines.Add("");
             lines.Add($"Execution limits hit: {limitHits.Count}");
             foreach (var obs in limitHits)
-                lines.Add($"  [{LimitLabel(obs.Category)}] {ExtractTitle(obs.Description)}");
+                lines.Add($"  [{ExecutionLimitLabel.For(obs.Category)}] {ExtractTitle(obs.Description)}");
         }
 
         return string.Join("\n", lines);
@@ -121,17 +124,6 @@ public sealed class ConsoleOutputStrategy(
         }
         return (findings, limitHits);
     }
-
-    private static string LimitLabel(string? category) => category switch
-    {
-        ExecutionLimitCategories.ExecutionLimitToolCalls => "tool-call limit",
-        ExecutionLimitCategories.ExecutionLimitTokens => "token limit",
-        ExecutionLimitCategories.ExecutionLimitWallClock => "wall-clock limit",
-        ExecutionLimitCategories.ExecutionError => "runtime error",
-        ExecutionLimitCategories.CostCapExhausted => "cost cap",
-        ExecutionLimitCategories.ExecutionParseFailure => "parse failure",
-        _ => "execution limit"
-    };
 
     private static string ExtractTitle(string description)
     {
