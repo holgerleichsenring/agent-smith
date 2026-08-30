@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-08-30-f6cf: "THE SCAN DROPS THE APPARATUS IT NEVER USED (security-scan + api-security-scan). The ASVS catalogue, three master tools and two accounting steps are removed after three pinned runs invoked none of them; the honesty phases and the client-surface difference stay, and the masters stop instructing what is gone. -> .agentsmith/phases/done/2026-08-30-f6cf-the-scan-drops-the-apparatus-it-never-used.yaml"
     2026-08-30-18e3: "THE SCAN NAMES THE STATIONS OF A REQUEST (security-scan + scan master). WITHDRAWN by 2026-08-30-f6cf: the station tool and its accounting step are removed — three live runs against the shipped instruction called them zero times. -> .agentsmith/phases/done/2026-08-30-18e3-the-scan-names-the-stations-of-a-request.yaml"
     2026-08-30-c6ec: "THE INTERFACE IS WIDER THAN ITS CLIENTS USE (api-security-scan). A repo declares what it consumes; the master reads the call sites and the served description is diffed against them — uncalled operations, accepted-never-sent and returned-never-read, each a lower estimate carrying its extraction account. -> .agentsmith/phases/done/2026-08-30-c6ec-the-interface-is-wider-than-its-clients-use.yaml"
     2026-08-30-03e1: "A FINDING NAMES THE REQUIREMENT IT BREAKS (backend + scan master). WITHDRAWN by 2026-08-30-f6cf: the lookup and cited-finding tools and their accounting step are removed with the catalogue they cited. -> .agentsmith/phases/done/2026-08-30-03e1-a-finding-names-the-requirement-it-breaks.yaml"
