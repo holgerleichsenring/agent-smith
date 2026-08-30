@@ -181,4 +181,9 @@ And two things that took the longest to get right, so I'll name them here: befor
 
 MIT. Copyright (c) 2026 Holger Leichsenring.
 
+Third-party content included here keeps its own licence — see [NOTICE](NOTICE).
+The verification standard the scan asks its questions from is the OWASP
+Application Security Verification Standard, (c) The OWASP Foundation, licensed
+under CC BY-SA 4.0.
+
 If you find Agent Smith useful, [say hi on the blog](https://codingsoul.org) or [drop an issue](https://github.com/holgerleichsenring/agent-smith/issues).

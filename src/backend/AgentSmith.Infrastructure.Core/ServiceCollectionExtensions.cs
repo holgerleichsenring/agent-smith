@@ -6,6 +6,7 @@ using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Demo;
 using AgentSmith.Infrastructure.Core.Services.Skills;
+using AgentSmith.Infrastructure.Core.Services.Verification;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Core;
@@ -92,28 +93,10 @@ public static class ServiceCollectionExtensions
         // RedisExtensions (server-only) swaps in RedisProjectMapStore.
         services.AddSingleton<IProjectMapStore, DiskProjectMapStore>();
 
-        services.AddHttpClient<ISkillsRepositoryClient, SkillsRepositoryClient>();
-        services.AddSingleton<ISkillsCacheMarker, SkillsCacheMarker>();
-        services.AddTransient<ICatalogTarballExtractor, CatalogTarballExtractor>();
-        services.AddSingleton<IEmbeddedSkillsCatalog, EmbeddedSkillsCatalog>();
         // p0326: the demo's bundled sample project rides the same embedded-tarball shape.
         services.AddSingleton<IEmbeddedDemoSample, EmbeddedDemoSample>();
-        services.AddSingleton<SkillsCatalogPath>();
-        services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
-        // p0504: the domain profiles the resolved catalog carries.
-        services.AddSingleton<IDomainProfileCatalog, FileDomainProfileCatalog>();
-        // p0379: authored principles core+delta composition from the resolved catalog.
-        services.AddSingleton<IPrinciplesTemplateSource, CatalogPrinciplesTemplateSource>();
-        services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();
-        services.AddSingleton<ISkillsSourceHandler, PathSourceHandler>();
-        services.AddSingleton<ISkillsSourceHandler, UrlSourceHandler>();
-        // p0325: the embedded catalog is the default resolution when no
-        // explicit skills source is configured.
-        services.AddSingleton<ISkillsSourceHandler, EmbeddedSourceHandler>();
-        services.AddSingleton<ISkillsOverlayMaterializer, SkillsOverlayMaterializer>(); // p0514
-        services.AddSingleton<ISkillsCatalogResolver, SkillsCatalogResolver>();
-        // p0358: eager, logged catalog refresh when a config reload changes skills.version.
-        services.AddSingleton<SkillsCatalogRefresher>();
+        services.AddSkillsCatalog();
+        services.AddVerificationCatalogue();
 
         return services;
     }

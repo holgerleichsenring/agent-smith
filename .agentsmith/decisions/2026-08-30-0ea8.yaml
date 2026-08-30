@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-0ea8
+
+decisions:
+  - category: Architecture
+    chose: "The export is CHECKED IN and its SHA256 verified at build, the way the skills tarball is"
+    over: "Downloading the release asset at build time, or at runtime"
+    reason: |
+      The upstream is a third party that can replace or delete a release asset, and it publishes a
+      moving 'latest' tag whose asset FILE NAMES are identical to the immutable one's. A build that
+      downloads is a build whose output depends on what a stranger served that morning; a run that
+      downloads is worse. The checked-in copy is the authoritative one and the digest is what says
+      so. No RestoreVerificationCatalogue target was added for the same reason the download was
+      rejected: a missing file is an error to fix in git, not a hole to fill from the network.
+  - category: Architecture
+    chose: "The release is one const, AsvsRelease.Tag, and the checked-in files carry no version in their names"
+    over: "An MSBuild property + AssemblyMetadata pin, mirroring SkillsCatalogVersion"
+    reason: |
+      The operator asked for the source hardcoded but in a SINGLE place, so that a later phase turns
+      it into a port with a rename rather than a refactor. The skills pin needs its version in the
+      project file because the file name is built from it and the tarball is downloaded; neither is
+      true here, so the version has no reason to be in the build at all. The build pins the DIGEST,
+      which is a fact about the file rather than a second statement of the release. The attribution
+      line is interpolated from the same const so it is not a second copy either, and a test walks
+      src/ asserting the tag literal appears in exactly one file.
+  - category: Architecture
+    chose: "A separate, differently typed surface: IVerificationCatalogue / IVerificationLens, untouched ScanContract"
+    over: "Feeding ingested requirements into ScanContract and its coverage accountant"
+    reason: |
+      The ratified scan contract is MECHANICAL by doctrine: it resolves each criterion against a
+      command in the execution trail. A requirement of a verification standard has no command that
+      answers it — it is answered by looking at code. Ingesting 345 of them into that account would
+      produce hundreds of permanently outstanding rows and fail every scan at the delivery gate.
+      The two surfaces stay separate types with separate carriers.
+  - category: Implementation
+    chose: "The lens table is a checked-in TSV of ids and stations, authored per SECTION and written out per ID"
+    over: "Classifying by chapter or section prefix at runtime"
+    reason: |
+      A prefix rule has nothing to rot and therefore nothing to check: it silently absorbs whatever
+      a bumped release renumbers. A per-id table cannot — an id it does not name refuses the lens,
+      and the build compares its row count against the declared requirement count before the lens
+      ever loads. The judgement behind a row is per section, which is honest and stated in the
+      table's own header; what the table is KEYED by is the id, because the id is what an answer
+      cites and what a version bump moves.
+  - category: Security
+    chose: "The lens table holds ids and station names and no requirement text"
+    over: "A table carrying the text beside its classification, for reviewability"
+    reason: |
+      The standard is CC BY-SA 4.0. A table of ids is a collection that refers to the work; a table
+      reproducing its text is adapted material, and ShareAlike would then reach the product. The
+      text stays in the ingested export, which is excluded from this repository's own grant in
+      NOTICE, and the attribution line travels on every selection so a report that quotes a
+      requirement carries it. A test asserts no requirement's text appears in the table.
+  - category: TradeOff
+    chose: "Total coverage is enforced at load (the lens refuses) plus a declared ROW COUNT checked in MSBuild"
+    over: "A build-time validator executable that parses the export and the table and compares the id SETS"
+    reason: |
+      MSBuild cannot parse JSON, so a true compile-time set comparison needs a tool project, and a
+      tool project referenced by Infrastructure.Core must be added to the restore layer of all three
+      Dockerfiles — real risk to a working publish for a check that the suite and the composition
+      root already make loud. What the build does catch on its own is the likeliest rot by far: a
+      bumped export against an unchanged table changes the count. What the count cannot catch — a
+      RENAMED id at an unchanged count — the load-time set check does, and the lens refuses to
+      answer at all rather than answering short.
+  - category: Scope
+    chose: "A bound of twelve entries per station, at levels 1 and 2"
+    over: "Handing a station everything the lens classifies for it"
+    reason: |
+      The release carries 345 requirements; at levels 1 and 2 the busiest station still draws 79. A
+      station times an entry group times the remainder is thousands of answers, which is exactly the
+      unanswerable-question failure this phase exists to prevent. Twelve keeps a whole group of six
+      stations inside one sub-agent's reach, which is the shape the answering phase will need. The
+      floor is the standard's own level 1+2 — level 3 is high-assurance and is not asked by default.
+  - category: Implementation
+    chose: "Consulting the lens takes the run and records the catalogue version on it"
+    over: "Recording the version from whatever step happens to call the lens"
+    reason: |
+      5.0 renumbered the whole standard against 4.x, so a requirement id without its version cites
+      nothing. Making the run a parameter of the selection means a consultation that does not record
+      cannot be written — the recording is structural rather than a step somebody remembers. The
+      selection carries the same version and the attribution beside the entries, so an answer and a
+      report each hold what they need without reaching back for it.
