@@ -40,7 +40,20 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
             BuildOutcomeResolver(),
+            new StubSubAgentRunner(),
+            new SubAgentBudget(20),
+            new SubAgentNameValidator(),
+            new InMemoryChildAnswerStore(),
+            new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             new NoOpTicketDocumentMaterializer(),
+            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
+                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
+                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
+                new SandboxRepoCloner(
+                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
+                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
+                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
+                new SandboxTargets()),
             WebTool,
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
             new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
@@ -60,40 +73,8 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
             dialogueTransport: null,
-            BuildToolComposer(maxSubAgents),
+            new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
             NullLogger<AgenticMasterHandler>.Instance);
-
-    /// <summary>2026-08-30-03e1: the master's tool surface, built the way the composition
-    /// root builds it — with the real verification lens, so the entries a scan master can
-    /// look up here are the entries the shipped binary answers with.</summary>
-    private static AgentSmith.Application.Services.Tools.MasterToolComposer BuildToolComposer(
-        int maxSubAgents) =>
-        new(new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
-            new AgentSmith.Application.Services.Tools.ScanStationToolFactory(),
-            new AgentSmith.Application.Services.Tools.ScanRequirementToolFactory(
-                Lens, new AgentSmith.Application.Services.Tools.CitedFindingRecorder(Lens)),
-            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
-                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
-                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
-                new SandboxRepoCloner(
-                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
-                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
-                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout,
-                    NullLogger<SandboxRepoCloner>.Instance),
-                new SandboxTargets()),
-            new StubSubAgentRunner(),
-            new SubAgentBudget(20),
-            new SubAgentNameValidator(),
-            new InMemoryChildAnswerStore(),
-            new NoOpDecisionLogger(),
-            new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
-            NullLogger<AgentSmith.Application.Services.Tools.MasterToolComposer>.Instance);
-
-    internal static IVerificationLens Lens { get; } =
-        new AgentSmith.Infrastructure.Core.Services.Verification.AsvsVerificationLens(
-            new AgentSmith.Infrastructure.Core.Services.Verification.EmbeddedVerificationCatalogue(
-                new AgentSmith.Infrastructure.Core.Services.Verification.AsvsFlatExportParser()),
-            new AgentSmith.Infrastructure.Core.Services.Verification.VerificationLensTableParser());
 
     internal static AgenticMasterContext BuildContext(
         string masterSkillName,

@@ -74,7 +74,5 @@ public static partial class CommandModelUse
         CommandNames.SecuritySnapshotWrite, CommandNames.SpawnFix, CommandNames.PostPrComments,
         CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
-        CommandNames.AccountEntryStations,
-        CommandNames.AccountRequirementCitations,
     };
 }

@@ -43,7 +43,7 @@ public static class SurfaceDifferencePromptSection
         + (report.Degraded
             ? " — every entry below may be an artefact of one of those, so treat it as a question, not a fact."
             : ". Each entry is an OBSERVATION: the requirement named with it decides whether it matters.")
-        + $" Requirement ids are of catalogue version {report.CatalogueVersion}.";
+        + $" Requirement ids are of catalogue version {SurfaceRequirements.CatalogueVersion}.";
 
     private static string Line(SurfaceDifference difference) => difference.Kind switch
     {

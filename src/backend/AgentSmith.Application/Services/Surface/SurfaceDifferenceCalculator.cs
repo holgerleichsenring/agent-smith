@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Surface;
 public sealed class SurfaceDifferenceCalculator : ISurfaceDifferenceCalculator
 {
     public SurfaceDifferenceReport Compute(
-        IReadOnlyList<ServedOperation> served, ClientUsageReport usage, string catalogueVersion)
+        IReadOnlyList<ServedOperation> served, ClientUsageReport usage)
     {
         ArgumentNullException.ThrowIfNull(served);
         ArgumentNullException.ThrowIfNull(usage);
@@ -26,8 +26,7 @@ public sealed class SurfaceDifferenceCalculator : ISurfaceDifferenceCalculator
             Computed: true,
             NotComputedReason: null,
             Differences: differences,
-            Account: usage.Account,
-            CatalogueVersion: catalogueVersion);
+            Account: usage.Account);
     }
 
     private static IEnumerable<SurfaceDifference> For(

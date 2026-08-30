@@ -59,7 +59,7 @@ public sealed class ClientUsageReadingTests
             [new ClientCallSite("src/orders.ts", asTheClientWritesIt, [], [])],
             ClientExtractionAccount.Empty);
 
-        new SurfaceDifferenceCalculator().Compute([served], usage, "5.0")
+        new SurfaceDifferenceCalculator().Compute([served], usage)
             .Differences.Should().BeEmpty("the parameter's name is the client's own vocabulary");
     }
 
@@ -70,7 +70,7 @@ public sealed class ClientUsageReadingTests
         var usage = new ClientUsageReport(
             [new ClientCallSite("src/orders.ts", "getOrder", [], [])], ClientExtractionAccount.Empty);
 
-        new SurfaceDifferenceCalculator().Compute([served], usage, "5.0")
+        new SurfaceDifferenceCalculator().Compute([served], usage)
             .Differences.Should().BeEmpty();
     }
 }

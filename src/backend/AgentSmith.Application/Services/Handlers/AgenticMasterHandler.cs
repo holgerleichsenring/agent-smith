@@ -42,7 +42,13 @@ public sealed class AgenticMasterHandler(
     ISpecDialogPromptFactory specDialogPromptFactory,
     IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
+    ISubAgentRunner subAgentRunner,
+    SubAgentBudget subAgentBudget,
+    SubAgentNameValidator subAgentNameValidator,
+    IChildAnswerStore childAnswerStore,
+    LoopLimitsConfig loopLimits,
     ITicketDocumentMaterializer documentMaterializer,
+    EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
@@ -51,7 +57,7 @@ public sealed class AgenticMasterHandler(
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
     ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
     IDialogueTransport? dialogueTransport,
-    MasterToolComposer masterTools, // p0280/3c12: which surface this pass runs on
+    AgenticToolSurface toolSurface,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
 {
@@ -321,7 +327,7 @@ public sealed class AgenticMasterHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: masterTools.Compose(
+            Tools: ComposeMasterTools(
                 isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
                 progress, recall, remember, context),
             UserImageParts: extras.ImageParts,
@@ -649,6 +655,51 @@ public sealed class AgenticMasterHandler(
         logger.LogWarning(
             "Design-partner terminal outcome still invalid after re-prompt: {Error}", stillInvalid.Error);
         return MasterOutcomes.FailOutcome(pipeline, retry, stillInvalid.Error);
+    }
+
+    // p0280: the master surface = its base surface (read-only Review for a scan master,
+    // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
+    // sub-agents are enabled. Children SHARE this fs (so their reads/writes aggregate into
+    // the master's read-set + changes) and get the same base surface — never spawn_agents.
+    // p0315b: the spec-dialog surface is content-reads + ask_human only, no sub-agents —
+    // a conversation turn neither writes nor delegates.
+    private IList<AITool> ComposeMasterTools(
+        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
+        GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
+        WebToolHost? web, ProgressLedgerToolHost progress,
+        MemoryRecallToolHost recall, MemoryWriteToolHost remember, AgenticMasterContext context)
+    {
+        // p0380: recall (read) + remember (memory-only proposal) join EVERY
+        // master surface, including the read-only Review/scan surface.
+        if (isSpecDialog) return toolSurface.SpecDialog(fs, human, web, recall, remember);
+        IList<AITool> BaseSurface() => isScanMaster
+            ? toolSurface.Review(fs, log, web, recall, remember)
+            : toolSurface.ReadWriteWithHuman(
+                fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
+                recall: recall, remember: remember);
+
+        var master = BaseSurface();
+        // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
+        // counterpart to ScopeRepos' conservative narrowing. Scan masters read
+        // everything anyway (full scope, no narrowing) and must not spawn.
+        // p0341: coding masters also get update_progress (the durable ledger); scan /
+        // spec-dialog surfaces never do — a read-only review keeps no checklist.
+        if (!isScanMaster)
+            master = master
+                .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
+                .Concat(progress.GetTools(null, null))
+                .ToList();
+        if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
+
+        var runId = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid) && rid is not null ? rid : "run";
+        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
+        var subCtx = new SubAgentContext(
+            context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
+            ChildTools: BaseSurface().ToList(), AnswerStore: childAnswerStore, Budget: subAgentBudget,
+            AgentConfig: context.AgentConfig);
+        var spawn = new SpawnAgentToolHost(subAgentRunner, subAgentBudget, subAgentNameValidator, decisionLogger, subCtx);
+        var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
+        return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
     }
 
     // p0341c: an absolute anti-hang net on re-engagement passes for the fail-open case

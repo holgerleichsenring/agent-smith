@@ -103,7 +103,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Lifecycle.TicketLifecycle>();
         services.AddTransient<ProjectMapCacheKey>();
         services.AddSingleton<SandboxTargets>();
-        Tools.ToolRegistrations.AddMasterToolSurface(services); // p0280: the master's tool surface
+        services.AddSingleton<Tools.AgenticToolSurface>();
         services.AddSingleton<Polling.PipelineResolver>();
         // p0401: shared scanner-observation service (severity mapping + warn-once).
         services.AddSingleton<ScannerObservationFactory>();

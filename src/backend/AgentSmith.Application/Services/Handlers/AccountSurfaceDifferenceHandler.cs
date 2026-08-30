@@ -29,7 +29,6 @@ public sealed class AccountSurfaceDifferenceHandler(
     IServedSurfaceReader servedSurfaceReader,
     IClientSurfaceReader clientSurfaceReader,
     ISurfaceDifferenceCalculator calculator,
-    IVerificationCatalogue catalogue,
     ILogger<AccountSurfaceDifferenceHandler> logger)
     : ICommandHandler<AccountSurfaceDifferenceContext>
 {
@@ -57,7 +56,7 @@ public sealed class AccountSurfaceDifferenceHandler(
             PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
         return usage is null
             ? NotComputed(pipeline, "the reading of the client call sites produced no readable report")
-            : Computed(pipeline, calculator.Compute(served, usage, catalogue.Version), served.Count);
+            : Computed(pipeline, calculator.Compute(served, usage), served.Count);
     }
 
     private static IReadOnlyList<RepoConnection> Repos(PipelineContext pipeline) =>
@@ -75,7 +74,6 @@ public sealed class AccountSurfaceDifferenceHandler(
         PipelineContext pipeline, SurfaceDifferenceReport report, int operations)
     {
         pipeline.Set(ContextKeys.SurfaceDifference, report);
-        pipeline.Set(ContextKeys.VerificationCatalogueVersion, report.CatalogueVersion);
         logger.LogInformation(
             "Surface difference: {Differences} observation(s) over {Operations} served operation(s), "
             + "bounded by {Read} file(s) read and {Undecided} not decided",

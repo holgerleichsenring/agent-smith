@@ -9,5 +9,5 @@ namespace AgentSmith.Application.Services.Surface;
 public interface ISurfaceDifferenceCalculator
 {
     SurfaceDifferenceReport Compute(
-        IReadOnlyList<ServedOperation> served, ClientUsageReport usage, string catalogueVersion);
+        IReadOnlyList<ServedOperation> served, ClientUsageReport usage);
 }
