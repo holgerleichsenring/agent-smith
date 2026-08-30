@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-26ed
+
+goal: "A dynamic scan step that hit its own time limit reports a cut-off with what it covered, and its empty result is never rendered as a clean one."
+
+applies_to: "backend (the two dynamic scan steps, their result shape, and what the record and the findings account say)"
+
+scope:
+  in: >
+    A dynamic step that reached its time limit reports cut-off rather than completion, carrying the
+    limit it hit and how far it got; an empty result from a cut-off step is distinguishable from an
+    empty result from a finished one everywhere it is read; the findings account states which dynamic
+    steps contributed evidence and which produced none for which reason.
+  out: >
+    TUNING THE STEPS — template selection, time limits, authenticated probing and target scoping are an
+    operator decision this phase deliberately leaves untouched, and a successor phase can raise the
+    limits once their reports are honest. REMOVING THEM: a phase that turns the dynamic steps into
+    confirmers of code-derived hypotheses rather than independent finders is the direction of travel,
+    and it needs the hypotheses first, which the station and question phases produce. Deciding whether
+    they earn their runtime at all is the operator's call and needs one honest measurement, which does
+    not exist yet.
+
+decisions:
+  - key: |
+      THE DEGRADED CHANNEL ALREADY EXISTS AND IS FED FROM ONE SOURCE ONLY. NucleiResult already carries
+      Degraded and DegradedReason, set today from a failure to read the schema and from nothing else —
+      so the run outcome has a place to say this and simply never hears about it. The phase widens an
+      existing channel rather than inventing a state, which is why it is small.
+  - key: |
+      THE RUNNER CANNOT SAY "I WAS CUT OFF", AND THAT IS THE REAL DEFECT. ContainerResult carries
+      Stdout, Stderr, ExitCode and DurationSeconds — a container killed at its limit is indistinguishable
+      from a tool that exited non-zero for its own reasons, and inferring it from a duration close to the
+      limit would be a guess. The signal is added where the truth is known, in the runner, and every
+      caller of a tool container gains it, not only these two steps.
+  - key: |
+      A TIME LIMIT REACHED IS NOT A SCAN COMPLETED. Three consecutive runs against one live target each
+      logged the same warning that the step timed out, and each then reported the step as complete with
+      exactly the same count. A count produced by a stopwatch rather than by exhaustion is not a
+      measurement of the target, and reporting it as one makes every comparison between runs meaningless.
+  - key: |
+      ZERO FINDINGS AFTER A CUT-OFF IS THE DANGEROUS CASE, NOT THE HARMLESS ONE. One run's dynamic step
+      produced zero findings after burning its entire limit; the two others produced nineteen in half
+      the time. Rendered identically, "nothing found" reads as "nothing there" — the same shape as a
+      scan whose triage silently failed, and the same remedy: the degraded state must be carried, not
+      inferred.
+  - key: |
+      THE STEPS ARE LEFT ALONE. Changing limits or templates in the same phase would mean the first
+      honest report is also the first report of a different configuration, and no one could tell which
+      change moved the numbers. Honesty first, tuning against it afterwards.
+  - key: |
+      THE ACCOUNT NAMES CONTRIBUTORS AND ABSTAINERS. Which step actually produced evidence is the
+      question an operator asks when deciding whether a step earns its minutes, and today the run
+      cannot answer it. Naming the abstainers is what makes the later decision possible.
+
+steps:
+  - id: a-step-that-hit-its-limit-says-so
+    action: "The container runner reports a cut-off distinctly from a non-zero exit; each dynamic step carries that through its existing degraded channel."
+  - id: an-empty-cut-off-result-is-not-a-clean-one
+    action: "An empty result is rendered with its cause wherever it is read — run record, result document, findings account."
+  - id: the-account-names-who-contributed
+    action: "The findings account states, per dynamic step, whether it contributed evidence and if not, why."
+
+tests:
+  - "ContainerRunner_KilledAtItsLimit_ReportsCutOffNotAnExitCode"
+  - "DynamicStep_ReachedItsTimeLimit_ReportsCutOffNotCompletion"
+  - "DynamicStep_EmptyAfterCutOff_IsDistinguishableFromEmptyAfterCompletion"
+  - "DynamicStep_Finished_ReportsCompletionAsBefore"
+  - "DynamicStep_ContributedNothing_IsNamedInTheAccount"
+
+done:
+  - "a cut-off dynamic step is visible as cut-off in the record, the document and the account"
+  - "an operator can tell from one run which dynamic steps produced evidence and which did not"
+  - "the steps' own configuration is unchanged"
+  - "build green, full suite green"
