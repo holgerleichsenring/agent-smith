@@ -63,16 +63,15 @@ public static partial class ContextKeys
     /// nothing without the version that issued it.</summary>
     public const string VerificationCatalogueVersion = "VerificationCatalogueVersion";
 
-    /// <summary>2026-08-30-3c12: the answers to the verification standard's entries the
-    /// scan recorded through its own tool call, exactly as it stated them. Holds a
-    /// RequirementAnswerLog — a live collector the master and its sub-agents append to,
-    /// never a finished artefact.</summary>
-    public const string RequirementAnswers = "RequirementAnswers";
+    /// <summary>2026-08-30-03e1: the findings that named an entry of the verification
+    /// standard, recorded through the scan's own tool call exactly as it stated them. Holds
+    /// a CitedFindingLog — a live collector the master and its sub-agents append to, never
+    /// a finished artefact.</summary>
+    public const string RequirementCitations = "RequirementCitations";
 
-    /// <summary>2026-08-30-3c12: the settled account — per entry group and station, which
-    /// entries of the standard are met, unmet, undecidable, unanswered or never attempted.
-    /// A REPORTING surface like the entry map it stands on: rendered into the delivered
-    /// artefact and raising findings of its own, never routed into the account the delivery
-    /// gate reads.</summary>
-    public const string RequirementAccount = "RequirementAccount";
+    /// <summary>2026-08-30-03e1: the settled account — per entry group and station, whether
+    /// the scan examined it and what it cited there. A REPORTING surface like the entry map
+    /// it stands on: rendered into the delivered artefact and raising findings of its own,
+    /// never routed into the account the delivery gate reads.</summary>
+    public const string ScanExaminationAccount = "ScanExaminationAccount";
 }

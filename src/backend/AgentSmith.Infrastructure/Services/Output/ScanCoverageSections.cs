@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Services.Output;
 /// findings that say what it found.
 /// <para>
 /// They are one unit because they are one story told in two halves — where each station of
-/// each entry group lives, then what each of those stations can answer — and because each
+/// each entry group lives, then which of them the scan examined — and because each
 /// of them is empty on a run that did not state it, so a report from a run without either
 /// is byte for byte the report it was before they existed.
 /// </para>
@@ -15,5 +15,5 @@ namespace AgentSmith.Infrastructure.Services.Output;
 public static class ScanCoverageSections
 {
     public static string Markdown(PipelineContext pipeline) =>
-        EntryStationSection.Markdown(pipeline) + RequirementSection.Markdown(pipeline);
+        EntryStationSection.Markdown(pipeline) + ExaminationSection.Markdown(pipeline);
 }

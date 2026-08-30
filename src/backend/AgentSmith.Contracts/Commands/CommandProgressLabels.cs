@@ -84,7 +84,7 @@ public static partial class CommandNames
         [AccountScanCoverage] = "Accounting for the scan's coverage",
         [AccountEntryStations] = "Locating the stations of each entry group",
         [AccountSurfaceDifference] = "Reading what the clients exercise",
-        [AccountRequirementAnswers] = "Answering the requirements each station is asked",
+        [AccountRequirementCitations] = "Accounting what each station examined",
         [CompressApiScanFindings] = "Compressing API scan findings",
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",
