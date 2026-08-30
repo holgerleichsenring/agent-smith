@@ -39,7 +39,7 @@ public static class ApiScanFindingsCompressor
 
         if (sb.Length < 50)
             sb.AppendLine("No findings from automated scanners.");
-
+        DynamicStepAccount.Append(sb, nuclei, zap);
         return sb.ToString();
     }
 

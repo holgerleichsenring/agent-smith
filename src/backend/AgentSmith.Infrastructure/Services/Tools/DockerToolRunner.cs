@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Infrastructure.Services.Containers;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
@@ -37,9 +38,16 @@ public sealed class DockerToolRunner(
         }
         catch (OperationCanceledException)
         {
+            // 2026-08-30-26ed: only this frame knows the tool was stopped by its own limit
+            // rather than by the caller, and only while the caller's token is still live.
+            // The exit code below is the runner's, not the tool's.
+            var cutOff = !cancellationToken.IsCancellationRequested;
+            logger.LogWarning("Tool {Tool} stopped after {Timeout}s — {Cause}",
+                request.Tool, request.TimeoutSeconds,
+                cutOff ? "cut off at its own limit" : "the run was cancelled");
             var output = await TryCopyOutput(client, containerName, workDir, request.OutputFileName);
             await TryRemove(client, containerName);
-            return new ToolResult("", "Timeout", output, 1, request.TimeoutSeconds);
+            return new ToolResult("", "Timeout", output, 1, request.TimeoutSeconds, cutOff);
         }
         catch (Exception ex)
         {
@@ -54,7 +62,7 @@ public sealed class DockerToolRunner(
         Stopwatch sw, CancellationToken ct)
     {
         var extraHosts = request.ExtraHosts?.Select(kv => $"{kv.Key}:{kv.Value}").ToList() ?? [];
-        await PullImageIfMissing(client, image, ct);
+        await DockerImagePuller.EnsureAsync(client, image, ct);
 
         var response = await client.Containers.CreateContainerAsync(new CreateContainerParameters
         {
@@ -112,18 +120,6 @@ public sealed class DockerToolRunner(
         using var ms = new MemoryStream();
         await logStream.CopyOutputToAsync(Stream.Null, ms, Stream.Null, CancellationToken.None);
         return Encoding.UTF8.GetString(ms.ToArray());
-    }
-
-    private static async Task PullImageIfMissing(DockerClient client, string image, CancellationToken ct)
-    {
-        try { await client.Images.InspectImageAsync(image, ct); }
-        catch (DockerImageNotFoundException)
-        {
-            var parts = image.Split(':');
-            await client.Images.CreateImageAsync(
-                new ImagesCreateParameters { FromImage = parts[0], Tag = parts.Length > 1 ? parts[1] : "latest" },
-                null, new Progress<JSONMessage>(), ct);
-        }
     }
 
     private static async Task TryRemove(DockerClient client, string name)
