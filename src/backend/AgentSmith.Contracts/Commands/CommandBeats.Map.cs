@@ -79,6 +79,7 @@ public static partial class CommandBeats
         [CommandNames.SpawnNuclei] = RunBeat.Building,
         [CommandNames.SpawnSpectral] = RunBeat.Building,
         [CommandNames.SpawnZap] = RunBeat.Building,
+        [CommandNames.AccountSurfaceDifference] = RunBeat.Building, // 2026-08-30-c6ec
         [CommandNames.StaticPatternScan] = RunBeat.Building,
         [CommandNames.GitHistoryScan] = RunBeat.Building,
         [CommandNames.DependencyAudit] = RunBeat.Building,

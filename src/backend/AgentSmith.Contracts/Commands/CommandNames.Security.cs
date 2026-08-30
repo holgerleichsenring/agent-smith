@@ -43,4 +43,9 @@ public static partial class CommandNames
     /// asked to REFUTE it against the real code, so a candidate promoted by the master's
     /// silence cannot reach delivery as a critical unsubstantiated.</summary>
     public const string SubstantiateFindings = "SubstantiateFindingsCommand";
+
+    /// <summary>2026-08-30-c6ec: states which capability the served interface offers that
+    /// no declared first-party client exercises — an observation per difference, paired
+    /// with the requirement id that would decide whether it matters.</summary>
+    public const string AccountSurfaceDifference = "AccountSurfaceDifferenceCommand";
 }
