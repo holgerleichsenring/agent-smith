@@ -228,7 +228,7 @@
   <text x="779" y="1194" class="cf-accent" font-size="9" font-weight="400" text-anchor="start">× one per phase</text>
   <line x1="40" y1="1208" x2="880" y2="1208" class="cf-rule"/>
   <text x="40" y="1226" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">api-security-scan</text>
-  <text x="40" y="1242" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">api-security-master · 21 steps · 3 with a model</text>
+  <text x="40" y="1242" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">api-security-master · 22 steps · 4 with a model</text>
   <rect x="430" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
@@ -240,16 +240,17 @@
   <rect x="550" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="565" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="580" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="595" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="595" y="1214" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="610" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="625" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="640" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="655" y="1214" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="670" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="685" y="1214" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="700" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="655" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="670" y="1214" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="685" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="700" y="1214" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="715" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="730" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="745" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1256" x2="880" y2="1256" class="cf-rule"/>
   <text x="40" y="1274" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">init-project</text>
   <text x="40" y="1290" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">project-discovery · 13 steps · 2 with a model</text>

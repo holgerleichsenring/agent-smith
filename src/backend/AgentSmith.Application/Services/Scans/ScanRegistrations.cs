@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Surface;
 using AgentSmith.Contracts.Commands;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -33,7 +34,7 @@ public static class ScanRegistrations
         services.AddTransient<ICommandHandler<SecurityTrendContext>, SecurityTrendHandler>();
         services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
         services.AddTransient<ICommandHandler<SpawnFixContext>, SpawnFixHandler>();
-        return services.AddScanAccountability();
+        return services.AddScanAccountability().AddSurfaceDifference();
     }
 
     /// <summary>p0429: what the scan claims, what survives refutation, what went unanswered.</summary>
@@ -58,6 +59,21 @@ public static class ScanRegistrations
         services.AddTransient<IFindingRefuter, FindingRefuter>();
         services.AddTransient<IFindingSubstantiator, FindingSubstantiator>();
         services.AddTransient<ICommandHandler<SubstantiateFindingsContext>, SubstantiateFindingsHandler>();
+        return services;
+    }
+
+    /// <summary>
+    /// 2026-08-30-c6ec: what the served interface offers that no declared first-party
+    /// client exercises — the served description reduced to operations, the model that
+    /// reads the client call sites, and the difference between the two.
+    /// </summary>
+    private static IServiceCollection AddSurfaceDifference(this IServiceCollection services)
+    {
+        services.AddTransient<IServedSurfaceReader, ServedSurfaceReader>();
+        services.AddTransient<IClientSurfaceReader, ClientSurfaceReader>();
+        services.AddTransient<ISurfaceDifferenceCalculator, SurfaceDifferenceCalculator>();
+        services.AddTransient<
+            ICommandHandler<AccountSurfaceDifferenceContext>, AccountSurfaceDifferenceHandler>();
         return services;
     }
 }

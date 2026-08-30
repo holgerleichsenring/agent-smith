@@ -70,6 +70,7 @@ public static class ContextBuildersExtensions
         AddBuilder<AccountScanCoverageContextBuilder>(services, CommandNames.AccountScanCoverage);
         AddBuilder<SubstantiateFindingsContextBuilder>(services, CommandNames.SubstantiateFindings);
         AddBuilder<AccountEntryStationsContextBuilder>(services, CommandNames.AccountEntryStations);
+        AddBuilder<AccountSurfaceDifferenceContextBuilder>(services, CommandNames.AccountSurfaceDifference);
         AddBuilder<CompressApiScanFindingsContextBuilder>(services, CommandNames.CompressApiScanFindings);
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);

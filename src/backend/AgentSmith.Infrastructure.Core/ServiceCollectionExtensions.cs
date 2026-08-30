@@ -36,6 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IConnectionRepoUrlBuilder, ConnectionRepoUrlBuilder>();
         services.AddSingleton<RepoCatalogBuilder>();
         services.AddSingleton<TrackerCatalogBuilder>();
+        services.AddSingleton<ProjectRepoResolver>();
         services.AddSingleton<ResolvedProjectBuilder>();
         services.AddSingleton<ConfigCatalogResolver>();
         // p0506: ${NAME} resolution for the secrets map, registry tokens and a

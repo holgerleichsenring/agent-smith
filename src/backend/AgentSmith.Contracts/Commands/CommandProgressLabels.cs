@@ -83,6 +83,7 @@ public static partial class CommandNames
         [SubstantiateFindings] = "Substantiating findings against the source",
         [AccountScanCoverage] = "Accounting for the scan's coverage",
         [AccountEntryStations] = "Locating the stations of each entry group",
+        [AccountSurfaceDifference] = "Reading what the clients exercise",
         [CompressApiScanFindings] = "Compressing API scan findings",
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",

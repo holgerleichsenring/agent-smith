@@ -104,5 +104,6 @@ public static partial class CommandDisplayNames
         [CommandNames.SubstantiateFindings] = "Substantiate findings",
         [CommandNames.AccountScanCoverage] = "Account for scan coverage",
         [CommandNames.AccountEntryStations] = "Check the entry map",
+        [CommandNames.AccountSurfaceDifference] = "Account for the surface difference",
     };
 }
