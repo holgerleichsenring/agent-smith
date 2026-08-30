@@ -34,6 +34,7 @@ public static partial class PipelinePresets
         CommandNames.MergeMasterFindings,   // p0277: master triage + uncovered High+ raw -> SkillObservations
         CommandNames.SubstantiateFindings,  // p0429: nothing ships critical on the master's silence
         CommandNames.AccountEntryStations, // 2026-08-30-18e3: every station of every entry group located, or named
+        CommandNames.AccountRequirementAnswers, // 2026-08-30-3c12: every station answers the entries that apply
         CommandNames.DeliverFindings,
         CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history (raw basis, p0277)
         CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)
