@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-c6ec
+
+goal: "A scan holding a served description and named first-party clients reports the capability the interface offers that no client exercises, as a bounded lower estimate."
+
+applies_to: "backend (the consumer declaration, the difference, its extraction account) + skills catalog (the master reads the call sites) — a two-repo change that cannot land atomically"
+
+requires:
+  - 2026-08-30-0ea8
+
+scope:
+  in: >
+    A repository entry may declare that it CONSUMES a named interface, so the run knows which checkouts
+    to read call sites from and an unresolvable name fails loudly; the master — not a parser — reads
+    those checkouts and reports per call site the operation and the property sets it sends and reads;
+    an extraction account travels with the result, naming files read, call sites found and files it
+    could not decide; three differences against the served description — an operation no client calls,
+    a property accepted and never sent, a property returned and never read — each stated as a LOWER
+    ESTIMATE of what is exercised and paired with the requirement id that would decide whether it
+    matters; runs without a served description or without a named consumer report the difference as
+    not computed.
+  out: >
+    A STATIC EXTRACTOR. Per-language route and call-site parsers are the pattern this project has
+    already refused; the reader is the model. DERIVING THE SERVED DESCRIPTION FROM CODE: only the api
+    scan holds one today and only when the operator supplies it, so a phase that recovers the served
+    surface from source is the named predecessor for using this on a code-only scan. CALLING A
+    DIFFERENCE A DEFECT: it is an observation; the finding is the pairing with a decided requirement,
+    and until an api run answers requirements the pairing is recorded and not raised. THE SENSITIVE
+    FLOW RATIFICATION LIST: a scan run has no channel to ask the operator anything and no store that
+    survives it, so a successor phase owns the question, the channel and the durable mark. TRAFFIC as
+    a second source of exercise, once this has a baseline.
+
+decisions:
+  - key: "First-party client source is where the intent lives, which is why this is derived statically rather than from traffic. Background survey in notes/2026-08-30-surface-difference-survey.md."
+  - key: "A missed call site manufactures a false finding, so the extraction must account for itself. An unread or undecidable client file makes an exercised operation look unexercised — the difference is therefore a lower estimate carrying what was read and what was not, never a closed set."
+  - key: "The difference is evidence, the requirement is the finding. An unused operation behind a correct object-level check is untidy, not dangerous; reporting differences alone produces volume without judgement."
+  - key: "The consumer relation lives on the repository entry, because the run already checks out every configured repository — a role on the existing catalogue is a smaller thing than a new declaration site."
+  - key: "An unresolvable consumer name fails rather than degrading. A difference computed over a subset the operator did not choose reads as a clean bill, which is the failure mode this phase exists to avoid."
+
+steps:
+  - id: a-repository-declares-what-it-consumes
+    action: "A repository entry may name the interface it consumes; an unresolvable name fails the run, and a run with no consumer named reports the difference as not computed."
+  - id: the-master-reads-the-call-sites
+    action: "The master reads the declared consumer checkouts and reports per call site its operation and the property sets it sends and reads."
+  - id: the-extraction-accounts-for-itself
+    action: "An extraction account travels with the result: files read, call sites found, files that could not be decided."
+  - id: the-difference-is-computed-as-a-lower-estimate
+    action: "Uncalled operations, unsent accepted properties and unread returned properties are reported as a lower estimate, each carrying the requirement id that would decide whether it matters."
+
+tests:
+  - "Surface_APropertyAcceptedAndNeverSent_IsReportedAsOverExposed"
+  - "Surface_AnOperationNoClientCalls_IsReportedAsUnexercised"
+  - "Surface_AClientFileThatCouldNotBeDecided_DegradesTheClaimNotTheExercisedSet"
+  - "Surface_AnUnresolvableConsumerName_FailsTheRun"
+  - "Surface_NoServedDescription_ReportsTheDifferenceAsNotComputed"
+  - "Surface_ADifference_IsRecordedAsAnObservationNotRaisedAsAFinding"
+
+done:
+  - "a run holding a served description and a named consumer states which accepted properties and which operations no client exercises"
+  - "every difference carries the extraction account that bounds it"
+  - "a run missing either input says so instead of reporting an empty difference"
+  - "build green, full suite green"

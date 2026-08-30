@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-18e3
+
+goal: "The inventory the scan master already performs becomes a checked artefact: six stations per entry group, each located by a citation that resolves, or reported as not located."
+
+applies_to: "skills catalog (the master states its inventory as an artefact) + backend (the carrier, the resolution of each location, the finding an unlocated station raises) — a two-repo change that cannot land atomically"
+
+requires:
+  - 2026-08-30-03e4
+
+scope:
+  in: >
+    Six stations per entry group — admission, evidence, resolution, authority, scope, effect — each
+    carrying a file and a start line resolved through the citation resolver the findings already use;
+    a location that resolves against nothing counts as NOT located, and an unlocated station raises a
+    finding naming the station and the group; the map travels as its own tool call, leaving the
+    observation array contract untouched; the map is recorded with the run and rendered into the
+    result document; the catalog release and the embedded pin are a step of this phase.
+  out: >
+    NAMING A MECHANISM. The spec fixes the stations, never the construct that fills one — a decorator,
+    a guard, a filter, an extractor, an interceptor, an attribute or a hand-written call are all
+    answers, and a stack this repository has never seen must be able to answer too. THE OTHER MASTERS
+    THAT DECLARE THE SAME OUTPUT SCHEMA: api-security-master and pr-review-master keep today's shape
+    untouched — the api scan runs its source checkout fail-soft and frequently holds no source, so a
+    located station is a question it often cannot be asked. The questions asked AT a station are
+    a successor that hangs a second question set on this map — which is why 2026-08-30-0a28 was
+    withdrawn into this spec rather than built beside it: a station IS a question, and its
+    not-located row IS an unanswered one. COMPARING TWO RUNS: the entry groups are the master's
+    judgement, so the denominator moves with them; a phase that measures run-to-run agreement is
+    named in 2026-08-30-03e4 and must land before any count here is read across runs.
+
+decisions:
+  - key: |
+      THE INSTRUCTION ALREADY EXISTS; THE ARTEFACT DOES NOT. The master skill's first phase already
+      says to enumerate the entry points, the trust boundaries and where credentials are handled. So
+      the live miss — a scan that read the surrounding middleware, grepped for the configured key, and
+      never opened the class where the bearer's identity is actually derived — was not a missing
+      instruction. It was an instruction whose output nothing collects and nothing checks. This phase
+      adds the artefact and the check, not the request, which is why it is cheaper than it looks.
+  - key: |
+      THE MAP TRAVELS AS ITS OWN TOOL CALL, NOT INSIDE THE ANSWER. The master's final answer is a
+      closed contract — a single JSON array, with everything outside it discarded — and the merge step
+      skips silently on anything else. A wrapper object would therefore reproduce exactly the
+      inflation this batch exists to stop: one run in three delivering raw untriaged findings. A
+      separate carrier leaves the array contract, its schema and its parser untouched.
+  - key: |
+      A LOCATION THAT DOES NOT RESOLVE IS NOT A LOCATION. Free text makes this a form the model fills
+      plausibly; a location that must resolve against the evidence the scan actually holds makes it a
+      method. The resolver, the cited-code window and the evidence factory exist and are reused —
+      but routing MODEL-AUTHORED claims through them is NEW wiring, not an existing facility: today
+      the substantiation path consumes only what the master's silence promoted from the scanners, on
+      the stated ground that a master reading code is its author. This phase owns that wiring.
+  - key: |
+      THE MAP REPORTS, IT DOES NOT GATE. An account row that stays outstanding fails the run at the
+      delivery gate, and a station that cannot be located for want of an input the scan was never given
+      is outstanding forever by construction — routing these rows into that ledger would turn every
+      scan of a repository without a client or an ownership model into a failed run. The map is
+      rendered beside the findings and recorded with the run; the gating ledger is untouched.
+  - key: |
+      AN ANSWER RESOLVES THE WAY A FINDING RESOLVES. A located station is a model-authored claim, and
+      the account already refuses a row that claims satisfaction while citing nothing, or that cites
+      what was never read. The map's rows go through the same resolver against the same read-path
+      index, so a located station carries exactly as much weight as a delivered finding and no more.
+  - key: |
+      AN UNLOCATED STATION IS THE FINDING, NOT THE SILENCE. "This system has no scope station" is the
+      complete and correct answer for a purely role-based design and is worth more than most findings
+      such a run produces. Silence is what we have today.
+  - key: |
+      ENTRY GROUPS ARE DISCOVERED. A configured list would be a second thing to maintain and would rot
+      exactly like the hand-authored architecture models whose neglect is why comparable tooling goes
+      unrun. Grouping is the master's judgement and it states the grouping it chose.
+
+steps:
+  - id: the-master-states-its-inventory-as-an-artefact
+    action: "The scan master reports, per entry group, the six stations with a file and start line each or an explicit not-located, through a tool call of its own."
+  - id: a-location-must-resolve-to-count
+    action: "Each stated location is resolved through the existing citation resolver; one that resolves against nothing is recorded as not located."
+  - id: an-unlocated-station-becomes-a-finding
+    action: "A station not located raises a finding naming the station, the entry group and the input it would have needed."
+  - id: the-map-reaches-the-record-and-the-document
+    action: "The map is persisted with the run and rendered into the result document alongside the findings."
+  - id: the-pin-carries-it-here
+    action: "The catalog release lands and the embedded pin moves to it, so the shipped binary carries the master that produces the map."
+
+tests:
+  - "Stations_AMapMissingAStation_RaisesAFindingNamingIt"
+  - "Stations_AStationCitingAFileTheScanCannotRead_CountsAsNotLocated"
+  - "Stations_ACompleteMap_RaisesNoFindingAndIsRecorded"
+  - "Stations_TheObservationArrayContract_IsUnchanged"
+  - "Stations_AnApiSecurityRun_IsNotAskedForAMap"
+  - "Stations_AnUnlocatedStation_DoesNotFailTheDeliveryGate"
+  - "Stations_AStationCitingNothingThatWasRead_IsNotCountedAsLocated"
+  - "Stations_TheMap_IsRenderedIntoTheResultDocument"
+
+done:
+  - "a scan of a repository states where each of the six stations lives, per entry group, with locations that resolve"
+  - "a station that cannot be located is visible as a finding naming what it needed, not as an absence"
+  - "a repository that cannot answer every station still produces a delivered run"
+  - "the findings array and its schema behave exactly as before"
+  - "the catalog release is out and the embedded pin names it"
+  - "build green, full suite green"
