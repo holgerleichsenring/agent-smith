@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-0ea8
+
+goal: "The questions a scan asks are OWASP ASVS 5.0 requirements from a checked-in, digest-verified copy, named in one constant, so each carries a citable id the product did not invent."
+
+applies_to: "backend (the ingested catalogue, its attribution, the lens that selects from it) — requirements are ingested verbatim, never authored here"
+
+scope:
+  in: >
+    The ASVS 5.0 flat JSON export from its immutable release tag, CHECKED IN as the authoritative copy
+    with its digest verified at build; which release that is stated in ONE constant and nowhere else;
+    each entry keeps its requirement id, its level value and its text verbatim; a lens table keyed by
+    id that maps entries to surface shapes and bounds a single station's selection, with a default
+    floor of the first two levels; the lens asserts total coverage of the catalogue at build; the
+    attribution the licence requires, in the repository and in any report quoting requirement text;
+    the catalogue version recorded with every run that consulted it.
+  out: >
+    MAKING THE SOURCE CONFIGURABLE. One constant, not a port and not an operator declaration — a second
+    catalogue is what would tell us the right shape, and a successor phase introduces it when one
+    exists. THE RATIFIED SCAN CONTRACT IS UNTOUCHED: that account is mechanical by doctrine, resolving
+    each criterion against a command in the execution trail, and a requirement has no command that
+    answers it. ASKING THE QUESTIONS is 2026-08-30-3c12. AUTHORING REQUIREMENTS OF OUR OWN: the two
+    cases the standard does not carry get 2026-08-30-c6ec, because one invented row voids every
+    citation beside it. CROSS-VERSION CITATION: 5.0 renumbered the whole standard against 4.x, so a
+    citation means nothing without the version, which is why the run records it.
+
+decisions:
+  - key: "The source is one constant, not a configuration surface. Externalising it before a second catalogue exists would design against an imagined operator; naming it in exactly one place makes the later port a rename rather than a refactor."
+  - key: "A verification standard, not a risk top ten — the first enumerates what must be true, is levelled, and ships as data with stable ids; the second ranks what goes wrong and is prose."
+  - key: "The citation and the completeness are one purchase: ingesting a standard means the question set stops being our opinion, and every answer can name the clause it answers."
+  - key: "The checked-in copy is authoritative, not a download. The upstream is a third party that can replace or delete a release asset, and it publishes a moving tag whose asset filenames match the immutable one's."
+  - key: "The lens stores ids and nothing else. The standard is CC BY-SA; a table of ids is a collection, a table reproducing requirement text is adapted material — and the second would put the ShareAlike term on the product."
+  - key: "The lens must classify every id or the build fails. Hand-kept mapping tables rot silently; keyed against a checked-in catalogue, rot can only enter on a deliberate bump, where a total-coverage assertion turns it into a build break."
+  - key: "A selection bound belongs to the lens. The export carries 345 requirements; a station times a group times the remainder is thousands of answers, which is the unanswerable-question failure this phase exists to prevent."
+
+steps:
+  - id: the-export-is-checked-in-and-verified
+    action: "The ASVS 5.0 flat JSON export from the immutable release tag is checked in and its digest verified at build; the release it came from is stated in one constant."
+  - id: an-entry-keeps-its-id-and-its-words
+    action: "Each entry exposes its requirement id, level and verbatim text; nothing is paraphrased or renumbered."
+  - id: the-licence-is-attributed-where-the-text-travels
+    action: "The repository carries the attribution and licence notice for the ingested text, excluded from its own grant, and any report quoting requirement text carries the attribution line."
+  - id: a-lens-says-what-applies-and-how-much
+    action: "A versioned table keyed by id maps entries to surface shapes, applies the level floor, and bounds how many entries a single station may be asked; it classifies every id or the build fails."
+  - id: the-run-records-which-catalogue-answered-it
+    action: "The catalogue version is recorded with every run that consulted it."
+
+tests:
+  - "Catalogue_AnIngestedEntry_KeepsItsIdLevelAndText"
+  - "Catalogue_ACheckedInCopyWhoseDigestDiffers_FailsTheBuild"
+  - "Catalogue_AnIdTheLensDoesNotClassify_FailsTheBuild"
+  - "Catalogue_TheLensTable_HoldsNoRequirementText"
+  - "Catalogue_ASingleStationSelection_StaysWithinItsBound"
+  - "Catalogue_ARunThatConsultedIt_RecordsItsVersion"
+  - "Catalogue_TheReleaseItCameFrom_IsNamedInOnePlace"
+
+done:
+  - "a scan can ask which requirements apply to a shape and get entries with citable ids, bounded in number"
+  - "the checked-in copy is digest-verified, attributed, and its version recorded per run"
+  - "every requirement id is classified by the lens, enforced at build"
+  - "the release is named in exactly one constant"
+  - "the ratified scan contract and its accountant behave exactly as before"
+  - "build green, full suite green"
