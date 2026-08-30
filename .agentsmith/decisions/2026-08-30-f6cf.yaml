@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-f6cf
+
+decisions:
+  - category: Architecture
+    chose: "The catalogue, the three master tools and their two accounting steps are DELETED, not tuned"
+    over: "Keeping them behind a flag, shortening the instruction, or re-ordering the prompt"
+    alternatives:
+      - "A default-off configuration switch — the code, the tests and the build validation all stay, and a surface nothing exercises rots where nobody looks"
+      - "Rewriting the master's wording — six live scans already say the wording is not the variable"
+    reason: |
+      Three live runs against the PINNED catalogue, with the master explicitly instructed and
+      every tool schema present in its ~52,000-character prompt, produced 54 ReadFile calls and
+      ZERO calls to any of the three tools. Machinery nothing invokes is not a feature waiting
+      for tuning — it is weight on every prompt, a build target, a third-party licence
+      obligation and five metadata maps, paid for by nothing.
+      The likely mechanism is structural rather than a matter of wording: no shipping reviewer
+      combines tool use with a strict final-output schema, and where that combination is
+      measured, tool invocation collapses while schema compliance holds. This design occupied
+      exactly that cell, so a flag would preserve the cell rather than leave it.
+
+  - category: Architecture
+    chose: "The INSTRUCTION survives in the master; only the apparatus is withdrawn"
+    over: "Removing Phase 1's station walk along with the tool that recorded it"
+    alternatives:
+      - "Keeping the walk and the tool but making the tool optional — the same cell, with a softer verb"
+    reason: |
+      Handed the same instruction text with no tools, no output contract and no turn cap, a
+      plain agent grouped the entry points, walked one group, cited real file:line locations,
+      reached the identity-resolution site and found three real defects the pipeline missed.
+      The method is what worked; the recording apparatus is what nobody called. So
+      security-master 1.7.0 keeps the grouping and the six stations — admission, evidence,
+      resolution, authority, scope, effect — as the reviewer's own working, and asks for ONE
+      group walked end to end instead of a call per station per group. A successor rebuilds
+      the recording in the shape the field actually ships, measured by a prompt bench first.
+
+  - category: Architecture
+    chose: "The skill sections go in the SAME change as the backend tools"
+    over: "Removing the backend first and letting the shipped master catch up at the next release"
+    alternatives:
+      - "Leaving the sections in place because the tools simply would not be offered — a master instructing a call it cannot make"
+    reason: |
+      A shipped master telling the model to call a tool the backend no longer offers is
+      strictly worse than either end state: the model spends turns on an unavailable call and
+      the operator reads an instruction the product cannot honour. The two repositories cannot
+      land atomically, so the skills half is agent-smith-skills#173 and the embedded pin moves
+      only after that release exists. The pin is deliberately NOT faked: SkillsCatalogVersion
+      and SkillsCatalogSha256 are untouched and this spec stays in phases/active/ with the pin
+      step outstanding.
+
+  - category: Architecture
+    chose: "2026-08-30-c6ec (the surface-difference step) is KEPT, with its one line to the catalogue cut"
+    over: "Removing it with the rest of the batch"
+    alternatives:
+      - "Keeping the IVerificationCatalogue dependency alive purely to stamp a version on the report"
+    reason: |
+      The removal was conditional on whether c6ec depends on the catalogue for its requirement
+      PAIRING. It does not: SurfaceRequirements is a static three-entry map from difference
+      kind to requirement id, and the step itself stands on the served description and the
+      client call sites. The only tie was AccountSurfaceDifferenceHandler taking
+      IVerificationCatalogue to read catalogue.Version for a stamp — so the version becomes one
+      const beside the ids it qualifies (an id means nothing without the release that issued
+      it) and the report stops carrying it. The step's observable output is unchanged, and
+      Rollback_TheScanPresets_HoldNoRemovedStep pins that it stays in ApiSecurityScan.
+
+  - category: Architecture
+    chose: "MasterToolComposer collapses back into AgenticMasterHandler"
+    over: "Keeping the extracted class now that it composes only the pre-batch surface"
+    alternatives:
+      - "Leaving the seam in place as a home for a future tool — a class kept for work nobody has specified"
+    reason: |
+      2026-08-30-3c12 extracted the composer to pay for the tools it was adding (922 -> 866
+      lines). With those tools gone it composes byte for byte what the handler composed before
+      the batch, so the extraction has nothing left to justify it and a rollback that leaves it
+      standing leaves an empty seam. The handler returns to 917 lines, UNDER its file-length
+      baseline row of 922, so the ratchet is satisfied without raising anything — the row is
+      left where it is. ToolRegistrations, extracted in the same commit, goes with it;
+      SkillsRegistrations (extracted by 0ea8 and unrelated to the catalogue) stays, because
+      reverting a neutral extraction would regrow ServiceCollectionExtensions for nothing.
+
+  - category: Architecture
+    chose: "The honesty phases 2026-08-30-03e4 and 2026-08-30-26ed are untouched"
+    over: "Reviewing them alongside the batch they shipped with"
+    alternatives:
+      - "Folding the degraded-triage notice into the same withdrawal because it also arrived this week"
+    reason: |
+      They answer a different question. A scanner that reports a cut-off and a run that says
+      its triage was lost need no prompt, no tool and no model — they are facts the framework
+      already holds, and both are live-confirmed. Nothing in this change touches them, and
+      Rollback_ADegradedTriage_StillReportsItself and Rollback_ACutOffDynamicStep_StillReportsItself
+      hold that shut so a later cleanup cannot take them by association.
+
+  - category: Documentation
+    chose: "The record entries for 0ea8, 18e3, 3c12 and 03e1 are rewritten as WITHDRAWN, naming this phase"
+    over: "Deleting the four entries, or leaving them describing code that no longer exists"
+    alternatives:
+      - "Moving the four specs out of phases/done/ — they did ship, and the pointers in the record and in commit messages must keep resolving"
+    reason: |
+      The record is the first thing every agent reads. Four index lines describing a catalogue,
+      three tools and two steps that are no longer in the tree would send the next reader
+      looking for them. Deleting the lines would hide that the work happened and why it was
+      undone, which is the more useful fact of the two. So each line keeps its pointer into
+      phases/done/ and now states the withdrawal and the phase that made it.

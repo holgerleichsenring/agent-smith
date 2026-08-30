@@ -312,7 +312,7 @@
   <rect x="655" y="1406" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1448" x2="880" y2="1448" class="cf-rule"/>
   <text x="40" y="1466" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">security-scan</text>
-  <text x="40" y="1482" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">security-master · 25 steps · 4 with a model</text>
+  <text x="40" y="1482" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">security-master · 23 steps · 4 with a model</text>
   <rect x="430" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
@@ -336,8 +336,6 @@
   <rect x="730" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="745" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="760" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="775" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="790" y="1454" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1496" x2="880" y2="1496" class="cf-rule"/>
   <text x="40" y="1514" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">spec-dialog</text>
   <text x="40" y="1530" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">design-partner-master · 4 steps · 1 with a model</text>

@@ -18,7 +18,7 @@ public sealed class MarkdownOutputStrategy(
     {
         var markdown = ScanTriageNotice.Markdown(context.Pipeline) + (context.Observations.Count > 0
             ? BuildMarkdown(context.Observations)
-            : BuildFromPipeline(context)) + ScanCoverageSections.Markdown(context.Pipeline);
+            : BuildFromPipeline(context));
 
         Directory.CreateDirectory(context.OutputDir);
         var outputPath = Path.Combine(context.OutputDir, "findings.md");

@@ -8,7 +8,6 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.TestHelpers;
-using AgentSmith.Tests.Verification;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -29,7 +28,6 @@ public sealed class SurfaceDifferenceTests
 {
     private const string ServedInterface = "Orders";
     private const string ConsumerRepo = "storefront-web";
-    private const string CatalogueVersion = "5.0";
 
     [Fact]
     public async Task Surface_AnOperationNoClientCalls_IsReportedAsUnexercised()
@@ -181,7 +179,6 @@ public sealed class SurfaceDifferenceTests
 
     private static AccountSurfaceDifferenceHandler Handler(StubClientSurfaceReader reader) =>
         new(new ServedSurfaceReader(), reader, new SurfaceDifferenceCalculator(),
-            new StubVerificationCatalogue(CatalogueVersion, []),
             NullLogger<AccountSurfaceDifferenceHandler>.Instance);
 
     private static SurfaceDifferenceReport Report(PipelineContext pipeline) =>

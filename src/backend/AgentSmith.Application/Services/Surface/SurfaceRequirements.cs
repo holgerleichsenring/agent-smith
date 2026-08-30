@@ -9,13 +9,16 @@ namespace AgentSmith.Application.Services.Surface;
 /// An operation nobody calls is untidy until function-level access to it turns out to be
 /// unrestricted; a property accepted and never sent is untidy until the operation turns
 /// out not to limit the fields it binds; a property returned and never read is untidy
-/// until the response turns out to carry more of a data object than it owes. Each id is
-/// checked against the checked-in catalogue by the suite, and means nothing without the
-/// catalogue version the report carries.
+/// until the response turns out to carry more of a data object than it owes. An id means
+/// nothing without the release that issued it, so <see cref="CatalogueVersion"/> travels
+/// with every citation: 5.0 renumbered the whole standard against its predecessor.
 /// </para>
 /// </summary>
 public static class SurfaceRequirements
 {
+    /// <summary>The release of the verification standard the ids below are entries of.</summary>
+    public const string CatalogueVersion = "5.0";
+
     /// <summary>Function-level access is restricted to consumers with explicit permissions.</summary>
     public const string UnexercisedOperation = "V8.2.1";
 

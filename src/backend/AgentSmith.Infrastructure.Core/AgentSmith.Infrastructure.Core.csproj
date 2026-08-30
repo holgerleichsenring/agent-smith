@@ -93,65 +93,6 @@
   </Target>
 
   <!-- ================================================================== -->
-  <!-- 2026-08-30-0ea8: the verification standard ships EMBEDDED, from a  -->
-  <!-- CHECKED-IN copy.                                                   -->
-  <!--                                                                    -->
-  <!-- The export was taken from the upstream's IMMUTABLE release tag —   -->
-  <!-- named ONCE, in AsvsRelease.Tag, and deliberately absent from these -->
-  <!-- file names. What the build pins here is the DIGEST: the upstream   -->
-  <!-- is a third party that can replace or delete an asset, and it also  -->
-  <!-- publishes a moving tag whose asset file names are identical.       -->
-  <!--                                                                    -->
-  <!-- The lens must classify every id the export carries. The set is     -->
-  <!-- checked when the lens loads (it refuses to answer otherwise); the  -->
-  <!-- COUNT is checked here, because a bumped export with an unchanged   -->
-  <!-- table is the rot that would otherwise pass review. Bumping the     -->
-  <!-- release: replace both files, update the digest and the count, and  -->
-  <!-- move AsvsRelease.Tag.                                              -->
-  <!-- ================================================================== -->
-  <PropertyGroup>
-    <VerificationCatalogueFile>$(MSBuildProjectDirectory)/Resources/asvs-requirements.flat.json</VerificationCatalogueFile>
-    <VerificationCatalogueSha256>8201b20eec2908c3380ac600c91c8ba746346fbb808859366abb232027532311</VerificationCatalogueSha256>
-    <VerificationLensFile>$(MSBuildProjectDirectory)/Resources/asvs-lens.tsv</VerificationLensFile>
-    <VerificationRequirementCount>345</VerificationRequirementCount>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Resources/asvs-requirements.flat.json"
-                      LogicalName="AgentSmith.VerificationCatalogue.json" />
-    <EmbeddedResource Include="Resources/asvs-lens.tsv"
-                      LogicalName="AgentSmith.VerificationLens.tsv" />
-  </ItemGroup>
-
-  <Target Name="ValidateVerificationCatalogue"
-          BeforeTargets="PrepareResources"
-          Condition="'$(DesignTimeBuild)' != 'true'"
-          Inputs="$(VerificationCatalogueFile);$(VerificationLensFile)"
-          Outputs="$(IntermediateOutputPath)verification-catalogue.validated">
-    <Error Condition="!Exists('$(VerificationCatalogueFile)')"
-           Text="The checked-in verification export $(VerificationCatalogueFile) is missing. It is the authoritative copy — restore it from git, never from the network." />
-    <GetFileHash Files="$(VerificationCatalogueFile)" Algorithm="SHA256">
-      <Output TaskParameter="Items" ItemName="VerificationCatalogueHashedFile" />
-    </GetFileHash>
-    <PropertyGroup>
-      <VerificationCatalogueActualSha256>@(VerificationCatalogueHashedFile->'%(FileHash)')</VerificationCatalogueActualSha256>
-    </PropertyGroup>
-    <Error Condition="'$(VerificationCatalogueActualSha256.ToLowerInvariant())' != '$(VerificationCatalogueSha256)'"
-           Text="Verification catalogue SHA256 mismatch for $(VerificationCatalogueFile): expected $(VerificationCatalogueSha256), got $(VerificationCatalogueActualSha256.ToLowerInvariant()). The checked-in copy is not the pinned release." />
-    <ReadLinesFromFile File="$(VerificationLensFile)">
-      <Output TaskParameter="Lines" ItemName="VerificationLensLine" />
-    </ReadLinesFromFile>
-    <ItemGroup>
-      <VerificationLensRow Include="@(VerificationLensLine)"
-                           Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)', '^#'))" />
-    </ItemGroup>
-    <Error Condition="'@(VerificationLensRow->Count())' != '$(VerificationRequirementCount)'"
-           Text="The lens table $(VerificationLensFile) holds @(VerificationLensRow->Count()) rows for $(VerificationRequirementCount) requirements. Every id the export carries is classified, or none of them is." />
-    <MakeDir Directories="$(IntermediateOutputPath)" />
-    <Touch Files="$(IntermediateOutputPath)verification-catalogue.validated" AlwaysCreate="true" />
-  </Target>
-
-  <!-- ================================================================== -->
   <!-- p0326: the demo sample project ships EMBEDDED in the release.      -->
   <!--                                                                    -->
   <!-- The sample sources are checked in as plain reviewable files under  -->

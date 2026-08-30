@@ -15,11 +15,10 @@ public sealed record SurfaceDifferenceReport(
     bool Computed,
     string? NotComputedReason,
     IReadOnlyList<SurfaceDifference> Differences,
-    ClientExtractionAccount Account,
-    string CatalogueVersion)
+    ClientExtractionAccount Account)
 {
     public static SurfaceDifferenceReport NotComputed(string reason) =>
-        new(false, reason, [], ClientExtractionAccount.Empty, string.Empty);
+        new(false, reason, [], ClientExtractionAccount.Empty);
 
     /// <summary>True while a file the reading could not decide leaves the claim bounded.</summary>
     public bool Degraded => !Account.IsComplete;

@@ -6,7 +6,6 @@ using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Demo;
 using AgentSmith.Infrastructure.Core.Services.Skills;
-using AgentSmith.Infrastructure.Core.Services.Verification;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Core;
@@ -97,7 +96,6 @@ public static class ServiceCollectionExtensions
         // p0326: the demo's bundled sample project rides the same embedded-tarball shape.
         services.AddSingleton<IEmbeddedDemoSample, EmbeddedDemoSample>();
         services.AddSkillsCatalog();
-        services.AddVerificationCatalogue();
 
         return services;
     }

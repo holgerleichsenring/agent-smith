@@ -33,8 +33,6 @@ public static partial class PipelinePresets
         CommandNames.AgenticMaster,         // p0179d: loads security-master per pipeline-name routing
         CommandNames.MergeMasterFindings,   // p0277: master triage + uncovered High+ raw -> SkillObservations
         CommandNames.SubstantiateFindings,  // p0429: nothing ships critical on the master's silence
-        CommandNames.AccountEntryStations, // 2026-08-30-18e3: every station of every entry group located, or named
-        CommandNames.AccountRequirementCitations, // 2026-08-30-03e1: what each station examined, and what it cited
         CommandNames.DeliverFindings,
         CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history (raw basis, p0277)
         CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)
