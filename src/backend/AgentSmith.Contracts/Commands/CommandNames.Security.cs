@@ -39,6 +39,12 @@ public static partial class CommandNames
     /// so a located station is a question it cannot be asked.</summary>
     public const string AccountEntryStations = "AccountEntryStationsCommand";
 
+    /// <summary>2026-08-30-3c12: settles the answers the scan gave to the verification
+    /// standard's entries — per entry group and station, met, unmet, undecidable, unanswered
+    /// or never attempted — and names each gap. Security scan only, and it follows the entry
+    /// map: a station whose home is unknown cannot be asked what holds there.</summary>
+    public const string AccountRequirementAnswers = "AccountRequirementAnswersCommand";
+
     /// <summary>p0429: puts every finding the master did not address to a fresh instance
     /// asked to REFUTE it against the real code, so a candidate promoted by the master's
     /// silence cannot reach delivery as a critical unsubstantiated.</summary>

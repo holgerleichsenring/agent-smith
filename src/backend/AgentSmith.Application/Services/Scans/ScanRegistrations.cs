@@ -48,6 +48,12 @@ public static class ScanRegistrations
         services.AddTransient<StationMapResolver>();
         services.AddSingleton<Tools.ScanStationToolFactory>();
         services.AddTransient<ICommandHandler<AccountEntryStationsContext>, AccountEntryStationsHandler>();
+        // 2026-08-30-3c12: the entries of the standard each station is asked, and the
+        // answers the scan gave them, settled against the same read set.
+        services.AddTransient<RequirementAccountant>();
+        services.AddSingleton<Tools.RequirementAnswerRecorder>();
+        services.AddSingleton<Tools.ScanRequirementToolFactory>();
+        services.AddTransient<ICommandHandler<AccountRequirementAnswersContext>, AccountRequirementAnswersHandler>();
         services.AddTransient<CitedCodeWindow>();
         services.AddTransient<RefutationVerdicts>();
         // p0429a: two evidence surfaces behind one routing factory — the source a repo

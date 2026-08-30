@@ -62,4 +62,17 @@ public static partial class ContextKeys
     /// whole standard against its predecessor, so a requirement id an answer cites means
     /// nothing without the version that issued it.</summary>
     public const string VerificationCatalogueVersion = "VerificationCatalogueVersion";
+
+    /// <summary>2026-08-30-3c12: the answers to the verification standard's entries the
+    /// scan recorded through its own tool call, exactly as it stated them. Holds a
+    /// RequirementAnswerLog — a live collector the master and its sub-agents append to,
+    /// never a finished artefact.</summary>
+    public const string RequirementAnswers = "RequirementAnswers";
+
+    /// <summary>2026-08-30-3c12: the settled account — per entry group and station, which
+    /// entries of the standard are met, unmet, undecidable, unanswered or never attempted.
+    /// A REPORTING surface like the entry map it stands on: rendered into the delivered
+    /// artefact and raising findings of its own, never routed into the account the delivery
+    /// gate reads.</summary>
+    public const string RequirementAccount = "RequirementAccount";
 }
