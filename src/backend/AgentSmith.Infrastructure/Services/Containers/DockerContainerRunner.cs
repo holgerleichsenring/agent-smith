@@ -46,7 +46,7 @@ public sealed class DockerContainerRunner(
 
         try
         {
-            await PullImageIfMissing(client, request.Image, cancellationToken);
+            await DockerImagePuller.EnsureAsync(client, request.Image, cancellationToken);
 
             var response = await client.Containers.CreateContainerAsync(
                 createParams, cancellationToken);
@@ -83,9 +83,16 @@ public sealed class DockerContainerRunner(
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("Container {Name} timed out after {Timeout}s", containerName, request.TimeoutSeconds);
+            // 2026-08-30-26ed: only this frame knows the container was stopped by its own
+            // limit rather than by the caller, and only when the caller's token is still
+            // live. The exit code below is the runner's, not the tool's, so it must not be
+            // read as one.
+            var cutOff = !cancellationToken.IsCancellationRequested;
+            logger.LogWarning("Container {Name} stopped after {Timeout}s — {Cause}",
+                containerName, request.TimeoutSeconds,
+                cutOff ? "cut off at its own limit" : "the run was cancelled");
             await TryRemoveContainer(client, containerName);
-            return new ContainerResult("", "Timeout", 1, request.TimeoutSeconds);
+            return new ContainerResult("", "Timeout", 1, request.TimeoutSeconds, cutOff);
         }
         catch (Exception ex)
         {
@@ -168,24 +175,6 @@ public sealed class DockerContainerRunner(
         public override int Read(byte[] buffer, int offset, int count) => 0;
         public override long Seek(long offset, SeekOrigin origin) => 0;
         public override void SetLength(long value) { }
-    }
-
-    private static async Task PullImageIfMissing(
-        DockerClient client, string image, CancellationToken ct)
-    {
-        try
-        {
-            await client.Images.InspectImageAsync(image, ct);
-        }
-        catch (DockerImageNotFoundException)
-        {
-            var parts = image.Split(':');
-            var repo = parts[0];
-            var tag = parts.Length > 1 ? parts[1] : "latest";
-            await client.Images.CreateImageAsync(
-                new ImagesCreateParameters { FromImage = repo, Tag = tag },
-                null, new Progress<JSONMessage>(), ct);
-        }
     }
 
     private static async Task TryRemoveContainer(DockerClient client, string name)

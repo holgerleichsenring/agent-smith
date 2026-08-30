@@ -43,11 +43,13 @@ public sealed class ZapSpawner(
             ? new Dictionary<string, string> { [dockerHostname] = "host-gateway" }
             : null;
 
+        var limitSeconds = request.TimeoutSeconds > 0 ? request.TimeoutSeconds : config.ContainerTimeout;
+
         var toolRequest = new ToolRunRequest(
             ScannerImage, arguments, inputFiles,
             OutputFileName: "zap-report.json",
             ExtraHosts: extraHosts,
-            TimeoutSeconds: request.TimeoutSeconds > 0 ? request.TimeoutSeconds : config.ContainerTimeout,
+            TimeoutSeconds: limitSeconds,
             WorkDir: "/zap/wrk");
 
         var result = await toolRunner.RunAsync(toolRequest, cancellationToken);
@@ -55,17 +57,37 @@ public sealed class ZapSpawner(
         var output = result.OutputFileContent ?? result.Stdout;
         var findings = ZapReportParser.ParseZapJson(output);
 
-        logger.LogInformation(
-            "ZAP {ScanType} scan completed: {Count} findings in {Duration}s",
-            request.ScanType, findings.Count, result.DurationSeconds);
-
         logger.LogDebug("ZAP exit code: {ExitCode}, stdout: {StdoutLen}chars, output file: {HasOutput}",
             result.ExitCode, result.Stdout.Length, result.OutputFileContent is not null);
 
         if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode > 3)
             logger.LogWarning("ZAP stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
 
-        return new ZapResult(findings, result.DurationSeconds, request.ScanType, result.ExitCode);
+        return Report(result, findings, request.ScanType, limitSeconds);
+    }
+
+    /// <summary>
+    /// 2026-08-30-26ed: a run the runner cut off at its container limit says so, rather than
+    /// reporting its partial finding count as a completed scan. Zero findings after a cut-off
+    /// is the dangerous case — rendered as a completion it reads as a clean target.
+    /// </summary>
+    private ZapResult Report(
+        ToolResult result, IReadOnlyList<ZapFinding> findings, string scanType, int limitSeconds)
+    {
+        var reason = result.CutOff ? ScanDegradation.CutOffAt(limitSeconds) : null;
+
+        if (reason is not null)
+            logger.LogWarning(
+                "ZAP {ScanType} scan {Reason}: {Count} findings from the part it reached",
+                scanType, reason, findings.Count);
+        else
+            logger.LogInformation(
+                "ZAP {ScanType} scan completed: {Count} findings in {Duration}s",
+                scanType, findings.Count, result.DurationSeconds);
+
+        return new ZapResult(
+            findings, result.DurationSeconds, scanType, result.ExitCode,
+            Degraded: reason is not null, DegradedReason: reason);
     }
 
     internal static string RewriteLocalhostForDocker(string url, string dockerHostname = "host.docker.internal") =>

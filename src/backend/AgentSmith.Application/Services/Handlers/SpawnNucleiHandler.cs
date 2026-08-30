@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -36,22 +37,38 @@ public sealed class SpawnNucleiHandler(
             var result = await nucleiScanner.ScanAsync(target, swaggerPath, cancellationToken);
             context.Pipeline.Set(ContextKeys.NucleiResult, result);
 
-            var critical = result.Findings.Count(f => f.Severity == "critical");
-            var high = result.Findings.Count(f => f.Severity == "high");
-            var medium = result.Findings.Count(f => f.Severity == "medium");
-
-            logger.LogInformation(
-                "Nuclei scan complete: {Total} findings ({Critical} critical, {High} high, {Medium} medium) in {Duration}s",
-                result.Findings.Count, critical, high, medium, result.DurationSeconds);
-
-            return CommandResult.Ok(
-                $"Nuclei: {result.Findings.Count} findings ({critical}C/{high}H/{medium}M) in {result.DurationSeconds}s");
+            return Report(result);
         }
         finally
         {
             if (File.Exists(swaggerPath))
                 File.Delete(swaggerPath);
         }
+    }
+
+    /// <summary>
+    /// 2026-08-30-26ed: the step's line in the run record carries the scan's degraded
+    /// state, so a cut-off run is not recorded in the same words as a finished one.
+    /// A finished, undegraded scan reports exactly what it always did.
+    /// </summary>
+    private CommandResult Report(NucleiResult result)
+    {
+        var critical = result.Findings.Count(f => f.Severity == "critical");
+        var high = result.Findings.Count(f => f.Severity == "high");
+        var medium = result.Findings.Count(f => f.Severity == "medium");
+        var counts =
+            $"{result.Findings.Count} findings ({critical}C/{high}H/{medium}M) in {result.DurationSeconds}s";
+
+        if (result.Degraded)
+        {
+            logger.LogWarning("Nuclei scan degraded — {Reason}: {Counts}", result.DegradedReason, counts);
+            return CommandResult.Ok($"Nuclei: {counts} — DEGRADED: {result.DegradedReason}");
+        }
+
+        logger.LogInformation(
+            "Nuclei scan complete: {Total} findings ({Critical} critical, {High} high, {Medium} medium) in {Duration}s",
+            result.Findings.Count, critical, high, medium, result.DurationSeconds);
+        return CommandResult.Ok($"Nuclei: {counts}");
     }
 
     private static string WriteTempSwagger(SwaggerSpec? spec)
