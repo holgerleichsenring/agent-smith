@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-f590
+
+goal: "The reaper test's wait spends its budget on standstill rather than on total time, so a starved host is slow and only a stopped loop fails."
+
+applies_to: "backend tests (the reaper suite's wait helper) — no production code"
+
+scope:
+  in: >
+    The wait helper takes a progress probe alongside its condition and resets its budget whenever the
+    loop moves; the failure message states that no progress happened at all, which is the only thing
+    it can honestly claim.
+  out: >
+    THE CAUSE. The loop waits with a real Task.Delay although a TimeProvider is injected into it;
+    driving that wait through the provider would make the test deterministic and need no budget at
+    all. That touches production timing and the test's structure, and it is the successor worth
+    writing. A TEETH TEST: nothing here proves the guard still fails on a genuinely stopped loop, and
+    the repository has that pattern elsewhere — worth adding, not worth blocking this on.
+
+decisions:
+  - key: "A fixed budget cannot tell the two failures apart. Four CI failures across three branches in one day landed on this guard, none of them a defect; meanwhile the same guard is the only thing that would catch a loop that really stopped. Spending the budget on standstill keeps both properties."
+  - key: "p0432 lowered this from 120s to 30s on the premise that the load burst was gone. The premise is what failed, not the number, so the fix changes what is measured rather than raising the limit again."
+  - key: "Clock reads are the progress signal because the loop reads the monotonic clock every iteration — the same fact the iteration counter already relies on. No new instrumentation."
+
+steps:
+  - id: the-budget-is-spent-on-standstill
+    action: "The wait helper takes a progress probe, resets its budget on movement, and fails only after a full stall window with no progress."
+
+tests:
+  - "the existing reaper suite, run twelve times under a concurrent full-suite load"
+
+done:
+  - "the reaper suite passes repeatedly while the whole suite runs beside it"
+  - "a stalled loop still fails within the stall window"
+  - "build green, full suite green"
