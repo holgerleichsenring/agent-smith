@@ -52,7 +52,7 @@
   <!-- ================================================================== -->
   <PropertyGroup>
     <SkillsCatalogVersion>v4.8.1</SkillsCatalogVersion>
-    <SkillsCatalogSha256>0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5</SkillsCatalogSha256>
+    <SkillsCatalogSha256>513d03dadd26ddd2754a1bc669890d2296c55524057b4ee1f7fa627d59da37bc</SkillsCatalogSha256>
     <SkillsCatalogFileName>agentsmith-skills-$(SkillsCatalogVersion).tar.gz</SkillsCatalogFileName>
     <SkillsCatalogTarball>$(MSBuildProjectDirectory)/Resources/$(SkillsCatalogFileName)</SkillsCatalogTarball>
     <SkillsCatalogDownloadUrl>https://github.com/holgerleichsenring/agent-smith-skills/releases/download/$(SkillsCatalogVersion)/$(SkillsCatalogFileName)</SkillsCatalogDownloadUrl>
