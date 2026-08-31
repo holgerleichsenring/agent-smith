@@ -39,6 +39,9 @@ public sealed class PipelineSandboxCoordinator(
     // The authoritative repo->sandbox source so consumers never reverse-engineer
     // the repo from the composite key string.
     private readonly Dictionary<string, string> _sandboxRepos = new(StringComparer.Ordinal);
+    // 2026-08-31-7097: sandbox key -> the toolchain image the BACKEND pulled, taken from
+    // the sandbox itself. A backend that runs on the host names none and gets no entry.
+    private readonly Dictionary<string, string> _sandboxImages = new(StringComparer.Ordinal);
     // p0268: (repo, group-identity) -> sandbox key. Group identity is (image, resources);
     // this makes EnsureSandboxesAsync idempotent — a repeated call (or the same group
     // appearing twice) reuses the existing sandbox instead of creating a second — while
@@ -113,6 +116,7 @@ public sealed class PipelineSandboxCoordinator(
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
         context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, _sandboxRepos);
         context.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries, _discoveries);
+        context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxImages, _sandboxImages);
         var contextsView = _contextsBySandbox.ToDictionary(
             kv => kv.Key, kv => (IReadOnlyList<RemoteContextDiscovery>)kv.Value, StringComparer.Ordinal);
         context.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
@@ -258,8 +262,18 @@ public sealed class PipelineSandboxCoordinator(
                 key, languageTag, spec.ToolchainImage, discoveriesInGroup.Count, contexts);
         }
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
+        RecordImage(key, sandbox);
         logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
         return sandbox is null ? null! : new SandboxEventProjector(sandbox, eventPublisher, runContext, key, logger);
+    }
+
+    // 2026-08-31-7097: read from the created sandbox BEFORE the projector wraps it, so
+    // what is recorded is the image a backend really started — the in-process backend
+    // pulls nothing, names nothing, and is absent here rather than credited with one.
+    private void RecordImage(string key, ISandbox sandbox)
+    {
+        if (sandbox is ISandboxToolchainImage named && !string.IsNullOrEmpty(named.ToolchainImage))
+            _sandboxImages[key] = named.ToolchainImage;
     }
 
     public async ValueTask DisposeAsync()

@@ -183,11 +183,12 @@ public static class PipelineHandlersExtensions
         // 2026-08-25-014d: the registry boundary reads configuration, so it is a service.
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.ImageRegistryTrust>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
-        services.AddTransient<DotnetEntryPointDiscovery>();
-        services.AddTransient<DeclaredStagePresence>();
+        services.AddTransient<DotnetEntryPointDiscovery>().AddTransient<DeclaredStagePresence>();
         services.AddTransient<VerifyStageResolver>();
-        // 2026-08-31-26d4: what each context in a sandbox declared, read per context.
-        services.AddTransient<ContextVerifyStagesResolver>();
+        // 2026-08-31-26d4/7097: what each context declared, and what it named that the
+        // image does not carry.
+        services.AddTransient<ContextVerifyStagesResolver>()
+            .AddTransient<AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter>();
         // p0420: delivery is accounted for against the branch, not inferred from the run.
         services.AddTransient<DeliveryDiff>();
         services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();

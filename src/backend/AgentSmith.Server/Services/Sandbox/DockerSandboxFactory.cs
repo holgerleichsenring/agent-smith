@@ -43,7 +43,7 @@ public sealed class DockerSandboxFactory(
         return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
-            loggerFactory.CreateLogger<DockerSandbox>());
+            spec.ToolchainImage, loggerFactory.CreateLogger<DockerSandbox>());
     }
 
     // Mirrors DockerNetworkResolver (used by DockerJobSpawner) — explicit override

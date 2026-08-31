@@ -268,7 +268,8 @@ public sealed class AgenticMasterHandler(
         // spec-dialog turns run no commands; neither is probed.
         if (!isScanMaster && !isSpecDialog)
         {
-            var toolchainSection = await toolchainProbe.ProbeAsync(sandboxes, keyToRepo, cancellationToken);
+            var toolchainSection = await toolchainProbe.ProbeAsync(
+                context.Pipeline, sandboxes, keyToRepo, cancellationToken);
             if (!string.IsNullOrEmpty(toolchainSection)) masterBody += "\n\n" + toolchainSection;
         }
 
