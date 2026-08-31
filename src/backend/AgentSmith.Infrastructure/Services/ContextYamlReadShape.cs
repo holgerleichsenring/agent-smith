@@ -14,6 +14,12 @@ internal sealed class ContextYamlReadShape
 
     public string? Prerequisites { get; set; }
 
+    // 2026-08-31-26d4: the ordered stages the repository declares as proof that a change
+    // in it holds. Declared HERE first of all, because a key this file does not name is
+    // dropped without a warning and every layer above it would then be reading a null
+    // nothing ever filled.
+    public List<VerifyBlock>? Verify { get; set; }
+
     internal sealed class MetaBlock
     {
         public string? Workdir { get; set; }
@@ -37,6 +43,16 @@ internal sealed class ContextYamlReadShape
         // p0268: LLM-authored k8s CPU/memory for this stack's sandbox. Read via the
         // shared UnderscoredNamingConvention (cpu_request, memory_limit, …).
         public ResourcesBlock? Resources { get; set; }
+    }
+
+    internal sealed class VerifyBlock
+    {
+        public string? Label { get; set; }
+
+        public string? Command { get; set; }
+
+        // Read via the shared UnderscoredNamingConvention as `when_present`.
+        public string? WhenPresent { get; set; }
     }
 
     internal sealed class ResourcesBlock

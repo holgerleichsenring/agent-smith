@@ -87,6 +87,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         // model working from an older prompt is not punished for offering one.
         [Description("Document object: { meta: { workdir, type?: [archetype,…], purpose? }, " +
                      "stack?: { lang?, image?, resources? }, " +
+                     "verify?: [ { label, command, when_present? }, … ], " +
                      "arch?: object, quality?: object, behavior?: object }. " +
                      "Do NOT restate what the repository already states about itself — the build " +
                      "file's frameworks, versions and packages, the workflow's CI platform, the " +
@@ -107,7 +108,17 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "(e.g. it OOM-killed or you measured the peak). If you declare it, provide ALL " +
                      "FOUR Kubernetes quantities { cpu_request, cpu_limit, memory_request, " +
                      "memory_limit } — a partial block is refused — and values above the hard ceiling (cpu '2', memory '6Gi') are " +
-                     "clamped down to it.")]
+                     "clamped down to it. " +
+                     // 2026-08-31-26d4: the gate the repository owns, ahead of anything a
+                     // model emits for a single run.
+                     "verify is the ORDERED list of commands that prove a change in this " +
+                     "context holds — each { label, command, when_present? }, run at this " +
+                     "context's workdir, stopping at the first non-zero exit. Every command " +
+                     "must be able to FAIL: a declared 'echo ...' or 'true' stops the run at " +
+                     "resolution. Use when_present for a stage that only means something when " +
+                     "a path exists; an absent path skips that stage instead of reddening it. " +
+                     "Omit verify for a .NET tree — its entry point is discovered from files " +
+                     "that exist.")]
         JsonElement document,
         CancellationToken ct = default)
     {

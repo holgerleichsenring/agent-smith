@@ -23,7 +23,16 @@ namespace AgentSmith.Contracts.Sandbox;
 /// <param name="Purpose">p0331: `meta.purpose:` — what this context is for, in the
 /// operator/LLM's own words. Read by the ScopeRepos classifier so it can map a ticket to
 /// affected repos from metadata alone, before any checkout or sandbox exists.</param>
+/// <param name="Verify">2026-08-31-26d4: `verify:` — the ordered stages this context
+/// declares as proof that a change in it holds, executed by the verify gate at THIS
+/// context's workdir. Null = nothing declared; the gate infers as before.
+/// <para>
+/// Every construction site passes this BY NAME. 2026-08-28-7b41 records what the
+/// positional tail of this record does to an optional field: the one that phase repaired
+/// was parsed and then dropped at both sites, and shipped green for two releases because
+/// every test built the record by hand.
+/// </para></param>
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
     string? ToolchainImage = null, ContextYamlStackResources? Resources = null,
-    string? Purpose = null);
+    string? Purpose = null, IReadOnlyList<ContextYamlVerifyStage>? Verify = null);

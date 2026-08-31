@@ -398,6 +398,52 @@
         "sh -c \"sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub\""
       ]
     },
+    "verify": {
+      "$comment": "MECHANISM \u2014 the ordered commands the verify gate runs for this context, ahead of anything the analyzer emitted for that run. No enumerated field here on purpose: what a stage IS follows from its command, and a kind/category would have to be a closed list of somebody else's estate vocabulary.",
+      "type": "array",
+      "description": "2026-08-31-26d4: the stages that prove a change in this context holds, executed IN ORDER at this context's workdir and stopping at the first non-zero exit. Declared once and replayed unchanged, so the gate does not differ between runs. Omit the block entirely when the repository has nothing to declare \u2014 a .NET tree needs none, because its entry point is discovered from files that exist.",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "command"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 30,
+            "description": "What this stage is called in the run's outcome. Any word that names what it proves.",
+            "examples": [
+              "build",
+              "test",
+              "lint",
+              "schema-check"
+            ]
+          },
+          "command": {
+            "type": "string",
+            "minLength": 2,
+            "description": "The command line, run through /bin/sh -c at this context's workdir. It must be able to FAIL \u2014 a declared `echo ...` or `true` stops the run at resolution rather than being quietly dropped, because a command that cannot go red is not a gate.",
+            "examples": [
+              "npm run lint",
+              "pytest -q",
+              "mvn -B verify"
+            ]
+          },
+          "when_present": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional path, relative to this context's workdir, the command needs in order to mean anything. When it is absent from the repository the stage is SKIPPED and reported, never failed \u2014 verification stops at the first non-zero exit, so a red the command was never measured for would hide every gate behind it.",
+            "examples": [
+              "package.json",
+              "dbt_project.yml"
+            ]
+          }
+        }
+      }
+    },
     "arch": {
       "type": "object",
       "description": "Architecture and code organization",

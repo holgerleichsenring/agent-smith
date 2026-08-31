@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-31-26d4
+
+decisions:
+  - category: Design
+    chose: "The repository declares its verification stages and the run executes exactly those"
+    over: "Keeping the analyzer's per-run build and test commands as the only source outside .NET"
+    reason: |
+      Outside .NET the gate was whatever the analyzer emitted that day — model output, different
+      between runs. A verification whose definition is re-derived every time is not a second
+      opinion; it is the same party marking its own work with a ruler it just drew. A
+      declaration is authored once, ratified in the init pull request, and versioned with the
+      code it describes.
+  - category: Design
+    chose: "Resolve per context, not per sandbox"
+    over: "Reading the declaration off the one representative discovery the verify step already has"
+    reason: |
+      Two contexts that resolve the same image collapse into one sandbox, and the verify step
+      receives one representative per sandbox. Reading the declaration there would make which
+      context's stages run depend on discovery order. The retired profile resolver had exactly
+      this shape for exactly this reason, and it survives the mechanism it was built for — each
+      stage runs at its own context's workdir.
+  - category: Design
+    chose: "A declared command that cannot fail stops resolution"
+    over: "Dropping it and falling through, the way an inferred command is handled"
+    reason: |
+      The rule exists so a command that cannot go red is not mistaken for a gate. Dropping is
+      right for something the framework guessed; a declaration is authoritative, so silently
+      running two of three declared stages and reporting green would be the same false green in
+      new clothes.
+  - category: Design
+    chose: "Three fields — a label, a command, an optional path"
+    over: "A kind, a phase or a category on each stage"
+    reason: |
+      What a stage IS follows from its command. Any enumerated field would have to enter the
+      schema's closed vocabulary — which the schema's own tests require to be a decided, fixed
+      set — and that is precisely where an estate's vocabulary must not live.
+  - category: Process
+    chose: "Document the block in the template and the context-file reference"
+    over: "Shipping the mechanism and leaving the two documents that describe a context file silent"
+    reason: |
+      The implementation report flagged it: neither the template nor the concepts document
+      mentions the block, so a repository author reading them would not learn it exists. A
+      declaration nobody knows how to write is a mechanism with no authors.
+  - category: Process
+    chose: "Correct the resume claim rather than carry it"
+    over: "Changing the pipeline context serializer as the spec assumed"
+    reason: |
+      The spec demanded a resume round-trip through the discoveries key. That key is explicitly
+      EXCLUDED from checkpointing — discoveries are re-established by re-provisioning — and the
+      checkpointed one is the remote inventory, which needed no change beyond name-matching.
+      The round-trip test drives the key that is actually persisted.

@@ -25,4 +25,8 @@ public sealed record ContextYamlDocument(
     string? Prerequisites = null,
     // p0375: templated private-registry auth files (placeholder tokens only).
     // A present section is authoritative — replayed LLM-free every run.
-    ContextYamlRegistryAuth? RegistryAuth = null);
+    ContextYamlRegistryAuth? RegistryAuth = null,
+    // 2026-08-31-26d4: the ordered commands this repository declares as proof that a
+    // change in it holds. Executed ahead of every other source, at this context's
+    // workdir. Null = the repository declares nothing and the run infers as before.
+    IReadOnlyList<ContextYamlVerifyStage>? Verify = null);

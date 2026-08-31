@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-08-31-26d4: "A REPOSITORY DECLARES HOW IT IS VERIFIED (context.yaml verify block -> discovery -> stage resolution). Ordered stages with a label, a command and an optional presence path, resolved per CONTEXT and ahead of the inferred commands; a declared command that cannot fail stops resolution. -> .agentsmith/phases/done/2026-08-31-26d4-a-repository-declares-how-it-is-verified.yaml"
     2026-08-31-77a8: "THE DOMAIN PROFILE MECHANISM RETIRES (image chain, verify resolution, catalog reader, preflight, meta.domain). A shared catalog must not hold a claim about a customer estate — the third instance of that idea. Stack image is unconditional now; the schema keeps the key deprecated. -> .agentsmith/phases/done/2026-08-31-77a8-the-domain-profile-mechanism-retires.yaml"
     2026-08-31-46d7: "A SANDBOX PULLS AN IMAGE IT MUST AUTHENTICATE FOR (sandbox config, pod spec, pod watcher). No pull credential existed anywhere, so only public images worked. Global secret-name list, rendered pod-level; the failure names what was configured. -> .agentsmith/phases/done/2026-08-31-46d7-a-sandbox-pulls-an-image-it-must-authenticate-for.yaml"
     2026-08-28-489a: "THE LEGACY CATALOG LOCATIONS GO (principles reader + pre-v4.1 prompt-token alias). 4.7.0 is the floor: the pre-4.0.0 principles path is not probed, the alias binding one slot twice is gone, and a test asserts the old layout composes nothing. -> .agentsmith/phases/done/2026-08-28-489a-the-legacy-catalog-locations-go.yaml"

@@ -56,7 +56,10 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 doc.Stack?.Image?.Trim(),
                 MapResources(doc.Stack?.Resources),
                 // p0331: meta.purpose feeds the ScopeRepos ticket→repo classifier.
-                doc.Meta.Purpose?.Trim()));
+                doc.Meta.Purpose?.Trim(),
+                // 2026-08-31-26d4: the declared verify stages, which the gate runs ahead
+                // of anything a model emitted for this run.
+                ContextYamlVerifyReader.Read(doc.Verify)));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the
