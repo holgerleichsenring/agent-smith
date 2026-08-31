@@ -11,6 +11,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Integration;
 
 /// <summary>
@@ -18,6 +20,7 @@ namespace AgentSmith.Tests.Integration;
 /// branch's newer commits with it, a first run's branch creation takes no merge, and a
 /// conflicting merge stops the run without changing the branch.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class WorkBranchBaseMergeTests
 {
     private const string TicketBranch = "agent-smith/19106";

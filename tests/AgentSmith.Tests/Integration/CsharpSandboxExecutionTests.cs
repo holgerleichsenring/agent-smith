@@ -4,6 +4,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Integration;
 
 /// <summary>
@@ -16,6 +18,7 @@ namespace AgentSmith.Tests.Integration;
 /// Skip-pattern: each test guards on dotnet being on PATH (it is on
 /// every agent-smith CI runner; locally it's whatever the dev has).
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class CsharpSandboxExecutionTests(ITestOutputHelper output)
 {
     [Fact]

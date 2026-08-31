@@ -3,6 +3,8 @@ using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Services.Sandbox;
 
 /// <summary>
@@ -14,6 +16,7 @@ namespace AgentSmith.Tests.Services.Sandbox;
 /// the WorkingDirectory through ResolvePath so /work is translated to
 /// the sandbox's actual temp dir.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessSandboxWorkingDirectoryTests : IAsyncDisposable
 {
     private readonly string _workDir;

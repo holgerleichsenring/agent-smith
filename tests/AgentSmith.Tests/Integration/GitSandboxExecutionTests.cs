@@ -4,6 +4,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Integration;
 
 /// <summary>
@@ -11,6 +13,7 @@ namespace AgentSmith.Tests.Integration;
 /// runner, so no skip is strictly needed — but we keep the guard symmetric
 /// with the dotnet/npm classes for pre-commit on dev machines without git.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class GitSandboxExecutionTests(ITestOutputHelper output)
 {
     [Fact]
