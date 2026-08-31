@@ -102,7 +102,7 @@ describe("AccessTokenStore", () => {
   it("Store_Subscribed_EveryChangeReachesTheListenerUntilItUnsubscribes", () => {
     const store = new AccessTokenStore();
     const seen: Array<string | null> = [];
-    const stop = store.subscribe((token) => seen.push(token));
+    const stop = store.subscribe((state) => seen.push(state.token));
 
     store.hold({ accessToken: "t-1" });
     store.clear();
@@ -110,6 +110,51 @@ describe("AccessTokenStore", () => {
     store.hold({ accessToken: "t-2" });
 
     expect(seen).toEqual(["t-1", null]);
+  });
+
+  // 2026-08-28-0f46: a tab that never signed in and a tab whose session ended
+  // both read as "no token", and the surface has to be able to tell them apart.
+  it("Store_NothingEverHeld_NamesNoReason", () => {
+    expect(new AccessTokenStore().state()).toEqual({ token: null, ended: null });
+  });
+
+  it("Store_Ended_CarriesTheReasonBesideTheEmptyToken", () => {
+    const store = new AccessTokenStore();
+    store.hold({ accessToken: "t-1" });
+
+    store.end("expired");
+
+    expect(store.state()).toEqual({ token: null, ended: "expired" });
+  });
+
+  it("Store_EndedThenSignedInAgain_TheReasonIsGone", () => {
+    const store = new AccessTokenStore();
+    store.end("expired");
+
+    store.hold({ accessToken: "t-1" });
+
+    expect(store.state()).toEqual({ token: "t-1", ended: null });
+  });
+
+  it("Store_ClearedByASignOut_NamesNoReason", () => {
+    const store = new AccessTokenStore();
+    store.hold({ accessToken: "t-1" });
+
+    store.clear();
+
+    expect(store.state().ended).toBeNull();
+  });
+
+  it("Store_RenewalFails_TheReasonReachesTheSubscriber", async () => {
+    const store = new AccessTokenStore();
+    const seen: Array<string | null> = [];
+    store.subscribe((state) => seen.push(state.ended));
+    store.renewsWith(() => Promise.reject(new Error("the authority refused")));
+
+    store.hold({ accessToken: "t-1", expiresAt: Date.now() + 10 * MINUTE });
+    await vi.advanceTimersByTimeAsync(9 * MINUTE);
+
+    expect(seen).toEqual([null, "renewal-refused"]);
   });
 });
 

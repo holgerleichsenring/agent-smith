@@ -16,7 +16,7 @@ export function useAccessToken(): string | null {
 
   useEffect(() => {
     const store = getAccessTokenStore();
-    const stop = store.subscribe(setToken);
+    const stop = store.subscribe((state) => setToken(state.token));
     // The boot's silent sign-in is what puts the FIRST token in the store, and a
     // surface that mounted before it settled would have missed the announcement.
     void startAuthSession().then(() => setToken(store.read()));

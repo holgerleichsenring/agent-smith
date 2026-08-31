@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { getJobsHubClient, JobsHubClient } from "@/lib/JobsHubClient";
+import { isSilentReturnFrame } from "@/lib/auth/silentReturnFrame";
 import { fetchRuns } from "@/lib/runsApi";
 import type {
   OverviewSnapshot,
@@ -53,6 +54,11 @@ export function useJobsHub(): UseJobsHubResult {
   const [systemActivity, setSystemActivity] = useState<SystemActivitySnapshot | null>(null);
 
   useEffect(() => {
+    // 2026-08-28-0f46: a silent sign-in loads this whole application into a
+    // hidden frame that lives about a second. A second live hub connection from
+    // that document joins the groups the tab above already holds and then closes
+    // them again, and everything it fetches the tab has already fetched.
+    if (isSilentReturnFrame()) return;
     let cancelled = false;
     let inFlight: AbortController | null = null;
     let coalesceTimer: ReturnType<typeof setTimeout> | null = null;

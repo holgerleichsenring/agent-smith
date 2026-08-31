@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-0f46
+
+decisions:
+  - category: Implementation
+    chose: "The reply route dispatches on the request type the answer carries — signinCallback() rather than signinRedirectCallback()"
+    over: "A static silent-callback.html at the app root, or a dedicated /signin-silent route"
+    reason: |
+      Verified against the vendored oidc-client-ts 3.5.0. `UserManagerSettingsStore` defaults
+      silent_redirect_uri to redirect_uri, so the hidden frame loads the ordinary reply route —
+      the whole application. That page completed a REDIRECT sign-in (`_signinEnd` and nothing
+      else), which sends no message; only `signinSilentCallback` reaches
+      `IFrameWindow.notifyParent`. The waiting parent therefore always ran out its ten-second
+      DefaultSilentRequestTimeoutInSeconds, on every browser. The third-party-cookie theory the
+      first draft carried was wrong: cookie policy is a later obstacle on a path that never
+      reached it.
+      `signinCallback()` reads the state with removeState=false and switches on
+      state.request_type — si:s to the silent callback, si:r to the redirect one. It reuses the
+      reply URL that is already registered, so the operator registers no second redirect URI and
+      no new runtime setting exists. Both alternatives require a second reply URL on the
+      authority plus entrypoint and manifest work, which is an operator change this phase
+      refuses to require.
+  - category: Implementation
+    chose: "The frame holds nothing and rewrites nothing: an undefined answer from signinCallback marks AuthSession.isSilentReturn and returns"
+    over: "Letting the frame fill its own store and scrub its own address bar"
+    reason: |
+      Frame and window share the tab's session storage. `processSigninResponse` reads the state
+      with removeState=true, so a frame that completed a redirect removed the key its parent
+      still needed and spent the single-use code — fixing the notification without this would
+      have moved the failure rather than ended it. The silent path touches neither: it posts the
+      URL and returns. The frame's store and its address bar belong to a document nobody reads.
+  - category: Implementation
+    chose: "restore() consults the held session first; holding nothing it STARTS a silent attempt and does not await it"
+    over: "Dropping the silent attempt whenever nothing is held (the draft the first review killed)"
+    reason: |
+      Dropping the attempt would have deleted the invisible sign-in 2026-08-25-2de1 promised — a
+      new tab showing a button where it used to show a name — and left the silent return with
+      nothing exercising it. Starting it and not awaiting it removes the stall, which is the
+      symptom, and keeps the behaviour, which is not the problem.
+      `Boot_AuthorityConfigured_AttemptsASilentSignInAndNeverARedirect` still passes unchanged,
+      which is the test that tells the two drafts apart.
+  - category: TradeOff
+    chose: "An expired held session with a refresh token is renewed BEFORE the boot resolves"
+    over: "Renewing it beside the first request, the way the silent attempt now runs"
+    reason: |
+      A refresh-token renewal is one direct POST to the token endpoint — `signinSilent` takes
+      that branch whenever the loaded user has a refresh token and never opens the frame — so it
+      cannot cost the ten seconds this phase exists to stop paying. Serving the expired token
+      meanwhile would fail every call it was sent on and read as a server fault. Past its expiry
+      with NO refresh token, the store is emptied and the library's user removed: renewing it
+      there would be the frame and its timeout.
+  - category: Security
+    chose: "The session is held in session storage, reversing 2026-08-25-2de1's in-memory choice"
+    over: "Keeping it in memory, or moving to local storage"
+    reason: |
+      The operator called it: signing in again after every reload is a toll paid every working
+      day, and paid by leaving tabs open, which is its own hazard. One of the in-memory
+      decision's stated reasons was already false — it held that in-memory renewal keeps working
+      for a tab open longer than a token lives, and the renewal path it named is the silent
+      return that could never complete.
+      The honest claim is narrower than the one that was retired. What is persisted is whatever
+      the library holds, and with an offline_access scope that includes a refresh token — a
+      larger credential than the access token the in-memory choice was protecting. Session
+      storage wins on blast radius over local storage (dropped with the tab, never written where
+      a later session finds it) but a duplicated tab copies it. What retires the exposure is
+      moving custody to the server behind a cookie the page cannot read, which is named in
+      scope.out as its own phase and is not pretended at here.
+  - category: Implementation
+    chose: "Three artifacts asserting the retired claim were rewritten rather than left standing"
+    over: "Leaving them, or deleting them silently"
+    reason: |
+      `Settings_AnyAuthority_KeepTheTokenOutOfWebStorage` became
+      `Settings_AnyAuthority_HoldTheSessionWhereAReloadFindsIt`, which pins the store as
+      window.sessionStorage and explicitly not localStorage — the choice still needs pinning,
+      only the answer changed. The AccessTokenStore header's "NOTHING HERE TOUCHES WEB STORAGE"
+      and createAuthorityClient's in-memory comment were rewritten to say what is now true and
+      what it costs. A comment that contradicts the code is worse than no comment.
+  - category: Implementation
+    chose: "The hub's start promise is dropped when it SETTLES, either way, and a rejected start nulls the connection with it"
+    over: "Clearing it only on rejection, which is what the spec's step asks for"
+    reason: |
+      Two latches, one line apart. A rejected first start was handed to every later
+      ensureStarted for the life of the tab, and withAutomaticReconnect covers only a connection
+      that once succeeded — so one refused negotiate ended the live channel until a reload,
+      which reads exactly like a reconnect that never finishes. The second: after a SUCCESSFUL
+      start the promise stays resolved forever, so ensureStarted during Disconnected returned at
+      once and the caller invoked on a dead connection. Both are the same mistake about what the
+      promise is for — it deduplicates CONCURRENT starts and nothing more — so both are fixed
+      where it is made. Reconnecting returns early instead of opening a second connection beside
+      SignalR's own restore. `openConnection` also assigned `this.connection` before awaiting
+      start, leaving a Disconnected connection assigned after a refusal; it is nulled on the
+      failure path.
+  - category: Implementation
+    chose: "A fresh connection replays p0366's rejoin thunks before announcing Connected"
+    over: "Leaving the retried connection to be Connected and silent"
+    reason: |
+      Beyond the spec's step, and load-bearing for it: a connection opened in place of one that
+      dropped belongs to no server-side group, exactly as a reconnected one does not. Without
+      the replay the retry this phase adds produces a connection that is up and delivers
+      nothing — the bug p0366 already fixed for the other way a connection is replaced. Empty
+      and free on a first connection.
+  - category: Architecture
+    chose: "The store announces {token, ended} and a second hook, useSessionEnd, reads the reason"
+    over: "Widening useAccessToken's return, or putting the reason on AuthSession where the surface would have to reach through the boot promise"
+    reason: |
+      There was no carrier at all: `AccessTokenStore.subscribe` emitted `token | null`,
+      `AuthSession.error` sits on an object no component subscribes to, and HeaderIdentity
+      branched on the token alone. The reason belongs beside the token because it changes with
+      it and for the same reasons — one announcement, one source, and no window in which the two
+      disagree. The listener signature is the contract change; `read()` is untouched, so the two
+      plain-module readers (apiFetch, JobsHubClient) are not affected at all. Two hooks over one
+      store, one question each, rather than one hook returning two things.
+      `SessionEndReason` is an enum of two — expired, renewal-refused — and null is not one of
+      them: null is a tab that never signed in, and telling that apart from a session that ended
+      is the whole point.
+  - category: Scope
+    chose: "The silent frame is stopped from opening a hub connection and from navigating; it still boots the rest of the app"
+    over: "A route group with its own root layout, so the reply route renders bare"
+    reason: |
+      Reported plainly because it cannot be checked against the live installation. Reusing the
+      reply URL means the frame loads the Next.js root layout, and a root layout cannot be
+      skipped — only replaced, via a route group every existing route would have to move into.
+      That is a refactor of the whole app tree for a document that lives about a second, and it
+      is not this phase.
+      What the frame does NOT do now: it does not open a second SignalR connection
+      (`isSilentReturnFrame()` guards the useJobsHub effect — a websocket that joins the tab's
+      groups and closes them a second later), and it does not router.replace() itself, which
+      would have booted a second copy of the dashboard inside the ten seconds the waiting window
+      is counting. What it still does: renders the shell and lets the health, build-identity and
+      sign-in-configuration banners issue their reads. Those are cheap same-origin GETs on a
+      boot that now settles on what the tab holds instead of waiting ten seconds, so they are
+      inside the timeout by a wide margin — but "wide margin" is an argument, not a measurement,
+      and no live run has been made.
+  - category: Scope
+    chose: "Two things the operator must set are recorded and not coded around"
+    over: "Requesting offline_access in code, or registering a second reply URL"
+    reason: |
+      Without `offline_access` in AGENTSMITH_AUTH_SCOPES the authority issues no refresh token
+      and the persistence this phase adds holds nothing that outlives an hour — the scopes are
+      an operator setting and the spec says so. And the reply URL must be registered as a
+      single-page application rather than a web application or the browser's own token
+      redemption is refused outright: a requirement the browser-side code exchange already had
+      and which is written down nowhere in this repository. Neither is verifiable from here.
