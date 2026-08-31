@@ -43,6 +43,9 @@ describe("Configuration route", () => {
     expect(await screen.findByTestId("installation-view")).toBeInTheDocument();
     // The same parity page scope they rendered inside under /system.
     expect(screen.getByTestId("diagnostic-page").className).toContain("mock-system");
+    // A diagnostic page is read at the width of the other /config pages: its cards put
+    // the value hard right, so the subsystem streams' 1500px strands it off screen.
+    expect(screen.getByTestId("diagnostic-page").className).toContain("mock-diagnostic");
 
     renderConfig(["connection-check"]);
     expect(await screen.findByTestId("connections-view")).toBeInTheDocument();
