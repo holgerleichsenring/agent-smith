@@ -22,9 +22,6 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <param name="Purpose">p0331: `meta.purpose:` — the human sentence describing what this
 /// context is for. Surfaced so the ticket→repo scope classifier can reason about which
 /// repos a ticket touches from metadata alone (pre-checkout, pre-sandbox).</param>
-/// <param name="Domain">p0504: `meta.domain:` — one word naming a profile in the resolved
-/// skills catalog. The profile brings a toolchain image (used only when the context names
-/// none) and the ordered verification commands a repository of that shape is gated by.</param>
 public sealed record ContextYamlSummary(
     string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
-    ContextYamlStackResources? Resources = null, string? Purpose = null, string? Domain = null);
+    ContextYamlStackResources? Resources = null, string? Purpose = null);

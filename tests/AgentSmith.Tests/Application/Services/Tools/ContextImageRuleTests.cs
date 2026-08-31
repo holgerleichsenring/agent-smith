@@ -14,8 +14,8 @@ namespace AgentSmith.Tests.Tools;
 /// <para>
 /// The rule shipped with p0265 and the write path did check it — but only once a stack
 /// block existed, so a model that omitted the block entirely walked straight past it and
-/// the sandbox fell back to the language convention table. p0504's domain exemption is
-/// the one hole that stays open on purpose: that context's profile brings the image.
+/// the sandbox fell back to the language convention table. 2026-08-31-77a8: p0504's
+/// domain exemption — the one hole that stayed open — went with the profile that filled it.
 /// </para>
 /// <para>
 /// The document is then judged against the shipped context.schema.json, and every refusal
@@ -58,15 +58,20 @@ public sealed class ContextImageRuleTests
     }
 
     [Fact]
-    public async Task Write_AContextDeclaringADomainAndNoImage_IsAccepted()
+    public async Task ContextYaml_AStackWithoutAnImage_IsRefusedWithNoExemption()
     {
-        // p0504: the domain's catalog profile supplies the toolchain image and the
-        // verification commands. A blanket "reject a missing image" would revert it.
+        // 2026-08-31-77a8: meta.domain used to exempt this document, because the profile
+        // it named brought the image. Nothing resolves a profile any more, so a repository
+        // whose toolchain came from one names its own image from here on.
         var result = await WriteAsync("""
-            { "meta": { "workdir": ".", "domain": "data-warehouse" } }
+            { "meta": { "workdir": ".", "domain": "data-warehouse" }, "stack": { "lang": "python" } }
             """);
 
-        result.Should().StartWith("context.yaml written:");
+        result.Should().StartWith("Error:");
+        result.Should().Contain("/stack/image:");
+        result.Should().Contain("stack.image is required");
+        result.Should().NotContain("exempt", "there is no exemption left to name");
+        NothingWasWritten();
     }
 
     [Fact]

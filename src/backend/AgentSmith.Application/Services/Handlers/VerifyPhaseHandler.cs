@@ -41,7 +41,6 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class VerifyPhaseHandler(
     VerifyStageResolver stageResolver,
-    DomainProfileStagesResolver profileStages,
     SandboxTargets sandboxTargets,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
@@ -94,7 +93,7 @@ public sealed class VerifyPhaseHandler(
                 discoveries.TryGetValue(key, out var discovery) ? discovery.Workdir : null);
 
             foreach (var stage in await stageResolver.ResolveAsync(
-                key, map, sandbox, workdir, profileStages.For(context.Pipeline, key),
+                key, map, sandbox, workdir,
                 resolutionFindings, cancellationToken))
             {
                 var outcome = await commandRunner.RunAsync(

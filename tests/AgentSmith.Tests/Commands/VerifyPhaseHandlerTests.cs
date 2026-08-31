@@ -26,10 +26,7 @@ public sealed class VerifyPhaseHandlerTests
         new VerifyStageResolver(
             new DotnetEntryPointDiscovery(
                 new SandboxFileReaderFactory(), NullLogger<DotnetEntryPointDiscovery>.Instance),
-            new ProfileCommandPresence(
-                new SandboxFileReaderFactory(), NullLogger<ProfileCommandPresence>.Instance),
             NullLogger<VerifyStageResolver>.Instance),
-        new DomainProfileStagesResolver(AgentSmith.Tests.TestHelpers.TestDomainProfiles.Empty),
         new SandboxTargets(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),

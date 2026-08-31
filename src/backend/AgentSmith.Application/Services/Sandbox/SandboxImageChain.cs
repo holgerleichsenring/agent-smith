@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Sandbox;
@@ -14,10 +13,8 @@ namespace AgentSmith.Application.Services.Sandbox;
 ///   2. sandbox.images[lang] (operator, per language, p0245)
 ///   3. context.yaml stack.image (LLM-named, p0265) — a declared image is the
 ///      image that gets used
-///   4. the domain profile's image (p0504) — reached only when the context
-///      declared none, and REFUSED rather than dropped when it fails the gate
-///   5. the language convention table
-///   6. the generic git-bearing fallback
+///   4. the language convention table
+///   5. the generic git-bearing fallback
 /// </para>
 /// <para>
 /// 2026-08-25-014d: the only thing an image is judged by here is where it comes
@@ -46,14 +43,13 @@ public sealed class SandboxImageChain(
     public const string GenericFallbackImage = "buildpack-deps:bookworm-scm";
 
     public string Resolve(
-        ResolvedProject projectConfig, string? language, string? contextImage, string? profileImage = null)
+        ResolvedProject projectConfig, string? language, string? contextImage)
     {
         ArgumentNullException.ThrowIfNull(projectConfig);
         var projectOverride = projectConfig.Sandbox?.ToolchainImage;
         if (!string.IsNullOrEmpty(projectOverride)) return projectOverride;
         if (ConfiguredImage(projectConfig, language) is { } configured) return configured;
         if (AcceptedContextImage(contextImage, language) is { } accepted) return accepted;
-        if (GatedProfileImage(profileImage) is { } fromProfile) return fromProfile;
         return ToolchainImageCatalog.ForLanguage(language) ?? GenericFallbackImage;
     }
 
@@ -89,18 +85,4 @@ public sealed class SandboxImageChain(
         return trimmed;
     }
 
-    // p0504: a profile image outside the boundary REFUSES. Falling through to the
-    // language table would run the profile's commands in an image that never
-    // carried them — the failure this profile mechanism exists to prevent.
-    private string? GatedProfileImage(string? profileImage)
-    {
-        var trimmed = profileImage?.Trim();
-        if (string.IsNullOrEmpty(trimmed)) return null;
-        if (!_trust.Accepts(trimmed))
-            throw new ConfigurationException(
-                $"Domain profile image '{trimmed}' is outside the trusted registries "
-                + $"[{_trust.Description}]. Fix the profile in the skills catalog or widen the "
-                + "policy; no sandbox is started for it.");
-        return trimmed;
-    }
 }

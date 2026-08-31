@@ -19,9 +19,9 @@ internal static class MissingGitInImage
 
     public const string Cause =
         "the sandbox's toolchain image has no git on PATH. A repository is cloned INSIDE "
-        + "its own sandbox, so the image named by this context's stack.image (or brought by "
-        + "its meta.domain profile) has to carry git — agent-smith cannot install one into a "
-        + "running sandbox. Name an image variant that ships git.";
+        + "its own sandbox, so the image named by this context's stack.image has to carry "
+        + "git — agent-smith cannot install one into a running sandbox. Name an image "
+        + "variant that ships git.";
 
     /// <summary>Is this step result the image lacking git rather than the clone failing?</summary>
     public static bool Explains(StepResult result)

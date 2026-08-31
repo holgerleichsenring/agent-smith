@@ -20,11 +20,6 @@ internal sealed class ContextYamlReadShape
 
         // p0331: what this context is for — surfaced for the scope classifier.
         public string? Purpose { get; set; }
-
-        // p0504: one word naming a profile in the resolved skills catalog. The
-        // profile brings a toolchain image and the ordered verify commands, so a
-        // context declaring a domain need not name a stack.image at all.
-        public string? Domain { get; set; }
     }
 
     internal sealed class StackBlock

@@ -166,46 +166,6 @@ public sealed class SandboxLanguageResolverTests
             .Which.Should().Be(new RemoteContextDiscovery("api", "src/Api", "csharp"));
     }
 
-    [Fact]
-    public async Task ResolveAllAsync_AContextDeclaringADomain_CarriesItIntoTheDiscovery()
-    {
-        // 2026-08-28-7b41: meta.domain is parsed into the summary and was then dropped
-        // here — the discovery took its default of null, so the profile mechanism
-        // resolved nothing in a real run. Every domain test built the record by hand,
-        // which is why the producer's silence went unnoticed.
-        _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { "data" });
-        const string yaml = "yaml-content-data";
-        _sourceProviderMock.Setup(p => p.TryReadFileAsync(
-                ".agentsmith/contexts/data/context.yaml", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(yaml);
-        _parserMock.Setup(p => p.Parse(yaml))
-            .Returns(ContextYamlParseResult.Ok(
-                new ContextYamlSummary(".", null, Domain: "dbt-databricks")));
-
-        var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
-
-        result.Should().ContainSingle()
-            .Which.Domain.Should().Be("dbt-databricks");
-    }
-
-    [Fact]
-    public async Task ResolveContextAsync_AContextDeclaringADomain_CarriesItIntoTheDiscovery()
-    {
-        const string yaml = "yaml-content-data";
-        _sourceProviderMock.Setup(p => p.TryReadFileAsync(
-                ".agentsmith/contexts/data/context.yaml", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(yaml);
-        _parserMock.Setup(p => p.Parse(yaml))
-            .Returns(ContextYamlParseResult.Ok(
-                new ContextYamlSummary(".", null, Domain: "dbt-databricks")));
-
-        var result = await _sut.ResolveContextAsync(_source, "data", CancellationToken.None);
-
-        result.Should().ContainSingle()
-            .Which.Domain.Should().Be("dbt-databricks");
-    }
-
     private void SetupContextYaml(string contextName, string workdir, string language)
     {
         var yaml = $"yaml-content-{contextName}";
