@@ -56,10 +56,7 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 doc.Stack?.Image?.Trim(),
                 MapResources(doc.Stack?.Resources),
                 // p0331: meta.purpose feeds the ScopeRepos ticket→repo classifier.
-                doc.Meta.Purpose?.Trim(),
-                // p0504: meta.domain names the catalog profile that brings this
-                // context's toolchain image and its verification commands.
-                doc.Meta.Domain?.Trim()));
+                doc.Meta.Purpose?.Trim()));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the

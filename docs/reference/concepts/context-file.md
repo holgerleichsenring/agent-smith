@@ -9,7 +9,7 @@ field that is wrong is not merely dead weight, it is acted on.
 | Class | The test | Examples |
 | --- | --- | --- |
 | **Judgement** | Somebody DECIDED it, and no file in the repository states it. | `meta.purpose`, `quality.limits`, `behavior.*`, `integrations`, `data`, `state`, `decisions` |
-| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `meta.domain`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `methodology`, `registry_auth` |
+| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `methodology`, `registry_auth` |
 | **Reading** | A copy of something the repository still states for itself. | `stack.frameworks`, `stack.sdks`, `stack.testing`, `stack.ci`, `meta.version`, `arch.style`, `quality.principles` |
 
 A reading is worthless on the day it is written and wrong soon after. `sdks` names a

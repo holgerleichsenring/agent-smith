@@ -9,7 +9,7 @@
 #
 # ONE TEST decides whether a field belongs here (2026-08-26-04b6):
 #   JUDGEMENT — somebody decided it (purpose, limits, behavior). Write it.
-#   MECHANISM — the orchestrator acts on it (workdir, domain, lang, image). Write it.
+#   MECHANISM — the orchestrator acts on it (workdir, lang, image). Write it.
 #   READING   — a copy of something this repository still states for itself: the
 #               build file's frameworks and versions, the workflow's CI platform,
 #               the folder names as layers. It is worthless the day it is written
@@ -38,9 +38,9 @@ meta:
 
 stack:
   lang: C#
-  # REQUIRED unless meta.domain is set: the exact toolchain image whose runtime
-  # can BOTH build and run this stack's tests, from a registry the operator
-  # trusts. It carries git — the repository is cloned inside it.
+  # REQUIRED whenever a stack block is present: the exact toolchain image whose
+  # runtime can BOTH build and run this stack's tests, from a registry the
+  # operator trusts. It carries git — the repository is cloned inside it.
   image: mcr.microsoft.com/dotnet/sdk:8.0
   # Only for a build that DEMONSTRABLY needs more than the default:
   # resources: { cpu_request: 500m, cpu_limit: "2", memory_request: 1Gi, memory_limit: 4Gi }

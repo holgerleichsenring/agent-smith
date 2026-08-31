@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-31-77a8
+
+goal: "The catalog stops carrying a claim about what green means in someone else's estate: the domain profile, the domain word, and everything that resolved them are removed."
+
+applies_to: "backend (profile model, catalog reader, stage resolver, preflight check, image chain tier, meta.domain and the rule that exempted it) + skills catalog (profiles/, validator, release + pin) + the planned phases that rested on it"
+
+requires:
+  - 2026-08-28-7b41
+
+scope:
+  in: "The profile tier in the image chain, the profile source in the verify resolver, the profile model and its catalog reader, the preflight domain check, meta.domain through document/read-shape/summary/discovery/schema/tool-description, the stack-image exemption it granted, the catalog's profiles directory with its validator rules and a release the pin then moves to, the fourteen test files that exist only to police it, and the planned phases that rest on the mechanism."
+  out: >
+    THE MEASUREMENT NOTE and the two measurement scripts it points at — knowledge about
+    tools, not a claim about an estate. THE DATA FIXTURES, which stay as three real
+    repository shapes to test the successors against. ProfileCommandPresence, whose
+    LOGIC survives: the successor renames and re-signatures it. THE PLANNED PHASE that
+    a run resolving no command must not report success — it is not profile-specific and
+    this removal makes it more urgent, because a non-.NET repository that declared
+    nothing loses its last stage source here.
+
+decisions:
+  - key: |
+      IT IS THE THIRD INSTANCE OF ONE IDEA, AND THE FIRST TWO ALREADY LOST. Skill categories
+      and the language→image table put our copy of someone else's truth into an artefact we
+      release and version. A profile does it again, and the binary polices the taxonomy: an
+      unknown domain word is refused before any sandbox exists.
+  - key: |
+      THE STANDARD ESTATE DISQUALIFIES IT ON FACTS. The measured profile pins Python 3.12 and
+      dbt 1.11.4; the reference estate's own pipeline pins Python 3.10, installs a JRE for
+      PySpark and runs its unit tests on a real cluster. A shared data domain would have been
+      wrong on its first day, in the details that decide a run.
+  - key: |
+      REMOVING THE DOMAIN WORD REMOVES AN ESCAPE HATCH, AND THAT IS THE SHARP EDGE. The
+      stack-image rule exempts a context declaring meta.domain, because its profile brought the
+      image. Delete the word and a stack block WITH an image becomes unconditional — which is
+      correct, and which means a data repository must name its own image from this phase on.
+      Between here and the image phases that is the only way such a repository can be written
+      at all, so the template, the guidance string and the missing-git message move with it.
+  - key: |
+      THE DOMAIN KEY IS DEPRECATED IN THE SCHEMA, NOT REFUSED BY IT, BECAUSE THAT IS HOW THIS
+      REPOSITORY RETIRES A FIELD. meta.project and meta.version were retired by keeping the key
+      accepted and stripping it on the write path; the root is closed, so removing a property
+      refuses every context written before it. The same treatment here, and the read path drops
+      it silently by construction — an unmatched key is ignored, so there is no refusal to
+      write a test for. The test asserts it is DROPPED, not that it is rejected.
+  - key: |
+      THE PROFILES LEAVE THE BINARY ONLY WITH A RELEASE AND A PIN. Deleting profiles/ from the
+      catalog source changes nothing until a release ships without them and the embedded pin
+      moves to it — a conventional-title release PR, then the pin, the checked-in tarball and
+      the two documents that state the version. That coordination is a step of this phase, not
+      an afterthought of it.
+  - key: |
+      THE IMAGE-CHAIN TIER CARRIES A REFUSAL, NOT JUST A FALLBACK. The profile tier throws when
+      a profile names an image outside the trusted registries; deleting the tier deletes that
+      refusal. Nothing else refuses an untrusted image today except the same trust rule applied
+      to a declared image, which keeps working.
+  - key: |
+      THE PLANNED PHASES THAT REST ON IT ARE PART OF THE REMOVAL, AND ONE OF THEM IS NOT.
+      A reference repository declaring a domain, a bundle check declared in a profile, a
+      profile that installs what its image lacks, a domain principles tier and a toolchain
+      image of ours all go. The unverified-run phase stays and moves up.
+
+steps:
+  - id: the-image-chain-loses-its-profile-tier
+    action: "The profile tier and its untrusted-image refusal are removed from the image chain, with the callers that passed a profile image."
+  - id: the-verify-resolver-loses-its-profile-source
+    action: "The profile source, the stage types and the per-context stage resolver are removed from verify resolution; ProfileCommandPresence stays for the successor to rename."
+  - id: the-types-and-the-reader-go
+    action: "The profile model, its catalog reader, the catalog path interface's profile members and the preflight domain check are deleted."
+  - id: the-domain-word-goes
+    action: "meta.domain is removed from the document, the read shape, the summary, the discovery and the tool description; the schema keeps the key as deprecated and the write path strips it; the stack-image exemption, the template and the docs that cite it move with it."
+  - id: the-catalog-drops-profiles-and-the-pin-follows
+    action: "The catalog deletes profiles/ and its validator rules, releases, and the embedded pin, tarball and the two documents that state the version move to that release."
+  - id: the-evidence-that-served-it-goes
+    action: "The measured table, its readers and the evidence gate are deleted, along with the fourteen test files that exist only to police the profile; the fixtures, the note and the measurement scripts stay."
+  - id: the-planned-successors-are-reconciled
+    action: "The planned phases that exist only for this mechanism are deleted and the polyglot ones rewritten to rest on the declaration; the unverified-run phase survives."
+
+tests:
+  - "NoProfileTypeOrCatalogReaderRemains"
+  - "ContextYaml_ADomainKey_IsDroppedNotWritten"
+  - "ContextYaml_AStackWithoutAnImage_IsRefusedWithNoExemption"
+  - "ImageChain_ResolvesWithoutAProfileTier"
+
+done:
+  - "no code path resolves a domain, and no released catalog carries a profile"
+  - "a context.yaml written today declares a stack and an image, with no exemption left"
+  - "an existing context.yaml carrying meta.domain still loads, and the key is dropped when rewritten"
+  - "the fixtures, the note and the measurement scripts survive; the table and its gate do not"
+  - "build green, full suite green"

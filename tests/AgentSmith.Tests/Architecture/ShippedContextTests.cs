@@ -42,7 +42,7 @@ public sealed class ShippedContextTests
 
     [Theory]
     [MemberData(nameof(ShippedContexts))]
-    public void ShippedContext_EveryOne_NamesAnImageOrADomain(string path) =>
+    public void ShippedContext_EveryOne_NamesAnImage(string path) =>
         _image.Defect(Read(path)).Should().BeNull(
             "a shipped context without an image resolves through the language fallback "
             + $"table the rule exists to retire ({path})");
@@ -73,16 +73,15 @@ public sealed class ShippedContextTests
 
     // The image rule judges the typed document, and the product's own reader is what
     // turns a file on disk into one. Going through it means this test sees exactly the
-    // stack.image and meta.domain the sandbox will see — including nothing at all, when
-    // the reader drops a key it does not know.
+    // stack.image the sandbox will see — including nothing at all, when the reader drops
+    // a key it does not know.
     private ContextYamlDocument Read(string path)
     {
         var parsed = _reader.Parse(File.ReadAllText(path));
         parsed.ErrorReason.Should().BeNull($"a shipped context must parse ({path})");
         parsed.Summary.Should().NotBeNull($"a shipped context must carry a meta block ({path})");
         return new ContextYamlDocument(
-            new ContextYamlMeta(parsed.Summary!.Workdir, Domain: parsed.Summary.Domain),
-            Stack(parsed.Summary));
+            new ContextYamlMeta(parsed.Summary!.Workdir), Stack(parsed.Summary));
     }
 
     // No language and no image is how a file with no stack block at all reaches here;

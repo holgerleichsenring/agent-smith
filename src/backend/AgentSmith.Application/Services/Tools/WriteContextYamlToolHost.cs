@@ -85,18 +85,15 @@ public sealed class WriteContextYamlToolHost : IToolHost
         // 2026-08-26-04b6: the description asks for JUDGEMENT and MECHANISM only. A reading —
         // a value the repository still states for itself — is accepted and then discarded, so a
         // model working from an older prompt is not punished for offering one.
-        [Description("Document object: { meta: { workdir, type?: [archetype,…], purpose?, domain? }, " +
+        [Description("Document object: { meta: { workdir, type?: [archetype,…], purpose? }, " +
                      "stack?: { lang?, image?, resources? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
                      "Do NOT restate what the repository already states about itself — the build " +
                      "file's frameworks, versions and packages, the workflow's CI platform, the " +
                      "folder names as layers. Those are dropped. State what somebody DECIDED " +
                      "(meta.purpose, quality.limits, behavior) and what the orchestrator ACTS ON " +
-                     "(meta.workdir, meta.domain, stack.lang, stack.image). " +
+                     "(meta.workdir, stack.lang, stack.image). " +
                      "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
-                     "meta.domain is OPTIONAL: one word naming a profile that supplies this context's " +
-                     "toolchain image and verification commands; a context declaring one may omit " +
-                     "stack.image. " +
                      "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker " +
                      "image whose runtime can BOTH build " +
                      "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
