@@ -1,4 +1,6 @@
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
@@ -9,44 +11,52 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// toolchain image actually provides; the distilled line enters the master
 /// context as a capability statement ("This sandbox has: ..."). Probe failures
 /// simply omit the section — never a fabricated inventory.
+/// <para>
+/// 2026-08-31-7097: the same sweep also carries the binaries this repository's DECLARED
+/// verify stages name, so a tool the image lacks is reported before the stage dies on
+/// it. It runs at master start, which is after EnsurePrerequisites — probing before the
+/// step that installs the tools would accuse a good image.
+/// </para>
 /// </summary>
-public sealed class SandboxToolchainProbe(ILogger<SandboxToolchainProbe> logger) : ISandboxToolchainProbe
+public sealed class SandboxToolchainProbe(
+    ContextVerifyStagesResolver declaredStages,
+    ToolchainFindingReporter findings,
+    ILogger<SandboxToolchainProbe> logger) : ISandboxToolchainProbe
 {
     private const int ProbeTimeoutSeconds = 45;
 
-    // One POSIX-sh pass over the toolchains a coding master can mechanize with.
-    // Each available tool reports its own first version line; absent tools stay
-    // silent. `true` keeps the exit code green regardless of the last probe.
-    internal const string ProbeCommand =
-        "p() { command -v \"$1\" >/dev/null 2>&1 && echo \"$1 $($2 2>&1 | head -n 1)\"; }; "
-        + "p bash 'bash --version'; p git 'git --version'; p dotnet 'dotnet --version'; "
-        + "p node 'node --version'; p npm 'npm --version'; p python3 'python3 --version'; "
-        + "p java 'java --version'; p go 'go version'; p cargo 'cargo --version'; "
-        + "p make 'make --version'; true";
-
     public async Task<string?> ProbeAsync(
+        PipelineContext pipeline,
         IReadOnlyDictionary<string, ISandbox> sandboxes,
         IReadOnlyDictionary<string, string>? keyToRepo,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(sandboxes);
         var lines = new List<(string Name, string Capability)>();
+        var reported = new List<string>();
         foreach (var (key, sandbox) in sandboxes)
         {
             var name = keyToRepo is not null && keyToRepo.TryGetValue(key, out var repo)
                 && !string.IsNullOrEmpty(repo) ? repo : key;
             if (lines.Any(l => l.Name == name)) continue;
-            var capability = await ProbeOneAsync(sandbox, cancellationToken);
-            if (capability is not null) lines.Add((name, capability));
+            var derivation = DeclaredStageBinaries.Derive(declaredStages.For(pipeline, key));
+            var stdout = await SweepAsync(sandbox, derivation, cancellationToken);
+            reported.AddRange(findings.Report(name, ImageOf(pipeline, key), derivation, stdout));
+            if (ToolchainCapabilityLine.Distill(stdout) is { } capability)
+                lines.Add((name, capability));
         }
-        return Render(lines);
+        return ToolchainSection.Render(lines, reported);
     }
 
-    private async Task<string?> ProbeOneAsync(ISandbox sandbox, CancellationToken ct)
+    private async Task<string?> SweepAsync(
+        ISandbox sandbox, DeclaredStageDerivation derivation, CancellationToken ct)
     {
         try
         {
-            var output = await new SandboxStepRunner(sandbox).RunAsync(ProbeCommand, ProbeTimeoutSeconds, ct);
-            return ToolchainCapabilityLine.Distill(ToolchainCapabilityLine.ExtractStdout(output));
+            var command = ToolchainProbeCommand.For(derivation.Binaries);
+            var output = await new SandboxStepRunner(sandbox).RunAsync(command, ProbeTimeoutSeconds, ct);
+            return ToolchainCapabilityLine.ExtractStdout(output);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -55,12 +65,11 @@ public sealed class SandboxToolchainProbe(ILogger<SandboxToolchainProbe> logger)
         }
     }
 
-    private static string? Render(IReadOnlyList<(string Name, string Capability)> lines)
-    {
-        if (lines.Count == 0) return null;
-        if (lines.Count == 1)
-            return $"## Sandbox toolchain\nThis sandbox has: {lines[0].Capability}\n";
-        var bullets = string.Join("\n", lines.Select(l => $"- `{l.Name}` has: {l.Capability}"));
-        return $"## Sandbox toolchain\n{bullets}\n";
-    }
+    // The image the backend really pulled. An absent entry is the in-process backend,
+    // which runs on the host: reporting an image nothing pulled would be a false report.
+    private static string? ImageOf(PipelineContext pipeline, string key) =>
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxImages, out var images)
+        && images is not null && images.TryGetValue(key, out var image)
+            ? image
+            : null;
 }

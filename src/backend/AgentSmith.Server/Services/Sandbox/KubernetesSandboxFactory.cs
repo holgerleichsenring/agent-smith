@@ -51,7 +51,7 @@ public sealed partial class KubernetesSandboxFactory(
         return new KubernetesSandbox(client, options.Namespace, podName, jobId, channel,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
-            loggerFactory.CreateLogger<KubernetesSandbox>());
+            spec.ToolchainImage, loggerFactory.CreateLogger<KubernetesSandbox>());
     }
 
     // p0269a: a ResourceQuota rejection is a 403 Forbidden whose V1Status message
