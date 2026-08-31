@@ -3,6 +3,8 @@ using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Services.Sandbox;
 
 /// <summary>
@@ -12,6 +14,7 @@ namespace AgentSmith.Tests.Services.Sandbox;
 /// only emitted as a progress event and disappeared. The fix captures
 /// stderr into the StepResult so callers can surface it.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessSandboxStderrTests : IAsyncDisposable
 {
     private readonly string _workDir;

@@ -77,7 +77,7 @@ public sealed class ActiveRunReaperTests
         SetupStaleCandidate(runId: null);
         using var cts = new CancellationTokenSource();
         var loop = NewReaper().RunAsync(ActiveRunReaper.LeaseFreshFor, ScanInterval, cts.Token);
-        await WaitForAsync(() => _scans.Count >= 2);
+        await WaitForAsync(() => _scans.Count >= 2, () => _clock.Reads);
 
         _clock.Advance(TimeSpan.FromMinutes(6)); // the host slept past the stale threshold
         await WaitForIterationsAsync(2); // drain any iteration already past gap detection
@@ -96,7 +96,7 @@ public sealed class ActiveRunReaperTests
         _registry.Setup(r => r.IsLocallyActive("run-1")).Returns(false);
         using var cts = new CancellationTokenSource();
         var loop = NewReaper().RunAsync(ActiveRunReaper.LeaseFreshFor, ScanInterval, cts.Token);
-        await WaitForAsync(() => _scans.Count >= 1);
+        await WaitForAsync(() => _scans.Count >= 1, () => _clock.Reads);
         _clock.Advance(TimeSpan.FromMinutes(6)); // suspend detected on the next iteration
         await WaitForIterationsAsync(2);
         var scansWhenSuppressed = _scans.Count;
@@ -109,7 +109,7 @@ public sealed class ActiveRunReaperTests
             await WaitForIterationsAsync(2);
         }
 
-        await WaitForAsync(() => _scans.Count > scansWhenSuppressed);
+        await WaitForAsync(() => _scans.Count > scansWhenSuppressed, () => _clock.Reads);
         _lease.Verify(l => l.ReleaseAsync("proj", Ticket, "run-1", It.IsAny<CancellationToken>()), Times.AtLeastOnce,
             "after one LeaseFreshFor window of grace the reaper resumes normal reaping");
         cts.Cancel();
@@ -122,13 +122,28 @@ public sealed class ActiveRunReaperTests
     // scheduled, and on a two-core CI runner a burst of migration-applying test classes
     // starves async continuations for seconds at a time. What is asserted is that the loop
     // progresses at all rather than deadlocking.
-    // p0432: back down from 120s. The burst is gone — the suite migrates ONCE and hands out
-    // copies — so the guard can fail fast on a real deadlock again.
-    private static async Task WaitForAsync(Func<bool> condition)
+    // 2026-08-30-f590: a fixed budget cannot tell the two failures apart. A DEADLOCKED loop
+    // makes no progress at all; a STARVED one makes progress slowly, and a runner sharing its
+    // cores with two other test projects starves this loop for seconds at a stretch — four CI
+    // failures across three branches in one day, every one of them here, none of them a defect.
+    // So the budget is spent on STALL rather than on total time: it resets whenever the loop
+    // moves. p0432's intent survives — a loop that has genuinely stopped still fails in seconds
+    // — while a slow host merely takes longer.
+    private static async Task WaitForAsync(Func<bool> condition, Func<long> progress)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(30);
-        while (!condition() && DateTime.UtcNow < deadline) await Task.Delay(5);
-        condition().Should().BeTrue("the reaper loop should have progressed within the wait budget");
+        var stallLimit = TimeSpan.FromSeconds(30);
+        var lastMoved = DateTime.UtcNow;
+        var seen = progress();
+        while (!condition())
+        {
+            await Task.Delay(5);
+            var now = progress();
+            if (now != seen) { seen = now; lastMoved = DateTime.UtcNow; }
+            else if (DateTime.UtcNow - lastMoved > stallLimit) break;
+        }
+        condition().Should().BeTrue(
+            "the reaper loop should have progressed; it made no progress at all for {0}s, "
+            + "which is a stalled loop and not a slow host", stallLimit.TotalSeconds);
     }
 
     // Loop progress measured by the loop itself, not by wall clock: a reaper
@@ -136,7 +151,7 @@ public sealed class ActiveRunReaperTests
     // previous-iteration stamp, grace check), so a delta of 3N clock reads proves
     // at least N full iterations ran regardless of how loaded the test host is.
     private Task WaitForIterationsAsync(int iterations) =>
-        WaitForAsync(ReadsAhead(_clock, iterations * 3));
+        WaitForAsync(ReadsAhead(_clock, iterations * 3), () => _clock.Reads);
 
     private static Func<bool> ReadsAhead(MonotonicFakeTimeProvider clock, long delta)
     {

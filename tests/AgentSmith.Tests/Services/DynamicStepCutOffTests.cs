@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Application.Services;
+using AgentSmith.Tests.Architecture;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Infrastructure.Services.Nuclei;
@@ -17,6 +18,7 @@ namespace AgentSmith.Tests.Services;
 /// runner cut off says so, an empty cut-off result is not an empty clean one, and a step
 /// that finished reports exactly what it always did.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class DynamicStepCutOffTests
 {
     private const int NucleiLimitSeconds = 45;

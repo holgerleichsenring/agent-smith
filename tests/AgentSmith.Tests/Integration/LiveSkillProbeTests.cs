@@ -11,6 +11,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Integration;
 
 /// <summary>
@@ -24,6 +26,7 @@ namespace AgentSmith.Tests.Integration;
 /// Cost: ~$0.02 per probe (gpt-4.1, ~1-3 round trips).
 /// </summary>
 [Trait("Category", "LiveLLM")]
+[Collection(ExternalProcessCollection.Name)]
 public sealed class LiveSkillProbeTests
 {
     private readonly ITestOutputHelper _out;
