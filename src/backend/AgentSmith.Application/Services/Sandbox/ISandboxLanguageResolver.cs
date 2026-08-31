@@ -14,6 +14,17 @@ public interface ISandboxLanguageResolver
         RepoConnection source, CancellationToken cancellationToken);
 
     /// <summary>
+    /// 2026-08-31-f634: the same discovery, reported instead of resolved — the contexts
+    /// as read, or the reason the contexts directory could not be listed at all.
+    /// <see cref="ResolveAllAsync"/> is built on this and flattens both empty answers
+    /// into the synthetic default, because a run needs a sandbox either way. A caller
+    /// that tells an operator what to fix asks HERE: "nothing is declared" and "your
+    /// credential cannot read this repository" are opposite instructions.
+    /// </summary>
+    Task<RemoteContextListing> ListContextsAsync(
+        RepoConnection source, CancellationToken cancellationToken);
+
+    /// <summary>
     /// p0261: resolve a SINGLE named context (.agentsmith/contexts/&lt;name&gt;),
     /// bypassing discovery and the synthetic-default fallback. Used by the CLI
     /// `--context NAME` flag so a monorepo source whose real contexts discovery

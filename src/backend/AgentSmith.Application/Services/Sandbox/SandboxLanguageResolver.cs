@@ -25,32 +25,44 @@ public sealed class SandboxLanguageResolver(
     public async Task<IReadOnlyList<RemoteContextDiscovery>> ResolveAllAsync(
         RepoConnection source, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(source.Url))
-            return [SyntheticDefault];
+        var listing = await ListContextsAsync(source, cancellationToken);
+        if (listing.Contexts.Count > 0)
+        {
+            logger.LogInformation(
+                "Discovery {Repo}: resolved {Count} context(s) [{Contexts}]",
+                FormatRepoTag(source), listing.Contexts.Count,
+                string.Join(", ", listing.Contexts.Select(d => d.ContextName)));
+            return listing.Contexts;
+        }
+
+        logger.LogWarning(
+            "Discovery {Repo}: no context resolved ({Reason}). Using synthetic default " +
+            "(name=default workdir=. lang=null). Probe will hit " +
+            "/work/.agentsmith/contexts/default/ — typically not on the repo.",
+            FormatRepoTag(source), listing.UnreadableReason ?? "none readable under " + ContextsRoot);
+        return [SyntheticDefault];
+    }
+
+    public async Task<RemoteContextListing> ListContextsAsync(
+        RepoConnection source, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(source.Url)) return RemoteContextListing.None;
 
         var repoTag = FormatRepoTag(source);
-
         IReadOnlyList<string> children;
         try
         {
             var provider = sourceProviderFactory.Create(source);
             children = await provider.ListDirectoryAsync(ContextsRoot, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            // The provider contract lists an absent path as empty and propagates auth and
+            // transport errors, so reaching here means the repository could not be read —
+            // a different answer from "it declares nothing", and it must stay different.
             logger.LogWarning(ex,
-                "Discovery {Repo}: list of {Path} failed. Using synthetic default.",
-                repoTag, ContextsRoot);
-            return [SyntheticDefault];
-        }
-
-        if (children.Count == 0)
-        {
-            logger.LogWarning(
-                "Discovery {Repo}: {Path} is empty. Using synthetic default (name=default workdir=. lang=null). " +
-                "Probe will hit /work/.agentsmith/contexts/default/ — typically not on the repo.",
-                repoTag, ContextsRoot);
-            return [SyntheticDefault];
+                "Discovery {Repo}: list of {Path} failed.", repoTag, ContextsRoot);
+            return RemoteContextListing.Unreadable(ex.Message);
         }
 
         logger.LogInformation(
@@ -67,20 +79,7 @@ public sealed class SandboxLanguageResolver(
                 summary.Image, summary.Resources, summary.Purpose, Verify: summary.Verify));
         }
 
-        if (discoveries.Count == 0)
-        {
-            logger.LogWarning(
-                "Discovery {Repo}: {ChildCount} subfolder(s) found but 0 valid context.yaml. Using synthetic default. " +
-                "Probe will hit /work/.agentsmith/contexts/default/ — typically not on the repo.",
-                repoTag, children.Count);
-            return [SyntheticDefault];
-        }
-
-        logger.LogInformation(
-            "Discovery {Repo}: resolved {Count} context(s) [{Contexts}]",
-            repoTag, discoveries.Count,
-            string.Join(", ", discoveries.Select(d => d.ContextName)));
-        return discoveries;
+        return new RemoteContextListing(discoveries);
     }
 
     // p0261: `--context NAME` path — one explicit context, no discovery, no
