@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-31-46d7
+
+decisions:
+  - category: Design
+    chose: "A list of pull secret names on the global sandbox config"
+    over: "A per-project field, and over a single name"
+    reason: |
+      The adjacent supply-chain setting was refused per-project on the ground that a project
+      which can widen its own boundary does not have one, and a pull credential is the same
+      kind of decision. A list because Kubernetes takes a list and one pod may pull its agent
+      image and its toolchain image from different registries; declared at pod level, it covers
+      the init container too.
+  - category: Design
+    chose: "Name the configured secrets in the failure message, never a looked-up one"
+    over: "Checking whether the secret exists"
+    reason: |
+      The pod watcher already treats image-pull states as fatal and reports the kubelet's own
+      message, which carries the image and the authentication error. What kubelet never reports
+      is a missing pull secret — an absent entry is ignored and the pull simply fails — so the
+      framework appends what it configured. Verifying existence would need read access to every
+      secret in the sandbox namespace, which is a real security regression bought for a better
+      error string.
+  - category: Scope
+    chose: "Ship it for Kubernetes and make the Docker backend say what it cannot do"
+    over: "Adding registry auth to the Docker path, or letting it fail opaquely"
+    reason: |
+      A Kubernetes secret reference is meaningless to the Docker client, which pulls with no
+      auth config at all — and a toolchain image failure there propagated as a raw client
+      exception, which is precisely the opacity this phase exists to remove. The backend now
+      states that it carries no pull credential and names the image.
+  - category: Design
+    chose: "Extract the secret projection out of the pod builder"
+    over: "Shaving comments to stay under the length ratchet"
+    reason: |
+      The pod builder sat exactly on its baseline and may only shrink. The credential
+      projection — environment references, file mounts, volumes — is a separable
+      responsibility with no dependencies, so it moved to a pure static projection beside the
+      builder rather than buying five lines by deleting rationale.
+  - category: Process
+    chose: "Declare the field under the global sandbox object without closing it"
+    over: "Assuming the schema already enumerated that section"
+    reason: |
+      The brief said the sandbox section was fully enumerated; only the PER-PROJECT one is. The
+      global object was a bare type declaration, so the new key is declared without
+      additionalProperties, leaving every currently undeclared global key valid. This is the
+      first global sandbox key the schema names at all.

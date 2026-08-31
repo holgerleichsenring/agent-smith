@@ -25,6 +25,7 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
             {
                 RestartPolicy = "Never",
                 SecurityContext = new V1PodSecurityContext { FsGroup = security.FsGroup },
+                ImagePullSecrets = PullSecrets(spec.ImagePullSecrets),
                 InitContainers = [BuildInitContainer(spec.AgentImage)],
                 Containers = [BuildToolchainContainer(spec, jobId, redisUrl)],
                 Volumes = BuildVolumes(spec.Secrets?.Files)
@@ -39,6 +40,12 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
         Labels = labels.Build(jobId, runId),
         OwnerReferences = owner is null ? null : [owner]
     };
+
+    // 2026-08-31-46d7: pull secrets sit at POD level, so one declaration covers the
+    // agent-loader init container as well as the toolchain. Null (not an empty list)
+    // when none is declared, so an unconfigured pod stays exactly what it was.
+    private static List<V1LocalObjectReference>? PullSecrets(IReadOnlyList<string>? names) =>
+        names is null or [] ? null : [.. names.Select(name => new V1LocalObjectReference(name))];
 
     private static V1Container BuildInitContainer(string agentImage) => new()
     {
@@ -84,26 +91,11 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
         [
             new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
             new V1VolumeMount { Name = WorkVolume, MountPath = WorkMount },
-            .. SecretFileMounts(spec.Secrets?.Files)
+            .. SandboxSecretProjection.FileMounts(spec.Secrets?.Files)
         ],
         WorkingDir = WorkMount,
         Resources = BuildToolchainResources(spec.Resources)
     };
-
-    // p0272: each operator-declared secret file mounts read-only as a single file
-    // at its path (subPath projects just that key, not a whole directory).
-    private static IEnumerable<V1VolumeMount> SecretFileMounts(IReadOnlyList<SecretFileMount>? files) =>
-        (files ?? []).Select((file, i) => new V1VolumeMount
-        {
-            Name = SecretVolumeName(i),
-            MountPath = file.MountPath,
-            SubPath = FileName(file.MountPath),
-            ReadOnlyProperty = true
-        });
-
-    private static string SecretVolumeName(int index) => $"secret-{index}";
-
-    private static string FileName(string mountPath) => mountPath.Split('/')[^1];
 
     // Both Requests and Limits are emitted: Requests so the pod survives namespaces
     // with a ResourceQuota that mandates limits.cpu + requests.cpu + memory variants,
@@ -131,36 +123,17 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
             new() { Name = "JOB_ID", Value = jobId },
             new() { Name = "REDIS_URL", Value = redisUrl }
         };
-        if (gitToken is not null) env.Add(SecretEnvVar("GIT_TOKEN", gitToken));
+        if (gitToken is not null)
+            env.Add(SandboxSecretProjection.EnvVar("GIT_TOKEN", gitToken));
         foreach (var binding in secretEnv ?? [])
-            env.Add(SecretEnvVar(binding.EnvName, binding.Source));
+            env.Add(SandboxSecretProjection.EnvVar(binding.EnvName, binding.Source));
         return env;
     }
-
-    // p0272: a secretKeyRef env entry — Kubernetes resolves the value in the pod,
-    // so it never appears in a Step/Redis payload. Shared by GIT_TOKEN and the
-    // operator-declared sandbox.secrets.env bindings.
-    private static V1EnvVar SecretEnvVar(string name, SecretRef source) => new()
-    {
-        Name = name,
-        ValueFrom = new V1EnvVarSource
-        {
-            SecretKeyRef = new V1SecretKeySelector { Name = source.SecretName, Key = source.Key }
-        }
-    };
 
     private static List<V1Volume> BuildVolumes(IReadOnlyList<SecretFileMount>? files) =>
     [
         new V1Volume { Name = SharedVolume, EmptyDir = new V1EmptyDirVolumeSource() },
         new V1Volume { Name = WorkVolume, EmptyDir = new V1EmptyDirVolumeSource() },
-        .. (files ?? []).Select((file, i) => new V1Volume
-        {
-            Name = SecretVolumeName(i),
-            Secret = new V1SecretVolumeSource
-            {
-                SecretName = file.Source.SecretName,
-                Items = [new V1KeyToPath { Key = file.Source.Key, Path = FileName(file.MountPath) }]
-            }
-        })
+        .. SandboxSecretProjection.FileVolumes(files)
     ];
 }

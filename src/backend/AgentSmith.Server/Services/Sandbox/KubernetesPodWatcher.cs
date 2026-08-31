@@ -24,7 +24,8 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
     ];
 
     public async Task WaitForReadyAsync(
-        string podName, string ns, TimeSpan timeout, CancellationToken cancellationToken)
+        string podName, string ns, TimeSpan timeout, IReadOnlyList<string>? pullSecrets,
+        CancellationToken cancellationToken)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         string? lastPhase = null;
@@ -38,7 +39,7 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
                 logger.LogInformation("Sandbox pod {Pod} phase: {Phase}", podName, phase);
                 lastPhase = phase;
             }
-            ThrowIfFailed(podName, pod);
+            ThrowIfFailed(podName, pod, pullSecrets);
             if (IsToolchainReady(pod)) return;
             await Task.Delay(PollInterval, cancellationToken);
         }
@@ -53,7 +54,7 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
             $"Last state: {SummarisePodState(finalPod)}");
     }
 
-    private static void ThrowIfFailed(string podName, V1Pod pod)
+    private static void ThrowIfFailed(string podName, V1Pod pod, IReadOnlyList<string>? pullSecrets)
     {
         if (pod.Status?.Phase == "Failed")
             throw new InvalidOperationException(
@@ -67,18 +68,19 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
         // the operator only ever saw the 120s timeout instead of the actual
         // ImagePullBackOff signal.
         foreach (var status in pod.Status?.InitContainerStatuses ?? [])
-            ThrowIfWaitingFatal(podName, status, "initContainer");
+            ThrowIfWaitingFatal(podName, status, "initContainer", pullSecrets);
         foreach (var status in pod.Status?.ContainerStatuses ?? [])
-            ThrowIfWaitingFatal(podName, status, "container");
+            ThrowIfWaitingFatal(podName, status, "container", pullSecrets);
     }
 
-    private static void ThrowIfWaitingFatal(string podName, V1ContainerStatus status, string kind)
+    internal static void ThrowIfWaitingFatal(
+        string podName, V1ContainerStatus status, string kind, IReadOnlyList<string>? pullSecrets)
     {
         var waiting = status.State?.Waiting;
         if (waiting?.Reason is { Length: > 0 } reason && FatalWaitingReasons.Contains(reason))
             throw new InvalidOperationException(
                 $"Sandbox pod {podName} {kind} {status.Name} failed with {reason}: " +
-                $"{waiting.Message ?? "<no message>"}");
+                $"{waiting.Message ?? "<no message>"}" + ImagePullSecretNote.For(reason, pullSecrets));
     }
 
     private static bool IsToolchainReady(V1Pod pod)

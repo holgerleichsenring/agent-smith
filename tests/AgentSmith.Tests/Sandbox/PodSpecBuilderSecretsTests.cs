@@ -54,6 +54,31 @@ public sealed class PodSpecBuilderSecretsTests
         volume.Secret.Items.Single().Path.Should().Be("server.key");
     }
 
+    // 2026-08-31-46d7: the pull credential is a pod-level reference, so one declaration
+    // covers the agent-loader init container as well as the toolchain.
+    [Fact]
+    public void PodSpec_DeclaredPullSecrets_AreRendered()
+    {
+        var spec = new SandboxSpec(
+            ToolchainImage: "my-corp.azurecr.io/toolchain:1",
+            Resources: ResourceLimits.Default,
+            AgentImage: "agent:1",
+            ImagePullSecrets: ["acr-pull", "ghcr-pull"]);
+
+        var pod = Builder.Build("p", "j", "redis:6379", spec, owner: null);
+
+        pod.Spec.ImagePullSecrets.Select(r => r.Name)
+            .Should().Equal("acr-pull", "ghcr-pull");
+    }
+
+    [Fact]
+    public void Build_NoPullSecrets_LeavesThePodWithoutAReference()
+    {
+        var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets: null), owner: null);
+
+        pod.Spec.ImagePullSecrets.Should().BeNull("an unconfigured pod stays what it was");
+    }
+
     [Fact]
     public void Build_NoSecrets_PodSpecUnchangedFromBaseline()
     {
