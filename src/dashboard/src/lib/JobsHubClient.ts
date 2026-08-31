@@ -264,12 +264,23 @@ export class JobsHubClient {
     }
   }
 
+  // 2026-08-28-0f46: the start promise deduplicates CONCURRENT starts and nothing
+  // more. Kept past the moment it settles it becomes a latch for the life of the
+  // tab: a rejected first start is handed to every later subscribe (and automatic
+  // reconnect covers only a connection that once succeeded, so nothing else
+  // retries), and a resolved one is handed back for a connection that has since
+  // dropped. Dropping it when it settles is what makes a later subscribe open a
+  // connection instead of being told about an old one.
   private async ensureStarted(): Promise<void> {
-    if (this.connection && this.connection.state === HubConnectionState.Connected) return;
+    const state = this.connection?.state;
+    if (state === HubConnectionState.Connected) return;
+    // A reconnect in flight is SignalR restoring THIS connection; a second one
+    // opened beside it would double every group and every event it carries.
+    if (state === HubConnectionState.Reconnecting) return;
     if (this.startPromise) return this.startPromise;
     this.startPromise = this.openConnection();
     try { await this.startPromise; }
-    finally { /* keep promise to dedupe concurrent ensureStarted */ }
+    finally { this.startPromise = null; }
   }
 
   // 2026-08-25-2de1: p0503c reads the handshake token off the query string
@@ -320,7 +331,21 @@ export class JobsHubClient {
 
     this.connection = conn;
     this.connectionState.emit(HubConnectionState.Connecting);
-    await conn.start();
+    try {
+      await conn.start();
+    } catch (failure) {
+      // 2026-08-28-0f46: a start that rejected leaves a Disconnected connection
+      // assigned, which every later ensureStarted then reads as "there is one".
+      // The refusal belongs to the caller; what must not survive it is the
+      // half-open object.
+      this.connection = null;
+      this.connectionState.emit(HubConnectionState.Disconnected);
+      throw failure;
+    }
+    // p0366's rejoin, for the OTHER way a connection is replaced: this is not
+    // SignalR's automatic reconnect but a fresh connection opened after one
+    // dropped, and it belongs to no group either. Empty on a first connection.
+    await this.rejoinAll();
     this.connectionState.emit(HubConnectionState.Connected);
   }
 

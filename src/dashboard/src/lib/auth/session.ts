@@ -12,6 +12,11 @@ import { createAuthorityClient } from "./createAuthorityClient";
 // alongside them would make the first render of every page load a burst of
 // requests carrying no token — which, the moment an installation enforces, is a
 // burst of 401s nobody caused.
+//
+// 2026-08-28-0f46: which is why what this promise waits FOR is the whole of the
+// load's latency. It now settles on what the tab already holds; the silent
+// attempt for what it does not runs beside the first request rather than ten
+// seconds in front of it (AuthSession.restore).
 
 let boot: Promise<AuthSession | null> | null = null;
 
@@ -33,7 +38,10 @@ async function begin(): Promise<AuthSession | null> {
   // attempt beside it would be a second one against the same directory session.
   if (isCallback(auth.redirectPath)) {
     await session.complete();
-    forgetAuthorityAnswer();
+    // 2026-08-28-0f46: a SILENT return arrived in a hidden frame whose URL is
+    // nobody's address bar, and the answer in it has already been handed to the
+    // window that asked. Rewriting it would only race that window's own read.
+    if (!session.isSilentReturn) forgetAuthorityAnswer();
   } else {
     await session.restore();
   }
