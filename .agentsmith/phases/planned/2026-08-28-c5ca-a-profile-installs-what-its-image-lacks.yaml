@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-c5ca
+
+goal: "A domain profile carries the install its image lacks. DEFERRED: no profile has an install to declare until an image provably cannot carry a measured tool."
+
+applies_to: "backend (the prerequisite step) + skills catalog (the field and its validator) — not now"
+
+requires:
+  - 2026-08-28-3e23
+
+scope:
+  in: "Nothing yet. This spec records the design that survived review and the trigger that starts it."
+  out: >
+    EVERYTHING, UNTIL THE TRIGGER FIRES: the first profile whose published image provably
+    cannot carry a measured tool — a licence-bound CLI, a per-customer adapter, or a
+    mirror pin the image cannot pre-bake — or a second repository in the same domain shown
+    to repeat the same prerequisite line.
+
+decisions:
+  - key: |
+      THE FIELD WOULD SHIP WITH NO AUTHOR AND NO READER. The catalog has one profile, and its
+      sibling phase bakes exactly the measured toolchain into a published image and re-measures
+      against it. On the day this shipped, no profile would declare a prerequisite and every
+      criterion would be satisfiable only by synthetic fixtures — the same shape as the defect
+      the pin phase was written to repair, entered deliberately.
+  - key: |
+      THE REPETITION THE GOAL CITED IS NOT THE REPETITION THAT EXISTS. What a data repository
+      actually repeats is two FILES the profile does not ship — the connection profile and the
+      linter configuration — and no install command supplies a file. The phase named a pain it
+      could not relieve.
+  - key: |
+      THE CONDITION MECHANISM HAS THE WRONG POLARITY FOR AN INSTALL, AND THIS IS THE DESIGN NOTE
+      THAT MATTERS WHEN IT IS BUILT. The existing condition answers a REPOSITORY-SHAPE question:
+      does this tree carry the files the command was measured on. An install answers an IMAGE
+      question: is the tool already here. Conditioned on shape, the install runs on every run of
+      every matching repository, including on an image that already carries the tools. The
+      honest form gates on a probe of the tool, not on the repository's files.
+  - key: |
+      ADDITIVE ORDERING IS NOT SAFE, WHICH IS THE OTHER THING TO CARRY FORWARD. A repository
+      line installing its own requirements after the profile's silently replaces the pinned
+      versions the measurement recorded, and the verify gate then runs against a toolchain the
+      table says nothing about. The exit is idempotence plus a version comparison reported the
+      way an incompatible image is already reported — not a swap of the order.
+  - key: |
+      IT WOULD ALSO BYPASS THE EVIDENCE GATE AS WRITTEN. The gate that refuses an unmeasured
+      command reads the verify list only, so a prerequisite field would be a place where any
+      command is declarable with no measurement at all. Whichever phase builds this either
+      extends that gate or records explicitly why installs sit outside it.
+
+steps:
+  - id: deferred
+    action: "Not started. When the trigger fires, this spec is the starting point and its decisions are the constraints."
+
+done:
+  - "not applicable — deferred with a named trigger"

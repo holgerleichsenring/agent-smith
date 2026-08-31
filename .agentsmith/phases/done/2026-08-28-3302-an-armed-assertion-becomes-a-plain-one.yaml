@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-3302
+
+goal: "Five catalog-version-gated tests assert on every run, so an early return stops being indistinguishable from a passing assertion."
+
+applies_to: "backend tests (the five version-gated scaffolds and the helpers that arm them)"
+
+requires:
+  - 2026-08-28-c5e7
+
+scope:
+  in: "The pin comparisons, arming flags and below-pin branches in the five tests gated on a catalog version, replaced by direct assertions whose failure message names the pin and the floor; and the helper members left with no caller."
+  out: >
+    THE ARMING TECHNIQUE, which is right for content that has not shipped yet and will be
+    used again by the next catalog feature. Every runtime tolerance — those are the other
+    two phases in this split.
+
+decisions:
+  - key: |
+      AN EARLY RETURN LOOKS EXACTLY LIKE A PASS, AND THIS SESSION PAID FOR THAT TWICE. Five
+      test scaffolds gate on the pinned catalog version — 4.4.0 for the tool-first wording,
+      4.6.0 for artifact capture, 4.7.0 for the profiles, the domain catalog and the minted
+      placeholder — and return early below it. At the current pin every one of those arms is
+      unreachable, and the same shape elsewhere had a whole file asserting nothing since 4.0.0.
+  - key: |
+      DELETING THE FLAG IS NOT ENOUGH, WHICH IS THE DEFECT THE REVIEW FOUND. Two of the profile
+      tests guard TWICE: an arming check, and then a null-conditional on the profile lookup
+      that survives it. Removing only the flag leaves the second guard, and with it the silent
+      return this phase exists to end — so the null-conditional helper goes with it and the
+      lookup asserts non-null.
+  - key: |
+      A DE-ARMED ASSERTION MUST BLAME THE PIN, NOT THE CATALOG'S BUILD SCRIPT. Two of the
+      current messages tell the reader that the packaging script must ship profiles. On a
+      deliberate rollback that accuses the wrong repository; each message names the pin it
+      read and the floor it needs.
+  - key: |
+      TWO HELPER MEMBERS LOSE THEIR LAST CALLER AND GO WITH THEM. The tarball entry lister is
+      called only from the two below-pin arms, and the arming flag is read by one assertion
+      whose subject it is — that assertion keeps the claim that matters, which is that the
+      embedded catalog carries the profile.
+
+steps:
+  - id: the-scaffolds-become-assertions
+    action: "The five tests assert directly; the pin comparisons, arming flags and below-pin branches are deleted."
+  - id: the-second-guard-goes-too
+    action: "The null-conditional profile helper in the two profile test classes is replaced by an assertion that the lookup found the profile."
+  - id: the-messages-name-the-pin
+    action: "Every de-armed assertion's reason names the pin it read and the floor it needs."
+  - id: the-orphaned-helpers-go
+    action: "Helper members whose last caller was a below-pin arm are deleted."
+
+tests:
+  - "DataProfileGateTests asserts without arming"
+  - "DataProfileShapeTests asserts without arming"
+  - "DomainProfileCatalogTests asserts without arming"
+  - "CodingMasterToolFirstPromptTests asserts without arming"
+  - "CodingMasterArtifactCapturePromptTests asserts without arming"
+  - "DesignPartnerPlaceholderTests asserts without arming"
+
+done:
+  - "no test in the suite skips its assertions based on the pinned catalog version"
+  - "a rolled-back pin fails these tests with a message naming the pin and the floor"
+  - "build green, full suite green"

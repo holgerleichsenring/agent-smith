@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-489a
+
+goal: "The binary stops reading catalog layouts older than the one it embeds, once no configuration resolves such a catalog."
+
+applies_to: "backend (the pre-4.0.0 principles location, the pre-v4.1 prompt-token alias, and the two tests that pin them)"
+
+requires:
+  - 2026-08-28-7675
+
+scope:
+  in: "The pre-4.0.0 principles location dropped from the reader and from the two test helpers that mirror it, and the pre-v4.1 prompt-token alias dropped with its double binding."
+  out: >
+    THE SKILL-WRITES MODE, which stays: a catalog with no principles still hands
+    authorship to the bootstrap skill, and the harness fixture catalog ships none.
+    That is a mode, not a layout. The visibility the predecessor added stays too —
+    it is what makes a catalog below the floor legible instead of silent.
+
+decisions:
+  - key: |
+      BOTH TOLERANCES CARRY THEIR OWN EXPIRY NOTE, AND BOTH HAVE NOW EXPIRED. The principles
+      reader says "drop the legacy path once no pin below 4.0.0 is in use"; the prompt-token
+      alias says its entry goes "when the embedded skills pin moves past the release that
+      renamed it". The embedded pin has moved to the release that carries both, and 4.7.0 is
+      the supported floor.
+  - key: |
+      THE PRECONDITION WAS ANSWERED BY THE OPERATOR, AND THE EVIDENCE THAT DELAYED IT WAS
+      STALE. A review found two configs pinning v3.21.0 and v3.24.0 and this phase was held
+      back for them. Those files are gone as an authority: configuration moved into the
+      entity-document store in p0349, and the operator states there is no deployment below
+      4.7.0. A file left on disk is not a deployment, and letting one override an explicit
+      instruction is what turned a decided question back into an open one.
+  - key: |
+      THE ALIAS IS UNUSED BY EVERY MASTER IN THE PINNED CATALOG, WHICH WAS CHECKED RATHER
+      THAN ASSUMED. The embedded tarball was unpacked and searched: no SKILL.md references
+      the pre-v4.1 slot name, and the drift test that would catch a fixture still using it
+      is green. The double binding rendered the same content under two names for nobody.
+  - key: |
+      TWO TEST SURFACES PIN THE OLD LAYOUT AND ONE OF THEM ARGUES THE OPPOSITE OF THIS PHASE.
+      A theory feeds the legacy layout as a case, and its sibling's reason calls a catalog
+      without templates "a legitimate state". Both move with the code, or the suite keeps
+      asserting the tolerance the phase removed.
+
+steps:
+  - id: the-legacy-principles-location-goes
+    action: "The principles reader probes the current location only; the theory case and the test helper that mirror it go with it."
+  - id: the-renamed-slot-loses-its-alias
+    action: "The pre-v4.1 prompt-token alias and its double binding are deleted."
+  - id: the-reason-says-what-is-true-now
+    action: "The sibling test's reason is rewritten: a catalog without principles templates is a catalog below the supported floor."
+
+tests:
+  - "Compose_TheLegacyLocation_IsNotProbed"
+  - "MasterPrompt_TheRenamedSlot_HasNoAlias"
+
+done:
+  - "the supported floor is the embedded pin, and nothing reads a layout below it"
+  - "no principles path or prompt-token alias exists for a catalog older than the embedded pin"
+  - "build green, full suite green"

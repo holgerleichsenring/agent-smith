@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-cc40
+
+goal: "The security scan runs over a corpus of files whose flaws and traps are declared, and reports its miss rate and its false-alarm rate as a committed number."
+
+applies_to: "backend tests (the eval tier's client and a scoring harness for the scan) — no production code changes"
+
+scope:
+  in: >
+    An eval-tier client branch for the agent CLI so the loop runs on a subscription rather than
+    a paid key; a security fixture whose files carry a declared verdict each — flawed with its
+    weakness class, or clean and meant to look flawed; a harness that runs the real scan
+    finding path over the materialised corpus and scores it per FILE; two rates over two
+    denominators; a report committed per model plus scan-prompt digest, carrying the sentence
+    that says what a public corpus cannot prove; mechanics tests that prove materialisation
+    and the arithmetic with no model.
+  out: >
+    CHANGING THE SCAN. This phase measures and tunes nothing — a first number that moved
+    because the thing under test moved with it is not a baseline. Scoring api-security-scan,
+    which needs a target that answers and the egress decision around a sandbox that reaches
+    it: a successor phase scores the api scan against a live vulnerable target. The
+    discriminating corpus drawn from runs that were WRONG — the nine false-positive criticals
+    p0429 measured: a successor phase adds fixtures from real scans whose answer is known.
+    Line-precision scoring, which measures citation and not detection, and which
+    FindingSubstantiationTests already gates on its own terms.
+
+decisions:
+  - key: |
+      THE FLOOR MEASURES THAT DETECTION HAPPENS, NOT THAT IT IS GOOD, AND THE REPORT SAYS SO
+      IN ITS OWN HEADER. Every public weakness corpus is in the training data, so a model can
+      name a well-known case without reading it, and synthetic plantings are formulaic in a
+      way real defects are not. A green floor therefore proves the scan is wired, reaches the
+      code and emits findings at all — the thing we cannot currently answer — and proves
+      nothing about quality. A number printed without that sentence will be read as a grade,
+      which is how a measurement becomes worse than none.
+  - key: |
+      A FIXTURE IS INLINE FILES, NOT A VENDORED TREE. AccountFixture settled the same question
+      for deliveries: one reviewable file per fixture, because a nested repository inside this
+      repository is a thing nobody wants to explain twice. Small attributed excerpts also
+      sidestep the size and the licence question a full third-party checkout would carry, and
+      a floor does not need thousands of cases — it needs enough classes to prove the scan
+      does not answer empty.
+  - key: |
+      SCORING IS PER FILE. A finding carries file and line; a fixture declares which FILE holds
+      the weakness. Scoring the line would fail a correct detection that cited the call rather
+      than the sink, and would turn a detection number into a citation number.
+  - key: |
+      TWO RATES OVER TWO DENOMINATORS, THE DELIVERY ACCOUNT'S SHAPE — misses over the flawed
+      files, false alarms over the clean ones. One combined score hides the direction that has
+      cost live runs: a scan that finds nothing looks exactly like a clean repository, and
+      fourteen tuning phases on the account moved the wrong axis for precisely that reason.
+  - key: |
+      THE CLI BRANCH RESOLVES FROM THE HARNESS CONTAINER. EvalChatClientEnv's two branches
+      construct their builder directly, but the external-worker client takes six injected
+      collaborators; the branch therefore asks the harness for the client instead of growing a
+      second composition root inside a static helper.
+  - key: |
+      NO CLI, NO RUN, LOUD SKIP — the eval tier's existing convention. A silent skip is
+      indistinguishable from a pass, and this suite exists to make an absence visible.
+
+steps:
+  - id: the-eval-tier-can-run-on-the-agent-cli
+    action: "EvalChatClientEnv offers the external-worker client, resolved from the harness container, and the suite skips loudly when no CLI answers."
+  - id: a-fixture-declares-its-flaws-and-its-traps
+    action: "A security fixture carries inline files, each with a declared verdict — flawed with its weakness class, or clean and shaped to look flawed — and materialises into a real working tree."
+  - id: the-scan-is-scored-over-the-corpus
+    action: "The real finding path runs over the materialised corpus; a flawed file with no finding is a miss, a clean file with one is a false alarm, each rate over its own denominator."
+  - id: the-report-states-what-it-does-not-prove
+    action: "The report is written per model plus scan-prompt digest and carries the sentence that a public corpus cannot grade the scan."
+
+tests:
+  - "SecurityCorpus_AFlawedFileWithNoFinding_CountsAsAMiss"
+  - "SecurityCorpus_ACleanTrapWithAFinding_CountsAsAFalseAlarm"
+  - "SecurityCorpus_EachRate_UsesItsOwnDenominator"
+  - "SecurityCorpus_AFindingOnTheWrongLineOfAFlawedFile_StillCountsAsDetection"
+  - "SecurityCorpus_NoAgentCliConfigured_SkipsAndSaysSo"
+  - "SecurityCorpus_TheReport_StatesThatAPublicCorpusCannotGradeTheScan"
+
+done:
+  - "a scan that emits nothing over the corpus fails the eval and names the files it missed"
+  - "both rates are reported over their own denominators, in a report committed per model and scan-prompt digest"
+  - "the report carries the sentence that a public corpus cannot grade the scan"
+  - "the mechanics tests pass with no credentials configured"
+  - "build green, full suite green"

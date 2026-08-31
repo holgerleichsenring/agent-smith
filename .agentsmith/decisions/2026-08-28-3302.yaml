@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-3302
+
+decisions:
+  - category: Testing
+    chose: "Delete the arming flag AND the null-conditional helper the two profile test classes hid behind it"
+    over: "Deleting only the version comparison"
+    reason: |
+      Both classes guarded twice: an arming check, and then `if (Profile() is not { } profile)
+      return;` on the lookup. Removing only the flag would have left the second guard, so a
+      rolled-back pin would still produce seven silent early returns — the exact shape this
+      phase exists to end. The helper now asserts the lookup found the profile and returns it
+      non-null, which was verified by pointing it at a domain that does not exist: three of
+      four tests went red, the fourth is the one about a profile with no measured table.
+  - category: Testing
+    chose: "Keep the floor constants and spend them on the failure message"
+    over: "Deleting the version constants with the gates"
+    reason: |
+      A rolled-back pin is a legitimate operator move — an airgap mirror, a bad release. What
+      must not happen is a confusing red: two of the old messages told the reader that the
+      catalog's packaging script must ship profiles, which accuses the wrong repository. Each
+      de-armed assertion now names the pin it read and the floor it needs, so the failure
+      explains itself.
+  - category: Design
+    chose: "Keep the arming technique available"
+    over: "Declaring pin-gated assertions an anti-pattern"
+    reason: |
+      Arming an assertion at a pin is the right tool for catalog content that has not shipped
+      yet, and the next catalog feature will use it again. What was removed is five instances
+      whose content HAS shipped and whose other arm can no longer run.
+  - category: Scope
+    chose: "Delete the tarball entry lister with its last caller"
+    over: "Leaving it for a future test"
+    reason: |
+      It existed to prove the tarball was readable while it predated profiles/ — only the two
+      below-pin arms called it. A helper kept for a hypothetical caller is a helper nobody
+      maintains.

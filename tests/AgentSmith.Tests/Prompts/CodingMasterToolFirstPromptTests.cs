@@ -11,10 +11,10 @@ namespace AgentSmith.Tests.Prompts;
 /// one pass. Nothing in its instructions told it to look for that command.
 ///
 /// The two rules are authored in agent-smith-skills; this repo carries them only
-/// via <c>SkillsCatalogVersion</c>. So the guard is written against the PACKAGED
-/// master and gated on the pin: below <see cref="ToolFirstRelease"/> it states
-/// the gap out loud, at or above it the assertions become live automatically —
-/// no second commit needed to arm them.
+/// via <c>SkillsCatalogVersion</c>, so the guard is written against the PACKAGED
+/// master. 2026-08-28-3302: it used to be gated on the pin and state the gap below
+/// <see cref="ToolFirstRelease"/>; the pin has carried these rules since, and a gate
+/// whose other arm cannot run is a test that reads as passing without asserting.
 /// </summary>
 public sealed class CodingMasterToolFirstPromptTests
 {
@@ -31,21 +31,13 @@ public sealed class CodingMasterToolFirstPromptTests
     public void PackagedCodingMaster_StatesToolFirstAndVerifyOnce()
     {
         var catalog = new EmbeddedSkillsCatalog();
-        var pinned = ParsePin(catalog.Version);
         var master = PackagedMaster.Read(catalog, "coding-agent-master");
 
-        if (pinned >= ToolFirstRelease)
-        {
-            master.Should().Contain(ToolFirstRule,
-                "a master told only to do the work hand-edits what a command already knows");
-            master.Should().Contain(VerifyOnceRule,
-                "a build between every edit buys nothing the build at the end of the set does not");
-            return;
-        }
-
-        master.Should().NotContain(ToolFirstRule,
-            $"the pinned catalog {catalog.Version} predates the p0412 skills release " +
-            $"(v{ToolFirstRelease}) — raise SkillsCatalogVersion to it and these assertions go live");
+        master.Should().Contain(ToolFirstRule,
+            $"a master told only to do the work hand-edits what a command already knows; "
+            + $"the pin is {catalog.Version} and this wording ships from v{ToolFirstRelease}");
+        master.Should().Contain(VerifyOnceRule,
+            "a build between every edit buys nothing the build at the end of the set does not");
     }
 
     /// <summary>
@@ -57,15 +49,9 @@ public sealed class CodingMasterToolFirstPromptTests
     [Fact]
     public void PackagedCodingMaster_KeepsJudgmentWithTheMaster()
     {
-        var catalog = new EmbeddedSkillsCatalog();
-        if (ParsePin(catalog.Version) < ToolFirstRelease) return;
-
-        var master = PackagedMaster.Read(catalog, "coding-agent-master");
+        var master = PackagedMaster.Read(new EmbeddedSkillsCatalog(), "coding-agent-master");
 
         master.Should().Contain("you judge the exceptions and",
             "tool-first without the exception clause is 'tool instead of model'");
     }
-
-    private static Version ParsePin(string version) =>
-        Version.Parse(version.TrimStart('v', 'V'));
 }

@@ -8,13 +8,23 @@ namespace AgentSmith.Tests.Loop;
 
 public sealed class SkillCallRuntimeLimitTests
 {
+    private static readonly TimeSpan Budget = TimeSpan.FromSeconds(60);
+
     [Fact]
     public async Task ExecuteAsync_ConcurrencyLimitReached_BlocksUntilSlotAvailable()
     {
+        // 2026-08-28-479f: the first call announces that it is INSIDE the gate, and the
+        // test waits for that instead of sleeping. The claim is about the semaphore —
+        // with the only slot held, the second call cannot have completed — and a sleep
+        // was standing in for a signal the call can give itself. Under three parallel
+        // test processes the 50 ms sleep took tens of seconds and the two-second waits
+        // behind it expired, failing four consecutive gate runs of unrelated phases.
+        var firstEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var slowGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var chat = ScriptedRuntimeChatClient.Async(
             async () =>
             {
+                firstEntered.TrySetResult();
                 await slowGate.Task;
                 return ScriptedRuntimeChatClient.Make("{}");
             },
@@ -25,12 +35,14 @@ public sealed class SkillCallRuntimeLimitTests
         var first = runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
         var second = runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
 
-        await Task.Delay(50);
-        second.IsCompleted.Should().BeFalse();
+        // A ceiling that still fails a hang, high enough that a starved thread pool does not.
+        await firstEntered.Task.WaitAsync(Budget);
+        second.IsCompleted.Should().BeFalse(
+            "the only slot is held by the first call, which is inside the gate");
         slowGate.SetResult();
 
-        await first.WaitAsync(TimeSpan.FromSeconds(2));
-        var secondResult = await second.WaitAsync(TimeSpan.FromSeconds(2));
+        await first.WaitAsync(Budget);
+        var secondResult = await second.WaitAsync(Budget);
         secondResult.Outcome.Should().Be(SkillCallOutcome.Ok);
     }
 

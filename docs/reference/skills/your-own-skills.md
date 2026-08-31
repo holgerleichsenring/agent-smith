@@ -12,7 +12,7 @@ write still comes from the pinned catalog, and the pin still governs that half.
 # agentsmith.yml
 skills:
   source: default          # or embedded, or url, or path — any of them
-  version: v4.6.0
+  version: v4.7.0
   overlay: /srv/skills-overlay
 ```
 
@@ -68,7 +68,7 @@ run, and an untouched overlay costs nothing.
 The run's Load-catalog step names both halves:
 
 ```
-catalog v4.6.0 + overlay 6f2b91c4ad07: 74 concepts, 12 skills, 15 masters
+catalog v4.7.0 + overlay 6f2b91c4ad07: 74 concepts, 12 skills, 15 masters
 ```
 
 The version stays the base version — it is never rewritten into a composite —

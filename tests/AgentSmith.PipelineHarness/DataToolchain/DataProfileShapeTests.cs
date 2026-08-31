@@ -23,12 +23,16 @@ public sealed class DataProfileShapeTests : IDisposable
     private readonly MeasuredCommandsSource _source = new();
     private readonly MeasuredCommandGate _gate = new();
 
-    private DomainProfile? Profile()
+    // 2026-08-28-3302: one guard, and it asserts. This used to arm at the pin and
+    // return null below it, and every caller then returned early — an assertion that
+    // does not run reads exactly like one that holds.
+    private DomainProfile Profile()
     {
-        if (_profiles.Armed) return _profiles.Find(Domain);
-        _profiles.Entries().Should().NotBeEmpty(
-            "the pinned catalog must stay readable while it predates profiles/");
-        return null;
+        var profile = _profiles.Find(Domain);
+        profile.Should().NotBeNull(
+            $"the embedded pin is {_profiles.Pin} and profiles ship from "
+            + $"{PackagedProfiles.ProfilesFrom} — a pin below that carries no profile to police");
+        return profile!;
     }
 
     // The presence condition is answered by the real clean fixture of one shape:
@@ -65,7 +69,7 @@ public sealed class DataProfileShapeTests : IDisposable
     [Fact]
     public void Profile_Data_TheDbtPairIsConditionedOnTheProjectFile()
     {
-        if (Profile() is not { } profile) return;
+        var profile = Profile();
 
         profile.Verify.Should().Contain(
             c => c.Command.StartsWith("dbt ", StringComparison.Ordinal)
@@ -76,7 +80,7 @@ public sealed class DataProfileShapeTests : IDisposable
     [Fact]
     public void Profile_Data_TheLinterIsConditionedOnTheModelDirectory()
     {
-        if (Profile() is not { } profile) return;
+        var profile = Profile();
 
         profile.Verify.Should().Contain(
             c => c.Command.StartsWith("sqlfluff ", StringComparison.Ordinal)
@@ -87,7 +91,7 @@ public sealed class DataProfileShapeTests : IDisposable
     [Fact]
     public async Task DbtOnlyShape_ResolvesTheDbtPairAndTheLinterAndNothingElse()
     {
-        if (Profile() is not { } profile) return;
+        var profile = Profile();
 
         var commands = await ResolveAsync(profile, "dbt");
 
@@ -100,7 +104,7 @@ public sealed class DataProfileShapeTests : IDisposable
     [Fact]
     public async Task BundleOnlyShape_ResolvesNoCommandsFromThisProfile()
     {
-        if (Profile() is not { } profile) return;
+        var profile = Profile();
 
         (await ResolveAsync(profile, "bundle")).Should().BeEmpty(
             "the bundle shape has no dbt or sqlfluff row at all — running either would be a "

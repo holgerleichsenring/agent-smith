@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-489a
+
+decisions:
+  - category: Process
+    chose: "Treat the operator's statement of the supported floor as the authority"
+    over: "Treating two config files found on disk as evidence of a deployment"
+    reason: |
+      The predecessor held this removal back because a review found agentsmith.*.yml files
+      pinning v3.21.0 and v3.24.0, and an explicit skills.version beats the embedded pin.
+      The files are no longer an authority: configuration moved into the entity-document
+      store in p0349, and the operator had already stated that 4.7.0 is the first runnable
+      release and that backward compatibility is not wanted. A file left on disk is not a
+      deployment — and re-opening a decided question on that evidence cost a phase.
+  - category: Design
+    chose: "Read one principles location and let a catalog laid out the old way compose nothing"
+    over: "Probing both layouts"
+    reason: |
+      The reader's own comment named the trigger — drop the legacy path once no pin below
+      4.0.0 is in use — and 4.7.0 is now the floor. What remains is the honest outcome: a
+      catalog without principles at the supported location hands authorship to the bootstrap
+      skill, and the predecessor made that visible with the catalog it read, so this is a
+      legible state rather than a silent one.
+  - category: Design
+    chose: "Delete the pre-v4.1 prompt-token alias and its double binding"
+    over: "Keeping it because it renders as a no-op"
+    reason: |
+      The embedded tarball was unpacked and searched: no master references the old slot name,
+      so the handler bound the same content twice for nobody, and the token list carried an
+      entry the drift test can no longer justify. Verified rather than assumed, because "it
+      is harmless" is how a list of exceptions grows.
+  - category: Testing
+    chose: "Assert that the legacy layout is NOT read"
+    over: "Only removing the theory case that fed it"
+    reason: |
+      Deleting the case leaves nothing that fails if someone restores the probe. A test that
+      builds a catalog the pre-4.0.0 way and expects nothing composed states the floor as a
+      property of the code rather than as a comment.

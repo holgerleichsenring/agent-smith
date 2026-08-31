@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-479f
+
+decisions:
+  - category: Testing
+    chose: "Wait for the event each test is about — the call entering the gate, the loop announcing an iteration"
+    over: "Widening the wait budgets again"
+    reason: |
+      The budgets have been swung twice already: p0423b raised them to 120 seconds for a
+      burst of migration-applying test classes, p0432 brought them back to 30 seconds once
+      that burst was gone. Both directions encode an assumption about the machine, and the
+      assumption broke again the moment three test processes ran in parallel on a loaded
+      workstation — four consecutive gate runs of two unrelated phases were blocked by tests
+      that are green in isolation. A signal is not an assumption about scheduling.
+  - category: Testing
+    chose: "Replace the polling loop rather than only lengthening it"
+    over: "Keeping the five-millisecond poll with a larger deadline"
+    reason: |
+      The poll was not only a victim of starvation, it was a source: three tests spinning a
+      timer every five milliseconds for up to thirty seconds each, competing with the reaper
+      loop they were waiting for. After the change those four tests run in under 400 ms
+      instead of seconds to minutes, which returns pool capacity to the rest of the suite.
+  - category: Testing
+    chose: "Keep a ceiling on every wait, as an explicit hang-detector"
+    over: "Awaiting the signals unbounded"
+    reason: |
+      A loop that never progresses must fail the test rather than hang the suite. What
+      changed is what the number means: it is no longer a claim that progress happens within
+      thirty seconds, it is the point at which no progress is treated as a deadlock.
+  - category: Scope
+    chose: "Leave the tests that wait on a real timer inside production code"
+    over: "Converting every wall-clock test in the suite"
+    reason: |
+      The fan-out back-pressure test waits for a send its decorator abandons after a real
+      50 ms delay; the waiting-run drain and the sandbox liveness watcher are the same shape.
+      Making those deterministic means injecting a time provider into the code under test —
+      a production change, and a different phase. This one removes the two tests that create
+      the starvation the others then fail under, which is the cheapest thing that could work.

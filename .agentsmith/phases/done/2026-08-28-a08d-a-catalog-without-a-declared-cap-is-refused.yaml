@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-a08d
+
+goal: "The packaging gate refuses an embedded catalog that declares no description cap, because from the pinned release such a catalog is a broken package rather than an old one."
+
+applies_to: "backend (the declared-cap gate and the tests that build tarballs without one)"
+
+requires:
+  - 2026-08-28-c5e7
+
+scope:
+  in: "A missing cap declaration turned from accepted into a violation naming the file, the two test tarball builders taught to carry one, and the tests that assert today's acceptance inverted."
+  out: >
+    MOUNTS AND OVERLAYS. The gate runs only over the tarball this repository vendors, so a
+    path-mode catalog and a customer overlay are out of its reach — stated here because the
+    demand reads broader than it is.
+
+decisions:
+  - key: |
+      THE ALLOWANCE NAMES ITS OWN EXPIRY. The gate accepts a catalog that declares no cap
+      because releases before p0518 shipped none; the embedded pin now carries one, so the
+      absence stops being an old release and becomes a package missing a file its own release
+      gate writes.
+  - key: |
+      THE DEMAND REDDENS NINE TESTS IN THIS REPOSITORY, AND THAT IS THE WORK, NOT A SURPRISE.
+      Two builders hand-assemble tarballs with no cap entry; one test asserts the absence is
+      accepted; and one validator test collects violations with a single-or-default that
+      throws outright once a second violation appears. Each is named here so the phase is
+      sized honestly.
+  - key: |
+      THE GATE'S REACH IS TARBALL-ONLY, WHICH IS WHY THIS IS SAFE. It runs from the build
+      target that vendors the embedded catalog. A mounted directory, a customer overlay and
+      the harness fixture catalog — which ships no cap file — are never handed to it.
+
+steps:
+  - id: the-absent-declaration-is-a-violation
+    action: "A catalog carrying no cap declaration produces a violation naming the file and what writes it."
+  - id: the-builders-carry-a-cap
+    action: "The test tarball builders write a cap entry matching the enforced number."
+  - id: the-inverted-expectations-move
+    action: "The tests asserting that absence is accepted assert the refusal instead."
+
+tests:
+  - "CatalogDeclaredCap_ACatalogWithoutTheDeclaration_IsRefused"
+  - "CatalogDeclaredCap_ACatalogDeclaringTheEnforcedCap_IsAccepted"
+  - "MasterDescriptionValidator_ATarballWithACap_ReportsOnlyDescriptionViolations"
+
+done:
+  - "an embedded catalog with no cap declaration fails the build, naming the file"
+  - "no test builds a tarball the gate would now refuse for an unrelated reason"
+  - "build green, full suite green"

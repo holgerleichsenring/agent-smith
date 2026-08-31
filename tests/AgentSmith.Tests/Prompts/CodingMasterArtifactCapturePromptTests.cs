@@ -35,43 +35,27 @@ public sealed class CodingMasterArtifactCapturePromptTests
 
     private const string RepoRelative = "the target is repo-relative";
 
-    private static (string Master, bool Armed) Packaged()
-    {
-        var catalog = new EmbeddedSkillsCatalog();
-        var master = PackagedMaster.Read(catalog, "coding-agent-master");
-        return (master, ParsePin(catalog.Version) >= ArtifactCaptureRelease);
-    }
+    // 2026-08-28-3302: the pin carries this rule, so the packaged master is read and
+    // asserted on. The arming tuple returned a flag whose false arm can no longer run.
+    private static string Packaged() =>
+        PackagedMaster.Read(new EmbeddedSkillsCatalog(), "coding-agent-master");
 
     [Fact]
     public void PackagedCodingMaster_CapturedOutput_IsRedirectedNotRetyped()
     {
-        var (master, armed) = Packaged();
+        var master = Packaged();
 
-        if (armed)
-        {
-            master.Should().Contain(CaptureRule,
-                "an inventory assembled by retyping a search's results is a second claim about them");
-            return;
-        }
-
-        master.Should().NotContain(CaptureRule,
-            $"the pinned catalog predates the p0486 skills release (v{ArtifactCaptureRelease}) "
-            + "— raise SkillsCatalogVersion to it and this assertion goes live");
+        master.Should().Contain(CaptureRule,
+            "an inventory assembled by retyping a search's results is a second claim about them");
     }
 
     [Fact]
     public void PackagedCodingMaster_ACountInAnArtifact_StandsOnItsList()
     {
-        var (master, armed) = Packaged();
+        var master = Packaged();
 
-        if (armed)
-        {
-            master.Should().Contain(CountRule,
-                "a number written beside a list is a second claim, and the two drift");
-            return;
-        }
-
-        master.Should().NotContain(CountRule);
+        master.Should().Contain(CountRule,
+            "a number written beside a list is a second claim, and the two drift");
     }
 
     /// <summary>run_command runs the shell INSIDE the repository it is given, while write_file
@@ -80,31 +64,18 @@ public sealed class CodingMasterArtifactCapturePromptTests
     [Fact]
     public void PackagedCodingMaster_TheRedirectTarget_IsRepoRelative()
     {
-        var (master, armed) = Packaged();
+        var master = Packaged();
 
-        if (armed)
-        {
-            master.Should().Contain(RepoRelative);
-            return;
-        }
-
-        master.Should().NotContain(RepoRelative);
+        master.Should().Contain(RepoRelative);
     }
 
-    /// <summary>The new rule lands beside the artifact-phase paragraph, not in place of it —
-    /// a claim that only means anything once the pin carries both, since that paragraph is
-    /// itself newer than the currently pinned release.</summary>
+    /// <summary>The new rule lands beside the artifact-phase paragraph, not in place of
+    /// it: the pin carries both.</summary>
     [Fact]
     public void PackagedCodingMaster_TheArtifactPhaseParagraph_IsUnchanged()
     {
-        var (master, armed) = Packaged();
-        if (!armed) return;
-
-        master.Should().Contain(
+        Packaged().Should().Contain(
             "whose completion criteria are met by an inventory, a report or a decision",
             "the capture rule is added beside this paragraph, never in place of it");
     }
-
-    private static Version ParsePin(string version) =>
-        Version.TryParse(version.TrimStart('v'), out var parsed) ? parsed : new Version(0, 0);
 }

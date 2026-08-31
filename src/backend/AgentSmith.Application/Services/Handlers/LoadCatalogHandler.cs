@@ -22,6 +22,10 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class LoadCatalogHandler(
     ISkillLoader skillLoader,
     IEventPublisher eventPublisher,
+    // 2026-08-28-7675: the pin the binary was built against, so a run resolving an OLDER
+    // catalog says so. An explicit skills.version wins over the embedded one, and a
+    // deployment carrying a years-old pin looked identical to one on the current release.
+    IEmbeddedSkillsCatalog embedded,
     ILogger<LoadCatalogHandler> logger) : ICommandHandler<LoadCatalogContext>
 {
     /// <summary>Catalog-wide skills subtree, resolved against the catalog root by the loader.</summary>
@@ -55,8 +59,14 @@ public sealed class LoadCatalogHandler(
         logger.LogInformation(
             "Catalog {Binding} ({Source}): {Concepts} concepts, {Skills} skills, {Masters} masters, fromCache={FromCache}",
             binding, resolution.Source, conceptNames.Count, skillNames.Count, masterNames.Count, resolution.FromCache);
+        var age = BelowTheEmbeddedPin(resolution.Version);
+        if (age is not null)
+            logger.LogWarning(
+                "Catalog {Binding} is older than the pin this binary embeds ({Embedded}) — "
+                + "content added since is absent from this run.", binding, embedded.Version);
         return CommandResult.Ok(
-            $"catalog {binding}: {conceptNames.Count} concepts, {skillNames.Count} skills, {masterNames.Count} masters");
+            $"catalog {binding}: {conceptNames.Count} concepts, {skillNames.Count} skills, "
+            + $"{masterNames.Count} masters{age}");
     }
 
     // p0514: with an overlay the base version alone is a half-truth — the run may
@@ -65,6 +75,17 @@ public sealed class LoadCatalogHandler(
         resolution.Overlay is null
             ? resolution.Version
             : $"{resolution.Version} + overlay {resolution.Overlay}";
+
+    // A version this cannot parse — "local" for a mounted directory, an operator's own tag
+    // shape — is not an age claim, so it says nothing rather than guessing.
+    private string? BelowTheEmbeddedPin(string resolved) =>
+        Parse(resolved) is { } resolvedVersion && Parse(embedded.Version) is { } pin
+        && resolvedVersion < pin
+            ? $" (older than the embedded pin {embedded.Version})"
+            : null;
+
+    private static Version? Parse(string? version) =>
+        Version.TryParse((version ?? string.Empty).TrimStart('v', 'V'), out var parsed) ? parsed : null;
 
     private static bool IsMaster(RoleSkillDefinition role) =>
         string.Equals(role.Role, MasterRole, StringComparison.Ordinal);
