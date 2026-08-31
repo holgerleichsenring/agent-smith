@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-31-f634
+
+decisions:
+  - category: Design
+    chose: "A doctor-family check that reports eligibility"
+    over: "A check that refuses a run before it starts, as the first draft claimed"
+    reason: |
+      Two preflight families exist and only one can decline: the family that fails a run may
+      never reach the network, and reading a repository's contexts is a network read. The
+      refusal lives where the run already has the data — a run that resolves no command and
+      delivered source stops being a success. This is the onboarding report, and the goal
+      sentence was rewritten to say so.
+  - category: Design
+    chose: "Expose the swallowed listing failure at its source"
+    over: "Guessing from the synthetic default, or writing a second traversal"
+    reason: |
+      The provider already distinguishes an absent path (empty listing) from an auth or
+      transport error (throws); the resolver destroyed that by collapsing threw, empty and
+      nothing-parsed into one synthetic default. No heuristic over that value could be honest,
+      because a real single context with no language produces an identical record. So the
+      resolver gained a listing method carrying the unreadable reason and now builds its own
+      fallback on top — one traversal, one author, and the check reads the unflattened answer.
+  - category: Design
+    chose: "Let cancellation propagate out of context resolution"
+    over: "Keeping the catch-all that swallowed it into a synthetic default"
+    reason: |
+      A swallowed cancellation would have made a timed-out check report "unreadable — the
+      operation was canceled", which blames the repository for the runner's budget. Propagating
+      it lets the runner report its own timeout. This is a behaviour change on the run path and
+      is named here rather than left to be discovered.
+  - category: Scope
+    chose: "Report a local-path repository as not inspected"
+    over: "Calling it not yet declared"
+    reason: |
+      Remote resolution short-circuits on an empty url, so a local repository cannot be
+      inspected from here at all. Reporting it as undeclared would be a lie whenever it does
+      declare stages; it is read in the sandbox instead, and the check says that.
+  - category: Scope
+    chose: "Inherit the narrower repository reach and name the gap"
+    over: "Widening the traversal in this phase"
+    reason: |
+      The check walks the configured repositories the way the retired domain check did.
+      Repositories that exist only under a project's own list — the shape a discovery
+      connection produces — are not reported. A sibling check was widened for exactly that
+      class once; doing it here would have mixed two subjects, so it is recorded as the
+      follow-up instead.

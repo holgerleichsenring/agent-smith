@@ -124,6 +124,53 @@ public sealed class SandboxLanguageResolverTests
     }
 
     [Fact]
+    public async Task ListContextsAsync_RemoteThrows_ReportsUnreadableInsteadOfEmpty()
+    {
+        // 2026-08-31-f634: ResolveAllAsync answers this case and the empty-directory case
+        // with the same synthetic default, on purpose — a run needs a sandbox either way.
+        // The listing must keep them apart, or a report built on it tells an operator whose
+        // credential failed to go and declare verification stages.
+        _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("401 Unauthorized"));
+
+        var listing = await _sut.ListContextsAsync(_source, CancellationToken.None);
+
+        listing.IsUnreadable.Should().BeTrue();
+        listing.UnreadableReason.Should().Contain("401 Unauthorized");
+        listing.Contexts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ListContextsAsync_NoContextsDir_ReportsAnEmptyReadableListing()
+    {
+        _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+
+        var listing = await _sut.ListContextsAsync(_source, CancellationToken.None);
+
+        listing.IsUnreadable.Should().BeFalse();
+        listing.Contexts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ListContextsAsync_DeclaredVerifyStages_ReachTheListing()
+    {
+        _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "api" });
+        _sourceProviderMock.Setup(p => p.TryReadFileAsync(
+                ".agentsmith/contexts/api/context.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("yaml-content-api");
+        _parserMock.Setup(p => p.Parse("yaml-content-api"))
+            .Returns(ContextYamlParseResult.Ok(new ContextYamlSummary(
+                "src/Api", "csharp", Verify: [new ContextYamlVerifyStage("build", "dotnet build")])));
+
+        var listing = await _sut.ListContextsAsync(_source, CancellationToken.None);
+
+        listing.Contexts.Should().ContainSingle()
+            .Which.Verify.Should().ContainSingle().Which.Label.Should().Be("build");
+    }
+
+    [Fact]
     public async Task ResolveContextAsync_NamedContext_ReadsThatContextYaml()
     {
         // p0261: `--context api` pins to exactly that context, reading its toolchain.
