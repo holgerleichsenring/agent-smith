@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-5f71
+
+decisions:
+  - category: Design
+    chose: "Fail after the phase account is taken, folded into the verdict"
+    over: "Reusing the resolution-failure shape the handler already has"
+    reason: |
+      The resolution-failure path returns before the account is taken. Following it would have
+      stripped the run of its per-criterion accounting, skipped the repair pass, and made the
+      delivery gate report that no phase measured itself — the wrong cause, and the loss of the
+      most actionable thing a run produces. The unverified branch now returns a neutral
+      outcome so the flow continues, and the failure is applied at the verdict, carrying the
+      account into the record and the pull request.
+  - category: Design
+    chose: "Three delivery states, not two"
+    over: "Leaving a failed diff in the delivered-nothing branch"
+    reason: |
+      A repository whose delivery diff could not be taken — no comparable base ref, a shallow
+      clone — produced empty text and landed in the branch that reports nothing to verify and
+      passes. The repositories most likely to lack a base ref are the freshly onboarded ones
+      this phase exists for, so the new gate would have had a hole in its middle. Undetermined
+      is now its own state and counts as something to prove.
+  - category: Design
+    chose: "Narrow p0393's rule per run, keep it per repository"
+    over: "Reversing it, or leaving the whole rule alone"
+    reason: |
+      A non-.NET repository declaring nothing is skipped rather than failed, because not every
+      repository in a multi-repo run is buildable — that stays true per repository. What changes
+      is the run: if nothing anywhere resolved a command and source was delivered, nobody checked
+      anything. The test that codified the old rule was rewritten into the two halves rather than
+      broken incidentally, with its rationale kept verbatim.
+  - category: Scope
+    chose: "Leave an unverified run repairable"
+    over: "Making it non-repairable the way a red build is"
+    reason: |
+      An unverified failing run still reaches the repair pass, and that pass ends with the same
+      verdict because the attempt is then recorded. Changing it would alter behaviour for runs
+      this phase does not discuss, so the existing flow stands.

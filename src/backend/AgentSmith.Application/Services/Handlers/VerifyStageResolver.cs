@@ -32,25 +32,28 @@ public sealed class VerifyStageResolver(
     public async Task<IReadOnlyList<VerifyStage>> ResolveAsync(
         string key, ProjectMap? map, ISandbox sandbox, string workdir,
         IReadOnlyList<ContextVerifyStages> contexts,
-        List<string> resolutionFindings, CancellationToken ct)
+        VerifyResolutionNotes notes, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(contexts);
-        ArgumentNullException.ThrowIfNull(resolutionFindings);
+        ArgumentNullException.ThrowIfNull(notes);
         if (contexts.Count > 0)
-            return await DeclaredAsync(key, sandbox, contexts, resolutionFindings, ct);
+            return await DeclaredAsync(key, sandbox, contexts, notes, ct);
 
         var inferred = Inferred(key, map);
         if (inferred.Count > 0) return inferred;
 
         if (map is not null && IsDotnet(map))
-            return await dotnetDiscovery.DiscoverAsync(key, sandbox, workdir, resolutionFindings, ct);
+            return await dotnetDiscovery.DiscoverAsync(key, sandbox, workdir, notes.Findings, ct);
 
         // 2026-08-31-77a8: a non-.NET repository that declared nothing has no third
         // source left. It is skipped rather than guessed at — a repository nothing
         // verifies is reported, never invented.
+        // 2026-08-28-5f71: the skip is REPORTED as well as logged. Right per repository,
+        // it is the whole verdict when it is true of every repository in the run.
         logger.LogInformation(
             "{Key}: no verify block, no build/test command declared and no .NET project "
             + "map — skipping verification", key);
+        notes.NothingDeclared(key, map?.PrimaryLanguage);
         return [];
     }
 
@@ -63,7 +66,7 @@ public sealed class VerifyStageResolver(
     // never measured for would hide every real gate behind it.
     private async Task<List<VerifyStage>> DeclaredAsync(
         string key, ISandbox sandbox, IReadOnlyList<ContextVerifyStages> contexts,
-        List<string> resolutionFindings, CancellationToken ct)
+        VerifyResolutionNotes notes, CancellationToken ct)
     {
         var stages = new List<VerifyStage>();
         foreach (var context in contexts)
@@ -71,7 +74,7 @@ public sealed class VerifyStageResolver(
         {
             if (!VerificationCommand.CanFail(stage.Command))
             {
-                resolutionFindings.Add(
+                notes.Findings.Add(
                     $"{Named(key)}: context '{context.ContextName}' declares a "
                     + $"'{stage.Label}' command '{stage.Command}' that cannot fail, so it "
                     + "proves nothing. A declared stage is authoritative — fix or remove it.");
@@ -81,6 +84,8 @@ public sealed class VerifyStageResolver(
                 continue;
             stages.Add(new VerifyStage(stage.Label, stage.Command, context.Workdir));
         }
+        if (stages.Count == 0)
+            notes.EveryDeclaredStageSkipped(key, contexts.Sum(c => c.Stages.Count));
         return stages;
     }
 

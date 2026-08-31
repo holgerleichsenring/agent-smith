@@ -32,9 +32,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// says what was searched and where; it is not reported as a compile result, because
 /// no command was executed. A non-.NET repo declaring neither command is SKIPPED,
 /// not failed: not every repository in a multi-repo run is buildable (docs, infra,
-/// config). A run in which NO repo ran a command reports that plainly rather than
-/// passing quietly — an unverifiable run must not be indistinguishable from a
-/// verified one.
+/// config).
+///
+/// 2026-08-28-5f71: that per-repository skip is narrowed by the RUN. Skipped is right
+/// while another repository verified something; when no repository anywhere ran a
+/// command over a delivery, nobody checked what shipped, and the run fails saying what
+/// was searched per repository. It fails after the phase account is taken, so the
+/// account still reaches the record and the pull request.
 ///
 /// p0430: what a phase SHIPS is no longer declared. p0400 introduced ships_code so a
 /// knowledge phase without a diff would not fail the no-diff rule, and p0421 deleted
@@ -69,22 +73,22 @@ public sealed class VerifyPhaseHandler(
         // went, so the tree was clean and the criterion "the build exits 0" then had no
         // build to point at. Delivery is a property of the branch; so is the question of
         // whether a build has anything to prove.
-        var delivered = new Dictionary<string, string>();
+        // 2026-08-28-5f71: three answers per repository, not two. A diff that FAILED has
+        // empty text, and reading empty as "delivered nothing" let the repositories with no
+        // comparable base ref — the shallow clone, the freshly-onboarded repo — through the
+        // branch that passes without checking anything.
+        var diffs = new Dictionary<string, DeliveryDiff.DiffResult>(StringComparer.Ordinal);
         foreach (var (key, sandbox) in sandboxes)
-        {
-            var diff = await deliveryDiff.ForBranchAsync(sandbox, cancellationToken);
-            delivered[key] = diff.Failed ? string.Empty : diff.Text;
-        }
-        var dirty = delivered.ToDictionary(e => e.Key, e => DeliveryDiff.CarriesSource(e.Value));
-        var touchedSource = dirty.Values.Any(d => d);
+            diffs[key] = await deliveryDiff.ForBranchAsync(sandbox, cancellationToken);
+        var delivered = DeliveredWork.Of(diffs);
 
         var outcomes = new List<VerifyOutcome>();
-        var resolutionFindings = new List<string>();
+        var notes = new VerifyResolutionNotes();
         foreach (var (key, sandbox) in sandboxes)
         {
             // A repo whose BRANCH carries no source change has nothing for a build to
             // prove — running it would gate the phase on pre-existing state.
-            if (!dirty.GetValueOrDefault(key))
+            if (!delivered.HasSomethingToProve(key))
             {
                 logger.LogInformation(
                     "{Key}: this branch carries no source change — skipping build/test", key);
@@ -100,7 +104,7 @@ public sealed class VerifyPhaseHandler(
             // sandbox, and each declaration runs at its own workdir.
             foreach (var stage in await stageResolver.ResolveAsync(
                 key, map, sandbox, workdir, declaredStages.For(context.Pipeline, key),
-                resolutionFindings, cancellationToken))
+                notes, cancellationToken))
             {
                 var outcome = await commandRunner.RunAsync(
                     key, stage.Stage, sandbox, stage.Cwd, stage.Command, cancellationToken);
@@ -114,7 +118,8 @@ public sealed class VerifyPhaseHandler(
         // p0420: the mechanical gates answer HARM; the account answers DELIVERY. A red
         // build wins first — an account taken over a tree that does not compile would be
         // an opinion about work nobody can ship.
-        var mechanical = BuildAggregateResult(outcomes, resolutionFindings, touchedSource);
+        var ran = outcomes.Where(o => !o.Skipped).ToList();
+        var mechanical = BuildAggregateResult(ran, notes.Findings, delivered.Anything);
         if (!mechanical.IsSuccess)
         {
             // The phase's account IS the mechanical failure. Without this the run reports
@@ -129,7 +134,13 @@ public sealed class VerifyPhaseHandler(
             context.Pipeline, sandboxes, ranCommands, cancellationToken);
         context.Pipeline.Set(ContextKeys.PhaseAccounts, accounts);
         RunAccountLedger.Record(context.Pipeline, accounts);
-        var verdict = PhaseVerdict.From(mechanical, accounts);
+        // 2026-08-28-5f71: the unverified run fails HERE and not as a resolution failure.
+        // That shape returns before the account is taken, which would strip the run of its
+        // per-criterion accounting, skip the repair pass, and make the run's delivery gate
+        // report "no phase measured itself" — the wrong cause, and the loss of the most
+        // actionable thing a run produces. The run fails carrying its account.
+        var verdict = PhaseVerdict.From(
+            mechanical, accounts, delivered.Unverified(ran.Count > 0, notes.Searched));
         return await RecordAsync(
             context, verdict.IsSuccess ? verdict : Repairable(context, accounts, verdict),
             cancellationToken);
@@ -198,23 +209,22 @@ public sealed class VerifyPhaseHandler(
         result.Message.Split('\n', 2)[0].Trim();
 
     private static CommandResult BuildAggregateResult(
-        IReadOnlyList<VerifyOutcome> outcomes, IReadOnlyList<string> resolutionFindings, bool touchedSource)
+        IReadOnlyList<VerifyOutcome> ran, IReadOnlyList<string> findings, bool delivered)
     {
         // A resolution failure is its own verdict: no command ran for that repo, so
         // there is no compile result to report — and an unresolvable repo must not
         // pass silently either.
-        if (resolutionFindings.Count > 0)
+        if (findings.Count > 0)
             return CommandResult.Fail(
                 "Verification could not resolve a build entry point — no command was executed "
                 + "(this is a resolution failure, not a build result). "
-                + string.Join(" ", resolutionFindings));
+                + string.Join(" ", findings));
 
-        var ran = outcomes.Where(o => !o.Skipped).ToList();
+        // 2026-08-28-5f71: a delivery nothing ran against is still OK HERE — the verdict on
+        // it is passed to PhaseVerdict, after the account, so the failing run keeps it.
         if (ran.Count == 0)
-            return touchedSource
-                ? CommandResult.Ok(
-                    "Nothing to verify: no repository declared a build or test command. "
-                    + "This run is UNVERIFIED — add ci.build_command / ci.test_command to make the gate real.")
+            return delivered
+                ? CommandResult.Ok("No verification command ran.")
                 : CommandResult.Ok(
                     "No repository had working-tree changes to verify; the phase is judged "
                     + "by what its criteria account for.");
