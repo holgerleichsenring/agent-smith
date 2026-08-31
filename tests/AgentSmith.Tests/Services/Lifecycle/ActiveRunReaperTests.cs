@@ -129,9 +129,14 @@ public sealed class ActiveRunReaperTests
     // So the budget is spent on STALL rather than on total time: it resets whenever the loop
     // moves. p0432's intent survives — a loop that has genuinely stopped still fails in seconds
     // — while a slow host merely takes longer.
+    // 2026-08-30-f590 (continued): thirty seconds sat INSIDE the starvation window this
+    // phase measured — 35 to 39 second stretches on a two-core runner — so the budget still
+    // fired on a loop that was merely unscheduled. It is raised above the measured maximum.
+    // This is not the total-time pendulum p0423b and p0432 swung: a genuinely stalled loop
+    // still fails, it just takes two minutes of provable no-progress to say so.
     private static async Task WaitForAsync(Func<bool> condition, Func<long> progress)
     {
-        var stallLimit = TimeSpan.FromSeconds(30);
+        var stallLimit = TimeSpan.FromSeconds(120);
         var lastMoved = DateTime.UtcNow;
         var seen = progress();
         while (!condition())
