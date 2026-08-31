@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-7b41
+
+decisions:
+  - category: Design
+    chose: "Pass the parsed domain at both construction sites of the remote discovery"
+    over: "Making Domain a required positional parameter so a call site cannot omit it"
+    reason: |
+      Requiring it would have caught this defect and would break every other construction
+      site — the record has eight parameters, seven of them optional, and the tests, the
+      synthetic default and the named-synthetic fallback all construct it with three. The
+      defect is not that the parameter is optional; it is that nothing exercised the
+      producer. The guard is the test, not the signature.
+  - category: Testing
+    chose: "Test through the parser and the resolver, and prove the test fails without the fix"
+    over: "Asserting on a hand-built RemoteContextDiscovery like the existing domain tests"
+    reason: |
+      p0504 and p0513 are green and their mechanism resolved nothing in production, because
+      every domain test constructs the record with a domain already in hand. That proves the
+      consumers and says nothing about the producer. The two new tests go through
+      IContextYamlParser into the resolver, and both were run against the unpatched resolver
+      first: two failures, then two passes. A test that was never seen red is a test that has
+      not been shown to test anything.
+  - category: Scope
+    chose: "Leave the context log line as it is"
+    over: "Reporting the resolved domain beside workdir, language and image"
+    reason: |
+      The line is the natural place to see why a profile did not apply, and adding the
+      field grew a file the length ratchet already holds above its limit — where the rule
+      is that it may only get shorter. A one-line diagnostic is not worth extracting a
+      responsibility for, and the fix itself is line-neutral. The field belongs to whoever
+      splits this resolver next.

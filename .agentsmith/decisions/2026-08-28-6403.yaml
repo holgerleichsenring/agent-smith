@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-6403
+
+decisions:
+  - category: Testing
+    chose: "Probe the catalog's principles from the catalog root, in the same order the production reader probes"
+    over: "Hardcoding the current path in the test helper"
+    reason: |
+      The reader tries principles/ and falls back to skills/coding/principles/ because the
+      binary and the catalog move independently. A helper that hardcodes either becomes a
+      second convention that can disagree with the first — which is exactly what happened:
+      the helper knew only the pre-4.0.0 path, so from the release that moved principles to
+      the root, every test in that file returned early with a console note. The assertions
+      that a delta carries both mandatory sections and that two repositories of one stack
+      compose identically have been inert since.
+  - category: Testing
+    chose: "One test asserting that a resolvable checkout yields a principles directory"
+    over: "Removing the early-return guard from the other tests"
+    reason: |
+      Two different situations produced the same silence: no skills checkout at all, which is
+      a legitimate skip, and a checkout whose principles the helper cannot find, which is the
+      defect. The other tests keep their guard — a machine without the checkout must not go
+      red — and this one test separates the two cases. It was run against the old probe first
+      and failed there, which is the only way to know it tests anything.
+  - category: Design
+    chose: "Correct the delta format and the bootstrap master's prose in the same phase"
+    over: "Fixing the test helper alone"
+    reason: |
+      Both documents told an author that deltas and the core live under the pre-4.0.0 path. A
+      delta written where the format says would be read by nothing, and the next phases in
+      this track each author one. Fixing the helper and leaving the instructions is how the
+      same defect gets re-created by the next author.

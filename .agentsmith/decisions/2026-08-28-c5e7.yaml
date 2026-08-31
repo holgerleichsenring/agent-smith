@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-c5e7
+
+decisions:
+  - category: Design
+    chose: "Bump the embedded catalog pin to v4.7.0 and let the assertions already armed at that pin carry the proof"
+    over: "Writing a new test that the embedded catalog carries the data profile"
+    reason: |
+      DomainProfileCatalogTests and PackagedProfiles both declare ProfilesFrom = 4.7.0 and
+      gate the DataProfile gate and shape tests behind it, and DesignPartnerPlaceholderTests
+      arms on the same bump. They state the gap below the pin and assert the fact above it,
+      with no test edited — writing another test asserting the same thing would be one more
+      copy of an assertion that already exists. What was genuinely uncovered is that the
+      EMBEDDED artefact carries any profile at all: every existing profile assertion returns
+      early below the pin, so a later bump that dropped profiles/ would go unnoticed. That one
+      claim is now unconditional in EmbeddedProfileCatalogTests.
+  - category: Design
+    chose: "Move every statement of the pinned version — the shipped example config, the skills documentation, and the operator's own ignored config — with the csproj"
+    over: "Bumping only the build-checked pin"
+    reason: |
+      The version is text in several places and only the csproj is verified, by SHA256, at
+      build time. An explicit skills.version wins over the embedded catalog, so a stale copy in
+      an operator's config would keep resolving the profile-less catalog under a binary that
+      carries profiles. The example config's copy was placed deliberately by p0487; the comment
+      three lines above it still said v4.0.0, which is the same rot already in progress. The
+      live deployment was inspected and declares no skills block, so it inherits the embedded
+      catalog and needs a new image rather than a configuration change.
+  - category: Process
+    chose: "Verify the release asset by downloading and diffing it against the outgoing one"
+    over: "Trusting the packaging script's source list and the release notes"
+    reason: |
+      Whether profiles/ ships is a property of the tarball, not of package.sh — and the
+      first reading of p0514's decision suggested profiles/ was NOT packaged. The diff
+      settled it and also produced the facts the phase rests on: four files added, one master
+      changed (design-partner, counter ids to minted-id placeholders), nothing removed,
+      coding-agent-master byte-identical, so no prompt-content test can move.
+  - category: Scope
+    chose: "State the live preflight verification as an operator step, not a done-criterion"
+    over: "Claiming 'preflight names the domain' as proven by this phase"
+    reason: |
+      ContextDomainCheck reads configured repositories remotely and returns a skip when none
+      declares a domain — green for the wrong reason. Neither the phase gate nor CI has a
+      configuration that would exercise it, so the claim this phase can settle is the one over
+      the embedded artefact.

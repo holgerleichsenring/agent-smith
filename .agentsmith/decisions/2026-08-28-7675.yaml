@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-7675
+
+decisions:
+  - category: Design
+    chose: "Make an old pin and an absent principles core visible, and remove no tolerance"
+    over: "Dropping the pre-4.0.0 principles location as originally specced"
+    reason: |
+      The premise that no old pin is in use was false on this machine: two operator configs
+      pin the catalog at v3.21.0 and v3.24.0, and an explicit skills.version wins over the
+      embedded one. So those deployments resolve a 3.x catalog whose principles live at the
+      old location — and the removal would have taken principles away from a running system
+      without a word. The removal is now its own phase with that configuration as its
+      precondition.
+  - category: Design
+    chose: "Report at information, from the two exits that can be reached with a resolved catalog"
+    over: "Warning on every miss, or raising the third exit too"
+    reason: |
+      The third exit is the unresolved catalog, reached by command-line tooling on every
+      invocation and by the harness fixture catalog, which ships no principles at all. A line
+      printed every time is a line nobody reads when it matters, so that one stays silent and
+      says why in a comment.
+  - category: Design
+    chose: "Carry the catalog origin on the transfer result and name it in the run record"
+    over: "Leaving the mode to the log alone"
+    reason: |
+      Two of the three principles modes already reach the run record; the third — the one
+      where the skill authored the principles because the catalog offered none — fell through
+      to a bare file count. That is the mode that needs explaining, and the origin is what
+      tells a deliberate configuration from a mispointed mount.
+  - category: Testing
+    chose: "Assert the origin where it is produced, not through the round's success branch"
+    over: "Driving a scripted write_file call to reach the round's success message"
+    reason: |
+      The round only reports that mode as a success once the skill actually wrote a file,
+      which needs a scripted tool call this suite's capturing client does not drive. What the
+      round does with the value is one interpolation; what can rot is whether the value is
+      produced at all, and that is asserted directly.
+  - category: Design
+    chose: "Compare the resolved catalog against the embedded pin and say nothing when it cannot be parsed"
+    over: "Refusing an older catalog"
+    reason: |
+      A refusal would stop two deployments that are running today, which is the operator's
+      decision and not a side effect of a cleanup. A version this cannot parse — "local" for a
+      mounted directory — is not an age claim, so it produces none.
+  - category: Design
+    chose: "Extract the catalog layout and the principles outcome into their own types"
+    over: "Adding baseline entries for two files the length ratchet stopped"
+    reason: |
+      The composer had grown past the limit while carrying two responsibilities — locating a
+      principles directory in a resolved catalog, and rendering a document from it — and the
+      bootstrap round handler, already over the limit, grew again for a sentence about
+      principles modes. Both are separable by responsibility rather than by line count:
+      PrinciplesCatalogLayout answers where and what-is-this-catalog, BootstrapPrinciplesOutcome
+      answers what-the-record-says. The composer went from 139 to 98 lines and the handler back
+      under its baseline.

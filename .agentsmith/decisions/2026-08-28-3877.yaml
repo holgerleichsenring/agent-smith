@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-3877
+
+decisions:
+  - category: Design
+    chose: "Move the memory discipline into references and cite it through the renderer"
+    over: "Deleting it, or leaving the prose pointer as it was"
+    reason: |
+      Nothing in the framework loads it: the loader walks directories containing a SKILL.md,
+      so a bare file under skills/ is never opened, and four masters told the model to "see
+      memory-discipline.md" — a file it cannot open, because a master's prompt is rendered
+      text and the sandbox holds no catalog. The content is real, cited guidance, so deleting
+      it would drop a convention four masters depend on. The mechanism that works is the one
+      the same masters already use for the spawn budget: the renderer inlines a reference and
+      throws on an unknown slug.
+  - category: Design
+    chose: "Reword the fifth citation instead of converting it"
+    over: "Citing the reference from inside another reference"
+    reason: |
+      references/phase-discipline.md named the file in prose, and that reference is inlined
+      into the security and api-security masters — so two more masters would have kept
+      pointing at an unopenable file. A reference citing a reference is refused twice, by the
+      catalog validator and by the renderer, so that one states the convention inline.
+  - category: Scope
+    chose: "Accept the inlining cost after measuring it, and reject the split"
+    over: "Splitting the document into a store-shape half and a curation half"
+    reason: |
+      At 4.4 KB it is the largest reference by a factor of 1.7 and lands in four master
+      prompts, roughly 1.1k tokens each inside the cached prefix. A split would let
+      design-partner and mad-discussion cite only the half they use — and would create a
+      boundary nobody enforces, which is how one document becomes two badly-cut ones. The
+      number is recorded so the next author decides with it rather than about it.
+  - category: Design
+    chose: "Delete the Azure DevOps template and say so in the release notes"
+    over: "Fixing its repository name"
+    reason: |
+      Nothing in either repository references it, it predates the embedded catalog, and it
+      names the repository as agentsmith-skills while the client's default is
+      agent-smith-skills — so an operator following it verbatim gets a resource that does not
+      resolve. An external pipeline cannot be grepped from here, which is why the deletion is
+      recorded in the commit that becomes the changelog entry rather than made silently.
+  - category: Scope
+    chose: "Narrow the criterion to what a run can resolve"
+    over: "Claiming every packaged file has a reader"
+    reason: |
+      The two profile READMEs are packaged and read by nothing — author-facing documentation
+      that ships beside the directory it documents. Excluding them would need a filter rule
+      in the packager for five kilobytes. The claim is therefore about what a master points
+      at, which is the class that actually breaks a run.

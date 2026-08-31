@@ -122,6 +122,26 @@ public sealed class BootstrapPrinciplesTransferTests
     }
 
     [Fact]
+    public async Task Transfer_SkillWritesMode_CarriesTheCatalogOrigin()
+    {
+        // 2026-08-28-7675: the fact is asserted where it is produced. The round's SUCCESS
+        // branch for this mode needs the skill to actually call write_file, which is a
+        // scripted tool call this suite's capturing client does not drive; what the round
+        // then does with the origin is one interpolation over this value.
+        var transfer = PrinciplesTransferStubs.NoTemplates();
+
+        var result = await transfer.ApplyAsync(
+            NewPipeline(new StubSandbox()), new StubSandbox(), "monorepo", "server",
+            new ProjectMap("csharp", [], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null)),
+            PrinciplesPath, existingPrinciples: null, CancellationToken.None);
+
+        result.Mode.Should().Be(PrinciplesMode.SkillWrites);
+        result.CatalogOrigin.Should().Be(PrinciplesTransferStubs.CatalogOrigin,
+            "the mode that hands authorship to the skill is the one that needs explaining, "
+            + "and the catalog it read is what tells a deliberate mode from a mispointed mount");
+    }
+
+    [Fact]
     public async Task TransferWriteFailure_FailsTheRoundLoudly()
     {
         var captured = new CapturedPrompt();
@@ -156,7 +176,8 @@ public sealed class BootstrapPrinciplesTransferTests
                 return new ComposedPrinciples(ComposedContent, slug, DeltaApplied: true);
             });
         var transfer = new BootstrapPrinciplesTransfer(
-            templates.Object, NullLogger<BootstrapPrinciplesTransfer>.Instance);
+            templates.Object, new PrinciplesTransferStubs.StubCatalogPath(),
+            NullLogger<BootstrapPrinciplesTransfer>.Instance);
         var handler = NewHandler(new CapturedPrompt(), transfer);
         var pipeline = NewPipeline(new StubSandbox());
         pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(

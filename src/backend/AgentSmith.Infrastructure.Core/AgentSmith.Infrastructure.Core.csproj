@@ -42,7 +42,7 @@
   <!-- p0325: skills ship EMBEDDED in the release.                        -->
   <!--                                                                    -->
   <!-- The pinned skills release tarball is checked in under Resources/   -->
-  <!-- (117 KB — small enough to live in git, so offline/CI/docker builds -->
+  <!-- (66 KB — small enough to live in git, so offline/CI/docker builds -->
   <!-- need no network). Bumping the pin: update SkillsCatalogVersion +   -->
   <!-- SkillsCatalogSha256, delete the old Resources/*.tar.gz — the       -->
   <!-- RestoreSkillsCatalog target downloads the new tarball on the next  -->

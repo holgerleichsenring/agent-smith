@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-3e23
+
+goal: "The image the data profile names exists in a registry the sandbox trusts, built from one checked-in definition that the measurement itself uses, so the table's rows are reproducible by anyone."
+
+applies_to: "backend (one toolchain definition, its publisher, the measurement script that consumes it, the measured table)"
+
+requires:
+  - p0505
+  - 2026-08-28-c5e7
+
+scope:
+  in: "One checked-in Dockerfile carrying the measured toolchain, the measurement script rewritten to use it instead of building its own copy, a workflow publishing it to ghcr under the tag the profile declares, a re-measurement in the published image recording the architecture it ran on, and a test tying the published tag to the profile's declared image."
+  out: >
+    ANY TOOL NO MEASURED ROW CITES. THE IMAGE ORDERING — a repository that named its own
+    image while the profile's did not exist keeps that image after publication, and
+    nothing tells the operator to remove the override; the successor *a context image
+    that overrides a profile image says so* covers it. Changing what the profile declares:
+    authored in agent-smith-skills.
+
+decisions:
+  - key: |
+      THERE MUST BE ONE TOOLCHAIN DEFINITION, WHICH IS WHY THIS PHASE TOUCHES THE MEASUREMENT
+      SCRIPT. tools/measure-data-toolchain.sh hardcodes its own tag, its own six version
+      constants and a Dockerfile heredoc it builds itself. A published image beside that heredoc
+      is a SECOND definition, and the drift between them is invisible: the next re-measurement
+      would then measure an image nobody publishes. The heredoc and its constants are deleted and
+      the script builds or pulls the checked-in definition.
+  - key: |
+      THE TAG IS A CONTRACT WITH A FILE IN ANOTHER REPOSITORY, AND IT IS TESTED, NOT ASSERTED IN
+      PROSE. The profile declares ghcr.io/holgerleichsenring/agent-smith-data-toolchain:1.0.0-bookworm;
+      a publisher pushing anything else produces an image nothing resolves to, surfacing as a pull
+      error inside a run. Now that the pin carries profiles, the embedded catalog can be read in a
+      test and compared against the one constant the Dockerfile and the workflow share.
+  - key: |
+      THE TAG'S SHAPE IS CONSTRAINED FROM THE OTHER SIDE, AND THE VERSION SEGMENT MAY CARRY NO
+      HYPHEN. This repository deleted its git-bearing tag pattern; the skills catalog's validator
+      did not — it still requires a -bookworm/-bullseye/scm/sdk shape, and its expression forbids
+      an interior hyphen before the suffix. 1.0.0-bookworm passes; 1.0.0-rc1-bookworm would be
+      refused by a validator in a repository this phase does not touch.
+  - key: |
+      GHCR, AND THE REASON IS CONDITIONAL. Docker Hub cannot carry it: the trust rule accepts a
+      Docker Hub image only without a namespace, and this repository's publisher pushes under one.
+      ghcr.io is trusted BY DEFAULT — but the default applies only to an operator who has
+      configured no allowed_registries at all; one who has must add ghcr.io or the profile image
+      refuses the run rather than falling through.
+  - key: |
+      MULTI-ARCH TO PUBLISH, ONE ARCHITECTURE TO MEASURE, AND THE ROWS SAY WHICH. The existing
+      publisher already builds amd64 and arm64, so two architectures is the house pattern rather
+      than scope. The measurement, though, runs on one machine — and a row naming a multi-arch tag
+      would claim evidence about an image nobody executed. The emitted header records the
+      architecture the measurement ran on.
+  - key: |
+      A RE-MEASUREMENT CAN GO RED FOR REASONS THIS REPOSITORY CANNOT FIX, AND THAT IS A STOP, NOT
+      A SURPRISE. Two of the four declarable rows depend on live third-party state: the dbt pair
+      reaches hub.getdbt.com, and the missing-package red IS the hub answering. If a declarable
+      verdict changes, the profile's gate reds and the fix is a new skills release plus a new pin —
+      outside this phase. The phase then stops and opens that successor rather than editing
+      evidence to fit.
+  - key: |
+      THE PUBLISHING TRIGGER IS workflow_dispatch. This repository has already recorded that
+      release-please's tag pushes do not fire downstream workflows, and a v* trigger would
+      collide with its own release tags for an image versioned independently. The workflow logs
+      in to ghcr with the repository token and declares packages: write — the existing publisher
+      authenticates to Docker Hub only.
+
+steps:
+  - id: the-toolchain-has-one-definition
+    action: "A checked-in Dockerfile over python:3.12-bookworm installing the measured pip set and CLI at the measured versions, asserting git and every tool version at build time; the measurement script's heredoc and version constants are deleted and it uses this definition."
+  - id: the-image-is-published
+    action: "A workflow_dispatch workflow building both architectures, logging in to ghcr with packages: write, pushing the exact tag the profile declares and reporting the digest."
+  - id: the-measurement-is-repeated
+    action: "Re-run the measurement in the published image over the unchanged fixtures, recording the architecture in the header and the image in every row; if a declarable verdict changed, stop and open the skills-side successor."
+  - id: the-tag-cannot-drift
+    action: "A test comparing the tag the definition and workflow share against the image the embedded catalog's profile declares."
+
+tests:
+  - "PublishedTag_MatchesTheProfilesDeclaredImage"
+  - "Dockerfile_ToolVersions_MatchTheMeasuredTable"
+  - "MeasuredTable_EveryRow_NamesThePublishedImage"
+
+done:
+  - "the tag the profile declares is pullable from ghcr on both architectures"
+  - "one definition exists: the script builds what the workflow publishes"
+  - "the re-measured table records the published image and the architecture it ran on"
+  - "every declarable verdict the profile relies on reproduced, or the run stopped and the successor is open"
+  - "build green, full suite green"

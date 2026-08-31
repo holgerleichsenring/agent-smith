@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-2989
+
+goal: "A python delta exists beside the three that ship, so a python repository is bootstrapped with its own documented mechanisms instead of core principles alone."
+
+applies_to: "skills catalog (the python delta) + backend (the pin that carries it)"
+
+requires:
+  - 2026-08-28-6403
+
+scope:
+  in: "A python delta covering every hook the core names, grounded in the language's published conventions, released in the catalog and reached by a pin bump here."
+  out: >
+    ANY DOMAIN RULE — dbt, warehouse and notebook conventions belong to a domain, not to a
+    language, and are *a domain carries principles of its own*. The java delta, which is
+    its own phase. Enforcement tooling of any kind.
+
+decisions:
+  - key: |
+      THE SLUG VOCABULARY IS OPEN AND MODEL-AUTHORED, SO THIS DELTA APPLIES WHEREVER THE MODEL
+      SAYS PYTHON AND NOWHERE ELSE. Discovery emits a free-form language slug and the composition
+      normalizes only a handful of aliases; nothing maps a repository shape to a slug. This phase
+      therefore claims exactly what it can: a repository whose discovered language is python
+      composes core plus this delta.
+  - key: |
+      THE RULES ARE THE ECOSYSTEM'S PUBLISHED CONVENTIONS, CITED. That is the delta contract —
+      two repositories of one stack must compose to identical principles, which only holds if the
+      rules come from the language's documented style and tooling rather than from one codebase's
+      habits.
+  - key: |
+      THE CATALOG'S OWN VALIDATOR IS THE SHAPE GATE, SO THIS PHASE ADDS NO SHAPE TEST HERE. The
+      skills repository already refuses a delta missing its mandatory sections, over every file in
+      the deltas directory, so a new one is covered the moment it lands. A duplicate assertion in
+      this repository would be a second implementation of the same rule.
+  - key: |
+      A DELTA IN THE CATALOG REACHES A RUN ONLY THROUGH A RELEASE AND A PIN. Until the catalog is
+      released and the embedded pin moves, the file exists and composes for nobody — so the pin
+      bump is a step of this phase rather than an assumption of it.
+
+steps:
+  - id: the-delta-exists
+    action: "A python delta in the catalog covering naming, layout and size, abstractions, error mechanics, test placement and tooling, each rule grounded in a cited published convention."
+  - id: the-catalog-ships-it
+    action: "Release the catalog and move the embedded pin and its hash to that release."
+
+tests:
+  - "Compose_APythonRepository_CarriesCoreAndThePythonDelta"
+  - "Compose_ARepositoryOfAnotherStack_IsUnchanged"
+
+done:
+  - "a bootstrapped python repository receives core plus the python delta"
+  - "every other stack's composition is byte-identical to before"
+  - "the catalog validator accepts the new delta"
+  - "build green, full suite green"

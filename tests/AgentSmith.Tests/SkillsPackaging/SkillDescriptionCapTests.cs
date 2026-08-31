@@ -107,13 +107,22 @@ public sealed class SkillDescriptionCapTests : IDisposable
     private static string MasterSkillMd(string description) =>
         $"---\nname: m\ndescription: \"{description}\"\nrole: master\n---\nbody";
 
+    // 2026-08-28-a08d: the cap declaration travels with every built tarball — without it
+    // the catalog itself is a violation, and this test's subject is one description length.
     private static Stream BuildTarball(string path, string content)
     {
         var buffer = new MemoryStream();
         using (var gz = new GZipStream(buffer, CompressionMode.Compress, leaveOpen: true))
         using (var tar = new TarWriter(gz))
+        {
             tar.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, path)
                 { DataStream = new MemoryStream(Encoding.UTF8.GetBytes(content)) });
+            tar.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, CatalogDeclaredCap.EntryPath)
+            {
+                DataStream = new MemoryStream(
+                    Encoding.UTF8.GetBytes(CatalogDeclaredCap.Enforced.ToString())),
+            });
+        }
         buffer.Position = 0;
         return buffer;
     }

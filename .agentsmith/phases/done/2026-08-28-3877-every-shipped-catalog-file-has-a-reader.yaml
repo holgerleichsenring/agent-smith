@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-3877
+
+goal: "A master that points at a catalog document resolves it through the renderer, so no prompt names a file the run cannot open."
+
+applies_to: "skills catalog (the memory discipline document, its five citations, four master versions, the layout in the readme, the unused pipeline template)"
+
+requires:
+  - p0514
+
+scope:
+  in: "The memory discipline document moved to references and cited through the reference mechanism by the four masters that name it in prose; the fifth citation, inside another reference, reworded because a reference may not cite a reference; the version of every edited master bumped; the readme layout and the changelog updated; and the Azure DevOps template that neither repository references removed."
+  out: >
+    THE PROFILE READMES, which are packaged and read by nothing — author-facing
+    documentation that ships beside the directory it documents. Excluding them would
+    need a filter rule in the packager for five kilobytes, which buys a mechanism
+    nobody asked for; the done-criterion is narrowed to what a run can actually
+    resolve instead of pretending they are covered. THE FOURTEEN MASTERS, each demanded
+    by the binary by literal name. The catalog release and the embedded pin.
+
+decisions:
+  - key: |
+      A PROSE POINTER IS NOT A MECHANISM, AND FIVE PLACES USE ONE. coding-agent,
+      project-bootstrap, design-partner and mad-discussion each tell the model to "see
+      memory-discipline.md" — a file the model cannot open, because a master's prompt is
+      rendered text and the sandbox holds no catalog. The renderer resolves
+      {{ref:<slug>}} against references/<slug>.md and THROWS on an unknown slug, which is
+      the mechanism the same masters already use for the spawn budget, the evidence modes
+      and the phase discipline.
+  - key: |
+      THE FIFTH CITATION IS INSIDE A REFERENCE, AND IT CANNOT BE FIXED THE SAME WAY.
+      references/phase-discipline.md names the file in prose, and that reference is inlined
+      into the security and api-security masters — so two more masters would keep pointing
+      at an unopenable file. A reference citing a reference is refused twice, by the catalog
+      validator and by the renderer, so this one is reworded to state the convention without
+      naming a file.
+  - key: |
+      THE DOCUMENT IS 4.4 KB AGAINST 1.2, 1.5 AND 2.5 FOR THE EXISTING THREE — MEASURED, NOT
+      ASSUMED. It is the largest reference by a factor of 1.7, inlined into four master
+      prompts, at roughly 1.1k tokens each inside the cached prefix. Splitting it into a
+      store-shape half and a curation half was considered and rejected: design-partner and
+      mad-discussion would then cite the smaller half, and two documents whose boundary
+      nobody enforces drift into one badly-cut document. The cost is recorded rather than
+      discovered later.
+  - key: |
+      THE PIPELINE TEMPLATE HAS NO CONSUMER INSIDE EITHER REPOSITORY AND IS WRONG WHERE IT IS
+      READ. It names the repository as agentsmith-skills while the client's default is
+      agent-smith-skills, so an operator following it verbatim gets a resource that does not
+      resolve; it predates the embedded catalog and has not been touched since the initial
+      commit. An EXTERNAL pipeline cannot be grepped from here, and the CLI it invokes still
+      exists — so the deletion is recorded in the changelog rather than made silently.
+  - key: |
+      EVERY EDITED MASTER BUMPS ITS OWN VERSION OR CI REFUSES THE PULL REQUEST. The catalog's
+      validation workflow fails any change to a master that keeps its version. Four masters
+      are edited here, and the constraint belongs in the spec rather than in a failed run.
+  - key: |
+      THE CATALOG IS ALREADY LEAN, AND THAT IS PART OF THE ANSWER. Forty-eight tracked files,
+      a sixty-six kilobyte tarball, every master demanded by name, every pattern, reference,
+      principle and profile with a reader. What looked like accumulated weight is one
+      dangling document and one dead template; the rest of the reduction belongs in the
+      binary, in *the binary stops tolerating older catalogs*.
+
+steps:
+  - id: the-discipline-becomes-a-reference
+    action: "Move the memory discipline document into references and cite it as {{ref:memory-discipline}} from the four masters that name it in prose."
+  - id: the-reference-that-cites-it-is-reworded
+    action: "The phase-discipline reference states the memory convention without naming a file, because a reference may not cite a reference."
+  - id: every-edited-master-bumps
+    action: "Each edited master's version is raised."
+  - id: the-unused-template-goes
+    action: "Delete the Azure DevOps template neither repository references, and record the deletion in the changelog."
+  - id: the-readme-describes-the-layout-it-has
+    action: "The readme's layout tree names the moved document where it now lives."
+
+tests:
+  - "validate-skills accepts the moved reference and every citation resolves"
+  - "the catalog's version-bump job is green"
+
+done:
+  - "no master prompt, rendered, names a catalog file the renderer cannot resolve"
+  - "references/memory-discipline.md is in the built tarball and skills/memory-discipline.md is not"
+  - "the catalog validator is green and the version-bump job passes"

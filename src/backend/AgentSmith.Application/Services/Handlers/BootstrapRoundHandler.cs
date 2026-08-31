@@ -88,16 +88,13 @@ public sealed class BootstrapRoundHandler(
         // p0379: in transfer/preserve mode the principles file is framework-owned,
         // so a round with zero write_file changes is the expected success shape.
         if (transfer.Mode != PrinciplesMode.SkillWrites)
-            return CommandResult.Ok(
-                $"{role.DisplayName} [Bootstrap]: context.yaml written; coding principles "
-                + (transfer.Mode == PrinciplesMode.Transferred
-                    ? "transferred from the authored core+delta (operator ratifies via the init PR)"
-                    : "preserved (ratified content is never overwritten)"));
+            return CommandResult.Ok(BootstrapPrinciplesOutcome.Sentence(transfer, role.DisplayName));
         return changes.Count == 0
             ? CommandResult.Fail(
                 $"BootstrapRound: skill '{context.SkillName}' did not call write_file "
                 + "(0 changes). coding-principles.md not produced.")
-            : CommandResult.Ok($"{role.DisplayName} [Bootstrap]: {changes.Count} file(s) written");
+            : CommandResult.Ok(
+                BootstrapPrinciplesOutcome.SkillWroteThem(transfer, role.DisplayName, changes.Count));
     }
 
     private async Task<bool> FileExistsAsync(ISandbox sandbox, string path, CancellationToken ct)

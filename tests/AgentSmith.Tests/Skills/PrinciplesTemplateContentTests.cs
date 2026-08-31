@@ -151,11 +151,30 @@ public sealed class PrinciplesTemplateContentTests
         public string Origin => Root;
     }
 
+    [Fact]
+    public void PrinciplesTemplates_AreFoundInTheCatalog()
+    {
+        // The guard that tells the two skips apart. No checkout is a legitimate skip;
+        // a checkout whose principles this file cannot find is the defect that made
+        // every other test here assert nothing, and it looked exactly the same.
+        if (TestSkillsRoot.Resolve() is null) return;
+
+        PrinciplesDirectory().Should().NotBeNull(
+            "a resolvable skills checkout carries principles, and failing to find them "
+            + "silently turns every assertion in this file into an early return");
+    }
+
     private static string? PrinciplesDirectory()
     {
         var skillsRoot = TestSkillsRoot.Resolve();
         if (skillsRoot is null) return null;
-        var dir = Path.Combine(skillsRoot, "coding", "principles");
+        var catalogRoot = Path.GetDirectoryName(skillsRoot.TrimEnd(Path.DirectorySeparatorChar));
+        if (catalogRoot is null) return null;
+        // 2026-08-28-6403: resolved from the catalog ROOT, the way the production reader
+        // resolves it — pointing at the pre-4.0.0 path made every test in this file return
+        // early once the catalog moved principles/ to the root.
+        // 2026-08-28-489a: one location, because the reader now probes one.
+        var dir = Path.Combine(catalogRoot, "principles");
         return File.Exists(Path.Combine(dir, "core.md")) ? dir : null;
     }
 
@@ -164,7 +183,7 @@ public sealed class PrinciplesTemplateContentTests
         if (PrinciplesDirectory() is not null) return true;
         Console.WriteLine(
             "PrinciplesTemplateContentTests SKIPPED: skills checkout has no " +
-            "skills/coding/principles/core.md (pre-p0379 catalog or no checkout). " +
+            "principles/core.md (no checkout). " +
             "Point AGENTSMITH_TEST_SKILLS_DIR at an agent-smith-skills checkout with the p0379 templates.");
         return false;
     }
