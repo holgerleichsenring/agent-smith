@@ -20,6 +20,12 @@ export default function SignInCallbackPage() {
     let live = true;
     void startAuthSession().then((session) => {
       if (!live) return;
+      // 2026-08-28-0f46: a silent return is answered by notifying the window
+      // that opened this frame, which the completion has already done. There is
+      // nothing here to route: the frame has no address bar, and navigating it
+      // would boot a second copy of the dashboard inside a document about to be
+      // removed — inside the ten seconds the waiting window is counting.
+      if (session?.isSilentReturn) return;
       if (session?.error) setRefusal(session.error);
       else router.replace(session?.returnTo ?? "/");
     });

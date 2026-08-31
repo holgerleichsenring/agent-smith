@@ -16,9 +16,9 @@ public sealed class MarkdownOutputStrategy(
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        var markdown = context.Observations.Count > 0
+        var markdown = ScanTriageNotice.Markdown(context.Pipeline) + (context.Observations.Count > 0
             ? BuildMarkdown(context.Observations)
-            : BuildFromPipeline(context);
+            : BuildFromPipeline(context));
 
         Directory.CreateDirectory(context.OutputDir);
         var outputPath = Path.Combine(context.OutputDir, "findings.md");

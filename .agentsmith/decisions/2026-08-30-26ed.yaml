@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-26ed
+
+decisions:
+  - category: Architecture
+    chose: "The cut-off is reported by the runner, as a field on ToolResult and ContainerResult"
+    over: "Inferring it in each scan step from a duration close to the configured limit"
+    reason: |
+      Only the frame that starts the timeout token knows the tool was stopped rather than
+      finished. A duration near the limit is a guess that gets it wrong in both directions:
+      a tool that legitimately ends one second before its ceiling looks cut off, and a tool
+      cut off by a shorter internal limit does not. Both runner families gained the field, so
+      every caller of a tool container can tell a kill from a tool's own non-zero exit — not
+      only these two steps.
+  - category: Implementation
+    chose: "CutOff is set only when the caller's own token is still live"
+    over: "Treating every OperationCanceledException in the runner as a cut-off"
+    reason: |
+      A cancelled run also unwinds through that catch. Calling that a cut-off would report a
+      degraded scan for a run nobody wanted finished, which is the same class of untrue
+      statement this phase exists to remove.
+  - category: Architecture
+    chose: "The scan steps carry it through the existing Degraded / DegradedReason channel"
+    over: "A separate CutOff flag on NucleiResult and ZapResult"
+    reason: |
+      NucleiResult already carried Degraded and DegradedReason, fed from a swagger parse
+      failure and from nothing else — the result type already had somewhere to say 'this
+      covered less than it looks like' and simply never heard about the run outcome. ZapResult
+      gained the same pair rather than a differently-named one, so both steps are read the
+      same way. A parallel state would have meant two things to check at every reader.
+  - category: Implementation
+    chose: "ZAP's exit-code classification is skipped for a degraded (cut-off) run"
+    over: "Leaving the crash branch to interpret whatever code the kill left behind"
+    reason: |
+      A container the runner killed leaves the RUNNER's exit code, not ZAP's, so reading it as
+      'ZAP crashed with code N' invents a failure that did not happen. Under Docker the killed
+      code is 1 and nothing changes today; the guard is there so it stays true under any runner.
+  - category: Implementation
+    chose: "A findings account section naming every dynamic step that ran, contributor or not"
+    over: "Only marking degraded scans in the existing per-scanner summaries"
+    reason: |
+      Those summaries are emitted only when a scanner produced findings, so a step that
+      contributed nothing was ABSENT — the exact case that reads as a clean target. Naming the
+      abstainers is also what lets an operator later decide whether a step earns its minutes,
+      which is a question no run could answer before.
+  - category: Scope
+    chose: "No step configuration is touched — limits, templates, scoping and auth stay as they are"
+    reason: |
+      Changing them in the same phase would make the first honest report also the first report
+      of a different configuration, and nobody could tell which change moved the numbers. The
+      measurement this phase produces is what a tuning phase is measured against.
+  - category: TradeOff
+    chose: "The finished path is byte-identical; only a degraded run reads differently"
+    reason: |
+      The record line for an undegraded scan is the same string it always was, so the coding
+      pipeline and every existing reader are unaffected. The dynamic-step account is new text,
+      and it appears only when a dynamic step ran at all — which is the api-security preset.
+  - category: Implementation
+    chose: "Extracted NucleiArgumentBuilder, NucleiScanOutcome and DockerImagePuller"
+    over: "Adding the new code to the files that already held it"
+    reason: |
+      The file-length ratchet refuses growth in a file already over the limit, and it was right
+      to here: the Nuclei command line is the same responsibility ZapArgumentBuilder already
+      owns for ZAP, and both Docker runners carried a byte-identical pull-if-missing routine.
+      The logger stayed with the spawner because a static that takes a collaborator is a service
+      without a constructor.

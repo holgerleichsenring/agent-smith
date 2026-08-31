@@ -3,6 +3,8 @@ using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Sandbox;
 
 /// <summary>
@@ -15,6 +17,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// one thing thrown away.
 /// </para>
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public class FailureOutputCaptureTests
 {
     [Fact]
