@@ -63,6 +63,9 @@ public sealed class SandboxSpecBuilder(
         var secrets = _secretsResolver.Resolve(projectConfig.Sandbox);
         return new SandboxSpec(
             ToolchainImage: image, Resources: resources, AgentImage: agentImage,
-            StepTimeoutSeconds: stepTimeout, Secrets: secrets);
+            StepTimeoutSeconds: stepTimeout, Secrets: secrets,
+            // 2026-08-31-46d7: the pull credential is a global supply-chain setting, so it
+            // rides straight from the global block onto the spec with no project layer.
+            ImagePullSecrets: _global.ImagePullSecrets);
     }
 }

@@ -41,6 +41,17 @@ public sealed class DockerImagePresence(IDockerClient docker, ILogger<DockerImag
                 $"Build it once with: docker compose --profile build-only build sandbox-agent " +
                 $"(or: docker build -t {image} -f src/AgentSmith.Sandbox.Agent/Dockerfile .)", ex);
         }
+        catch (DockerApiException ex)
+        {
+            // 2026-08-31-46d7: the pull above goes out with authConfig: null, and a
+            // Kubernetes image pull secret means nothing to the Docker client — so a
+            // credentialed registry is unreachable from this backend by construction,
+            // and the operator is told that instead of a raw client exception.
+            throw new InvalidOperationException(
+                $"Docker could not pull image '{image}'. The Docker sandbox backend carries no "
+                + "registry pull credential — sandbox.image_pull_secrets is Kubernetes-only. "
+                + $"Pull '{image}' onto this host yourself, or run the sandbox on Kubernetes.", ex);
+        }
     }
 
     private static (string Repo, string Tag) SplitImageRef(string image)

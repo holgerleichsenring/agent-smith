@@ -76,6 +76,23 @@ public sealed class SandboxGlobalConfig
     /// </summary>
     public bool? AllowDockerHubLibrary { get; set; }
 
+    /// <summary>
+    /// 2026-08-31-46d7: names of operator-created Kubernetes image pull secrets the
+    /// sandbox pod references, so an image that only exists in a credentialed registry
+    /// — the only place a licensed third-party tool may live — is pullable without
+    /// patching the namespace's default service account out of band, where nobody can
+    /// see it. A LIST because one pod pulls an agent image and a toolchain image that
+    /// may come from different registries, and a pod-level reference covers the init
+    /// container too. Global and never per-project: a project that could name its own
+    /// credential would be widening a boundary it does not own.
+    /// <para>
+    /// Kubernetes only. The Docker backend pulls with no auth config at all and says so
+    /// when a pull fails; nothing here is ever read back from the cluster, because
+    /// verifying a secret exists would need read access to every secret in the namespace.
+    /// </para>
+    /// </summary>
+    public List<string> ImagePullSecrets { get; set; } = [];
+
     // p0270a: the per-project override arithmetic that lived here
     // (ResolveStepTimeout / ResolveRunCommandTimeout) moved into the single
     // ConfigResolutionPass so the run path and the dashboard read one resolution.

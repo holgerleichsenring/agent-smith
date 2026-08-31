@@ -44,7 +44,7 @@ public sealed partial class KubernetesSandboxFactory(
 
         var watcher = new KubernetesPodWatcher(client, loggerFactory.CreateLogger<KubernetesPodWatcher>());
         await watcher.WaitForReadyAsync(podName, options.Namespace,
-            TimeSpan.FromSeconds(spec.TimeoutSeconds), cancellationToken);
+            TimeSpan.FromSeconds(spec.TimeoutSeconds), spec.ImagePullSecrets, cancellationToken);
 
         var channel = new SandboxRedisChannel(
             redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);

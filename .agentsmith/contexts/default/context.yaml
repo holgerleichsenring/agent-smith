@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-08-31-46d7: "A SANDBOX PULLS AN IMAGE IT MUST AUTHENTICATE FOR (sandbox config, pod spec, pod watcher). No pull credential existed anywhere, so only public images worked. Global secret-name list, rendered pod-level; the failure names what was configured. -> .agentsmith/phases/done/2026-08-31-46d7-a-sandbox-pulls-an-image-it-must-authenticate-for.yaml"
     2026-08-28-489a: "THE LEGACY CATALOG LOCATIONS GO (principles reader + pre-v4.1 prompt-token alias). 4.7.0 is the floor: the pre-4.0.0 principles path is not probed, the alias binding one slot twice is gone, and a test asserts the old layout composes nothing. -> .agentsmith/phases/done/2026-08-28-489a-the-legacy-catalog-locations-go.yaml"
     2026-08-28-7675: "A RUN NAMES THE CATALOG IT RESOLVED (principles composition, bootstrap outcome, catalog binding). Two configs pin v3.21.0/v3.24.0 and an explicit version beats the embedded pin, so old catalogs run unseen; the composition and the record now name the catalog, and an older pin is reported. No tolerance removed. -> .agentsmith/phases/done/2026-08-28-7675-a-run-names-the-catalog-it-resolved.yaml"
     2026-08-28-a08d: "A CATALOG WITHOUT A DECLARED CAP IS REFUSED (CatalogDeclaredCap + the two test tarball builders). The pre-p0518 allowance expired with the pin: an absent declaration is now an incomplete package, not an older release. The gate reaches the vendored tarball alone — mounts and overlays are untouched. -> .agentsmith/phases/done/2026-08-28-a08d-a-catalog-without-a-declared-cap-is-refused.yaml"

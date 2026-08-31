@@ -38,4 +38,9 @@ public sealed record SandboxSpec(
     // p0272: operator-declared credentials (env from k8s Secrets + secret files)
     // injected into the pod. Null leaves the pod credential-free (back-compat).
     // Honored by PodSpecBuilder (k8s); the Docker/InProcess factories ignore it.
-    ResolvedSandboxSecrets? Secrets = null);
+    ResolvedSandboxSecrets? Secrets = null,
+    // 2026-08-31-46d7: names of the operator-declared Kubernetes image pull secrets the
+    // pod references, so an image in a credentialed registry is pullable. Rendered at POD
+    // level by PodSpecBuilder, which covers the init container as well as the toolchain;
+    // the Docker/InProcess factories have no equivalent and say so when a pull fails.
+    IReadOnlyList<string>? ImagePullSecrets = null);
