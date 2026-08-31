@@ -22,8 +22,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// refused the pull request when the build was red, so "green" was a claim by the
 /// same party that produced the code.
 ///
-/// AnalyzeCode populates <see cref="CiConfig.BuildCommand"/> and
-/// <see cref="CiConfig.TestCommand"/> per repo; those declared commands always win.
+/// 2026-08-31-26d4: a repository that DECLARES its stages in context.yaml is verified by
+/// exactly those, ahead of every other source — the one gate authored once instead of
+/// re-derived per run. AnalyzeCode populates <see cref="CiConfig.BuildCommand"/> and
+/// <see cref="CiConfig.TestCommand"/> per repo; those inferred commands come next.
 /// p0400: when a .NET repo declares NEITHER, the entry point is DISCOVERED (a single
 /// *.sln up to depth 2, else a single *.csproj at the context workdir) — never
 /// guessed. An ambiguous or absent entry point is a named RESOLUTION failure that
@@ -41,6 +43,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class VerifyPhaseHandler(
     VerifyStageResolver stageResolver,
+    ContextVerifyStagesResolver declaredStages,
     SandboxTargets sandboxTargets,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
@@ -92,8 +95,11 @@ public sealed class VerifyPhaseHandler(
             var workdir = SandboxWorkdir.Resolve(
                 discoveries.TryGetValue(key, out var discovery) ? discovery.Workdir : null);
 
+            // 2026-08-31-26d4: the PER-SANDBOX CONTEXT LIST, not the representative
+            // discovery above — two contexts resolving one image collapse into one
+            // sandbox, and each declaration runs at its own workdir.
             foreach (var stage in await stageResolver.ResolveAsync(
-                key, map, sandbox, workdir,
+                key, map, sandbox, workdir, declaredStages.For(context.Pipeline, key),
                 resolutionFindings, cancellationToken))
             {
                 var outcome = await commandRunner.RunAsync(

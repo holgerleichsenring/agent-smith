@@ -49,6 +49,26 @@ stack:
   # Your build file and your workflow already state them, and a second copy can
   # only disagree with the first.
 
+# --- What proves a change in this repository? -------------------------------
+
+# The commands that turn an edit into a verdict, in the order they run. They are
+# yours: take them from the pipeline this repository already has rather than
+# inventing them here, because the one your CI runs is the one that means
+# something. A run executes exactly these, ahead of anything the analyzer infers.
+#
+# A stage names itself, carries one shell command, and may name a path it needs
+# present — where that path is absent the stage is skipped and says so, so one
+# declaration serves repositories of different shapes.
+#
+# verify:
+#   - stage: build
+#     command: dotnet build MySolution.sln
+#   - stage: test
+#     command: dotnet test MySolution.sln
+#   - stage: lint
+#     command: npm run lint
+#     when_present: package.json
+
 # --- How is the code organized? --------------------------------------------
 
 # The architecture block is a READING: a style, a pattern list and a layer list

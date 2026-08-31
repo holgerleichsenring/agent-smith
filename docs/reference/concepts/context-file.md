@@ -9,7 +9,7 @@ field that is wrong is not merely dead weight, it is acted on.
 | Class | The test | Examples |
 | --- | --- | --- |
 | **Judgement** | Somebody DECIDED it, and no file in the repository states it. | `meta.purpose`, `quality.limits`, `behavior.*`, `integrations`, `data`, `state`, `decisions` |
-| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `methodology`, `registry_auth` |
+| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `verify`, `methodology`, `registry_auth` |
 | **Reading** | A copy of something the repository still states for itself. | `stack.frameworks`, `stack.sdks`, `stack.testing`, `stack.ci`, `meta.version`, `arch.style`, `quality.principles` |
 
 A reading is worthless on the day it is written and wrong soon after. `sdks` names a
@@ -32,6 +32,36 @@ orchestrator reads.
 so the file teaches a reader how the program got its shape. It is long because
 entries have been wordy, which the 400-character index-line cap attacks directly —
 not a reason to remove the one section written by whoever made the call.
+
+## `verify` is what proves a change
+
+The `verify` block names the commands that turn an edit into a verdict, in order.
+A run executes exactly those, ahead of anything the analyzer infers and ahead of
+the .NET entry-point discovery — a repository that states its gates is the
+authority on them.
+
+Take the commands from the pipeline the repository already has. In an
+established estate the truth about "green" is already written down, and a second
+copy invented here can only disagree with it.
+
+```yaml
+verify:
+  - stage: build
+    command: dotnet build MySolution.sln
+  - stage: test
+    command: dotnet test MySolution.sln
+  - stage: lint
+    command: npm run lint
+    when_present: package.json
+```
+
+A stage carries a label, one shell command, and optionally the path it needs
+present. Where that path is absent the stage is skipped and says so, so one
+declaration serves repositories of different shapes. A command that cannot fail
+— `echo`, `true` — is refused at resolution rather than run: a declared gate
+that cannot go red is not a gate.
+
+A repository that declares nothing keeps working exactly as before.
 
 ## `state.done` is written by the run
 
