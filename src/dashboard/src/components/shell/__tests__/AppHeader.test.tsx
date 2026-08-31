@@ -107,6 +107,50 @@ describe("AppHeader", () => {
     expect(session.identity).not.toHaveBeenCalled();
   });
 
+  // 2026-08-28-0f46: a failed renewal and a failed restore each wrote a console
+  // line and left the surface reading a bare "Sign in" — which is exactly what a
+  // tab that never signed in reads, and it sent the operator through the
+  // installation's configuration looking for a fault that was their browser's.
+  it("Surface_AnExpiredSession_SaysWhyItEnded", async () => {
+    getAccessTokenStore().end("expired");
+
+    renderHeader("https://login.example/realm");
+
+    expect(await screen.findByTestId("header-session-ended")).toHaveTextContent(
+      "Your session expired",
+    );
+    expect(screen.getByTestId("header-sign-in")).toBeInTheDocument();
+  });
+
+  it("Surface_ARefusedRenewal_SaysTheSessionEnded", async () => {
+    getAccessTokenStore().end("renewal-refused");
+
+    renderHeader("https://login.example/realm");
+
+    expect(await screen.findByTestId("header-session-ended")).toHaveTextContent(
+      "Your session ended",
+    );
+  });
+
+  it("Surface_NeverSignedIn_ReadsDifferentlyFromExpired", async () => {
+    renderHeader("https://login.example/realm");
+
+    expect(await screen.findByTestId("header-sign-in")).toBeInTheDocument();
+    // Nothing ended here, and saying one did would be a fault reported at a tab
+    // that has simply not signed in yet.
+    expect(screen.queryByTestId("header-session-ended")).toBeNull();
+  });
+
+  it("Surface_SignedInAfterAnExpiry_StopsSayingItEnded", async () => {
+    getAccessTokenStore().end("expired");
+
+    renderHeader("https://login.example/realm");
+    await screen.findByTestId("header-session-ended");
+    getAccessTokenStore().hold({ accessToken: "at-1" });
+
+    await waitFor(() => expect(screen.queryByTestId("header-session-ended")).toBeNull());
+  });
+
   it("Header_SignedIn_ShowsTheNameAndOffersSignOut", async () => {
     getAccessTokenStore().hold({ accessToken: "at-1" });
 

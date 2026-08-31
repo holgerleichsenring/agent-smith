@@ -3,8 +3,6 @@
 // consume them directly except when an external spec (here: SARIF 2.1.0) demands a stricter
 // shape, in which case the conversion lives at the strategy boundary.
 
-using System.IO.Compression;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Commands;
@@ -25,7 +23,7 @@ public sealed class SarifOutputStrategy(
 
     public async Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
     {
-        var sarif = BuildSarifDocument(context.Observations);
+        var sarif = BuildSarifDocument(context.Observations, ScanTriageNotice.For(context.Pipeline));
         var json = sarif.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
         Directory.CreateDirectory(context.OutputDir);
@@ -36,7 +34,9 @@ public sealed class SarifOutputStrategy(
         LogSummary(context.Observations);
     }
 
-    internal static JsonObject BuildSarifDocument(IReadOnlyList<SkillObservation> observations)
+    /// <summary>2026-08-30-03e4: <paramref name="triageNotice"/> marks the RUN as failed,
+    /// not any one finding. Optional, so a healthy run emits today's document unchanged.</summary>
+    internal static JsonObject BuildSarifDocument(IReadOnlyList<SkillObservation> observations, string? triageNotice = null)
     {
         var rules = new JsonArray();
         var results = new JsonArray();
@@ -49,26 +49,27 @@ public sealed class SarifOutputStrategy(
             results.Add(BuildResult(obs, ruleId));
         }
 
+        var run = new JsonObject
+        {
+            ["tool"] = new JsonObject
+            {
+                ["driver"] = new JsonObject
+                {
+                    ["name"] = "Agent Smith Security",
+                    ["version"] = "1.0.0",
+                    ["rules"] = rules
+                }
+            },
+            ["results"] = results
+        };
+        if (triageNotice is not null)
+            run["invocations"] = ScanTriageNotice.SarifInvocations(triageNotice);
+
         return new JsonObject
         {
             ["$schema"] = "https://json.schemastore.org/sarif-2.1.0.json",
             ["version"] = "2.1.0",
-            ["runs"] = new JsonArray
-            {
-                new JsonObject
-                {
-                    ["tool"] = new JsonObject
-                    {
-                        ["driver"] = new JsonObject
-                        {
-                            ["name"] = "Agent Smith Security",
-                            ["version"] = "1.0.0",
-                            ["rules"] = rules
-                        }
-                    },
-                    ["results"] = results
-                }
-            }
+            ["runs"] = new JsonArray { run }
         };
     }
 
@@ -177,18 +178,6 @@ public sealed class SarifOutputStrategy(
         ObservationSeverity.Low => "note",
         _ => "none"
     };
-
-    /// <summary>
-    /// Compresses SARIF JSON to base64-gzip for GitHub Code Scanning API upload.
-    /// </summary>
-    internal static string CompressToBase64Gzip(string json)
-    {
-        var bytes = Encoding.UTF8.GetBytes(json);
-        using var ms = new MemoryStream();
-        using (var gzip = new GZipStream(ms, CompressionLevel.Optimal))
-            gzip.Write(bytes, 0, bytes.Length);
-        return Convert.ToBase64String(ms.ToArray());
-    }
 
     private void LogSummary(IReadOnlyList<SkillObservation> observations)
     {

@@ -11,6 +11,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Sandbox;
 
 /// <summary>
@@ -18,6 +20,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// quietly swapped for another one. It is used, and it fails at the one step that
 /// needs git — saying so.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class ImageWithoutGitTests
 {
     [Fact]

@@ -7,8 +7,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Services;
 
+[Collection(ExternalProcessCollection.Name)]
 public sealed class ToolRunnerTests
 {
     [Fact]

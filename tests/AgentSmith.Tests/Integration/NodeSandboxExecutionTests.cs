@@ -5,6 +5,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Integration;
 
 /// <summary>
@@ -13,6 +15,7 @@ namespace AgentSmith.Tests.Integration;
 /// test is env-var gated — operator sets a token and the test exercises
 /// the full .npmrc-token-injection flow that the agent uses in production.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class NodeSandboxExecutionTests(ITestOutputHelper output)
 {
     [Fact]

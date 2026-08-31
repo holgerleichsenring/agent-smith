@@ -81,7 +81,7 @@ public sealed class SarifOutputStrategyTests
     public void CompressToBase64Gzip_ProducesNonEmptyString()
     {
         var json = "{\"test\": true}";
-        var compressed = SarifOutputStrategy.CompressToBase64Gzip(json);
+        var compressed = SarifUploadCompressor.ToBase64Gzip(json);
 
         compressed.Should().NotBeNullOrEmpty();
         Convert.FromBase64String(compressed).Should().NotBeEmpty();

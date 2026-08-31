@@ -4,6 +4,8 @@ using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Sandbox;
 
 /// <summary>
@@ -15,6 +17,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// the next ecosystem would have needed another line here instead of one catalog row.
 /// </para>
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessPackageCacheTests
 {
     [Fact]

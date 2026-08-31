@@ -11,16 +11,25 @@ const AUTHORITY: Partial<RuntimeAuthSettings> = {
   clientId: "dashboard",
 };
 
-/** Only the four members AuthSession reaches for. */
-function fakeClient() {
+/** A user the authority would hand back, expiring an hour from now. */
+function live(overrides: Record<string, unknown> = {}) {
   return {
+    access_token: "at-1",
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    expired: false,
+    state: { returnTo: "/jobs" },
+    ...overrides,
+  };
+}
+
+/** Only the members AuthSession reaches for. getUser is what this tab already
+ *  holds; signinCallback is the dispatching reply route. */
+function fakeClient(held: unknown = null) {
+  return {
+    getUser: vi.fn(async () => held),
     signinSilent: vi.fn(async () => null),
     signinRedirect: vi.fn(async () => undefined),
-    signinRedirectCallback: vi.fn(async () => ({
-      access_token: "at-1",
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-      state: { returnTo: "/jobs" },
-    })),
+    signinCallback: vi.fn(async () => live()),
     removeUser: vi.fn(async () => undefined),
     metadataService: { getEndSessionEndpoint: vi.fn(async () => undefined) },
   };
@@ -44,8 +53,15 @@ async function bootWith(auth: Partial<RuntimeAuthSettings>, client: unknown | nu
     const actual = await importOriginal<typeof import("../createAuthorityClient")>();
     return { ...actual, createAuthorityClient: created };
   });
-  return { module: await import("../session"), created };
+  return {
+    module: await import("../session"),
+    // The same fresh registry, so this IS the store the boot filled.
+    store: await import("../AccessTokenStore"),
+    created,
+  };
 }
+
+const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
   vi.spyOn(console, "debug").mockImplementation(() => {});
@@ -99,7 +115,7 @@ describe("startAuthSession", () => {
 
     const session = await module.startAuthSession();
 
-    expect(client.signinRedirectCallback).toHaveBeenCalledTimes(1);
+    expect(client.signinCallback).toHaveBeenCalledTimes(1);
     expect(client.signinSilent).not.toHaveBeenCalled();
     expect(await module.currentAccessToken()).toBe("at-1");
     expect(session?.returnTo).toBe("/jobs");
@@ -116,7 +132,7 @@ describe("startAuthSession", () => {
 
     const session = await module.startAuthSession();
 
-    expect(client.signinRedirectCallback).not.toHaveBeenCalled();
+    expect(client.signinCallback).not.toHaveBeenCalled();
     expect(client.signinSilent).toHaveBeenCalledTimes(1);
     expect(session?.error).toBeNull();
   });
@@ -128,7 +144,7 @@ describe("startAuthSession", () => {
 
     await module.startAuthSession();
 
-    expect(client.signinRedirectCallback).toHaveBeenCalledTimes(1);
+    expect(client.signinCallback).toHaveBeenCalledTimes(1);
     expect(client.signinSilent).not.toHaveBeenCalled();
   });
 
@@ -141,7 +157,7 @@ describe("startAuthSession", () => {
 
     await module.startAuthSession();
 
-    expect(client.signinRedirectCallback).toHaveBeenCalledTimes(1);
+    expect(client.signinCallback).toHaveBeenCalledTimes(1);
     expect(client.signinSilent).not.toHaveBeenCalled();
   });
 
@@ -161,7 +177,7 @@ describe("startAuthSession", () => {
 
     await module.startAuthSession();
 
-    expect(client.signinRedirectCallback).not.toHaveBeenCalled();
+    expect(client.signinCallback).not.toHaveBeenCalled();
     expect(window.location.search).toBe("?code=not-an-authorization-code");
   });
 });
@@ -199,5 +215,130 @@ describe("signOut", () => {
 
     expect(client.removeUser).toHaveBeenCalledTimes(1);
     expect(await module.currentAccessToken()).toBeNull();
+  });
+});
+
+// 2026-08-28-0f46: the restore consults what this tab already holds before it
+// asks the authority anything. Every load used to pay ten seconds here — the
+// silent attempt it awaited could never complete — and both outgoing paths await
+// this boot, so the first request and the first hub negotiate paid it too.
+describe("restore", () => {
+  it("Boot_WithNothingHeld_ReturnsBeforeTheSilentAttemptSettles", async () => {
+    let land: (user: unknown) => void = () => {};
+    const outstanding = new Promise<unknown>((resolve) => { land = resolve; });
+    const client = { ...fakeClient(), signinSilent: vi.fn(() => outstanding) };
+    const { module } = await bootWith(AUTHORITY, client);
+
+    const session = await module.startAuthSession();
+
+    // The boot has settled and the attempt has not — which is the whole point.
+    expect(session).not.toBeNull();
+    expect(client.signinSilent).toHaveBeenCalledTimes(1);
+    expect(await module.currentAccessToken()).toBeNull();
+
+    // And the attempt is still adopted when it lands, so the invisible sign-in
+    // the earlier phase promised still happens.
+    land(live());
+    await settle();
+    expect(await module.currentAccessToken()).toBe("at-1");
+  });
+
+  it("Restore_WithAHeldSession_FindsItWithoutTheAuthorizationEndpoint", async () => {
+    const client = fakeClient(live());
+    const { module } = await bootWith(AUTHORITY, client);
+
+    await module.startAuthSession();
+
+    expect(client.getUser).toHaveBeenCalledTimes(1);
+    expect(client.signinSilent).not.toHaveBeenCalled();
+    expect(await module.currentAccessToken()).toBe("at-1");
+  });
+
+  it("Restore_ExpiredWithARefreshToken_RenewsAndHoldsTheResult", async () => {
+    const held = live({ expired: true, refresh_token: "rt-1", access_token: "at-old" });
+    const client = {
+      ...fakeClient(held),
+      signinSilent: vi.fn(async () => live({ access_token: "at-2" })),
+    };
+    const { module } = await bootWith(AUTHORITY, client);
+
+    await module.startAuthSession();
+
+    // A refresh token makes this one direct token request, not the hidden frame.
+    expect(client.signinSilent).toHaveBeenCalledTimes(1);
+    expect(await module.currentAccessToken()).toBe("at-2");
+  });
+
+  it("Restore_ExpiredWithoutARefreshToken_ClearsAndReadsSignedOut", async () => {
+    const client = fakeClient(live({ expired: true }));
+    const { module, store } = await bootWith(AUTHORITY, client);
+
+    await module.startAuthSession();
+
+    // Renewing it would be the hidden frame and its ten seconds, and the token
+    // it holds is refused by every call it would be sent on.
+    expect(client.signinSilent).not.toHaveBeenCalled();
+    expect(client.removeUser).toHaveBeenCalledTimes(1);
+    expect(await module.currentAccessToken()).toBeNull();
+    expect(store.getAccessTokenStore().state().ended).toBe("expired");
+  });
+
+  it("Restore_NothingHeldAndTheAttemptFails_SaysNoSessionEnded", async () => {
+    const client = {
+      ...fakeClient(),
+      signinSilent: vi.fn(async () => { throw new Error("login_required"); }),
+    };
+    const { module, store } = await bootWith(AUTHORITY, client);
+
+    await module.startAuthSession();
+    await settle();
+
+    // Nobody was signed in, so nothing ended — the surface must not say one did.
+    expect(store.getAccessTokenStore().state()).toEqual({ token: null, ended: null });
+  });
+});
+
+// 2026-08-28-0f46: the reply route dispatches on the request type the answer
+// carries. A silent answer belongs to the frame that asked for it: the frame
+// notifies the window above and holds nothing of its own, and — critically — it
+// does not become this document's returnTo.
+describe("a silent return", () => {
+  it("SilentReturn_DispatchesOnTheRequestTypeTheAnswerCarries", async () => {
+    window.history.replaceState({}, "", "/signin-callback?code=the-code&state=the-state");
+    // signinCallback answers undefined for a silent return: the User belongs to
+    // the window that opened the frame, not to the frame.
+    const client = { ...fakeClient(), signinCallback: vi.fn(async () => undefined) };
+    const { module } = await bootWith(AUTHORITY, client);
+
+    const session = await module.startAuthSession();
+
+    expect(client.signinCallback).toHaveBeenCalledTimes(1);
+    expect(session?.isSilentReturn).toBe(true);
+    expect(session?.error).toBeNull();
+    expect(await module.currentAccessToken()).toBeNull();
+  });
+
+  it("SilentReturn_TheFramesAddressBarIsLeftAlone", async () => {
+    window.history.replaceState({}, "", "/signin-callback?code=the-code&state=the-state");
+    const client = { ...fakeClient(), signinCallback: vi.fn(async () => undefined) };
+    const { module } = await bootWith(AUTHORITY, client);
+
+    await module.startAuthSession();
+
+    // Nobody reads a hidden frame's URL, and the window that does read this
+    // answer has already been handed it.
+    expect(window.location.search).toBe("?code=the-code&state=the-state");
+  });
+
+  it("RedirectReturn_IsStillThisTabsOwnSignIn", async () => {
+    window.history.replaceState({}, "", "/signin-callback?code=the-code&state=the-state");
+    const client = fakeClient();
+    const { module } = await bootWith(AUTHORITY, client);
+
+    const session = await module.startAuthSession();
+
+    expect(session?.isSilentReturn).toBe(false);
+    expect(session?.returnTo).toBe("/jobs");
+    expect(await module.currentAccessToken()).toBe("at-1");
   });
 });

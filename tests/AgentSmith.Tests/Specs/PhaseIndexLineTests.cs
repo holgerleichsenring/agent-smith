@@ -25,6 +25,7 @@ namespace AgentSmith.Tests.Specs;
 /// byte-identical" and "no pointer without its line" are only checkable on a disk.
 /// </para>
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class PhaseIndexLineTests : IDisposable
 {
     private const string PhaseId = "2026-08-26-31e5";
