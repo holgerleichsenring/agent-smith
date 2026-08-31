@@ -30,6 +30,7 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             {BuildConversationSection(pipeline)}
             {BuildFindingsSection(pipeline)}
             {BuildSpecSection(pipeline)}
+            {Surface.SurfaceDifferencePromptSection.Render(pipeline)}
             Work your methodology over these scanner inputs and the source — read the
             implementing code to anchor each finding. When you are done, stop calling
             tools and output ONLY your final JSON observation array (an empty array

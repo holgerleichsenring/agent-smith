@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -43,7 +44,9 @@ public sealed class SpawnZapHandler(
 
             // ZAP exit codes: 0=pass, 1=info, 2=warnings, 3=failures — all valid scan results
             // Only codes > 3 indicate actual tool errors (crash, config failure, etc.)
-            if (result.ExitCode > 3)
+            // 2026-08-30-26ed: a container the runner killed at its limit leaves the runner's
+            // exit code, not ZAP's, so it is not classified here.
+            if (!result.Degraded && result.ExitCode > 3)
             {
                 context.Pipeline.Set(ContextKeys.ZapFailed, true);
                 logger.LogWarning(
@@ -64,22 +67,38 @@ public sealed class SpawnZapHandler(
                     _ => "unknown"
                 });
 
-            var high = result.Findings.Count(f => f.RiskDescription.Equals("High", StringComparison.OrdinalIgnoreCase));
-            var medium = result.Findings.Count(f => f.RiskDescription.Equals("Medium", StringComparison.OrdinalIgnoreCase));
-            var low = result.Findings.Count(f => f.RiskDescription.Equals("Low", StringComparison.OrdinalIgnoreCase));
-
-            logger.LogInformation(
-                "ZAP {ScanType} scan complete: {Total} findings ({High} high, {Medium} medium, {Low} low) in {Duration}s",
-                scanType, result.Findings.Count, high, medium, low, result.DurationSeconds);
-
-            return CommandResult.Ok(
-                $"ZAP: {result.Findings.Count} findings ({high}H/{medium}M/{low}L) in {result.DurationSeconds}s");
+            return Report(result, scanType);
         }
         finally
         {
             if (File.Exists(swaggerPath))
                 File.Delete(swaggerPath);
         }
+    }
+
+    /// <summary>
+    /// 2026-08-30-26ed: the step's line in the run record carries the scan's degraded
+    /// state, so "0 findings" after a cut-off no longer reads like a clean target.
+    /// A finished, undegraded scan reports exactly what it always did.
+    /// </summary>
+    private CommandResult Report(ZapResult result, string scanType)
+    {
+        var high = result.Findings.Count(f => f.RiskDescription.Equals("High", StringComparison.OrdinalIgnoreCase));
+        var medium = result.Findings.Count(f => f.RiskDescription.Equals("Medium", StringComparison.OrdinalIgnoreCase));
+        var low = result.Findings.Count(f => f.RiskDescription.Equals("Low", StringComparison.OrdinalIgnoreCase));
+        var counts = $"{result.Findings.Count} findings ({high}H/{medium}M/{low}L) in {result.DurationSeconds}s";
+
+        if (result.Degraded)
+        {
+            logger.LogWarning("ZAP {ScanType} scan degraded — {Reason}: {Counts}",
+                scanType, result.DegradedReason, counts);
+            return CommandResult.Ok($"ZAP: {counts} — DEGRADED: {result.DegradedReason}");
+        }
+
+        logger.LogInformation(
+            "ZAP {ScanType} scan complete: {Total} findings ({High} high, {Medium} medium, {Low} low) in {Duration}s",
+            scanType, result.Findings.Count, high, medium, low, result.DurationSeconds);
+        return CommandResult.Ok($"ZAP: {counts}");
     }
 
     private static string WriteTempSwagger(SwaggerSpec? spec)

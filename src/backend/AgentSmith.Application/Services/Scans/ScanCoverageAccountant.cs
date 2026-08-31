@@ -33,15 +33,26 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
         // uses: the files the scan really read, and the steps that really ran.
         var read = pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var paths) ? paths : null;
         var resolver = new CitationResolver(CitedFileIndex.FromPaths(read), Succeeded(trail));
-        return new SpecAccount(RepoKey, [.. contract.Criteria.Select(c => resolver.Resolve(Row(c, trail)))]);
+        // 2026-08-30-03e4: the merge step's own statement about its own branch. Still
+        // mechanical — a fact read off the run, exactly like the trail beside it.
+        var degraded = pipeline.TryGet<string>(ContextKeys.ScanTriageDegraded, out var reason)
+            && !string.IsNullOrWhiteSpace(reason) ? reason : null;
+        return new SpecAccount(
+            RepoKey, [.. contract.Criteria.Select(c => resolver.Resolve(Row(c, trail, degraded)))]);
     }
 
     /// <summary>
     /// The claim before it is checked: the criterion is satisfied when its own step ran
     /// and reported success, and the step's message travels with it so a skip states its
     /// reason where the reader sees it.
+    /// <para>
+    /// 2026-08-30-03e4: a master step that ran green still leaves its criterion outstanding
+    /// when the merge recorded a degraded triage. The step succeeded; what it was there to
+    /// answer went unanswered, and the account is the place that knows.
+    /// </para>
     /// </summary>
-    private static AccountRow Row(ScanCriterion criterion, IReadOnlyList<ExecutionTrailEntry> trail)
+    private static AccountRow Row(
+        ScanCriterion criterion, IReadOnlyList<ExecutionTrailEntry> trail, string? degradedTriage)
     {
         var entry = trail.LastOrDefault(e =>
             string.Equals(e.CommandName, criterion.AnsweredBy, StringComparison.Ordinal));
@@ -51,9 +62,15 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
         if (!entry.Success)
             return new AccountRow(criterion.Statement, AccountDisposition.NotSatisfied, null,
                 $"{criterion.AnsweredBy} failed: {entry.Message}");
+        if (degradedTriage is not null && IsTriage(criterion))
+            return new AccountRow(criterion.Statement, AccountDisposition.NotSatisfied, null,
+                $"{criterion.AnsweredBy} ran but the scan was not triaged: {degradedTriage}");
         return new AccountRow(
             criterion.Statement, AccountDisposition.Satisfied, criterion.AnsweredBy, entry.Message);
     }
+
+    private static bool IsTriage(ScanCriterion criterion) =>
+        string.Equals(criterion.AnsweredBy, CommandNames.AgenticMaster, StringComparison.Ordinal);
 
     private static IReadOnlyList<string> Succeeded(IReadOnlyList<ExecutionTrailEntry> trail) =>
         [.. trail.Where(e => e.Success).Select(e => $"{e.CommandName}: {e.Message}")];

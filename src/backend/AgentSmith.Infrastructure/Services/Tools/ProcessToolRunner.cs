@@ -71,12 +71,20 @@ public sealed class ProcessToolRunner(
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(request.TimeoutSeconds));
 
+            // 2026-08-30-26ed: the kill below is the only reason this process ended, so the
+            // exit code it leaves is the runner's doing. Carried out as CutOff, because no
+            // later caller can tell a killed tool from one that failed on its own.
+            var cutOff = false;
             try { await process.WaitForExitAsync(timeoutCts.Token); }
             catch (OperationCanceledException)
             {
-                logger.LogWarning("Process {Tool} timed out after {Timeout}s",
-                    request.Tool, request.TimeoutSeconds);
-                try { process.Kill(entireProcessTree: true); } catch { }
+                cutOff = !cancellationToken.IsCancellationRequested;
+                logger.LogWarning("Process {Tool} stopped after {Timeout}s — {Cause}",
+                    request.Tool, request.TimeoutSeconds,
+                    cutOff ? "cut off at its own limit" : "the run was cancelled");
+                try { process.Kill(entireProcessTree: true); }
+                catch (Exception ex) { logger.LogDebug(ex, "Process {Tool} had already gone", request.Tool); }
+                await process.WaitForExitAsync(CancellationToken.None);
             }
 
             sw.Stop();
@@ -93,7 +101,7 @@ public sealed class ProcessToolRunner(
                 request.Tool, process.ExitCode, (int)sw.Elapsed.TotalSeconds);
 
             return new ToolResult(stdout.ToString(), stderr.ToString(), outputContent,
-                process.ExitCode, (int)sw.Elapsed.TotalSeconds);
+                process.ExitCode, (int)sw.Elapsed.TotalSeconds, cutOff);
         }
         finally
         {

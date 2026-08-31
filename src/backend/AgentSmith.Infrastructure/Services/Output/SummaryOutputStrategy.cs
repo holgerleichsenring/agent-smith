@@ -34,7 +34,8 @@ public sealed partial class SummaryOutputStrategy(
         sb.AppendLine("═══════════════════════════════════════");
         sb.AppendLine("  Agent Smith — API Security Summary");
         sb.AppendLine("═══════════════════════════════════════");
-        sb.AppendLine();
+        // 2026-08-30-03e4: above the tally, because the lost triage is what inflated it.
+        sb.AppendLine().Append(ScanTriageNotice.Banner(context.Pipeline));
 
         if (findings.Count == 0)
         {
@@ -64,7 +65,7 @@ public sealed partial class SummaryOutputStrategy(
         {
             sb.AppendLine($"Execution limits hit: {limitObs.Count}");
             foreach (var obs in limitObs)
-                sb.AppendLine($"  [{LimitLabel(obs.Category)}] {ExtractTitle(obs.Description)}");
+                sb.AppendLine($"  [{ExecutionLimitLabel.For(obs.Category)}] {ExtractTitle(obs.Description)}");
         }
 
         AppendVerification(sb, operatorObs);
@@ -141,17 +142,6 @@ public sealed partial class SummaryOutputStrategy(
         }
         return (op, limits);
     }
-
-    private static string LimitLabel(string? category) => category switch
-    {
-        ExecutionLimitCategories.ExecutionLimitToolCalls => "tool-call limit",
-        ExecutionLimitCategories.ExecutionLimitTokens => "token limit",
-        ExecutionLimitCategories.ExecutionLimitWallClock => "wall-clock limit",
-        ExecutionLimitCategories.ExecutionError => "runtime error",
-        ExecutionLimitCategories.CostCapExhausted => "cost cap",
-        ExecutionLimitCategories.ExecutionParseFailure => "parse failure",
-        _ => "execution limit"
-    };
 
     private static List<SummaryFinding> FromObservations(IReadOnlyList<SkillObservation> observations) =>
         observations.Select(o => new SummaryFinding(

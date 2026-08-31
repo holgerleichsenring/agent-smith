@@ -31,7 +31,7 @@
 257	AgentSmith.Application/Services/Handlers/RunResultFormatter.cs
 243	AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs
 242	AgentSmith.Application/Services/Loop/SubAgentRunner.cs
-240	AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs
+143	AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs
 234	AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs
 194	AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs
 232	AgentSmith.Application/Services/Loop/SkillCallRuntime.cs
