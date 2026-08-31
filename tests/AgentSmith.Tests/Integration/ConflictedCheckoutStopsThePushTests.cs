@@ -15,6 +15,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Integration;
 
 /// <summary>
@@ -24,6 +26,7 @@ namespace AgentSmith.Tests.Integration;
 /// is set. That was invisible until this test; the merge above aborts the conflict, so the
 /// two together are why no run can push a tree it could not reconcile.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class ConflictedCheckoutStopsThePushTests
 {
     private const string TicketBranch = "agent-smith/19106";

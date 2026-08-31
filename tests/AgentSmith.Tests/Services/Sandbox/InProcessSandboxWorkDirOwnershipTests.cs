@@ -3,6 +3,8 @@ using AgentSmith.Infrastructure.Services.Sandbox;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Services.Sandbox;
 
 /// <summary>
@@ -14,6 +16,7 @@ namespace AgentSmith.Tests.Services.Sandbox;
 /// copy). This suite asserts the ownsWorkDir contract: the sandbox only removes
 /// what it created, never what the operator handed in.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessSandboxWorkDirOwnershipTests
 {
     [Fact]

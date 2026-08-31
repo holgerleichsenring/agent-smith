@@ -7,6 +7,8 @@ using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Tools;
 
 /// <summary>
@@ -15,6 +17,7 @@ namespace AgentSmith.Tests.Tools;
 /// way through, not refused: the prompt that asks for it ships behind a release and a pin, so
 /// a model still offering one must not be punished for it.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class ContextReadingsTests : IDisposable
 {
     private const string Path = ".agentsmith/contexts/default/context.yaml";

@@ -7,6 +7,8 @@ using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Tools;
 
 /// <summary>
@@ -14,6 +16,7 @@ namespace AgentSmith.Tests.Tools;
 /// ContextYamlDocument does not model survive it. Every case runs against a REAL sandbox
 /// on a real temp directory — "left on disk" is only checkable where a disk exists.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class ContextWritePreservationTests : IDisposable
 {
     private const string Path = ".agentsmith/contexts/default/context.yaml";

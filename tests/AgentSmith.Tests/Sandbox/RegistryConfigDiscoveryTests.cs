@@ -5,6 +5,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Sandbox;
 
 /// <summary>
@@ -13,6 +15,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// is skipped without a word — so the private feed stayed unauthenticated and every
 /// build went red.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class RegistryConfigDiscoveryTests(ITestOutputHelper output)
 {
     [Fact]
