@@ -4,6 +4,8 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
 
+using AgentSmith.Tests.Architecture;
+
 namespace AgentSmith.Tests.Providers.Source;
 
 /// <summary>
@@ -13,6 +15,7 @@ namespace AgentSmith.Tests.Providers.Source;
 /// afterwards and about git's own refusal of a non-fast-forward — a mocked process
 /// could only restate the code.
 /// </summary>
+[Collection(ExternalProcessCollection.Name)]
 public sealed class LocalSourceProviderCompletePrTests : IDisposable
 {
     private const string WorkBranch = "agentsmith/init";
