@@ -40,14 +40,15 @@ public sealed class MergeMasterFindingsHandler(
 
         if (!pipeline.TryGet<string>(ContextKeys.MasterAnswer, out var answer)
             || string.IsNullOrWhiteSpace(answer))
-            return Skip($"master '{masterSkill}' produced no answer text");
+            return Degraded(pipeline, $"master '{masterSkill}' produced no answer text");
 
         // Empty-but-valid array (master triaged to nothing) vs unparseable (no usable
         // answer) collide in TryParseWithoutIds (both -> null), so detect array-ness
         // first: only a real JSON array enters the merge; anything else leaves the raw
         // scanner findings untouched (regression guard — never fewer than today).
         if (!IsJsonArray(answer))
-            return Skip($"master '{masterSkill}' answer is not a JSON array — kept raw scanner findings");
+            return Degraded(pipeline,
+                $"master '{masterSkill}' answer is not a JSON array — kept raw scanner findings");
 
         var raw = pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var existing)
             && existing is not null ? existing : [];
@@ -77,6 +78,20 @@ public sealed class MergeMasterFindingsHandler(
     {
         using var doc = tolerantParser.ParseArray(answer).Document;
         return doc is not null && doc.RootElement.ValueKind == JsonValueKind.Array;
+    }
+
+    /// <summary>
+    /// 2026-08-30-03e4: the master ran under the observation schema and owed a triage, and
+    /// what came back could not be read — so the delivered set is raw scanner output. The
+    /// reason is recorded on the run because nothing downstream can tell this apart from a
+    /// thorough scan: three identical runs delivered 25, 26 and 37 findings and the
+    /// untriaged one looked like the thorough one. The two branches where no triage was
+    /// ever owed (no master ran; the master is not an observation master) stay a plain Skip.
+    /// </summary>
+    private Task<CommandResult> Degraded(PipelineContext pipeline, string reason)
+    {
+        pipeline.Set(ContextKeys.ScanTriageDegraded, reason);
+        return Skip(reason);
     }
 
     private Task<CommandResult> Skip(string reason)

@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-3c12
+
+decisions:
+  - category: Architecture
+    chose: "The fan-out is the feasibility: one sub-agent per entry group, capped at 5, and the cap is enforced where the answers land"
+    over: "The scan master answering all of it in its own loop"
+    alternatives:
+      - "Raising the scan master's iteration ceiling — explicitly out of scope, and it would confound the first measurement of whether the fan-out suffices"
+      - "A cap in AgentConfig — the file sits at exactly 120 lines, and a knob nobody has asked to turn is a second thing to keep true"
+    reason: |
+      A scan master is EXEMPTED from MaxMasterLoopIterations (AgenticMasterHandler passes a null
+      ceiling for it) and falls through to the per-request MaxIterationsPerRequest of 25, with no
+      budget fence either. The lens selects 71 entries across the six stations, so one entry group is
+      already 71 answers and five groups are 355 — an order of magnitude past that ceiling. Sub-agents
+      are the only surface with the capacity: scan masters DO get spawn_agents (MaxSubAgentsPerRun 20,
+      MaxSubAgentLoopIterations 100) and children share the master's FilesystemToolHost, so a child's
+      reads land in the same read set the citation check settles against. The cap lives on
+      RequirementAnswerLog: it refuses a new group beyond the fifth where the model can still see the
+      refusal, and the accountant re-applies it over the entry map's group order so the report is the
+      same whatever order the answers arrived in.
+
+  - category: Architecture
+    chose: "Not attempted is a group with no rows at all, distinct from cannot-answer and from unanswered"
+    over: "One 'not covered' bucket"
+    alternatives:
+      - "Leaving a group beyond the cap out of the account — a scan that answered one group of nine would read as complete"
+    reason: |
+      Three different facts. NOT ATTEMPTED is a BUDGET fact about the run — nothing here was checked,
+      and the row carries no verdict about the code. CANNOT ANSWER is a KNOWLEDGE fact that names the
+      input the scan lacked, which is a complete and useful answer. UNANSWERED is silence, and it
+      includes the case that matters most: an answer whose citation resolved against nothing. Collapse
+      any two and a small run reads as a thorough one, which is the failure mode this whole track was
+      opened against.
+
+  - category: Architecture
+    chose: "An answer counts only when its citation lands in the run's own read set, by ReadPathNormalizer.WasRead"
+    over: "SourceCitationResolver, which re-reads the cited file from the sandbox"
+    alternatives:
+      - "Trusting the model's file+line as stated — the form-filling failure the entry map was built against"
+    reason: |
+      The file NEXT DOOR is perfectly readable from the sandbox after the run, so a resolver that
+      re-reads it would bless exactly the miss this track exists to catch. What has to be asserted is
+      that the scan READ it. WasRead is also the rule that decides whether a finding may call itself
+      analyzed_from_source and the rule 2026-08-30-18e3 settles a station location with, so a located
+      station, a delivered finding and a counted answer cannot come to disagree about what "cited"
+      means.
+
+  - category: Architecture
+    chose: "A group-wide claim is a scope of its own and is settled against every member it names"
+    over: "Treating it as a member claim with no line, or passing it on a path match"
+    alternatives:
+      - "Requiring at least one resolving member — a claim citing five members, four of them fabricated, would still pass"
+    reason: |
+      "No entry point is anonymous" has no start line. Under a line-anchored rule it is permanently
+      unresolvable; under a path-match rule it passes the moment any file was read, which would make
+      the strongest claim a scan can make the cheapest one in the report to fabricate. So it declares
+      scope=group, cites the members it generalises over, and every one of them must be in the read
+      set — the strongest claim pays the strictest price. A claim citing no member is not counted,
+      which Requirements_AGroupWideClaimCitingNoMembers_IsNotCountedAsAnswered pins.
+
+  - category: Architecture
+    chose: "Write operations are enumerated as rows of their own; the read axis stays the denominator"
+    over: "Requiring both axes for every entry, or folding both into one verdict per station"
+    alternatives:
+      - "A separate 'enumerate the writes' tool call — a second carrier for a fact the answer already carries"
+    reason: |
+      A reviewer who follows only the read path never sees the state-changing action on another
+      actor's object, and the sharpest signal a scan can produce is the asymmetry: the same resource
+      scoped on read and unscoped on write. One verdict per station averages that away. Requiring both
+      axes for all 71 entries of every group would double a denominator that is already at the edge of
+      what one worker can answer and would report every group as half-empty, so writes are answered
+      where the group has them — and a group that enumerated none says so in the report rather than
+      reading as complete. The asymmetry itself is a finding of its own kind.
+
+  - category: Architecture
+    chose: "The account never reaches RunAccountLedger — it is rendered and raises Info findings only"
+    over: "Routing unmet or undecidable rows into the ledger RunDeliveryGate reads"
+    alternatives:
+      - "Blocking findings for unmet entries — an outstanding row fails the run"
+    reason: |
+      Same rule the entry map ships under. An entry undecidable for want of an input the scan was
+      never given is outstanding forever, and gating on it would fail every scan of every repository
+      that ships without a threat model or an ownership model. The delivery gate keeps judging the run
+      on the ratified scan contract alone. The findings ship at Info and never block for the second
+      reason too: three identical runs of one repository once delivered 25, 26 and 37 findings and the
+      untriaged run looked like the best of them, so a statement about what the SCAN covered stays out
+      of the tally a reader reads as vulnerabilities. An entry's LEVEL is the standard's own and is
+      never re-scored into a severity — that is the phase's stated out-of-scope.
+
+  - category: Architecture
+    chose: "The model answers entries it is handed: list_station_requirements hands them over and the recorder refuses an id nobody selected"
+    over: "Letting the model name the requirements it is answering"
+    alternatives:
+      - "Rendering all 71 entries into the master prompt — six stations of text on every scan, and children would still have to be told"
+    reason: |
+      Selection is the lens table and the station map, both outside the model — that is what makes the
+      denominator external and comparable between runs. A model asked which requirements apply answers
+      from memory, and the denominator becomes whatever it happened to recall. The refusal is at
+      record time rather than in the account, so the worker can still fix it, and it names the tool to
+      call.
+
+  - category: Architecture
+    chose: "The answers travel as their own tool calls, one entry per call, on the pattern 2026-08-30-18e3 set"
+    over: "A wrapper object around the master's final answer, or a second field beside the array"
+    alternatives:
+      - "One call per station carrying twelve verdicts — a single correction re-emits eleven answers that were already right"
+    reason: |
+      observation.schema.json is "type": "array", MergeMasterFindingsHandler checks array-ness FIRST
+      and falls to its degraded branch on anything else, and the skill says everything outside the
+      array is discarded. A wrapper object would reproduce the untriaged branch this batch exists to
+      stop. Requirements_TheFindingsArray_IsUnchanged pins the schema. The payload is bounded per
+      call: one entry, free text clipped at 300 characters, and at most 12 cited members.
+
+  - category: Refactoring
+    chose: "MasterToolComposer extracted from AgenticMasterHandler, and the tool-surface registrations with it"
+    over: "Adding the two requirement tools to the handler in place"
+    alternatives:
+      - "Extending ScanStationToolFactory to yield the requirement tools too — one factory, two unrelated reasons to change"
+    reason: |
+      AgenticMasterHandler sits at its FileLengthRatchetTests baseline of 922 lines, so growth had to
+      be paid for with a real extraction rather than a raised baseline. The extraction is the right one
+      anyway: the handler's one reason to change is the master PASS — driving it, re-driving it,
+      publishing what it produced — while WHICH TOOLS that pass is given is a second reason, and it is
+      the one that keeps changing (p0280, p0331, p0341, p0380, 18e3, this phase). Eight constructor
+      dependencies moved with it and the handler dropped to 866 lines. ToolRegistrations does the same
+      for the composition root so PipelineHandlersExtensions did not grow either.
+
+  - category: Testing
+    chose: "The tests build the REAL AsvsVerificationLens and read their requirement ids out of it"
+    over: "A stub lens with invented ids"
+    alternatives:
+      - "Hard-coding requirement ids from the checked-in export — a lens re-classification would silently make the test assert nothing"
+    reason: |
+      The denominator these rules are about IS the shipped lens table over the checked-in standard. A
+      stub would test the plumbing and not the thing, and the entries a scan master is handed in a test
+      would stop being the entries the shipped binary hands it. MasterHandlerFixture builds the same
+      lens for the same reason.

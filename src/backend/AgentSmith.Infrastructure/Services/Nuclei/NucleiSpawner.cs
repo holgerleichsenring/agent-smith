@@ -35,29 +35,12 @@ public sealed class NucleiSpawner(
             ["targets.txt"] = string.Join("\n", endpointUrls),
         };
 
-        var arguments = new List<string>
-        {
-            "-list", "{work}/targets.txt",
-            "-jsonl",
-            "-output", "{work}/results.jsonl",
-            "-severity", config.Severity,
-            "-tags", config.Tags,
-            "-exclude-tags", config.ExcludeTags,
-            "-follow-redirects",
-            "-no-interactsh",
-            "-timeout", config.Timeout.ToString(),
-            "-retries", config.Retries.ToString(),
-            "-no-mhe",
-            "-concurrency", config.Concurrency.ToString(),
-            "-rate-limit", config.RateLimit.ToString(),
-        };
-
         var extraHosts = isLocal
             ? new Dictionary<string, string> { [dockerHostname] = "host-gateway" }
             : null;
 
         var request = new ToolRunRequest(
-            "nuclei", arguments, inputFiles,
+            "nuclei", NucleiArgumentBuilder.BuildArguments(config), inputFiles,
             OutputFileName: "results.jsonl",
             ExtraHosts: extraHosts,
             TimeoutSeconds: config.ContainerTimeout);
@@ -67,16 +50,26 @@ public sealed class NucleiSpawner(
         var output = result.OutputFileContent ?? result.Stdout;
         var findings = NucleiFindingReader.ParseJsonLines(output);
 
-        logger.LogInformation(
-            "Nuclei scan completed: {Count} findings in {Duration}s",
-            findings.Count, result.DurationSeconds);
-
         if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
             logger.LogWarning("Nuclei stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
 
-        return new NucleiResult(
-            findings, result.DurationSeconds, result.Stdout,
-            Degraded: degradedReason is not null, DegradedReason: degradedReason);
+        var scan = NucleiScanOutcome.From(result, findings, degradedReason, config.ContainerTimeout);
+        LogOutcome(scan, result);
+        return scan;
+    }
+
+    /// <summary>
+    /// 2026-08-30-26ed: a scan the runner cut off is not a scan that completed, and the
+    /// log said "completed" for both — beside the very timeout that had produced the count.
+    /// </summary>
+    private void LogOutcome(NucleiResult scan, ToolResult result)
+    {
+        if (result.CutOff)
+            logger.LogWarning("Nuclei scan {Reason}: {Count} findings from the part it reached",
+                scan.DegradedReason, scan.Findings.Count);
+        else
+            logger.LogInformation("Nuclei scan completed: {Count} findings in {Duration}s",
+                scan.Findings.Count, scan.DurationSeconds);
     }
 
     internal static List<string> BuildEndpointUrls(

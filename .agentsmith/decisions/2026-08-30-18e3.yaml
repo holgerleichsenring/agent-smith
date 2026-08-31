@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-18e3
+
+decisions:
+  - category: Architecture
+    chose: "The map travels as its own tool call — record_entry_station, one call per station per entry group"
+    over: "A wrapper object around the master's final answer, or a second field beside the array"
+    alternatives:
+      - "A findings-map file the master writes into the sandbox — a scan surface must not write, and nothing would check it"
+      - "One call per GROUP carrying all six stations — 18 parameters, and a single correction re-emits the group"
+    reason: |
+      The master's final answer is a CLOSED contract. observation.schema.json is "type": "array",
+      MergeMasterFindingsHandler checks array-ness FIRST and falls to its degraded branch on anything
+      else, and the skill says everything outside the array is discarded. A wrapper object would
+      therefore have reproduced exactly the failure this batch exists to stop — the untriaged branch
+      that delivered 25, 26 and 37 findings from three identical runs of one repository. The array,
+      its schema and its parser are untouched, which Stations_TheObservationArrayContract_IsUnchanged
+      pins. One call per station also lets a group be stated a piece at a time and one row corrected
+      without re-emitting the rest. The claims accumulate in a StationClaimLog held on the
+      PipelineContext rather than in the host, because the master and every sub-agent it fans out to
+      get their own host instance over the same run — a worker that mapped one group has to reach the
+      same map.
+
+  - category: Architecture
+    chose: "A station is located only when it cites a file the run READ, by ReadPathNormalizer.WasRead, with a line > 0"
+    over: "Free text, or the model's own located/not-located flag"
+    alternatives:
+      - "SourceCitationResolver re-reading the file from the sandbox — the file next door IS readable, so it would have blessed the live miss"
+      - "CitedFileIndex.Contains over the read set — same question, but its matching is tuned for diff paths quoted inside prose"
+    reason: |
+      Free text makes this a form the model fills plausibly; a location that must land in the
+      evidence the scan actually holds makes it a method. WasRead is the rule that already decides
+      whether a FINDING may call itself analyzed_from_source (SourceAnchorValidator), so a located
+      station and a delivered finding are settled by one rule and cannot come to disagree about what
+      "cited" means — the spec's own requirement that an answer resolve the way a finding resolves.
+      It is also the only candidate that catches the live miss, because the middleware file next door
+      is perfectly readable from the sandbox.
+
+  - category: Architecture
+    chose: "The map reports and never gates — it is rendered and raises findings, but never reaches RunAccountLedger"
+    over: "A ScanContract criterion or an AccountRow per station, judged by RunDeliveryGate"
+    reason: |
+      A station unlocatable for want of an input the scan was never given is outstanding FOREVER by
+      construction. Routing those rows into the ledger would fail every scan of every repository
+      without a client or an ownership model. Stations_AnUnlocatedStation_DoesNotFailTheDeliveryGate
+      pins it: a missing station plus a satisfied contract still delivers.
+
+  - category: TradeOff
+    chose: "An unlocated station ships as an Info, non-blocking observation in category 'coverage'"
+    over: "Medium or High severity"
+    alternatives:
+      - "A banner like ScanTriageNotice and no finding at all — that is the silence this phase exists to end"
+    reason: |
+      It has to BE a finding: "this system has no scope station" is the answer, and silence is what we
+      have today. But it is a statement about the SCAN, not a vulnerability, and 2026-08-30-03e4 exists
+      because an inflated count reads as the thorough result. Info keeps it out of the Critical/High
+      tally that SpawnFix and the security trend read while the row is still delivered and named;
+      non-blocking is what stops coverage from turning into a failed run.
+
+  - category: Scope
+    chose: "Only the security master is asked for a map — the tool factory and the preset step are both keyed to it"
+    over: "Keying on the observation output_schema, the way isScanMaster is decided"
+    reason: |
+      Three masters declare that schema and share the Review surface, so the schema cannot be the key
+      here. api-security-scan runs TryCheckoutSource fail-soft and frequently holds no source at all,
+      which makes a located station a question it often cannot be asked; pr-review is shown a diff
+      rather than a system. AgenticToolSurface.Review is untouched, so what those two get is literally
+      the same object it was.
+
+  - category: Implementation
+    chose: "Every group states all six stations, whether or not the master claimed them"
+    over: "Emitting only the stations the master claimed"
+    reason: |
+      The row nobody filled is the whole point. A map listing five stations and omitting the sixth is
+      indistinguishable from a five-station system unless the sixth row exists and says "the map never
+      states this station".
+
+  - category: Implementation
+    chose: "VerificationStation, the enum 2026-08-30-0ea8 shipped, is the station list"
+    over: "A second enum or a string vocabulary owned by this phase"
+    reason: |
+      0ea8 already keys the ingested verification standard onto those six stations. A second list
+      would let the map and the standard drift, and the successor that hangs the standard's questions
+      on this map needs them to be the same six.
+
+  - category: Scope
+    chose: "The catalog change ships as a branch and PR; the embedded pin is untouched and the phase stays active"
+    over: "Writing a pin for an unreleased version, or hand-vendoring the edited SKILL.md into the tarball"
+    reason: |
+      A pin needs a release, a release needs the operator to merge and cut it, and a pin naming a
+      version that does not exist is a build that fails or — worse — a digest nobody checked. Nothing
+      in this repository claims the phase is done until that lands.
+
+  - category: Tooling
+    chose: "docs/assets/control-flow.svg regenerated from the presets"
+    over: "Leaving it stale and relaxing the test"
+    reason: |
+      The committed diagram is only trustworthy because ControlFlowDiagramTests fails on any
+      difference. A new preset step redraws it.

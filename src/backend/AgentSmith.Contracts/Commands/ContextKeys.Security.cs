@@ -34,6 +34,13 @@ public static partial class ContextKeys
     /// each to a fresh instance asked to refute it against the real code.</summary>
     public const string UnvouchedFindings = "UnvouchedFindings";
 
+    /// <summary>2026-08-30-03e4: why this scan's triage did not happen. Set by
+    /// MergeMasterFindingsHandler when the scan master ran under the observation schema
+    /// and produced nothing the merge could read, so raw scanner findings were delivered
+    /// untriaged. ABSENT on a healthy run — its presence is the whole signal: the coverage
+    /// account refuses the triage criterion and the delivered artefact carries the mark.</summary>
+    public const string ScanTriageDegraded = "ScanTriageDegraded";
+
     /// <summary>p0429: the ScanContract ratified before the first scanner runs — what
     /// this scan states it is looking for. Read by AcceptanceCriteria as the run's
     /// contract and accounted for against the execution trail after delivery.</summary>

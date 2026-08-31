@@ -31,7 +31,8 @@ public sealed class ConfigCatalogResolver(
     private readonly TrackerCatalogBuilder _trackers = new();
     private readonly ConnectionCatalogBuilder _connections = new();
     private readonly ResolvedConfigComposer _composer = new();
-    private readonly ResolvedProjectBuilder _projects = new(urlBuilder ?? new ConnectionRepoUrlBuilder());
+    private readonly ResolvedProjectBuilder _projects =
+        new(new ProjectRepoResolver(urlBuilder ?? new ConnectionRepoUrlBuilder()));
 
     /// <summary>
     /// What the LAST <see cref="Resolve"/> call could not materialize. The server reads
