@@ -66,7 +66,7 @@ export default function ConfigPage({ params }: PageProps) {
 // parity page scope, so this phase changed where they live and nothing they show.
 function DiagnosticPage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mock-shell mock-system" data-testid="diagnostic-page">
+    <div className="mock-shell mock-system mock-diagnostic" data-testid="diagnostic-page">
       <main className="main">{children}</main>
     </div>
   );
