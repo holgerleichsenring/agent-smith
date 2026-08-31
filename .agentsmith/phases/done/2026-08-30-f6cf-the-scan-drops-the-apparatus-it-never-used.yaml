@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-f6cf
+
+goal: "The catalogue, the three master tools and their two accounting steps are removed, because three live runs against the shipped instruction called none of them."
+
+applies_to: "backend (the verification catalogue, the scan master's added tools and steps) + skills catalog (the sections instructing them) — a two-repo change that cannot land atomically"
+
+requires:
+  - 2026-08-30-03e1
+
+scope:
+  in: >
+    Removed: the checked-in standard and its lens, the station tool, the requirement lookup and the
+    cited-finding tool, the two accounting steps and their entries in the presets and the five command
+    metadata maps, the composer wiring, and the master-skill sections that instruct any of it. Kept
+    whole: the degraded-triage reporting and the cut-off reporting, which are independent of prompts
+    and tools and are both live-confirmed. Kept in prose: nothing of the removed machinery is left
+    half-wired — a step whose tool is gone would be a worse state than either end.
+  out: >
+    THE IDEA. Walking a request from admission to effect WORKS: handed the same text with no tools,
+    no output contract and no turn cap, a plain agent grouped the entry points, walked one group,
+    cited real locations, reached the identity-resolution site and found three defects the pipeline
+    missed. What is removed is the apparatus, not the instruction — a successor rebuilds it in the
+    shape the field actually ships, and a prompt bench measures each candidate before any of it is
+    built. REVISITING THE HONESTY PHASES: they stay.
+
+decisions:
+  - key: "Three runs against the pinned catalogue, with the master explicitly instructed and the tool schemas in its prompt, produced 54 ReadFile calls and zero calls to any of the three new tools. Machinery nothing invokes is not a feature waiting for tuning."
+  - key: "The likely mechanism is documented and structural, not a tuning matter: no shipping reviewer combines tool use with a strict final-output schema, and where that combination is measured, tool invocation collapses while schema compliance holds. Our design occupied that cell."
+  - key: "The skill sections go with the tools in the same change. A shipped master instructing a tool the backend no longer offers is strictly worse than either state, and the catalogue release is what makes the instruction real."
+  - key: "The honesty phases are untouched because they answer a different question. A scanner that reports a cut-off, and a run that says its triage was lost, need no prompt, no tool and no model — they are facts the framework already holds."
+  - key: "The skill itself was never the weight. Its text is 7.6k characters against a 52k assembled prompt that reaches 109k by the sixth call; the mass is scanner output, injected context and tool schemas. A successor measures that before it edits any instruction."
+
+steps:
+  - id: the-tools-and-their-steps-are-removed
+    action: "The station, requirement-lookup and cited-finding tools, the two accounting steps, their preset and metadata entries and the composer wiring are deleted."
+  - id: the-standard-and-its-lens-are-removed
+    action: "The checked-in verification catalogue, its lens, its attribution and its build validation are deleted."
+  - id: the-master-stops-instructing-them
+    action: "The master-skill sections that instruct the removed tools are withdrawn and released, and the embedded pin moves to that release."
+  - id: nothing-honest-is-lost
+    action: "The degraded-triage and cut-off reporting keep behaving exactly as they do now."
+
+tests:
+  - "Rollback_TheScanPresets_HoldNoRemovedStep"
+  - "Rollback_TheMasterToolSurface_OffersNoRemovedTool"
+  - "Rollback_ADegradedTriage_StillReportsItself"
+  - "Rollback_ACutOffDynamicStep_StillReportsItself"
+  - "Rollback_AHealthyScan_BehavesAsBeforeTheBatch"
+
+done:
+  - "no scan step, tool or catalogue from the removed batch remains, and no master instructs one"
+  - "the two honesty phases behave exactly as they did"
+  - "the pin names a release whose master matches the backend"
+  - "build green, full suite green"

@@ -23,6 +23,7 @@ public static partial class PipelinePresets
         CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
         CommandNames.LoadMemoryIndex, // p0380: recalled dismissals must be visible to the scan master
         CommandNames.LoadSwagger,
+        CommandNames.AccountSurfaceDifference, // 2026-08-30-c6ec: what the served interface offers that no client exercises
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,

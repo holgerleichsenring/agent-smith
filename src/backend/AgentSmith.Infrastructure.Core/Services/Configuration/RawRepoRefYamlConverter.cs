@@ -13,6 +13,7 @@ public sealed class RawRepoRefYamlConverter : IYamlTypeConverter
 {
     private const string RepoKey = "repo";
     private const string DefaultBranchKey = "default_branch";
+    private const string ConsumesKey = "consumes";
 
     public bool Accepts(Type type) => type == typeof(RawRepoRef);
 
@@ -32,18 +33,20 @@ public sealed class RawRepoRefYamlConverter : IYamlTypeConverter
         parser.Consume<MappingStart>();
         string? repo = null;
         string? defaultBranch = null;
+        string? consumes = null;
         while (parser.Current is not MappingEnd)
         {
             var key = parser.Consume<Scalar>().Value;
             var value = parser.Consume<Scalar>().Value;
             if (string.Equals(key, RepoKey, StringComparison.OrdinalIgnoreCase)) repo = value;
             else if (string.Equals(key, DefaultBranchKey, StringComparison.OrdinalIgnoreCase)) defaultBranch = value;
+            else if (string.Equals(key, ConsumesKey, StringComparison.OrdinalIgnoreCase)) consumes = value;
         }
         parser.Consume<MappingEnd>();
 
         if (string.IsNullOrEmpty(repo))
             throw new YamlException("A repos[] mapping entry must set 'repo'.");
-        return new RawRepoRef(repo, defaultBranch);
+        return new RawRepoRef(repo, defaultBranch, consumes);
     }
 
     public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer)

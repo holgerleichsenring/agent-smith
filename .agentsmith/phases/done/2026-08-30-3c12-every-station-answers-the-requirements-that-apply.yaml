@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-3c12
+
+goal: "One sub-agent per entry group answers the requirements the lens selects for its stations, citing a requirement id and a place, or naming the input it lacked."
+
+applies_to: "backend (fan-out, the answer shape, its citation, the account) + skills catalog (the group agent's brief) — a two-repo change that cannot land atomically"
+
+requires:
+  - 2026-08-30-0ea8
+  - 2026-08-30-18e3
+
+# STRUCK BY 2026-08-30-03e1. The enumeration half of this phase never shipped: the skills
+# pin was never moved, so no run was ever handed a station's entries and no run ever owed an
+# answer per entry. Its citation settling, its per-group cap and its NOT ATTEMPTED
+# disposition were carried over; the hand-out tool, the answered-of-total denominator, the
+# unanswered row state, the read-versus-write axis and the asymmetry finding were removed.
+superseded_by: 2026-08-30-03e1
+
+scope:
+  in: >
+    The run fans out one sub-agent per entry group, which is where the capacity is — the scan master
+    itself runs on a per-request iteration ceiling far below what this asks, and children share the
+    master's file-read set so their evidence aggregates; the lens hands each child the entries that
+    apply to its stations; each is answered met, unmet or cannot-answer; a per-member answer carries a
+    requirement id, the catalogue version and a location that resolves, a claim ABOUT A WHOLE GROUP is a distinct disposition
+    that cites the members it generalises over; cannot-answer names the missing input; groups beyond
+    the run's declared cap are recorded NOT ATTEMPTED, which is not the same as undecidable; the write
+    operations of a group are enumerated apart from its reads; the answers travel on their own carrier
+    with a bounded payload, never inside the findings array; the catalogue release and the pin.
+  out: >
+    RAISING THE SCAN MASTER'S OWN ITERATION CEILING — the fan-out is the answer to volume, and moving
+    the ceiling as well would confound the first measurement of whether the fan-out suffices. THE TWO
+    CASES NO STANDARD CARRIES are 2026-08-30-c6ec. COMPARING TWO RUNS: entry groups are the master's
+    judgement, so the denominator moves with them; the agreement-measurement phase named in
+    2026-08-30-03e4 lands first or the count is read within a run only. SEVERITY: an entry's level
+    comes from the standard and is not re-scored.
+
+decisions:
+  - key: "Write operations are enumerated apart from reads. A reviewer who follows only the read path never sees state-changing actions on another actor's object, and the sharpest signal is asymmetry — the same resource scoped on read and unscoped on write."
+  - key: "The fan-out is not an optimisation, it is the feasibility. A scan master is exempted from the configured master ceiling and falls to the per-request one; the work here is hundreds of answers. Sub-agents are the only surface with the capacity, and because children write into the same read set, a child's evidence counts for the citation."
+  - key: "Routing model-authored answers through the citation resolver is NEW wiring. Today the substantiation path consumes only what the master's silence promoted from the scanners, on the stated ground that a master reading code is its author. This phase builds the check it needs; it does not inherit one."
+  - key: "A universal claim is not a line, so it gets its own disposition. 'No entry point is anonymous' has no start line; under a line-anchored resolver it is unresolvable and under a path-match one it passes as soon as any file was read — which would make the strongest claim the cheapest to fabricate. It cites the members it generalises over, or it is not counted."
+  - key: "Not attempted is not cannot-answer. A group the run never reached is a budget fact; an entry the scan could not decide is a knowledge fact naming what it needed. Collapsing them would let a small run look thorough."
+  - key: "The model answers entries it is handed; it does not choose them. Selection is the lens table and the station map, both outside the model — that is what makes the denominator external."
+
+steps:
+  - id: a-child-answers-one-entry-group
+    action: "The run fans out one sub-agent per entry group up to a declared cap; groups beyond it are recorded as not attempted."
+  - id: the-lens-hands-each-child-its-entries
+    action: "STRUCK (2026-08-30-03e1, never shipped): the catalogue answers a lookup when the scan has something to report; nothing is handed out."
+  - id: an-answer-cites-a-requirement-and-a-place
+    action: "Per-member answers carry a requirement id and a resolving location; a group-wide claim cites the members it covers; one that resolves against nothing is not counted as answered."
+  - id: cannot-answer-names-the-missing-input
+    action: "An entry the scan cannot decide is recorded with the input it would have needed."
+  - id: writes-are-counted-apart-from-reads
+    action: "STRUCK (2026-08-30-03e1, never shipped): the read/write axis needed a recorded met read row, which lookup-on-demand never files. A successor re-derives asymmetry from the station map."
+  - id: the-answers-travel-on-a-bounded-carrier
+    action: "Answers are emitted on their own carrier with a bounded payload per call, leaving the findings array untouched."
+  - id: the-pin-carries-it-here
+    action: "STRUCK (2026-08-30-03e1): withdrawn before it could ship a master calling a tool that no longer exists. 03e1 carries the pin."
+
+tests:
+  - "STRUCK -> Citation_ACitedFinding_BecomesAFindingCarryingItsRequirementId"
+  - "STRUCK -> Citation_AFindingCitingNothingThatWasRead_IsNotCountedAsLocated"
+  - "STRUCK -> Citation_AGroupWideFindingCitingNoMembers_IsNotCountedAsLocated"
+  - "STRUCK (never shipped): cannot-answer was a row of the enumeration"
+  - "STRUCK -> Citation_AGroupBeyondTheCap_IsRecordedNotAttempted"
+  - "STRUCK (never shipped): unreachable without a recorded met read row"
+  - "STRUCK -> Citation_CitedFindings_NeverEnterTheRunAccounts"
+  - "STRUCK -> Citation_TheFindingsArray_IsUnchanged"
+
+done:
+  - "STRUCK (never shipped) -> a scan reports, per station, whether it was examined and what it cited there"
+  - "STRUCK (never shipped): no successor until asymmetry is re-derived from the station map"
+  - "held: no requirement citation reaches the ledger the delivery gate reads"
+  - "STRUCK: the pin moves with 2026-08-30-03e1"
+  - "build green, full suite green"
