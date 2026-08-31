@@ -1,9 +1,4 @@
-import {
-  InMemoryWebStorage,
-  UserManager,
-  WebStorageStateStore,
-  type UserManagerSettings,
-} from "oidc-client-ts";
+import { UserManager, WebStorageStateStore, type UserManagerSettings } from "oidc-client-ts";
 import type { RuntimeAuthSettings } from "@/lib/runtimeSettings/runtimeSettings";
 
 // 2026-08-25-2de1: authorization code with PKCE against whatever authority the
@@ -44,10 +39,14 @@ export function authoritySettings(auth: RuntimeAuthSettings, origin: string): Us
     post_logout_redirect_uri: new URL("/", origin).toString(),
     response_type: "code",
     scope: auth.scopes.trim() || MINIMUM_SCOPE,
-    // The token lives in memory and dies with the tab. The library's own default
-    // here is session storage, which anything achieving script execution in the
-    // page can read.
-    userStore: new WebStorageStateStore({ store: new InMemoryWebStorage() }),
+    // 2026-08-28-0f46: the session is held where a reload finds it, which is the
+    // whole of what a reload used to cost. 2026-08-25-2de1 held it in memory and
+    // paid for a reload with a silent re-ask that this phase proves never
+    // arrives; the honest reading of session storage is not "never shared" —
+    // a duplicated tab copies it — but "dropped when the tab closes, and never
+    // written to a disk that outlives it", which local storage is not. What
+    // retires the exposure is custody moved to the server, a phase of its own.
+    userStore: new WebStorageStateStore({ store: window.sessionStorage }),
     // The PKCE verifier and the anti-forgery state are the one thing memory cannot
     // hold: they have to survive the navigation to the authority and back. Neither
     // is a credential and both are worthless without the authorization code they

@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-30-03e1
+
+goal: "The catalogue becomes what a finding cites rather than an agenda the scan walks, and a finding no standard covers still reaches the reader."
+
+applies_to: "backend (the requirement tools, the accountant, the report) + skills catalog (the master cites rather than enumerates) — supersedes the enumeration half of 2026-08-30-3c12, which has not shipped"
+
+requires:
+  - 2026-08-30-3c12
+
+scope:
+  in: >
+    The bulk hand-out goes: no station is given its entries up front and no run owes an answer per
+    entry. In its place a lookup the master calls when it has something to report, resolving against
+    the FULL level-floor set the lens classifies for that station — the twelve-per-station cap was a
+    budget device for enumeration and dies with it, or it becomes a censor that refuses a real finding
+    against the thirteenth-ranked entry. A finding from the station work carries a requirement id and
+    a location that resolves. A FINDING NO ENTRY COVERS IS DELIVERED UNCHANGED ON THE ORDINARY
+    OBSERVATION PATH — three of the five findings this phase exists for are of exactly that kind, and
+    a rule that dropped them would suppress its own purpose. The report states, per station, whether
+    it was examined — meaning its own located citation stands and the read set holds files beneath it
+    — what it yielded, and what could not be decided with the input it lacked. This phase carries the
+    catalog release and the embedded pin, and withdraws 3c12's outstanding pin step and the
+    enumeration half of its unreleased master before either can ship.
+  out: >
+    THE STATION MAP (2026-08-30-18e3) is untouched: it stays the instrument and it already supplies
+    the external denominator — six stations per group, each owed a citation that resolves — so nothing
+    here lets a run examine the easy three and look thorough. THE CHECKED-IN STANDARD AND ITS
+    CLASSIFICATION (2026-08-30-0ea8) are untouched; only the selection bound and the direction of use
+    change. THE READ-VERSUS-WRITE ASYMMETRY FINDING that 3c12 called its sharpest signal cannot
+    survive lookup-on-demand, because it requires a recorded met row on the read side that nobody will
+    file — a successor phase re-derives asymmetry from the station map's own read and write entries
+    instead of from answered rows. MEASURING WHETHER THE INVERSION FINDS MORE needs the run-to-run
+    agreement phase named in 2026-08-30-03e4 first; one comparison proves nothing.
+
+decisions:
+  - key: "A verification standard answers 'did you check this', not 'what is wrong here'. Measured against five findings a reviewer made on one repository, it covered two squarely and missed three that a checklist structurally cannot reach — see notes/2026-08-30-catalogue-direction-measurement.md."
+  - key: "Enumeration displaces investigation, and the evidence is a live re-run: with the machinery present but unpinned, six scans of that repository produced ZERO of the reviewer's five, while the base prompt grew by three quarters. The lens selects 71 entries across the six stations, 355 answers at the five-group cap — paid out of the budget the investigation needs."
+  - key: "The citation was the valuable half and survives whole. Grounding a claim in a named clause is what separates a report from an opinion; inverting the direction keeps it and drops only the agenda."
+  - key: "The selection bound must die with the thing it paid for. Twelve per station was a way to keep enumeration answerable; once nothing is enumerated it only refuses real findings, and it would silence most of the entries classified for the busiest stations."
+  - key: "3c12's supersession is a STEP, not a note. Its pin is still outstanding and its unreleased master still instructs the withdrawn tool, so the two must be retired in the same change or a release will ship a master calling something that no longer exists."
+  - key: "What 3c12 leaves behind is smaller than the earlier draft claimed: the citation settling, the per-group cap and the not-attempted disposition survive; the hand-out tool, the answered-versus-total denominator, its unanswered row state and the report header built on it do not."
+
+steps:
+  - id: the-bulk-hand-out-is-removed
+    action: "The tool that hands a station its entries is withdrawn together with the answer-per-entry accounting and the denominator built on it."
+  - id: the-catalogue-answers-a-lookup
+    action: "A lookup returns the level-floor entries the lens classifies for a station, unbounded by the retired enumeration cap, called when the master has something to report."
+  - id: a-cited-finding-carries-its-place
+    action: "A finding from the station work carries a requirement id and a location that resolves against what was read."
+  - id: an-uncovered-finding-still-reaches-the-reader
+    action: "A finding no entry covers is delivered unchanged on the ordinary observation path."
+  - id: the-report-says-what-was-examined
+    action: "Per station the report states examined — its located citation stands and the read set holds files beneath it — with what it yielded or what it lacked."
+  - id: the-superseded-half-is-retired-and-pinned
+    action: "3c12's outstanding pin step and the enumeration half of its unreleased master are withdrawn, 3c12 moves to done with its superseded criteria struck, and the pin moves to a release carrying this master."
+
+tests:
+  - "Citation_AFindingNamingNoRequirement_IsNotDeliveredFromThisPath"
+  - "Citation_AFindingNoEntryCovers_IsStillDeliveredOnTheOrdinaryPath"
+  - "Citation_AFindingCitingNothingThatWasRead_IsNotCountedAsLocated"
+  - "Citation_TheLookup_ReturnsTheFullFloorSetNotTwelve"
+  - "Citation_AStationWithNoReadFilesBeneathIt_IsNotReportedAsExamined"
+  - "Citation_NoStationWasExamined_ReportsThatRatherThanFullCoverage"
+  - "Citation_TheStationMap_BehavesExactlyAsBefore"
+
+done:
+  - "no run is handed a list of requirements to work through"
+  - "every finding from the station work names a requirement and a place that resolves"
+  - "a finding the standard does not carry still reaches the reader"
+  - "the report says which stations were examined and what could not be decided"
+  - "3c12 is in done/ with its superseded criteria struck and no master instructs a withdrawn tool"
+  - "build green, full suite green"

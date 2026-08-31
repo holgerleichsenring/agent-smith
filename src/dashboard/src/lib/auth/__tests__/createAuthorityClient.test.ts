@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { InMemoryWebStorage } from "oidc-client-ts";
 import { authoritySettings, createAuthorityClient } from "../createAuthorityClient";
 import { DEFAULT_RUNTIME_SETTINGS } from "@/lib/runtimeSettings/runtimeSettings";
 import type { RuntimeAuthSettings } from "@/lib/runtimeSettings/runtimeSettings";
 
 // 2026-08-25-2de1: an installation that has not configured a directory must be
 // unable to attempt a sign-in at all — no client, therefore no redirect. These
-// cases also pin the settings the client is built with, because "in memory only"
-// is a configuration choice and a default would quietly undo it.
+// cases also pin the settings the client is built with, because where the
+// session is held is a configuration choice and a default would quietly undo it.
 
 const ORIGIN = "http://localhost:3000";
 
@@ -44,12 +43,18 @@ describe("authoritySettings", () => {
     expect(authoritySettings(auth(), ORIGIN).response_type).toBe("code");
   });
 
-  it("Settings_AnyAuthority_KeepTheTokenOutOfWebStorage", () => {
+  // 2026-08-28-0f46 RETIRES Settings_AnyAuthority_KeepTheTokenOutOfWebStorage,
+  // which pinned an in-memory user store. That store made every reload a silent
+  // re-ask, and the silent return it re-asked through could never complete. The
+  // session is held where a reload finds it and nowhere a reload does not: a
+  // store that survives the tab is a different choice with a different cost.
+  it("Settings_AnyAuthority_HoldTheSessionWhereAReloadFindsIt", () => {
     const store = authoritySettings(auth(), ORIGIN).userStore as unknown as {
       _store: unknown;
     };
 
-    expect(store._store).toBeInstanceOf(InMemoryWebStorage);
+    expect(store._store).toBe(window.sessionStorage);
+    expect(store._store).not.toBe(window.localStorage);
   });
 
   it("Settings_AnyAuthority_RenewalIsTheStoresJobNotTheLibrarys", () => {

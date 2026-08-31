@@ -31,9 +31,16 @@ public sealed record ToolRunRequest(
     int TimeoutSeconds = 300,
     string? WorkDir = null);
 
+/// <summary>
+/// What a tool run left behind. <see cref="CutOff"/> is set when the runner stopped the
+/// tool at <see cref="ToolRunRequest.TimeoutSeconds"/> rather than the tool deciding it
+/// was finished — see <see cref="ContainerResult.CutOff"/> for why the runner is the
+/// only place that can say so.
+/// </summary>
 public sealed record ToolResult(
     string Stdout,
     string Stderr,
     string? OutputFileContent,
     int ExitCode,
-    int DurationSeconds);
+    int DurationSeconds,
+    bool CutOff = false);

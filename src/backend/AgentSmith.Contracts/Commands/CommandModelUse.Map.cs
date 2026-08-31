@@ -44,6 +44,10 @@ public static partial class CommandModelUse
             ModelUse.Loop, "", "the master's own declared output_schema"),
         [CommandNames.SubstantiateFindings] = new(
             ModelUse.Call, "finding refutation prompt", "per-finding: substantiated, with a quote"),
+        // 2026-08-30-c6ec: the client call sites are read by a model, not by a parser —
+        // one read-only call over the declared consumer checkouts.
+        [CommandNames.AccountSurfaceDifference] = new(
+            ModelUse.Call, "client call-site prompt", "per call site: the operation and the properties it sends and reads"),
     };
 
     // Everything else a preset can execute. Listed by name rather than assumed, so a new

@@ -192,6 +192,25 @@ source provider resolves the repo's actual default branch). The common
 case — all repos share the connection's default branch — needs no
 override at all.
 
+### Per-repo `consumes` declaration
+
+A `repos` item may also declare the served interface that repository
+CONSUMES — the name the interface's own served description (its OpenAPI
+`info.title`) carries:
+
+```yaml
+repos:
+  - acme-cloud/Service.Api                            # serves the interface
+  - { repo: acme-cloud/Storefront.Web, consumes: Orders }   # calls it
+```
+
+An api scan that holds a served description then reads the declared
+consumer checkouts for call sites and reports what the interface offers
+that no client exercises. A declared name that is not the interface the
+run holds a description of FAILS the run, because a difference computed
+over repositories the operator did not choose would read as a clean bill.
+The declaration requires an exact (wildcard-free) repo reference.
+
 ---
 
 ## Common mistakes

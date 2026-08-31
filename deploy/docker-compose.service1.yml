@@ -1,0 +1,155 @@
+# A SECOND, INDEPENDENT INSTALLATION. Run it from the repo root:
+#
+#   docker compose -f deploy/docker-compose.service1.yml up -d
+#   docker compose -f deploy/docker-compose.service1.yml --profile import run --rm import
+#   docker compose -f deploy/docker-compose.service1.yml --profile dashboard up -d dashboard
+#
+# THE EXISTING DATABASE IS NOT TOUCHED. `name:` below sets the compose project, and
+# compose prefixes every volume with it — this stack's database is
+# `agentsmith-service1_agentsmith-db`, while the one that must survive is
+# `deploy_agentsmith-db`. Different names, different volumes; nothing here can
+# write to the old one. The ports are shifted for the same reason: both stacks can
+# run at once without either having to be down.
+name: agentsmith-service1
+
+services:
+  # The config file is read at boot for its bootstrap slice; the store in the
+  # database is what the installation runs on (p0349 — no auto-seed, so the
+  # import below is a step you take, not something `up` does for you).
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      ["--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru",
+       "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1"]
+    volumes:
+      - agentsmith-redis-data:/data
+    ports:
+      - "${SERVICE1_REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # Creates the schema in this stack's own empty volume, once, then exits.
+  migrate:
+    # The database is on the HOST, published by the sqlserver container —
+    # the same route the server uses.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    build:
+      context: ..
+      dockerfile: src/backend/AgentSmith.Cli/Dockerfile
+      # 2026-08-27-729e: without these the image carries no version and the
+      # installation page can only say "not stated by this build". The publish
+      # workflow sets them; a local `compose build` has to pass them too.
+      args:
+        AGENTSMITH_RELEASE_VERSION: ${AGENTSMITH_VERSION:-0.131.4}
+        AGENTSMITH_BUILD_REVISION: 415bde7486c68f1b8626298177dce74cf8e2c186
+    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.131.4}
+    restart: "no"
+    command: ["database", "migrate", "--config", "/app/config/agentsmith.yml"]
+    env_file:
+      - ../.env
+    volumes:
+      - ../config:/app/config
+      - ../config/agentsmith.service1.k8s.yml:/app/config/agentsmith.yml
+      - agentsmith-db:/var/lib/agentsmith
+
+  # `config import` is guarded and deliberate: it reads the YAML and writes the
+  # entity documents the server then runs on. Profile-gated so `up` never runs it
+  # by accident — importing is a decision, not a side effect of starting.
+  import:
+    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.131.4}
+    profiles: [import]
+    restart: "no"
+    command: ["config", "import", "/app/config/agentsmith.yml"]
+    env_file:
+      - ../.env
+    volumes:
+      - ../config:/app/config
+      - ../config/agentsmith.service1.k8s.yml:/app/config/agentsmith.yml
+      - agentsmith-db:/var/lib/agentsmith
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  server:
+    build:
+      context: ..
+      dockerfile: src/backend/AgentSmith.Server/Dockerfile
+      # 2026-08-27-729e: without these the image carries no version and the
+      # installation page can only say "not stated by this build". The publish
+      # workflow sets them; a local `compose build` has to pass them too.
+      args:
+        AGENTSMITH_RELEASE_VERSION: ${AGENTSMITH_VERSION:-0.131.4}
+        AGENTSMITH_BUILD_REVISION: 415bde7486c68f1b8626298177dce74cf8e2c186
+    restart: unless-stopped
+    user: root  # docker socket access for SPAWNER_TYPE=docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - ../.env
+    environment:
+      - REDIS_URL=redis:6379
+      - SPAWNER_TYPE=${SPAWNER_TYPE:-docker}
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith-cli:${AGENTSMITH_VERSION:-0.131.4}}
+      - IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-IfNotPresent}
+      - AGENTSMITH_TRACE=${AGENTSMITH_TRACE:-true}
+      # No authority is configured here on purpose: a fresh installation answers
+      # every route unauthenticated, exactly as it did before sign-in existed.
+      # Add AGENTSMITH_AUTH_AUTHORITY when this environment needs one.
+    ports:
+      - "${SERVICE1_SERVER_PORT:-8082}:8081"
+    volumes:
+      - ../config:/app/config
+      - ../config/agentsmith.service1.k8s.yml:/app/config/agentsmith.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+      - agentsmith-db:/var/lib/agentsmith
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: src/dashboard/Dockerfile
+      args:
+        # Compile-time rewrite target. `server` is this project's own service, so
+        # the name is the same as the other stack's and resolves inside this
+        # network only.
+        AGENTSMITH_BACKEND_URL: http://server:8081
+    image: agentsmith-dashboard:${AGENTSMITH_VERSION:-0.131.4}
+    profiles: [dashboard]
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - AGENTSMITH_BACKEND_URL=http://server:8081
+      # Next.js standalone binds by HOSTNAME; Docker sets it to the container
+      # hash, which leaves the loopback healthcheck unanswered.
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      - server
+    ports:
+      - "${SERVICE1_DASHBOARD_PORT:-4201}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  agentsmith-db:
+  agentsmith-redis-data:

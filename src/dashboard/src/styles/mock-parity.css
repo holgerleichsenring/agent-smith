@@ -688,6 +688,10 @@
    need (.stateline, .errline, .tail-line, .lrow log rows) and are marked.
    ========================================================================= */
 .mock-system .main { padding: 24px 34px 60px; max-width: 1500px; }
+/* A diagnostic page under /config is read like the other /config pages, not like a
+   subsystem's event stream: its cards put the label left and the value hard right, so
+   1500px leaves a screen's width between "Provider" and "sqlite". */
+.mock-system.mock-diagnostic .main { max-width: 1000px; }
 @media (max-width: 640px) { .mock-system .main { padding: 18px 16px 40px; } }
 .mock-system .m-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
 .mock-system .m-head .mt { flex: 1; }

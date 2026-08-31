@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-30-c6ec
+
+decisions:
+  - category: Architecture
+    chose: "The call sites are read by a MODEL, in one bounded read-only call over the declared consumer checkouts"
+    over: "A per-language route and call-site extractor"
+    reason: |
+      Static extraction is the pattern this project has already refused by name — a per-framework
+      regex extractor decides only the frameworks somebody wrote a rule for, and the repository
+      carries no AST infrastructure to build a better one on. The shape used is the one
+      RegistryAuthStager already proved: a Scout-role call with the read-only filesystem surface,
+      bounded by the existing per-call loop limits, its own role in the cost ledger and its own
+      scope in the run trail. The reading is a step of its own rather than a job for the scan
+      master, because a scan master's answer is contractually a JSON observation array — a second
+      report cannot ride in it without breaking the contract every collector downstream reads.
+  - category: Architecture
+    chose: "The extraction account's FILES READ come from the tool surface's own read-set; only the undecided files are the reader's to name"
+    over: "Asking the reading to report everything it covered"
+    reason: |
+      A missed call site manufactures a finding: an operation a client really exercises looks
+      unexercised. The account is what bounds that, so the half of it that is checkable must not be
+      a self-report — an over-confident reader would otherwise widen its own coverage and the
+      difference would read as a closed set. FilesystemToolHost.ReadPaths already records every
+      path successfully read, which is the same seam the p0279 findings-anchor uses. What the
+      reader alone can know — that it read a file and could not decide it — it is asked for, and
+      each such file carries its own reason.
+  - category: Architecture
+    chose: "The consumer relation is a `consumes:` marker on the existing repos entry, resolved against the served description's title"
+    over: "A new declaration site, or a repo-to-repo reference"
+    reason: |
+      The run already checks out every repository in ContextKeys.Repos, so a role on that catalogue
+      costs no second provisioning path and no second thing to keep in sync. The title is the only
+      identity both sides of the comparison carry: the served description states it, and the
+      operator writing the marker is reading that description. Matching is trimmed and
+      case-insensitive and nothing looser — a name that ALMOST matches is a name the operator meant
+      for something else.
+  - category: Implementation
+    chose: "An unresolvable consumer name FAILS the run; every other missing input is recorded as a stated reason"
+    over: "Degrading an unresolvable name to 'not computed' like the rest"
+    reason: |
+      A difference computed over a subset the operator did not choose reads as a clean bill, and a
+      clean bill nobody earned is the failure mode this phase exists to avoid. Everything else that
+      can be absent — no served description, no consumer declared, a consumer whose checkout this
+      run does not hold, a reading that produced no readable report — is a fact about the run, so
+      it is written onto the run as SurfaceDifferenceReport.NotComputed with its reason. An empty
+      difference and an uncomputed one read alike, and only one of them means anything.
+  - category: Implementation
+    chose: "A wildcard repos entry may not carry `consumes:` — it is a blocking configuration finding"
+    over: "Applying the declaration to every repository the wildcard expands to, or dropping it silently"
+    reason: |
+      A wildcard names a set nobody enumerated, while the declaration is a claim about ONE
+      checkout's call sites. Spreading it over an expansion would silently widen the claim; dropping
+      it would silently narrow it, and the run would then report the difference as not computed for
+      a reason the operator can see nowhere. Refusing at load time is why a resolved consumer can be
+      trusted to be the repository the operator picked.
+  - category: Implementation
+    chose: "Only QUERY parameters and request-body fields are compared; path, header and cookie parameters are not"
+    over: "Comparing every parameter the operation declares"
+    reason: |
+      A client that calls a templated operation sends its path parameter by construction, and a
+      header or cookie is usually set once in a transport wrapper rather than at the call site.
+      Either would appear as accepted-and-never-sent against every client that could not possibly
+      show it — a difference no reading could ever refute. The same rule drops error responses from
+      the returned set: only a success response describes what a client reads.
+  - category: Implementation
+    chose: "An operation no client calls is ONE observation; its properties are not reported again"
+    over: "Reporting every accepted and returned property of an uncalled operation"
+    reason: |
+      Its properties are unexercised only because the operation is. Listing them would turn one
+      observation into as many as the operation has fields, and volume without judgement is the
+      thing that made the ratified-contract account worth building in the first place.
+  - category: Architecture
+    chose: "Each difference kind carries ONE requirement id of the shipped catalogue: V8.2.1, V15.3.3, V15.3.1"
+    over: "Raising differences as findings, or pairing each with several requirements"
+    reason: |
+      The difference is evidence and the requirement is the finding — an unused operation behind a
+      correct function-level check is untidy, not dangerous. Function-level access restriction
+      (V8.2.1) decides an uncalled operation, per-operation field limiting (V15.3.3) decides an
+      accepted property nobody sends, and returning only the required subset of a data object
+      (V15.3.1) decides a returned property nobody reads. One id per kind, because three kinds
+      citing one requirement would be one kind with three names. A test resolves every id against
+      the embedded catalogue, and the report carries the catalogue version — 5.0 renumbered the
+      whole standard, so an id without its version cites nothing.
+  - category: Implementation
+    chose: "ProjectRepoResolver extracted from ResolvedProjectBuilder to pay for the new rule"
+    over: "Adding the wildcard refusal to the 238-line builder"
+    reason: |
+      The file sits in the length ratchet, and the ratchet is paid in extractions rather than in
+      raised baselines. The extraction is a real one: the builder's remaining reason to change is
+      the shape of a project entry, while every form a repos reference can take now lives in one
+      type. Its baseline row was tightened from 240 to the 143 it now measures.
+
+  - category: Scope
+    chose: "Runs that hold a served description; recovering the served surface from source is a named successor"
+    over: "Deriving the interface from the server's code so a code-only scan can compute the difference too"
+    reason: |
+      SwaggerSpec is the only served-surface record in the repository and only the api scan loads
+      one, only when the operator supplies --swagger. A phase that recovers a served surface from
+      source is a different piece of work with a different failure mode, and pretending to compute
+      a difference without one would produce exactly the empty-reads-as-clean answer this phase is
+      built to refuse.
+  - category: Scope
+    chose: "The sensitive-flow ratification list is NOT built here"
+    over: "Asking the operator which of these differences matter and remembering the answer"
+    reason: |
+      Neither scan preset contains MasterOpenQuestions, so a scan run has no channel to ask the
+      operator anything, and a memory write dies with the sandbox because a scan has no commit step.
+      A successor phase owns the question, the channel and the durable mark together — building the
+      list without any of the three would be a placeholder pretending to be a feature.
