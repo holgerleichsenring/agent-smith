@@ -23,7 +23,7 @@ namespace AgentSmith.Tests.Commands;
 // read from the branch, never from a declaration.
 public sealed class VerifyPhaseHandlerTests
 {
-    private static VerifyPhaseHandler Handler() => new(
+    private static VerifyPhaseHandler Handler(ISpecAccountant? accountant = null) => new(
         new VerifyStageResolver(
             new DotnetEntryPointDiscovery(
                 new SandboxFileReaderFactory(), NullLogger<DotnetEntryPointDiscovery>.Instance),
@@ -36,7 +36,7 @@ public sealed class VerifyPhaseHandlerTests
         new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
         new PhaseAccounting(
             new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
-            new SpecAccountant(
+            accountant ?? new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new AccountCalls(new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
                 NullLogger<SpecAccountant>.Instance),
@@ -78,6 +78,32 @@ public sealed class VerifyPhaseHandlerTests
             : new Dictionary<string, ProjectMap> { ["server"] = map };
         return (new VerifyPhaseContext(maps, pipeline), sandbox);
     }
+
+    /// <summary>
+    /// A two-repository run: the shape the narrowed rule is about, where one repository
+    /// being unverifiable is not the same as the run being unverified.
+    /// </summary>
+    private static (VerifyPhaseContext Context, IReadOnlyDictionary<string, ScriptedSandbox> Sandboxes)
+        SetupTwo(params (string Key, ProjectMap Map)[] repos)
+    {
+        var pipeline = new PipelineContext();
+        var sandboxes = repos.ToDictionary(r => r.Key, _ => new ScriptedSandbox());
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, sandboxes.ToDictionary(e => e.Key, e => (ISandbox)e.Value));
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries,
+            repos.ToDictionary(r => r.Key, r => Discovery(r.Map)));
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+            ContextKeys.SandboxContexts,
+            repos.ToDictionary(
+                r => r.Key, r => (IReadOnlyList<RemoteContextDiscovery>)[Discovery(r.Map)]));
+        return (
+            new VerifyPhaseContext(repos.ToDictionary(r => r.Key, r => r.Map), pipeline),
+            sandboxes);
+    }
+
+    private static RemoteContextDiscovery Discovery(ProjectMap map) =>
+        new("default", ".", map.PrimaryLanguage);
 
     /// <summary>
     /// p0421: a phase that touched nothing skips the mechanical gates — read from the
@@ -169,17 +195,128 @@ public sealed class VerifyPhaseHandlerTests
             "a filename is never invented when the entry point cannot be resolved");
     }
 
+    // ---- 2026-08-28-5f71: a run with no gate does not read as verified ----
+
+    /// <summary>
+    /// p0393's rule, narrowed rather than dropped. Its rationale stands PER REPOSITORY:
+    /// a docs or infra repository declaring no commands is skipped, not failed, because
+    /// not every repository in a multi-repo run is buildable — and discovery only applies
+    /// where the map says .NET. What is narrowed is the RUN. Here the skipped repository
+    /// is not the whole run: another one verified something, so the run keeps a second
+    /// opinion and stays green.
+    /// </summary>
     [Fact]
-    public async Task VerifyCommandResolution_NonDotnetRepoWithoutCommands_SkippedNotFailed()
+    public async Task Verify_OneRepositoryVerifiedAnotherSkipped_StaysGreen()
     {
-        // p0393 rationale preserved: docs/infra repos declaring no commands are
-        // skipped — discovery only applies where the map says .NET.
-        var (context, sandbox) = Setup(Map("generic", new CiConfig(false, null, null, null)));
+        var (context, sandboxes) = SetupTwo(
+            ("server", Map("csharp", new CiConfig(true, "dotnet build", null, null))),
+            ("docs", Map("generic", new CiConfig(false, null, null, null))));
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        sandbox.RanSteps.Should().NotContain(s => IsDotnet(s));
+        result.Message.Should().Contain("server");
+        sandboxes["server"].RanSteps.Should().Contain(s => IsDotnet(s));
+        sandboxes["docs"].RanSteps.Should().NotContain(s => IsDotnet(s),
+            "a repository nothing verifies is skipped, never guessed at");
+    }
+
+    /// <summary>
+    /// The other half of the same rule. When the skipped repository IS the whole run,
+    /// source was delivered and nobody checked it: the only remaining judge is the
+    /// accountant, a model judging the branch, and one party's word is not verification.
+    /// </summary>
+    [Fact]
+    public async Task Verify_SourceDeliveredAndNoCommandResolved_IsNotReportedAsVerified()
+    {
+        var (context, sandbox) = Setup(Map("generic", new CiConfig(false, null, null, null)));
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("UNVERIFIED")
+            .And.Contain("server", "the failure names what was searched, per repository")
+            .And.Contain("ci.build_command");
+        sandbox.RanSteps.Should().NotContain(s => IsDotnet(s),
+            "the run fails because nothing verified it, not because something was invented");
+    }
+
+    /// <summary>
+    /// The run that delivered nothing is untouched by the narrowing: there is nothing for
+    /// a gate to have an opinion about, so its silence is not a missing second opinion.
+    /// </summary>
+    [Fact]
+    public async Task Verify_NoSourceDelivered_StaysGreen()
+    {
+        var (context, sandbox) = Setup(Map("generic", new CiConfig(false, null, null, null)));
+        sandbox.GitStatusOutput = string.Empty;
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("No repository had working-tree changes",
+            "nothing was delivered, so nothing is missing a second opinion");
+    }
+
+    /// <summary>
+    /// A delivery diff that FAILED — no comparable base ref, which is the shallow clone
+    /// and the freshly-onboarded repository — has empty text, and empty used to be read as
+    /// "delivered nothing", which passes without checking anything. Undetermined is not
+    /// unchanged, and the repositories most likely to lack a base ref are exactly the ones
+    /// this gate is for.
+    /// </summary>
+    [Fact]
+    public async Task Verify_ARepositoryWhoseDeliveryDiffFailed_IsNotReportedAsUnchanged()
+    {
+        var (context, sandbox) = Setup(Map("generic", new CiConfig(false, null, null, null)));
+        sandbox.DiffFails = true;
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("undetermined")
+            .And.NotContain("working-tree changes",
+                "an unreadable branch is not a branch that changed nothing");
+    }
+
+    /// <summary>
+    /// WHERE the outcome is applied. The resolution-failure shape returns BEFORE the phase
+    /// account is taken, which would strip the run of its per-criterion accounting, skip
+    /// the repair pass, and make the run's delivery gate report "no phase measured itself"
+    /// — the wrong cause, and the loss of the most actionable thing a run produces.
+    /// </summary>
+    [Fact]
+    public async Task Verify_TheFailingRun_StillCarriesItsPhaseAccount()
+    {
+        var (context, _) = Setup(
+            Map("generic", new CiConfig(false, null, null, null)),
+            new PhaseDraft("p1", "goal", "phase: p1", []) { Done = ["the handler is migrated"] });
+        context.Pipeline.Set(ContextKeys.ResolvedPipeline,
+            new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
+
+        var result = await Handler(new SatisfiedAccountant()).ExecuteAsync(
+            context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("UNVERIFIED").And.Contain("accounted for",
+            "the run fails CARRYING its account, not instead of it");
+        context.Pipeline.TryGet<IReadOnlyList<SpecAccount>>(
+            ContextKeys.PhaseAccounts, out var carried).Should().BeTrue();
+        carried.Should().ContainSingle().Which.Criteria.Should().ContainSingle();
+        RunAccountLedger.Current(context.Pipeline).All.Should().ContainSingle(
+            "the record and the pull request read the account off the ledger");
+    }
+
+    private sealed class SatisfiedAccountant : ISpecAccountant
+    {
+        public Task<SpecAccount> AccountAsync(
+            string repoKey, IReadOnlyList<string> criteria, string diff,
+            IReadOnlyList<string> commandResults, AgentConfig agent,
+            BranchSearch? branchSearch, PipelineCostTracker costTracker,
+            CancellationToken cancellationToken,
+            int windowBudgetChars = DiffWindows.DefaultBudgetChars) =>
+            Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
+                new CriterionAccount(c, AccountDisposition.Satisfied, "src/Api/Program.cs"))]));
     }
 
     // ---- 2026-08-31-26d4: a repository declares how it is verified ----
@@ -285,10 +422,16 @@ public sealed class VerifyPhaseHandlerTests
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
+        // 2026-08-28-5f71: this test is about WHICH SOURCE names the command. The last case
+        // resolves none, and a run that resolved none over a delivery is no longer a success
+        // — that verdict belongs to the tests above, so it is not asserted here.
         if (expected is null) sandbox.RanSteps.Should().NotContain(s => IsDotnet(s));
-        else sandbox.RanSteps.Select(CommandLineOf)
-            .Should().Contain(line => line.Contains(expected));
+        else
+        {
+            result.IsSuccess.Should().BeTrue();
+            sandbox.RanSteps.Select(CommandLineOf)
+                .Should().Contain(line => line.Contains(expected));
+        }
     }
 
     /// <summary>
@@ -312,6 +455,9 @@ public sealed class VerifyPhaseHandlerTests
             "diff --git a/src/Api/Program.cs b/src/Api/Program.cs\n"
             + "--- a/src/Api/Program.cs\n+++ b/src/Api/Program.cs\n@@ -1 +1 @@\n+changed\n";
         public string ListFilesJson { get; set; } = "[]";
+        /// <summary>2026-08-28-5f71: no comparable base ref — `git diff` exits non-zero and
+        /// the delivery is UNDETERMINED rather than empty.</summary>
+        public bool DiffFails { get; set; }
         /// <summary>Paths ReadFile answers non-zero for — an absent when_present path.</summary>
         public HashSet<string> MissingPaths { get; } = new(StringComparer.Ordinal);
 
@@ -319,6 +465,12 @@ public sealed class VerifyPhaseHandlerTests
             Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
         {
             RanSteps.Add(step);
+            if (DiffFails && step.Kind == StepKind.Run
+                && step.Command == "git" && step.Args!.Contains("diff"))
+                return Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 128,
+                    TimedOut: false, DurationSeconds: 0.01,
+                    ErrorMessage: "no comparable base ref", OutputContent: null));
             if (step.Kind == StepKind.ReadFile && MissingPaths.Contains(step.Path ?? ""))
                 return Task.FromResult(new StepResult(
                     StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1,
