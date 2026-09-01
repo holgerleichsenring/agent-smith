@@ -23,7 +23,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class BootstrapRoundHandler(
     IChatClientFactory chatClientFactory,
     BootstrapToolHostFactory toolHostFactory,
-    ISandboxFileReaderFactory readerFactory,
+    BootstrapMetaFiles metaFiles,
     BootstrapPrinciplesTransfer principlesTransfer,
     BootstrapContextWriteVerdict contextWrite,
     BootstrapOutputRecorder outputRecorder,
@@ -52,19 +52,19 @@ public sealed class BootstrapRoundHandler(
 
         var bundle = toolHostFactory.Create(sandbox, repo.LocalPath, context.RepoName, context.ContextName);
         var appliesTo = ResolveAppliesTo(pipeline);
-        var (existingCtx, existingPrinciples) =
-            await ReadExistingMetaFilesAsync(sandbox, context.ContextName, cancellationToken);
+        var existing = await metaFiles.ReadAsync(sandbox, context.ContextName, cancellationToken);
+        if (existing.Error is not null) return CommandResult.Fail(existing.Error);
         // p0379: principles are authored gold — transfer the composed core+delta
         // (or preserve a ratified file) BEFORE the skill call; the skill then
         // writes facts (context.yaml) only. Pre-p0379 catalogs keep SkillWrites.
         var (_, principlesPath) = BootstrapPromptFactory.ResolveTargetPaths(context.ContextName);
         var transfer = await principlesTransfer.ApplyAsync(
             pipeline, sandbox, context.RepoName, context.ContextName, projectMap,
-            principlesPath, existingPrinciples, cancellationToken);
+            principlesPath, existing.Principles, cancellationToken);
         if (transfer.Error is not null) return CommandResult.Fail(transfer.Error);
         var (system, user) = BootstrapPromptFactory.Build(
             role, repo, projectMap, context.ContextName, context.Workdir, appliesTo,
-            existingCtx, existingPrinciples, transfer.Mode);
+            existing.ContextYaml, existing.Principles, transfer.Mode);
         var responseText = await CallSkillAsync(
             context, role, system, user, bundle.Tools, pipeline, cancellationToken);
 
@@ -78,7 +78,7 @@ public sealed class BootstrapRoundHandler(
         // sandbox alone made a re-init whose every write was refused report green.
         var (ctxPath, _) = BootstrapPromptFactory.ResolveTargetPaths(context.ContextName);
         var outcome = bundle.GetContextWrite();
-        var onDisk = await FileExistsAsync(sandbox, ctxPath, cancellationToken);
+        var onDisk = await metaFiles.ExistsAsync(sandbox, ctxPath, cancellationToken);
         logger.LogInformation(
             "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s), context.yaml written={CtxWritten} on-disk={OnDisk}",
             role.Emoji, role.DisplayName, changes.Count, decisions.Count, outcome.Written, onDisk);
@@ -88,33 +88,14 @@ public sealed class BootstrapRoundHandler(
         // p0379: in transfer/preserve mode the principles file is framework-owned,
         // so a round with zero write_file changes is the expected success shape.
         if (transfer.Mode != PrinciplesMode.SkillWrites)
-            return CommandResult.Ok(BootstrapPrinciplesOutcome.Sentence(transfer, role.DisplayName));
+            return CommandResult.Ok(BootstrapPrinciplesOutcome.Sentence(
+                transfer, role.DisplayName, existing.RetiredRenamed));
         return changes.Count == 0
             ? CommandResult.Fail(
                 $"BootstrapRound: skill '{context.SkillName}' did not call write_file "
                 + "(0 changes). principles.md not produced.")
-            : CommandResult.Ok(
-                BootstrapPrinciplesOutcome.SkillWroteThem(transfer, role.DisplayName, changes.Count));
-    }
-
-    private async Task<bool> FileExistsAsync(ISandbox sandbox, string path, CancellationToken ct)
-    {
-        var reader = readerFactory.Create(sandbox);
-        var content = await reader.TryReadAsync(path, ct);
-        return !string.IsNullOrEmpty(content);
-    }
-
-    // p0202d: read the operator's existing context.yaml + principles.md
-    // so the producer merges (preserve + backfill) instead of regenerating
-    // from source and clobbering. Both null on cold-init → generate-from-scratch.
-    private async Task<(string? ContextYaml, string? Principles)> ReadExistingMetaFilesAsync(
-        ISandbox sandbox, string contextName, CancellationToken ct)
-    {
-        var (ctxPath, principlesPath) = BootstrapPromptFactory.ResolveTargetPaths(contextName);
-        var reader = readerFactory.Create(sandbox);
-        var existingCtx = await reader.TryReadAsync(ctxPath, ct);
-        var existingPrinciples = await reader.TryReadAsync(principlesPath, ct);
-        return (existingCtx, existingPrinciples);
+            : CommandResult.Ok(BootstrapPrinciplesOutcome.SkillWroteThem(
+                transfer, role.DisplayName, changes.Count, existing.RetiredRenamed));
     }
 
     private async Task<string> CallSkillAsync(

@@ -142,7 +142,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
     private static BootstrapRoundHandler NewHandler(CapturedPrompt captured) => new(
         new PromptCapturingFactory(new CapturingChatClient(captured)),
         new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
-        BootstrapReaderStubs.NullReaderFactory(),
+        BootstrapReaderStubs.NullMetaFiles(),
         PrinciplesTransferStubs.NoTemplates(),
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),

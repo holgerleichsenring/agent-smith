@@ -97,7 +97,7 @@ public sealed class BootstrapPerContextTests
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
-            BootstrapReaderStubs.NullReaderFactory(),
+            BootstrapReaderStubs.NullMetaFiles(),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
@@ -127,7 +127,7 @@ public sealed class BootstrapPerContextTests
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
-            BootstrapReaderStubs.NullReaderFactory(),
+            BootstrapReaderStubs.NullMetaFiles(),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
@@ -175,7 +175,7 @@ public sealed class BootstrapPerContextTests
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
-            BootstrapReaderStubs.ReaderFactoryReturning(existing),
+            BootstrapReaderStubs.MetaFilesReturning(existing),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
@@ -202,7 +202,7 @@ public sealed class BootstrapPerContextTests
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
-            BootstrapReaderStubs.NullReaderFactory(),
+            BootstrapReaderStubs.NullMetaFiles(),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),

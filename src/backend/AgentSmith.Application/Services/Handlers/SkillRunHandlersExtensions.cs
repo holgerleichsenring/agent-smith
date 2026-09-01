@@ -34,6 +34,9 @@ public static class SkillRunHandlersExtensions
         // p0379: deterministic principles transfer (composed core+delta) that
         // runs inside the bootstrap round before the skill call.
         services.AddTransient<BootstrapPrinciplesTransfer>();
+        // 2026-09-01-72c5: the round's view of what a context already carries — including
+        // the rename of a pre-rename principles file, which happens before it looks.
+        services.AddTransient<BootstrapMetaFiles>();
         // 2026-08-26-167c: the round's verdict on its own context.yaml write, and
         // where its prose is recorded — both lifted out of BootstrapRoundHandler.
         services.AddSingleton<BootstrapContextWriteVerdict>();
