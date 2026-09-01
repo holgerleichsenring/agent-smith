@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-b630
+
+decisions:
+  - category: Design
+    chose: "Check the declaration without the cluster, and prove presence inside the sandbox"
+    over: "Reading the secret from Kubernetes to see whether it exists"
+    reason: |
+      The deployment's role grants jobs, pods and quotas and no secrets; the API has no
+      existence-without-content read, so granting one would hand the orchestrator every value
+      in the namespace — the inversion of the property this mechanism exists for. What is
+      knowable without the cluster is the declaration's shape, and what remains is knowable
+      where the value arrives: a pod whose reference cannot be resolved never starts, so a
+      sandbox that came up has already proven the reference, and the probe only adds set and
+      non-empty. It reads a name and a length, never a value.
+  - category: Design
+    chose: "Report a backend that injects nothing as not injected"
+    over: "Failing there, or staying silent"
+    reason: |
+      Only the kubernetes pod builder projects declared secrets. Failing on docker or in-process
+      would redden every harness run of a repository that declares credentials; staying silent
+      would make an uninjected run look like a verified one. The sandbox says whether it
+      projected them, and the check reports the third state.
+  - category: Process
+    chose: "Correct the phase's own promise rather than move the check"
+    over: "Claiming the refusal happens before any sandbox exists"
+    reason: |
+      The run-preflight family sits after checkout by design, because its siblings need
+      sandboxes to inspect. The refusal that genuinely precedes any sandbox is the resolver's
+      throw while the spec is built — and it fires for a malformed env reference, so the
+      preflight check never speaks for that case. Both surfaces now share one rule set so they
+      cannot disagree, and the honest guarantee is that nothing is spent on a model before the
+      declaration is named.
+  - category: Design
+    chose: "Check for an env name that is not a usable identifier"
+    over: "Checking for a duplicate env name, which the spec asked for"
+    reason: |
+      A duplicate cannot survive deserialization — the declaration is a dictionary. The
+      decidable neighbour is a name the shell could never export, which is the same class of
+      mistake and is caught in the same pass.
