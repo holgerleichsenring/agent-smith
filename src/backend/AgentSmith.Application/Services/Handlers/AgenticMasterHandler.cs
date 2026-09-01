@@ -483,6 +483,10 @@ public sealed class AgenticMasterHandler(
         // p0279: publish the scan master's read-set (post re-drive) so the findings scrape
         // can downgrade an analyzed_from_source claim on a file the master never read.
         context.Pipeline.Set(ContextKeys.MasterReadPaths, fs.ReadPaths.ToList());
+        // 2026-09-01-3653: what the pass was given and how far it got, so the run's own
+        // account can answer both instead of the next argument guessing again.
+        context.Pipeline.Set(ContextKeys.MasterSystemPromptChars, masterBody.Length);
+        context.Pipeline.Set(ContextKeys.MasterTurnsUsed, MasterTurnCount.From(loopResult.Response));
 
         // p0241: parse the master's structured verification verdict from its final
         // answer and publish it for the keystone. The model owns running the

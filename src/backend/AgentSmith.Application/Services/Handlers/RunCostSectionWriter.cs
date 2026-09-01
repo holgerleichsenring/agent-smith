@@ -126,7 +126,6 @@ internal static class RunCostSectionWriter
             sb.AppendLine($"      input: {cost.InputTokens}");
             sb.AppendLine($"      output: {cost.OutputTokens}");
             sb.AppendLine($"      cache_read: {cost.CacheReadTokens}");
-            sb.AppendLine($"      turns: {cost.Iterations}");
             sb.AppendLine(string.Format(ci, "      usd: {0:F4}", cost.Cost));
         }
     }
@@ -153,7 +152,6 @@ internal static class RunCostSectionWriter
             sb.AppendLine($"      input: {cost.InputTokens}");
             sb.AppendLine($"      output: {cost.OutputTokens}");
             sb.AppendLine($"      cache_read: {cost.CacheReadTokens}");
-            sb.AppendLine($"      turns: {cost.Iterations}");
             sb.AppendLine(string.Format(ci, "      usd: {0:F4}", cost.Cost));
         }
     }

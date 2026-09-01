@@ -43,7 +43,11 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
             && !string.IsNullOrWhiteSpace(salvage) ? salvage : null;
         return new SpecAccount(
             RepoKey,
-            [.. contract.Criteria.Select(c => resolver.Resolve(Row(c, trail, degraded, recovered)))]);
+            [.. contract.Criteria.Select(c => resolver.Resolve(Row(c, trail, degraded, recovered)))],
+            // 2026-09-01-3653: the account already reads the master's read-set and already
+            // reaches the run result through its renderer, so the measures are a field on a
+            // type that is already constructed and already printed.
+            Measures: ScanPassMeasurer.Measure(pipeline));
     }
 
     /// <summary>

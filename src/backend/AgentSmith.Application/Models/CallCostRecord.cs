@@ -22,7 +22,6 @@ public sealed record CallCostRecord
     public long CacheCreateTokens { get; init; }
     public long CacheReadTokens { get; init; }
     public int ToolCallCount { get; init; }
-    public int LlmCallCount { get; init; }
     public long DurationMs { get; init; }
     public DateTimeOffset StartedAt { get; init; }
 
