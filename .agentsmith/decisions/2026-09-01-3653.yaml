@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-3653
+
+decisions:
+  - category: Architecture
+    chose: "The measures are a trailing optional parameter on the EXISTING SpecAccount"
+    over: "A second account, or a parallel measurement artefact beside the run result"
+    reason: |
+      The scan already writes an account, it already reads the master's read-set, and it
+      already reaches the run result through its renderer. A parallel surface that then
+      disagrees with it is a failure this repository has already paid for. Trailing and
+      optional means every construction site — the phase accountant included — keeps
+      compiling untouched, and a phase account simply has no measures.
+
+  - category: Architecture
+    chose: "The named section sizes are re-rendered from the pipeline by ScanPassMeasurer"
+    over: "Threading each section's length out of ScanMasterPromptFactory as it composes"
+    reason: |
+      Every section is a pure function of the pipeline — the conversation, the scanner
+      output, the OpenAPI document, the surface difference — so re-rendering yields exactly
+      what was sent, and the factory keeps returning a string instead of a string plus a
+      tuple of sizes that every caller would have to carry. It is also four sections, not
+      twelve placeholders: the question is whether the scan prompt is fifty-two thousand
+      characters or twelve, and the system prompt's total plus the review prompt's composed
+      parts answers it. Sizing every placeholder of a master this surface does not use is
+      scope the question does not have.
+
+  - category: Implementation
+    chose: "Turns are counted from the pass's assistant messages and rendered as near-exact"
+    over: "ReengageProgressPolicy.CountToolCalls, or an SDK-reported iteration count"
+    reason: |
+      Microsoft.Extensions.AI 10.3.0 exposes no iteration count on a ChatResponse; it only
+      logs when it reaches the ceiling. What the response carries is every message of the
+      pass, so assistant messages are the honest handle — one per model turn plus however
+      many a provider chose to split a turn into, which biases the number HIGH and is stated
+      as such in the type, in MasterTurnCount and in the rendered line. Tool calls would
+      have been worse in the other direction: parallel calls put several in one iteration,
+      so they over-count against a ceiling that bounds iterations.
+
+  - category: Architecture
+    chose: "The dead turns: field is REMOVED from result.md, and PhaseCost.Iterations with it"
+    over: "Wiring it from the per-scope provider-call count"
+    reason: |
+      PhaseCost.Iterations was fed from CallCostRecord.LlmCallCount, which was fed from
+      LimitEnforcer.LlmCallCount, whose only increment — RecordLlmCall — has no production
+      caller anywhere: definition and tests only. So every scoped phase printed turns: 0.
+      Wiring it from the tracker's own call count was possible, but it would have put a
+      per-phase PROVIDER-CALL count in the same file as the account's per-pass TURN count,
+      under the same word, disagreeing by construction. Removal leaves exactly one turn
+      number in a run result, and it is the one that is measured. CallCostRecord lost the
+      field too, so the removal left no write-only residue behind it.
+
+  - category: Scope
+    chose: "Measured here, changed nowhere"
+    over: "Reducing the prompt in the same phase, or shipping a run-to-run comparison"
+    reason: |
+      No prompt content changes in this phase — that is the point of measuring first. A
+      comparison tool over three runs is a shell command over three result files, and
+      shipping it as a product surface would be building a dashboard for a measurement
+      nobody has learned to trust yet.
