@@ -17,9 +17,15 @@ namespace AgentSmith.Application.Services.Scans;
 /// its own role in the cost ledger and its own scope in the run trail, because
 /// unattributed spend is invisible spend.
 /// </para>
+/// <para>
+/// 2026-09-01-85b2: ONE call, every candidate — batching would raise the round-trip count,
+/// not lower it. What the widened checked set costs is answer LENGTH, so the call states
+/// its own output budget and its answer is read tolerantly.
+/// </para>
 /// </summary>
 public sealed class FindingRefuter(
     IChatClientFactory chatClientFactory,
+    IFindingRefutationReader reader,
     IRunContextAccessor runContext,
     ILogger<FindingRefuter> logger) : IFindingRefuter
 {
@@ -42,9 +48,20 @@ public sealed class FindingRefuter(
                 RoleName, SkillExecutionPhase.Verify.ToString(), RoleName);
             var response = await chat.GetResponseAsync(
                 [new ChatMessage(ChatRole.User, FindingRefutationPrompt.For(candidates))],
-                new ChatOptions(), cancellationToken);
+                new ChatOptions
+                {
+                    // One call answers every candidate, so the ANSWER is what runs out of
+                    // room first. Without its own budget it truncated and the step no-opped.
+                    MaxOutputTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Reasoning),
+                },
+                cancellationToken);
             costTracker.Track(response);
-            return FindingRefutationReader.Read(response.Text);
+            var refutations = reader.Read(response.Text);
+            if (refutations is null)
+                logger.LogWarning(
+                    "The refutation answer carried no readable verdict — every candidate "
+                    + "finding stands, and nothing was checked");
+            return refutations;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

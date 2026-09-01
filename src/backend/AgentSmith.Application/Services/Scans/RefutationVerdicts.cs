@@ -4,8 +4,9 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Scans;
 
 /// <summary>
-/// p0429: applies a refuter's answer to one candidate — and checks the refuter the same
-/// way the refuter checks the finding.
+/// p0429: applies the refuter's answer ABOUT one candidate — and checks the refuter the
+/// same way the refuter checks the finding. Which answer is about which finding is
+/// <see cref="RefutationRouter"/>'s question, not this one's.
 /// <para>
 /// A rebuttal must QUOTE a line of the evidence the refuter was shown — the source for a
 /// repo claim, the recorded exchange for a live-target one. Anything else is the refuter
@@ -16,15 +17,12 @@ namespace AgentSmith.Application.Services.Scans;
 /// </summary>
 public sealed class RefutationVerdicts(ILogger<RefutationVerdicts> logger)
 {
-    /// <summary>The accepted refutation of this candidate, or null when it stands.</summary>
-    public FindingRefutation? Accepted(
-        CandidateFinding candidate, IReadOnlyList<FindingRefutation> answers)
+    /// <summary>The refutation of this candidate once accepted, or null when it stands.</summary>
+    public FindingRefutation? Accepted(CandidateFinding candidate, FindingRefutation answer)
     {
         ArgumentNullException.ThrowIfNull(candidate);
-        ArgumentNullException.ThrowIfNull(answers);
-        var answer = answers.FirstOrDefault(a =>
-            string.Equals(a.Location?.Trim(), candidate.Location, StringComparison.OrdinalIgnoreCase));
-        if (answer is null || answer.Substantiated) return null;
+        ArgumentNullException.ThrowIfNull(answer);
+        if (answer.Substantiated) return null;
 
         if (!Quoted(candidate, answer.Quote))
         {

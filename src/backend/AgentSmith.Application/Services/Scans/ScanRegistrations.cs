@@ -46,6 +46,10 @@ public static class ScanRegistrations
         services.AddTransient<ICommandHandler<AccountScanCoverageContext>, AccountScanCoverageHandler>();
         services.AddTransient<CitedCodeWindow>();
         services.AddTransient<RefutationVerdicts>();
+        // 2026-09-01-85b2: which answer is about which finding, and whether the answer
+        // survived the model running out of room.
+        services.AddTransient<RefutationRouter>();
+        services.AddTransient<IFindingRefutationReader, FindingRefutationReader>();
         // p0429a: two evidence surfaces behind one routing factory — the source a repo
         // claim names, and the API document a live-target claim names.
         services.AddTransient<ScanEvidenceFactory>();
