@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.PipelineHarness.Evals;
 
@@ -39,5 +40,30 @@ internal static class EvalChatClientEnv
         var agent = new AgentConfig { Type = "openai" };
         var assignment = new ModelAssignment { Model = model };
         return (new OpenAiChatClientBuilder().Build(agent, assignment), model);
+    }
+
+    /// <summary>
+    /// The external-worker client, resolved from a harness container. Null when no agent
+    /// CLI answers on this machine — the caller then skips loudly.
+    /// </summary>
+    public static (IChatClient Client, string ModelId)? TryBuildWorker(IServiceProvider services)
+        => TryBuildWorker(services, AgentCliProbe.Binary);
+
+    /// <summary>The same, for a NAMED binary — how a test asks what happens when the CLI
+    /// is absent without changing an environment its neighbours are reading.</summary>
+    public static (IChatClient Client, string ModelId)? TryBuildWorker(
+        IServiceProvider services, string binary)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        if (!AgentCliProbe.IsAvailable(binary)) return null;
+
+        var agent = AgentCliProbe.Agent();
+        var builder = services.GetServices<IChatClientBuilder>().FirstOrDefault(
+            b => b.SupportedTypes.Contains(
+                ExternalWorkerChatClientBuilder.TypeName, StringComparer.Ordinal))
+            ?? throw new InvalidOperationException(
+                "the harness container registers no external-worker chat-client builder — "
+                + "AddExternalWorkerBridge is not part of this composition.");
+        return (builder.Build(agent, new ModelAssignment { Model = agent.Model }), agent.Model!);
     }
 }
