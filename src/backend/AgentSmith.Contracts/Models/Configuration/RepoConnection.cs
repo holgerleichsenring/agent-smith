@@ -22,4 +22,13 @@ public sealed record RepoConnection
     /// clients, not in the server. A name that resolves against nothing fails the run.
     /// </summary>
     public string? Consumes { get; init; }
+
+    /// <summary>
+    /// 2026-09-01-1335: whether this connection names a repository at all — a remote by
+    /// <see cref="Url"/>, or a working copy on this machine by <see cref="Path"/>. Context
+    /// discovery reads through the source provider either way, so "has no url" was never
+    /// the same question as "has nothing to read", and answering it that way cost a local
+    /// run every image and every gate its own context.yaml declares.
+    /// </summary>
+    public bool HasLocation => !string.IsNullOrEmpty(Url) || !string.IsNullOrEmpty(Path);
 }

@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Preflight.Checks;
 /// <summary>
 /// 2026-08-31-f634: per configured repository and context, whether a path from an edit to
 /// a verdict is DECLARED — the <c>verify:</c> stages of that context's own context.yaml,
-/// read remotely, without starting a run.
+/// read where that repository lives, without starting a run.
 /// <para>
 /// This check REPORTS; it never refuses anything. It belongs to the doctor family, whose
 /// members are read at startup and on health, and it has to reach the network — the run
@@ -60,9 +60,11 @@ public sealed class VerificationOnboardingCheck(
         string name, RepoConnection repo, List<string> declared, List<string> unreadable,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(repo.Url))
+        // 2026-09-01-1335: a repository located by path is read from its working copy, so
+        // only one that names nowhere at all stays uninspected.
+        if (!repo.HasLocation)
         {
-            declared.Add($"{name}: not inspected (no remote url — read in the sandbox instead)");
+            declared.Add($"{name}: not inspected (no url and no path — nowhere to read)");
             return;
         }
 
