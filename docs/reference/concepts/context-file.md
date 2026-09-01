@@ -46,11 +46,11 @@ copy invented here can only disagree with it.
 
 ```yaml
 verify:
-  - stage: build
+  - label: build
     command: dotnet build MySolution.sln
-  - stage: test
+  - label: test
     command: dotnet test MySolution.sln
-  - stage: lint
+  - label: lint
     command: npm run lint
     when_present: package.json
 ```

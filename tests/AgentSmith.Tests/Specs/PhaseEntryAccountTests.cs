@@ -165,9 +165,9 @@ public sealed class PhaseEntryAccountTests
             .ExecuteAsync(new SelectPhaseContext("p1", pipeline), CancellationToken.None);
 
     private static PhaseEntryAccount Entry(ISpecAccountant accountant) =>
-        new(new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
+        new(AgentSmith.Tests.TestHelpers.TestGit.Delivery,
             new PhaseAccounting(
-                new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance), accountant,
+                AgentSmith.Tests.TestHelpers.TestGit.Delivery, accountant,
                 new SandboxTargets(), NullLogger<PhaseAccounting>.Instance),
             new SandboxTargets(), NullLogger<PhaseEntryAccount>.Instance);
 

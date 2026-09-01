@@ -12,10 +12,10 @@ stack:
 # not carry, so it is skipped and says so — which is how one declaration serves
 # repositories of different shapes.
 verify:
-  - stage: build
+  - label: build
     command: dotnet build src/Sample/Sample.csproj
-  - stage: test
+  - label: test
     command: dotnet test tests/Sample.Tests/Sample.Tests.csproj
-  - stage: lint
+  - label: lint
     command: npm run lint
     when_present: package.json

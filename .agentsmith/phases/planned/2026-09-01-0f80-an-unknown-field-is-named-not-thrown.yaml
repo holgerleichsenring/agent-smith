@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-0f80
+
+goal: "A context carrying a field the schema does not know is refused by name, so an author sees which key is wrong instead of a stack trace."
+
+applies_to: "backend (the context defect report's rule lookup)"
+
+requires: []
+
+scope:
+  in: "The defect report's schema-node lookup handles a closed-object refusal, whose schema node is a boolean rather than an object, and names the offending key."
+  out: >
+    THE VALIDATION ITSELF, which is correct — it caught the field. Only the report of it
+    is broken.
+
+decisions:
+  - key: |
+      THE REPORT ASSUMES EVERY SCHEMA NODE IS AN OBJECT, AND THE ONE THAT MATTERS IS NOT. A key
+      the schema does not declare is refused by additionalProperties, whose node is the boolean
+      false. Reading a description off it throws, so the author of the context gets an exception
+      where the mechanism was built to hand them a sentence.
+  - key: |
+      IT WAS FOUND BY MAKING THE MISTAKE. A verify block was written with the field name from the
+      retired mechanism — stage rather than label — in the sample repository a first run
+      materializes. The suite caught the invalid file; the report meant to explain it died. Both
+      halves are worth fixing, and the one that stays is this one.
+  - key: |
+      THE MESSAGE NAMES THE KEY AND WHERE IT SITS, BECAUSE THAT IS THE WHOLE VALUE. A refusal
+      that says a context is invalid without saying which field is a refusal the author has to
+      bisect by hand.
+
+steps:
+  - id: a-closed-object-refusal-is-reported
+    action: "The rule lookup treats a boolean schema node as what it is and produces a defect naming the unknown key and its path."
+
+tests:
+  - "DefectReport_AnUnknownField_NamesTheKeyAndItsPath"
+  - "DefectReport_ADeclaredFieldWithABadValue_ReportsAsBefore"
+
+done:
+  - "a context with a misspelled field is refused with the field named"
+  - "no context defect path throws"
+  - "build green, full suite green"

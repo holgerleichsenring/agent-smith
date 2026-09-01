@@ -153,10 +153,7 @@ public sealed class BaseRefSearchTests
     {
         var capturing = new CapturingAccountant();
         var accounting = new AgentSmith.Application.Services.Specs.PhaseAccounting(
-            new AgentSmith.Application.Services.DeliveryDiff(
-                new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(
-                    NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
-                NullLogger<AgentSmith.Application.Services.DeliveryDiff>.Instance),
+            AgentSmith.Tests.TestHelpers.TestGit.Delivery,
             capturing,
             new AgentSmith.Application.Services.Handlers.SandboxTargets(),
             NullLogger<AgentSmith.Application.Services.Specs.PhaseAccounting>.Instance);

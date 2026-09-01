@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-b467
+
+decisions:
+  - category: Design
+    chose: "A rung comparing against the parent of this run's own earliest checkpoint commit"
+    over: "Comparing against the checkpoint itself, or recording a starting sha"
+    reason: |
+      The checkpoint is written after the master has worked, not before it, so the commit
+      CONTAINS the delivery rather than marking its start — its parent is the branch as the run
+      found it. Nothing in the run records a starting sha anywhere a diff can reach, so the
+      commit message carrying the run id is the only marker that exists, and the literal now
+      lives in one type that both the writer and the reader use.
+  - category: Design
+    chose: "Match the run's own id, not a generic marker"
+    over: "Matching any checkpoint commit"
+    reason: |
+      A prefix-only match would also hit a previous run's checkpoints already merged into the
+      base history and walk the comparison back arbitrarily far. The run id cannot match a
+      user's commit and cannot match another run's. The match is literal rather than a pattern,
+      because the marker contains brackets that a regular expression would read as a character
+      class.
+  - category: Design
+    chose: "Place it below the base-branch rungs and above the HEAD rung"
+    over: "Making it the first candidate"
+    reason: |
+      The ladder is ordered by closeness to what the branch delivers, and a real base branch is
+      closer than the run's own start. HEAD stays the last resort for a run that has committed
+      nothing yet, and a run with no run id — the harness and eval call sites — leaves the rung
+      out entirely, so their behaviour is unchanged.
+  - category: Process
+    chose: "Record that the spec was wrong about the checkpoint's timing and about which rungs fail"
+    over: "Letting the implementation quietly correct it"
+    reason: |
+      The spec said the checkpoint is written before the master works; it is written after. It
+      also said the base rung resolves to HEAD in a local repository; in fact neither base rung
+      resolves at all, because a bare init has no remote head to read. The placement the spec
+      chose happens to be right either way — but had the base rung resolved to HEAD it would
+      have returned an empty diff and stopped the ladder before the new rung, so the difference
+      matters to the next person.
+  - category: Process
+    chose: "Fix the field name in the sample, the template and the documentation in the same commit"
+    over: "Fixing only the sample the test caught"
+    reason: |
+      The verify block written into the sample used the retired mechanism's field name, stage,
+      where the schema declares label. Only the sample is real YAML, so only the sample was
+      caught — the template and the concepts document were teaching the wrong name to every
+      author who reads them. The defect report that should have explained the invalid file threw
+      instead, which is 2026-09-01-0f80.

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-a17c
+
+goal: "A ticket is addressed by the identifier its tracker uses, so a Jira key can be run from the command line at all."
+
+applies_to: "backend (the CLI's ticket option and the request it builds)"
+
+requires: []
+
+scope:
+  in: "The ticket option typed as the tracker's own identifier rather than a number, through the commands that take one and into the pipeline request."
+  out: >
+    THE TRIGGER PATH, which already carries whatever the tracker sent. Normalising
+    identifiers across trackers: a key is passed through as given, because the tracker
+    is the only party that knows its shape.
+
+decisions:
+  - key: |
+      THE OPTION IS AN INTEGER AND HALF THE SUPPORTED TRACKERS DO NOT USE INTEGERS. A Jira key
+      is a project prefix and a number; passing it is refused at parse time, and passing the
+      number alone asks the tracker for an issue that does not exist. Measured live against a
+      configured Jira instance: the key is unusable and the number returns not found.
+  - key: |
+      THE TYPE WAS NEVER A VALIDATION, ONLY A SHAPE ASSUMPTION. Nothing downstream benefits from
+      the identifier being numeric — it is put into a request and handed to a provider, which
+      knows what its own identifiers look like.
+  - key: |
+      THE TRIGGER PATH IS UNAFFECTED AND THAT IS WHY THIS SURVIVED. Runs in production arrive
+      through a webhook carrying the tracker's own identifier, so the defect only bites the
+      command line — which is exactly where a first evaluation and every smoke test happen.
+
+steps:
+  - id: the-option-takes-what-the-tracker-uses
+    action: "The ticket option is the tracker's identifier as given, on every command that accepts one."
+  - id: the-request-carries-it-unchanged
+    action: "The pipeline request carries the identifier through to the provider without reshaping it."
+
+tests:
+  - "Cli_AJiraKey_IsAccepted"
+  - "Cli_ANumericId_StillWorks"
+
+done:
+  - "a run against a Jira-tracked project can be started from the command line by its key"
+  - "a numeric identifier behaves exactly as before"
+  - "build green, full suite green"
