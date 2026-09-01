@@ -1,68 +1,77 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-09-01-3653
 
-goal: "A scan run records how much it was asked, what it read and how many turns it used, so two runs of the same scan can be compared instead of guessed about."
+goal: "A scan states, in the account it already writes, how large its prompt was, how many turns it used against its ceiling and how much of the source it read."
 
-applies_to: "backend (what the master pass writes into the run record, and how a scan run is compared to another)"
+applies_to: "backend (the scan's existing coverage account and what the master pass contributes to it)"
+
+requires:
+  - 2026-09-01-7df4
 
 scope:
   in: >
-    Every master pass records the size of what it was given (system prompt, review prompt and their
-    named parts), the turns it used against its ceiling, the distinct files it read and the findings
-    it delivered by severity; the numbers land in the run record beside the result; a small tool
-    reads N run records and prints the spread.
+    The scan's existing account gains a measured section: the system prompt's size, the review
+    prompt's named parts, the turns the pass used against its ceiling, and the count of distinct
+    source files read; it is rendered where that account is already rendered; the turn number that
+    the run result prints today and that is always zero is either made true or removed.
   out: >
-    REDUCING THE PROMPT — this phase measures it and changes nothing about it. A cut made before the
-    measurement exists is a cut nobody can defend, and the number most often quoted for this prompt
-    turned out to be wrong by a factor of seven. FIXING THE VARIANCE — an instrument is not a
-    remedy; what the spread is caused by is the next question, and it cannot be asked yet.
+    A SECOND ACCOUNT. The scan already writes one, it is already rendered into the run result, and a
+    parallel surface that then disagrees with it is a failure this repository has already paid for.
+    REDUCING THE PROMPT — measured here, changed nowhere. A COMPARISON TOOL — three runs and a spread
+    is a shell command over three result files, and shipping it as a product surface would be
+    building a dashboard for a measurement nobody has learned to trust yet.
 
 decisions:
   - key: |
-      EVERY NUMBER IN THIS DISCUSSION HAS BEEN A GUESS. The scan prompt was called fifty-two thousand
-      characters; the master body is a skill file of seven and a half thousand with no placeholders in
-      it, and the rest is whatever the scanners and the API document happened to add that run. Nobody
-      can say which, because nothing writes it down. An argument about prompt mass without a
-      measurement is an argument about a memory.
+      EVERY NUMBER IN THIS DISCUSSION HAS BEEN A GUESS, INCLUDING THE ONES IN THIS PHASE'S FIRST
+      DRAFT. The scan prompt was called fifty-two thousand characters. The master skill was then called
+      seven and a half thousand with no placeholders — it carries three reference tokens that the body
+      resolver inlines, so it is about twelve and a half. Two wrong numbers in one argument, from the
+      same absence: nothing writes it down.
   - key: |
-      THREE IDENTICAL RUNS DELIVERED 26, 31 AND 23. Until a run states what it read and how far it
-      got, no change to this pipeline can be shown to have helped: the spread is wider than any
-      improvement worth making. The instrument comes before the tuning, and it is the cheapest thing
-      in this batch.
+      IT EXTENDS THE COVERAGE ACCOUNT, WHICH ALREADY EXISTS AND IS ALREADY RENDERED. The scan's
+      account already reads the master's read-set and already reaches the run result through its
+      renderer. Half of what this phase wants is therefore a field on a type that is already
+      constructed and already printed, and the wiring cost is close to zero. The other half — the
+      prompt's named parts — is the only genuinely new measurement.
   - key: |
-      THE PARTS, NOT JUST THE TOTAL. A total tells you the prompt is large; the parts tell you which
-      section to look at. The review prompt is assembled from named pieces — scanner findings, the
-      API document, the conversation, the surface difference — and each is measured where it is
-      composed, because measuring the joined string can only ever produce one number.
+      THE RUN RESULT ALREADY PRINTS A TURN COUNT, AND IT IS ALWAYS ZERO. It is fed from a limit
+      enforcer whose recording method has no production caller anywhere. Adding a second turn number
+      beside a dead one puts two contradicting counts in one file. The dead one is fixed or deleted in
+      this phase; it is not left standing.
   - key: |
-      TURNS AGAINST THE CEILING IS THE ONE NUMBER THAT DECIDES A TRUNCATION. Reading it back from a
-      log line is archaeology. It belongs in the record, next to the reads, so that the question
-      "did this run stop because it was finished?" is answered by the record instead of by a
-      guess. 2026-09-01-7df4 makes the ceiling choosable; this makes it observable.
+      TURNS ARE COUNTED FROM THE TRANSCRIPT, AND THE PHASE SAYS SO. The pinned SDK exposes no
+      iteration count on its response; it only logs at the ceiling. What the response does carry is
+      every message of the pass, so assistant messages are the honest handle — near-exact, since a
+      provider may split one turn across messages, and it must be described that way rather than as a
+      precise count. It also works on the external-worker path, where the cost tracker records nothing
+      at all until 2026-09-01-b0d7 lands.
   - key: |
-      A COMPARISON TOOL, NOT A DASHBOARD. Three runs and a spread is what this question needs, and a
-      script over the run records answers it. Anything larger builds a surface for a measurement we
-      have not yet learned to trust.
+      FOUR SECTIONS, NOT TWELVE PLACEHOLDERS. The question is whether the scan prompt is fifty-two
+      thousand or twelve. The system prompt's total plus the review prompt's four composed sections
+      answers it; sizing every placeholder of a master this surface does not even use is scope the
+      question does not have.
 
 steps:
-  - id: the-pass-writes-down-what-it-was-given
-    action: "The master pass records the size of the system prompt and of the review prompt's named parts."
-  - id: the-pass-writes-down-what-it-did
-    action: "Turns used against the ceiling, distinct files read, and findings delivered by severity are recorded on the same pass."
-  - id: the-record-carries-it
-    action: "The census lands in the run record beside the result, readable without a database."
-  - id: three-runs-can-be-diffed
-    action: "A small tool reads N run records and prints per-field spread across them."
+  - id: the-account-gains-a-measured-section
+    action: "The scan's existing account carries the system prompt's size, the review prompt's named part sizes, the turns used against the ceiling and the distinct read count."
+  - id: turns-are-counted-from-the-transcript
+    action: "Turns are derived from the pass's own messages and described as near-exact, not as an SDK-reported figure."
+  - id: the-dead-turn-count-stops-lying
+    action: "The turn field the run result prints today is either fed from the same source or removed."
+  - id: it-renders-where-the-account-renders
+    action: "The measured section appears in the run result through the account's existing renderer, with no new artifact."
 
 tests:
-  - "MasterPass_RecordsThePromptSizesItWasGiven"
-  - "MasterPass_RecordsTurnsUsedAgainstItsCeiling"
-  - "MasterPass_RecordsDistinctReadsAndDeliveredSeverities"
-  - "RunRecord_CarriesTheCensus"
-  - "Census_OfARunWithNoMaster_IsAbsentNotZeroed"
+  - "ScanAccount_CarriesThePromptSizesThePassWasGiven"
+  - "ScanAccount_CarriesTurnsUsedAgainstTheCeiling"
+  - "ScanAccount_CarriesTheDistinctReadCount"
+  - "ScanAccount_OfARunWithNoMaster_OmitsTheSectionRatherThanZeroingIt"
+  - "RunResult_DoesNotPrintTwoDisagreeingTurnCounts"
+  - "TurnCount_FromAMultiMessagePass_IsCountedFromAssistantMessages"
 
 done:
-  - "one run answers, from its own record, how large its prompt was and how far it got"
-  - "three runs of the same scan can be compared field by field"
+  - "one run answers from its own result how large its prompt was and how far it got"
+  - "no second account and no second turn number exist"
   - "no prompt content changes in this phase"
   - "build green, full suite green"
