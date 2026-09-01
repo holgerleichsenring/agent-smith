@@ -68,8 +68,8 @@ public sealed class EndpointCitationTests
     public async Task RefuterQuotingTheRealResponse_DowngradesTheLiveTargetFinding()
     {
         var finding = LiveFinding(RealPath, ObservationSeverity.Critical);
-        var refuter = new ScriptedRefuter(
-            [new FindingRefutation(RealPath, false, "HTTP/1.1 200 OK", "the endpoint answered normally")]);
+        var refuter = new ScriptedRefuter(c =>
+            [new FindingRefutation(RealPath, false, "HTTP/1.1 200 OK", "the endpoint answered normally", c[0].Id)]);
 
         var delivered = await Substantiate([finding], refuter);
 
@@ -128,6 +128,7 @@ public sealed class EndpointCitationTests
                 new EndpointCitationResolver(),
                 NullLogger<CandidateFindingFactory>.Instance),
             refuter,
+            new RefutationRouter(NullLogger<RefutationRouter>.Instance),
             new RefutationVerdicts(NullLogger<RefutationVerdicts>.Instance),
             new ScanEvidenceFactory(new ScannedSourceStub([])),
             NullLogger<FindingSubstantiator>.Instance);

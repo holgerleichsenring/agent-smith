@@ -53,29 +53,13 @@ public static class MasterFindingsMerger
         readFiles.Count > 0
         && string.Equals(r.Role, StaticPatternRole, StringComparison.Ordinal)
         && !string.IsNullOrWhiteSpace(r.File)
-        && ReadSetContains(readFiles, r.File!);
-
-    // Suffix match on a segment boundary absorbs the sandbox workdir/context prefix
-    // mismatch (read-set 'default/x/y.cs' vs scanner 'x/y.cs') without matching a.cs to ba.cs.
-    private static bool ReadSetContains(IReadOnlySet<string> readFiles, string file)
-    {
-        var f = NormalizePath(file);
-        foreach (var r in readFiles)
-            if (r == f
-                || r.EndsWith("/" + f, StringComparison.Ordinal)
-                || f.EndsWith("/" + r, StringComparison.Ordinal))
-                return true;
-        return false;
-    }
+        && CitedPathMatch.AnyNames(readFiles, r.File!);
 
     private static HashSet<string> NormalizeReadSet(IReadOnlyList<string>? readPaths) =>
         readPaths is null
             ? new HashSet<string>(StringComparer.Ordinal)
             : readPaths.Where(p => !string.IsNullOrWhiteSpace(p))
-                .Select(NormalizePath).ToHashSet(StringComparer.Ordinal);
-
-    private static string NormalizePath(string path) =>
-        path.Replace('\\', '/').TrimStart('.', '/');
+                .Select(CitedPathMatch.Normalize).ToHashSet(StringComparer.Ordinal);
 
     private static bool HasLocation(SkillObservation o) =>
         !string.IsNullOrWhiteSpace(o.File) && o.StartLine > 0;
