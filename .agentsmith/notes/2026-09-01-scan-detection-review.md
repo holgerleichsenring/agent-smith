@@ -62,3 +62,33 @@ pipeline runs did not.
 2. **The master may not run anything.** The scan prompt forbids builds and tests; the
    probe could write a scratch file and execute it. Left unspecced deliberately — it is
    a real change to a read-only guarantee and belongs to the operator, not to this batch.
+
+## The first variance measurement, unplanned
+
+Running the full solution re-ran both scored tiers, so each corpus now has two runs
+ten minutes apart against an unchanged scan. What varies is not what was found.
+
+| security corpus | run A | run B |
+|---|---|---|
+| misses | 0/5 | 0/5 |
+| false alarms | 1/5 | 0/5 |
+| cited line matched | 4/5 | 3/5 |
+
+| api corpus | run A | run B |
+|---|---|---|
+| misses | 0/4 | 0/4 |
+| false alarms | 0/3 | 0/3 |
+
+Detection was identical in both: every declared weakness named, both times, on both
+corpora. **Severity was stable in none of them.** All four api findings changed severity
+between the two runs, and the role-assignment one moved from Low to High. On the security
+corpus the SQL injection was High in one run and Medium in the other, and run A's single
+false alarm was an Info row on a clean file whose own text said "FALSE POSITIVE".
+
+That reframes the run-to-run variance question. The delivered COUNT was never the unstable
+thing to chase; severity is, and severity is what the automation acts on — SpawnFix fires
+on Critical/High and escalation reads Critical/High, so the same defect gets a remediation
+PR on one run and not on the next. A phase that makes severity a judgement with stated
+criteria rather than a free field is the successor this measurement asks for. It is not
+built here: the batch's premise is that nothing is tuned before it is measured, and this
+is the first measurement.
