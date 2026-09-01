@@ -192,7 +192,8 @@ public sealed class ContextImageRuleTests
 
     private WriteContextYamlToolHost BuildHost() =>
         new(new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["client"] = _sandboxMock.Object },
-            defaultRepo: "client", _serializer, ContextGates.Build(), ContextGates.Writer());
+            defaultRepo: "client", _serializer, ContextGates.Build(), ContextGates.Writer(),
+            ContextGates.DerivationStamp());
 
     private void NothingWasWritten() =>
         _sandboxMock.Verify(s => s.RunStepAsync(

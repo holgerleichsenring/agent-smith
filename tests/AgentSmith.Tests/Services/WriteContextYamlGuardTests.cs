@@ -23,6 +23,7 @@ public sealed class WriteContextYamlGuardTests
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             gate: AgentSmith.Tests.TestHelpers.ContextGates.Build(),
             writer: AgentSmith.Tests.TestHelpers.ContextGates.Writer(),
+            derivation: AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(),
             discoveredContexts: discovered,
             defaultRepoName: defaultRepoName);
 

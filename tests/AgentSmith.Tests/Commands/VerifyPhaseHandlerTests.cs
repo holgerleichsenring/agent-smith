@@ -31,6 +31,9 @@ public sealed class VerifyPhaseHandlerTests
                 new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
             NullLogger<VerifyStageResolver>.Instance),
         new ContextVerifyStagesResolver(),
+        new VerifyDerivationDrift(
+            new VerifyDerivationDigest(new SandboxFileReaderFactory()),
+            NullLogger<VerifyDerivationDrift>.Instance),
         new SandboxTargets(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         AgentSmith.Tests.TestHelpers.TestGit.Delivery,

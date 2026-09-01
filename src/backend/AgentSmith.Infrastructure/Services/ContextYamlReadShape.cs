@@ -20,6 +20,10 @@ internal sealed class ContextYamlReadShape
     // nothing ever filled.
     public List<VerifyBlock>? Verify { get; set; }
 
+    // 2026-09-01-e14d: the files those stages were derived from, and their hash when
+    // they were. Read via the shared UnderscoredNamingConvention as `verify_derived_from`.
+    public DerivedFromBlock? VerifyDerivedFrom { get; set; }
+
     internal sealed class MetaBlock
     {
         public string? Workdir { get; set; }
@@ -53,6 +57,13 @@ internal sealed class ContextYamlReadShape
 
         // Read via the shared UnderscoredNamingConvention as `when_present`.
         public string? WhenPresent { get; set; }
+    }
+
+    internal sealed class DerivedFromBlock
+    {
+        public List<string>? Files { get; set; }
+
+        public string? Hash { get; set; }
     }
 
     internal sealed class ResourcesBlock

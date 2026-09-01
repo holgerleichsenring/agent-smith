@@ -24,6 +24,23 @@ public sealed class VerifyResolutionNotes
     /// <summary>Reports. Nothing resolved here, and this is everywhere it was looked for.</summary>
     public List<string> Searched { get; } = [];
 
+    /// <summary>
+    /// 2026-09-01-e14d: declarations whose derivation source has moved. Said ONCE, next to
+    /// the verdict, and changing nothing about what runs: a hash that no longer matches is
+    /// evidence the declaration may be out of date, never evidence that it is wrong. What
+    /// to do about it is the operator's call, and re-deriving is its own phase.
+    /// </summary>
+    public List<string> Stale { get; } = [];
+
+    public void DerivationMoved(string key, string contextName, IReadOnlyList<string> files) =>
+        Stale.Add(
+            $"{Named(key)}: context '{contextName}' derived its verify block from "
+            + $"[{string.Join(", ", files)}], and those files no longer hash to what was "
+            + "recorded. The declared stages ran unchanged; they may no longer be the ones "
+            + "this repository's pipeline runs. (A hash sees the pipeline FILE move, never "
+            + "the target it points at — a cluster id, a schema name, a service connection "
+            + "can change under an identical file, and only the stage itself finds that out.)");
+
     public void NothingDeclared(string key, string? primaryLanguage) =>
         Searched.Add(
             $"{Named(key)}: searched the context.yaml verify block (none), the analyzer's "

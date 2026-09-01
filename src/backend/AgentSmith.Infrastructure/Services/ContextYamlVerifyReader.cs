@@ -26,6 +26,23 @@ internal static class ContextYamlVerifyReader
         return stages.Count > 0 ? stages : null;
     }
 
+    /// <summary>
+    /// 2026-09-01-e14d: the derivation record. A block naming no file records no
+    /// derivation, so it is dropped here rather than travelling as an empty claim the
+    /// drift check would have to re-check.
+    /// </summary>
+    public static ContextYamlVerifyDerivation? ReadDerivation(
+        ContextYamlReadShape.DerivedFromBlock? block)
+    {
+        var files = block?.Files?
+            .Where(file => !string.IsNullOrWhiteSpace(file))
+            .Select(file => file.Trim())
+            .ToList();
+        return files is { Count: > 0 }
+            ? new ContextYamlVerifyDerivation(files, Trimmed(block!.Hash))
+            : null;
+    }
+
     private static string? Trimmed(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

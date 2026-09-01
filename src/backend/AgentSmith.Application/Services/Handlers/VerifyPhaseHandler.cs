@@ -48,6 +48,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class VerifyPhaseHandler(
     VerifyStageResolver stageResolver,
     ContextVerifyStagesResolver declaredStages,
+    VerifyDerivationDrift derivationDrift,
     SandboxTargets sandboxTargets,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
@@ -103,9 +104,15 @@ public sealed class VerifyPhaseHandler(
             // 2026-08-31-26d4: the PER-SANDBOX CONTEXT LIST, not the representative
             // discovery above — two contexts resolving one image collapse into one
             // sandbox, and each declaration runs at its own workdir.
+            var declared = declaredStages.For(context.Pipeline, key);
+            // 2026-09-01-e14d: the declaration is executed as written, and the run says
+            // once whether the pipeline it was derived from has moved since. Reading a
+            // handful of files is cheap enough to do every run; re-deriving is not, and
+            // is not this step's decision to make.
+            await derivationDrift.ReportAsync(key, sandbox, declared, notes, cancellationToken);
+
             foreach (var stage in await stageResolver.ResolveAsync(
-                key, map, sandbox, workdir, declaredStages.For(context.Pipeline, key),
-                notes, cancellationToken))
+                key, map, sandbox, workdir, declared, notes, cancellationToken))
             {
                 var outcome = await commandRunner.RunAsync(
                     key, stage.Stage, sandbox, stage.Cwd, stage.Command, cancellationToken);
@@ -120,7 +127,8 @@ public sealed class VerifyPhaseHandler(
         // build wins first — an account taken over a tree that does not compile would be
         // an opinion about work nobody can ship.
         var ran = outcomes.Where(o => !o.Skipped).ToList();
-        var mechanical = BuildAggregateResult(ran, notes.Findings, delivered.Anything);
+        var mechanical = WithStaleDerivations(
+            BuildAggregateResult(ran, notes.Findings, delivered.Anything), notes.Stale);
         if (!mechanical.IsSuccess)
         {
             // The phase's account IS the mechanical failure. Without this the run reports
@@ -240,6 +248,17 @@ public sealed class VerifyPhaseHandler(
         return CommandResult.Fail(
             $"Verification failed: {Where(first.Key)} {first.Stage} '{first.Command}' exited {first.ExitCode}."
             + $" No pull request is opened for a red build.{reason}");
+    }
+
+    // 2026-09-01-e14d: a moved derivation source rides along with the verdict rather than
+    // becoming one. It changes neither what ran nor whether the phase passed — the operator
+    // reads it where they already read the outcome, which is the only place it is read.
+    private static CommandResult WithStaleDerivations(
+        CommandResult result, IReadOnlyList<string> stale)
+    {
+        if (stale.Count == 0) return result;
+        var message = result.Message + "\n" + string.Join("\n", stale);
+        return result.IsSuccess ? CommandResult.Ok(message) : CommandResult.Fail(message);
     }
 
     private static string Where(string key) =>

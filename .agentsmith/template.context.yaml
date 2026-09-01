@@ -69,6 +69,19 @@ stack:
 #     command: npm run lint
 #     when_present: package.json
 
+# Where those commands came from, and a hash of it. A run re-reads these files and says
+# once — without changing what it runs — that the block above may be out of date when
+# they no longer match. The hash is written by the framework, not by hand.
+#
+# What it cannot see: the pipeline FILE moving is visible here, the TARGET moving is not.
+# A cluster id, a schema name or a service connection can change under a byte-identical
+# file, and only the stage itself finds that out, by going red.
+#
+# verify_derived_from:
+#   files:
+#     - azure-pipelines.yml
+#     - Makefile
+
 # --- How is the code organized? --------------------------------------------
 
 # The architecture block is a READING: a style, a pattern list and a layer list

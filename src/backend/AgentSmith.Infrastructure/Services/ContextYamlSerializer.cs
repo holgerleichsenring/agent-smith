@@ -59,7 +59,10 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 doc.Meta.Purpose?.Trim(),
                 // 2026-08-31-26d4: the declared verify stages, which the gate runs ahead
                 // of anything a model emitted for this run.
-                ContextYamlVerifyReader.Read(doc.Verify)));
+                ContextYamlVerifyReader.Read(doc.Verify),
+                // 2026-09-01-e14d: and what those stages were derived from, so the run can
+                // re-hash it and say when the declaration's source has moved.
+                ContextYamlVerifyReader.ReadDerivation(doc.VerifyDerivedFrom)));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the
