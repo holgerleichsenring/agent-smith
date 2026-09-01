@@ -4,7 +4,7 @@
      ControlFlowDiagram test with AGENTSMITH_WRITE_DIAGRAM=1. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1767" role="img" aria-labelledby="cf-title cf-desc">
   <title id="cf-title">What runs during an agent-smith run, in order</title>
-  <desc id="cf-desc">Generated from the pipeline presets. The code pipeline runs 26 steps in a fixed order; 8 of them call a model and the rest are deterministic machinery. A block of steps repeats once per derived phase spec. Every other preset is listed with its master, its step count and one tick per step.</desc>
+  <desc id="cf-desc">Generated from the pipeline presets. The code pipeline runs 27 steps in a fixed order; 8 of them call a model and the rest are deterministic machinery. A block of steps repeats once per derived phase spec. Every other preset is listed with its master, its step count and one tick per step.</desc>
   <style>
     .cf-bg        { fill: #fffefb; }
     .cf-surface   { fill: #f8f4f0; stroke: #c5c0b1; stroke-width: 0.6; }
@@ -26,7 +26,7 @@
   <text x="40" y="76" class="cf-text" font-size="22" font-weight="600" text-anchor="start">What runs, in what order, and where the model gets a say</text>
   <text x="40" y="98" class="cf-mute" font-size="11" font-weight="400" text-anchor="start">Generated from the 8 pipeline presets in the source — a test regenerates this file and fails when the code and the picture disagree.</text>
   <text x="40" y="122" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">1 · ONE RUN, IN ORDER</text>
-  <text x="40" y="144" class="cf-text" font-size="16" font-weight="600" text-anchor="start">The `code` pipeline — 26 steps, read left to right, top to bottom</text>
+  <text x="40" y="144" class="cf-text" font-size="16" font-weight="600" text-anchor="start">The `code` pipeline — 27 steps, read left to right, top to bottom</text>
   <text x="40" y="162" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">Each box is a step the executor really runs. The word under a green box is the master or prompt that answers there.</text>
   <rect x="40" y="184" width="198" height="58" rx="8" class="cf-surface"/>
   <text x="52" y="204" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">01</text>
@@ -117,53 +117,59 @@
   <text x="52" y="500" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">17</text>
   <text x="226" y="500" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">ticket</text>
   <text x="52" y="517" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Prepare environment</text>
+  <line x1="238" y1="509" x2="254" y2="509" class="cf-flow"/>
+  <rect x="254" y="480" width="198" height="58" rx="8" class="cf-gate"/>
+  <text x="266" y="500" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">18</text>
+  <text x="440" y="500" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">ticket</text>
+  <text x="266" y="517" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Ask the target</text>
+  <text x="266" y="530" class="cf-mono-mute" font-size="8.5" font-weight="400" text-anchor="start">gate</text>
   <rect x="28" y="562" width="864" height="178" rx="10" class="cf-block"/>
   <text x="40" y="582" class="cf-accent" font-size="9.5" font-weight="400" text-anchor="start">PER PHASE SPEC · this block repeats once per derived phase — how many phases is decided at run time</text>
   <rect x="40" y="594" width="198" height="58" rx="8" class="cf-model"/>
-  <text x="52" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">18</text>
+  <text x="52" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">19</text>
   <text x="226" y="614" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">plan</text>
   <text x="52" y="631" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Start the phase</text>
   <text x="52" y="644" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · spec-account prompt</text>
   <line x1="238" y1="623" x2="254" y2="623" class="cf-flow"/>
   <rect x="254" y="594" width="198" height="58" rx="8" class="cf-model"/>
-  <text x="266" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">19</text>
+  <text x="266" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">20</text>
   <text x="440" y="614" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">building</text>
   <text x="266" y="631" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Run master skill</text>
   <text x="266" y="644" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">loop · coding-agent-master</text>
   <line x1="452" y1="623" x2="468" y2="623" class="cf-flow"/>
   <rect x="468" y="594" width="198" height="58" rx="8" class="cf-gate"/>
-  <text x="480" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">20</text>
+  <text x="480" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">21</text>
   <text x="654" y="614" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">building</text>
   <text x="480" y="631" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Post master open questions</text>
   <text x="480" y="644" class="cf-mono-mute" font-size="8.5" font-weight="400" text-anchor="start">gate</text>
   <line x1="666" y1="623" x2="682" y2="623" class="cf-flow"/>
   <rect x="682" y="594" width="198" height="58" rx="8" class="cf-surface"/>
-  <text x="694" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">21</text>
+  <text x="694" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">22</text>
   <text x="868" y="614" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">verify</text>
   <text x="694" y="631" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Commit the phase's work</text>
   <rect x="40" y="668" width="198" height="58" rx="8" class="cf-model"/>
-  <text x="52" y="688" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">22</text>
+  <text x="52" y="688" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">23</text>
   <text x="226" y="688" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">verify</text>
   <text x="52" y="705" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Build and test</text>
   <text x="52" y="718" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · spec-account prompt</text>
   <line x1="238" y1="697" x2="254" y2="697" class="cf-flow"/>
   <rect x="254" y="668" width="198" height="58" rx="8" class="cf-surface"/>
-  <text x="266" y="688" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">23</text>
+  <text x="266" y="688" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">24</text>
   <text x="440" y="688" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">outcome</text>
   <text x="266" y="705" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Write phase record</text>
   <rect x="40" y="748" width="198" height="58" rx="8" class="cf-surface"/>
-  <text x="52" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">24</text>
+  <text x="52" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">25</text>
   <text x="226" y="768" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">outcome</text>
   <text x="52" y="785" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Write run result</text>
   <line x1="238" y1="777" x2="254" y2="777" class="cf-flow"/>
   <rect x="254" y="748" width="198" height="58" rx="8" class="cf-model"/>
-  <text x="266" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">25</text>
+  <text x="266" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">26</text>
   <text x="440" y="768" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">outcome</text>
   <text x="266" y="785" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Create pull request</text>
   <text x="266" y="798" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · spec-account prompt</text>
   <line x1="452" y1="777" x2="468" y2="777" class="cf-flow"/>
   <rect x="468" y="748" width="198" height="58" rx="8" class="cf-surface"/>
-  <text x="480" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">26</text>
+  <text x="480" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">27</text>
   <text x="654" y="768" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">outcome</text>
   <text x="480" y="785" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Cross-link sibling pull requests</text>
   <text x="40" y="852" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">2 · WHAT THE MODEL IS ASKED FOR</text>
@@ -197,7 +203,7 @@
   <text x="40" y="1154" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">One tick per step, in order. Green = a model runs there; blue = a gate that speaks only when it has a finding.</text>
   <line x1="40" y1="1160" x2="880" y2="1160" class="cf-rule"/>
   <text x="40" y="1178" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">code</text>
-  <text x="40" y="1194" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">coding-agent-master · 26 steps · 8 with a model</text>
+  <text x="40" y="1194" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">coding-agent-master · 27 steps · 8 with a model</text>
   <rect x="430" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
@@ -215,17 +221,18 @@
   <rect x="640" y="1166" width="11" height="18" rx="3" class="cf-gate"/>
   <rect x="655" y="1166" width="11" height="18" rx="3" class="cf-gate"/>
   <rect x="670" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="685" y="1166" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="685" y="1166" width="11" height="18" rx="3" class="cf-gate"/>
   <rect x="700" y="1166" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="715" y="1166" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="730" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="745" y="1166" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="760" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="715" y="1166" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="730" y="1166" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="745" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="760" y="1166" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="775" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="790" y="1166" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="805" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="685" y1="1190" x2="771" y2="1190" class="cf-blockline"/>
-  <text x="779" y="1194" class="cf-accent" font-size="9" font-weight="400" text-anchor="start">× one per phase</text>
+  <rect x="790" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="805" y="1166" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="820" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="700" y1="1190" x2="786" y2="1190" class="cf-blockline"/>
+  <text x="794" y="1194" class="cf-accent" font-size="9" font-weight="400" text-anchor="start">× one per phase</text>
   <line x1="40" y1="1208" x2="880" y2="1208" class="cf-rule"/>
   <text x="40" y="1226" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">api-security-scan</text>
   <text x="40" y="1242" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">api-security-master · 22 steps · 4 with a model</text>

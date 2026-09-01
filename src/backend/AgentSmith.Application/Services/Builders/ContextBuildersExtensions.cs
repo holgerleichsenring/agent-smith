@@ -22,6 +22,7 @@ public static class ContextBuildersExtensions
         AddBuilder<RunPreflightContextBuilder>(services, CommandNames.RunPreflight); // p0428
         AddBuilder<SetupRegistryAuthContextBuilder>(services, CommandNames.SetupRegistryAuth);
         AddBuilder<EnsurePrerequisitesContextBuilder>(services, CommandNames.EnsurePrerequisites);
+        AddBuilder<ProbeTargetContextBuilder>(services, CommandNames.ProbeTarget); // 379a
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadMemoryIndexContextBuilder>(services, CommandNames.LoadMemoryIndex); // p0380
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);

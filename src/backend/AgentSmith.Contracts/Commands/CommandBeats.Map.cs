@@ -23,6 +23,7 @@ public static partial class CommandBeats
             [CommandNames.RunPreflight] = RunBeat.Ticket, // p0428
             [CommandNames.SetupRegistryAuth] = RunBeat.Ticket,
             [CommandNames.EnsurePrerequisites] = RunBeat.Ticket,
+            [CommandNames.ProbeTarget] = RunBeat.Ticket, // 2026-09-01-379a
             [CommandNames.BootstrapProject] = RunBeat.Ticket,
             [CommandNames.BootstrapCheck] = RunBeat.Ticket,
             [CommandNames.BootstrapGate] = RunBeat.Ticket,

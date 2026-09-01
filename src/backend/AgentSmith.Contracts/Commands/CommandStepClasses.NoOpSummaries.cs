@@ -30,6 +30,13 @@ public static partial class CommandStepClasses
             // A warning renders as "Preflight reported: …", which deliberately misses.
             "precondition(s) hold",
         ],
+        [CommandNames.ProbeTarget] =
+        [
+            // ProbeTargetHandler: every declared probe came back with exit 0. This is the
+            // ONLY silent outcome the step has. "not declared" and "skipped" both speak,
+            // because a repository nothing asked about must not read like one that asked.
+            "The target answered",
+        ],
         [CommandNames.PhaseSpecGate] =
         [
             // PhaseSpecGateHandler: "Phase spec pX validated: ..." / "N phase specs validated, ...".

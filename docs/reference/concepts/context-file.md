@@ -9,7 +9,7 @@ field that is wrong is not merely dead weight, it is acted on.
 | Class | The test | Examples |
 | --- | --- | --- |
 | **Judgement** | Somebody DECIDED it, and no file in the repository states it. | `meta.purpose`, `quality.limits`, `behavior.*`, `integrations`, `data`, `state`, `decisions` |
-| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `verify`, `methodology`, `registry_auth` |
+| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `verify`, `probe`, `methodology`, `registry_auth` |
 | **Reading** | A copy of something the repository still states for itself. | `stack.frameworks`, `stack.sdks`, `stack.testing`, `stack.ci`, `meta.version`, `arch.style`, `quality.principles` |
 
 A reading is worthless on the day it is written and wrong soon after. `sdks` names a
@@ -96,6 +96,37 @@ file. Nothing in a hash sees that; the stage does, when it runs and goes red.
 
 A repository with no pipeline gets no stages and no `verify_derived_from`. An invented
 gate can only disagree with the one the estate actually runs.
+## `probe` is whether the target answers
+
+`verify` proves the change; `probe` proves the environment the change depends on is
+reachable and willing. It is one command, run through a shell at this context's
+workdir after the prerequisites and before the coding agent starts.
+
+```yaml
+probe:
+  target: the warehouse dev workspace
+  command: sf org display --target-org devhub
+```
+
+A CLI that resolves authentication before it does anything else reds on a clean tree
+without credentials. That is a fact about the measurement environment, not about the
+command: with the credential it is the cheapest true statement about the estate a run
+can buy, and buying it first turns a wrong or absent credential into infrastructure
+instead of into a coding agent that cannot build.
+
+Reference an injected credential by NAME — `$SF_USERNAME` — never by value; the shell
+expands it inside the sandbox.
+
+A refusal fails the run naming the target, the command and the exit code, and carries
+**no captured output**. Output travels into the failure reason, the per-repository
+result document and a comment on the ticket, and the masker only knows values the
+framework holds — it never holds an injected credential, so a value it does not know
+is one it cannot replace. The output tail goes to the run log alone.
+
+The record tells three states apart. The target answered; the target refused; no probe
+was declared. Only the first is silent. A sandbox backend that injects no credentials
+— docker, in-process — does not ask at all and says so, because a refusal there would
+be a fact about the backend rather than about the target.
 
 ## `state.done` is written by the run
 

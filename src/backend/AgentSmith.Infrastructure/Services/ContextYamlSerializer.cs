@@ -62,7 +62,9 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 ContextYamlVerifyReader.Read(doc.Verify),
                 // 2026-09-01-e14d: and what those stages were derived from, so the run can
                 // re-hash it and say when the declaration's source has moved.
-                ContextYamlVerifyReader.ReadDerivation(doc.VerifyDerivedFrom)));
+                ContextYamlVerifyReader.ReadDerivation(doc.VerifyDerivedFrom),
+                // 2026-09-01-379a: the declared target probe, asked before the master runs.
+                Probe: ContextYamlProbeReader.Read(doc.Probe)));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the

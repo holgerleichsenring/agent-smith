@@ -481,6 +481,39 @@
         }
       }
     },
+    "probe": {
+      "$comment": "MECHANISM \u2014 the ProbeTarget step runs this before the master and fails the run when the target refuses. Two fields, and neither is a vocabulary: what the probe IS follows from its command, and what answers is named by the operator in their own words.",
+      "type": "object",
+      "description": "2026-09-01-379a: the command that asks this context's TARGET ENVIRONMENT whether it answers, run through /bin/sh -c at this context's workdir after the prerequisites and before the master. A command that resolves authentication first \u2014 a warehouse CLI's validate, a cluster CLI's whoami \u2014 is a real gate once the credential is there, and asking it early turns a wrong or absent credential into infrastructure rather than into a coding agent that cannot build. A refusal fails the run naming the target, the command and the exit code, and carries NO captured output: the masker only knows values the framework holds, and it never holds an injected credential. Omit the block when nothing outside the repository has to answer \u2014 the run then reports the probe as not declared, never as passed.",
+      "required": [
+        "target",
+        "command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60,
+          "description": "What answers, in your own words. It is what the failure names \u2014 an exit code without the target is a fact about a process rather than about the estate.",
+          "examples": [
+            "the warehouse dev workspace",
+            "the staging cluster",
+            "the integration API"
+          ]
+        },
+        "command": {
+          "type": "string",
+          "minLength": 2,
+          "description": "The command line, run through /bin/sh -c at this context's workdir. Reference an injected credential by NAME ($SF_USERNAME) \u2014 the shell expands it, and no value is written into the declaration. It must be able to FAIL: a probe that cannot go red answers nothing.",
+          "examples": [
+            "sf org display --target-org devhub",
+            "kubectl auth whoami",
+            "dbt debug"
+          ]
+        }
+      }
+    },
     "arch": {
       "type": "object",
       "description": "Architecture and code organization",
