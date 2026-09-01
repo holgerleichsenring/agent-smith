@@ -1,6 +1,4 @@
-using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -8,30 +6,33 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0279 / 2026-09-01-7df4: drives a scan master that barely read the source one more time
-/// for coverage, records the drive in the conversation it belongs to, and delivers the
-/// UNION of both passes instead of the deeper pass alone.
+/// p0279: drives a scan master that barely read the source ONE more time, pushing a full
+/// surface inventory and a per-area review.
 /// <para>
-/// The re-drive used to replace the first pass's result and never appear in the
-/// conversation, so a first pass that found something the deeper pass did not mention lost
-/// it. A failed re-drive still keeps the first pass: a shallow answer beats none.
+/// 2026-09-01-7df4: the drive records itself in the conversation it drove, and what it
+/// returns is the pass — not a replacement for the first one. The caller unions them, so a
+/// finding the first pass made and the deeper pass did not repeat is no longer discarded.
+/// A failed re-drive returns nothing at all: a shallow answer beats none.
 /// </para>
 /// </summary>
 public sealed class ScanCoverageRedrive(
     IAgenticLoopRunner loopRunner,
     IScanMasterPromptFactory promptFactory,
-    MasterAnswerUnion union,
-    ITolerantJsonParser tolerantParser,
     ILogger<ScanCoverageRedrive> logger)
 {
-    public async Task<ScanRedriveOutcome> DriveAsync(
-        PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
-        AgenticLoopResult first, MasterConversation conversation,
-        Action<ChatResponse> trackUsage, CancellationToken cancellationToken)
+    /// <summary>The deeper pass, or null when the read floor was met or the drive failed.</summary>
+    public async Task<AgenticLoopResult?> DriveAsync(
+        AgenticLoopRequest request, string userPrompt, MasterConversation conversation,
+        Action<ChatResponse> trackUsage, int readCount, int readFloor,
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(first);
         ArgumentNullException.ThrowIfNull(conversation);
         ArgumentNullException.ThrowIfNull(trackUsage);
+        if (readCount >= readFloor) return null;
+
+        logger.LogWarning(
+            "Scan master read only {Count} source file(s) (< floor {Floor}) — re-prompting once for deeper coverage",
+            readCount, readFloor);
         var nudge = promptFactory.BuildCoverageNudge(userPrompt);
         try
         {
@@ -39,29 +40,12 @@ public sealed class ScanCoverageRedrive(
                 request with { UserPrompt = nudge }, cancellationToken);
             conversation.Continued(nudge, deeper.Response);
             trackUsage(deeper.Response);
-            return new ScanRedriveOutcome(deeper, Union(pipeline, first, deeper));
+            return deeper;
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Coverage re-drive failed — keeping the first pass's findings");
-            return new ScanRedriveOutcome(first, first.Response.Text ?? string.Empty);
+            return null;
         }
-    }
-
-    private string Union(PipelineContext pipeline, AgenticLoopResult first, AgenticLoopResult deeper)
-    {
-        string[] answers = [first.Response.Text ?? string.Empty, deeper.Response.Text ?? string.Empty];
-        var combined = union.Combine(answers);
-        if (combined is null) return answers[^1];
-        // 2026-09-01-6c32 keeps its mark across the union: a pass whose array was cut off
-        // mid-write contributed salvaged literals, and the repaired union must not hide it.
-        if (!answers.All(tolerantParser.IsJsonArray))
-            pipeline.Set(ContextKeys.ScanTriageRecovered,
-                "a scan pass was cut off mid-array — its complete findings were recovered "
-                + "into the union of the passes");
-        logger.LogInformation(
-            "Coverage re-drive delivered the union of both passes ({Chars} characters)",
-            combined.Length);
-        return combined;
     }
 }

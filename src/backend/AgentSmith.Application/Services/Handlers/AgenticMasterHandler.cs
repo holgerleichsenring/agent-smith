@@ -40,7 +40,7 @@ public sealed class AgenticMasterHandler(
     Tools.VerifyDerivationStamp verifyDerivationStamp, // 2026-09-01-e14d: hashes the verify block's source
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
-    ScanCoverageRedrive coverageRedrive, // 2026-09-01-7df4: the deeper pass, unioned
+    ScanMasterPasses scanPasses, // 2026-09-01-7df4/0e80: the scan's follow-up passes
     ISpecDialogPromptFactory specDialogPromptFactory,
     IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
@@ -411,19 +411,17 @@ public sealed class AgenticMasterHandler(
         // code. Coverage signal = distinct source reads (FilesystemToolHost.ReadPaths);
         // bounded, scan-only. Prevents a near-empty pass; it does not guarantee every
         // class is checked (model concern). The same fs accumulates the deeper reads.
-        // 2026-09-01-7df4: the deeper pass ADDS to the first instead of replacing it, and
-        // records itself in the conversation like every other drive.
+        // p0279 / 2026-09-01-7df4 / 2026-09-01-0e80: the deeper coverage pass and the
+        // reconciliation against the scanner output. Every pass ADDS to the answer.
         string? scanAnswer = null;
-        if (isScanMaster && fs.ReadPaths.Count < context.AgentConfig.ScanMinSourceReads)
+        if (isScanMaster)
         {
-            logger.LogWarning(
-                "Scan master '{Skill}' read only {Count} source file(s) (< floor {Floor}) — re-prompting once for deeper coverage",
-                context.MasterSkillName, fs.ReadPaths.Count, context.AgentConfig.ScanMinSourceReads);
-            var redrive = await coverageRedrive.DriveAsync(
+            var passes = await scanPasses.DriveAsync(
                 context.Pipeline, request, userPrompt, loopResult, conversation,
+                fs.ReadPaths.Count, context.AgentConfig.ScanMinSourceReads,
                 TrackMasterResponse, cancellationToken);
-            loopResult = redrive.Result;
-            scanAnswer = redrive.Answer;
+            loopResult = passes.Result;
+            scanAnswer = passes.Answer;
         }
 
         // p0315b/p0315e: a spec-dialog reply's typed terminal outcome (answer /

@@ -38,7 +38,7 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
-            BuildCoverageRedrive(loop),
+            BuildScanPasses(loop),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
             BuildOutcomeResolver(),
@@ -111,13 +111,17 @@ internal static class MasterHandlerFixture
             Pipeline: pipeline);
     }
 
-    // 2026-09-01-7df4: the coverage re-drive runs on the SAME loop runner the handler was
-    // given, so a test that counts requests still sees the deeper pass.
-    private static ScanCoverageRedrive BuildCoverageRedrive(IAgenticLoopRunner loop) =>
-        new(loop, new AgentSmith.Application.Services.ScanMasterPromptFactory(),
-            new MasterAnswerUnion(AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateTolerant()),
-            AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateTolerant(),
-            NullLogger<ScanCoverageRedrive>.Instance);
+    // 2026-09-01-7df4/0e80: the scan's follow-up passes run on the SAME loop runner the
+    // handler was given, so a test that counts requests still sees every pass.
+    internal static ScanMasterPasses BuildScanPasses(IAgenticLoopRunner loop)
+    {
+        var prompts = new AgentSmith.Application.Services.ScanMasterPromptFactory();
+        var tolerant = AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateTolerant();
+        return new ScanMasterPasses(
+            new ScanCoverageRedrive(loop, prompts, NullLogger<ScanCoverageRedrive>.Instance),
+            new ScanReconciliationDrive(loop, prompts, NullLogger<ScanReconciliationDrive>.Instance),
+            new MasterAnswerUnion(tolerant), tolerant, NullLogger<ScanMasterPasses>.Instance);
+    }
 
     // p0353: the master takes the web_fetch tool host by DI; a real instance (its
     // HttpClient is never called in these tests) keeps the ctor happy.

@@ -53,6 +53,13 @@ public static partial class ContextKeys
     /// run that says what it used, rather than from a private constant nobody chose.</summary>
     public const string ScanMasterIterationCeiling = "ScanMasterIterationCeiling";
 
+    /// <summary>2026-09-01-0e80: which PASS of the scan master first produced each delivered
+    /// finding — the unanchored first look, the coverage re-drive, or the reconciliation
+    /// against the scanner output. Keyed by location and wording, the same key the union
+    /// deduplicates on. If the unanchored pass produces nothing the anchored one would not
+    /// have, this is what says so, and the change can be reverted on evidence.</summary>
+    public const string ScanFindingOrigins = "ScanFindingOrigins";
+
     /// <summary>p0429: the ScanContract ratified before the first scanner runs — what
     /// this scan states it is looking for. Read by AcceptanceCriteria as the run's
     /// contract and accounted for against the execution trail after delivery.</summary>

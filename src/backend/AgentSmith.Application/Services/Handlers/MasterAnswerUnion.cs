@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -24,27 +25,33 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class MasterAnswerUnion(ITolerantJsonParser tolerantParser)
 {
     /// <summary>
-    /// The union of every answer's observation literals, or null when no answer held one —
-    /// the caller then still has the original text, and a text that is not findings at all
-    /// must stay that way so the merge can degrade on it.
+    /// The union of every pass's observation literals, with the pass each finding FIRST
+    /// came from. A later pass restating a finding replaces the earlier wording in place
+    /// but does not take its origin — the question the origin answers is which pass found
+    /// it, not which worded it last.
     /// </summary>
-    public string? Combine(IReadOnlyList<string> answers)
+    public MasterAnswerUnionResult Combine(IReadOnlyList<MasterPassAnswer> passes)
     {
-        ArgumentNullException.ThrowIfNull(answers);
+        ArgumentNullException.ThrowIfNull(passes);
         var byKey = new Dictionary<string, string>(StringComparer.Ordinal);
+        var origins = new Dictionary<string, string>(StringComparer.Ordinal);
         var order = new List<string>();
-        foreach (var answer in answers)
+        foreach (var pass in passes)
         {
-            foreach (var literal in tolerantParser.ExtractArrayObjects(answer ?? string.Empty))
+            foreach (var literal in tolerantParser.ExtractArrayObjects(pass.Answer ?? string.Empty))
             {
                 var key = KeyOf(literal);
-                if (!byKey.ContainsKey(key)) order.Add(key);
+                if (!byKey.ContainsKey(key))
+                {
+                    order.Add(key);
+                    origins[key] = pass.Pass;
+                }
                 byKey[key] = literal;
             }
         }
-        return order.Count == 0
-            ? null
-            : "[" + string.Join(",\n", order.Select(key => byKey[key])) + "]";
+        return new MasterAnswerUnionResult(
+            order.Count == 0 ? null : "[" + string.Join(",\n", order.Select(key => byKey[key])) + "]",
+            origins);
     }
 
     /// <summary>
