@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-01T21:53:17.095056+00:00",
+  "generated_at": "2026-09-01T22:04:35.187981+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,8 +9,8 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: no authentication required \u2014 endpoint carries no \u0060security\u0060 declaration while returning sensitive Member fields (role, contactEmail) to unauthenticated callers",
-      "highest_severity": "High",
+      "finding_headline": "GET /members/{id}: No authentication declared \u2014 endpoint returns Member schema including contactEmail (PII) and role field to any caller without a bearer token",
+      "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -20,8 +20,8 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders: BOLA \u2014 caller-supplied \u0060memberId\u0060 query parameter is not bound to the token identity per spec, allowing any authenticated member to enumerate any other member\u0027s orders",
-      "highest_severity": "High",
+      "finding_headline": "GET /orders: IDOR \u2014 caller-supplied memberId query parameter with no spec-level ownership enforcement; any authenticated member can list another member\u0027s orders",
+      "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: no ownership check on \u0060orderId\u0060 \u2014 authenticated user can create an invoice against an order they do not own",
+      "finding_headline": "POST /invoices: No spec-level ownership check \u2014 caller-supplied orderId is not constrained to orders belonging to the authenticated member",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,8 +42,8 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: broken function-level authorization \u2014 any bearer token holder can set any member\u0027s role; no elevated/admin privilege requirement declared",
-      "highest_severity": "Low",
+      "finding_headline": "PUT /members/{id}/role: BFLA \u2014 role assignment operation is gated only by a standard memberToken with no elevated or admin-tier security scheme declared",
+      "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
