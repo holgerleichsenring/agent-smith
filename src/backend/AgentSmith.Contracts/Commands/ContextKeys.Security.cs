@@ -41,6 +41,13 @@ public static partial class ContextKeys
     /// account refuses the triage criterion and the delivered artefact carries the mark.</summary>
     public const string ScanTriageDegraded = "ScanTriageDegraded";
 
+    /// <summary>2026-09-01-6c32: how this scan's triage was READ — set only when the
+    /// master's array was cut off mid-write and the observations it still held had to be
+    /// salvaged object by object. The findings ship, because they are the master's own
+    /// triage; the run says they were salvaged, because a recovery that passed silently
+    /// would replace one invisible failure with another.</summary>
+    public const string ScanTriageRecovered = "ScanTriageRecovered";
+
     /// <summary>p0429: the ScanContract ratified before the first scanner runs — what
     /// this scan states it is looking for. Read by AcceptanceCriteria as the run's
     /// contract and accounted for against the execution trail after delivery.</summary>
