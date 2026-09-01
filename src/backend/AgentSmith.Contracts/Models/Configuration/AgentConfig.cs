@@ -106,15 +106,15 @@ public sealed class AgentConfig
     /// runs that flip ledger steps rapidly. Set &lt;= 0 to disable checkpoint pushes.
     /// </summary>
     public int CheckpointPushMinIntervalSeconds { get; set; } = 120;
-}
 
-/// <summary>
-/// p0188: per-agent rate-limit override. When unset, ChatClientFactory picks
-/// a conservative default based on agent type (subscription tokens get a
-/// tighter budget than API keys).
-/// </summary>
-public sealed class RateLimitConfig
-{
-    public int? RequestsPerMinute { get; set; }
-    public int? InputTokensPerMinute { get; set; }
+    /// <summary>
+    /// 2026-09-01-b0d7: whether an external-worker CLI is asked for its STRUCTURED result
+    /// (<c>--output-format json</c>), which is what makes a worker call able to report the
+    /// tokens it used. Opt-in per agent because worker mode promises that any binary
+    /// reading a prompt on stdin and printing an answer works, and an unknown binary handed
+    /// an unknown flag exits non-zero — a dead run. Unset means on for the default
+    /// <c>claude</c> binary, which documents the flag, and off for anything else. Set via
+    /// <c>agent.worker_structured_result</c>.
+    /// </summary>
+    public bool? WorkerStructuredResult { get; set; }
 }

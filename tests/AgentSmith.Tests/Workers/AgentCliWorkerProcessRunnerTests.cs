@@ -81,7 +81,8 @@ public sealed class AgentCliWorkerProcessRunnerTests
             .Create(agent, new ModelAssignment { Model = "sonnet" });
 
         options.Binary.Should().Be("/opt/bin/claude", "endpoint is where the provider lives");
-        options.Arguments.Should().Equal("-p", "--model", "sonnet");
+        // 2026-09-01-b0d7: the default CLI is asked for its structured result.
+        options.Arguments.Should().Equal("-p", "--model", "sonnet", "--output-format", "json");
         options.Timeout.Should().Be(TimeSpan.FromMinutes(30), "a worker takes minutes, not seconds");
         options.WorkingDirectory.Should().NotContain("agent-smith",
             "the worker answers a model call; it must not pick up the repo under change");
@@ -94,7 +95,7 @@ public sealed class AgentCliWorkerProcessRunnerTests
             .Create(new AgentConfig { Type = "external_worker" }, new ModelAssignment());
 
         options.Binary.Should().Be(ExternalWorkerCliOptionsFactory.DefaultBinary);
-        options.Arguments.Should().Equal("-p");
+        options.Arguments.Should().Equal("-p", "--output-format", "json");
         options.Timeout.Should().Be(TimeSpan.FromSeconds(300));
     }
 }
