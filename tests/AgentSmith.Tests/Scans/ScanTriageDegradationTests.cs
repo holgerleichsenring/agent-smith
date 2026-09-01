@@ -115,8 +115,7 @@ public sealed class ScanTriageDegradationTests : IDisposable
         });
         await new MergeMasterFindingsHandler(
                 new StubSchemaResolver(schema),
-                TolerantJsonParserFactory.CreateObservation(),
-                TolerantJsonParserFactory.CreateTolerant(),
+                TolerantJsonParserFactory.CreateMasterAnswerReader(),
                 NullLogger<MergeMasterFindingsHandler>.Instance)
             .ExecuteAsync(new MergeMasterFindingsContext(pipeline), CancellationToken.None);
         return pipeline;

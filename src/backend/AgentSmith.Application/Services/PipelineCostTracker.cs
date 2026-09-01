@@ -276,7 +276,6 @@ public sealed class PipelineCostTracker
                     InputTokens: unscopedInput,
                     OutputTokens: unscopedOutput,
                     CacheReadTokens: 0,
-                    Iterations: Math.Max(0, _callCount - records.Sum(r => r.LlmCallCount)),
                     Cost: Math.Max(0m, _accruedUsd - scopedUsd));
             }
 
@@ -324,14 +323,13 @@ public sealed class PipelineCostTracker
         var input = (int)list.Sum(r => r.InputTokens);
         var output = (int)list.Sum(r => r.OutputTokens);
         var cacheRead = (int)list.Sum(r => r.CacheReadTokens);
-        var iterations = list.Sum(r => r.LlmCallCount);
         var models = list
             .SelectMany(r => r.Model.Split('+', StringSplitOptions.RemoveEmptyEntries))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var model = models.Count > 0 ? string.Join("+", models) : _lastModel;
-        return new PhaseCost(model, input, output, cacheRead, iterations, list.Sum(r => r.AccruedUsd));
+        return new PhaseCost(model, input, output, cacheRead, list.Sum(r => r.AccruedUsd));
     }
 
     public override string ToString()

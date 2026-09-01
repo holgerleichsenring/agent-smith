@@ -87,7 +87,6 @@ public sealed class SkillCallScope : IDisposable
             CacheCreateTokens = CacheCreateTokens,
             CacheReadTokens = CacheReadTokens,
             ToolCallCount = enforcer?.ToolCallCount ?? 0,
-            LlmCallCount = enforcer?.LlmCallCount ?? 0,
             DurationMs = elapsed,
             StartedAt = _startedAt,
             HitLimit = enforcer?.HitLimit,

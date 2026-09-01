@@ -3,7 +3,7 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <summary>
 /// Configuration for an AI agent provider (Claude, OpenAI, Gemini, Ollama).
 /// </summary>
-public sealed class AgentConfig
+public sealed partial class AgentConfig
 {
     public string Type { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
@@ -49,14 +49,6 @@ public sealed class AgentConfig
     /// attached, not viewable" note instead. Set via <c>agent.supports_vision</c>.
     /// </summary>
     public bool SupportsVision { get; set; } = true;
-
-    /// <summary>
-    /// p0279: minimum distinct source files a scan/review master should read before its
-    /// review is considered non-shallow. Below this floor the master is re-prompted ONCE
-    /// to inventory the full surface and review each area. Default 6; raise via
-    /// <c>agent.scan_min_source_reads</c> for large targets.
-    /// </summary>
-    public int ScanMinSourceReads { get; set; } = 6;
 
     /// <summary>
     /// p0341c: the master loop's anti-runaway SAFETY ceiling — the maximum tool
