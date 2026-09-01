@@ -16,25 +16,41 @@ public sealed class ExternalWorkerCliOptionsFactory
     public const string WorkingDirectoryEnv = "AGENTSMITH_WORKER_CWD";
     public const string DefaultBinary = "claude";
 
-    public ExternalWorkerCliOptions Create(AgentConfig agent, ModelAssignment assignment) =>
-        new(ResolveBinary(agent),
-            BuildArguments(assignment),
+    public ExternalWorkerCliOptions Create(AgentConfig agent, ModelAssignment assignment)
+    {
+        var binary = ResolveBinary(agent);
+        return new(binary,
+            BuildArguments(agent, binary, assignment),
             TimeSpan.FromSeconds(Math.Max(1, agent.NetworkTimeoutSeconds)),
             ResolveWorkingDirectory());
+    }
 
     private static string ResolveBinary(AgentConfig agent) =>
         FirstNonEmpty(Environment.GetEnvironmentVariable(BinaryEnv), agent.Endpoint) ?? DefaultBinary;
 
-    private static IReadOnlyList<string> BuildArguments(ModelAssignment assignment)
+    private static IReadOnlyList<string> BuildArguments(
+        AgentConfig agent, string binary, ModelAssignment assignment)
     {
         List<string> arguments = ["-p"];
         if (!string.IsNullOrWhiteSpace(assignment.Model)) arguments.AddRange(["--model", assignment.Model]);
+        if (WantsStructuredResult(agent, binary)) arguments.AddRange(["--output-format", "json"]);
         var extra = Environment.GetEnvironmentVariable(ExtraArgsEnv);
         if (!string.IsNullOrWhiteSpace(extra))
             arguments.AddRange(extra.Split(' ', StringSplitOptions.RemoveEmptyEntries
                 | StringSplitOptions.TrimEntries));
         return arguments;
     }
+
+    /// <summary>
+    /// 2026-09-01-b0d7: the structured result is OPT-IN. Worker mode promises that any
+    /// binary reading a prompt on stdin and printing an answer works, and an unknown binary
+    /// handed an unknown flag exits non-zero — which the guard turns into a dead run.
+    /// Unset means on for the default CLI, which documents the flag, off for anything else.
+    /// </summary>
+    private static bool WantsStructuredResult(AgentConfig agent, string binary) =>
+        agent.WorkerStructuredResult
+        ?? string.Equals(Path.GetFileNameWithoutExtension(binary), DefaultBinary,
+            StringComparison.OrdinalIgnoreCase);
 
     // A neutral directory by default: the worker answers a model call, so it must not
     // pick up the project instructions or the source tree of the repo under change.
