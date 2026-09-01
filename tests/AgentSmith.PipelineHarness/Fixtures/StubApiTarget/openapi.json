@@ -1,16 +1,129 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Stub Api Target",
-    "version": "1.0.0"
+    "title": "Reference Target API",
+    "version": "1.0.0",
+    "description": "A deliberately uneven interface served on loopback so an api scan can be scored with no external machine. Four endpoints are weak, three are sound and shaped to look suspect; Fixtures/StubApiTarget/declaration.json says which is which."
+  },
+  "components": {
+    "securitySchemes": {
+      "memberToken": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Member": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "displayName": { "type": "string" },
+          "role": { "type": "string" },
+          "contactEmail": { "type": "string" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "memberId": { "type": "string" },
+          "totalCents": { "type": "integer" }
+        }
+      }
+    }
   },
   "paths": {
     "/health": {
       "get": {
         "operationId": "getHealth",
+        "summary": "Liveness probe. Deliberately unauthenticated and deliberately empty of anything but a status word.",
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/members/{id}": {
+      "get": {
+        "operationId": "getMember",
+        "summary": "Reads one member record.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
         "responses": {
           "200": {
-            "description": "ok"
+            "description": "the member",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Member" } } }
+          }
+        }
+      }
+    },
+    "/members/{id}/role": {
+      "put": {
+        "operationId": "setMemberRole",
+        "summary": "Sets a member's role.",
+        "security": [ { "memberToken": [] } ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "role": { "type": "string" } } } } }
+        },
+        "responses": { "200": { "description": "the updated member" } }
+      }
+    },
+    "/orders": {
+      "get": {
+        "operationId": "listOrders",
+        "summary": "Lists orders for a member.",
+        "security": [ { "memberToken": [] } ],
+        "parameters": [
+          { "name": "memberId", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "the orders",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Order" } } } }
+          }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "operationId": "getOrder",
+        "summary": "Reads one order. Scoped to the bearer's own member id.",
+        "security": [ { "memberToken": [] } ],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "the order" },
+          "404": { "description": "no such order for this member" }
+        }
+      }
+    },
+    "/invoices": {
+      "post": {
+        "operationId": "createInvoice",
+        "summary": "Creates an invoice.",
+        "security": [ { "memberToken": [] } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "orderId": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "created" },
+          "500": { "description": "server error" }
+        }
+      }
+    },
+    "/tokens/introspect": {
+      "post": {
+        "operationId": "introspectToken",
+        "summary": "Says whether the presented bearer is still active. Answers with a boolean and nothing else.",
+        "security": [ { "memberToken": [] } ],
+        "responses": {
+          "200": {
+            "description": "activity of the presented token",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "active": { "type": "boolean" } } } } }
           }
         }
       }
