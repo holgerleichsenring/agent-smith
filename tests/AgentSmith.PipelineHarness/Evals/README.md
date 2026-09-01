@@ -20,6 +20,36 @@ dotnet test tests/AgentSmith.PipelineHarness --filter "FullyQualifiedName~Expect
 | --- | --- |
 | `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI client (`AZURE_OPENAI_MODEL` optional, default `gpt-4.1`) |
 | `OPENAI_API_KEY` | public OpenAI fallback (`OPENAI_MODEL` optional, default `gpt-4.1`) |
+| *(none)* | **agent CLI** — the scan scoreboards need no key at all: `claude` on PATH is the whole prerequisite. `AGENTSMITH_WORKER_CLI` names a different binary, `AGENTSMITH_WORKER_MODEL` a different model (default `sonnet`). |
+
+### Scan scoreboards (2026-08-28-cc40)
+
+`SecurityCorpusEvalTests` drives the WHOLE `security-scan` preset over a corpus whose
+files each declare a verdict, and scores what the run DELIVERED. It is the first
+harness path that runs a preset on a real model — every other eval here drives one
+component — and it runs on a subscription rather than a paid key, because the
+external-worker bridge enters as the model.
+
+Two rates, each over its own denominator:
+
+- **misses** / files that genuinely hold a weakness — a scan that finds nothing looks
+  exactly like a clean repository, which is the direction that has cost live runs;
+- **false alarms** / files that are genuinely sound — three of them are shaped to look
+  suspect on purpose.
+
+Report: `Reports/security-corpus/`, named per model + the packaged `security-master`
+digest — commit it. The report LEADS with the sentence that a public corpus cannot grade
+the scan; a number without it will be read as a grade.
+
+The scored composition puts four boundaries back (`ScanEvalComposition`): the production
+chat-client factory, the EMBEDDED skills catalog (the harness's own roots carry no
+`patterns/` at all, so the static scanner would load zero definitions and the score would
+be 0/N by construction), the production prompt catalog, and the real finding refuter. The
+sandbox is the CLI-mode in-process one over the materialised corpus — no docker needed.
+
+`SecurityCorpusMechanicsTests` proves materialisation, the two rates, the loud skip, the
+path matching and the catalog wiring **with no credentials and no agent CLI**, so the
+numbers can be reasoned about before anyone spends a call on them.
 
 ## Suites
 
