@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -9,16 +8,25 @@ using AgentSmith.Domain.Entities;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// p0278: builds the review user prompt for a scan master. api-security inputs come
-/// from the Nuclei/Spectral/ZAP results (+ the compressed OpenAPI spec); security-scan
-/// inputs are the raw SkillObservations the scanner handlers already appended. Always
-/// closes with the hard review framing so the master reviews instead of coding.
+/// p0278: builds the review user prompt for a scan master.
+/// <para>
+/// 2026-09-01-0e80: a REPOSITORY scan's first turn no longer carries the scanner list. The
+/// list is an anchor — given a list and a codebase, the cheapest correct-looking behaviour
+/// is to work the list, and nothing downstream can tell that apart from a search. It now
+/// arrives in a second turn, for reconciliation, once the master has committed to what it
+/// found on its own. An API scan's inputs ARE the scanner reports plus the OpenAPI
+/// document, so it has nothing to look at first and its prompt is unchanged.
+/// </para>
 /// </summary>
 public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
 {
     public string Build(PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames)
     {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(repoNames);
         var repos = repoNames.Count > 1 ? $"**Repositories:** {string.Join(", ", repoNames)}\n" : string.Empty;
+        var anchored = ScanFindingsSection.HasScannerReports(pipeline);
         return $"""
             You are running a SECURITY REVIEW, not a coding task. Do NOT modify any
             source, do NOT run a build, do NOT run tests. You have read-only tools.
@@ -28,13 +36,33 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             **Branch:** {repository.CurrentBranch}
             {repos}
             {BuildConversationSection(pipeline)}
-            {BuildFindingsSection(pipeline)}
+            {(anchored ? ScanFindingsSection.Render(pipeline) : string.Empty)}
             {BuildSpecSection(pipeline)}
             {Surface.SurfaceDifferencePromptSection.Render(pipeline)}
-            Work your methodology over these scanner inputs and the source — read the
-            implementing code to anchor each finding. When you are done, stop calling
-            tools and output ONLY your final JSON observation array (an empty array
-            `[]` if nothing survives your refutation step).
+            {(anchored ? AnchoredClosing : UnanchoredClosing)}
+            """;
+    }
+
+    /// <summary>
+    /// 2026-09-01-0e80: the scanners' output, presented AFTER the master has said what it
+    /// found. Null when there is nothing to reconcile separately — an api scan, whose first
+    /// turn already carried the reports, or a repository scan whose scanners found nothing.
+    /// </summary>
+    public string? BuildReconciliation(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        if (ScanFindingsSection.HasScannerReports(pipeline)) return null;
+        if (ScanFindingsSection.RepoFindings(pipeline) is null) return null;
+        return $"""
+            {ScanFindingsSection.Render(pipeline)}
+            These are the automated scanners' RAW output. You are seeing them now, after
+            stating what your own review found. For each one, say which of three it is:
+            already covered by a finding you reported, real and now added, or dismissed —
+            and for a dismissal, name the code that makes it not exploitable.
+
+            Then output ONLY your COMPLETE JSON observation array: everything you already
+            reported plus every scanner fact you now judge real. Still read-only — do NOT
+            modify code and do NOT run a build or tests.
             """;
     }
 
@@ -48,35 +76,29 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
         + "you found, including any earlier findings).\n\n"
         + originalUserPrompt;
 
+    private const string AnchoredClosing =
+        """
+        Work your methodology over these scanner inputs and the source — read the
+        implementing code to anchor each finding. When you are done, stop calling
+        tools and output ONLY your final JSON observation array (an empty array
+        `[]` if nothing survives your refutation step).
+        """;
+
+    private const string UnanchoredClosing =
+        """
+        Work your methodology over the SOURCE. Nobody has handed you a list of
+        suspects: inventory the surface yourself, read the implementing code, and
+        report what you find. When you are done, stop calling tools and output ONLY
+        your final JSON observation array (an empty array `[]` if nothing survives
+        your refutation step).
+        """;
+
     // p0317: a goal-bearing ticket's conversation reaches the scan master too —
     // delimited + chronological, same untrusted-content contract as the coding path.
     private static string BuildConversationSection(PipelineContext pipeline) =>
         pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var comments)
             ? TicketConversationPromptSection.Render(comments)
             : string.Empty;
-
-    private static string BuildFindingsSection(PipelineContext pipeline)
-    {
-        pipeline.TryGet<NucleiResult>(ContextKeys.NucleiResult, out var nuclei);
-        pipeline.TryGet<SpectralResult>(ContextKeys.SpectralResult, out var spectral);
-        pipeline.TryGet<ZapResult>(ContextKeys.ZapResult, out var zap);
-        if (nuclei is not null || spectral is not null || zap is not null)
-            return ApiScanFindingsCompressor.BuildSummary(nuclei, spectral, zap);
-
-        return pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var obs)
-            && obs is { Count: > 0 }
-            ? FormatObservations(obs)
-            : "## Scanner Findings\n\n(no automated scanner findings)\n";
-    }
-
-    private static string FormatObservations(IReadOnlyList<SkillObservation> observations)
-    {
-        var sb = new StringBuilder("## Scanner Findings\n\n");
-        foreach (var o in observations)
-            sb.AppendLine(
-                $"- [{o.Severity}] {o.Role} {o.DisplayLocation} — {o.Description}");
-        return sb.ToString();
-    }
 
     /// <summary>
     /// p0429a: the key holds a <see cref="SwaggerSpec"/>, and this asked for a string — a

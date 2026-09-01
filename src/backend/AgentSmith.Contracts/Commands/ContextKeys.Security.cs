@@ -41,6 +41,25 @@ public static partial class ContextKeys
     /// account refuses the triage criterion and the delivered artefact carries the mark.</summary>
     public const string ScanTriageDegraded = "ScanTriageDegraded";
 
+    /// <summary>2026-09-01-6c32: how this scan's triage was READ — set only when the
+    /// master's array was cut off mid-write and the observations it still held had to be
+    /// salvaged object by object. The findings ship, because they are the master's own
+    /// triage; the run says they were salvaged, because a recovery that passed silently
+    /// would replace one invisible failure with another.</summary>
+    public const string ScanTriageRecovered = "ScanTriageRecovered";
+
+    /// <summary>2026-09-01-7df4: the per-pass tool-iteration ceiling the scan master really
+    /// ran under. Recorded because the next argument about the number should start from a
+    /// run that says what it used, rather than from a private constant nobody chose.</summary>
+    public const string ScanMasterIterationCeiling = "ScanMasterIterationCeiling";
+
+    /// <summary>2026-09-01-0e80: which PASS of the scan master first produced each delivered
+    /// finding — the unanchored first look, the coverage re-drive, or the reconciliation
+    /// against the scanner output. Keyed by location and wording, the same key the union
+    /// deduplicates on. If the unanchored pass produces nothing the anchored one would not
+    /// have, this is what says so, and the change can be reverted on evidence.</summary>
+    public const string ScanFindingOrigins = "ScanFindingOrigins";
+
     /// <summary>p0429: the ScanContract ratified before the first scanner runs — what
     /// this scan states it is looking for. Read by AcceptanceCriteria as the run's
     /// contract and accounted for against the execution trail after delivery.</summary>

@@ -40,6 +40,7 @@ public sealed class AgenticMasterHandler(
     Tools.VerifyDerivationStamp verifyDerivationStamp, // 2026-09-01-e14d: hashes the verify block's source
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
+    ScanMasterPasses scanPasses, // 2026-09-01-7df4/0e80: the scan's follow-up passes
     ISpecDialogPromptFactory specDialogPromptFactory,
     IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
@@ -333,6 +334,9 @@ public sealed class AgenticMasterHandler(
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
+        // The observation-schema surface's own ceiling, output budget and reduction.
+        if (isScanMaster)
+            request = ScanSurfaceLimits.Apply(request, context.AgentConfig, context.Pipeline);
 
         // p0341f: every drive below continues THIS conversation instead of opening a new one.
         var conversation = new MasterConversation();
@@ -407,22 +411,17 @@ public sealed class AgenticMasterHandler(
         // code. Coverage signal = distinct source reads (FilesystemToolHost.ReadPaths);
         // bounded, scan-only. Prevents a near-empty pass; it does not guarantee every
         // class is checked (model concern). The same fs accumulates the deeper reads.
-        if (isScanMaster && fs.ReadPaths.Count < context.AgentConfig.ScanMinSourceReads)
+        // p0279 / 2026-09-01-7df4 / 2026-09-01-0e80: the deeper coverage pass and the
+        // reconciliation against the scanner output. Every pass ADDS to the answer.
+        string? scanAnswer = null;
+        if (isScanMaster)
         {
-            logger.LogWarning(
-                "Scan master '{Skill}' read only {Count} source file(s) (< floor {Floor}) — re-prompting once for deeper coverage",
-                context.MasterSkillName, fs.ReadPaths.Count, context.AgentConfig.ScanMinSourceReads);
-            try
-            {
-                var deeper = await loopRunner.RunAsync(
-                    request with { UserPrompt = scanPromptFactory.BuildCoverageNudge(userPrompt) }, cancellationToken);
-                TrackMasterResponse(deeper.Response);
-                loopResult = deeper; // the deeper pass re-emits the complete observation array
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                logger.LogWarning(ex, "Coverage re-drive failed for scan master '{Skill}'", context.MasterSkillName);
-            }
+            var passes = await scanPasses.DriveAsync(
+                context.Pipeline, request, userPrompt, loopResult, conversation,
+                fs.ReadPaths.Count, context.AgentConfig.ScanMinSourceReads,
+                TrackMasterResponse, cancellationToken);
+            loopResult = passes.Result;
+            scanAnswer = passes.Answer;
         }
 
         // p0315b/p0315e: a spec-dialog reply's typed terminal outcome (answer /
@@ -478,11 +477,16 @@ public sealed class AgenticMasterHandler(
         // findings-scrape (CollectMasterFindings on the api-security path) can route
         // the master's TRIAGED observation-array into SkillObservations. Unconditional
         // and content-agnostic — the coding path simply never runs a consumer.
-        context.Pipeline.Set(ContextKeys.MasterAnswer, loopResult.Response.Text ?? string.Empty);
+        context.Pipeline.Set(
+            ContextKeys.MasterAnswer, scanAnswer ?? loopResult.Response.Text ?? string.Empty);
         context.Pipeline.Set(ContextKeys.MasterSkillName, context.MasterSkillName);
         // p0279: publish the scan master's read-set (post re-drive) so the findings scrape
         // can downgrade an analyzed_from_source claim on a file the master never read.
         context.Pipeline.Set(ContextKeys.MasterReadPaths, fs.ReadPaths.ToList());
+        // 2026-09-01-3653: what the pass was given and how far it got, so the run's own
+        // account can answer both instead of the next argument guessing again.
+        context.Pipeline.Set(ContextKeys.MasterSystemPromptChars, masterBody.Length);
+        context.Pipeline.Set(ContextKeys.MasterTurnsUsed, MasterTurnCount.From(loopResult.Response));
 
         // p0241: parse the master's structured verification verdict from its final
         // answer and publish it for the keystone. The model owns running the

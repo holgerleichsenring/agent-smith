@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class CollectMasterFindingsHandler(
     IMasterOutputSchemaResolver schemaResolver,
-    ObservationParser observationParser,
+    MasterAnswerReader answerReader,
     ScannerObservationFactory observationFactory,
     ILogger<CollectMasterFindingsHandler> logger)
     : ICommandHandler<CollectMasterFindingsContext>
@@ -40,14 +40,25 @@ public sealed class CollectMasterFindingsHandler(
 
         if (!pipeline.TryGet<string>(ContextKeys.MasterAnswer, out var answer)
             || string.IsNullOrWhiteSpace(answer))
-            return Skip($"master '{masterSkill}' produced no answer text");
+            return Degraded(pipeline, $"master '{masterSkill}' produced no answer text");
 
         // p0279: pass the master's read-set so an analyzed_from_source claim on a file it
         // never read is downgraded to potential (honest evidence mode).
         pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var readPaths);
-        var observations = observationParser.TryParseWithoutIds(answer, masterSkill, logger, readPaths);
-        if (observations is null || observations.Count == 0)
-            return Skip($"master '{masterSkill}' answer held no parseable observations");
+        // 2026-09-01-6c32: the same reader the merge uses — a truncated array is recovered
+        // instead of discarded, and an answer that is not findings at all is recorded as a
+        // degraded triage rather than skipped into a green run with zero findings.
+        var reading = answerReader.Read(answer, masterSkill, logger, readPaths);
+        if (reading.Rejection is not null)
+            return Degraded(pipeline, $"master '{masterSkill}' {reading.Rejection}");
+        if (reading.Recovered)
+            pipeline.Set(ContextKeys.ScanTriageRecovered,
+                $"master '{masterSkill}' answer was truncated — {reading.Observations.Count} "
+                + "observation(s) recovered from the incomplete array");
+
+        var observations = reading.Observations;
+        if (observations.Count == 0)
+            return Skip($"master '{masterSkill}' triaged to no findings");
 
         observationFactory.AppendObservations(pipeline, observations);
         logger.LogInformation(
@@ -55,6 +66,18 @@ public sealed class CollectMasterFindingsHandler(
             observations.Count, masterSkill);
         return Task.FromResult(CommandResult.Ok(
             $"Collected {observations.Count} findings from '{masterSkill}'"));
+    }
+
+    /// <summary>
+    /// 2026-09-01-6c32: the api-scan path never got 2026-08-30-03e4's honesty fix. An
+    /// unreadable master answer here appended nothing and set nothing, so the run was green
+    /// with zero findings and the coverage account still reported the triage criterion
+    /// satisfied. Same defect as the merge had, same remedy: the reason goes on the run.
+    /// </summary>
+    private Task<CommandResult> Degraded(PipelineContext pipeline, string reason)
+    {
+        pipeline.Set(ContextKeys.ScanTriageDegraded, reason);
+        return Skip(reason);
     }
 
     private Task<CommandResult> Skip(string reason)

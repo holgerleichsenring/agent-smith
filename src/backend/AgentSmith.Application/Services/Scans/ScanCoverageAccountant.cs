@@ -37,8 +37,17 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
         // mechanical — a fact read off the run, exactly like the trail beside it.
         var degraded = pipeline.TryGet<string>(ContextKeys.ScanTriageDegraded, out var reason)
             && !string.IsNullOrWhiteSpace(reason) ? reason : null;
+        // 2026-09-01-6c32: a triage that had to be salvaged from a truncated array is still
+        // a triage — it is satisfied, and it says how it was read.
+        var recovered = pipeline.TryGet<string>(ContextKeys.ScanTriageRecovered, out var salvage)
+            && !string.IsNullOrWhiteSpace(salvage) ? salvage : null;
         return new SpecAccount(
-            RepoKey, [.. contract.Criteria.Select(c => resolver.Resolve(Row(c, trail, degraded)))]);
+            RepoKey,
+            [.. contract.Criteria.Select(c => resolver.Resolve(Row(c, trail, degraded, recovered)))],
+            // 2026-09-01-3653: the account already reads the master's read-set and already
+            // reaches the run result through its renderer, so the measures are a field on a
+            // type that is already constructed and already printed.
+            Measures: ScanPassMeasurer.Measure(pipeline));
     }
 
     /// <summary>
@@ -52,7 +61,8 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
     /// </para>
     /// </summary>
     private static AccountRow Row(
-        ScanCriterion criterion, IReadOnlyList<ExecutionTrailEntry> trail, string? degradedTriage)
+        ScanCriterion criterion, IReadOnlyList<ExecutionTrailEntry> trail,
+        string? degradedTriage, string? recoveredTriage)
     {
         var entry = trail.LastOrDefault(e =>
             string.Equals(e.CommandName, criterion.AnsweredBy, StringComparison.Ordinal));
@@ -65,8 +75,11 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
         if (degradedTriage is not null && IsTriage(criterion))
             return new AccountRow(criterion.Statement, AccountDisposition.NotSatisfied, null,
                 $"{criterion.AnsweredBy} ran but the scan was not triaged: {degradedTriage}");
+        var note = recoveredTriage is not null && IsTriage(criterion)
+            ? $"{entry.Message} — {recoveredTriage}"
+            : entry.Message;
         return new AccountRow(
-            criterion.Statement, AccountDisposition.Satisfied, criterion.AnsweredBy, entry.Message);
+            criterion.Statement, AccountDisposition.Satisfied, criterion.AnsweredBy, note);
     }
 
     private static bool IsTriage(ScanCriterion criterion) =>

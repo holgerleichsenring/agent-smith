@@ -37,13 +37,20 @@ public sealed record WorkerSpend(
 
 /// <summary>
 /// Cost for a single execution phase.
+/// <para>
+/// 2026-09-01-3653: an Iterations field used to sit here and be printed as
+/// <c>turns:</c> in result.md. It was always zero for every scoped phase, because the only
+/// thing that ever incremented it — LimitEnforcer.RecordLlmCall — has no production caller
+/// anywhere. It is removed rather than repaired: the scan's coverage account now states the
+/// turns a pass used, near-exact and counted from the transcript, and two numbers called
+/// turns in one file would have contradicted each other.
+/// </para>
 /// </summary>
 public sealed record PhaseCost(
     string Model,
     int InputTokens,
     int OutputTokens,
     int CacheReadTokens,
-    int Iterations,
     decimal Cost);
 
 /// <summary>

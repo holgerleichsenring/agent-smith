@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -19,8 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class MergeMasterFindingsHandler(
     IMasterOutputSchemaResolver schemaResolver,
-    ObservationParser observationParser,
-    ITolerantJsonParser tolerantParser,
+    MasterAnswerReader answerReader,
     ILogger<MergeMasterFindingsHandler> logger)
     : ICommandHandler<MergeMasterFindingsContext>
 {
@@ -42,24 +40,24 @@ public sealed class MergeMasterFindingsHandler(
             || string.IsNullOrWhiteSpace(answer))
             return Degraded(pipeline, $"master '{masterSkill}' produced no answer text");
 
-        // Empty-but-valid array (master triaged to nothing) vs unparseable (no usable
-        // answer) collide in TryParseWithoutIds (both -> null), so detect array-ness
-        // first: only a real JSON array enters the merge; anything else leaves the raw
-        // scanner findings untouched (regression guard — never fewer than today).
-        if (!IsJsonArray(answer))
+        // p0279: anchor master source-claims against the read-set (downgrade unread ones).
+        // p0333: the same read-set lets the merge treat a static-pattern fact in a file the
+        // master read-and-dismissed as an implicit rejection instead of an uncovered gap.
+        pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var readPaths);
+        // 2026-09-01-6c32: the reader decides, because it is the code that can read a
+        // truncated array. An empty-but-valid array is a triage that kept nothing and
+        // enters the merge; only an answer that is not findings at all degrades.
+        var reading = answerReader.Read(answer, masterSkill, logger, readPaths);
+        if (reading.Rejection is not null)
             return Degraded(pipeline,
-                $"master '{masterSkill}' answer is not a JSON array — kept raw scanner findings");
+                $"master '{masterSkill}' {reading.Rejection} — kept raw scanner findings");
+        if (reading.Recovered) RecordRecovery(pipeline, masterSkill, reading.Observations.Count);
 
         var raw = pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var existing)
             && existing is not null ? existing : [];
         pipeline.Set(ContextKeys.RawScannerObservations, raw.ToList());
 
-        // p0279: anchor master source-claims against the read-set (downgrade unread ones).
-        // p0333: the same read-set lets the merge treat a static-pattern fact in a file the
-        // master read-and-dismissed as an implicit rejection instead of an uncovered gap.
-        pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var readPaths);
-        var masterObs = observationParser.TryParseWithoutIds(answer, masterSkill, logger, readPaths)
-            ?? new List<SkillObservation>();
+        var masterObs = reading.Observations;
         var merge = MasterFindingsMerger.Merge(masterObs, raw, readPaths);
         pipeline.Set(ContextKeys.SkillObservations, merge.Delivered.ToList());
         // p0429: the master's silence promoted these; nobody vouched for them. Named here
@@ -74,10 +72,17 @@ public sealed class MergeMasterFindingsHandler(
             $"Merged: {masterObs.Count} triaged + {merge.Promoted.Count} High+ raw = {merge.Delivered.Count}"));
     }
 
-    private bool IsJsonArray(string answer)
+    /// <summary>
+    /// 2026-09-01-6c32: the array was cut off mid-write and its observations were salvaged
+    /// one literal at a time. They ship — they are the master's own triage — but the run
+    /// records the salvage, so a reader can tell a complete triage from a rescued one.
+    /// </summary>
+    private void RecordRecovery(PipelineContext pipeline, string masterSkill, int count)
     {
-        using var doc = tolerantParser.ParseArray(answer).Document;
-        return doc is not null && doc.RootElement.ValueKind == JsonValueKind.Array;
+        var note = $"master '{masterSkill}' answer was truncated — {count} observation(s) "
+            + "recovered from the incomplete array";
+        pipeline.Set(ContextKeys.ScanTriageRecovered, note);
+        logger.LogWarning("Scan triage recovered from a truncated answer — {Note}", note);
     }
 
     /// <summary>

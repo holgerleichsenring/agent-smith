@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-7df4
+
+decisions:
+  - category: Architecture
+    chose: "One ScanSurfaceLimits applies the observation surface's ceiling, output budget, window and compaction to the request"
+    over: "Four conditional expressions inside the master handler's request construction"
+    reason: |
+      The handler is the file the p0402 ratchet holds at its baseline, and four
+      isScanMaster ternaries inside one constructor call is also four places to read before
+      you know what the scan surface runs under. One type answers "what is different about
+      the observation-schema surface" and the handler asks it once. It also absorbed the
+      output budget 2026-09-01-6c32 had put inline, so the two phases' knobs are stated in
+      one place instead of two.
+
+  - category: Architecture
+    chose: "Default ceiling 100 for the scan surface"
+    over: "Keeping 25, or matching the coding surface's 200"
+    reason: |
+      Nobody chose 25: the handler passed null and null fell through to a private constant
+      in the chat-client factory that is the fallback for a call with no opinion. Whether 25
+      was the wall is still unmeasured — one iteration executes every function call in a
+      response, so the tool calls observed across three runs could be ten iterations or
+      thirty, and nothing recorded it. 100 is a real budget for a surface whose job is to
+      read a lot of code, and half the coding surface's, which also writes and verifies. The
+      number is now a config key and is recorded on the run, so the next argument about it
+      starts from a measurement rather than from a constant nobody picked.
+
+  - category: Architecture
+    chose: "The request carries its own compaction settings and an assumed input window; a role that states a window still wins"
+    over: "Giving the scan surface MasterLoopHooks so it picks up the compactor the coding master gets"
+    reason: |
+      A non-null hooks object also installs the governor — the within-pass money fence and
+      the ledger reminder — which this phase deliberately does not ship for the scan surface
+      and which the handler's own cost tracking branches on (masterHooks is null decides
+      whether the final response is tracked). Borrowing hooks to get compaction would have
+      changed three behaviours to get one. Compaction and the window are properties of the
+      CALL, so they belong on AgenticLoopRequest, which already carries the ceiling and the
+      output budget. The window is a property of the deployment, so a role that states
+      context_window_tokens overrides the surface's assumption, never the other way round.
+
+  - category: Architecture
+    chose: "The re-drive delivers the UNION of the passes' object literals, keyed on location plus wording"
+    over: "Assigning the deeper pass's result, or threading PriorMessages so the deeper pass can restate everything"
+    reason: |
+      The old code assigned the deeper result outright on the comment that the deeper pass
+      "re-emits the complete observation array". It cannot: it opens on an empty transcript,
+      so anything the first pass found and the second did not was discarded. Threading the
+      first pass's messages would carry every tool result of a long pass into the second
+      one's input — a context-size question this phase does not answer. The union works on
+      RAW object literals, so every field survives verbatim and no re-serialisation is
+      invented; a later pass restating a finding replaces the earlier wording in place.
+
+  - category: Implementation
+    chose: "The union answer is published beside the loop result, which still comes from the last pass"
+    over: "Building a synthetic ChatResponse carrying the union text"
+    reason: |
+      The loop result is read for duration and usage, and its Messages are what a later
+      phase counts turns from. A hand-built response would have had to fake all three to
+      change one string. Only the published MasterAnswer needs the union, so only that is
+      overridden — and a run with no re-drive publishes the pass's own text byte for byte.
+
+  - category: Implementation
+    chose: "ITolerantJsonParser gained IsJsonArray as a default interface method"
+    over: "A second private copy of the three-line check in MasterAnswerUnion"
+    reason: |
+      Two callers now ask "was this answer a complete array": the reader that decides whether
+      a triage needs salvaging, and the union that decides whether the repaired array must
+      still carry 2026-09-01-6c32's recovered mark. A default implementation on the interface
+      keeps every existing test double valid while giving both callers the same answer.
+
+  - category: Scope
+    chose: "No closing turn at exhaustion, and no money fence on the scan surface"
+    over: "Building a final tool-free call when the ceiling is reached"
+    reason: |
+      Microsoft.Extensions.AI is pinned at 10.3.0 and its FunctionInvokingChatClient already
+      calls PrepareOptionsForLastIteration at the ceiling: it strips every tool declaration
+      and makes one more call, so the framework already receives a text answer. Building it
+      again would duplicate library behaviour and would then be credited with whatever the
+      ceiling change achieved. The money fence stays out because one measured run has to say
+      what a scan costs first; the phase raising the ceiling is not the phase to invent a cap.

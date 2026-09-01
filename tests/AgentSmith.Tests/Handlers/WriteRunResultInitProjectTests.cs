@@ -155,7 +155,7 @@ public sealed class WriteRunResultInitProjectTests
         pipeline.Set(ContextKeys.RunCostSummary, new RunCostSummary(
             new Dictionary<string, PhaseCost>
             {
-                ["scout"] = new("haiku", 1000, 200, 0, 1, 0.01m),
+                ["scout"] = new("haiku", 1000, 200, 0, 0.01m),
             }.AsReadOnly(),
             0.01m));
         var context = NewInitContext(pipeline);

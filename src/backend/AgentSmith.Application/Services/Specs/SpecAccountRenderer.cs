@@ -32,10 +32,28 @@ public static class SpecAccountRenderer
                 continue;
             }
             lines.AddRange(account.Criteria.Select(Row));
+            if (account.Measures is { } measures) lines.AddRange(Measured(measures));
             lines.Add(string.Empty);
         }
         return string.Join("\n", lines).TrimEnd() + "\n";
     }
+
+    /// <summary>
+    /// 2026-09-01-3653: how large the prompt was, how many turns it used against its ceiling
+    /// and how much of the source it read — beside the criteria those numbers explain. The
+    /// turn count is rendered as near-exact because that is what it is.
+    /// </summary>
+    private static IEnumerable<string> Measured(ScanPassMeasures measures) =>
+    [
+        $"- measured: system prompt {measures.SystemPromptChars} chars; conversation "
+        + $"{measures.ConversationChars}; scanner findings {measures.ScannerFindingsChars}; "
+        + $"OpenAPI document {measures.OpenApiDocumentChars}; surface difference "
+        + $"{measures.SurfaceDifferenceChars}",
+        $"- measured: ~{measures.TurnsUsed} turns against a ceiling of "
+        + $"{measures.IterationCeiling} (near-exact — counted from the pass's assistant "
+        + $"messages, and a provider may split one turn across several); "
+        + $"{measures.DistinctReadCount} distinct source file(s) read",
+    ];
 
     private static string Row(CriterionAccount criterion) =>
         $"- [{Mark(criterion.Disposition)}] {criterion.Criterion}{Evidence(criterion)}";
