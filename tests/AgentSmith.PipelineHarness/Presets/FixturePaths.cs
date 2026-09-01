@@ -19,6 +19,38 @@ internal static class FixturePaths
     public const string DockerApiPassive = "agentsmith-docker-api-passive.yml";
 
     /// <summary>
+    /// 2026-09-01-9723: the Angular and Maven reference runs. Its agent_version is newer
+    /// than the other docker fixtures' — see the file for the measurement that forced it.
+    /// </summary>
+    public const string DockerPolyglot = "agentsmith-docker-polyglot.yml";
+
+    /// <summary>
+    /// 2026-09-01-9723: the Angular reference — a real (tiny) Angular workspace whose
+    /// <c>.agentsmith/contexts/web/context.yaml</c> declares its image and its build,
+    /// lint and test stages.
+    /// </summary>
+    public const string AngularReference = "AngularFixture";
+
+    /// <summary>
+    /// 2026-09-01-9723: the Maven reference — declares its image and its build and test
+    /// stages in <c>.agentsmith/contexts/api/context.yaml</c>.
+    /// </summary>
+    public const string JavaReference = "JavaFixture";
+
+    /// <summary>The reference repository the docker-tier session seeds into its bare remote.</summary>
+    public static string ReferenceSource(string reference) =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", reference);
+
+    /// <summary>
+    /// One defect variant of a reference, as a directory OVERLAY: every file under
+    /// <c>{reference}Defects/{stage}/</c> replaces the file at the same repo-relative
+    /// path. A defect is a source edit, so it is expressed as source rather than as a
+    /// switch a test flips.
+    /// </summary>
+    public static string DefectOverlay(string reference, string stage) =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", reference + "Defects", stage);
+
+    /// <summary>
     /// p0199b: fixture C# project ships as content next to the harness
     /// dll; resolves to the directory that DockerHarnessSession seeds
     /// into a fresh working copy + bare repo for each docker-tier test.

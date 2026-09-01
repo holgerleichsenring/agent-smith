@@ -1,0 +1,26 @@
+# 2026-09-01-9723: the Angular reference declares its own gates. Three stages, in the
+# order they are worth running in, none of which the inferred build/test pair had a slot
+# for — the lint stage is the one that used to need a catalog profile.
+#
+# node:22-bookworm carries node 22, npm 10 and git 2.39 and NO BROWSER, which is why the
+# test stage runs vitest over plain TypeScript rather than a runner that starts Chrome:
+# a browser-driven runner would go red in this image for a reason that has nothing to do
+# with the code. Measured cold in the image itself: npm ci 10s / 264MB node_modules,
+# ng build 2s, eslint 1s, vitest <1s — against a 900s per-step cap.
+meta:
+  workdir: .
+  project: angular-reference
+  purpose: The Angular reference repository that proves a declared stage list runs.
+stack:
+  lang: typescript
+  framework: Angular 20
+  image: node:22-bookworm
+prerequisites: npm ci
+verify:
+  - label: build
+    command: npm run build
+    when_present: package.json
+  - label: lint
+    command: npm run lint
+  - label: test
+    command: npm test

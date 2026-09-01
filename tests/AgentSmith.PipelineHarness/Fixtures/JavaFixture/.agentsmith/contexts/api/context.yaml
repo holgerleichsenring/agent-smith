@@ -1,0 +1,24 @@
+# 2026-09-01-9723: the Maven reference declares its own gates. Two stages, named by the
+# repository rather than inferred from what an analyzer emitted that day.
+#
+# maven:3.9-eclipse-temurin-21 carries Maven 3.9.16, JDK 21 and git 2.43, and an EMPTY
+# /root/.m2 — Maven is deliberately absent from PackageCacheCatalog (a cache row has to
+# be reachable through a plain env var, and Maven needs an argument or a settings.xml),
+# and the kubernetes backend mounts no package cache at all. Every run therefore pays a
+# cold dependency cache. Measured against an empty local repository: 23MB fetched,
+# `mvn -DskipTests package` 10s, `mvn test` 3s — against a 900s per-step cap
+# (SandboxGlobalConfig.StepTimeoutSeconds) and a 300s run_command default.
+meta:
+  workdir: .
+  project: maven-reference
+  purpose: The Java reference repository that proves a declared stage list runs.
+stack:
+  lang: java
+  framework: Java 21
+  image: maven:3.9-eclipse-temurin-21
+verify:
+  - label: build
+    command: mvn -B -DskipTests package
+    when_present: pom.xml
+  - label: test
+    command: mvn -B test

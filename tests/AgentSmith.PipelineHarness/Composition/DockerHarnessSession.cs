@@ -55,11 +55,19 @@ public sealed class DockerHarnessSession : IAsyncDisposable
         await RunAsync("git", new[] { "-C", working, "push", "origin", "main" });
     }
 
+    // 2026-09-01-9723: written where NuGet is what restores. The Angular and Maven
+    // references restore from npm and Maven Central, and a nuget.config at the root of
+    // either is a claim about the repository that is not true of it.
     private static void WriteNuGetConfig(string workingDir, bool includePrivateFeed)
     {
+        if (!RestoresWithNuGet(workingDir)) return;
         var nuget = includePrivateFeed ? NuGetConfigPrivate : NuGetConfigPublic;
         File.WriteAllText(Path.Combine(workingDir, "nuget.config"), nuget);
     }
+
+    private static bool RestoresWithNuGet(string workingDir) =>
+        Directory.EnumerateFiles(workingDir, "*.csproj", SearchOption.AllDirectories).Any()
+        || Directory.EnumerateFiles(workingDir, "*.sln", SearchOption.AllDirectories).Any();
 
     private const string NuGetConfigPublic =
         """

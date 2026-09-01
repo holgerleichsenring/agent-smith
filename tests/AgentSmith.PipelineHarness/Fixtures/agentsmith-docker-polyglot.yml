@@ -1,0 +1,46 @@
+# 2026-09-01-9723 docker-tier fixture for the Angular and Maven reference repositories.
+# No registries block: neither reference restores from a private feed, so nothing has to
+# be staged and the run needs no operator token.
+#
+# agent_version is pinned NEWER than the other docker fixtures on purpose. Measured on
+# 0.74.1 a run step comes back exit=0 with an EMPTY result body — its stdout only ever
+# reached the progress stream — so a verify outcome carried no reason at all. 0.134.1
+# returns the command's output in the result, which is what the stage report is made of.
+
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-fixture:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+
+repos:
+  polyglot-fixture:
+    type: github
+    url: fake-replaced-at-runtime
+    auth: gh_token
+
+projects:
+  fixture-fix-bug:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [polyglot-fixture]
+
+secrets:
+  gh_token: ${GH_TOKEN}
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.134.1"
