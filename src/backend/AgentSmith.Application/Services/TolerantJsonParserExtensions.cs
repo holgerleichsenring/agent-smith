@@ -21,6 +21,7 @@ public static class TolerantJsonParserExtensions
         services.AddTransient<IObservationNormalizer, ObservationNormalizer>();
         services.AddTransient<ISourceAnchorValidator, SourceAnchorValidator>();
         services.AddTransient<ObservationParser>();
+        services.AddTransient<MasterAnswerReader>();
         services.AddTransient<GateObservationParser>();
         services.AddTransient<PlanParser>();
         services.AddTransient<WikiUpdateParser>();

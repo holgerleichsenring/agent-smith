@@ -245,8 +245,7 @@ public sealed class MergeMasterFindingsHandlerTests
 
     private static MergeMasterFindingsHandler Build(string? resolvedSchema) =>
         new(new StubSchemaResolver(resolvedSchema),
-            TolerantJsonParserFactory.CreateObservation(),
-            TolerantJsonParserFactory.CreateTolerant(),
+            TolerantJsonParserFactory.CreateMasterAnswerReader(),
             NullLogger<MergeMasterFindingsHandler>.Instance);
 
     private sealed class StubSchemaResolver(string? schema) : IMasterOutputSchemaResolver

@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-6c32
+
+decisions:
+  - category: Architecture
+    chose: "One MasterAnswerReader answers 'what did the master say', and both scan collectors ask it"
+    over: "Keeping the array test inside MergeMasterFindings and loosening it in place"
+    reason: |
+      The defect was that two pieces of code disagreed about what a readable answer is: the
+      merge's IsJsonArray did a strict JsonDocument.Parse of the extracted span, and only
+      then called ObservationParser, whose resilient fallback exists precisely to read an
+      array cut off mid-write. The stricter check ran first, so that recovery had never once
+      run on the security-scan path. Loosening the check in place would have left two places
+      that can drift apart again — and the api-scan collector, which has the same question,
+      would still be answering it a third way. One reader returns the three outcomes the
+      callers actually need (a triage, a salvaged triage, not findings at all), and both
+      handlers branch on the same answer.
+
+  - category: Architecture
+    chose: "An empty but valid array is a triage; only an answer holding no recoverable observation degrades"
+    over: "Treating zero observations as unreadable, which is what a naive parser-first gate would do"
+    reason: |
+      TryParseWithoutIds returns null for both `[]` and prose — that collision is why the
+      strict pre-check existed at all. The reader keeps the distinction by asking the
+      question in two steps: a strictly parseable array is taken at face value even when it
+      is empty (the master looked and kept nothing, which is a real result), and only text
+      that is not an array AND yields no object literal is rejected. The rejection wording
+      keeps the phrase "is not a JSON array" the coverage account and its tests already read.
+
+  - category: Implementation
+    chose: "A salvaged answer is recorded under its own key, ScanTriageRecovered, and noted on the triage criterion"
+    over: "Reusing ScanTriageDegraded, or recording nothing because the findings shipped"
+    reason: |
+      The two facts are different verdicts. A degraded triage did not happen and the
+      criterion is NOT satisfied; a recovered triage did happen and its findings are the
+      master's own, so failing the run would discard a real result. But a silent recovery
+      would replace one invisible failure with another, which is the failure 2026-08-30-03e4
+      exists to end. So the criterion stays satisfied and carries the salvage in its note,
+      where the reader who never sees the run still sees it.
+
+  - category: Implementation
+    chose: "The scan surface's output budget is its own AgentConfig knob, defaulted to 32000"
+    over: "Raising the primary role's max_tokens, or computing a budget from the finding count"
+    reason: |
+      The primary role's 8192 is a coding turn's budget and every other Primary caller lives
+      under it correctly; raising it globally would change the coding master's behaviour to
+      fix a scan. The observation schema permits 500 characters of description, 300 of
+      suggestion and 4000 of details per finding, so a few dozen findings do not fit — the
+      same truncation class an eval already proved on the same model and the same budget for
+      plan JSON. A count-derived budget would need a count nobody has before the answer is
+      written. AgenticLoopRequest.MaxOutputTokensOverride already existed and was unused on
+      this path; the scan branch is the only caller that sets it.
+
+  - category: Architecture
+    chose: "CollectMasterFindings got the same degraded branch the merge has"
+    over: "Leaving the api-scan path on its silent Skip"
+    reason: |
+      2026-08-30-03e4 hardened the merge and not this. An unreadable api-scan triage
+      appended nothing and set nothing, so the run was green with zero findings and the
+      coverage account still reported the triage criterion satisfied — the identical defect,
+      on the identical question, one file away. The empty-triage case is kept apart from it:
+      a master that triaged to no findings still Skips, because nothing was owed and not
+      delivered.
+
+  - category: TradeOff
+    chose: "Paid for the new AgentConfig knob by splitting the file — RateLimitConfig to its own file, the scan knobs to an AgentConfig.Scan partial"
+    over: "Raising AgentConfig's row in file-length-baseline.tsv"
+    reason: |
+      AgentConfig.cs sat at exactly 120 lines, so one knob put it over the p0402 limit as a
+      NEW offender, which the ratchet forbids outright. RateLimitConfig was a second type in
+      the file (against the one-type-per-file rule) and moved out unchanged; the scan
+      surface's knobs are a distinct reason to change — the surface that reads a lot of
+      source and writes one array, not the one that produces a change and verifies it — so
+      they became a partial beside it. No property was renamed, so no configuration file or
+      caller changed.

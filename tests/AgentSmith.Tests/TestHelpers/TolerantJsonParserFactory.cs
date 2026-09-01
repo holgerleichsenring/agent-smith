@@ -21,6 +21,9 @@ internal static class TolerantJsonParserFactory
         new(CreateTolerant(), new ObservationNormalizer(), new SourceAnchorValidator(),
             new ObservationRecoveryHelper());
 
+    internal static MasterAnswerReader CreateMasterAnswerReader() =>
+        new(CreateObservation(), CreateTolerant());
+
     internal static GateObservationParser CreateGate() =>
         new(CreateTolerant());
 

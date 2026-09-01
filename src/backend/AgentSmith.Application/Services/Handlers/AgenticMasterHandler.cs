@@ -331,6 +331,9 @@ public sealed class AgenticMasterHandler(
                 isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
                 progress, recall, remember, context),
             UserImageParts: extras.ImageParts,
+            // 2026-09-01-6c32: the scan master's closing answer is a findings ARRAY, not a
+            // coding turn — it gets an output budget sized for the answer it is asked for.
+            MaxOutputTokensOverride: isScanMaster ? context.AgentConfig.ScanMasterMaxOutputTokens : null,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
 
