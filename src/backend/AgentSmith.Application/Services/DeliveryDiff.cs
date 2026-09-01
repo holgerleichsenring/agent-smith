@@ -20,17 +20,31 @@ namespace AgentSmith.Application.Services;
 /// which comparison it managed; an account taken against an unknown base would be a
 /// confident answer to a question nobody asked.
 /// </para>
+/// <para>
+/// 2026-09-01-b467: and the chain knows where the RUN began, because the phase commits its
+/// work before the gate reads it. On a branch that IS the base — a local repository with no
+/// remote, which is what the bundled demo produces — the base rungs see nothing and HEAD
+/// means uncommitted work only, so a correct delivery was invisible at every rung.
+/// </para>
 /// </summary>
-public sealed class DeliveryDiff(SandboxBaseBranch baseBranchReader, ILogger<DeliveryDiff> logger)
+public sealed class DeliveryDiff(
+    SandboxBaseBranch baseBranchReader,
+    SandboxRunStartCommit runStartReader,
+    ILogger<DeliveryDiff> logger)
 {
     private const int GitTimeoutSeconds = 120;
 
+    /// <param name="runId">
+    /// The run taking the diff, so the ladder can find the commit it started from. Null
+    /// leaves that rung out and the ladder behaves exactly as it did before.
+    /// </param>
     public async Task<DiffResult> ForBranchAsync(
-        ISandbox sandbox, CancellationToken cancellationToken)
+        ISandbox sandbox, string? runId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         var baseBranch = await baseBranchReader.ResolveAsync(sandbox, cancellationToken);
-        foreach (var (against, description) in Candidates(baseBranch))
+        var runStart = await runStartReader.ResolveAsync(sandbox, runId, cancellationToken);
+        foreach (var (against, description) in Candidates(baseBranch, runStart))
         {
             var diff = await TryDiffAsync(sandbox, against, cancellationToken);
             if (diff is null) continue;
@@ -51,13 +65,18 @@ public sealed class DeliveryDiff(SandboxBaseBranch baseBranchReader, ILogger<Del
         against is ["HEAD"] ? null : against[0];
 
     // Ordered by how close each comparison is to "what this branch delivers".
-    private static IEnumerable<(string[] Args, string Description)> Candidates(string? baseBranch)
+    private static IEnumerable<(string[] Args, string Description)> Candidates(
+        string? baseBranch, string? runStart)
     {
         if (!string.IsNullOrWhiteSpace(baseBranch))
         {
             yield return ([$"origin/{baseBranch}"], $"against origin/{baseBranch}");
             yield return ([baseBranch], $"against {baseBranch}");
         }
+        // Everything this run put on the branch, committed and uncommitted alike — the
+        // answer when the branch and the base are the same ref.
+        if (!string.IsNullOrWhiteSpace(runStart))
+            yield return ([runStart], $"against {runStart} (where this run started)");
         // The branch's own first parent: everything committed on it plus the working tree.
         yield return (["HEAD"], "against HEAD (uncommitted work only)");
     }

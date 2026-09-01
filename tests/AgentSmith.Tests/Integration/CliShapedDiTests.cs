@@ -120,6 +120,11 @@ public sealed class CliShapedDiTests : IDisposable
             // Resolving only the executor let an unregistered IActiveRunLease slip
             // through and crash every CLI pipeline run at GetRequiredService.
             _ = provider.GetRequiredService<AgentSmith.Application.Services.ExecutePipelineUseCase>();
+            // 2026-09-01-e14d: the verify gate and the bootstrap write surface both took a
+            // new collaborator. A handler-with-mocks test cannot see an unregistered one.
+            _ = provider.GetRequiredService<AgentSmith.Contracts.Commands.ICommandHandler<
+                AgentSmith.Application.Models.VerifyPhaseContext>>();
+            _ = provider.GetRequiredService<AgentSmith.Application.Services.BootstrapToolHostFactory>();
         };
 
         act.Should().NotThrow(

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -16,7 +17,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 internal static class BootstrapPrinciplesOutcome
 {
-    public static string Sentence(PrinciplesTransferResult transfer, string displayName) =>
+    public static string Sentence(
+        PrinciplesTransferResult transfer, string displayName, bool retiredRenamed = false) =>
         transfer.Mode switch
         {
             PrinciplesMode.Transferred =>
@@ -27,9 +29,20 @@ internal static class BootstrapPrinciplesOutcome
                 + "preserved (ratified content is never overwritten)",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(transfer), transfer.Mode, "SkillWrites is reported by SkillWroteThem"),
-        };
+        } + RenameNote(retiredRenamed);
 
-    public static string SkillWroteThem(PrinciplesTransferResult transfer, string displayName, int changes) =>
+    public static string SkillWroteThem(
+        PrinciplesTransferResult transfer, string displayName, int changes,
+        bool retiredRenamed = false) =>
         $"{displayName} [Bootstrap]: {changes} file(s) written; coding principles authored "
-        + $"by the skill — catalog {transfer.CatalogOrigin ?? "unresolved"} shipped no principles core";
+        + $"by the skill — catalog {transfer.CatalogOrigin ?? "unresolved"} shipped no principles core"
+        + RenameNote(retiredRenamed);
+
+    // 2026-09-01-72c5: the migration is stated in the round's own result, so an operator
+    // reading the init pull request sees the rename instead of inferring it from the diff.
+    private static string RenameNote(bool retiredRenamed) =>
+        retiredRenamed
+            ? $"; {ProjectMetaPaths.RetiredPrinciplesFile} was renamed to "
+              + $"{ProjectMetaPaths.PrinciplesFile} before the round read it"
+            : string.Empty;
 }

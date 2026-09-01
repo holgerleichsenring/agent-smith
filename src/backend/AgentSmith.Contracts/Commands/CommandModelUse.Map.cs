@@ -57,7 +57,7 @@ public static partial class CommandModelUse
         CommandNames.LoadCatalog, CommandNames.PipelineNameInitializer, CommandNames.FetchTicket,
         CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,
         CommandNames.RunPreflight,
-        CommandNames.EnsurePrerequisites,
+        CommandNames.EnsurePrerequisites, CommandNames.ProbeTarget,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, CommandNames.LoadContext,
         CommandNames.LoadSkills, CommandNames.LoadSwagger, CommandNames.LoadCachedCodeMap,

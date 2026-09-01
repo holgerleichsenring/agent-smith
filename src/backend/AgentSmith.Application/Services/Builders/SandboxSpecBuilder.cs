@@ -38,13 +38,10 @@ public sealed class SandboxSpecBuilder(
 
     public SandboxSpec Build(
         ResolvedProject projectConfig, string? language, string? pipelineName,
-        string? contextImage = null, ContextYamlStackResources? contextResources = null,
-        // p0504: the image the declared meta.domain's profile brings. Reached only
-        // when the context named no image of its own.
-        string? profileImage = null)
+        string? contextImage = null, ContextYamlStackResources? contextResources = null)
     {
         ArgumentNullException.ThrowIfNull(projectConfig);
-        var image = _imageChain.Resolve(projectConfig, language, contextImage, profileImage);
+        var image = _imageChain.Resolve(projectConfig, language, contextImage);
         // p0268: context.yaml stack.resources sizes the sandbox as a layer between the
         // operator project override and the global default (validated in the resolver).
         // p0320a: the pipeline name makes sizing pipeline-aware — only code-changing
@@ -63,6 +60,9 @@ public sealed class SandboxSpecBuilder(
         var secrets = _secretsResolver.Resolve(projectConfig.Sandbox);
         return new SandboxSpec(
             ToolchainImage: image, Resources: resources, AgentImage: agentImage,
-            StepTimeoutSeconds: stepTimeout, Secrets: secrets);
+            StepTimeoutSeconds: stepTimeout, Secrets: secrets,
+            // 2026-08-31-46d7: the pull credential is a global supply-chain setting, so it
+            // rides straight from the global block onto the spec with no project layer.
+            ImagePullSecrets: _global.ImagePullSecrets);
     }
 }

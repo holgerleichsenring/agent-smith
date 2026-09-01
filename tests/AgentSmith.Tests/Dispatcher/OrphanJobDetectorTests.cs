@@ -99,7 +99,7 @@ public sealed class OrphanJobDetectorTests
             UserId = "U456",
             Platform = "slack",
             Project = "test-project",
-            TicketId = 42,
+            TicketId = "42",
             StartedAt = DateTimeOffset.UtcNow.AddHours(-1),
             LastActivityAt = DateTimeOffset.UtcNow.AddMinutes(-30)
         };
@@ -151,7 +151,7 @@ public sealed class OrphanJobDetectorTests
             UserId = "U100",
             Platform = "slack",
             Project = "test",
-            TicketId = 1,
+            TicketId = "1",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
             LastActivityAt = DateTimeOffset.UtcNow.AddMinutes(-5)
         };
@@ -180,7 +180,7 @@ public sealed class OrphanJobDetectorTests
             UserId = "U200",
             Platform = "slack",
             Project = "test",
-            TicketId = 2,
+            TicketId = "2",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
             LastActivityAt = DateTimeOffset.UtcNow.AddMinutes(-5)
         };
@@ -209,7 +209,7 @@ public sealed class OrphanJobDetectorTests
             UserId = "U300",
             Platform = "slack",
             Project = "test",
-            TicketId = 3,
+            TicketId = "3",
             StartedAt = DateTimeOffset.UtcNow.AddSeconds(-10),
             LastActivityAt = DateTimeOffset.UtcNow.AddSeconds(-5)
         };
@@ -239,7 +239,7 @@ public sealed class OrphanJobDetectorTests
             UserId = "U400",
             Platform = "slack",
             Project = "test",
-            TicketId = 4,
+            TicketId = "4",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
             LastActivityAt = DateTimeOffset.UtcNow.AddMinutes(-5)
         };

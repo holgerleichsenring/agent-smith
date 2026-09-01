@@ -22,9 +22,20 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <param name="Purpose">p0331: `meta.purpose:` — the human sentence describing what this
 /// context is for. Surfaced so the ticket→repo scope classifier can reason about which
 /// repos a ticket touches from metadata alone (pre-checkout, pre-sandbox).</param>
-/// <param name="Domain">p0504: `meta.domain:` — one word naming a profile in the resolved
-/// skills catalog. The profile brings a toolchain image (used only when the context names
-/// none) and the ordered verification commands a repository of that shape is gated by.</param>
+/// <param name="Verify">2026-08-31-26d4: `verify:` — the ordered stages this repository
+/// declares as proof that a change in it holds. Read here so it reaches the verify gate
+/// through the discovery, ahead of anything a model emits for that run. Null/absent → the
+/// gate infers as before.</param>
+/// <param name="VerifyDerivedFrom">2026-09-01-e14d: `verify_derived_from:` — the files the
+/// verify block was derived from and their hash at that moment. Read here so the run can
+/// re-hash them and report a declaration whose source has moved. Null/absent → nothing to
+/// compare, and the run says nothing.</param>
+/// <param name="Probe">2026-09-01-379a: `probe:` — the command that asks this context's
+/// target environment whether it answers, run before the master. Null/absent → nothing
+/// asks, and the record says so rather than reading as proven.</param>
 public sealed record ContextYamlSummary(
     string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
-    ContextYamlStackResources? Resources = null, string? Purpose = null, string? Domain = null);
+    ContextYamlStackResources? Resources = null, string? Purpose = null,
+    IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
+    ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
+    ContextYamlTargetProbe? Probe = null);

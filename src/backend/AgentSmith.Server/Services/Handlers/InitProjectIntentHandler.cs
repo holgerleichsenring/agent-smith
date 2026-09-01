@@ -88,7 +88,7 @@ public sealed class InitProjectIntentHandler(
             UserId = intent.UserId,
             Platform = intent.Platform,
             Project = intent.Project,
-            TicketId = 0,
+            TicketId = string.Empty,
             StartedAt = DateTimeOffset.UtcNow,
             LastActivityAt = DateTimeOffset.UtcNow
         };

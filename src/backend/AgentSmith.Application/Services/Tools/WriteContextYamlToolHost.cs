@@ -29,6 +29,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
     // 2026-08-26-364f: the file is read before it is written, so the sections the typed
     // document does not model survive a re-init instead of being deleted by it.
     private readonly SandboxContextYamlWriter _writer;
+    // 2026-09-01-e14d: hashes the files a written verify block says it was derived from.
+    private readonly VerifyDerivationStamp _derivation;
     // 2026-08-25-c9c7: per-round, so a document the model cannot make valid stops
     // being re-invited instead of spending the loop's iteration cap.
     private readonly ContextWriteRejectionBudget _budget = new();
@@ -49,6 +51,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         IContextYamlSerializer serializer,
         ContextDocumentGate gate,
         SandboxContextYamlWriter writer,
+        VerifyDerivationStamp derivation,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
         string? defaultRepoName = null)
     {
@@ -57,6 +60,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _serializer = serializer;
         _gate = gate;
         _writer = writer;
+        _derivation = derivation;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
 
@@ -85,32 +89,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
         // 2026-08-26-04b6: the description asks for JUDGEMENT and MECHANISM only. A reading —
         // a value the repository still states for itself — is accepted and then discarded, so a
         // model working from an older prompt is not punished for offering one.
-        [Description("Document object: { meta: { workdir, type?: [archetype,…], purpose?, domain? }, " +
-                     "stack?: { lang?, image?, resources? }, " +
-                     "arch?: object, quality?: object, behavior?: object }. " +
-                     "Do NOT restate what the repository already states about itself — the build " +
-                     "file's frameworks, versions and packages, the workflow's CI platform, the " +
-                     "folder names as layers. Those are dropped. State what somebody DECIDED " +
-                     "(meta.purpose, quality.limits, behavior) and what the orchestrator ACTS ON " +
-                     "(meta.workdir, meta.domain, stack.lang, stack.image). " +
-                     "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
-                     "meta.domain is OPTIONAL: one word naming a profile that supplies this context's " +
-                     "toolchain image and verification commands; a context declaring one may omit " +
-                     "stack.image. " +
-                     "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker " +
-                     "image whose runtime can BOTH build " +
-                     "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
-                     "it must come from a registry the operator trusts and must carry git, because the " +
-                     "repository is cloned inside it. " +
-                     // p0332: resources demoted to the exception — the defaults fit
-                     // almost every stack; agents must stop sizing every context.yaml.
-                     "stack.resources is NORMALLY OMITTED — the platform defaults fit almost every " +
-                     "stack, including real dotnet/Roslyn and npm builds. Declare it only for a " +
-                     "defensible outlier: a build that DEMONSTRABLY needs more than the default " +
-                     "(e.g. it OOM-killed or you measured the peak). If you declare it, provide ALL " +
-                     "FOUR Kubernetes quantities { cpu_request, cpu_limit, memory_request, " +
-                     "memory_limit } — a partial block is refused — and values above the hard ceiling (cpu '2', memory '6Gi') are " +
-                     "clamped down to it.")]
+        [Description(WriteContextYamlToolDescription.Document)]
+
         JsonElement document,
         CancellationToken ct = default)
     {
@@ -142,16 +122,19 @@ public sealed class WriteContextYamlToolHost : IToolHost
         if (!_gate.TryRead(document, out var typed, out var readDefect))
             return _budget.Reject(context_name, readDefect!);
 
-        // Serialize first: it validates the fundamental meta.workdir requirement.
-        string yaml;
-        try { yaml = _serializer.Serialize(typed!); }
-        catch (InvalidOperationException ex) { return _budget.Reject(context_name, ex.Message); }
-
-        if (_gate.Defect(typed!) is { } defect) return _budget.Reject(context_name, defect);
-        _budget.Accepted(context_name);
-
         if (!TryResolveSandbox(repo, out var sandbox, out var err))
             return err!;
+        // 2026-09-01-e14d: stamped BEFORE the document is serialised or judged, so the hash
+        // is in the file the schema validates and the file that reaches disk.
+        typed = await _derivation.StampAsync(typed!, sandbox!, ct);
+
+        // Serialize first: it validates the fundamental meta.workdir requirement.
+        string yaml;
+        try { yaml = _serializer.Serialize(typed); }
+        catch (InvalidOperationException ex) { return _budget.Reject(context_name, ex.Message); }
+
+        if (_gate.Defect(typed) is { } defect) return _budget.Reject(context_name, defect);
+        _budget.Accepted(context_name);
 
         return await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
     }

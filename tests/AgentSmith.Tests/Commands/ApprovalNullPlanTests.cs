@@ -81,6 +81,6 @@ public sealed class ApprovalNullPlanTests
         Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/x/y" },
         Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
         Pipeline = "fix-bug",
-        CodingPrinciplesPath = "config/coding-principles.md",
+        CodingPrinciplesPath = "config/principles.md",
     };
 }

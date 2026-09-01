@@ -1,8 +1,10 @@
 # p0505 — what the data toolchain actually did
 
-The table is `tests/AgentSmith.PipelineHarness/Reports/data-toolchain/measured-commands.tsv`
+The table was `tests/AgentSmith.PipelineHarness/Reports/data-toolchain/measured-commands.tsv`
 — 123 rows: 8 candidate commands over 20 fixture variants (3 shapes x clean + 8 named
-defects), each executed twice, on 2026-08-23.
+defects), each executed twice, on 2026-08-23. 2026-08-31-77a8 deleted the table and the
+gate that read it along with the domain profile they served; the fixtures and the
+measurement script stay, so re-running the script regenerates it.
 This file carries the narrative and the two answers the phase owed, from observed
 output rather than from a derived verdict.
 

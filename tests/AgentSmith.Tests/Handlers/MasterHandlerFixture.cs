@@ -35,6 +35,7 @@ internal static class MasterHandlerFixture
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),
             AgentSmith.Tests.TestHelpers.ContextGates.Writer(),
+            AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
@@ -58,6 +59,9 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
             new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
             new AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe(
+                new ContextVerifyStagesResolver(),
+                new AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter(
+                    NullLogger<AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter>.Instance),
                 NullLogger<AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe>.Instance),
             new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
             new AgentSmith.Application.Services.RunWorkCheckpointer(

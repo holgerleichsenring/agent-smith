@@ -7,7 +7,7 @@ public static partial class PipelinePresets
     // the typed project_language enum; LoadSkills loads the bootstrap-* producers from
     // skills/coding/; BootstrapDispatch deterministically emits exactly one SkillRound
     // for the matching skill (csharp/node/python/generic-bootstrap). The skill writes
-    // .agentsmith/context.yaml + coding-principles.md via WriteFile (path-write-guard
+    // .agentsmith/context.yaml + principles.md via WriteFile (path-write-guard
     // restricts writes to those two paths); InitCommit then commits the new files.
     //
     // p0161d: BootstrapDiscover slots immediately before BootstrapDispatch. Cold-init

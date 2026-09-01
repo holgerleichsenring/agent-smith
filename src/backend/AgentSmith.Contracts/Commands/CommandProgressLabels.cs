@@ -27,6 +27,7 @@ public static partial class CommandNames
         [ScopeRepos] = "Scoping repositories", // p0331
         [CheckoutSource] = "Checking out source",
         [RunPreflight] = "Checking preconditions", // p0428
+        [ProbeTarget] = "Asking the target", // 2026-09-01-379a
         [BootstrapProject] = "Bootstrapping project context",
         [LoadCodeMap] = "Loading code map",
         [LoadCodingPrinciples] = "Loading coding principles",

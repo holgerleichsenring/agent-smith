@@ -48,7 +48,7 @@ public sealed class RepoWorkPusher(
 
         var staged = await gitOps.GetStagedFileNamesAsync(sandbox, ct);
         await gitOps.CommitAndPushStagedAsync(
-            sandbox, branch, $"[checkpoint] agent-smith run {runId}", repo.Type, ct);
+            sandbox, branch, RunCheckpointCommit.MessageFor(runId), repo.Type, ct);
         MarkCheckpointed(pipeline, repo.Name,
             staged.Any(n => !RunRecordPaths.IsRunRecordPath(n)));
         logger.LogInformation(

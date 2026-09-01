@@ -6,3 +6,16 @@ stack:
   # The toolchain image that can BOTH build and test this stack: both csproj
   # files target net10.0, so the .NET 10 SDK is the one that can.
   image: mcr.microsoft.com/dotnet/sdk:10.0
+
+# What proves a change here. A run executes exactly these, in order, ahead of
+# anything it would otherwise infer. The lint stage names a file this sample does
+# not carry, so it is skipped and says so — which is how one declaration serves
+# repositories of different shapes.
+verify:
+  - label: build
+    command: dotnet build src/Sample/Sample.csproj
+  - label: test
+    command: dotnet test tests/Sample.Tests/Sample.Tests.csproj
+  - label: lint
+    command: npm run lint
+    when_present: package.json

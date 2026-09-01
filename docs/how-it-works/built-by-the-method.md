@@ -60,7 +60,7 @@ gates do the heavy lifting.
 | Layer | What it is |
 |---|---|
 | `CLAUDE.md` | the read order for context files, the ten step workflow, the rules that always hold |
-| `.agentsmith/contexts/*/coding-principles.md` | 245 lines of quality rules: max 20 lines per method, max 120 per class, one type per file |
+| `.agentsmith/contexts/*/principles.md` | 245 lines of quality rules: max 20 lines per method, max 120 per class, one type per file |
 | `.agentsmith/phases/{planned,active,done}/` | the backlog as a state machine, 679 schema validated specs |
 | `.agentsmith/decisions/p{NNNN}.yaml` | one file per phase, every entry naming what got chosen, what it beat, and why |
 | `.agentsmith/memory/` | 33 ratified behavioural rules, each traceable to a real correction |
@@ -241,7 +241,7 @@ on your answer without burning tokens while it waits.
 
 ## The point
 
-The `coding-principles.md` I built this project under is the same file Agent
+The `principles.md` I built this project under is the same file Agent
 Smith injects into its own agents at runtime, through
 `LoadCodingPrinciplesCommand`.
 

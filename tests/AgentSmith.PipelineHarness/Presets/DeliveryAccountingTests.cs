@@ -119,7 +119,10 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
         ScriptedChatClient scripted, IReadOnlyList<string> criteria, string? extraRepo = null)
     {
         var accounting = new PhaseAccounting(
-            new DeliveryDiff(new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance), NullLogger<DeliveryDiff>.Instance),
+            new DeliveryDiff(
+                new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
+                new AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit>.Instance),
+                NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
                 ScriptedChatClientFactoryAdapter.Untraced(scripted),
                 new AccountCalls(new SpecAccountCall(ScriptedChatClientFactoryAdapter.Untraced(scripted), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),

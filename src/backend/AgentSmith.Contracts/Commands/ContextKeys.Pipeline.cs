@@ -91,4 +91,9 @@ public static partial class ContextKeys
     // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.
     public const string ActivePhaseStep = "ActivePhaseStep";
 
+    /// <summary>2026-08-31-7097: dictionary keyed by sandbox key, holding the toolchain
+    /// image the backend ACTUALLY pulled for that sandbox. An entry exists only when the
+    /// sandbox named one, so the in-process backend — which runs on the host and pulls
+    /// nothing — is an absent key rather than an image nobody started.</summary>
+    public const string SandboxImages = "SandboxImages";
 }

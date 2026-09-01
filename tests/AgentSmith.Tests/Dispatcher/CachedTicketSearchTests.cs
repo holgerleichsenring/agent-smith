@@ -75,8 +75,8 @@ public sealed class CachedTicketSearchTests : IDisposable
         var result = await _sut.SearchAsync("my-project", "login", CancellationToken.None);
 
         result.Should().HaveCount(2);
-        result.Should().Contain(t => t.Id == 42);
-        result.Should().Contain(t => t.Id == 99);
+        result.Should().Contain(t => t.Id == "42");
+        result.Should().Contain(t => t.Id == "99");
     }
 
     [Fact]
@@ -102,7 +102,23 @@ public sealed class CachedTicketSearchTests : IDisposable
         var result = await _sut.SearchAsync("my-project", "42", CancellationToken.None);
 
         result.Should().HaveCount(1);
-        result[0].Id.Should().Be(42);
+        result[0].Id.Should().Be("42");
+    }
+
+    [Fact]
+    public async Task TicketSearch_AJiraProject_ReturnsItsTickets()
+    {
+        SetupConfigWithProject("my-project");
+        SetupTicketProvider("my-project",
+        [
+            CreateTicket("PROJ-1234", "Fix login bug"),
+            CreateTicket("PROJ-1235", "Add dark mode")
+        ]);
+
+        var result = await _sut.SearchAsync("my-project", null, CancellationToken.None);
+
+        result.Should().HaveCount(2);
+        result.Should().Contain(t => t.Id == "PROJ-1234");
     }
 
     private void SetupConfigWithProject(string projectName)
@@ -134,5 +150,8 @@ public sealed class CachedTicketSearchTests : IDisposable
     }
 
     private static Ticket CreateTicket(int id, string title) =>
-        new(new TicketId(id.ToString()), title, "Description", null, "Open", "github");
+        CreateTicket(id.ToString(), title);
+
+    private static Ticket CreateTicket(string id, string title) =>
+        new(new TicketId(id), title, "Description", null, "Open", "github");
 }

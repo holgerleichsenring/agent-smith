@@ -9,7 +9,7 @@ namespace AgentSmith.Contracts.Models;
 /// Produced by BootstrapDiscoverHandler from the LLM's structured response;
 /// consumed by BootstrapDispatchHandler to fan out one BootstrapRound per
 /// (repo, component) — each round writes
-/// <c>.agentsmith/contexts/&lt;Name&gt;/{context.yaml,coding-principles.md}</c>.
+/// <c>.agentsmith/contexts/&lt;Name&gt;/{context.yaml,principles.md}</c>.
 /// </summary>
 /// <param name="Name">Context-directory slug under <c>.agentsmith/contexts/</c>. Operator-readable, lowercase, no slashes.</param>
 /// <param name="Workdir">Repo-relative working directory. "." for single-component repos; sub-tree path (e.g. "server", "client") for monorepo components.</param>

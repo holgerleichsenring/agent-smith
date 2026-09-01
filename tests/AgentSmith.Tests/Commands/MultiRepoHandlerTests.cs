@@ -289,7 +289,7 @@ public sealed class MultiRepoHandlerTests
                 new SecretPatternScanner(),
                 EventTestStubs.NoOp,
                 new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
-                new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
+                AgentSmith.Tests.TestHelpers.TestGit.Delivery,
                 new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new AccountCalls(new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),

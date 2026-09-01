@@ -8,7 +8,7 @@ namespace AgentSmith.Server.Services.Handlers;
 internal static class ModalIntentFactory
 {
     public static FixTicketIntent CreateFixIntent(
-        int ticketId, ModalCommandType command, string project,
+        string ticketId, ModalCommandType command, string project,
         string userId, string channelId) => new()
     {
         TicketId = ticketId,
@@ -23,7 +23,7 @@ internal static class ModalIntentFactory
     public static FixTicketIntent CreatePipelineIntent(
         string pipeline, string project, string userId, string channelId) => new()
     {
-        TicketId = 0,
+        TicketId = string.Empty,
         Project = project,
         PipelineOverride = pipeline,
         RawText = $"/{pipeline} in {project}",

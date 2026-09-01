@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-379a
+
+decisions:
+  - category: Design
+    chose: "The probe returns an exit code and nothing else"
+    over: "Returning the output and trimming it where the failure is worded"
+    reason: |
+      A failing step's output travels into the failure reason, the per-repository result
+      document and a comment on the external ticket, and the masker only knows values the
+      framework holds — it never holds an injected credential, so a value it does not know is
+      one it cannot replace. Making the runner structurally incapable of carrying output is the
+      only version of this that cannot regress: the tail is logged inside the runner and has
+      nowhere else to go.
+  - category: Design
+    chose: "Declare a target beside the command"
+    over: "A bare command string"
+    reason: |
+      The failure has to name what refused, and the repository key names the repository, not
+      the estate it talks to. An exit code without the target is a fact about a process rather
+      than about the environment the run depends on.
+  - category: Design
+    chose: "Only the answered outcome hides"
+    over: "Treating a missing probe as a silent pass"
+    reason: |
+      Answered, refused and not-declared are three different states, and a run that asked
+      nothing must not read like one that asked and got an answer. The answered sentence is the
+      single entry registered as a gate no-op; the other two speak in the record.
+  - category: Design
+    chose: "Extract the write tool's document description into its own type"
+    over: "Trimming the wording to stay under the length ratchet"
+    reason: |
+      The host attempts a write; the description is prompt content, and it grows every time the
+      document gains a field while the host's responsibility does not change. Merging this
+      phase's probe paragraph with the predecessor's derivation paragraph pushed the file past
+      its baseline, which is the ratchet asking for exactly this split.
+  - category: Process
+    chose: "Keep the single discovery factory the predecessor introduced"
+    over: "Re-adding a second by-name construction site as this phase's spec described"
+    reason: |
+      The spec demanded the field be passed by name at both construction sites. The predecessor
+      had already replaced both with one factory — so the demand is satisfied by there being
+      only one site to forget. The merge resolved in favour of the factory.

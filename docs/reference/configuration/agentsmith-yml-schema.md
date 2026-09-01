@@ -124,7 +124,7 @@ projects:
     tracker: acme-github        # name from trackers:
     repos: [acme-app]           # list of names from repos:
     pipeline: fix-bug
-    coding_principles_path: .agentsmith/coding-principles.md
+    coding_principles_path: .agentsmith/principles.md
     github_trigger:
       trigger_statuses: ["open"]
       done_status: "closed"

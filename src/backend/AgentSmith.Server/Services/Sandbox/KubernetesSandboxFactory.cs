@@ -44,13 +44,17 @@ public sealed partial class KubernetesSandboxFactory(
 
         var watcher = new KubernetesPodWatcher(client, loggerFactory.CreateLogger<KubernetesPodWatcher>());
         await watcher.WaitForReadyAsync(podName, options.Namespace,
-            TimeSpan.FromSeconds(spec.TimeoutSeconds), cancellationToken);
+            TimeSpan.FromSeconds(spec.TimeoutSeconds), spec.ImagePullSecrets, cancellationToken);
 
         var channel = new SandboxRedisChannel(
             redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);
         return new KubernetesSandbox(client, options.Namespace, podName, jobId, channel,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
+            spec.ToolchainImage,
+            // 2026-08-28-b630: the pod spec above projected exactly these, so the sandbox
+            // can be asked whether they arrived — by name, never by value.
+            spec.Secrets ?? ResolvedSandboxSecrets.Empty,
             loggerFactory.CreateLogger<KubernetesSandbox>());
     }
 

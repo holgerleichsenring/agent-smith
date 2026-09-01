@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// is true. `arch.style` and `arch.patterns` are the same defect wearing a taxonomy — a label
 /// an agent picks by skimming the tree once, which nobody decided; `quality.principles` was,
 /// measured in a live context, every build-file flag read back out, while the authored
-/// coding-principles.md is where the intent already lives.
+/// principles.md is where the intent already lives.
 /// </para>
 /// <para>
 /// The prompt that asks for these fields ships in the skills tarball behind a release and a

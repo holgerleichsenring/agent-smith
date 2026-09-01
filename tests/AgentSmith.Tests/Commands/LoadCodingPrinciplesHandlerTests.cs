@@ -16,8 +16,8 @@ public class LoadCodingPrinciplesHandlerTests
     [Fact]
     public async Task ExecuteAsync_FileExists_LoadsContent()
     {
-        var relativePath = ".agentsmith/coding-principles.md";
-        var fullPath = "/work/.agentsmith/coding-principles.md";
+        var relativePath = ".agentsmith/principles.md";
+        var fullPath = "/work/.agentsmith/principles.md";
 
         var reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ExistsAsync(fullPath, It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -54,8 +54,8 @@ public class LoadCodingPrinciplesHandlerTests
     [Fact]
     public async Task ExecuteAsync_DefaultPathInContextsSubdir_ResolvesViaDiscovery()
     {
-        var defaultPath = "/work/.agentsmith/coding-principles.md";
-        var nestedFile = "/work/.agentsmith/contexts/default/coding-principles.md";
+        var defaultPath = "/work/.agentsmith/principles.md";
+        var nestedFile = "/work/.agentsmith/contexts/default/principles.md";
 
         var reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ExistsAsync(defaultPath, It.IsAny<CancellationToken>())).ReturnsAsync(false);
@@ -65,7 +65,7 @@ public class LoadCodingPrinciplesHandlerTests
         var handler = MakeHandler(reader.Object);
         var repo = new Repository(new BranchName("main"), "https://example.com");
         var pipeline = MakePipeline();
-        var context = new LoadCodingPrinciplesContext(".agentsmith/coding-principles.md", repo, pipeline);
+        var context = new LoadCodingPrinciplesContext(".agentsmith/principles.md", repo, pipeline);
 
         var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
@@ -76,8 +76,8 @@ public class LoadCodingPrinciplesHandlerTests
     [Fact]
     public async Task ExecuteAsync_ContentAccessibleViaCodingPrinciplesAlias()
     {
-        var relativePath = ".agentsmith/coding-principles.md";
-        var fullPath = "/work/.agentsmith/coding-principles.md";
+        var relativePath = ".agentsmith/principles.md";
+        var fullPath = "/work/.agentsmith/principles.md";
 
         var reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ExistsAsync(fullPath, It.IsAny<CancellationToken>())).ReturnsAsync(true);

@@ -64,6 +64,12 @@ public sealed class NoStaticStateRuleTests
         // p0504: the command names that cannot run without a pod — a fixed list of
         // literals, extracted so the lifecycle that provisions one does not also hold it.
         typeof(AgentSmith.Application.Services.Sandbox.SandboxRequiringCommands),
+        // 2026-08-31-7097: the shell syntax and reserved words that make a declared
+        // command unreadable, and the tools the sandbox sweep always asks about — fixed
+        // literals, so what a probe can and cannot name is one fact in one place.
+        typeof(AgentSmith.Application.Services.Sandbox.BareCommandBinary),
+        typeof(AgentSmith.Application.Services.Sandbox.ShellReservedWords),
+        typeof(AgentSmith.Application.Services.Sandbox.ToolchainProbeCommand),
     ];
 
     private static readonly string[] TargetAssemblies =

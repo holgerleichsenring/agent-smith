@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Models;
 /// (project-bootstrap). The handler resolves the skill from AvailableRoles by
 /// name, builds a tool-bearing chat call exposing the per-context bootstrap
 /// WriteFile subset (path-write-guard restricted to .agentsmith/contexts/&lt;ctx&gt;/
-/// context.yaml + coding-principles.md), and persists the skill's Markdown
+/// context.yaml + principles.md), and persists the skill's Markdown
 /// summary into SkillOutputs for downstream WriteRunResult capture.
 ///
 /// p0158g: RepoName scopes the round to one configured repo so the handler

@@ -37,7 +37,7 @@ public sealed class ConversationStateTests
             UserId = "U1",
             Platform = "slack",
             Project = "backend",
-            TicketId = 42,
+            TicketId = "42",
             StartedAt = now
         };
 
@@ -45,7 +45,7 @@ public sealed class ConversationStateTests
         state.ChannelId.Should().Be("C1");
         state.Platform.Should().Be("slack");
         state.Project.Should().Be("backend");
-        state.TicketId.Should().Be(42);
+        state.TicketId.Should().Be("42");
         state.StartedAt.Should().Be(now);
     }
 
@@ -56,7 +56,7 @@ public sealed class ConversationStateTests
         UserId = "U456",
         Platform = "slack",
         Project = "my-project",
-        TicketId = 42,
+        TicketId = "42",
         StartedAt = DateTimeOffset.UtcNow
     };
 }

@@ -83,7 +83,7 @@ internal sealed class PipelineE2EHarness : IAsyncDisposable
         Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://stub.test" },
         Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
         Pipeline = presetName,
-        CodingPrinciplesPath = "config/coding-principles.md",
+        CodingPrinciplesPath = "config/principles.md",
     };
 
     private static PipelineContext BuildContext(string presetName)
@@ -99,7 +99,7 @@ internal sealed class PipelineE2EHarness : IAsyncDisposable
         };
         pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig(conceptValue, agent,
-                PipelinePresets.GetDefaultSkillsPath(presetName), "config/coding-principles.md"));
+                PipelinePresets.GetDefaultSkillsPath(presetName), "config/principles.md"));
         pipeline.Set(ContextKeys.PipelineName, conceptValue);
         pipeline.Set(ContextKeys.AgentConfig, agent);
         pipeline.Set(ContextKeys.Headless, true);

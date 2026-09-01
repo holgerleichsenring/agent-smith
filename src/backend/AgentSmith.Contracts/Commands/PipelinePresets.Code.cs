@@ -56,6 +56,9 @@ public static partial class PipelinePresets
         CommandNames.SpecHandback,        // not implementable / contradicts the repo => park
         CommandNames.PhaseSpecGate,       // spec validated before a single master token
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master
+        // 2026-09-01-379a: after the prerequisites installed the CLI the probe calls,
+        // and before the master, so a target that refuses costs no model token.
+        CommandNames.ProbeTarget,
         // p0393a: one master → verify → record block per derived phase, spliced in
         // order. p0328's NegotiateExpectation is gone with it: every run now carries a
         // schema-validated done-list, so negotiating a second acceptance contract would

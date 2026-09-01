@@ -104,6 +104,44 @@ public sealed class ContextDefectReportTests(ITestOutputHelper output)
             "what was left out is stated, never silently dropped");
     }
 
+    // 2026-09-01-0f80: a key the schema does not declare is refused by
+    // additionalProperties, whose schema node is the BOOLEAN false. Reading a description
+    // off it threw, so the author who misspelled one field got a stack trace where the
+    // report exists to hand them the field's name.
+    private const string UndeclaredField = """
+        {
+          "meta": { "workdir": "." },
+          "verify": [ { "stage": "build", "command": "dotnet build" } ]
+        }
+        """;
+
+    [Fact]
+    public void DefectReport_AnUnknownField_NamesTheKeyAndItsPath()
+    {
+        var report = Report(UndeclaredField);
+        output.WriteLine(report);
+
+        report.Should().Contain("/verify/0/stage: \"stage\" is not a field this schema declares",
+            "the author who wrote stage where the schema declares label learns WHICH field "
+            + "is wrong — the validator's own wording names neither the key nor its path");
+    }
+
+    [Fact]
+    public void DefectReport_ADeclaredFieldWithABadValue_ReportsAsBefore()
+    {
+        var report = Report("""
+            {
+              "meta": { "workdir": "." },
+              "verify": [ { "label": "b", "command": "dotnet build" } ]
+            }
+            """);
+        output.WriteLine(report);
+
+        report.Should().Contain("/verify/0/label")
+            .And.Contain("schema minLength: 2", "the broken rule is still quoted back")
+            .And.Contain("\"schema-check\"", "and so are its suggestions");
+    }
+
     [Fact]
     public void Report_AValidDocument_IsNotAReport() =>
         ContextGates.DefectReport().Compose(null, []).Should().BeNull();

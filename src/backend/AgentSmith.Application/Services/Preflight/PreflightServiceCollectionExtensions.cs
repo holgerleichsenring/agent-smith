@@ -28,9 +28,9 @@ public static class PreflightServiceCollectionExtensions
             sp.GetRequiredService<IWebhookSecretResolver>()));
         services.AddSingleton<IPreflightCheck, RepoAccessCheck>();
         services.AddSingleton<IPreflightCheck, SkillsCatalogCheck>();
-        // p0504: a declared meta.domain the resolved catalog does not carry, found
-        // without a run.
-        services.AddSingleton<IPreflightCheck, ContextDomainCheck>();
+        // 2026-08-31-f634: which repositories carry a path from an edit to a verdict,
+        // reported without burning a run to find out.
+        services.AddSingleton<IPreflightCheck, VerificationOnboardingCheck>();
         services.AddSingleton<IPreflightCheck, SandboxSpawnCheck>();
         services.AddSingleton<IPreflightCheck, InfraCheck>();
         return services;

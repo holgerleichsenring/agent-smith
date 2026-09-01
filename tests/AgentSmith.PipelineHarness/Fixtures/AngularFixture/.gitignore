@@ -1,0 +1,6 @@
+# Without this the run stages what `npm ci` installed: 264MB of node_modules reached
+# `git add -A` and the commit step timed out at 60s before any stage was measured.
+node_modules/
+dist/
+out-tsc/
+.angular/

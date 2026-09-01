@@ -12,9 +12,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// mandatory too.
 /// </para>
 /// <para>
-/// p0504's exemption survives unchanged: a context declaring <c>meta.domain</c>
-/// gets its toolchain image from that domain's catalog profile, so it may name
-/// neither a stack nor an image.
+/// 2026-08-31-77a8: p0504's exemption is gone with the domain word it read. No
+/// context is exempt any more — a repository whose toolchain came from a shared
+/// profile names its own image from here on.
 /// </para>
 /// </summary>
 public sealed class ContextStackImageRule
@@ -26,13 +26,11 @@ public sealed class ContextStackImageRule
         "name the exact toolchain Docker image whose runtime can BOTH build AND run this "
         + "stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm). It must "
         + "come from a registry the operator trusts and must carry git, because the repository "
-        + "is cloned inside it. A context that declares meta.domain is exempt: its profile "
-        + "brings an image.";
+        + "is cloned inside it.";
 
     public string? Defect(ContextYamlDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
-        if (!string.IsNullOrWhiteSpace(document.Meta?.Domain)) return null;
         if (document.Stack is null)
             return "/stack: a stack block is required — describe the stack this context "
                  + "builds and " + ImageGuidance;

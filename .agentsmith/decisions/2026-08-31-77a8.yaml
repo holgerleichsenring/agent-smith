@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-31-77a8
+
+decisions:
+  - category: Design
+    chose: "Remove the domain profile, the domain word and everything that resolved them"
+    over: "Keeping the mechanism and moving better content into it"
+    reason: |
+      It is the third instance of one idea — skill categories, the language image table, domain
+      profiles — each putting our copy of someone else's truth into an artefact we release and
+      version, each policed by the binary as a taxonomy. The reference estate settled it on
+      facts rather than principle: the measured profile pinned Python 3.12 and dbt 1.11.4 while
+      that estate's own pipeline pins Python 3.10, installs a JRE for PySpark and runs its unit
+      tests on a real cluster. A shared data domain would have been wrong on its first day.
+  - category: Design
+    chose: "Let the removal make a stack block and its image unconditional"
+    over: "Keeping an exemption for contexts that named a domain"
+    reason: |
+      The stack-image rule exempted a context declaring a domain, because its profile brought
+      the image. With the word gone the exemption has no subject, so every context now names
+      the image it runs in — which is the correct end state and the reason the template, the
+      guidance string, the missing-git wording and the context-file document moved with it.
+  - category: Design
+    chose: "Keep the domain key in the schema as deprecated and drop it on the write path"
+    over: "Removing the property and refusing every context that carries one"
+    reason: |
+      The context root is closed, so removing a property refuses every file written before it.
+      This is how meta.project and meta.version were retired: the key stays accepted, the typed
+      document no longer has a property to deserialise into, and a rewrite drops it silently.
+      An existing repository keeps loading.
+  - category: Scope
+    chose: "Keep the fixtures, the measurement note and the two measurement scripts; delete the table and its gate"
+    over: "Deleting the whole data-toolchain evidence, or keeping the table nothing reads"
+    reason: |
+      What the measurement learned is knowledge about tools — a command that resolves
+      authentication before validating is not a gate without credentials — and that survives in
+      the note. The table existed to police a profile's declared commands; with no profile it
+      has no reader, and a table nobody reads is the dead weight this phase is about. The three
+      fixture shapes stay because the successors need real repositories to test against.
+  - category: Process
+    chose: "Verify the subagent's central claim instead of recording it"
+    over: "Taking the implementation report at face value"
+    reason: |
+      The report stated that the discovery never carried the domain — that both construction
+      sites stopped at the previous field, and therefore that p0504 and p0513 shipped something
+      that could never fire outside tests. The branch says otherwise: 2026-08-28-7b41 had wired
+      both sites three days earlier, and the worktree was evidently cut before it. The claim was
+      dropped, and the wire it left behind was removed by hand — the build caught it, because
+      the field was gone and the argument was not.
+  - category: Scope
+    chose: "Delete the planned phases that exist only for this mechanism"
+    over: "Leaving them in planned/ to be rewritten later"
+    reason: |
+      A reference repository declaring a domain, a bundle check declared in a profile, a
+      profile that installs what its image lacks, a domain principles tier, our own published
+      toolchain image, and the two polyglot phases whose gates were profile-shaped: each was a
+      step on a mechanism that no longer exists. The unverified-run phase and the declared
+      credential phase survive because neither depends on it, and the polyglot pair is re-specced
+      against the declaration once that lands — a near-trivial spec then, and a misleading one now.
+  - category: Scope
+    chose: "Leave the catalog path's origin member in place, unread"
+    over: "Removing it with its last two consumers"
+    reason: |
+      Its only readers were the profile refusal messages. Removing it touches the interface and
+      five implementations, and a later phase extended it independently for the catalog binding
+      — so it is named here as the one leftover rather than swept out in a removal that was
+      already wide.

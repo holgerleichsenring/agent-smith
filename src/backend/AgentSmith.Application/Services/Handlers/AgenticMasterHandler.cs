@@ -37,6 +37,7 @@ public sealed class AgenticMasterHandler(
     IContextYamlSerializer contextYamlSerializer,
     ContextDocumentGate contextDocumentGate, // 2026-08-25-c9c7: judges write_context_yaml's document
     SandboxContextYamlWriter contextYamlWriter, // 2026-08-26-364f: preserves what the document omits
+    Tools.VerifyDerivationStamp verifyDerivationStamp, // 2026-09-01-e14d: hashes the verify block's source
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
     ISpecDialogPromptFactory specDialogPromptFactory,
@@ -226,7 +227,7 @@ public sealed class AgenticMasterHandler(
         // p0380: memory recall (a read, every surface) + remember (a proposal
         // writing only run-record-class .agentsmith/memory/ paths). Backed by
         // the default sandbox's file reader — the same seam the run-record and
-        // coding-principles reads use.
+        // principles reads use.
         var memoryStore = new Memory.MemoryStore(
             sandboxFileReaderFactory.Create(sandboxes[defaultKey]), context.Repository.LocalPath, logger);
         var recall = new MemoryRecallToolHost(memoryStore);
@@ -260,7 +261,7 @@ public sealed class AgenticMasterHandler(
             ? drn : defaultKey;
         var writeContextYaml = new WriteContextYamlToolHost(
             sandboxes, defaultKey, contextYamlSerializer, contextDocumentGate,
-            contextYamlWriter, discoveredContexts, writeDefaultRepoName);
+            contextYamlWriter, verifyDerivationStamp, discoveredContexts, writeDefaultRepoName);
 
         // p0356: the probed toolchain inventory enters the CODING master's system
         // prompt as a capability statement — per-run stable, so the automatic
@@ -268,7 +269,8 @@ public sealed class AgenticMasterHandler(
         // spec-dialog turns run no commands; neither is probed.
         if (!isScanMaster && !isSpecDialog)
         {
-            var toolchainSection = await toolchainProbe.ProbeAsync(sandboxes, keyToRepo, cancellationToken);
+            var toolchainSection = await toolchainProbe.ProbeAsync(
+                context.Pipeline, sandboxes, keyToRepo, cancellationToken);
             if (!string.IsNullOrEmpty(toolchainSection)) masterBody += "\n\n" + toolchainSection;
         }
 

@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-31-f634
+
+goal: "Onboarding reports which repositories carry a path from an edit to a verdict, so an operator learns where the tool can work without burning a run to find out."
+
+applies_to: "backend (a doctor preflight check that replaces the domain check's slot)"
+
+requires:
+  - 2026-08-31-26d4
+
+scope:
+  in: "A doctor-family check that reads each configured repository's contexts remotely, reports per context whether it declares verification stages, and separates a repository it could not read from one that declares nothing."
+  out: >
+    REFUSING A RUN. Two preflight families exist and only one can decline: the family
+    that fails a run may never reach the network, and this check must. The refusal is
+    already elsewhere — with the declaration in place, a repository that declares
+    nothing and is not .NET resolves no stage, and the unverified-run phase turns that
+    into a failure at the point where the run already has the data. This check is the
+    onboarding report, not the gate. JUDGING an estate's quality: the criterion is
+    whether a verdict exists, never whether it is strong. ANY REMOTE .NET DETECTION —
+    the entry point discovery needs a sandbox and a depth-2 listing that the remote
+    provider cannot do without one call per directory, and "is this .NET" comes from an
+    in-run analyzer, so a remote version would be a second, divergent criterion.
+
+decisions:
+  - key: |
+      TWO PREFLIGHT FAMILIES EXIST AND I NAMED THE WRONG ONE. The doctor family reports and
+      never stops anything — the startup service logs and surfaces on health by design. The
+      run family can fail a run and is documented as never reaching the network. A remote read
+      belongs to the first, so "declined before a run starts" was unachievable in the host the
+      spec named. The report is what this phase can honestly build.
+  - key: |
+      THE REFUSAL ALREADY HAS A HOME, AND IT IS NOT A NEW CHECK. Once a repository can declare
+      its stages, one that declares nothing resolves nothing, and a run that delivers source
+      with nothing resolved stops being a success. That is where the money is saved; a second
+      refusal computed from different data would be two authors for one verdict.
+  - key: |
+      THE DURABLE ARTEFACT IS THE DECLARATION, SO NOTHING NEEDS CACHING. There is no store for
+      a preflight verdict — the report is a single in-process field, rebuilt at startup. That
+      is fine, because eligibility is not established by this check: it is DECLARED in the
+      repository, versioned with it, and this check only reports whether the declaration is
+      there.
+  - key: |
+      A REPOSITORY THAT CANNOT BE READ IS NOT A REPOSITORY THAT DECLARES NOTHING. The context
+      resolver swallows a listing failure and returns a synthetic default, so a credential
+      problem and an un-bootstrapped repository look identical from here. Reporting the second
+      when the truth is the first is the complaint this check exists to avoid.
+  - key: |
+      AN UN-BOOTSTRAPPED REPOSITORY IS THE NORMAL STARTING STATE, NOT A VERDICT. An operator
+      onboarding an estate has not written declarations yet — that is what onboarding is for.
+      Such a repository is reported as "not yet declared", and only a repository that cannot be
+      read at all is reported as a problem.
+  - key: |
+      DECLINING IS STILL A PRODUCT DECISION, JUST STATED WHERE IT BELONGS. The tool does
+      sensible things quickly in established environments; it is not for making a conceptually
+      weak estate good. The report is where an operator sees that before spending anything.
+
+steps:
+  - id: the-check-takes-the-vacated-slot
+    action: "A doctor check registered where the domain check was, reusing the same config source and context resolver, reporting per repository and context whether verification stages are declared."
+  - id: unreadable-is-its-own-answer
+    action: "A repository whose contexts cannot be listed is reported as unreadable with the reason, distinct from one that declares nothing."
+
+tests:
+  - "Onboarding_ARepositoryDeclaringStages_IsReportedEligible"
+  - "Onboarding_ARepositoryDeclaringNothing_IsReportedNotYetDeclared"
+  - "Onboarding_ARepositoryThatCannotBeListed_IsReportedUnreadable"
+
+done:
+  - "an operator sees, per repository and context, whether a declaration exists — without starting a run"
+  - "a repository that cannot be read is never reported as ineligible"
+  - "the check reads one file per context and starts no sandbox"
+  - "build green, full suite green"

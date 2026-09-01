@@ -13,7 +13,8 @@ internal static class MadCommand
 {
     public static Command Create(Option<string> configOption, Option<bool> verboseOption)
     {
-        var ticketOption = new Option<int>("--ticket", "Ticket number") { IsRequired = true };
+        var ticketOption = new Option<string>(
+            "--ticket", "Ticket identifier as its tracker writes it") { IsRequired = true };
         var projectOption = new Option<string>("--project", "Project name") { IsRequired = true };
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
         var headlessOption = new Option<bool>("--headless", "Run without interactive prompts");
@@ -27,7 +28,7 @@ internal static class MadCommand
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
-            var ticket = ctx.ParseResult.GetValueForOption(ticketOption);
+            var ticket = ctx.ParseResult.GetValueForOption(ticketOption)!;
             var project = ctx.ParseResult.GetValueForOption(projectOption)!;
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
@@ -38,7 +39,7 @@ internal static class MadCommand
             sourceOptions.ApplyTo(ctx, context);
 
             var request = new PipelineRequest(
-                project, "mad-discussion", new TicketId(ticket.ToString()), Headless: headless,
+                project, "mad-discussion", new TicketId(ticket), Headless: headless,
                 Context: context);
 
             if (isDryRun)

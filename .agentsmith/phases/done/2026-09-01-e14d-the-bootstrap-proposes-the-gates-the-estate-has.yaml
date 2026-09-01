@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-e14d
+
+goal: "Bootstrap derives a repository's verify block from the pipeline that repository already runs, and records what it was derived from, so nobody hand-writes what the estate has written down."
+
+applies_to: "backend (the bootstrap round's context write) + skills catalog (what the bootstrap master is asked to read)"
+
+requires:
+  - 2026-08-31-26d4
+
+scope:
+  in: "The bootstrap master reads the repository's own CI definition and proposes verify stages from it; the block records the files it was derived from and their content hash; a later run compares that hash and says when the source moved."
+  out: >
+    RE-DERIVING ON EVERY RUN. An estate changes slowly and a declaration is versioned
+    with the code it describes; the run compares a hash and stays quiet when nothing
+    moved. AUTOMATIC RE-DERIVATION when it did move — this phase reports the drift, and
+    whether to re-derive is the operator's call in the successor. CREDENTIALS, which are
+    their own phase.
+
+decisions:
+  - key: |
+      IN AN ESTABLISHED ESTATE THE TRUTH ABOUT GREEN ALREADY EXISTS. A professional data or
+      code estate has a pipeline: an Azure Pipelines definition, a workflow file, a Makefile,
+      a tool's own help output. It states the commands, the versions and the order. Deriving
+      the declaration from it is adoption; writing one from scratch is invention, and an
+      invented gate disagrees with the one the estate actually runs.
+  - key: |
+      THE MASTER ALREADY DOES THIS FOR THE BUILD COMMAND. The coding master is told to work out
+      the build the same way — from manifests, scripts and CI config — so this is not a new
+      capability, it is the same reading, done once at init and written down instead of redone
+      per run.
+  - key: |
+      A DERIVATION WITHOUT ITS SOURCE IS A GUESS NOBODY CAN CHECK. The block records which
+      files it came from and a hash of them. A run hashes those few files — a filesystem read,
+      no model call — and says the declaration may be stale when they moved. That is what makes
+      "derive once" honest rather than merely cheap.
+  - key: |
+      WHAT THE HASH CANNOT CATCH IS STATED HERE. The pipeline stays the same and the target
+      moves — a cluster id, a schema name, a service connection. Nothing in a file hash sees
+      that, and the stage fails when it runs. Said out loud rather than implied away.
+  - key: |
+      THE OPERATOR RATIFIES IT IN THE INIT PULL REQUEST, WHICH IS WHERE THE REVIEW ALREADY IS.
+      A proposed gate that nobody read is a gate nobody owns; the init pull request is where
+      the principles are already ratified, and the declaration rides with them.
+
+steps:
+  - id: the-master-reads-the-pipeline
+    action: "The bootstrap master is asked for the repository's verification commands, derived from its own CI definition, scripts and manifests, and writes them as verify stages."
+  - id: the-block-records-its-source
+    action: "The written block names the files it was derived from and their content hash."
+  - id: a-moved-source-is-reported
+    action: "A run hashes those files and reports that the declaration may be stale when they no longer match, without changing what it executes."
+
+tests:
+  - "Bootstrap_ARepositoryWithAPipeline_ProposesStagesFromIt"
+  - "Bootstrap_ARepositoryWithNoPipeline_ProposesNothingRatherThanGuessing"
+  - "Run_TheDerivationSourceMoved_IsReportedStale"
+  - "Run_TheDerivationSourceUnchanged_SaysNothing"
+
+done:
+  - "an init over a repository with a pipeline produces a verify block an operator can read against that pipeline"
+  - "a repository with no pipeline gets no invented stages"
+  - "a run whose derivation source changed says so, once, and still runs what is declared"
+  - "build green, full suite green"

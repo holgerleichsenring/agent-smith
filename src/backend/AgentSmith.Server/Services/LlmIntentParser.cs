@@ -30,7 +30,7 @@ public sealed class LlmIntentParser(
         - "create", "add", "new ticket", "open a ticket" -> commandType: "create"
         - Greetings, capability questions -> commandType: "help"
         - Anything else -> commandType: "unknown"
-        - Extract ticket numbers from #N or "ticket N" or "issue N"
+        - Extract the ticket identifier as its tracker writes it: #N, "ticket N", "issue N", or a key like PROJ-1234
         - Extract project names after "in" or "for" or "on"
         - If uncertain, set confidence: "low"
 
@@ -92,10 +92,10 @@ public sealed class LlmIntentParser(
     {
         return type switch
         {
-            "fix" when int.TryParse(ticket, out var id) => new FixTicketIntent
+            "fix" when !string.IsNullOrWhiteSpace(ticket) => new FixTicketIntent
             {
                 RawText = raw, UserId = userId, ChannelId = channelId,
-                Platform = platform, TicketId = id, Project = project
+                Platform = platform, TicketId = ticket, Project = project
             },
             "list" => new ListTicketsIntent
             {

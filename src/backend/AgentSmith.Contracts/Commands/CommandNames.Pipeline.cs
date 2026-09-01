@@ -183,7 +183,7 @@ public static partial class CommandNames
     // p0129a: Verify phase between Implementation and delivery
     public const string RunVerifyPhase = "RunVerifyPhaseCommand";
 
-    // p0130a: bootstrap-files gate (aborts when context.yaml or coding-principles.md is missing)
+    // p0130a: bootstrap-files gate (aborts when context.yaml or principles.md is missing)
     public const string BootstrapGate = "BootstrapGateCommand";
 
     // p0130c: project-language publication + bootstrap-skill dispatch (init-project)
@@ -199,7 +199,7 @@ public static partial class CommandNames
 
     // p0130c-followup: producer-loop runtime for bootstrap skills (csharp/node/python/
     // generic-bootstrap). Distinct from SkillRound because the producer needs a
-    // tool-bearing chat call (WriteFile to emit context.yaml + coding-principles.md),
+    // tool-bearing chat call (WriteFile to emit context.yaml + principles.md),
     // not the observation-only discussion path SkillRoundHandlerBase ran it through.
     public const string BootstrapRound = "BootstrapRoundCommand";
 

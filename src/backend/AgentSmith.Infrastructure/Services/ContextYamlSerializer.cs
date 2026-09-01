@@ -57,9 +57,14 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 MapResources(doc.Stack?.Resources),
                 // p0331: meta.purpose feeds the ScopeRepos ticket→repo classifier.
                 doc.Meta.Purpose?.Trim(),
-                // p0504: meta.domain names the catalog profile that brings this
-                // context's toolchain image and its verification commands.
-                doc.Meta.Domain?.Trim()));
+                // 2026-08-31-26d4: the declared verify stages, which the gate runs ahead
+                // of anything a model emitted for this run.
+                ContextYamlVerifyReader.Read(doc.Verify),
+                // 2026-09-01-e14d: and what those stages were derived from, so the run can
+                // re-hash it and say when the declaration's source has moved.
+                ContextYamlVerifyReader.ReadDerivation(doc.VerifyDerivedFrom),
+                // 2026-09-01-379a: the declared target probe, asked before the master runs.
+                Probe: ContextYamlProbeReader.Read(doc.Probe)));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the

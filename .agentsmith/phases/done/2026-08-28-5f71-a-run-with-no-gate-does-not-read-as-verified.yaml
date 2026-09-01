@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-28-5f71
+
+goal: "A run that delivered source and executed no verification command stops reporting success, so an unverified delivery and a verified one are told apart by the run itself."
+
+applies_to: "backend (the verify outcome for a run that resolved nothing, and the account it must still carry)"
+
+requires:
+  - p0393
+  - 2026-08-31-26d4
+
+scope:
+  in: "One outcome: source delivered and no command resolved anywhere stops being a success, applied where the phase account has already been taken; a repository whose delivery diff FAILED separated from one that delivered nothing; and the test that codifies the rule being narrowed, rewritten."
+  out: >
+    THE PER-REPOSITORY SKIP for a branch with no source change, and the run that
+    delivered no source at all — both stay green. PARKING: the delivery is already
+    committed before the gate speaks, a red verify already produces a draft pull request
+    carrying the warning banner and leaves the ticket unfinished, and a park would need a
+    clarification step after a gate, which reverses the ordering rule the architecture
+    tests protect.
+
+decisions:
+  - key: |
+      THE MESSAGE ALREADY SAYS UNVERIFIED AND THE VERDICT SAYS SUCCESS. With no command
+      resolved, the only remaining judge is the accountant — a model judging the branch — so a
+      green run over a stack the orchestrator cannot verify is one party's word with no second
+      opinion. That branch has never been under test: nothing in the suite asserts its message.
+  - key: |
+      IT NARROWS A RULE THAT WAS RIGHT FOR A DIFFERENT REASON, AND THE TEST THAT CODIFIES IT IS
+      REWRITTEN HERE. A non-.NET repository declaring nothing is skipped rather than failed,
+      because not every repository in a multi-repo run is buildable. That stays true PER
+      REPOSITORY. What changes is the run: if no repository anywhere resolved a command and
+      source was delivered, nobody checked anything. A docs-only repository is source by the
+      delivery diff's reckoning, so this is the case the narrowing has to answer out loud.
+  - key: |
+      IT SHIPS WITH THE DECLARATION OR IT IS A REFUSAL WITH NO REMEDY. Once the profile source
+      is gone, a non-.NET repository has no way to carry a command until it can declare one.
+      Landing this first turns every such run red with nothing the operator can do about it.
+  - key: |
+      THE OUTCOME IS APPLIED AFTER THE ACCOUNT IS TAKEN, NOT AS A RESOLUTION FAILURE. The
+      resolution-failure shape returns before the phase account is taken, which would strip the
+      run of the per-criterion accounting, skip the repair pass, and make the delivery gate
+      report "no phase measured itself" — the wrong cause, and the loss of the most actionable
+      thing a run produces. The run fails carrying its account.
+  - key: |
+      A DELIVERY DIFF THAT FAILED IS NOT A DELIVERY OF NOTHING. When no comparable base ref
+      exists the diff fails and its text is empty, which lands in the branch that reports "no
+      changes to verify" and passes. The repositories most likely to lack a base ref are the
+      freshly-onboarded ones this phase is for, so without separating the two the new gate has
+      a hole in its middle.
+  - key: |
+      FAIL, DO NOT PARK, AND NOTHING IS LOST BY IT. The phase commits its work before the gate
+      runs — an ordering the architecture tests enforce — and the finalizer tail still writes
+      the result, opens the pull request as a draft with the verification-red banner, and
+      leaves the ticket unfinished. Unmergeable by construction, reviewable, nothing dropped.
+
+steps:
+  - id: the-unverified-outcome-is-not-a-success
+    action: "A run that delivered source and resolved no command anywhere reports a failure naming what was searched per repository, applied after the phase account is taken so the account still reaches the record and the pull request."
+  - id: a-failed-diff-is-its-own-answer
+    action: "A repository whose delivery diff failed is reported as undetermined rather than as delivering nothing."
+  - id: the-narrowed-rule-is-restated-in-its-test
+    action: "The test that codifies skip-not-fail for a non-.NET repository declaring nothing is rewritten to the narrowed rule: skipped when another repository verified, failed when it is the whole run."
+
+tests:
+  - "Verify_SourceDeliveredAndNoCommandResolved_IsNotReportedAsVerified"
+  - "Verify_NoSourceDelivered_StaysGreen"
+  - "Verify_OneRepositoryVerifiedAnotherSkipped_StaysGreen"
+  - "Verify_ARepositoryWhoseDeliveryDiffFailed_IsNotReportedAsUnchanged"
+  - "Verify_TheFailingRun_StillCarriesItsPhaseAccount"
+
+done:
+  - "a run that shipped code nobody checked is distinguishable from one that was verified"
+  - "the failing run still carries its per-criterion account into the record and the pull request"
+  - "runs that verify something, and runs that deliver nothing, behave exactly as before"
+  - "build green, full suite green"

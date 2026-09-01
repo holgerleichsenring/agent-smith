@@ -19,8 +19,6 @@ public static class SkillsRegistrations
         services.AddSingleton<IEmbeddedSkillsCatalog, EmbeddedSkillsCatalog>();
         services.AddSingleton<SkillsCatalogPath>();
         services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
-        // p0504: the domain profiles the resolved catalog carries.
-        services.AddSingleton<IDomainProfileCatalog, FileDomainProfileCatalog>();
         // p0379: authored principles core+delta composition from the resolved catalog.
         services.AddSingleton<IPrinciplesTemplateSource, CatalogPrinciplesTemplateSource>();
         services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();

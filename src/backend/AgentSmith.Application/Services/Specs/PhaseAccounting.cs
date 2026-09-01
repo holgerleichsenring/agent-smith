@@ -48,7 +48,7 @@ public sealed class PhaseAccounting(
         // outstanding on every one of them, which is a false negative by construction.
         // The criteria belong to the PHASE; the repositories are where its work lands.
         var evidence = await DeliveryEvidence.GatherAsync(
-            deliveryDiff, sandboxes, cancellationToken);
+            deliveryDiff, sandboxes, pipeline.RunId(), cancellationToken);
         if (evidence.Failures.Count > 0)
             return [new SpecAccount(
                 string.Join(", ", sandboxes.Keys), [],

@@ -54,7 +54,7 @@ public sealed class AccountEvalFidelityTests
             Fixture("met-explicit-publish-routes"), NullLoggerFactory.Instance);
 
         var evidence = await DeliveryEvidence.GatherAsync(
-            DeliveryDiffUnderTest(), repositories.Sandboxes, CancellationToken.None);
+            DeliveryDiffUnderTest(), repositories.Sandboxes, runId: null, CancellationToken.None);
 
         evidence.Failures.Should().BeEmpty();
         evidence.BaseRefs.Should().BeEquivalentTo(new Dictionary<string, string?>
@@ -149,5 +149,6 @@ public sealed class AccountEvalFidelityTests
 
     private static DeliveryDiff DeliveryDiffUnderTest() =>
         new(new SandboxBaseBranch(NullLogger<SandboxBaseBranch>.Instance),
+            new SandboxRunStartCommit(NullLogger<SandboxRunStartCommit>.Instance),
             NullLogger<DeliveryDiff>.Instance);
 }

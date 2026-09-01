@@ -20,7 +20,7 @@ Autonomous:  Agent observes --> Agent writes tickets --> Human reviews
 |---|---------|--------------|
 | 1 | CheckoutSource | Clones repo, creates working copy |
 | 2 | BootstrapProject | Detects language, framework, build system |
-| 3 | LoadContext | Loads context.yaml, code-map, coding-principles |
+| 3 | LoadContext | Loads context.yaml, code-map, principles |
 | 4 | LoadCodeMap | Generates LLM-navigable code map |
 | 5 | LoadRuns | Reads last N runs: results, decisions, costs, findings |
 | 6 | Triage | Selects which specialist roles are relevant |

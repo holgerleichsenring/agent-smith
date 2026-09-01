@@ -9,7 +9,7 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
 ```
 .agentsmith/
 ├── context.yaml          # Project description + state tracking
-├── coding-principles.md  # Detected coding conventions
+├── principles.md  # Detected coding conventions
 ├── decisions.md          # Why the agent made each decision
 ├── code-map.yaml         # LLM-generated code map
 ├── phases/

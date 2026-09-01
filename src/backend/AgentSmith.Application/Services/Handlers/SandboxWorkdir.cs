@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// p0504: turns a context's declared <c>meta.workdir</c> into the absolute path it
 /// occupies inside its sandbox. Extracted from VerifyPhaseHandler so the verify gate
-/// and the domain-profile stages agree on where a context's commands run — the same
+/// and a context's own declared stages agree on where its commands run — the same
 /// sub-tree, computed once.
 /// </summary>
 public static class SandboxWorkdir

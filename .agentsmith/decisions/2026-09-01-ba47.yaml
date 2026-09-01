@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-ba47
+
+decisions:
+  - category: Design
+    chose: "Carry the tracker's identifier as a string through the chat intent, the conversation state and the error context"
+    over: "Keeping the integer and validating a key into one"
+    reason: |
+      The sibling phase already typed the command-line option that way, and nothing on the chat
+      path ever needed a number: the domain type wraps a string, the resolver takes a string, and
+      the job request interpolates it into text. The integer was a shape assumption in three
+      types and two parsers.
+  - category: Design
+    chose: "Filter the cached ticket search on the identifier the tracker returned"
+    over: "Parsing it to an int and dropping what failed"
+    reason: |
+      The search coerced a non-numeric id to zero and then filtered on greater than zero, so a
+      Jira project's ticket list came back EMPTY with no error at all — the operator saw no
+      tickets and concluded there were none. A blank identifier is the only thing worth dropping.
+  - category: Design
+    chose: "Accept a key-shaped token without a hash, and keep requiring the hash before a number"
+    over: "Accepting any token as an identifier"
+    reason: |
+      Chat is free text, so the regex still has to tell an identifier from prose. A key carries
+      its own shape (letters, hyphen, digits) and needs no marker; a bare number does not, and
+      making the hash optional for it would have turned every stray number into a fix intent.
+      Numeric input therefore parses exactly as before.
+  - category: Scope
+    chose: "Leave the providers' own numeric parsing alone"
+    over: "Removing every int.TryParse on the way to a tracker"
+    reason: |
+      Two trackers use numeric ids and parse them where they speak to their own API, handling
+      failure. That is a tracker knowing its own shape, not an assumption about identifiers in
+      general — the same line the sibling phase drew.
+  - category: Design
+    chose: "Keep the hash prefix in the chat surfaces that print an identifier"
+    over: "Dropping it as the dry-run printer did"
+    reason: |
+      The dry-run line was the machine-readable ticket line of a command; these are chat
+      sentences and one is the job's own input command, which the modal submission test asserts
+      on. A key rendered as #PROJ-1234 reads oddly and costs nothing; changing the format would
+      have rewritten assertions this phase has no claim on.

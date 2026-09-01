@@ -141,7 +141,7 @@ public static class RunResultFormatter
         {
             sb.AppendLine(
                 $"- `{c.Name}`: `{ProjectMetaPaths.Contexts}/{c.Name}/{ProjectMetaPaths.ContextYamlFile}`, " +
-                $"`{ProjectMetaPaths.Contexts}/{c.Name}/{ProjectMetaPaths.CodingPrinciplesFile}`");
+                $"`{ProjectMetaPaths.Contexts}/{c.Name}/{ProjectMetaPaths.PrinciplesFile}`");
         }
         return sb.ToString();
     }
@@ -169,7 +169,7 @@ public static class RunResultFormatter
             : $"# Run {RunIdGenerator.FormatForDisplay(runId)}: init-project — repo `{repoName}`";
         sb.AppendLine(heading);
         sb.AppendLine();
-        sb.AppendLine("Bootstrap run — generated per-context `context.yaml` + `coding-principles.md`.");
+        sb.AppendLine("Bootstrap run — generated per-context `context.yaml` + `principles.md`.");
         sb.AppendLine();
 
         RunCostSectionWriter.AppendInitFrontmatter(sb, durationSeconds, costSummary, repoName);

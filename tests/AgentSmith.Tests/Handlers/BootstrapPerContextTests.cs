@@ -79,7 +79,7 @@ public sealed class BootstrapPerContextTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),
-            ContextGates.Build(), ContextGates.Writer());
+            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp());
 
         var bundle = factory.Create(Mock.Of<ISandbox>(), "/repo", repoName: "api", contextName: "api");
 
@@ -96,8 +96,8 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
-            BootstrapReaderStubs.NullReaderFactory(),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+            BootstrapReaderStubs.NullMetaFiles(),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
@@ -112,7 +112,7 @@ public sealed class BootstrapPerContextTests
             CancellationToken.None);
 
         captured.User.Should().Contain($"{ProjectMetaPaths.Contexts}/server/{ProjectMetaPaths.ContextYamlFile}");
-        captured.User.Should().Contain($"{ProjectMetaPaths.Contexts}/server/{ProjectMetaPaths.CodingPrinciplesFile}");
+        captured.User.Should().Contain($"{ProjectMetaPaths.Contexts}/server/{ProjectMetaPaths.PrinciplesFile}");
         captured.User.Should().Contain("Workdir (repo-relative): server");
         // Negative: flat root path must NOT appear when context is set.
         captured.User.Should().NotContain($".agentsmith/{ProjectMetaPaths.ContextYamlFile}\n");
@@ -126,8 +126,8 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
-            BootstrapReaderStubs.NullReaderFactory(),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+            BootstrapReaderStubs.NullMetaFiles(),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
@@ -174,8 +174,8 @@ public sealed class BootstrapPerContextTests
         var existing = "meta:\n  workdir: server\nstack:\n  lang: node\n";
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
-            BootstrapReaderStubs.ReaderFactoryReturning(existing),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+            BootstrapReaderStubs.MetaFilesReturning(existing),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
@@ -201,8 +201,8 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer()),
-            BootstrapReaderStubs.NullReaderFactory(),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+            BootstrapReaderStubs.NullMetaFiles(),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),

@@ -19,7 +19,7 @@ concepts:
     writers: [BootstrapCheckHandler]
   - name: coding_principles_present
     type: bool
-    description: "True when every probed context surfaces .agentsmith/contexts/<ctx>/coding-principles.md."
+    description: "True when every probed context surfaces .agentsmith/contexts/<ctx>/principles.md."
     writers: [BootstrapCheckHandler]
   - name: source_available
     type: bool
