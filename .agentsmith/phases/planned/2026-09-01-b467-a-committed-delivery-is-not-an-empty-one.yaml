@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-b467
+
+goal: "A run that committed its work sees that work in its delivery diff, so a correct delivery on the base branch stops reading as nothing changed."
+
+applies_to: "backend (the delivery diff's candidate ladder)"
+
+requires:
+  - p0422
+
+scope:
+  in: "A rung comparing the branch against the commit the run started from, ahead of the HEAD rung, so work the run committed is part of the delivery it is judged on."
+  out: >
+    THE ACCOUNTANT'S JUDGEMENT, which is correct given what it is handed — it says no
+    files were changed because the diff it received was empty. THE WORK-BRANCH POLICY:
+    whether a local run should cut a branch of its own is a separate question, and this
+    fix must hold either way.
+
+decisions:
+  - key: |
+      EVERY RUNG COMPARES THE DELIVERY AGAINST ITSELF WHEN THE WORK IS COMMITTED ONTO THE BASE.
+      The ladder tries origin/<base>, then <base>, then HEAD — and the last rung is uncommitted
+      work only. The phase commits its work before the gate runs, by an ordering the
+      architecture tests enforce. So in a run whose branch IS the base — a local repository
+      with no remote, which is what the bundled demo produces — origin/<base> does not resolve,
+      <base> is HEAD, and HEAD sees nothing: the delivery is invisible at every rung.
+  - key: |
+      THE CONSEQUENCE IS A CORRECT RUN REPORTED AS A FAILURE, MEASURED TWICE. The bundled demo
+      produced the intended fix, committed it, and then failed with "no files were changed, so
+      cannot confirm" against two of three criteria — while the third, a real test command,
+      passed. The same run on the parent branch fails identically, so this predates the
+      verification work and is not a regression from it.
+  - key: |
+      THE RUN ALREADY WROTE DOWN WHERE IT STARTED. It commits a checkpoint naming its own run id
+      before the master works, so the exact base of the delivery exists in the history. A rung
+      comparing against that commit is precise where guessing at a branch name is not.
+  - key: |
+      IT GOES ABOVE THE HEAD RUNG, NOT BELOW IT. HEAD stays as the last resort for a run that has
+      not committed yet; the run's own starting point is closer to "what this branch delivers"
+      than either, and the ladder is ordered by that closeness.
+
+steps:
+  - id: the-ladder-knows-where-the-run-began
+    action: "A candidate comparing against the commit the run started from, placed above the HEAD rung."
+  - id: the-demo-proves-it
+    action: "A run over a local repository with no remote, whose work is committed onto its only branch, reports the delivery it made."
+
+tests:
+  - "DeliveryDiff_WorkCommittedOntoTheBaseBranch_IsSeen"
+  - "DeliveryDiff_NothingCommittedYet_StillFallsBackToHead"
+  - "DeliveryDiff_ARemoteBaseExists_IsUnchanged"
+
+done:
+  - "the bundled demo ends green when the model produced the intended fix"
+  - "a run with a remote base branch diffs exactly as it does today"
+  - "build green, full suite green"
