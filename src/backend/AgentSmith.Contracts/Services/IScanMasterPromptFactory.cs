@@ -13,6 +13,13 @@ public interface IScanMasterPromptFactory
 {
     string Build(PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames);
 
+    /// <summary>2026-09-01-0e80: the scanners' raw output, presented in a SECOND turn once
+    /// the master has committed to what it found on its own — which facts it already
+    /// covered, which it now judges real, which it dismisses. Null when there is nothing to
+    /// reconcile separately: an api scan, whose master inputs ARE the scanner reports, or a
+    /// repository scan whose scanners found nothing.</summary>
+    string? BuildReconciliation(PipelineContext pipeline);
+
     /// <summary>p0279: the one-shot coverage nudge re-prompt when the master read too
     /// little source — push a full-surface inventory + per-area review (responsibility
     /// language, read-only), re-emitting the COMPLETE observation array.</summary>

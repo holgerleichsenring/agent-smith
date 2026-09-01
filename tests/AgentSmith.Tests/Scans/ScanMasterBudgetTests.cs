@@ -72,9 +72,8 @@ public sealed class ScanMasterBudgetTests
         conversation.Opened(request, Answer(FirstPass));
 
         await Redrive(loop).DriveAsync(
-            new PipelineContext(), request, "REVIEW PROMPT",
-            new AgenticLoopResult(Answer(FirstPass), TimeSpan.Zero), conversation,
-            _ => { }, CancellationToken.None);
+            request, "REVIEW PROMPT", conversation, _ => { },
+            readCount: 0, readFloor: 6, CancellationToken.None);
 
         var thread = conversation.Thread();
         thread.Should().Contain(m => m.Text != null && m.Text.Contains("FULL surface"),
@@ -100,10 +99,20 @@ public sealed class ScanMasterBudgetTests
     {
         var union = new MasterAnswerUnion(TolerantJsonParserFactory.CreateTolerant());
 
-        union.Combine([FirstPass, FirstPass, DeeperPass]).Should()
-            .Contain("first-pass finding").And.Contain("deeper-pass finding");
-        union.Combine(["no findings here at all"]).Should().BeNull(
-            "an answer that is not findings must stay itself so the merge can degrade on it");
+        var combined = union.Combine(
+        [
+            new MasterPassAnswer(ScanMasterPasses.Unanchored, FirstPass),
+            new MasterPassAnswer(ScanMasterPasses.Coverage, FirstPass),
+            new MasterPassAnswer(ScanMasterPasses.Reconciliation, DeeperPass),
+        ]);
+
+        combined.Answer.Should().Contain("first-pass finding").And.Contain("deeper-pass finding");
+        combined.Origins.Values.Should().BeEquivalentTo(
+            [ScanMasterPasses.Unanchored, ScanMasterPasses.Reconciliation],
+            "a later pass restating a finding does not take its origin");
+        union.Combine([new MasterPassAnswer(ScanMasterPasses.Unanchored, "no findings at all")])
+            .Answer.Should().BeNull(
+                "an answer that is not findings must stay itself so the merge can degrade on it");
     }
 
     [Fact]
@@ -131,10 +140,7 @@ public sealed class ScanMasterBudgetTests
             masterSchema: "observation");
 
     private static ScanCoverageRedrive Redrive(IAgenticLoopRunner loop) =>
-        new(loop, new ScanMasterPromptFactory(),
-            new MasterAnswerUnion(TolerantJsonParserFactory.CreateTolerant()),
-            TolerantJsonParserFactory.CreateTolerant(),
-            NullLogger<ScanCoverageRedrive>.Instance);
+        new(loop, new ScanMasterPromptFactory(), NullLogger<ScanCoverageRedrive>.Instance);
 
     private static AgenticLoopRequest Request() =>
         new(new AgentConfig(), TaskType.Primary, "system", "REVIEW PROMPT", []);
