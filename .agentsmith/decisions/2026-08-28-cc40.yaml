@@ -1,0 +1,139 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-28-cc40
+
+decisions:
+  - category: Architecture
+    chose: "The eval drives the WHOLE security-scan preset through the production IChatClientFactory, with the agent's declared type selecting the external worker"
+    over: "Handing the run a pre-built client through SingleClientChatFactory, or scoring one component the way every other eval here does"
+    reason: |
+      Every existing LiveLLM eval drives ONE component — ProjectAnalyzer, SpecAccountant, a
+      judge — and no harness path had ever driven a preset with a real model at all. Scoring a
+      component would have measured a piece of the scan and left the question the phase exists
+      to answer untouched. Restoring the production factory rather than injecting a client also
+      means selection happens where it happens in production (the agent's `type`), so a run
+      that would not resolve a client in a deployed server does not resolve one here either.
+  - category: Implementation
+    chose: "EvalChatClientEnv.TryBuildWorker resolves IChatClientBuilder from the harness container and picks the external-worker one"
+    over: "Constructing ExternalWorkerChatClient in the static helper, as the two credential branches construct theirs"
+    reason: |
+      The client takes six injected collaborators plus a CLI-options factory. Constructing it
+      by hand would be a second composition root inside a static helper, and it would go stale
+      the first time the bridge gains a collaborator. The builder is registered only as
+      IChatClientBuilder, so the branch asks for the SET and selects on SupportedTypes — the
+      same selection the production factory performs.
+  - category: Implementation
+    chose: "The scored composition points ISkillsCatalogPath at the EMBEDDED release, extracted once per process"
+    over: "Copying the eight pattern files into this repository, or pointing at the sibling skills checkout"
+    reason: |
+      The static pattern scanner loads ZERO definitions in this repository. PatternsDirectoryResolver
+      looks at AGENTSMITH_CONFIG_DIR/patterns, then <skillsCatalog>/patterns, then config/patterns:
+      config/patterns does not exist here, the checked-in fixture catalog has no patterns/, and the
+      fast tier's catalog root is an empty temp dir. A detection score would therefore have been
+      0/N by construction with nothing in the run saying so. The embedded tarball is the supported
+      source and the same one a deployed binary materialises, so the eval reads the patterns and the
+      master bodies an operator's run reads. A copy in this repository would be a second catalog
+      that drifts; the pin (SkillsCatalogVersion / SkillsCatalogSha256) is untouched.
+  - category: Implementation
+    chose: "A mechanics case asserts the eval composition really loads pattern definitions and really serves the packaged security-master"
+    over: "Trusting the wiring, or discovering it from a low score"
+    reason: |
+      A scan applying no patterns and a repository with no pattern-visible weakness produce
+      exactly the same empty result. The guard is the difference between a scoreboard and a
+      scoreboard that quietly scores nothing, and it costs no model call.
+  - category: Implementation
+    chose: "The sandbox is the production InProcessSandboxFactory over the materialised corpus"
+    over: "The stub sandbox, or the docker tier"
+    reason: |
+      Three of the preset's steps walk the tree through ISandboxFileReader and one walks the git
+      history, so the sandbox has to be over real files. InProcess is the backend CLI mode already
+      uses and the only one that reads a host directory as /work without a container — which also
+      keeps the tier runnable with no docker daemon. ContextKeys.SourcePath already becomes
+      SandboxSpec.InitialSourcePath, so no production code was needed to point it at the corpus.
+  - category: Implementation
+    chose: "MasterFindingsMerger.SamePath extracted from the private ReadSetContains and made public"
+    over: "A path normaliser in the scoring harness"
+    reason: |
+      The merge already owns the question of whether two paths name one file, prefix mismatch and
+      all — the suffix-on-a-segment-boundary rule that absorbs 'default/x/y.cs' vs 'x/y.cs' without
+      matching a.cs to ba.cs. The scoreboard asks the same question of a finding and a declared
+      file. A second normaliser would be a second answer, and the two would disagree on the day it
+      mattered. Behaviour is unchanged: ReadSetContains now calls it, and both directions are
+      covered by MasterFindingsMergerPathTests.
+  - category: Implementation
+    chose: "The corpus is one JSON fixture of inline files, materialised into a real git repository at test time"
+    over: "A checked-in tree under Fixtures/, or a vendored third-party corpus"
+    reason: |
+      The trade AccountFixture already settled: a fixture is then one reviewable file, small
+      authored excerpts carry no licence question, and a nested repository inside this repository
+      is a thing nobody wants to explain twice. The harness csproj already excludes Fixtures from
+      compilation, so inline content is also the only shape that cannot collide with the assembly.
+  - category: Scope
+    chose: "Only structural weakness classes — SQL concatenation, a missing authorization check, path traversal, an open redirect, unsafe deserialization"
+    over: "A hardcoded-secret class, which the pattern catalog covers with 27 definitions"
+    reason: |
+      This repository is public and GitHub secret-scanning push protection is the live gate. A
+      literal in any issuer's format would either block the push or raise a real alert about a
+      deliberately fake value, and this repository has already paid for three history scrubs.
+      Structural classes need no literal to be real.
+  - category: Implementation
+    chose: "Scoring is per FILE, and the cited LINE is a reported sub-metric"
+    over: "Matching a finding to a declaration by line"
+    reason: |
+      The spec settled it and the first run showed why: four of five detections landed on the
+      declared line and one cited the route rather than the sink. Scoring the line would have
+      recorded that correct detection as a miss and turned a detection number into a citation
+      number. At most one declared weakness per file, so two declarations cannot collapse into
+      one match.
+  - category: Implementation
+    chose: "Every file that is not flawed is declared clean — bootstrap files included — and the false-alarm denominator is all of them"
+    over: "Counting false alarms only over the three files shaped to look suspect"
+    reason: |
+      A rate counted only over the deliberately tricky files overstates itself, and a file nobody
+      declared is a finding with no denominator — the exact gap that let nine unsubstantiated
+      criticals ship. The corpus also has to carry .agentsmith/contexts/default/context.yaml and
+      principles.md at all, because the scan's own bootstrap gate refuses a repository without them.
+  - category: TradeOff
+    chose: "A delivered finding on a sound file counts as a false alarm even when its own text calls the scanner hit a false positive; the severity it was raised at is printed beside it"
+    over: "Excluding dismissals from the count, or gating on severity"
+    reason: |
+      The first scored run produced exactly this case: a Low-severity row on the clean SQL trap
+      whose text reads 'FALSE POSITIVE — both interpolated identifiers are compile-time allowlist
+      values'. It is still a row an operator reads about a sound file, so it counts; what it was
+      raised AS is what tells them whether the noise was actionable, so the report prints the
+      severity rather than hiding the row behind a threshold nobody can see.
+  - category: Implementation
+    chose: "The production FindingRefuter runs in the scored composition"
+    over: "Keeping the harness's stood-down refuter"
+    reason: |
+      The number is what a run DELIVERS. Substantiation is the last thing that can remove a
+      finding before delivery, so a score taken above it would be a score of something no
+      operator receives. It costs nothing extra either: the refuter is one batched call over the
+      unvouched candidates, answered by the same CLI.
+  - category: Implementation
+    chose: "The report is keyed by model plus a digest of the packaged security-master body"
+    over: "Keying on the skills pin, or a hand-maintained version number"
+    reason: |
+      AccountPromptVersion's reason, applied to the scan: a hand-maintained number is a number
+      somebody forgets to raise, and the report would overwrite a baseline taken under different
+      instructions. Digesting the body means the key moves exactly when the thing under test
+      moves — including when the only change is a catalog pin bump.
+  - category: Implementation
+    chose: "The score names the steps that contributed nothing, and distinguishes a scanner that loaded no patterns from one that found none"
+    over: "Reporting the two rates alone"
+    reason: |
+      2026-08-30-26ed made the same distinction for the api scan's dynamic steps. Here the first
+      run named DependencyAudit (did not run) and GitHistoryScan (found nothing) beside a 0/5 miss
+      rate, which is the difference between a complete measurement and one that looks like it.
+  - category: TradeOff
+    chose: "The report leads with the sentence that a public corpus cannot grade the scan, and a case asserts it appears BEFORE the numbers"
+    over: "A caveat under the table"
+    reason: |
+      A number printed without it will be read as a grade, which is how a measurement becomes
+      worse than none. A caveat below the number is a caveat nobody reads, so its position is
+      part of the contract rather than a matter of taste.
+  - category: Implementation
+    chose: "FixtureGit extracted from AccountFixtureRepositories"
+    over: "A second git subprocess runner in the corpus materialiser"
+    reason: |
+      Two copies of a subprocess runner are how two fixtures start building differently shaped
+      repositories. Behaviour is unchanged — the account fixtures build exactly as before.
