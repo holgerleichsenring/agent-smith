@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-0e80
+
+goal: "The scan master reads the source and states what it found before the scanners' output is put in front of it, and reconciles the two afterwards."
+
+applies_to: "backend (the order in which the scan master is given the source and the scanner findings)"
+
+requires:
+  - 2026-09-01-6c32
+
+scope:
+  in: >
+    The scan master's first pass is asked to look at the code with no scanner list in front of it; the
+    scanner output is presented in a second turn on the same conversation, to be reconciled against
+    what the master already found; both sets reach the merge, which keeps its existing safety net; the
+    run records which findings came from the unanchored pass.
+  out: >
+    REMOVING THE SCANNERS — their High-and-above facts are hard evidence and the merge's safety net
+    stays exactly as it is. GIVING THE MASTER AN EXECUTION SURFACE — the direct probe could write a
+    scratch file and run it and this master may not, which is a real difference and a real change to a
+    read-only guarantee; it is the operator's call and not this batch's.
+
+decisions:
+  - key: |
+      THE LIST IS AN ANCHOR, AND IT IS THE LARGEST STRUCTURAL DIFFERENCE TO THE PROBE. The review
+      prompt renders every raw scanner observation before the master has read a line, and closes with
+      "work your methodology over these scanner inputs and the source". The direct probe that found
+      three real defects in three of four attempts had no such list. Twelve pipeline runs, each handed
+      the list first, found none of them.
+  - key: |
+      TRIAGE IS NOT SEARCH, AND THE PROMPT ASKS FOR TRIAGE. Given a list and a codebase, the cheapest
+      correct-looking behaviour is to work the list: every item gets an anchored, defensible answer,
+      and the run reads as thorough. Nothing in the prompt makes the cost of NOT looking elsewhere
+      visible, and nothing downstream can tell the two apart — which is exactly what the last twelve
+      runs demonstrate.
+  - key: |
+      ORDER, NOT REMOVAL. The scanners find things a model does not: a secret in git history, a
+      dependency advisory, a pattern across a thousand files. Their output stays, and the merge's
+      promotion of uncovered High-and-above facts stays. What changes is that it arrives after the
+      master has committed to what it found on its own, so the list can no longer stand in for the
+      search.
+  - key: |
+      THE SECOND TURN IS RECONCILIATION, NOT A SECOND SEARCH. The master is asked which scanner facts
+      it already covered, which it now judges real, and which it dismisses — the work it does today,
+      minus the anchoring. It runs on the same conversation, so the reads from the first pass are
+      still in view.
+  - key: |
+      WHICH FINDINGS CAME BEFORE THE LIST IS THE MEASUREMENT. If the unanchored pass produces nothing
+      the anchored one would not have, this phase is refuted and should be reverted — and that can
+      only be seen if the run says which pass a finding came from.
+
+steps:
+  - id: the-first-pass-carries-no-scanner-list
+    action: "The scan master's first turn presents the source and the review framing without the scanner findings section."
+  - id: the-scanners-arrive-for-reconciliation
+    action: "The scanner output is presented in a second turn on the same conversation, asking which facts are covered, real or dismissed."
+  - id: both-passes-reach-the-merge
+    action: "Findings from both turns reach the merge, whose promotion of uncovered High-and-above scanner facts is unchanged."
+  - id: the-run-says-which-pass-found-it
+    action: "Each delivered finding records whether it came from the unanchored pass or the reconciliation, so the change can be judged."
+
+tests:
+  - "ScanPrompt_FirstTurn_CarriesNoScannerFindings"
+  - "ScanPrompt_SecondTurn_CarriesTheScannerFindingsForReconciliation"
+  - "ScanMaster_ReconciliationTurn_ContinuesTheSameConversation"
+  - "ScanMerge_UncoveredHighScannerFact_IsStillPromoted"
+  - "ScanFinding_RecordsWhichPassProducedIt"
+  - "ApiScan_WhoseInputsAreScannerReportsOnly_IsUnchanged"
+
+done:
+  - "the master states what it found before it is told what to look at"
+  - "no scanner evidence is lost and the safety net is unchanged"
+  - "a reader can tell which findings the unanchored pass produced"
+  - "build green, full suite green"
