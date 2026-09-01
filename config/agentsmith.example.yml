@@ -390,7 +390,7 @@ projects:
     tracker: acme-github
     repos: [acme-app]
     pipeline: code
-    coding_principles_path: .agentsmith/coding-principles.md
+    coding_principles_path: .agentsmith/principles.md
     # Per-pipeline overrides. Each entry: name + optional agent / skills_path /
     # coding_principles_path / confidence_threshold. confidence_threshold
     # (p0167b, default 70, range 0-100): a blocking observation whose

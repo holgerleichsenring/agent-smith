@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Per-context bootstrap probe (p0158f + p0161a). Iterates
 /// ContextKeys.Sandboxes keys (each = one discovered context) and asks
-/// <see cref="BootstrapContextProbe"/> for context.yaml + coding-principles.md.
+/// <see cref="BootstrapContextProbe"/> for context.yaml + principles.md.
 /// Publishes:
 ///   - context_yaml_present : true only if EVERY context has it
 ///   - coding_principles_present : true only if EVERY context has it
@@ -48,6 +48,7 @@ public sealed class BootstrapCheckHandler(
 
         var allContext = true;
         var allPrinciples = true;
+        var anyRetired = false;
         var missing = new List<string>();
         var paths = new List<string>();
         ISandbox? firstMissing = null;
@@ -55,7 +56,7 @@ public sealed class BootstrapCheckHandler(
         {
             var contexts = ContextsIn(context.Pipeline, key, discoveries);
             if (contexts.Count > 0) paths.AddRange(BootstrapContextProbe.PathsFor(contexts));
-            var (contextOk, principlesOk) = contexts.Count == 0
+            var (contextOk, principlesOk, retired) = contexts.Count == 0
                 ? NoContexts(key)
                 : await probe.ProbeAsync(sandbox, key, contexts, cancellationToken);
             if (!contextOk || !principlesOk)
@@ -65,6 +66,7 @@ public sealed class BootstrapCheckHandler(
             }
             allContext &= contextOk;
             allPrinciples &= principlesOk;
+            anyRetired |= retired;
         }
 
         var concepts = conceptsFactory(context.Pipeline);
@@ -74,7 +76,7 @@ public sealed class BootstrapCheckHandler(
         if (firstMissing is not null)
             context.Pipeline.Set(
                 ContextKeys.BootstrapProbeReport,
-                await ReportAsync(context.Pipeline, firstMissing, paths, cancellationToken));
+                await ReportAsync(context.Pipeline, firstMissing, paths, anyRetired, cancellationToken));
 
         logger.LogInformation(
             "Probe done: context.yaml={Context} principles={Principles} missing=[{Missing}]",
@@ -82,10 +84,10 @@ public sealed class BootstrapCheckHandler(
         return CommandResult.Ok($"context.yaml={allContext}, principles={allPrinciples}, missing={missing.Count}");
     }
 
-    private (bool Context, bool Principles) NoContexts(string key)
+    private (bool Context, bool Principles, bool Retired) NoContexts(string key)
     {
         logger.LogWarning("Probe {Key}: no context entries. Counted as missing.", key);
-        return (false, false);
+        return (false, false, false);
     }
 
     // p0180: prefer the per-sandbox context list (one sandbox can hold many contexts when
@@ -102,8 +104,9 @@ public sealed class BootstrapCheckHandler(
     }
 
     private async Task<BootstrapProbeReport> ReportAsync(
-        PipelineContext pipeline, ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken ct) =>
-        new(BranchOf(pipeline), await baseBranch.ResolveAsync(sandbox, ct), paths);
+        PipelineContext pipeline, ISandbox sandbox, IReadOnlyList<string> paths,
+        bool retiredPrinciplesFound, CancellationToken ct) =>
+        new(BranchOf(pipeline), await baseBranch.ResolveAsync(sandbox, ct), paths, retiredPrinciplesFound);
 
     private static string? BranchOf(PipelineContext pipeline)
     {

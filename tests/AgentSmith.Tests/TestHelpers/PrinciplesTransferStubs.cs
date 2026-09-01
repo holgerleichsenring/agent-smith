@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.TestHelpers;
 /// <summary>
 /// p0379: canned <see cref="BootstrapPrinciplesTransfer"/> instances for
 /// bootstrap-round tests. NoTemplates() models a catalog that ships no core
-/// template — the skill then writes coding-principles.md itself;
+/// template — the skill then writes principles.md itself;
 /// Composing(content) models a catalog that ships the authored core+delta.
 /// 2026-08-28-7675: both carry a named catalog origin, because the mode where the
 /// skill writes now reports which catalog offered nothing.

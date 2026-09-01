@@ -1,7 +1,7 @@
 namespace AgentSmith.Application.Models;
 
 /// <summary>
-/// p0379: how a bootstrap round handles the component's coding-principles.md.
+/// p0379: how a bootstrap round handles the component's principles.md.
 /// </summary>
 public enum PrinciplesMode
 {

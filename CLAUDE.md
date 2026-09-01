@@ -3,7 +3,7 @@
 ## Context Files (read in this order)
 
 1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — architecture, stack, integrations, phase status PER stack
-2. **Every** `.agentsmith/contexts/<name>/coding-principles.md` — code quality rules per stack (ALWAYS follow)
+2. **Every** `.agentsmith/contexts/<name>/principles.md` — code quality rules per stack (ALWAYS follow)
 3. `.agentsmith/phases/active/*.yaml` — spec for the phase being implemented (its `applies_to:` names the dominant context)
 4. `.agentsmith/decisions/*.yaml` — past decisions, one YAML per phase or run (read the active phase's file and its `requires:` chain)
 5. `.agentsmith/memory/MEMORY.md` — the experiential-memory index, one line per recorded fact; recall detail from `.agentsmith/memory/<name>.md` on demand when a line touches your task
@@ -139,4 +139,4 @@ commit is blocked. Read this before a definition of done leans on it.
 - **No customer names** — never write customer, project, or target identifiers into any artifact in this repo (see `[[feedback_no_customer_names]]`).
 - **No over-engineering** — only build what the phase requires, nothing more.
 - **Tests** — every new public method gets at least one test.
-- **Follow each context's coding-principles.md** — these are constraints, not suggestions.
+- **Follow each context's principles.md** — these are constraints, not suggestions.

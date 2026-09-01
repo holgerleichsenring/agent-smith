@@ -14,7 +14,7 @@ public class PipelineConfigResolverTests
         var project = new ResolvedProject
         {
             Agent = new AgentConfig { Type = "Claude", Model = "sonnet" },
-            CodingPrinciplesPath = ".agentsmith/coding-principles.md",
+            CodingPrinciplesPath = ".agentsmith/principles.md",
             Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
         };
 
@@ -23,7 +23,7 @@ public class PipelineConfigResolverTests
         resolved.PipelineName.Should().Be("fix-bug");
         resolved.Agent.Type.Should().Be("Claude");
         resolved.SkillsPath.Should().Be("skills");
-        resolved.CodingPrinciplesPath.Should().Be(".agentsmith/coding-principles.md");
+        resolved.CodingPrinciplesPath.Should().Be(".agentsmith/principles.md");
     }
 
     [Fact]

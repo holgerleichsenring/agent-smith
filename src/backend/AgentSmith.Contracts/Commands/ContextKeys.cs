@@ -67,7 +67,7 @@ public static partial class ContextKeys
     /// per-toolchain dedup, one sandbox can contain multiple contexts that
     /// share its image (e.g. 5 csharp sub-projects in one repo). Handlers
     /// that need to walk every context inside the sandbox (BootstrapCheck
-    /// probes context.yaml + coding-principles.md per context) read this
+    /// probes context.yaml + principles.md per context) read this
     /// key. Handlers that only need a representative discovery per sandbox
     /// can stay on ContextKeys.SandboxDiscoveries.</summary>
     public const string SandboxContexts = "SandboxContexts";
@@ -90,13 +90,13 @@ public static partial class ContextKeys
     public const string RepoContextYamls = "RepoContextYamls";
 
     /// <summary>p0158f: dictionary keyed by repo name with each repo's loaded
-    /// `.agentsmith/coding-principles.md` content. Legacy ContextKeys.CodingPrinciples
+    /// `.agentsmith/principles.md` content. Legacy ContextKeys.CodingPrinciples
     /// stays as a single aggregated string (per-repo headers concatenated) for
     /// AgenticExecute back-compat.</summary>
     public const string RepoCodingPrinciples = "RepoCodingPrinciples";
 
     /// <summary>p0158f: comma-separated list of repo names whose bootstrap files are
-    /// missing (context.yaml or coding-principles.md). Populated by BootstrapCheckHandler;
+    /// missing (context.yaml or principles.md). Populated by BootstrapCheckHandler;
     /// read by BootstrapGateHandler to render a clear error message.</summary>
     public const string MissingBootstrapRepos = "MissingBootstrapRepos";
 

@@ -121,7 +121,7 @@ What you'll see (CLI mode, in-process sandbox, no Docker required — abridged, 
 [ 2] FetchTicket           → "Null ref in UserService.GetById when id is zero"
 [ 3] ScopeRepos            → 1 repo affected: todolist-api
 [ 4] CheckoutSource        → branch agentsmith/ticket-54 created in todolist-api
-[ 5] BootstrapCheck        → .agentsmith/context.yaml + coding-principles.md present
+[ 5] BootstrapCheck        → .agentsmith/context.yaml + principles.md present
 [ 6] AnalyzeCode           → scout pass: 47 files scanned, 3 candidates
 [ 7] NegotiateExpectation  → expectation ratified: GetById(0) → 400 BadRequest,
                              existing behavior for valid ids unchanged

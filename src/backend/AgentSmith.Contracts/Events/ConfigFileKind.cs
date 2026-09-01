@@ -11,7 +11,7 @@ public enum ConfigFileKind
     AgentSmithYml = 0,
     /// <summary>Per-target .agentsmith/context.yaml read inside a run scope.</summary>
     ContextYaml = 1,
-    /// <summary>Per-target .agentsmith/coding-principles.md read inside a run scope.</summary>
+    /// <summary>Per-target .agentsmith/principles.md read inside a run scope.</summary>
     CodingPrinciplesMd = 2,
     /// <summary>SKILL.md frontmatter / body successfully accepted into the catalog.</summary>
     SkillYaml = 3,

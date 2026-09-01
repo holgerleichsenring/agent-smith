@@ -316,7 +316,7 @@ public sealed class InitCommitHandlerLifecycleTests
     {
         var context = CreateContext(NewPipelineWithSandbox());
         SetupStagedNameOnlyDiff(
-            ".agentsmith/runs/run-1-init/result.md\n.agentsmith/context.yaml\n.agentsmith/coding-principles.md\n");
+            ".agentsmith/runs/run-1-init/result.md\n.agentsmith/context.yaml\n.agentsmith/principles.md\n");
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 

@@ -38,7 +38,7 @@ public sealed class DemoWorkspaceMaterializerTests : IDisposable
             .Should().BeTrue("the pinned failing test is the bug's specification");
         File.Exists(Path.Combine(workspace, ".agentsmith", "contexts", "default", "context.yaml"))
             .Should().BeTrue("BootstrapGate requires the per-context meta");
-        File.Exists(Path.Combine(workspace, ".agentsmith", "contexts", "default", "coding-principles.md"))
+        File.Exists(Path.Combine(workspace, ".agentsmith", "contexts", "default", "principles.md"))
             .Should().BeTrue("BootstrapGate requires the per-context meta");
     }
 

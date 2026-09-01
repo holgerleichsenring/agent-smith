@@ -144,7 +144,7 @@ public sealed class PipelinePresetContextContractTests
         var agent = new AgentConfig { Type = "claude", Model = "sonnet" };
         pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig(presetName, agent,
-                PipelinePresets.GetDefaultSkillsPath(presetName), "config/coding-principles.md"));
+                PipelinePresets.GetDefaultSkillsPath(presetName), "config/principles.md"));
         pipeline.Set(ContextKeys.PipelineName, presetName);
         pipeline.Set(ContextKeys.AgentConfig, agent);
         pipeline.Set(ContextKeys.Headless, true);
@@ -244,6 +244,6 @@ public sealed class PipelinePresetContextContractTests
         Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/x/y" },
         Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
         Pipeline = presetName,
-        CodingPrinciplesPath = "config/coding-principles.md",
+        CodingPrinciplesPath = "config/principles.md",
     };
 }

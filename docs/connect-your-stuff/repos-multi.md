@@ -99,7 +99,7 @@ The classic top-level `repos:` catalog (one entry per repo, `type` + `url` + `au
 
 **Path-prefix routing.** When the agent calls `read_file("TodoList.Api/src/Auth.cs")`, the framework parses the first path segment, looks up `Sandboxes["TodoList.Api"]`, and forwards the read to that sandbox. Same logic for write, edit, find_files, grep_in_tree, etc. The run_command tool requires an explicit `repo` argument so there's no path-segment guessing.
 
-**Per-repo bootstrap.** Each repo needs its own `.agentsmith/context.yaml` and `.agentsmith/coding-principles.md` so Agent Smith knows the toolchain and the project rules per repo. The `init-project` pipeline writes these files into each repo's sandbox and opens one bootstrap PR per repo, cross-linked. Run it once per project (which means once for all the repos in the project — `init-project` iterates internally).
+**Per-repo bootstrap.** Each repo needs its own `.agentsmith/context.yaml` and `.agentsmith/principles.md` so Agent Smith knows the toolchain and the project rules per repo. The `init-project` pipeline writes these files into each repo's sandbox and opens one bootstrap PR per repo, cross-linked. Run it once per project (which means once for all the repos in the project — `init-project` iterates internally).
 
 **`deployment`** is the single registry + version pin; it feeds both the orchestrator container and the sandbox-agent image. Skills need no block at all — they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
 

@@ -187,7 +187,7 @@ public sealed class MultiRepoBootstrapTests
             // After p0161a each sandbox is keyed by sandbox-key (= repo name in
             // multi-repo single-context). Bootstrap probes the per-context MetaDir.
             _exists[(name, $"/work/.agentsmith/contexts/default/context.yaml")] = contextYaml;
-            _exists[(name, $"/work/.agentsmith/contexts/default/coding-principles.md")] = principles;
+            _exists[(name, $"/work/.agentsmith/contexts/default/principles.md")] = principles;
             return this;
         }
 

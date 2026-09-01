@@ -61,7 +61,7 @@ projects:
       type: Claude
       model: claude-sonnet-4-20250514
     pipeline: fix-bug
-    coding_principles_path: ./config/coding-principles.md
+    coding_principles_path: ./config/principles.md
 ```
 
 ### 1.4 Environment Variables

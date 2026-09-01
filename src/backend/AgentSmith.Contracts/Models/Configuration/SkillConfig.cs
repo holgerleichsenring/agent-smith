@@ -35,7 +35,7 @@ public sealed class SkillOutputConfig
 /// </summary>
 public sealed class SkillContextConfig
 {
-    public string Rules { get; set; } = "coding-principles.md";
+    public string Rules { get; set; } = "principles.md";
     public string Map { get; set; } = "code-map.yaml";
 }
 
