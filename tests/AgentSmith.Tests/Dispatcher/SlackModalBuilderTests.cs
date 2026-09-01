@@ -122,10 +122,10 @@ public sealed class SlackModalBuilderTests
     [Fact]
     public void BuildTicketOptions_FormatsCorrectly()
     {
-        var tickets = new List<(int Id, string Title)>
+        var tickets = new List<(string Id, string Title)>
         {
-            (42, "Fix login bug"),
-            (58, "Add dark mode")
+            ("42", "Fix login bug"),
+            ("58", "Add dark mode")
         };
 
         var result = SlackModalBuilder.BuildTicketOptions(tickets, null);
@@ -139,10 +139,10 @@ public sealed class SlackModalBuilderTests
     [Fact]
     public void BuildTicketOptions_FiltersbyQuery()
     {
-        var tickets = new List<(int Id, string Title)>
+        var tickets = new List<(string Id, string Title)>
         {
-            (42, "Fix login bug"),
-            (58, "Add dark mode")
+            ("42", "Fix login bug"),
+            ("58", "Add dark mode")
         };
 
         var result = SlackModalBuilder.BuildTicketOptions(tickets, "login");

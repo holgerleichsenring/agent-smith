@@ -12,7 +12,7 @@ public sealed record ConversationState
     public required string UserId { get; init; }
     public required string Platform { get; init; }
     public required string Project { get; init; }
-    public required int TicketId { get; init; }
+    public required string TicketId { get; init; }
     public required DateTimeOffset StartedAt { get; init; }
     public DateTimeOffset LastActivityAt { get; init; }
 

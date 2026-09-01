@@ -71,18 +71,18 @@ internal static class SlackModalBuilder
         };
     }
 
-    public static object BuildTicketOptions(IReadOnlyList<(int Id, string Title)> tickets, string? searchQuery)
+    public static object BuildTicketOptions(IReadOnlyList<(string Id, string Title)> tickets, string? searchQuery)
     {
         var filtered = string.IsNullOrWhiteSpace(searchQuery) ? tickets
             : tickets.Where(t =>
                 t.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
-                t.Id.ToString().Contains(searchQuery, StringComparison.Ordinal)).ToList();
+                t.Id.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)).ToList();
         return new
         {
             options = filtered.Select(t => new
             {
                 text = new { type = "plain_text", text = TruncateOptionText($"#{t.Id} — {t.Title}") },
-                value = t.Id.ToString()
+                value = t.Id
             }).ToArray()
         };
     }

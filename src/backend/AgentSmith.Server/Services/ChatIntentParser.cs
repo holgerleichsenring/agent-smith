@@ -19,7 +19,7 @@ public sealed class ChatIntentParser(ILogger<ChatIntentParser> logger)
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex FixPattern = new(
-        @"^(?:fix\s+)?(?:ticket\s+)?#(\d+)(?:\s+in\s+(\S+))?$",
+        @"^(?:fix\s+)?(?:ticket\s+)?#?([A-Za-z][A-Za-z0-9_]*-\d+|(?<=#)\d+)(?:\s+in\s+(\S+))?$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ListPattern = new(
@@ -81,7 +81,7 @@ public sealed class ChatIntentParser(ILogger<ChatIntentParser> logger)
         return new FixTicketIntent
         {
             RawText = text, UserId = userId, ChannelId = channelId, Platform = platform,
-            TicketId = int.Parse(match.Groups[1].Value),
+            TicketId = match.Groups[1].Value,
             Project = match.Groups[2].Success ? match.Groups[2].Value : string.Empty
         };
     }
