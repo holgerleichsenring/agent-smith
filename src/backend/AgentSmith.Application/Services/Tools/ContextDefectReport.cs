@@ -43,7 +43,7 @@ public sealed class ContextDefectReport(ContextSchemaPointer pointer)
     private IEnumerable<string> Grouped(IReadOnlyList<ContextSchemaDefect> defects) =>
         defects
             .DistinctBy(defect => (defect.Location, defect.Keyword))
-            .GroupBy(defect => (defect.SchemaPath, defect.Keyword))
+            .GroupBy(defect => (defect.SchemaPath, defect.Keyword, defect.Message))
             .Select(group => Line([.. group]))
             .OrderBy(line => line, StringComparer.Ordinal);
 
@@ -66,12 +66,12 @@ public sealed class ContextDefectReport(ContextSchemaPointer pointer)
             : $"{head} and {all.Count - MaxLocationsPerRule} more";
     }
 
-    // The broken rule, its suggestions and what the field is for — read back out of
-    // the schema document, because the model never sees the schema file and a keyword
-    // it cannot look up is an invitation to guess.
+    // The broken rule, its suggestions and what the field is for — read back out of the
+    // schema document, because a keyword the model cannot look up invites guessing. A
+    // BOOLEAN node — a closed object's `false` — carries none of that, and threw as one.
     private string? Rule(ContextSchemaDefect defect)
     {
-        if (pointer.Resolve(defect.SchemaPath) is not { } node) return null;
+        if (pointer.Resolve(defect.SchemaPath) is not JsonObject node) return null;
         var parts = new List<string>();
         if (node[defect.Keyword] is { } broken) parts.Add($"schema {defect.Keyword}: {Render(broken)}");
         if (node["examples"] is JsonArray examples) parts.Add($"suggestions: {RenderList(examples)}");
