@@ -79,7 +79,8 @@ public sealed class VerifyPhaseHandler(
         // branch that passes without checking anything.
         var diffs = new Dictionary<string, DeliveryDiff.DiffResult>(StringComparer.Ordinal);
         foreach (var (key, sandbox) in sandboxes)
-            diffs[key] = await deliveryDiff.ForBranchAsync(sandbox, cancellationToken);
+            diffs[key] = await deliveryDiff.ForBranchAsync(
+                sandbox, context.Pipeline.RunId(), cancellationToken);
         var delivered = DeliveredWork.Of(diffs);
 
         var outcomes = new List<VerifyOutcome>();

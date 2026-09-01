@@ -61,11 +61,11 @@ stack:
 # declaration serves repositories of different shapes.
 #
 # verify:
-#   - stage: build
+#   - label: build
 #     command: dotnet build MySolution.sln
-#   - stage: test
+#   - label: test
 #     command: dotnet test MySolution.sln
-#   - stage: lint
+#   - label: lint
 #     command: npm run lint
 #     when_present: package.json
 

@@ -18,6 +18,18 @@ public static class PipelineContextExtensions
         pipeline.Get<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline);
 
     /// <summary>
+    /// 2026-09-01-b467: the id of the run this pipeline is executing, or null outside one.
+    /// It is the name the run's own commits carry on the branch, which is how the delivery
+    /// diff finds the commit the run started from.
+    /// </summary>
+    public static string? RunId(this PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        return pipeline.TryGet<string>(ContextKeys.RunId, out var runId)
+            && !string.IsNullOrWhiteSpace(runId) ? runId : null;
+    }
+
+    /// <summary>
     /// p0490: reads a boolean that rode in on the LAUNCH request. A value seeded
     /// in-process is a <c>bool</c>, but the same value enqueued through the Redis job
     /// queue comes back as a <see cref="JsonElement"/> — <c>PipelineRequest.Context</c>

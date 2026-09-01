@@ -102,9 +102,11 @@ public sealed class AccountEvalMechanicsTests
         var deliveryDiff = new AgentSmith.Application.Services.DeliveryDiff(
             new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(
                 NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
+            new AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit(
+                NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit>.Instance),
             NullLogger<AgentSmith.Application.Services.DeliveryDiff>.Instance);
         var diff = await deliveryDiff.ForBranchAsync(
-            repos.Sandboxes["Sample.Server"], CancellationToken.None);
+            repos.Sandboxes["Sample.Server"], runId: null, CancellationToken.None);
 
         diff.BaseRef.Should().Be("origin/main", "the fixture names its base the way a clone does");
 
@@ -205,8 +207,11 @@ public sealed class AccountEvalMechanicsTests
         var deliveryDiff = new AgentSmith.Application.Services.DeliveryDiff(
             new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(
                 NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
+            new AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit(
+                NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit>.Instance),
             NullLogger<AgentSmith.Application.Services.DeliveryDiff>.Instance);
-        var result = await deliveryDiff.ForBranchAsync(repos.Sandboxes[key], CancellationToken.None);
+        var result = await deliveryDiff.ForBranchAsync(
+            repos.Sandboxes[key], runId: null, CancellationToken.None);
         result.Failed.Should().BeFalse("a fixture whose diff cannot be taken measures nothing");
         return result.Text;
     }

@@ -33,9 +33,9 @@ public sealed class VerifyPhaseHandlerTests
         new ContextVerifyStagesResolver(),
         new SandboxTargets(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
-        new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
+        AgentSmith.Tests.TestHelpers.TestGit.Delivery,
         new PhaseAccounting(
-            new DeliveryDiff(AgentSmith.Tests.TestHelpers.TestGit.BaseBranch, NullLogger<DeliveryDiff>.Instance),
+            AgentSmith.Tests.TestHelpers.TestGit.Delivery,
             accountant ?? new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new AccountCalls(new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),

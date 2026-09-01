@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-9723
+
+goal: "An Angular repository and a Java repository each run through the code pipeline on gates they declare themselves, so the two stacks stop depending on what an analyzer emits that day."
+
+applies_to: "backend (two reference fixtures and the harness runs over them)"
+
+requires:
+  - 2026-08-31-26d4
+  - 2026-08-28-5f71
+
+scope:
+  in: "A minimal Angular reference and a minimal Maven reference, each declaring its image and its verify stages, each with one defect per stage, and a harness run over each asserting the declared stages ran and named themselves in the outcome."
+  out: >
+    A PROFILE, A DOMAIN OR A LANGUAGE TABLE ROW for either stack — a repository names
+    its image and its stages, which is the whole point. THE PRINCIPLES DELTAS for those
+    languages, which are content and travel with the catalog. GRADLE, named as the
+    successor a customer estate needs.
+
+decisions:
+  - key: |
+      THESE WERE TWO PHASES BUILT ON A MECHANISM THAT NO LONGER EXISTS, AND THE REPLACEMENT MAKES
+      THEM SMALL. Both previously needed a catalog profile to carry a lint stage at all, because
+      the inferred pair is hard-coded to build and test. A declared list has no such ceiling, so
+      what is left is two reference repositories and two runs.
+  - key: |
+      THE IMAGE IS THE ONE OPEN QUESTION PER STACK, AND IT IS MEASURED, NOT ASSUMED. The default
+      node image carries no browser, so a test runner that wants one fails for a reason that has
+      nothing to do with the code; a Maven build with a cold dependency cache can outlast the
+      per-step cap, and no cache is mounted on the deployed backend at all. Each reference
+      records what its image carries and what its cold run cost.
+  - key: |
+      A GREEN RUN IS NOT THE CRITERION — THE NAMED STAGES ARE. A run that resolves nothing now
+      fails rather than passing quietly, so "the smoke was green" no longer proves anything by
+      itself. Each run asserts its own declared stage labels in the outcome.
+  - key: |
+      TWO STACKS IN ONE PHASE, BECAUSE THE WORK IS THE SAME WORK. A reference repository, a
+      declaration, a run. Splitting them would duplicate the decisions and prove the mechanism
+      twice.
+
+steps:
+  - id: the-angular-reference-declares-itself
+    action: "A minimal Angular repository with an image it names and build, lint and test stages, plus one defect per stage."
+  - id: the-java-reference-declares-itself
+    action: "A minimal Maven repository with an image it names and build and test stages, plus one defect per stage, recording its cold-cache timing against the per-step cap."
+  - id: each-runs-through-the-pipeline
+    action: "A harness run over each reference asserting the declared stages ran, named themselves, and went red on their defects."
+
+tests:
+  - "AngularReference_RunsItsDeclaredStages"
+  - "JavaReference_RunsItsDeclaredStages"
+  - "PolyglotReference_ADefect_RedsItsOwnStage"
+
+done:
+  - "an Angular run executes build, lint and test as the labels the repository declared"
+  - "a Java run executes its declared stages, and its cold-cache timing is recorded beside the cap it must fit"
+  - "neither stack needed a catalog entry, a domain or a language table row"
+  - "build green, full suite green"

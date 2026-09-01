@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-eec0
+
+goal: "The authored file a repository carries is named principles.md, because it holds rules about the environment as well as about code."
+
+applies_to: "backend (the composer, the bootstrap gate and prompt) + skills catalog (the masters that name it) + docs"
+
+requires:
+  - p0379
+
+scope:
+  in: "The composed file renamed, every place that names it moved with it — the composer, the bootstrap presence gate, the prompt, the masters' prose, the template and the documentation — and the project-specifics section documented as where a repository's own environment rules belong."
+  out: >
+    A COMPATIBILITY READ for the old name. There is no deployment below the supported
+    floor, and a repository initialised earlier is re-inited rather than carried; that
+    is an operator step, named here. THE CONTENT of anyone's principles.
+
+decisions:
+  - key: |
+      THE NAME STOPPED BEING TRUE WHEN THE FILE STARTED CARRYING ENVIRONMENT RULES. "Field
+      changes go through the estate's own CLI; hand-written SQL in models is a defect" is not a
+      coding rule. It is the single most valuable thing a mature estate can tell an agent, it
+      has a home in the composed file's project-specifics section, and the file's name argues
+      against putting it there.
+  - key: |
+      THE PROJECT-SPECIFICS SECTION IS THE POINT OF THE RENAME, NOT AN ASIDE. It already exists,
+      it already survives a re-init, and it is already ratified by the operator in the init pull
+      request. What it lacks is anyone knowing it is the right place, which the documentation
+      now says.
+  - key: |
+      NO COMPATIBILITY READ, BY THE SAME RULE THAT RETIRED THE OTHER LEGACY PATHS. A reader that
+      accepts both names keeps the old one alive indefinitely and hides which repositories still
+      carry it. Re-init is the migration, and it is cheap.
+  - key: |
+      THE PRESENCE GATE IS THE SHARP EDGE. The code pipeline refuses to start unless every
+      context has both a context file and the principles file; renaming the file without the
+      gate would refuse every run in the estate.
+
+steps:
+  - id: the-composed-file-changes-name
+    action: "The composer writes principles.md, and the bootstrap presence gate and prompt name it."
+  - id: the-masters-name-it
+    action: "Every master that names the file in prose is updated, and released."
+  - id: the-section-is-documented
+    action: "The template and the context documentation state that a repository's own environment rules belong in the project-specifics section."
+
+tests:
+  - "Compose_WritesPrinciplesMd"
+  - "BootstrapGate_ARepositoryCarryingOnlyTheOldName_IsRefusedWithTheRemedy"
+
+done:
+  - "a fresh init produces principles.md and the gate accepts it"
+  - "a repository carrying the old name is refused with re-init named as the remedy"
+  - "no reader accepts both names"
+  - "build green, full suite green"

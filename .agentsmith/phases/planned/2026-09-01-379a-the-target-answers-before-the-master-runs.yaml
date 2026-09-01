@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-379a
+
+goal: "A run asks the target environment whether it answers before the master spends a token, and a refusal reads as infrastructure carrying no captured output."
+
+applies_to: "backend (a probe stage before the master, its failure shape, what the record says)"
+
+requires:
+  - 2026-08-28-b630
+  - 2026-08-31-26d4
+
+scope:
+  in: "A probe command a repository declares beside its verification stages, run through a shell after the prerequisites and before the master, failing with the target, the command and the exit code and no captured output, with answered, refused and not-declared as three distinguishable outcomes."
+  out: >
+    DEPLOYING ANYTHING, and running a repository's tests against a live target — that is
+    the ring above this one. MEASURING which connected commands are real gates once
+    credentials exist: a distinct measurement, in the estate that has them.
+
+decisions:
+  - key: |
+      A COMMAND THAT RESOLVES AUTHENTICATION FIRST IS NOT BROKEN, IT IS UNCREDENTIALED. The
+      warehouse CLI's validate command was once recorded as a command that cannot be a gate,
+      because it went red on a clean tree without a workspace. That was a fact about the
+      measurement environment, not about the command — with credentials it validates. This
+      phase is what makes such a command usable, and the estates we are aimed at run their own
+      tests against a real cluster, so uncredentialed is the unusual state, not the normal one.
+  - key: |
+      THE PROBE IS DECLARED BESIDE THE STAGES, BECAUSE THE REPOSITORY IS ALREADY THE AUTHORITY
+      ON WHAT PROVES A CHANGE IN IT. A command that proves a target answers is target-specific,
+      and deriving it would be the per-ecosystem guessing this codebase has removed twice.
+  - key: |
+      THE FAILURE CARRIES NO CAPTURED OUTPUT, BECAUSE THE MASKER CANNOT HELP HERE. A failing
+      step's output travels into the failure reason, the per-repository result document and a
+      comment on the external ticket. The masker only knows values the framework holds, and by
+      design it never holds an injected credential — so a value it does not know is one it
+      cannot replace. The probe reports the target, the command and the exit code; the output
+      tail goes to the operator-facing log alone.
+  - key: |
+      A SKIPPED PROBE IS REPORTED, NEVER SILENTLY GREEN. A repository with no probe and one
+      whose probe passed must not look the same in the record, or the mechanism decays into
+      decoration the first time someone forgets to declare one.
+  - key: |
+      A BACKEND THAT INJECTS NO CREDENTIAL SKIPS IT AND SAYS SO. Only the Kubernetes pod builder
+      consumes declared secrets; the docker and in-process sandboxes carry none. Failing there
+      would redden every harness run of a repository that declares a probe.
+
+steps:
+  - id: a-repository-may-declare-a-probe
+    action: "A probe command declared beside the verification stages, carried through the same layers by name."
+  - id: the-probe-runs-before-the-master
+    action: "It runs through a shell after the prerequisites and before the master, failing the run with the target, the command and the exit code."
+  - id: the-record-tells-the-three-apart
+    action: "Answered, refused and not-declared are three distinct sentences; only the answered one is a gate no-op."
+
+tests:
+  - "Probe_ARefusingTarget_FailsBeforeTheMasterRuns"
+  - "Probe_ARefusingTarget_ReportsNoCapturedOutput"
+  - "Probe_NoProbeDeclared_IsRecordedAsNotDeclaredNotAsPassed"
+  - "Probe_ABackendThatInjectsNothing_SkipsAndSaysSo"
+
+done:
+  - "a wrong or absent credential fails the run before any master token, naming the target"
+  - "the failure message, the result document and the ticket comment carry no step output"
+  - "a repository with no probe runs, and the record says the probe was not declared"
+  - "build green, full suite green"

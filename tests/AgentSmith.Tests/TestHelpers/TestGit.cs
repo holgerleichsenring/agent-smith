@@ -13,6 +13,14 @@ public static class TestGit
 
     public static SandboxBaseBranch BaseBranch => new(NullLogger<SandboxBaseBranch>.Instance);
 
+    public static SandboxRunStartCommit RunStartCommit =>
+        new(NullLogger<SandboxRunStartCommit>.Instance);
+
+    /// <summary>2026-09-01-b467: the delivery diff with both of its git readers.</summary>
+    public static AgentSmith.Application.Services.DeliveryDiff Delivery =>
+        new(BaseBranch, RunStartCommit,
+            NullLogger<AgentSmith.Application.Services.DeliveryDiff>.Instance);
+
     public static WorkBranchBaseMerger Merger =>
         new(BaseBranch, NullLogger<WorkBranchBaseMerger>.Instance);
 
