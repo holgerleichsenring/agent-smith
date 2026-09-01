@@ -16,8 +16,6 @@ internal static class RunCostSectionWriter
         int durationSeconds, RunCostSummary? costSummary,
         RunMetaTopology? topology = null, string? repoName = null, bool succeeded = true)
     {
-        var ci = CultureInfo.InvariantCulture;
-
         sb.AppendLine("---");
         sb.AppendLine($"ticket: \"#{ticket.Id} — {ticket.Title}\"");
         sb.AppendLine($"date: {DateTime.UtcNow:yyyy-MM-dd}");
@@ -31,15 +29,20 @@ internal static class RunCostSectionWriter
 
         AppendTopology(sb, topology);
 
-        if (costSummary is not null)
-        {
-            AppendTokenSection(sb, costSummary);
-            AppendCostSection(sb, costSummary, ci);
-            AppendRepoCostSection(sb, costSummary, repoName, ci);
-        }
+        AppendCostSections(sb, costSummary, repoName);
 
         sb.AppendLine("---");
         sb.AppendLine();
+    }
+
+    private static void AppendCostSections(
+        StringBuilder sb, RunCostSummary? costSummary, string? repoName)
+    {
+        if (costSummary is null) return;
+        var ci = CultureInfo.InvariantCulture;
+        AppendTokenSection(sb, costSummary);
+        AppendCostSection(sb, costSummary, ci);
+        AppendRepoCostSection(sb, costSummary, repoName, ci);
     }
 
     private static void AppendTopology(StringBuilder sb, RunMetaTopology? topology)
@@ -67,8 +70,6 @@ internal static class RunCostSectionWriter
         StringBuilder sb, int durationSeconds, RunCostSummary? costSummary,
         string? repoName = null)
     {
-        var ci = CultureInfo.InvariantCulture;
-
         sb.AppendLine("---");
         sb.AppendLine("type: init");
         sb.AppendLine($"date: {DateTime.UtcNow:yyyy-MM-dd}");
@@ -77,12 +78,7 @@ internal static class RunCostSectionWriter
         if (durationSeconds > 0)
             sb.AppendLine($"duration_seconds: {durationSeconds}");
 
-        if (costSummary is not null)
-        {
-            AppendTokenSection(sb, costSummary);
-            AppendCostSection(sb, costSummary, ci);
-            AppendRepoCostSection(sb, costSummary, repoName, ci);
-        }
+        AppendCostSections(sb, costSummary, repoName);
 
         sb.AppendLine("---");
         sb.AppendLine();
@@ -117,18 +113,9 @@ internal static class RunCostSectionWriter
             foreach (var (model, tokens) in unpriced)
                 sb.AppendLine($"    {model}: {tokens}");
         }
+        WorkerSpendSectionWriter.Append(sb, costSummary.WorkerSpend, ci);
         sb.AppendLine("  phases:");
-
-        foreach (var (phase, cost) in costSummary.Phases)
-        {
-            sb.AppendLine($"    {phase}:");
-            sb.AppendLine($"      model: {cost.Model}");
-            sb.AppendLine($"      input: {cost.InputTokens}");
-            sb.AppendLine($"      output: {cost.OutputTokens}");
-            sb.AppendLine($"      cache_read: {cost.CacheReadTokens}");
-            sb.AppendLine($"      turns: {cost.Iterations}");
-            sb.AppendLine(string.Format(ci, "      usd: {0:F4}", cost.Cost));
-        }
+        AppendPhaseRows(sb, costSummary.Phases, ci);
     }
 
     // p0176a: per-repo cost block — only emitted when (a) the summary
@@ -146,7 +133,13 @@ internal static class RunCostSectionWriter
         sb.AppendLine($"  repo: {repoName}");
         sb.AppendLine(string.Format(ci, "  total_usd: {0:F4}", repoCost.TotalCost));
         sb.AppendLine("  phases:");
-        foreach (var (phase, cost) in repoCost.Phases)
+        AppendPhaseRows(sb, repoCost.Phases, ci);
+    }
+
+    private static void AppendPhaseRows(
+        StringBuilder sb, IReadOnlyDictionary<string, PhaseCost> phases, CultureInfo ci)
+    {
+        foreach (var (phase, cost) in phases)
         {
             sb.AppendLine($"    {phase}:");
             sb.AppendLine($"      model: {cost.Model}");
