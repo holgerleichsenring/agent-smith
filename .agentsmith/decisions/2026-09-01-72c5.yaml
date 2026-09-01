@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-72c5
+
+decisions:
+  - category: Architecture
+    chose: "The retired file is MOVED to the current name at the start of the round, before the existing-file read"
+    over: "A second read path that accepts either name inside the transfer's existing-or-fresh decision"
+    reason: |
+      The predecessor removed every read of the old name and stopped there; the preserve path
+      reads the CURRENT name, so a repository carrying only the old one reported nothing
+      existing and was composed fresh from core plus delta — discarding exactly the ratified
+      Project Specifics section the file exists to carry.
+      Handling it where the transfer decides gives that decision two ways to reach the same
+      state. Renaming first leaves one downstream path: the existing-file read finds
+      principles.md and the preserve branch that already exists does the rest untouched.
+  - category: Implementation
+    chose: "`git mv` with a plain `mv` fallback, issued as one StepKind.Run script"
+    over: "A copy, or a bare `mv`, or a new move/delete step kind on the wire protocol"
+    reason: |
+      A copy leaves the old file in the tree for the coding agent to find beside the new one,
+      with nothing to say which is authoritative. `git mv` keeps the rename legible as a rename
+      in the init pull request the operator reviews; an untracked file has no index entry to
+      move, and the `|| mv` fallback keeps that case from failing the round.
+      StepKind.Run is what the sandbox already speaks — the transfer beside it issues framework
+      steps the same way — so no protocol version had to move for one migration.
+  - category: Implementation
+    chose: "A failed move fails the round, naming both files"
+    over: "Logging a warning and letting the round compose a fresh file anyway"
+    reason: |
+      Continuing after a failed move reproduces the precise defect this phase exists to fix —
+      ratified content replaced by a composition, reported as success. The sibling
+      BootstrapPrinciplesTransfer already fails the round loudly when its write fails; the two
+      framework file operations of one round now answer a failure the same way.
+  - category: Implementation
+    chose: "BootstrapMetaFiles — a collaborator owning the round's sandbox-side view of one context's meta files"
+    over: "Adding the move inline in BootstrapRoundHandler"
+    reason: |
+      The handler sits three lines under its file-length baseline and may only shrink. The
+      migration and the read it has to precede are one responsibility (what the repository
+      already carries), so moving both out is the split the ratchet was asking for rather than a
+      workaround: the handler lost the two private reader methods, dropped 19 lines, and the
+      ordering guarantee is now structural — the read cannot run before the rename because the
+      same method performs both.
