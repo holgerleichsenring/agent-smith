@@ -30,15 +30,19 @@ public sealed class SourceCitationResolver(CitedCodeWindow window) : ICandidateR
             && !string.Equals(finding.Role, GitHistoryRole, StringComparison.Ordinal);
     }
 
-    public async Task<CandidateFinding?> ResolveAsync(
+    public async Task<CandidateResolution> ResolveAsync(
         SkillObservation finding, ScanEvidence evidence, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(finding);
         ArgumentNullException.ThrowIfNull(evidence);
         var content = await evidence.Source!.TryReadAsync(finding.File!, cancellationToken);
-        return content is null
-            ? null
-            : new CandidateFinding(
-                finding, finding.DisplayLocation, window.Around(content, finding.StartLine));
+        if (content is null) return CandidateResolution.Invented;
+        // The file is real; a line it does not have still leaves nothing to show, and a
+        // refuter shown "that line does not exist" refutes on it and quotes it back.
+        var shown = window.Around(content, finding.StartLine);
+        return shown is null
+            ? CandidateResolution.NoEvidence
+            : CandidateResolution.Refutable(
+                new CandidateFinding(finding, finding.DisplayLocation, shown));
     }
 }
