@@ -70,6 +70,33 @@ public sealed class VerificationOnboardingCheckTests
     }
 
     [Fact]
+    public async Task Onboarding_ALocalRepositoryDeclaringStages_IsReportedEligible()
+    {
+        // 2026-09-01-1335: a repository located by path used to be reported "not inspected",
+        // because discovery refused to read anything without a remote url.
+        var check = Check(
+            new RemoteContextListing([new RemoteContextDiscovery("backend", ".", "csharp", Verify: [Stage])]),
+            new RepoConnection { Name = "estate-repo", Type = RepoType.Local, Path = "/srv/checkout" });
+
+        var result = await check.RunAsync(CancellationToken.None);
+
+        result.Status.Should().Be(PreflightStatus.Pass);
+        result.Message.Should().Contain("estate-repo/backend: eligible").And.Contain("build");
+        result.Message.Should().NotContain("not inspected");
+    }
+
+    [Fact]
+    public async Task Onboarding_ARepositoryWithNeitherUrlNorPath_IsReportedNotInspected()
+    {
+        var check = Check(RemoteContextListing.None, new RepoConnection { Name = "estate-repo" });
+
+        var result = await check.RunAsync(CancellationToken.None);
+
+        result.Status.Should().Be(PreflightStatus.Pass);
+        result.Message.Should().Contain("estate-repo: not inspected");
+    }
+
+    [Fact]
     public async Task RunAsync_ConfigFailedToLoad_Skips()
     {
         var check = new VerificationOnboardingCheck(
@@ -78,7 +105,8 @@ public sealed class VerificationOnboardingCheckTests
         (await check.RunAsync(CancellationToken.None)).Status.Should().Be(PreflightStatus.Skip);
     }
 
-    private static VerificationOnboardingCheck Check(RemoteContextListing listing)
+    private static VerificationOnboardingCheck Check(
+        RemoteContextListing listing, RepoConnection? repo = null)
     {
         var resolver = new Mock<ISandboxLanguageResolver>();
         resolver
@@ -88,7 +116,8 @@ public sealed class VerificationOnboardingCheckTests
         {
             Repos = new Dictionary<string, RepoConnection>
             {
-                ["estate-repo"] = new() { Name = "estate-repo", Url = "https://example.test/r" },
+                ["estate-repo"] = repo
+                    ?? new RepoConnection { Name = "estate-repo", Url = "https://example.test/r" },
             },
         };
         return new VerificationOnboardingCheck(FakePreflightConfigSource.Of(config), resolver.Object);

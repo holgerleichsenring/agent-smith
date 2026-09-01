@@ -31,7 +31,6 @@ public sealed class MonorepoMixedDiscoveryTests
             Name = "monorepo-mixed",
             Type = RepoType.Local,
             Path = FixturePath,
-            Url = $"file://{FixturePath}"
         };
 
         var result = await sut.ResolveAllAsync(repo, CancellationToken.None);
@@ -54,7 +53,6 @@ public sealed class MonorepoMixedDiscoveryTests
             Name = "monorepo-mixed",
             Type = RepoType.Local,
             Path = FixturePath,
-            Url = $"file://{FixturePath}"
         };
 
         var discoveries = await sut.ResolveAllAsync(repo, CancellationToken.None);

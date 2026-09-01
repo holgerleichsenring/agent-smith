@@ -7,10 +7,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// Discovers .agentsmith/contexts/&lt;name&gt;/context.yaml on a remote repo via
-/// ISourceProvider (pre-sandbox). One RemoteContextDiscovery per context;
-/// empty discovery → one synthetic ("default", ".", null) so un-init / pre-v2
-/// repos still get one root sandbox with the generic-image fallback (p0161).
+/// Discovers .agentsmith/contexts/&lt;name&gt;/context.yaml through the source's own
+/// ISourceProvider (pre-sandbox) — a remote and a local working copy alike, since
+/// the provider is what knows how to reach either. One RemoteContextDiscovery per
+/// context; empty discovery → one synthetic ("default", ".", null) so un-init /
+/// pre-v2 repos still get one root sandbox with the generic-image fallback (p0161).
 /// </summary>
 public sealed class SandboxLanguageResolver(
     ISourceProviderFactory sourceProviderFactory,
@@ -46,7 +47,7 @@ public sealed class SandboxLanguageResolver(
     public async Task<RemoteContextListing> ListContextsAsync(
         RepoConnection source, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(source.Url)) return RemoteContextListing.None;
+        if (!source.HasLocation) return RemoteContextListing.None;
 
         var repoTag = FormatRepoTag(source);
         IReadOnlyList<string> children;
@@ -173,7 +174,7 @@ public sealed class SandboxLanguageResolver(
 
     private static string FormatRepoTag(RepoConnection source)
     {
-        var name = string.IsNullOrEmpty(source.Name) ? source.Url ?? "?" : source.Name;
+        var name = string.IsNullOrEmpty(source.Name) ? source.Url ?? source.Path ?? "?" : source.Name;
         var branch = string.IsNullOrEmpty(source.DefaultBranch) ? "auto" : source.DefaultBranch;
         return $"{name}@{branch}";
     }

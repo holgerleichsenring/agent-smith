@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-1335
+
+decisions:
+  - category: Design
+    chose: "Ask whether the source has a location at all"
+    over: "Adding a local branch beside the remote one"
+    reason: |
+      The guard asked whether a url was present, and treated its absence as "nothing to read".
+      Those were never the same question: a local source carries a path, and the local provider
+      already lists and reads off disk — the explicit-context path has always relied on exactly
+      that, because it never had the guard. So the fix is a predicate on the connection, and the
+      remote branch is untouched: same enumerate, same parse, same discovery.
+  - category: Design
+    chose: "Delete the fabricated url an integration test used to get past the guard"
+    over: "Leaving it as an out-of-scope finding"
+    reason: |
+      The monorepo discovery test built its local connection with a file:// url that no
+      production code ever produces. It existed only to reach past the guard — so the test
+      proved local file reading worked while the guard that blocked it in production went
+      unexercised for as long as it existed. Removing the line turns an existing integration
+      test into a proof of this fix, which is worth two lines.
+  - category: Scope
+    chose: "Leave the demo assertion to a live run"
+    over: "Ticking it because the discovery now carries the declaration"
+    reason: |
+      That the discovery carries the image and the stages is the necessary condition and it is
+      tested here. Whether the bundled demo then verifies through its own declared stages is a
+      claim about a run, and only a run can make it.
