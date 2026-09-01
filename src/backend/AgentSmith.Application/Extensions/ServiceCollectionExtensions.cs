@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddTolerantJsonParser();
         services.AddPipelineHandlers();
         services.AddRunPreflight(); // p0428
+        services.AddTargetProbe(); // 2026-09-01-379a
         services.AddSkillRunHandlers();
         services.AddContextBuilders();
         services.AddPipelineExecution();

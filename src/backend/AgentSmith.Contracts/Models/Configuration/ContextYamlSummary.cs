@@ -30,8 +30,12 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// verify block was derived from and their hash at that moment. Read here so the run can
 /// re-hash them and report a declaration whose source has moved. Null/absent → nothing to
 /// compare, and the run says nothing.</param>
+/// <param name="Probe">2026-09-01-379a: `probe:` — the command that asks this context's
+/// target environment whether it answers, run before the master. Null/absent → nothing
+/// asks, and the record says so rather than reading as proven.</param>
 public sealed record ContextYamlSummary(
     string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
     ContextYamlStackResources? Resources = null, string? Purpose = null,
     IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
-    ContextYamlVerifyDerivation? VerifyDerivedFrom = null);
+    ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
+    ContextYamlTargetProbe? Probe = null);

@@ -75,6 +75,7 @@ public static partial class CommandStepClasses
         [CommandNames.BootstrapCheck] = Gate,      // speaks when bootstrap files are missing
         [CommandNames.BootstrapGate] = Gate,       // speaks when a repo lacks its bootstrap files
         [CommandNames.RunPreflight] = Gate,        // p0428: speaks when a precondition does not hold
+        [CommandNames.ProbeTarget] = Gate,         // 379a: silent only when the target answered
 
         // --- Internals: sub-second mechanics, collapsed by default. ---
         [CommandNames.SetupRegistryAuth] = Internal,

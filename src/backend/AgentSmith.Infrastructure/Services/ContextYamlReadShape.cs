@@ -24,6 +24,12 @@ internal sealed class ContextYamlReadShape
     // they were. Read via the shared UnderscoredNamingConvention as `verify_derived_from`.
     public DerivedFromBlock? VerifyDerivedFrom { get; set; }
 
+    // 2026-09-01-379a: the command that asks the target environment whether it answers.
+    // Declared HERE for the same reason the verify block is: a key this file does not
+    // name is dropped without a warning, and the run would report "not declared" about a
+    // probe the repository did declare.
+    public ProbeBlock? Probe { get; set; }
+
     internal sealed class MetaBlock
     {
         public string? Workdir { get; set; }
@@ -64,6 +70,13 @@ internal sealed class ContextYamlReadShape
         public List<string>? Files { get; set; }
 
         public string? Hash { get; set; }
+    }
+
+    internal sealed class ProbeBlock
+    {
+        public string? Target { get; set; }
+
+        public string? Command { get; set; }
     }
 
     internal sealed class ResourcesBlock

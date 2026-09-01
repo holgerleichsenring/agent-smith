@@ -35,11 +35,17 @@ namespace AgentSmith.Contracts.Sandbox;
 /// <param name="VerifyDerivedFrom">2026-09-01-e14d: `verify_derived_from:` — the files those
 /// stages were derived from and their hash at derivation time, so the run can re-hash them
 /// and report a declaration whose source has moved. Null = nothing to compare.</param>
+/// <param name="Probe">2026-09-01-379a: `probe:` — the command that asks this context's
+/// target environment whether it answers, run at THIS context's workdir after the
+/// prerequisites and before the master. Null = nothing asks, which the run reports as
+/// not declared rather than as answered. Passed BY NAME at every construction site, for
+/// the reason the paragraph above gives.</param>
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
     string? ToolchainImage = null, ContextYamlStackResources? Resources = null,
     string? Purpose = null, IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
-    ContextYamlVerifyDerivation? VerifyDerivedFrom = null)
+    ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
+    ContextYamlTargetProbe? Probe = null)
 {
     /// <summary>
     /// The ONE mapping from a parsed context.yaml to a discovery. Both production
@@ -54,6 +60,7 @@ public sealed record RemoteContextDiscovery(
         return new RemoteContextDiscovery(
             contextName, summary.Workdir, summary.Language, summary.Prerequisites,
             summary.Image, summary.Resources, summary.Purpose,
-            Verify: summary.Verify, VerifyDerivedFrom: summary.VerifyDerivedFrom);
+            Verify: summary.Verify, VerifyDerivedFrom: summary.VerifyDerivedFrom,
+            Probe: summary.Probe);
     }
 }

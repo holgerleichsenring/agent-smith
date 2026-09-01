@@ -81,6 +81,20 @@ stack:
 #   files:
 #     - azure-pipelines.yml
 #     - Makefile
+# --- Does the target environment answer? ------------------------------------
+
+# One command that asks whether the environment this repository's work depends on
+# is reachable and willing — a warehouse workspace, a cluster, an integration API.
+# It runs before the coding agent starts, so a wrong or absent credential surfaces
+# as infrastructure instead of as an agent that cannot build. A refusal names the
+# target, the command and the exit code and carries no captured output: the tail
+# is in the run log alone, because output can hold a credential nothing here can
+# mask. Reference credentials by NAME; never write a value into this file. Omit
+# the block when nothing outside the repository has to answer.
+#
+# probe:
+#   target: the warehouse dev workspace
+#   command: sf org display --target-org devhub
 
 # --- How is the code organized? --------------------------------------------
 
