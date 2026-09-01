@@ -55,17 +55,26 @@ public static class MasterFindingsMerger
         && !string.IsNullOrWhiteSpace(r.File)
         && ReadSetContains(readFiles, r.File!);
 
-    // Suffix match on a segment boundary absorbs the sandbox workdir/context prefix
-    // mismatch (read-set 'default/x/y.cs' vs scanner 'x/y.cs') without matching a.cs to ba.cs.
-    private static bool ReadSetContains(IReadOnlySet<string> readFiles, string file)
+    private static bool ReadSetContains(IReadOnlySet<string> readFiles, string file) =>
+        readFiles.Any(read => SamePath(read, file));
+
+    /// <summary>
+    /// Whether two paths name the same file. Suffix match on a segment boundary absorbs the
+    /// sandbox workdir/context prefix mismatch (read-set <c>default/x/y.cs</c> vs scanner
+    /// <c>x/y.cs</c>) without matching <c>a.cs</c> to <c>ba.cs</c>.
+    /// <para>
+    /// 2026-08-28-cc40: public because the scan scoreboard asks the same question of a
+    /// finding and a declared file, and a second path normaliser would be a second answer.
+    /// </para>
+    /// </summary>
+    public static bool SamePath(string left, string right)
     {
-        var f = NormalizePath(file);
-        foreach (var r in readFiles)
-            if (r == f
-                || r.EndsWith("/" + f, StringComparison.Ordinal)
-                || f.EndsWith("/" + r, StringComparison.Ordinal))
-                return true;
-        return false;
+        var a = NormalizePath(left ?? string.Empty);
+        var b = NormalizePath(right ?? string.Empty);
+        return a.Length > 0 && b.Length > 0
+            && (a == b
+                || a.EndsWith("/" + b, StringComparison.Ordinal)
+                || b.EndsWith("/" + a, StringComparison.Ordinal));
     }
 
     private static HashSet<string> NormalizeReadSet(IReadOnlyList<string>? readPaths) =>
