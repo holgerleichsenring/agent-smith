@@ -26,7 +26,12 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// declares as proof that a change in it holds. Read here so it reaches the verify gate
 /// through the discovery, ahead of anything a model emits for that run. Null/absent → the
 /// gate infers as before.</param>
+/// <param name="VerifyDerivedFrom">2026-09-01-e14d: `verify_derived_from:` — the files the
+/// verify block was derived from and their hash at that moment. Read here so the run can
+/// re-hash them and report a declaration whose source has moved. Null/absent → nothing to
+/// compare, and the run says nothing.</param>
 public sealed record ContextYamlSummary(
     string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
     ContextYamlStackResources? Resources = null, string? Purpose = null,
-    IReadOnlyList<ContextYamlVerifyStage>? Verify = null);
+    IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
+    ContextYamlVerifyDerivation? VerifyDerivedFrom = null);

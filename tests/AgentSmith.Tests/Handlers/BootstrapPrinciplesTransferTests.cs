@@ -204,7 +204,7 @@ public sealed class BootstrapPrinciplesTransferTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),
-            ContextGates.Build(), ContextGates.Writer()),
+            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
         BootstrapReaderStubs.ReaderFactoryReturning(
             contextYaml: "meta:\n  workdir: server\n", codingPrinciples: existingPrinciples),
         transfer,

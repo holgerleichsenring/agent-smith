@@ -444,6 +444,43 @@
         }
       }
     },
+    "verify_derived_from": {
+      "$comment": "MECHANISM — a run re-hashes these files and reports that the verify block above may be stale when they no longer match. It changes nothing about what runs; whether to re-derive is the operator's call.",
+      "type": "object",
+      "description": "2026-09-01-e14d: where the verify block came from. In an established estate the truth about \"green\" is already written down — a pipeline definition, a workflow file, a Makefile, a task runner's own help — and the block above is an ADOPTION of it rather than an invention. This records which files it was adopted from and their content hash at that moment, so a later run can say the declaration may be out of date. What a hash cannot see: the pipeline FILE moving is visible, the TARGET moving is not — a cluster id, a schema name or a service connection can change under an identical file, and only the stage itself finds that out, when it runs. Omit the block whenever the stages were not derived from files.",
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The files the stages were read out of, relative to this context's workdir, named by whoever derived them.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examples": [
+            [
+              "azure-pipelines.yml"
+            ],
+            [
+              ".github/workflows/ci.yml",
+              "Makefile"
+            ]
+          ]
+        },
+        "hash": {
+          "type": "string",
+          "minLength": 8,
+          "description": "The framework's digest of those files, stamped by the write path when the block was written. A model never supplies one — a hash it invented would report drift on the very next run. Absent means nothing was stamped, and the run stays quiet.",
+          "examples": [
+            "sha256:0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9"
+          ]
+        }
+      }
+    },
     "arch": {
       "type": "object",
       "description": "Architecture and code organization",

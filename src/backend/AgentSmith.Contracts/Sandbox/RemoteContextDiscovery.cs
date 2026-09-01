@@ -32,7 +32,28 @@ namespace AgentSmith.Contracts.Sandbox;
 /// was parsed and then dropped at both sites, and shipped green for two releases because
 /// every test built the record by hand.
 /// </para></param>
+/// <param name="VerifyDerivedFrom">2026-09-01-e14d: `verify_derived_from:` — the files those
+/// stages were derived from and their hash at derivation time, so the run can re-hash them
+/// and report a declaration whose source has moved. Null = nothing to compare.</param>
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
     string? ToolchainImage = null, ContextYamlStackResources? Resources = null,
-    string? Purpose = null, IReadOnlyList<ContextYamlVerifyStage>? Verify = null);
+    string? Purpose = null, IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
+    ContextYamlVerifyDerivation? VerifyDerivedFrom = null)
+{
+    /// <summary>
+    /// The ONE mapping from a parsed context.yaml to a discovery. Both production
+    /// construction sites — full discovery and `--context NAME` — go through it, because
+    /// 2026-08-28-7b41 is the record of what happens when two sites map an optional tail
+    /// by hand: one of them forgets, and every test that builds the record itself agrees
+    /// with the forgetting.
+    /// </summary>
+    public static RemoteContextDiscovery From(string contextName, ContextYamlSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        return new RemoteContextDiscovery(
+            contextName, summary.Workdir, summary.Language, summary.Prerequisites,
+            summary.Image, summary.Resources, summary.Purpose,
+            Verify: summary.Verify, VerifyDerivedFrom: summary.VerifyDerivedFrom);
+    }
+}

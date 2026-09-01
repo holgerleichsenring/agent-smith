@@ -12,5 +12,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// depend on discovery order.
 /// </para>
 /// </summary>
+/// <param name="DerivedFrom">2026-09-01-e14d: the files these stages were derived from and
+/// their hash at that moment, so the run can re-hash them where they live — under THIS
+/// context's workdir — and report a declaration whose source has moved. Null = the
+/// declaration names no source, and the run has nothing to compare.</param>
 public sealed record ContextVerifyStages(
-    string ContextName, IReadOnlyList<ContextYamlVerifyStage> Stages, string Workdir);
+    string ContextName, IReadOnlyList<ContextYamlVerifyStage> Stages, string Workdir,
+    ContextYamlVerifyDerivation? DerivedFrom = null);

@@ -63,6 +63,40 @@ that cannot go red is not a gate.
 
 A repository that declares nothing keeps working exactly as before.
 
+## `verify_derived_from` says where the commands came from
+
+In an established estate the truth about "green" is already written down. A real
+reference estate keeps twenty-three CI files; the pipeline pins the Python version,
+installs a JRE so PySpark runs, and executes the unit tests against a live cluster.
+Nobody could have guessed any of that — and nobody had to, because the repository
+states it.
+
+So the block above is DERIVED, and `verify_derived_from` records what from:
+
+```yaml
+verify_derived_from:
+  files:
+    - azure-pipelines.yml
+    - Makefile
+  hash: sha256:0a1b2c…
+```
+
+The files are paths relative to this context's workdir, named by whoever derived the
+stages. The hash is the framework's, stamped by the write path — a model never supplies
+one, because a hash it invented would report drift on the very next run.
+
+Every later run re-reads those few files and compares. That is a filesystem read in the
+sandbox: no model call, no re-derivation. When they no longer match, the run says once
+that the declaration may be stale, next to the verdict — and still runs exactly what is
+declared. Whether to re-derive is the operator's call.
+
+**What the hash cannot catch.** It sees the pipeline FILE move, not the TARGET move. A
+cluster id, a schema name, a service connection can all change under a byte-identical
+file. Nothing in a hash sees that; the stage does, when it runs and goes red.
+
+A repository with no pipeline gets no stages and no `verify_derived_from`. An invented
+gate can only disagree with the one the estate actually runs.
+
 ## `state.done` is written by the run
 
 When a phase finishes in a target repository, agent-smith writes the executed spec to

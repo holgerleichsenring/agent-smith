@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-e14d
+
+decisions:
+  - category: Design
+    chose: "The model names the files, the framework stamps their hash"
+    over: "Letting the model write the hash, or leaving the split unstated"
+    reason: |
+      A model cannot compute a digest, and one it invented would report drift on the very next
+      run — the mechanism would discredit itself immediately. The master names what it read; the
+      stamp runs on the write path, after the sandbox is resolved and before serialisation, so
+      the hash is in the file the schema judges and in the file that reaches disk.
+  - category: Design
+    chose: "One digest implementation, shared by the stamp and the drift check"
+    over: "Computing the same bytes on both sides"
+    reason: |
+      Two readings of "the same bytes" drift apart, and the failure mode is a permanent false
+      alarm nobody can silence. Paths are part of the digest so a rename is visible, a missing
+      file hashes as absent so deletion and reappearance both are, and line endings are
+      normalised so a differently-configured checkout does not cry wolf every run.
+  - category: Design
+    chose: "Report a moved source without changing what runs"
+    over: "Re-deriving automatically when the pipeline moved"
+    reason: |
+      An estate changes slowly and the declaration is versioned with the code it describes.
+      Re-deriving on a drift would replace a ratified gate with an unratified one, silently, in
+      the middle of a run. The run says the declaration may be stale and executes what is
+      declared; whether to re-derive is the operator's.
+  - category: Design
+    chose: "State in the code what a hash cannot see"
+    over: "Letting the mechanism imply completeness"
+    reason: |
+      The digest sees the pipeline FILE move. It does not see the target move — a cluster id, a
+      schema name, a service connection can change under a byte-identical file, and only the
+      stage finds that out by going red. Written into the contract, the schema, the drift note,
+      the template and the documentation, because the reader of any one of them could otherwise
+      conclude the check is complete.
+  - category: Design
+    chose: "Route both discovery construction sites through one factory"
+    over: "Threading the new field twice, or adding a baseline entry"
+    reason: |
+      The resolver sat exactly at its length baseline, so the field could not be threaded through
+      both sites. The factory removes the second mapping site instead — which is the very defect
+      2026-08-28-7b41 records, where one of two positional construction sites silently dropped a
+      field for two releases. The file shrank in the process.

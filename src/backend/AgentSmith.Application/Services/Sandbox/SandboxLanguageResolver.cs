@@ -75,9 +75,7 @@ public sealed class SandboxLanguageResolver(
         {
             var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
             if (summary is null) continue;
-            discoveries.Add(new RemoteContextDiscovery(
-                contextName, summary.Workdir, summary.Language, summary.Prerequisites,
-                summary.Image, summary.Resources, summary.Purpose, Verify: summary.Verify));
+            discoveries.Add(RemoteContextDiscovery.From(contextName, summary));
         }
 
         return new RemoteContextListing(discoveries);
@@ -104,9 +102,7 @@ public sealed class SandboxLanguageResolver(
         logger.LogInformation(
             "Context override {Repo}: pinned to '{Context}' (workdir={Workdir} lang={Lang})",
             repoTag, contextName, summary.Workdir, summary.Language ?? "null");
-        return [new RemoteContextDiscovery(
-            contextName, summary.Workdir, summary.Language, summary.Prerequisites,
-            summary.Image, summary.Resources, summary.Purpose, Verify: summary.Verify)];
+        return [RemoteContextDiscovery.From(contextName, summary)];
     }
 
     private async Task<ContextYamlSummary?> TryParseContextYamlAsync(

@@ -33,6 +33,15 @@ internal static class ContextGates
         new(new ContextYamlSectionUpsert(new ContextYamlBuilders()));
 
     /// <summary>
+    /// 2026-09-01-e14d: the real derivation stamp over the real file reader, so a test that
+    /// writes a verify block gets the hash a run would get — computed from what the sandbox
+    /// actually holds, never from a stub that agrees with whatever was asked for.
+    /// </summary>
+    public static VerifyDerivationStamp DerivationStamp() =>
+        new(new AgentSmith.Application.Services.VerifyDerivationDigest(
+            new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory()));
+
+    /// <summary>
     /// The real emitter. A mock returns null YAML, which the write path used to put on
     /// disk unnoticed — a fixture that cannot produce a file cannot prove one survived.
     /// </summary>
