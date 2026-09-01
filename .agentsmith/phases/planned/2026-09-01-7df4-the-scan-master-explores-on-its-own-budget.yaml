@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-7df4
+
+goal: "The scan master explores under a budget of its own and can never exhaust it silently, and the coverage re-drive continues its conversation instead of starting over."
+
+applies_to: "backend (the master loop's iteration ceiling for the observation-schema surface, what happens at exhaustion, and the coverage re-drive)"
+
+scope:
+  in: >
+    The scan master's per-pass iteration ceiling is an operator-visible number rather than a
+    chat-client default; reaching it produces one closing turn that asks for the findings so far,
+    continuing the same conversation; the coverage re-drive carries the prior turns instead of
+    re-asking from an empty transcript; the run states which of these happened.
+  out: >
+    RAISING THE CEILING AS A TUNING EXERCISE — the number is made visible and given a sane default
+    here; where it belongs is an operator decision that needs one honest measurement first, which
+    2026-09-01-3653 produces. THE OUTPUT CONTRACT — that a truncated master also loses its answer
+    for a second, independent reason is 2026-09-01-341b's subject, and fixing both in one phase
+    would leave no way to tell which one moved the numbers.
+
+decisions:
+  - key: |
+      THE SCAN MASTER RUNS AT AN EIGHTH OF THE CODING MASTER'S BUDGET, BY ACCIDENT. The handler sets
+      MaxIterations only for the coding surface (AgentConfig.MaxMasterLoopIterations, 200) and passes
+      null for scan and spec dialog. Null falls through to ChatClientFactory.MaxIterationsPerRequest,
+      a private const 25. Nobody chose 25 for a security review; it is the fallback for a call that
+      has no opinion, and the scan surface is the one caller that most needs one.
+  - key: |
+      TWENTY-FIVE IS INSIDE THE WORKING RANGE, NOT ABOVE IT. The three post-rollback runs made 81
+      ReadFile and 16 GrepInTree calls between them — about 32 tool calls per run against a ceiling
+      of 25 plus one final turn. The budget is not a distant safety net; it is the wall the scan
+      hits, and every finding that would have come from the turns after it is invisible by
+      construction.
+  - key: |
+      EXHAUSTION IS SILENT, AND WE HAVE SEEN WHAT IT COSTS. When the function-invoking loop runs out
+      of iterations it returns the last response it has, which is a tool call and carries no answer
+      text. Downstream that is indistinguishable from a master that answered unreadably: the merge
+      keeps the raw scanner output, and the run reports success. That is the shape of the 37-finding
+      run whose triage was lost. 2026-08-30-03e4 made the loss visible; this phase removes one of
+      its causes.
+  - key: |
+      A BUDGET THAT ENDS SHOULD ASK FOR THE WORK, NOT DISCARD IT. An agent stopped mid-exploration
+      still holds everything it read. One closing turn, on the same conversation, with tools
+      withdrawn, converts a truncation into a partial answer — which is what a reviewer wants from a
+      scan that ran out of room. Discarding it is the only outcome that is certainly wrong.
+  - key: |
+      THE COVERAGE RE-DRIVE ASKS A STRANGER TO RE-EMIT WHAT IT NEVER SAW. The shallow-pass re-prompt
+      builds `request with { UserPrompt = nudge }` and leaves PriorMessages unset, so the second pass
+      opens on an empty transcript — while its own comment says the deeper pass "re-emits the
+      complete observation array". It cannot. The apply re-drive on the coding path already threads
+      conversation.Thread(); the scan path simply never did.
+
+steps:
+  - id: the-ceiling-is-a-number-someone-chose
+    action: "The observation-schema master's per-pass ceiling comes from agent config with its own default, not from the chat client's fallback."
+  - id: an-exhausted-budget-asks-for-the-findings
+    action: "A pass that ends on its iteration ceiling is detected and answered with one closing turn on the same conversation, tools withdrawn."
+  - id: the-re-drive-remembers-the-first-pass
+    action: "The coverage re-drive carries the prior turns, so the deeper pass extends the first instead of replacing it."
+  - id: the-run-says-which-happened
+    action: "Budget exhaustion and each re-drive are recorded on the run, so a reader can tell a full pass from a truncated one."
+
+tests:
+  - "ScanMaster_UsesTheConfiguredIterationCeiling_NotTheClientDefault"
+  - "ScanMaster_ThatExhaustsItsBudget_IsAskedForItsFindingsOnce"
+  - "ScanMaster_ClosingTurn_IsOfferedNoTools"
+  - "ScanMaster_CoverageRedrive_CarriesThePriorTurns"
+  - "ScanMaster_ThatFinishedNormally_IsNotAskedAgain"
+  - "ScanMaster_Exhaustion_IsVisibleOnTheRun"
+
+done:
+  - "a scan pass that ran out of budget delivers what it had found and says so"
+  - "the deeper coverage pass builds on the first pass instead of restarting"
+  - "the ceiling is readable and changeable without a rebuild"
+  - "build green, full suite green"

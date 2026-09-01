@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-341b
+
+goal: "The scan master says what it found in its own words, and a separate reading turn renders that into the observation array the run delivers."
+
+applies_to: "backend (the scan master's closing instruction and how its answer becomes findings) + skills (the two scan masters' output section)"
+
+requires:
+  - 2026-09-01-7df4
+
+scope:
+  in: >
+    The scan master is asked for its findings in prose that names file and line; a separate,
+    tool-free reading turn converts that answer into the observation array; an answer that already
+    is an array is used as it is; the reading turn's failure is recorded as a degradation rather
+    than swallowed; the two scan master skills lose the instruction that forbids prose.
+  out: >
+    THE CODING PATH — its output contract is a diff and a keystone, and nothing here touches it.
+    THE OBSERVATION SCHEMA ITSELF — the array shape stays exactly as it is; what changes is who
+    writes it. THE PIN — the skills change ships as a catalog release the operator makes; the
+    backend half works against the pinned catalog either way, which is what makes it safe to land
+    first.
+
+decisions:
+  - key: |
+      THE CONTRACT PUNISHES THE BEHAVIOUR THE MODEL IS BEST AT. Both scan masters end with "JSON
+      only — no preamble, no prose, no code fence ... anything outside the array is discarded", and
+      the framework's own user prompt repeats it. An agent narrates; we know this, it is written in
+      the worker parser's own comment after a correct answer failed a run for the same reason. Here
+      the narration is not merely tolerated-against, it is thrown away.
+  - key: |
+      THE SAME MOVE THE CODING MASTER ALREADY MADE. That surface gives the model the whole room and
+      puts the judgement behind it — it works, then a keystone verifies against the contract. The
+      scan surface still does the opposite: it constrains the answer at the moment of writing and
+      verifies nothing afterwards. Reading the answer is a cheap, separate, replaceable turn; making
+      the finder also be the formatter is not.
+  - key: |
+      A SEPARATE READER IS FALSIFIABLE, A FORMATTING RULE IS NOT. When extraction is its own turn,
+      a lost finding is visible as a difference between what the master said and what the reader
+      produced, and the reader can be improved without touching the finder. Today a finding lost to
+      a stray sentence leaves no trace anywhere.
+  - key: |
+      AN ARRAY IS STILL AN ARRAY. A master that answers with a clean array is not sent through a
+      second model call; the reading turn exists for the answers the pipeline currently discards.
+      That keeps the change additive against the catalog that is pinned today, whose masters still
+      carry the JSON-only instruction.
+  - key: |
+      SILENCE FROM THE READER IS NOT AN EMPTY SCAN. If the reading turn fails or answers unusably,
+      the run records that, exactly as 2026-08-30-03e4 records an unreadable master answer. The one
+      outcome that must never happen is a scan reporting nothing found because a formatting step
+      broke.
+
+steps:
+  - id: the-closing-ask-is-for-findings-not-for-json
+    action: "The scan user prompt asks the master to state each finding in its own words with file and line, instead of demanding a bare array."
+  - id: a-reading-turn-renders-the-array
+    action: "A tool-free reading call converts the master's final answer into the observation array; an answer that already parses as an array bypasses it."
+  - id: an-unreadable-answer-still-degrades
+    action: "A reading turn that fails or answers unusably records the degradation on the run instead of delivering an empty triage."
+  - id: the-skills-stop-forbidding-prose
+    action: "The two scan master skills replace the JSON-only output section with the same ask; shipped as a skills-catalog change for the operator to release."
+
+tests:
+  - "ScanAnswer_InProse_BecomesTheFindingsTheRunDelivers"
+  - "ScanAnswer_ThatIsAlreadyAnArray_IsNotSentToTheReader"
+  - "ScanAnswer_ProseNamingFileAndLine_KeepsTheCitation"
+  - "ReadingTurn_ThatFails_RecordsADegradationNotAnEmptyTriage"
+  - "ReadingTurn_ThatAnswersUnusably_RecordsADegradation"
+  - "ScanPrompt_NoLongerDemandsJsonOnly"
+
+done:
+  - "a narrated finding reaches delivery instead of being discarded"
+  - "an already-valid array run behaves exactly as before"
+  - "a broken reading turn is loud, never an empty scan"
+  - "build green, full suite green"
