@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-9723
+
+decisions:
+  - category: Testing
+    chose: "Prove both stacks on the docker tier, and say it is not a CI gate"
+    over: "Asserting on the fast tier, where the claim is unreachable"
+    reason: |
+      The fast tier's sandbox answers every step with exit zero, so it can watch stages be
+      resolved and can never watch one go red — the second half of the claim cannot be made
+      there. The docker tier runs the real images, the real clone and every declared command
+      with no model involved. CI sets neither the flag nor a daemon, so these tests record that
+      the coverage was not exercised rather than passing by default.
+  - category: Design
+    chose: "A test runner that needs no browser for the Angular reference"
+    over: "The default browser-driven runner"
+    reason: |
+      The chosen node image carries node, npm and git and no browser at all — probed, not
+      assumed. A browser-driven runner reds there for a reason unconnected to the code, which
+      is the false red this whole track exists to remove.
+  - category: Process
+    chose: "Pin a current agent image in the new fixture"
+    over: "Following the existing fixtures' pin"
+    reason: |
+      Measured: on the pinned older agent a run step returns exit zero with an EMPTY result
+      body — its output only ever reached the progress stream — so a verify outcome built from
+      that output would have been empty no matter what the command did. The newer agent carries
+      the output in the result. This is the same class of defect the run-command output phase
+      recorded, met again in a fixture.
+  - category: Design
+    chose: "Give each reference a .gitignore and coding principles"
+    over: "Shipping only a context.yaml as the spec described"
+    reason: |
+      Without the ignore file the first Angular run staged 264 MB of installed packages and the
+      commit step timed out — which is what a real Angular repository carries an ignore file
+      for. And the bootstrap gate refuses the code pipeline unless every context has principles
+      beside its context file, so a reference without them never reaches a stage.
+  - category: Scope
+    chose: "Record the Maven cold-cache cost rather than fix it"
+    over: "Adding a Maven row to the package cache"
+    reason: |
+      Measured 10 seconds against a 900 second cap, so it is not a problem today. But it is
+      paid on every run on every backend: Maven is deliberately absent from the cache catalog
+      because a row there must be reachable through a plain environment variable, and the
+      kubernetes backend mounts no package cache at all. Written down where the next estate
+      with a large dependency tree will look.
