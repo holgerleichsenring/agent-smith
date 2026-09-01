@@ -60,32 +60,38 @@ public sealed record SecurityCorpusReport(
         bool HasFinding,
         bool CitesDeclaredLine,
         string? FindingHeadline,
-        string? HighestSeverity = null)
+        string? HighestSeverity = null) : IScoredSubject
     {
         public bool IsMiss => TruthIsFlawed && !HasFinding;
 
         public bool IsFalseAlarm => !TruthIsFlawed && HasFinding;
 
         public bool Agrees => TruthIsFlawed == HasFinding;
+
+        bool IScoredSubject.TruthIsWeak => TruthIsFlawed;
     }
 
     private IEnumerable<FileOutcome> All => Entries.SelectMany(e => e.Files);
 
+    /// <summary>The arithmetic, shared with the api scoreboard — see
+    /// <see cref="ScanDetectionRates"/> for why the two scans share it and not their
+    /// match key.</summary>
+    public ScanDetectionRates Rates => ScanDetectionRates.Over(All);
+
     /// <summary>Files that genuinely hold a weakness — the denominator of the miss rate,
     /// and nothing else.</summary>
-    public int FlawedPopulation => All.Count(f => f.TruthIsFlawed);
+    public int FlawedPopulation => Rates.WeakPopulation;
 
     /// <summary>Files that are genuinely sound — the denominator of the false-alarm rate.</summary>
-    public int CleanPopulation => All.Count(f => !f.TruthIsFlawed);
+    public int CleanPopulation => Rates.SoundPopulation;
 
-    public int Misses => All.Count(f => f.IsMiss);
+    public int Misses => Rates.Misses;
 
-    public int FalseAlarms => All.Count(f => f.IsFalseAlarm);
+    public int FalseAlarms => Rates.FalseAlarms;
 
-    public double MissRate => FlawedPopulation == 0 ? 0 : (double)Misses / FlawedPopulation;
+    public double MissRate => Rates.MissRate;
 
-    public double FalseAlarmRate =>
-        CleanPopulation == 0 ? 0 : (double)FalseAlarms / CleanPopulation;
+    public double FalseAlarmRate => Rates.FalseAlarmRate;
 
     /// <summary>The files the scan did not answer for, named — a rate alone does not tell
     /// anyone what to go and look at.</summary>
@@ -97,7 +103,7 @@ public sealed record SecurityCorpusReport(
     public int LineAccurateDetections =>
         All.Count(f => f.TruthIsFlawed && f.HasFinding && f.CitesDeclaredLine);
 
-    public int Detections => All.Count(f => f.TruthIsFlawed && f.HasFinding);
+    public int Detections => Rates.Detections;
 
     /// <summary>Steps that ran and produced nothing, named beside the score so a run where
     /// half the scan never executed is never read as a detection result.</summary>

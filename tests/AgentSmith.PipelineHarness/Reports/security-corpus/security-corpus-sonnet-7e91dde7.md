@@ -4,11 +4,11 @@
 
 - model: `sonnet`
 - scan master: `7e91dde7`
-- generated: 2026-09-01T21:23:50.6540040+00:00
+- generated: 2026-09-01T21:50:10.6623440+00:00
 
 **Misses:** 0/5 (0 %) — declared weaknesses no delivered finding named.
 
-**False alarms:** 0/5 (0 %) — sound files a finding named anyway.
+**False alarms:** 1/5 (20 %) — sound files a finding named anyway.
 
 Cited line matched on 4 of 5 detections — a citation sub-metric, not a gate.
 
@@ -16,16 +16,17 @@ Cited line matched on 4 of 5 detections — a citation sub-metric, not a gate.
 
 ## reference-service
 - [x] src/orders/orderLookup.ts (sql-injection, flawed)
-  - found [High]: src/orders/orderLookup.ts:7: SQL query built by concatenating req.params.id directly into the query string, enabling SQL injection. (on the declared line)
+  - found [High]: src/orders/orderLookup.ts:7: SQL built by concatenating req.params.id — classic SQL injection in the findOrder handler (on the declared line)
 - [x] src/admin/memberAdmin.ts (missing-authorization, flawed)
-  - found [High]: src/admin/memberAdmin.ts:17-19: removeMember() is missing the requireAdmin(req) guard present in listMembers() and suspendMember(), allowing any caller to delete members. (on the declared line)
+  - found [High]: src/admin/memberAdmin.ts:17: removeMember is missing the requireAdmin() guard that listMembers and suspendMember both enforce — any authenticated caller can delete any member (on the declared line)
 - [x] src/files/attachmentDownload.ts (path-traversal, flawed)
-  - found [Critical]: src/files/attachmentDownload.ts:9: path.join() used without resolve()-based containment, allowing path traversal to read arbitrary files outside STORAGE_ROOT. (on the declared line)
+  - found [High]: src/files/attachmentDownload.ts:9: path traversal — user-supplied query.name is joined to STORAGE_ROOT with no containment check, allowing reads of arbitrary files on the host (on the declared line)
 - [x] src/auth/loginRedirect.ts (open-redirect, flawed)
-  - found [High]: src/auth/loginRedirect.ts:6-7: open redirect — the 'next' query parameter is passed unvalidated to res.redirect(), enabling phishing and token-stealing redirects.
+  - found [Medium]: src/auth/loginRedirect.ts:6-7: open redirect — req.query.next is forwarded to res.redirect() without validation against an allowlist, enabling phishing via crafted login URLs
 - [x] src/jobs/jobPayload.ts (unsafe-deserialization, flawed)
-  - found [Critical]: src/jobs/jobPayload.ts:7: eval() called on job.payloadText from the database, enabling arbitrary code execution if the payload is attacker-controlled. (on the declared line)
-- [x] src/reports/reportLookup.ts (sql-injection, clean)
+  - found [Critical]: src/jobs/jobPayload.ts:7: eval() called on raw job payload text — arbitrary code execution if a producer (or anyone who can write job records) controls payloadText (on the declared line)
+- [FALSE ALARM] src/reports/reportLookup.ts (sql-injection, clean)
+  - found [Info]: src/reports/reportLookup.ts:15: scanner SQL-template-literal hit is a FALSE POSITIVE — table name and ORDER BY column are resolved from a closed const whitelist before interpolation; only memberId and limit reach the database as bound parameters (on the declared line)
 - [x] src/files/exportPath.ts (path-traversal, clean)
 - [x] src/auth/returnTarget.ts (open-redirect, clean)
 - [x] .agentsmith/contexts/default/context.yaml (project-metadata, clean)

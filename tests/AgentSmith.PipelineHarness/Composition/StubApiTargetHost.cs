@@ -10,7 +10,8 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// <summary>
 /// p0199f: per-test Kestrel mini-server backing the api-security-scan
 /// docker-tier passive-mode fixture. Serves the StubApiTarget/openapi.json
-/// content at /openapi.json and a trivial /health endpoint, bound to an
+/// content at /openapi.json and the endpoints that document describes
+/// (2026-09-01-6686 — see <see cref="StubApiTargetEndpoints"/>), bound to an
 /// ephemeral loopback port so two parallel test runs never collide. The
 /// scanner containers (when env-gated AGENTSMITH_HARNESS_REAL_SCANNERS=1)
 /// reach this server via host.docker.internal:{Port}; the default test
@@ -26,6 +27,13 @@ public sealed class StubApiTargetHost : IAsyncDisposable
     public string BaseUrl => $"http://host.docker.internal:{Port}";
     public string LoopbackUrl => $"http://127.0.0.1:{Port}";
     public string OpenApiUrl => $"{BaseUrl}/openapi.json";
+
+    /// <summary>
+    /// 2026-09-01-6686: the same document over LOOPBACK. An in-process run reaches the
+    /// server directly; <see cref="OpenApiUrl"/> goes through host.docker.internal, which
+    /// resolves only from inside a container and would fail the read it is meant to prove.
+    /// </summary>
+    public string LoopbackOpenApiUrl => $"{LoopbackUrl}/openapi.json";
 
     private StubApiTargetHost(WebApplication app, int port)
     {
@@ -46,11 +54,8 @@ public sealed class StubApiTargetHost : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
-        builder.Services.AddSingleton(new OpenApiPayload(openApiJson));
         var app = builder.Build();
-        app.MapGet("/openapi.json", (OpenApiPayload payload) =>
-            Results.Text(payload.Json, "application/json"));
-        app.MapGet("/health", () => Results.Json(new { status = "ok" }));
+        StubApiTargetEndpoints.Map(app, openApiJson);
         return app;
     }
 
@@ -70,6 +75,4 @@ public sealed class StubApiTargetHost : IAsyncDisposable
         await _app.StopAsync();
         await _app.DisposeAsync();
     }
-
-    private sealed record OpenApiPayload(string Json);
 }

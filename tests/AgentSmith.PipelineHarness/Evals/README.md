@@ -51,6 +51,22 @@ sandbox is the CLI-mode in-process one over the materialised corpus — no docke
 path matching and the catalog wiring **with no credentials and no agent CLI**, so the
 numbers can be reasoned about before anyone spends a call on them.
 
+`ApiCorpusEvalTests` (2026-09-01-6686) is the same shape for `api-security-scan`, against
+a target this repository SERVES ITSELF: `StubApiTargetHost` on an ephemeral loopback port,
+serving `Fixtures/StubApiTarget/openapi.json` and the behaviour that document describes.
+`Fixtures/StubApiTarget/declaration.json` says which endpoints are weak and which are sound
+but shaped to look suspect; scoring is by **method and path template**, because an api
+finding's location is an endpoint and many carry no file at all. Report:
+`Reports/api-corpus/`.
+
+Two things that tier states out loud, because a score that hides them is a wrong score:
+the dynamic scanners are STUBBED unless `AGENTSMITH_HARNESS_REAL_SCANNERS=1` and a docker
+daemon are present, and any step that was cut off or found nothing is named beside the
+number. Findings that name no declared endpoint are reported without a denominator rather
+than folded into a rate.
+
+No external machine is needed for either scoreboard, and no docker.
+
 ## Suites
 
 ### Expectation golden eval (`ExpectationGoldenEvalTests`, p0329)
