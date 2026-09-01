@@ -1,5 +1,3 @@
-using AgentSmith.Contracts.Sandbox;
-
 namespace AgentSmith.Application.Services.Scans;
 
 /// <summary>
@@ -12,7 +10,7 @@ namespace AgentSmith.Application.Services.Scans;
 /// </para>
 /// </summary>
 public sealed record ScanEvidence(
-    ISandboxFileReader? Source,
+    IScanSourceReader? Source,
     CitedEndpointIndex Endpoints,
     ScanExchanges Exchanges)
 {

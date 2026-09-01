@@ -20,4 +20,14 @@ public sealed record CandidateFinding(
     SkillObservation Observation,
     string Location,
     string Evidence,
-    EvidenceSurface Surface = EvidenceSurface.Source);
+    EvidenceSurface Surface = EvidenceSurface.Source)
+{
+    /// <summary>
+    /// 2026-09-01-85b2: what the refutation call calls THIS finding, stamped by the factory
+    /// that assembled the call. Verdicts used to be routed by the displayed location, so an
+    /// authorization gap and an injection on the same line shared one string and one
+    /// refutation silenced both — and on the api path the location is often just the
+    /// endpoint, where collisions are the norm.
+    /// </summary>
+    public string Id { get; init; } = string.Empty;
+}
