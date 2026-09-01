@@ -10,7 +10,7 @@ namespace AgentSmith.Server.Models;
 public sealed record ErrorContext(
     string JobId,
     string ChannelId,
-    int TicketId,
+    string TicketId,
     string Project,
     int FailedStep,
     int TotalSteps,

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-1335
+
+goal: "A repository run from a local path has its context read from the checkout, so the image it names and the gates it declares are not lost for being local."
+
+applies_to: "backend (context discovery for a source with no remote url)"
+
+requires:
+  - 2026-08-31-26d4
+
+scope:
+  in: "Context discovery for a local source reads the contexts from the working copy instead of returning a synthetic default, producing the same discovery a remote read would."
+  out: >
+    THE REMOTE PATH, which is unchanged. WHEN the read happens: the checkout exists
+    before any sandbox for a local source, so this needs no new step in the pipeline.
+
+decisions:
+  - key: |
+      A LOCAL RUN LOSES EVERYTHING THE CONTEXT DECLARES, AND THE DECLARATION MADE THAT EXPENSIVE.
+      Discovery short-circuits when the source has no url and returns one synthetic default:
+      workdir ".", no language, no image, and now no verify stages. Measured in the bundled
+      demo: the sample declares the .NET SDK image and the sandbox started on the generic
+      fallback, then verification failed to resolve an entry point that the sample's own
+      declared stages name explicitly.
+  - key: |
+      THE SHORT-CIRCUIT PREDATES THE DECLARATION AND WAS SURVIVABLE UNTIL NOW. Losing a language
+      hint cost a fallback image; losing a declaration costs the gate. What was a degradation is
+      now the difference between a run that verifies and one that cannot.
+  - key: |
+      THE FILES ARE RIGHT THERE, WHICH IS WHY THIS IS SMALL. A local source is a path on the
+      machine running the pipeline; reading its contexts needs no provider, no credential and no
+      sandbox — only the same parse the remote path already performs.
+  - key: |
+      THE ONBOARDING REPORT INHERITS THE FIX. It reports a local repository as not inspected
+      today, because discovery could not see it; with the checkout read, it reports what that
+      repository actually declares.
+
+steps:
+  - id: a-local-source-is-read-from-the-checkout
+    action: "Context discovery for a source with no remote url enumerates and parses the contexts in the working copy, producing the same discovery shape the remote path produces."
+
+tests:
+  - "Discovery_ALocalSourceDeclaringAContext_CarriesItsImageAndStages"
+  - "Discovery_ALocalSourceWithNoContexts_StillFallsBackToTheSyntheticDefault"
+  - "Onboarding_ALocalRepositoryDeclaringStages_IsReportedEligible"
+
+done:
+  - "a run from a local path starts in the image its context names and runs the stages it declares"
+  - "the bundled demo verifies through its own declared stages instead of an entry-point search"
+  - "the remote path is unchanged"
+  - "build green, full suite green"

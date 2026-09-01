@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// p0379: transfers the AUTHORED coding principles (universal core + language
 /// delta, composed by <see cref="IPrinciplesTemplateSource"/>) into the
-/// component's coding-principles.md before the bootstrap skill runs.
+/// component's principles.md before the bootstrap skill runs.
 /// Principles are authoritative gold — archaeology feeds context.yaml facts
 /// only. An existing file is never overwritten (ratified content survives
 /// re-init); a pre-p0379 catalog without the core template keeps the legacy
@@ -46,7 +46,7 @@ public sealed class BootstrapPrinciplesTransfer(
         if (!string.IsNullOrWhiteSpace(existingPrinciples))
         {
             logger.LogInformation(
-                "{Repo}/{Context}: coding-principles.md exists — preserved as ratified, not overwritten",
+                "{Repo}/{Context}: principles.md exists — preserved as ratified, not overwritten",
                 repoName, contextName);
             return new PrinciplesTransferResult(PrinciplesMode.PreservedExisting);
         }

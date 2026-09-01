@@ -9,7 +9,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Skills;
 /// p0514: materialises base catalog + operator overlay into ONE root, because one
 /// root is the contract every downstream reader already has — the loaders, the
 /// concept vocabulary, <c>references/</c>, <c>principles/</c>, <c>patterns/</c>
-/// and <c>profiles/</c> all read from <see cref="ISkillsCatalogPath.Root"/>.
+/// all read from <see cref="ISkillsCatalogPath.Root"/>.
 /// Copying costs one tree walk; turning the path into a search list would touch
 /// every reader instead. Fingerprint-cached the way
 /// <see cref="DefaultSourceHandler"/> caches its extract, so an unchanged overlay

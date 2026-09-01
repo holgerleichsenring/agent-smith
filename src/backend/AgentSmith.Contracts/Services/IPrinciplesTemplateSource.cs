@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Models;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// p0379: provides the AUTHORED coding-principles composition — universal core
+/// p0379: provides the AUTHORED principles composition — universal core
 /// plus per-language delta — from the resolved skill catalog. Principles are
 /// authoritative gold, never inferred from a repo's code; composing for two
 /// repos of the same stack yields byte-identical output.

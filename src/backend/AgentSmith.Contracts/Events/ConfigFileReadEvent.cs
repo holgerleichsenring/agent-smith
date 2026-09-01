@@ -5,7 +5,7 @@ namespace AgentSmith.Contracts.Events;
 /// path + kind + size so the dashboard can render "what configs did this
 /// run actually read". <see cref="RunId"/> is null for startup reads
 /// (agentsmith.yml at server boot), populated for run-scoped reads
-/// (per-target context.yaml + coding-principles.md inside an active
+/// (per-target context.yaml + principles.md inside an active
 /// IRunContextAccessor scope).
 /// </summary>
 public sealed record ConfigFileReadEvent(

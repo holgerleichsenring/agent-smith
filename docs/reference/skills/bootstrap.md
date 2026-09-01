@@ -2,8 +2,14 @@
 
 The `init-project` pipeline runs exactly one **bootstrap skill** against the
 analyzed repository. That skill writes `.agentsmith/context.yaml` and
-`.agentsmith/coding-principles.md` — the two files every code-touching
+`.agentsmith/principles.md` — the two files every code-touching
 pipeline (`fix-bug`, `add-feature`, `security-scan`, ...) requires.
+
+`principles.md` is named for what it holds. Rules about the **environment** count
+as much as rules about code, and their home is its **Project Specifics** section
+— "field changes go through the estate's own CLI", "hand-written SQL in a model
+is a defect". Anything under that heading survives a re-init untouched, so the
+operator ratifies it once, in the init pull request, and it holds from then on.
 
 Which bootstrap skill runs is decided by the `project_language` enum, derived
 from `ProjectAnalyzer`'s detected primary language.

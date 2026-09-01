@@ -23,10 +23,44 @@ namespace AgentSmith.Contracts.Sandbox;
 /// <param name="Purpose">p0331: `meta.purpose:` — what this context is for, in the
 /// operator/LLM's own words. Read by the ScopeRepos classifier so it can map a ticket to
 /// affected repos from metadata alone, before any checkout or sandbox exists.</param>
+/// <param name="Verify">2026-08-31-26d4: `verify:` — the ordered stages this context
+/// declares as proof that a change in it holds, executed by the verify gate at THIS
+/// context's workdir. Null = nothing declared; the gate infers as before.
+/// <para>
+/// Every construction site passes this BY NAME. 2026-08-28-7b41 records what the
+/// positional tail of this record does to an optional field: the one that phase repaired
+/// was parsed and then dropped at both sites, and shipped green for two releases because
+/// every test built the record by hand.
+/// </para></param>
+/// <param name="VerifyDerivedFrom">2026-09-01-e14d: `verify_derived_from:` — the files those
+/// stages were derived from and their hash at derivation time, so the run can re-hash them
+/// and report a declaration whose source has moved. Null = nothing to compare.</param>
+/// <param name="Probe">2026-09-01-379a: `probe:` — the command that asks this context's
+/// target environment whether it answers, run at THIS context's workdir after the
+/// prerequisites and before the master. Null = nothing asks, which the run reports as
+/// not declared rather than as answered. Passed BY NAME at every construction site, for
+/// the reason the paragraph above gives.</param>
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
     string? ToolchainImage = null, ContextYamlStackResources? Resources = null,
-    string? Purpose = null,
-    // p0504: `meta.domain:` — the one word that brings a toolchain image and an
-    // ordered verify-command list from the catalog's profile of that name.
-    string? Domain = null);
+    string? Purpose = null, IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
+    ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
+    ContextYamlTargetProbe? Probe = null)
+{
+    /// <summary>
+    /// The ONE mapping from a parsed context.yaml to a discovery. Both production
+    /// construction sites — full discovery and `--context NAME` — go through it, because
+    /// 2026-08-28-7b41 is the record of what happens when two sites map an optional tail
+    /// by hand: one of them forgets, and every test that builds the record itself agrees
+    /// with the forgetting.
+    /// </summary>
+    public static RemoteContextDiscovery From(string contextName, ContextYamlSummary summary)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        return new RemoteContextDiscovery(
+            contextName, summary.Workdir, summary.Language, summary.Prerequisites,
+            summary.Image, summary.Resources, summary.Purpose,
+            Verify: summary.Verify, VerifyDerivedFrom: summary.VerifyDerivedFrom,
+            Probe: summary.Probe);
+    }
+}

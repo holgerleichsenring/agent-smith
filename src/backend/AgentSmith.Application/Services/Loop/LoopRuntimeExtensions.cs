@@ -72,6 +72,12 @@ public static class LoopRuntimeExtensions
         services.AddSingleton<ContextDocumentGate>();
         // 2026-08-26-364f: the read-modify-write that puts the document on disk.
         services.AddSingleton<SandboxContextYamlWriter>();
+        // 2026-09-01-e14d: one digest over the files a verify block was derived from —
+        // stamped into the document here, re-read by the verify gate every run. Two
+        // implementations of "the same bytes" would drift into a permanent false alarm.
+        services.AddSingleton<VerifyDerivationDigest>();
+        services.AddSingleton<VerifyDerivationStamp>();
+        services.AddSingleton<Handlers.VerifyDerivationDrift>();
         services.AddSingleton<PlanOutputValidator>();
         services.AddSingleton<DiffOutputValidator>();
         services.AddSingleton<BootstrapOutputValidator>();

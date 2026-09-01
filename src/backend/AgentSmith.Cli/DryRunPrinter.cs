@@ -24,7 +24,7 @@ internal static class DryRunPrinter
         Console.WriteLine($"  Pipeline: {request.PipelineName}");
 
         if (request.TicketId is not null)
-            Console.WriteLine($"  Ticket:   #{request.TicketId}");
+            Console.WriteLine($"  Ticket:   {request.TicketId}");
 
         if (extraInfo is not null)
         {

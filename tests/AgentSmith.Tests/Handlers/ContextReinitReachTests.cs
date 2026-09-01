@@ -51,7 +51,7 @@ public sealed class ContextReinitReachTests
     [Fact]
     public async Task Reinit_AnExistingProject_CanRewriteItsContext()
     {
-        // A context that predates the image rule: no stack.image, no meta.domain.
+        // A context that predates the image rule: no stack.image.
         var pipeline = PipelineWithExistingContexts(
             new RemoteContextDiscovery("server", "src/Server", "csharp"),
             new RemoteContextDiscovery("client", "client", "typescript"));

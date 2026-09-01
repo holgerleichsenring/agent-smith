@@ -54,7 +54,18 @@
         "version": { "type": "string" }
       }
     },
-    "sandbox": { "type": "object" },
+    "sandbox": {
+      "type": "object",
+      "description": "Process-wide sandbox defaults (agent image pin, timeouts, the supply-chain boundary, the pull credential). Per-project `sandbox:` blocks override the per-project subset field-by-field; the boundary settings are global only.",
+      "properties": {
+        "image_pull_secrets": {
+          "type": "array",
+          "description": "2026-08-31-46d7: names of operator-created Kubernetes image pull secrets the sandbox pod references, so an image that only exists in a credentialed registry is pullable without patching the namespace's default service account out of band. Rendered at pod level, covering the init container and the toolchain container. Kubernetes only \u2014 the Docker backend carries no pull credential and says so when a pull fails. Names are declared, never verified: agent-smith deliberately holds no read access to the namespace's secrets.",
+          "items": { "type": "string" },
+          "examples": [["acr-pull"]]
+        }
+      }
+    },
     "orchestrator": { "type": "object" },
     "primary_provider": { "type": "string" },
     "auth": {

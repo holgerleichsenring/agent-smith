@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-a17c
+
+decisions:
+  - category: Design
+    chose: "Type the option as the tracker's own identifier and carry it unchanged"
+    over: "Parsing a key into a number, or validating its shape"
+    reason: |
+      Nothing downstream ever needed a number: the ticket identifier has always been a string in
+      the domain type, the request, the persistence entities and every event, and the branch
+      namer interpolates it verbatim. The integer option was a shape assumption, not a
+      validation — and half the supported trackers do not use integers.
+  - category: Scope
+    chose: "Leave the providers' own numeric parsing alone"
+    over: "Removing every int.TryParse on the way to a tracker"
+    reason: |
+      Two trackers use numeric ids and parse them where they speak to their own API, handling
+      failure. That is a tracker knowing its own shape. The third has no numeric parsing at all,
+      which is the point.
+  - category: Design
+    chose: "Drop the hash prefix from the dry-run's ticket line"
+    over: "Keeping it for numeric ids"
+    reason: |
+      It printed a key as if it were an issue number. The prefix is itself the numeric-shape
+      assumption in miniature, and nothing asserts on it.
+  - category: Scope
+    chose: "Spec the chat path separately rather than widen this phase"
+    over: "Fixing every ticket identifier in one change"
+    reason: |
+      The chat path declares the same field as an integer in three types and two parsers, and
+      its cached ticket search coerces a non-numeric id to zero and filters it away — so a Jira
+      project's list comes back empty with no error at all. That is a different blast radius and
+      a worse symptom; it is 2026-09-01-ba47.

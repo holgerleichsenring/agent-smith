@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-0f80
+
+decisions:
+  - category: Design
+    chose: "Name the unknown key where the defect is constructed, not where the rule is looked up"
+    over: "Doing it all in the lookup, as the spec said"
+    reason: |
+      The lookup can only do half: by the time it runs it holds a boolean schema node, which
+      carries no name for anything. The key is still in hand where the defect is born, so the
+      wording happens there — and the class whose documentation said flatly that it does not
+      word defects now carries its one documented exception.
+  - category: Design
+    chose: "Include the message in the grouping key"
+    over: "Grouping by schema path and keyword alone"
+    reason: |
+      A printed line carries exactly one message, so defects with different messages must not
+      share a line. Two undeclared keys in the same object collapsed onto one line that named
+      only the first — and the same merge quietly hid two objects missing DIFFERENT required
+      properties. Found while fixing the specced defect; it is the same class of loss.
+  - category: Process
+    chose: "Reproduce the throw before fixing it"
+    over: "Fixing the null-check on inspection"
+    reason: |
+      The reproduction is what showed the report produced TWO defects and died on the second,
+      which is why the fix had to touch the grouping as well as the lookup. It also produced the
+      exact message an author now sees, which is the only thing this phase is actually for.

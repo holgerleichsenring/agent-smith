@@ -30,7 +30,6 @@ public sealed class PipelineSandboxCoordinator(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     ISandboxLivenessSupervisor livenessSupervisor,
-    ContextDomainResolver domainResolver,
     ILogger<PipelineSandboxCoordinator> logger) : IPipelineSandboxCoordinator
 {
     private readonly Dictionary<string, ISandbox> _sandboxes = new(StringComparer.Ordinal);
@@ -40,6 +39,9 @@ public sealed class PipelineSandboxCoordinator(
     // The authoritative repo->sandbox source so consumers never reverse-engineer
     // the repo from the composite key string.
     private readonly Dictionary<string, string> _sandboxRepos = new(StringComparer.Ordinal);
+    // 2026-08-31-7097: sandbox key -> the toolchain image the BACKEND pulled, taken from
+    // the sandbox itself. A backend that runs on the host names none and gets no entry.
+    private readonly Dictionary<string, string> _sandboxImages = new(StringComparer.Ordinal);
     // p0268: (repo, group-identity) -> sandbox key. Group identity is (image, resources);
     // this makes EnsureSandboxesAsync idempotent — a repeated call (or the same group
     // appearing twice) reuses the existing sandbox instead of creating a second — while
@@ -94,12 +96,9 @@ public sealed class PipelineSandboxCoordinator(
             // footprint — collapse them into ONE pod sized to the group's MAX
             // resource envelope. A genuine image/SDK difference still separates.
             // The per-sandbox context list still carries every context for probes.
-            // p0504: the declared meta.domain is resolved HERE — after scoping, before any
-            // spec exists — so an unknown domain refuses the run before a pod is created.
             var specced = discoveries
                 .Select(d => (Discovery: d, Spec: sandboxSpecBuilder.Build(
-                    projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources,
-                    domainResolver.Resolve(repo.Name, d)?.Image)))
+                    projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)))
                 .ToList();
             var groups = specced.GroupBy(x => x.Spec.ToolchainImage, StringComparer.Ordinal).ToList();
             foreach (var group in groups)
@@ -117,6 +116,7 @@ public sealed class PipelineSandboxCoordinator(
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
         context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, _sandboxRepos);
         context.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries, _discoveries);
+        context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxImages, _sandboxImages);
         var contextsView = _contextsBySandbox.ToDictionary(
             kv => kv.Key, kv => (IReadOnlyList<RemoteContextDiscovery>)kv.Value, StringComparer.Ordinal);
         context.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
@@ -227,10 +227,9 @@ public sealed class PipelineSandboxCoordinator(
         string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
-        var repoOfKey = _sandboxRepos.GetValueOrDefault(sandboxKey);
         var spec = sandboxSpecBuilder.Build(
             projectConfig, discovery.Language, _pipelineName, discovery.ToolchainImage,
-            discovery.Resources, domainResolver.Resolve(repoOfKey, discovery)?.Image);
+            discovery.Resources);
         // p0332: carry the resolved memory request so reserved resource-time is
         // computed from the sandbox's real reservation, not the global default.
         return eventPublisher.PublishAsync(
@@ -263,8 +262,18 @@ public sealed class PipelineSandboxCoordinator(
                 key, languageTag, spec.ToolchainImage, discoveriesInGroup.Count, contexts);
         }
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
+        RecordImage(key, sandbox);
         logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
         return sandbox is null ? null! : new SandboxEventProjector(sandbox, eventPublisher, runContext, key, logger);
+    }
+
+    // 2026-08-31-7097: read from the created sandbox BEFORE the projector wraps it, so
+    // what is recorded is the image a backend really started — the in-process backend
+    // pulls nothing, names nothing, and is absent here rather than credited with one.
+    private void RecordImage(string key, ISandbox sandbox)
+    {
+        if (sandbox is ISandboxToolchainImage named && !string.IsNullOrEmpty(named.ToolchainImage))
+            _sandboxImages[key] = named.ToolchainImage;
     }
 
     public async ValueTask DisposeAsync()

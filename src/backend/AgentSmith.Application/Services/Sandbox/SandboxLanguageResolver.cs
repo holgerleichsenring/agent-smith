@@ -7,10 +7,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// Discovers .agentsmith/contexts/&lt;name&gt;/context.yaml on a remote repo via
-/// ISourceProvider (pre-sandbox). One RemoteContextDiscovery per context;
-/// empty discovery → one synthetic ("default", ".", null) so un-init / pre-v2
-/// repos still get one root sandbox with the generic-image fallback (p0161).
+/// Discovers .agentsmith/contexts/&lt;name&gt;/context.yaml through the source's own
+/// ISourceProvider (pre-sandbox) — a remote and a local working copy alike, since
+/// the provider is what knows how to reach either. One RemoteContextDiscovery per
+/// context; empty discovery → one synthetic ("default", ".", null) so un-init /
+/// pre-v2 repos still get one root sandbox with the generic-image fallback (p0161).
 /// </summary>
 public sealed class SandboxLanguageResolver(
     ISourceProviderFactory sourceProviderFactory,
@@ -25,32 +26,44 @@ public sealed class SandboxLanguageResolver(
     public async Task<IReadOnlyList<RemoteContextDiscovery>> ResolveAllAsync(
         RepoConnection source, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(source.Url))
-            return [SyntheticDefault];
+        var listing = await ListContextsAsync(source, cancellationToken);
+        if (listing.Contexts.Count > 0)
+        {
+            logger.LogInformation(
+                "Discovery {Repo}: resolved {Count} context(s) [{Contexts}]",
+                FormatRepoTag(source), listing.Contexts.Count,
+                string.Join(", ", listing.Contexts.Select(d => d.ContextName)));
+            return listing.Contexts;
+        }
+
+        logger.LogWarning(
+            "Discovery {Repo}: no context resolved ({Reason}). Using synthetic default " +
+            "(name=default workdir=. lang=null). Probe will hit " +
+            "/work/.agentsmith/contexts/default/ — typically not on the repo.",
+            FormatRepoTag(source), listing.UnreadableReason ?? "none readable under " + ContextsRoot);
+        return [SyntheticDefault];
+    }
+
+    public async Task<RemoteContextListing> ListContextsAsync(
+        RepoConnection source, CancellationToken cancellationToken)
+    {
+        if (!source.HasLocation) return RemoteContextListing.None;
 
         var repoTag = FormatRepoTag(source);
-
         IReadOnlyList<string> children;
         try
         {
             var provider = sourceProviderFactory.Create(source);
             children = await provider.ListDirectoryAsync(ContextsRoot, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            // The provider contract lists an absent path as empty and propagates auth and
+            // transport errors, so reaching here means the repository could not be read —
+            // a different answer from "it declares nothing", and it must stay different.
             logger.LogWarning(ex,
-                "Discovery {Repo}: list of {Path} failed. Using synthetic default.",
-                repoTag, ContextsRoot);
-            return [SyntheticDefault];
-        }
-
-        if (children.Count == 0)
-        {
-            logger.LogWarning(
-                "Discovery {Repo}: {Path} is empty. Using synthetic default (name=default workdir=. lang=null). " +
-                "Probe will hit /work/.agentsmith/contexts/default/ — typically not on the repo.",
-                repoTag, ContextsRoot);
-            return [SyntheticDefault];
+                "Discovery {Repo}: list of {Path} failed.", repoTag, ContextsRoot);
+            return RemoteContextListing.Unreadable(ex.Message);
         }
 
         logger.LogInformation(
@@ -62,25 +75,10 @@ public sealed class SandboxLanguageResolver(
         {
             var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
             if (summary is null) continue;
-            discoveries.Add(new RemoteContextDiscovery(
-                contextName, summary.Workdir, summary.Language, summary.Prerequisites,
-                summary.Image, summary.Resources, summary.Purpose, summary.Domain));
+            discoveries.Add(RemoteContextDiscovery.From(contextName, summary));
         }
 
-        if (discoveries.Count == 0)
-        {
-            logger.LogWarning(
-                "Discovery {Repo}: {ChildCount} subfolder(s) found but 0 valid context.yaml. Using synthetic default. " +
-                "Probe will hit /work/.agentsmith/contexts/default/ — typically not on the repo.",
-                repoTag, children.Count);
-            return [SyntheticDefault];
-        }
-
-        logger.LogInformation(
-            "Discovery {Repo}: resolved {Count} context(s) [{Contexts}]",
-            repoTag, discoveries.Count,
-            string.Join(", ", discoveries.Select(d => d.ContextName)));
-        return discoveries;
+        return new RemoteContextListing(discoveries);
     }
 
     // p0261: `--context NAME` path — one explicit context, no discovery, no
@@ -104,9 +102,7 @@ public sealed class SandboxLanguageResolver(
         logger.LogInformation(
             "Context override {Repo}: pinned to '{Context}' (workdir={Workdir} lang={Lang})",
             repoTag, contextName, summary.Workdir, summary.Language ?? "null");
-        return [new RemoteContextDiscovery(
-            contextName, summary.Workdir, summary.Language, summary.Prerequisites,
-            summary.Image, summary.Resources, summary.Purpose, summary.Domain)];
+        return [RemoteContextDiscovery.From(contextName, summary)];
     }
 
     private async Task<ContextYamlSummary?> TryParseContextYamlAsync(
@@ -174,7 +170,7 @@ public sealed class SandboxLanguageResolver(
 
     private static string FormatRepoTag(RepoConnection source)
     {
-        var name = string.IsNullOrEmpty(source.Name) ? source.Url ?? "?" : source.Name;
+        var name = string.IsNullOrEmpty(source.Name) ? source.Url ?? source.Path ?? "?" : source.Name;
         var branch = string.IsNullOrEmpty(source.DefaultBranch) ? "auto" : source.DefaultBranch;
         return $"{name}@{branch}";
     }

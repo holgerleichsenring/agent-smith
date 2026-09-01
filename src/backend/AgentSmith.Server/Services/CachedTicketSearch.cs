@@ -19,7 +19,7 @@ internal sealed class CachedTicketSearch(
     private const int CacheTtlSeconds = 60;
     private const string CacheKeyPrefix = "tickets:";
 
-    public async Task<IReadOnlyList<(int Id, string Title)>> SearchAsync(
+    public async Task<IReadOnlyList<(string Id, string Title)>> SearchAsync(
         string project, string? query, CancellationToken ct)
     {
         var allTickets = await GetOrLoadTicketsAsync(project, ct);
@@ -30,16 +30,16 @@ internal sealed class CachedTicketSearch(
         return allTickets
             .Where(t =>
                 t.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                t.Id.ToString().Contains(query, StringComparison.Ordinal))
+                t.Id.Contains(query, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 
-    private async Task<IReadOnlyList<(int Id, string Title)>> GetOrLoadTicketsAsync(
+    private async Task<IReadOnlyList<(string Id, string Title)>> GetOrLoadTicketsAsync(
         string project, CancellationToken ct)
     {
         var cacheKey = $"{CacheKeyPrefix}{project}";
 
-        if (cache.TryGetValue<IReadOnlyList<(int Id, string Title)>>(cacheKey, out var cached) && cached is not null)
+        if (cache.TryGetValue<IReadOnlyList<(string Id, string Title)>>(cacheKey, out var cached) && cached is not null)
             return cached;
 
         var config = configLoader.LoadConfig(DispatcherDefaults.ConfigPath);
@@ -54,10 +54,12 @@ internal sealed class CachedTicketSearch(
             var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             var tickets = await ticketProvider.ListOpenAsync(ct);
 
+            // 2026-09-01-ba47: the identifier is whatever the tracker wrote. Parsing it to
+            // an int and dropping everything that failed emptied every Jira project's list.
             var result = tickets
-                .Select(t => (Id: int.TryParse(t.Id.Value, out var id) ? id : 0, t.Title))
-                .Where(t => t.Id > 0)
-                .ToList() as IReadOnlyList<(int Id, string Title)>;
+                .Select(t => (Id: t.Id.Value, t.Title))
+                .Where(t => !string.IsNullOrWhiteSpace(t.Id))
+                .ToList() as IReadOnlyList<(string Id, string Title)>;
 
             cache.Set(cacheKey, result, TimeSpan.FromSeconds(CacheTtlSeconds));
 

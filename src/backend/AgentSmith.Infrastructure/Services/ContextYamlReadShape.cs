@@ -14,17 +14,28 @@ internal sealed class ContextYamlReadShape
 
     public string? Prerequisites { get; set; }
 
+    // 2026-08-31-26d4: the ordered stages the repository declares as proof that a change
+    // in it holds. Declared HERE first of all, because a key this file does not name is
+    // dropped without a warning and every layer above it would then be reading a null
+    // nothing ever filled.
+    public List<VerifyBlock>? Verify { get; set; }
+
+    // 2026-09-01-e14d: the files those stages were derived from, and their hash when
+    // they were. Read via the shared UnderscoredNamingConvention as `verify_derived_from`.
+    public DerivedFromBlock? VerifyDerivedFrom { get; set; }
+
+    // 2026-09-01-379a: the command that asks the target environment whether it answers.
+    // Declared HERE for the same reason the verify block is: a key this file does not
+    // name is dropped without a warning, and the run would report "not declared" about a
+    // probe the repository did declare.
+    public ProbeBlock? Probe { get; set; }
+
     internal sealed class MetaBlock
     {
         public string? Workdir { get; set; }
 
         // p0331: what this context is for — surfaced for the scope classifier.
         public string? Purpose { get; set; }
-
-        // p0504: one word naming a profile in the resolved skills catalog. The
-        // profile brings a toolchain image and the ordered verify commands, so a
-        // context declaring a domain need not name a stack.image at all.
-        public string? Domain { get; set; }
     }
 
     internal sealed class StackBlock
@@ -42,6 +53,30 @@ internal sealed class ContextYamlReadShape
         // p0268: LLM-authored k8s CPU/memory for this stack's sandbox. Read via the
         // shared UnderscoredNamingConvention (cpu_request, memory_limit, …).
         public ResourcesBlock? Resources { get; set; }
+    }
+
+    internal sealed class VerifyBlock
+    {
+        public string? Label { get; set; }
+
+        public string? Command { get; set; }
+
+        // Read via the shared UnderscoredNamingConvention as `when_present`.
+        public string? WhenPresent { get; set; }
+    }
+
+    internal sealed class DerivedFromBlock
+    {
+        public List<string>? Files { get; set; }
+
+        public string? Hash { get; set; }
+    }
+
+    internal sealed class ProbeBlock
+    {
+        public string? Target { get; set; }
+
+        public string? Command { get; set; }
     }
 
     internal sealed class ResourcesBlock

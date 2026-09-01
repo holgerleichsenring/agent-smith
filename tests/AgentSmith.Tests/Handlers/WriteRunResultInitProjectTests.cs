@@ -123,7 +123,7 @@ public sealed class WriteRunResultInitProjectTests
         pipeline.Set(ContextKeys.BootstrapOutputs,
             new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal)
             {
-                ["mono"] = new(StringComparer.Ordinal) { ["default"] = "Wrote context.yaml + coding-principles.md." },
+                ["mono"] = new(StringComparer.Ordinal) { ["default"] = "Wrote context.yaml + principles.md." },
             });
         var context = NewInitContext(pipeline);
 
@@ -134,7 +134,7 @@ public sealed class WriteRunResultInitProjectTests
         resultMd.Should().Contain("duration_seconds: 42");
         resultMd.Should().Contain("Discovered components");
         resultMd.Should().Contain("Bootstrap output per component");
-        resultMd.Should().Contain("Wrote context.yaml + coding-principles.md.");
+        resultMd.Should().Contain("Wrote context.yaml + principles.md.");
         resultMd.Should().Contain("Execution Trail");
         resultMd.Should().Contain("BootstrapDiscoverCommand");
     }

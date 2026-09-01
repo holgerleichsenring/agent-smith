@@ -18,12 +18,17 @@ public sealed class DockerSandbox(
     string jobId,
     SandboxRedisChannel channel,
     int stepTimeoutCapSeconds,
-    ILogger logger) : ISandbox, ISandboxLivenessProbeTarget
+    string toolchainImage,
+    ILogger logger) : ISandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 
     public string JobId => jobId;
     public string LivenessProbeTargetId => toolchainContainerId;
+
+    // 2026-08-31-7097: this container really was started from this image, so anything
+    // reporting on the tools it carries can name it.
+    public string ToolchainImage => toolchainImage;
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)

@@ -821,7 +821,7 @@
       { "type": "sep" },
       { "type": "step", "num": "[1/3]", "name": "CheckoutSource   ", "desc": "Cloned to /tmp/my-api" },
       { "type": "step", "num": "[2/3]", "name": "BootstrapProject ", "desc": "C# .NET 8, xUnit, EF Core" },
-      { "type": "step", "num": "[3/3]", "name": "InitCommit       ", "desc": "context.yaml + code-map.yaml + coding-principles.md" },
+      { "type": "step", "num": "[3/3]", "name": "InitCommit       ", "desc": "context.yaml + code-map.yaml + principles.md" },
       { "type": "blank" },
       { "type": "ok", "text": "&#10003; .agentsmith/ bootstrapped &middot; $0.004" }
     ]

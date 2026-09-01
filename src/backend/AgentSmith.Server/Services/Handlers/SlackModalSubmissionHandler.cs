@@ -96,14 +96,14 @@ internal sealed class SlackModalSubmissionHandler(
             ?[DispatcherDefaults.SlackActionTicket]
             ?["selected_option"]?["value"]?.GetValue<string>();
 
-        if (!int.TryParse(ticketIdStr, out var ticketId))
+        if (string.IsNullOrWhiteSpace(ticketIdStr))
         {
             await adapter.SendMessageAsync(channelId, ":x: Please select a ticket.", ct);
             return;
         }
 
-        var intent = ModalIntentFactory.CreateFixIntent(ticketId, command, project, userId, channelId);
-        logger.LogInformation("Modal: {Command} #{TicketId} in {Project}", command, ticketId, project);
+        var intent = ModalIntentFactory.CreateFixIntent(ticketIdStr, command, project, userId, channelId);
+        logger.LogInformation("Modal: {Command} #{TicketId} in {Project}", command, ticketIdStr, project);
         await fixHandler.HandleAsync(intent, ct);
     }
 

@@ -189,6 +189,28 @@ public sealed class DockerSandboxFactoryTests
             .Which.Message.Should().Contain("sandbox-agent");
     }
 
+    // 2026-08-31-46d7: a Kubernetes image pull secret means nothing to the Docker
+    // client, which pulls with authConfig: null. A TOOLCHAIN pull failure used to
+    // escape as a raw DockerApiException; it now names the limitation and the image.
+    [Fact]
+    public async Task Docker_AnImagePullFailure_SaysTheBackendCarriesNoCredential()
+    {
+        var docker = BuildDockerMock(out _);
+        OverrideInspectMissing(docker, "my-corp.azurecr.io/toolchain:1");
+        OverridePullFails(docker);
+        var factory = BuildFactory(docker, new DockerSandboxOptions());
+
+        var act = async () => await factory.CreateAsync(
+            new SandboxSpec("my-corp.azurecr.io/toolchain:1", ResourceLimits.Default, "agent:1"),
+            CancellationToken.None);
+
+        var ex = (await act.Should().ThrowAsync<InvalidOperationException>()).Which;
+        ex.Message.Should().Contain("my-corp.azurecr.io/toolchain:1");
+        ex.Message.Should().Contain("carries no");
+        ex.Message.Should().Contain("image_pull_secrets");
+        ex.InnerException.Should().BeOfType<DockerApiException>();
+    }
+
     // p0407: the persistent caches are ensured next to the per-job volumes and bound
     // into the toolchain — a warm host reuses them, which is the whole point.
     [Fact]

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-eec0
+
+decisions:
+  - category: Architecture
+    chose: "One name in the reader — ProjectMetaPaths.PrinciplesFile — and the retired name kept as a constant nothing reads as principles"
+    over: "A reader that accepts either name, or a rename with no trace of the old one"
+    reason: |
+      A compatibility read keeps the old name alive indefinitely and hides which
+      repositories still carry it: every estate that never re-inits stays on the old file
+      and nobody can tell, because the run is green. So the probe asks for principles.md
+      and for nothing else.
+      The old name is still worth KNOWING about once, at the point of refusal.
+      RetiredPrinciplesFile is probed only when principles.md is absent, and its only
+      consumer is the refusal text — the run fails either way, and what changes is whether
+      the operator is told to look for a file they already wrote.
+  - category: Implementation
+    chose: "The finding rides on BootstrapProbeReport, which the gate already quotes"
+    over: "A new ContextKey carrying a bool from the check handler to the gate"
+    reason: |
+      p0496 already built the channel: the check handler sets a report only when something
+      is missing, and the gate's refusal interpolates its Describe(). A fourth field on that
+      record and one sentence in Describe() puts the remedy exactly where the operator reads
+      the rest of the diagnosis, with no new key, no new wiring and no second place that can
+      disagree about what was probed.
+      ContextKeys.cs is also at its file-length baseline and may only shrink, so a new key
+      there would have cost an extraction that buys nothing.
+  - category: Scope
+    chose: "The FILE is renamed; the config key coding_principles_path, the concept coding_principles_present and the C# type names keep their names"
+    over: "Renaming every identifier that carries the word coding"
+    reason: |
+      The claim of this phase is that the file's NAME stopped being true when the file
+      started carrying environment rules. A config key is an operator's authored YAML and a
+      concept name is a gate expression in presets a deployment may have customised —
+      renaming either is a migration for someone else's file, with no reader confused by
+      the current names. Both are ergonomics, not truth, and neither is what the phase is
+      about.
+  - category: Scope
+    chose: "History is left naming the old file; contexts/default/context.yaml state.done entries included"
+    over: "Rewriting every done spec, decision record and index line to the new name"
+    reason: |
+      A done spec and its decision record state what was true when the phase shipped, and a
+      state.done line is the same kind of record. Rewriting them would make the repository
+      claim a file existed under a name it never had at that time — the rename is a fact
+      with a date, and the record is where that date is legible.
+  - category: Implementation
+    chose: "The project-specifics section is documented as the home for a repository's ENVIRONMENT rules, in the bootstrap prompt and in the two docs an operator reads at init"
+    over: "Leaving the section undocumented, or inventing a new section for environment rules"
+    reason: |
+      The section already exists, already survives a re-init, and is already ratified by the
+      operator in the init pull request. What it lacked was anyone knowing it is the right
+      place — so "field changes go through the estate's own CLI" ended up nowhere, which is
+      the single most valuable thing a mature estate can tell an agent.
+      The prompt's ratification paragraph and onboarding's review bullet are the two moments
+      an operator is already looking at the file, and the bootstrap reference is where the
+      file is taught. The prompt factory sits at its length baseline, so the paragraph was
+      rewritten in place rather than extended.

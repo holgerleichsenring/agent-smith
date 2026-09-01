@@ -82,9 +82,9 @@
           "description": "Repository URL (optional)"
         },
         "domain": {
-          "$comment": "MECHANISM — names the catalog profile that supplies this context's toolchain image and its verify commands.",
+          "$comment": "MECHANISM — it named the catalog profile that supplied this context's toolchain image and its verify commands. DEPRECATED 2026-08-31-77a8: nothing resolves a profile any more, so nothing acts on it; still accepted, because this root is additionalProperties:false and removing the property would refuse every context written before, and dropped by the writer the way the readings are.",
           "type": "string",
-          "description": "p0504: one word naming a profile in the skills catalog (profiles/<name>/profile.yaml). The profile supplies the toolchain image this context's sandbox runs in when stack.image is absent, and the ordered verification commands the repository is gated by. An unknown domain refuses the run before any sandbox is created.",
+          "description": "DEPRECATED: one word that used to name a profile in the skills catalog. It is still accepted so an existing context.yaml keeps loading, is no longer written or asked for, and a context that declares a stack now names its own stack.image.",
           "pattern": "^[a-z0-9][a-z0-9_-]*$",
           "examples": ["data-warehouse", "mobile"]
         }
@@ -397,6 +397,122 @@
         "npm ci",
         "sh -c \"sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub\""
       ]
+    },
+    "verify": {
+      "$comment": "MECHANISM \u2014 the ordered commands the verify gate runs for this context, ahead of anything the analyzer emitted for that run. No enumerated field here on purpose: what a stage IS follows from its command, and a kind/category would have to be a closed list of somebody else's estate vocabulary.",
+      "type": "array",
+      "description": "2026-08-31-26d4: the stages that prove a change in this context holds, executed IN ORDER at this context's workdir and stopping at the first non-zero exit. Declared once and replayed unchanged, so the gate does not differ between runs. Omit the block entirely when the repository has nothing to declare \u2014 a .NET tree needs none, because its entry point is discovered from files that exist.",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "command"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 30,
+            "description": "What this stage is called in the run's outcome. Any word that names what it proves.",
+            "examples": [
+              "build",
+              "test",
+              "lint",
+              "schema-check"
+            ]
+          },
+          "command": {
+            "type": "string",
+            "minLength": 2,
+            "description": "The command line, run through /bin/sh -c at this context's workdir. It must be able to FAIL \u2014 a declared `echo ...` or `true` stops the run at resolution rather than being quietly dropped, because a command that cannot go red is not a gate.",
+            "examples": [
+              "npm run lint",
+              "pytest -q",
+              "mvn -B verify"
+            ]
+          },
+          "when_present": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional path, relative to this context's workdir, the command needs in order to mean anything. When it is absent from the repository the stage is SKIPPED and reported, never failed \u2014 verification stops at the first non-zero exit, so a red the command was never measured for would hide every gate behind it.",
+            "examples": [
+              "package.json",
+              "dbt_project.yml"
+            ]
+          }
+        }
+      }
+    },
+    "verify_derived_from": {
+      "$comment": "MECHANISM — a run re-hashes these files and reports that the verify block above may be stale when they no longer match. It changes nothing about what runs; whether to re-derive is the operator's call.",
+      "type": "object",
+      "description": "2026-09-01-e14d: where the verify block came from. In an established estate the truth about \"green\" is already written down — a pipeline definition, a workflow file, a Makefile, a task runner's own help — and the block above is an ADOPTION of it rather than an invention. This records which files it was adopted from and their content hash at that moment, so a later run can say the declaration may be out of date. What a hash cannot see: the pipeline FILE moving is visible, the TARGET moving is not — a cluster id, a schema name or a service connection can change under an identical file, and only the stage itself finds that out, when it runs. Omit the block whenever the stages were not derived from files.",
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The files the stages were read out of, relative to this context's workdir, named by whoever derived them.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "examples": [
+            [
+              "azure-pipelines.yml"
+            ],
+            [
+              ".github/workflows/ci.yml",
+              "Makefile"
+            ]
+          ]
+        },
+        "hash": {
+          "type": "string",
+          "minLength": 8,
+          "description": "The framework's digest of those files, stamped by the write path when the block was written. A model never supplies one — a hash it invented would report drift on the very next run. Absent means nothing was stamped, and the run stays quiet.",
+          "examples": [
+            "sha256:0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9"
+          ]
+        }
+      }
+    },
+    "probe": {
+      "$comment": "MECHANISM \u2014 the ProbeTarget step runs this before the master and fails the run when the target refuses. Two fields, and neither is a vocabulary: what the probe IS follows from its command, and what answers is named by the operator in their own words.",
+      "type": "object",
+      "description": "2026-09-01-379a: the command that asks this context's TARGET ENVIRONMENT whether it answers, run through /bin/sh -c at this context's workdir after the prerequisites and before the master. A command that resolves authentication first \u2014 a warehouse CLI's validate, a cluster CLI's whoami \u2014 is a real gate once the credential is there, and asking it early turns a wrong or absent credential into infrastructure rather than into a coding agent that cannot build. A refusal fails the run naming the target, the command and the exit code, and carries NO captured output: the masker only knows values the framework holds, and it never holds an injected credential. Omit the block when nothing outside the repository has to answer \u2014 the run then reports the probe as not declared, never as passed.",
+      "required": [
+        "target",
+        "command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60,
+          "description": "What answers, in your own words. It is what the failure names \u2014 an exit code without the target is a fact about a process rather than about the estate.",
+          "examples": [
+            "the warehouse dev workspace",
+            "the staging cluster",
+            "the integration API"
+          ]
+        },
+        "command": {
+          "type": "string",
+          "minLength": 2,
+          "description": "The command line, run through /bin/sh -c at this context's workdir. Reference an injected credential by NAME ($SF_USERNAME) \u2014 the shell expands it, and no value is written into the declaration. It must be able to FAIL: a probe that cannot go red answers nothing.",
+          "examples": [
+            "sf org display --target-org devhub",
+            "kubectl auth whoami",
+            "dbt debug"
+          ]
+        }
+      }
     },
     "arch": {
       "type": "object",
@@ -801,7 +917,7 @@
           }
         },
         "principles": {
-          "$comment": "READING — measured in a live context, every entry was a build-file flag read back out, and the authored coding-principles.md is where the intent already lives. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
+          "$comment": "READING — measured in a live context, every entry was a build-file flag read back out, and the authored principles.md is where the intent already lives. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "items": {
             "type": "string",

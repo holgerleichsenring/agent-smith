@@ -22,7 +22,7 @@ projects:
     tracker: test-ado
     repos: [test-repo]
     pipeline: fix-bug
-    coding_principles_path: ./config/coding-principles.md
+    coding_principles_path: ./config/principles.md
 
 secrets:
   github_token: ${AGENTSMITH_TEST_GH_TOKEN}

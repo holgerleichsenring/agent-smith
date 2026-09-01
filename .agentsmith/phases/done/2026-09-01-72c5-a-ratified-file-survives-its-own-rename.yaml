@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-72c5
+
+goal: "init-project renames a context's retired coding-principles.md before anything reads it, so the operator's ratified rules survive and no second file is left behind."
+
+applies_to: "backend (the bootstrap round, ahead of the existing-file read)"
+
+requires:
+  - 2026-09-01-eec0
+
+scope:
+  in: "One rename per context, performed at the start of the bootstrap round: where the retired name is present and the current one is not, the file moves. Everything downstream then sees a repository that already carries the current name."
+  out: >
+    A COMPATIBILITY READ. Nothing gains a second name to read principles from; the
+    rename happens once, in the open, and the constant that names the retired file
+    keeps serving only the refusal. MERGING two files where both are present.
+
+decisions:
+  - key: |
+      RETIRING A NAME IS NOT THE SAME AS MIGRATING WHAT WAS WRITTEN UNDER IT. The predecessor
+      removed every read of the old name, which was right, and stopped there. The preserve path
+      reads the CURRENT name, so a repository carrying only the old one reports nothing existing
+      and is composed fresh from core plus delta — discarding the operator's ratified Project
+      Specifics section, which is the content the rename was made for.
+  - key: |
+      THE RENAME GOES FIRST, NOT INSIDE THE TRANSFER. Handling it where the transfer decides
+      "existing or fresh" gives that decision two ways to arrive at the same state. Renaming
+      before the existing-file read leaves exactly one downstream path, and the preserve branch
+      that already exists does the rest untouched.
+  - key: |
+      A MOVE, NOT A COPY. A copy leaves the old file in the tree for the coding agent to find
+      beside the new one, with no way to tell which is authoritative. The move is visible in the
+      init pull request the operator reviews, which is where a migration belongs.
+  - key: |
+      BOTH PRESENT MEANS THE CURRENT FILE WINS AND THE RENAME IS SKIPPED. Whatever produced the
+      current name is more recent than what stopped being written; overwriting it to honour a
+      retired file would lose the newer of the two.
+
+steps:
+  - id: the-retired-file-moves-first
+    action: "At the start of the bootstrap round, per context: where the retired name is present and the current one absent, the file is moved to the current name before the existing-file read."
+  - id: the-round-reports-what-it-moved
+    action: "The move is logged and carried into the round's result, so an operator reading the init pull request sees the migration rather than inferring it from a diff."
+
+tests:
+  - "BootstrapRound_ARepositoryCarryingOnlyTheRetiredName_MovesItAndPreservesTheContent"
+  - "BootstrapRound_BothNamesPresent_LeavesTheCurrentFileUntouched"
+  - "BootstrapRound_NoRetiredFile_PerformsNoMove"
+
+done:
+  - "a repository initialised before the rename keeps its ratified Project Specifics through a re-init"
+  - "no repository is left carrying both names"
+  - "a cold init is unchanged"
+  - "build green, full suite green"

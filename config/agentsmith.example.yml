@@ -77,6 +77,23 @@ deployment:
 # context.yaml prerequisites (in the repo, not here):
 #   prerequisites: 'sh -c "sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub"'
 
+# --- Sandbox image pull credential (2026-08-31-46d7, K8s only) ---
+# Names of operator-created Kubernetes image pull secrets the sandbox pod references,
+# so a toolchain image that only exists in a credentialed registry (the only place a
+# licensed third-party tool may live) is pullable. Rendered at POD level, so it covers
+# the agent-loader init container as well as the toolchain container. GLOBAL, never
+# per-project: a project that could name its own credential would be widening a
+# boundary it does not own. Create the secret in the sandbox namespace first:
+#   kubectl create secret docker-registry acr-pull \
+#     --docker-server=my-corp.azurecr.io --docker-username=... --docker-password=...
+# The names are declared, not verified: agent-smith holds no read access to the
+# namespace's secrets, and a name matching no Secret is silently ignored by kubelet.
+# The Docker backend has no equivalent and fails a pull with a message saying so.
+#
+# sandbox:
+#   image_pull_secrets:
+#     - acr-pull
+
 # (Orchestrator + sandbox images both come from the `deployment:` pin above. To
 # override just one — e.g. pin a pre-release orchestrator — add the legacy block:
 #   orchestrator:
@@ -373,7 +390,7 @@ projects:
     tracker: acme-github
     repos: [acme-app]
     pipeline: code
-    coding_principles_path: .agentsmith/coding-principles.md
+    coding_principles_path: .agentsmith/principles.md
     # Per-pipeline overrides. Each entry: name + optional agent / skills_path /
     # coding_principles_path / confidence_threshold. confidence_threshold
     # (p0167b, default 70, range 0-100): a blocking observation whose

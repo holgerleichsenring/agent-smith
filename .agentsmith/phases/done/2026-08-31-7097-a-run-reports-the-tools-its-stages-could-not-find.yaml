@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-31-7097
+
+goal: "A run reports which of the tools its declared stages name were not found in the image, so a missing tool is visible before the stage fails on it."
+
+applies_to: "backend (the existing toolchain probe, extended by the binaries a repository's declared stages name)"
+
+requires:
+  - 2026-08-31-26d4
+
+scope:
+  in: "The binaries a declared stage names, where the command's shape makes that unambiguous, added to the probe the sandbox already runs, reported as a finding that names the image, the binary and the stage."
+  out: >
+    FAILING THE RUN. The derivation is provably incomplete — commands run through a
+    shell and may begin with an environment assignment, a builtin, a subshell or a
+    variable — so a fail-closed gate over it kills correct runs. GIT, which already
+    fails the checkout with a message naming the cause; nothing is added for it. THE
+    ANALYZER'S COMMANDS AND THE .NET DISCOVERY, which do not exist yet when the probe
+    runs. p0520's git-probe step, which this supersedes and which needs its own
+    successor.
+
+decisions:
+  - key: |
+      FIRST-TOKEN DERIVATION IS SAFE ONLY IN THE DIRECTION IT IS ALREADY USED. The cannot-fail
+      rule reads a first token to REJECT a command, where a wrong read merely runs it anyway.
+      Reading the same token to terminate a run inverts the polarity, and the shapes that break
+      it are this repository's own documented idioms: an sh -c credential line, an environment
+      assignment before the command, a cd-and-run pair, a subshell, a variable path, a wrapper
+      script resolved relative to a working directory the probe does not set.
+  - key: |
+      SO THE RULE IS: PROBE WHAT CAN BE NAMED, REPORT WHAT CANNOT, FAIL NOTHING. A stage
+      contributes a binary only when its first token is a bare name — no assignment, no path,
+      no variable, no quote, not a shell keyword or builtin. Everything else is recorded as
+      unprobed and said out loud, because a silent partial list is the thing that makes a probe
+      look like a guarantee.
+  - key: |
+      A WARNING, NOT A GATE, UNTIL THE DERIVATION IS COMPLETE. A missing binary is worth seeing
+      before the stage dies on it; it is not worth killing a run over a list that cannot cover
+      every command shape. The fast and docker harness tiers run images that deliberately carry
+      almost nothing, and a fail-closed probe would redden the one LLM-free proof this
+      repository has.
+  - key: |
+      THE PROBE ALREADY EXISTS AND IS EXTENDED, NOT DUPLICATED. A sandbox already sweeps a
+      fixed tool list once with a single shell command and distils a capability line for the
+      master. This adds the declared stages' binaries to that same sweep — one probe, two
+      readers — rather than introducing a second one with its own timing and its own failure
+      mode.
+  - key: |
+      IT RUNS AFTER THE PREREQUISITES, OR IT ACCUSES A GOOD IMAGE. The prerequisite step
+      installs tools the stages then use, and it sits nine steps after preflight; probing
+      before it would report a missing tool that the run installs a minute later.
+  - key: |
+      GIT IS NOT PART OF THIS. A missing git already fails the checkout with a message naming
+      the image and the cause — the replacement for the deleted name-based check shipped with
+      that decision. Claiming to introduce it would be claiming credit for something that
+      already works.
+  - key: |
+      AN IN-PROCESS RUN HAS NO IMAGE, SO IT REPORTS THAT INSTEAD OF A VERDICT. That backend
+      ignores the toolchain image and runs on the host; a missing binary there is a fact about
+      the machine, and naming an image nothing pulled would be a false report.
+
+steps:
+  - id: the-declared-stages-contribute-what-they-can-name
+    action: "The binaries a declared stage names are derived only from unambiguous first tokens; every other stage is recorded as unprobed."
+  - id: the-existing-probe-carries-them
+    action: "The sandbox's toolchain probe sweeps the derived binaries alongside its fixed list, after the prerequisites have run."
+  - id: the-finding-names-image-binary-and-stage
+    action: "A binary that did not resolve is reported with the image, the binary and the stage that named it, as a warning; an in-process backend reports that it has no image."
+
+tests:
+  - "Derivation_AShellShapedCommand_IsRecordedAsUnprobed"
+  - "Derivation_ABareCommand_ContributesItsBinary"
+  - "Probe_AMissingBinary_WarnsNamingTheImageAndTheStage"
+  - "Probe_AnInProcessBackend_ReportsNoImage"
+
+done:
+  - "a repository whose declared stage names a tool the image lacks sees it reported before the stage runs"
+  - "no run fails because of this probe, and the harness tiers are unaffected"
+  - "a command the derivation cannot read is named as unprobed rather than skipped silently"
+  - "build green, full suite green"

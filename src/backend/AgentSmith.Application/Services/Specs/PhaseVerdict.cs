@@ -41,10 +41,16 @@ public static class PhaseVerdict
     }
 
     public static CommandResult From(
-        CommandResult mechanical, IReadOnlyList<SpecAccount> accounts)
+        CommandResult mechanical, IReadOnlyList<SpecAccount> accounts, string? unverified = null)
     {
         ArgumentNullException.ThrowIfNull(mechanical);
         ArgumentNullException.ThrowIfNull(accounts);
+        // 2026-08-28-5f71: `unverified` is why this run cannot be called verified, or null
+        // when it can be. Such a run fails CARRYING its account — the reason goes in FRONT
+        // of the ordinary verdict instead of replacing it, and it is folded in HERE because
+        // a resolution failure returns before the account has been taken at all.
+        if (unverified is not null)
+            return CommandResult.Fail($"{unverified}\n{From(mechanical, accounts).Message}");
         if (accounts.Count == 0) return mechanical;
         if (Unaccounted(accounts) is { } unaccounted) return CommandResult.Fail(unaccounted);
 

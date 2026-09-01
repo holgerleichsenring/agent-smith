@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-31-26d4
+
+goal: "A repository declares the commands that prove a change in it, and the run executes exactly those, so verification stops depending on what a model emits that day."
+
+applies_to: "backend (context document, read shape, serializer, summary, discovery, schema, write tool, resume round-trip, verify stage resolution and the presence rule it inherits)"
+
+requires:
+  - 2026-08-31-77a8
+
+scope:
+  in: "A verify block in context.yaml carrying ordered stages — a label, a command, an optional presence condition — carried through every layer between the file and the resolver by NAMED arguments, resolved per context rather than per sandbox, executed ahead of every other source, with the cannot-fail rule failing resolution instead of dropping the stage."
+  out: >
+    WHERE THE DECLARATION COMES FROM. Deriving it from an estate's own CI is the
+    successor; an operator writes one by hand today. CREDENTIALS and the image, which
+    are their own phases. THE .NET DISCOVERY, which stays below the declaration: it
+    reads the repository rather than storing a claim about it, and it is why that stack
+    needs no declaration at all.
+
+decisions:
+  - key: |
+      THE MODEL EMITS THE GATE TODAY, WHICH MEANS THE GATE DIFFERS BETWEEN RUNS. Outside .NET
+      the only source of a build or test command is what the analyzer produced for that run. A
+      verification whose definition is re-derived every time is not a second opinion; it is the
+      same party marking its own work with a ruler it just drew.
+  - key: |
+      EVERY HOP IS NAMED, BECAUSE THIS EXACT RECORD LOST A FIELD THREE DAYS AGO. The remote
+      discovery is an eight-parameter positional record whose tail is all defaults; meta.domain
+      was parsed and dropped at both construction sites and shipped green for two releases,
+      because every test built the record by hand. A ninth optional positional parameter
+      recreates that defect one for one, so the field is passed by name at every site and the
+      test reads it out of real YAML through the parser.
+  - key: |
+      THE READ SHAPE IS THE FILE A NEW FIELD DIES IN. An undeclared key is dropped there
+      without a warning, by construction. It is named as an edit rather than left to be
+      discovered, together with the summary, the serializer, the schema, the write tool and the
+      resume round-trip that persists the discoveries.
+  - key: |
+      STAGES RESOLVE PER CONTEXT, NOT PER SANDBOX, AND THAT IS NOT A DETAIL. Two contexts that
+      resolve the same image collapse into one sandbox, and the verify step reads one
+      representative discovery per sandbox. Reading the declaration off the representative
+      would make which context's stages run depend on discovery order — the reason the retiring
+      profile resolver deliberately read the full context list and carried each command's own
+      workdir. That shape survives the mechanism it was built for.
+  - key: |
+      A DECLARED COMMAND THAT CANNOT FAIL FAILS RESOLUTION, WHERE AN INFERRED ONE IS DROPPED.
+      The rule exists so a command that cannot go red is not mistaken for a gate; today it
+      filters and falls through, which is right for something the framework guessed. A
+      declaration is authoritative, so silently running two of three declared stages and
+      reporting green would be the same false green in new clothes.
+  - key: |
+      THREE FIELDS, BECAUSE THE FOURTH IS ALWAYS THE ONE THAT INVENTS A TAXONOMY. A stage has a
+      label, a command and an optional path it needs present. No kind, no phase, no category —
+      what a stage IS follows from its command, and the schema's own vocabulary tests would
+      force any enumerated field into a closed, decided list, which is precisely the estate
+      vocabulary that must not live in our schema.
+  - key: |
+      THE PRESENCE RULE IS INHERITED, RENAMED AND RE-SIGNATURED. The retiring mechanism's
+      condition evaluator carries the logic worth keeping — a path resolved under the context
+      workdir, checked in the sandbox, skipped and reported when absent — but its signature and
+      its wording are profile vocabulary. It moves to the declared stage type here.
+  - key: |
+      LINT BECOMES POSSIBLE FOR THE FIRST TIME. The inferred pair is hard-coded to build and
+      test, so no stack could carry a third stage; an ordered list has no ceiling, which is what
+      an Angular repository needs and what a data repository needs for its schema checks.
+
+steps:
+  - id: the-file-carries-a-verify-block
+    action: "The context document, read shape, serializer, summary, JSON schema and write tool carry an ordered verify list of label, command and optional presence path, with a mechanism comment and no enumerated vocabulary."
+  - id: every-hop-is-named
+    action: "The parsed list reaches the remote discovery through named arguments at every construction site and survives the resume round-trip, with a test that reads it out of real YAML."
+  - id: the-resolver-prefers-it-per-context
+    action: "Verify resolution reads the per-sandbox context list, resolves each context's declared stages at that context's workdir ahead of the inferred commands and the .NET discovery, and fails resolution on a declared command that cannot fail."
+  - id: the-presence-rule-moves
+    action: "The condition evaluator is renamed and re-signatured to the declared stage, keeping skip-and-report and losing the profile wording."
+
+tests:
+  - "ContextYaml_AVerifyBlock_ReachesTheDiscoveryFromRealYaml"
+  - "Verify_TwoContextsCollapsedIntoOneSandbox_RunBothDeclaredLists"
+  - "Verify_ADeclaredCommandThatCannotFail_FailsResolution"
+  - "Verify_AStageWhoseConditionPathIsAbsent_IsSkippedAndReported"
+  - "Verify_ARepositoryDeclaringNothing_ResolvesInferredThenDotnetThenNothing"
+  - "Schema_TheVerifyBlock_AddsNoClosedVocabulary"
+
+done:
+  - "a repository's declared stages run in order, at their own context's workdir, with its own labels in the outcome"
+  - "a repository declaring nothing resolves the inferred commands, then the .NET discovery, then nothing — the behaviour the predecessor leaves"
+  - "a declared command that cannot fail stops the run at resolution instead of being dropped"
+  - "build green, full suite green"

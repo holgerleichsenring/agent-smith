@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-08-31-46d7
+
+goal: "A sandbox pod carries a pull credential, so an estate's own image — the only place a licensed tool may live — becomes usable without an out-of-band patch nobody can see."
+
+applies_to: "backend (sandbox global config, the pod spec, the pod watcher's message) + config schema + deploy docs"
+
+requires:
+  - p0272
+
+scope:
+  in: "An operator-declared list of image pull secret names on the global sandbox config, rendered into the sandbox pod spec, declared in the config schema, and named in the message when a pull fails."
+  out: >
+    THE DOCKER AND IN-PROCESS BACKENDS. A Kubernetes secret reference means nothing to
+    the Docker client, which pulls with no auth config at all; the feature is Kubernetes
+    only, and a Docker-backed run against a credentialed registry gets an honest message
+    saying so rather than a raw client exception. BUILDING OR PUBLISHING an image: a
+    licensed third-party tool may not live in an artefact we build or push. VERIFYING
+    that the secret exists — see the RBAC decision.
+
+decisions:
+  - key: |
+      NOTHING IN THE PRODUCT CARRIES A PULL CREDENTIAL, AND THE ONE ROUTE THAT WORKS IS
+      INVISIBLE. A full sweep finds no pull secret in code, manifests or config; the registries
+      block is package-feed auth inside a sandbox. The sandbox pod sets no service account, so
+      an operator CAN patch the namespace's default account out of band and every pod pulls
+      authenticated — undeclared, namespace-wide, and absent from this product's configuration.
+      That is the state this phase replaces.
+  - key: |
+      THE TRUST BOUNDARY NEEDS NO WIDENING, WHICH THE FIRST DRAFT GOT WRONG. A named
+      allowed-registries list already REPLACES the default rather than extending it, so an
+      operator naming their registry has it accepted today — and an operator-declared
+      toolchain image returns from the chain before the trust rule is consulted at all. The
+      only thing missing is the credential.
+  - key: |
+      IT IS A LIST ON THE GLOBAL SANDBOX CONFIG, NOT A PER-PROJECT FIELD. The adjacent
+      supply-chain setting was deliberately refused per-project: a project that can widen its
+      own boundary does not have one. A list, because Kubernetes takes a list and one pod may
+      pull an agent image and a toolchain image from different registries — and pod-level
+      secrets cover the init container too.
+  - key: |
+      A FAILED PULL ALREADY REACHES THE OPERATOR BY NAME; ONLY THE SECRET IS MISSING. The pod
+      watcher treats image-pull states as fatal, checks init and main containers and throws
+      with the pod, the container and the kubelet's message, which carries the image and the
+      authentication error. What kubelet never reports is a missing pull secret — an absent
+      entry is ignored and the pull simply 401s — so the framework appends what it configured.
+  - key: |
+      NO RBAC CHANGE, AND DELIBERATELY NO EXISTENCE CHECK. The kubelet resolves the pull
+      secret, not the server's account, so the role stays as it is. Verifying that the secret
+      exists would need read access to every secret in the sandbox namespace — a real security
+      regression bought for a better error string.
+
+steps:
+  - id: the-operator-declares-pull-secrets
+    action: "A list of pull secret names on the global sandbox config, declared in the config schema and resolved onto the sandbox spec."
+  - id: the-pod-carries-them
+    action: "The pod spec renders the list, covering the init container and the toolchain container."
+  - id: a-failed-pull-names-what-was-configured
+    action: "The pod watcher's image-pull failure message carries the pull secret names the spec configured, never a looked-up one."
+  - id: the-other-backends-say-what-they-cannot-do
+    action: "A Docker-backed run whose image pull fails reports that the Docker backend carries no pull credential, instead of surfacing a raw client exception."
+
+tests:
+  - "PodSpec_DeclaredPullSecrets_AreRendered"
+  - "PodWatcher_AnImagePullFailure_NamesTheConfiguredPullSecrets"
+  - "Docker_AnImagePullFailure_SaysTheBackendCarriesNoCredential"
+
+done:
+  - "a kubernetes sandbox runs in an image from a private registry with an operator-created secret"
+  - "a docker-backed run against the same registry fails with a message naming the limitation"
+  - "no secret value passes through a step, a log line or the model's view, and no role gained secret access"
+  - "build green, full suite green"

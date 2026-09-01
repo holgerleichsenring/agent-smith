@@ -40,7 +40,7 @@ public sealed class ChatIntentParserTests
 
         intent.Should().BeOfType<FixTicketIntent>();
         var fix = (FixTicketIntent)intent;
-        fix.TicketId.Should().Be(42);
+        fix.TicketId.Should().Be("42");
         fix.Project.Should().Be("my-project");
     }
 
@@ -51,8 +51,39 @@ public sealed class ChatIntentParserTests
 
         intent.Should().BeOfType<FixTicketIntent>();
         var fix = (FixTicketIntent)intent;
-        fix.TicketId.Should().Be(123);
+        fix.TicketId.Should().Be("123");
         fix.Project.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ChatIntent_AJiraKey_ProducesAnIntent()
+    {
+        var intent = _parser.Parse("fix PROJ-1234 in my-project", "U1", "C1", "slack");
+
+        intent.Should().BeOfType<FixTicketIntent>();
+        var fix = (FixTicketIntent)intent;
+        fix.TicketId.Should().Be("PROJ-1234");
+        fix.Project.Should().Be("my-project");
+    }
+
+    [Theory]
+    [InlineData("fix #42 in my-project", "42")]
+    [InlineData("#123", "123")]
+    [InlineData("ticket #7", "7")]
+    public void ChatIntent_ANumericId_IsUnchanged(string text, string expected)
+    {
+        var intent = _parser.Parse(text, "U1", "C1", "slack");
+
+        intent.Should().BeOfType<FixTicketIntent>();
+        ((FixTicketIntent)intent).TicketId.Should().Be(expected);
+    }
+
+    [Fact]
+    public void ChatIntent_ABareNumber_StaysUnknown()
+    {
+        var intent = _parser.Parse("42", "U1", "C1", "slack");
+
+        intent.Should().BeOfType<UnknownIntent>();
     }
 
     [Fact]

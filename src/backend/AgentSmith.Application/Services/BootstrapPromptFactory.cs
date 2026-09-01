@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services;
 /// serialized ProjectMap, names the target context's MetaDir, and explains the
 /// required tool flow.
 ///
-/// p0202d: on re-init (the existing context.yaml / coding-principles.md are
+/// p0202d: on re-init (the existing context.yaml / principles.md are
 /// passed in non-null), the prompt switches from generate-from-scratch to
 /// preserve-and-merge — operator content is kept, only missing/stale fields are
 /// filled (notably prerequisites). Cold-init (both null) is unchanged.
@@ -22,14 +22,14 @@ namespace AgentSmith.Application.Services;
 /// p0379: when the framework transferred the composed core+delta principles
 /// (or preserved a ratified file), the prompt names context.yaml as the only
 /// write target and asks the skill's summary to request operator ratification
-/// — the skill never authors or merges coding-principles.md in those modes.
+/// — the skill never authors or merges principles.md in those modes.
 /// </summary>
 internal static class BootstrapPromptFactory
 {
     public static (string System, string User) Build(
         RoleSkillDefinition role, Repository repository, ProjectMap projectMap,
         string contextName, string workdir, string? appliesTo = null,
-        string? existingContextYaml = null, string? existingCodingPrinciples = null,
+        string? existingContextYaml = null, string? existingPrinciples = null,
         PrinciplesMode principlesMode = PrinciplesMode.SkillWrites)
     {
         var system = $"""
@@ -41,7 +41,7 @@ internal static class BootstrapPromptFactory
             """;
         var projectMapJson = JsonSerializer.Serialize(
             projectMap, new JsonSerializerOptions { WriteIndented = true });
-        var (contextYamlPath, codingPrinciplesPath) = ResolveTargetPaths(contextName);
+        var (contextYamlPath, principlesPath) = ResolveTargetPaths(contextName);
         var appliesToLine = string.IsNullOrWhiteSpace(appliesTo)
             ? string.Empty
             : $"\nApplies to: {appliesTo}\n";
@@ -49,7 +49,7 @@ internal static class BootstrapPromptFactory
         // owned — only an existing context.yaml flips the prompt to merge, and
         // the existing principles are never embedded for rewriting.
         var skillWritesPrinciples = principlesMode == PrinciplesMode.SkillWrites;
-        var mergeablePrinciples = skillWritesPrinciples ? existingCodingPrinciples : null;
+        var mergeablePrinciples = skillWritesPrinciples ? existingPrinciples : null;
         var isReInit = !string.IsNullOrWhiteSpace(existingContextYaml)
                     || !string.IsNullOrWhiteSpace(mergeablePrinciples);
         var user = $"""
@@ -67,23 +67,23 @@ internal static class BootstrapPromptFactory
             - Branch: {repository.CurrentBranch.Value}
             - Local path: {repository.LocalPath}
             {ReInitSection(isReInit, existingContextYaml, mergeablePrinciples)}
-            {WriteInstruction(isReInit, contextYamlPath, codingPrinciplesPath, principlesMode)}
+            {WriteInstruction(isReInit, contextYamlPath, principlesPath, principlesMode)}
             """;
         return (system, user);
     }
 
     private static string ReInitSection(
-        bool isReInit, string? existingContextYaml, string? existingCodingPrinciples)
+        bool isReInit, string? existingContextYaml, string? existingPrinciples)
     {
         if (!isReInit) return string.Empty;
-        var principlesBlock = string.IsNullOrWhiteSpace(existingCodingPrinciples)
+        var principlesBlock = string.IsNullOrWhiteSpace(existingPrinciples)
             ? string.Empty
             : $"""
 
 
-              ### Existing coding-principles.md
+              ### Existing principles.md
               ```
-              {existingCodingPrinciples}
+              {existingPrinciples}
               ```
               """;
         return $"""
@@ -105,20 +105,20 @@ internal static class BootstrapPromptFactory
     }
 
     private static string WriteInstruction(
-        bool isReInit, string contextYamlPath, string codingPrinciplesPath, PrinciplesMode principlesMode)
+        bool isReInit, string contextYamlPath, string principlesPath, PrinciplesMode principlesMode)
     {
         var lead = isReInit
             ? "Read source files via your read-only tools to confirm the merge, then write the MERGED files:"
             : "Read source files via your read-only tools to ground claims for THIS component, then write:";
         // p0193-fix: context.yaml goes through write_context_yaml (write_file
-        // rejects context.yaml paths); coding-principles.md through write_file.
+        // rejects context.yaml paths); principles.md through write_file.
         if (principlesMode == PrinciplesMode.SkillWrites)
         {
             return $"""
                 {lead}
                   - `{contextYamlPath}` — use the `write_context_yaml` tool (NOT write_file;
                     the framework rejects write_file for context.yaml).
-                  - `{codingPrinciplesPath}` — use the `write_file` tool.
+                  - `{principlesPath}` — use the `write_file` tool.
                 After both writes succeed, return a short Markdown summary of the
                 choices you made (per `output_schema: bootstrap`).
                 """;
@@ -127,30 +127,30 @@ internal static class BootstrapPromptFactory
         // p0379: the principles file is framework-owned in transfer/preserve
         // mode — the skill writes facts (context.yaml) and requests ratification.
         var principlesLine = principlesMode == PrinciplesMode.Transferred
-            ? $"`{codingPrinciplesPath}` is already in place — transferred from the "
+            ? $"`{principlesPath}` is already in place — transferred from the "
               + "authored universal core plus this component's language delta."
-            : $"`{codingPrinciplesPath}` already exists and is preserved as ratified.";
+            : $"`{principlesPath}` already exists and is preserved as ratified.";
         return $"""
             {lead}
               - `{contextYamlPath}` — use the `write_context_yaml` tool (NOT write_file;
                 the framework rejects write_file for context.yaml).
 
-            Coding principles: {principlesLine} Leave that file as is.
+            Principles: {principlesLine} Leave that file as is.
             After the context.yaml write succeeds, return a short Markdown summary
             of the choices you made (per `output_schema: bootstrap`) and ask the
-            operator to RATIFY the coding principles by reviewing
-            `{codingPrinciplesPath}` in the init pull request — project-specific
-            rules can be appended under its "Project Specifics" section and
-            survive re-runs.
+            operator to RATIFY the principles by reviewing
+            `{principlesPath}` in the init pull request — this project's own rules,
+            about its ENVIRONMENT as much as its code, are appended under its
+            "Project Specifics" section and survive re-runs.
             """;
     }
 
-    internal static (string ContextYaml, string CodingPrinciples) ResolveTargetPaths(string contextName)
+    internal static (string ContextYaml, string Principles) ResolveTargetPaths(string contextName)
     {
         if (string.IsNullOrEmpty(contextName))
-            return (ProjectMetaPaths.ContextYaml, ProjectMetaPaths.CodingPrinciples);
+            return (ProjectMetaPaths.ContextYaml, ProjectMetaPaths.Principles);
         var metaDir = $"{ProjectMetaPaths.Contexts}/{contextName}";
         return ($"{metaDir}/{ProjectMetaPaths.ContextYamlFile}",
-                $"{metaDir}/{ProjectMetaPaths.CodingPrinciplesFile}");
+                $"{metaDir}/{ProjectMetaPaths.PrinciplesFile}");
     }
 }

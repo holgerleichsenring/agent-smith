@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Handlers;
 public sealed class BootstrapCheckHandlerTests
 {
     private const string ContextYamlPath = "/work/.agentsmith/contexts/default/context.yaml";
-    private const string PrinciplesPath = "/work/.agentsmith/contexts/default/coding-principles.md";
+    private const string PrinciplesPath = "/work/.agentsmith/contexts/default/principles.md";
 
     private readonly Mock<ISandboxFileReaderFactory> _readerFactoryMock = new();
     private readonly Mock<ISandboxFileReader> _readerMock = new();

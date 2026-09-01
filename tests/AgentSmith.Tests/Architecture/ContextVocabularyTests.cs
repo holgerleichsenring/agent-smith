@@ -83,6 +83,26 @@ public sealed class ContextVocabularyTests
             "a closed vocabulary says why it is closed, where the next reader will look");
     }
 
+    /// <summary>
+    /// 2026-08-31-26d4: a stage has a label, a command and an optional path. The fourth
+    /// field is always the one that invents a taxonomy — a kind or a category would have
+    /// to be a closed list here, which is precisely the estate vocabulary this schema must
+    /// not carry. What a stage IS follows from its command.
+    /// </summary>
+    [Fact]
+    public void Schema_TheVerifyBlock_AddsNoClosedVocabulary()
+    {
+        var stage = Resolve("/properties/verify/items")!;
+
+        stage["properties"]!.AsObject().Select(pair => pair.Key)
+            .Should().BeEquivalentTo(["label", "command", "when_present"]);
+        Walk(Resolve("/properties/verify")!, string.Empty)
+            .Where(entry => entry.Node["enum"] is not null)
+            .Should().BeEmpty("an enumerated field would be a closed list of somebody else's words");
+        Pointers(node => node["enum"] is not null).Should().BeEquivalentTo(Closed,
+            "the closed vocabularies are still the four 167c named");
+    }
+
     [Theory]
     [InlineData("/properties/quality/properties/lang", "english-only")]
     [InlineData("/properties/data/additionalProperties/properties/migrations", "code-first")]

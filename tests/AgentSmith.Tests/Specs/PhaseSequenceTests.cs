@@ -118,13 +118,9 @@ public sealed class PhaseSequenceTests
     // p0460: no sandboxes in this pipeline, so the entry account resolves nothing and the
     // phase is entered the way it always was. PhaseEntryAccountTests owns the account.
     private static Application.Services.Specs.PhaseEntryAccount NoEntryAccount() =>
-        new(new Application.Services.DeliveryDiff(
-                AgentSmith.Tests.TestHelpers.TestGit.BaseBranch,
-                NullLogger<Application.Services.DeliveryDiff>.Instance),
+        new(AgentSmith.Tests.TestHelpers.TestGit.Delivery,
             new Application.Services.Specs.PhaseAccounting(
-                new Application.Services.DeliveryDiff(
-                    AgentSmith.Tests.TestHelpers.TestGit.BaseBranch,
-                    NullLogger<Application.Services.DeliveryDiff>.Instance),
+                AgentSmith.Tests.TestHelpers.TestGit.Delivery,
                 null!, new SandboxTargets(),
                 NullLogger<Application.Services.Specs.PhaseAccounting>.Instance),
             new SandboxTargets(),

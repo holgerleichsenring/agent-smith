@@ -58,7 +58,7 @@ internal static class PresetDeferrals
                 break;
             case "init-project":
                 client.EnqueueToolCall("write_file",
-                    """{"path":"primary/.agentsmith/contexts/default/coding-principles.md","content":"# Harness fixture coding principles"}""");
+                    """{"path":"primary/.agentsmith/contexts/default/principles.md","content":"# Harness fixture coding principles"}""");
                 client.EnqueueText("Bootstrap files written.");
                 break;
             case "autonomous":

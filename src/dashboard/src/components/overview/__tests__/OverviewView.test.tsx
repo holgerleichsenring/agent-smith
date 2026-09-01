@@ -315,7 +315,10 @@ describe("Overview", () => {
     const panel = await screen.findByTestId("expectations-view");
     expect(panel.className).toContain("ov-panel");
     // The empty state costs the panel, not the bottom half of the page.
-    expect(within(panel).getByTestId("expectations-empty")).toBeInTheDocument();
+    // Awaited, not queried: the panel renders immediately in its loading state,
+    // so awaiting the PANEL settles nothing — on a slow runner the metrics fetch
+    // is still pending and the assertion reads "Loading expectation metrics…".
+    expect(await within(panel).findByTestId("expectations-empty")).toBeInTheDocument();
     expect(screen.getByTestId("overview-criteria-card")).toHaveTextContent("none ratified yet");
     expect(screen.getByTestId("overview-spend-card")).toBeInTheDocument();
     expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();

@@ -60,7 +60,7 @@ public sealed class SlackErrorActionHandler(
     }
 
     private async Task SpawnRetryJobAsync(
-        int ticketId, string project, string userId, string channelId, CancellationToken ct)
+        string ticketId, string project, string userId, string channelId, CancellationToken ct)
     {
         var intent = new FixTicketIntent
         {
@@ -97,14 +97,16 @@ public sealed class SlackErrorActionHandler(
         payload["actions"]?[0]?["value"]?.GetValue<string>() ?? string.Empty;
 
     private static bool TryParseRetryValue(
-        string value, out int ticketId, out string project)
+        string value, out string ticketId, out string project)
     {
-        ticketId = 0;
+        ticketId = string.Empty;
         project = string.Empty;
 
         var parts = value.Split(':', 2);
         if (parts.Length != 2) return false;
-        if (!int.TryParse(parts[0], out ticketId)) return false;
+
+        ticketId = parts[0];
+        if (ticketId.Length == 0) return false;
 
         project = parts[1];
         return !string.IsNullOrEmpty(project);

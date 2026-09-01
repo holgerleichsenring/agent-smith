@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-08-31-7097
+
+decisions:
+  - category: Design
+    chose: "Report a missing tool, never fail on one"
+    over: "A gate that stops the run before the master"
+    reason: |
+      The derivation is provably incomplete — a command runs through a shell and may begin with
+      an interpreter, an assignment, a builtin, a subshell or a variable — and a fail-closed
+      gate over an incomplete list kills correct runs. The harness tiers deliberately run images
+      that carry almost nothing, so a gate here would have reddened the one LLM-free proof this
+      repository has.
+  - category: Design
+    chose: "Disqualify a command carrying any shell syntax, and treat interpreters as reserved"
+    over: "The literal first-token rule the spec described"
+    reason: |
+      The implementation found the hole in my own rule: sh IS a bare name, so a literal
+      first-token reading of `sh -c "sf org login jwt …"` would probe for sh, find it, and
+      report the image as fine while the tool that matters is unknown. Any shell metacharacter
+      anywhere now disqualifies the command, and interpreters and wrappers are reserved words.
+      The conservative direction only ever adds to the unprobed list, and unprobed is reported.
+  - category: Design
+    chose: "Extend the sweep that already runs once per sandbox"
+    over: "A second probe with its own timing"
+    reason: |
+      A sandbox already sweeps a fixed tool list with one shell command and distils a capability
+      line for the master. The derived binaries ride that same sweep — one probe, two readers —
+      and presence is looked up rather than executed, so an unknown tool is never run.
+  - category: Design
+    chose: "Surface it to the operator's log and to the master's toolchain section"
+    over: "Putting it in the run record or the verify findings"
+    reason: |
+      Those feed a gate's outcome and this is a report. The master gets it because it is the
+      actor that would otherwise hit the missing tool mid-run; the operator gets it because they
+      are the only party who can change the image.
+  - category: Scope
+    chose: "Probe a stage's binary even when its presence path is absent"
+    over: "Consulting when_present before deriving"
+    reason: |
+      A stage whose declared path is missing is skipped at verify time, so warning about its
+      binary is a warning nobody needs. Checking the path first would need a sandbox round trip
+      per stage — a second probe with its own timing, which the one-probe decision rules out.
+      It is a warning either way; a successor closes it if it ever bites.

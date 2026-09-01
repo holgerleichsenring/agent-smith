@@ -17,6 +17,7 @@ public static partial class CommandDisplayNames
         [CommandNames.RunPreflight] = "Check preconditions", // p0428
         [CommandNames.SetupRegistryAuth] = "Set up private-feed credentials",
         [CommandNames.EnsurePrerequisites] = "Prepare environment",
+        [CommandNames.ProbeTarget] = "Ask the target", // 2026-09-01-379a
         [CommandNames.BootstrapProject] = "Bootstrap project context",
         [CommandNames.LoadCodeMap] = "Load code map",
         [CommandNames.LoadCodingPrinciples] = "Load coding principles",

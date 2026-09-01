@@ -16,11 +16,20 @@ public sealed class KubernetesSandbox(
     string jobId,
     SandboxRedisChannel channel,
     int stepTimeoutCapSeconds,
-    ILogger logger) : ISandbox
+    string toolchainImage,
+    ResolvedSandboxSecrets injectedSecrets,
+    ILogger logger) : ISandbox, ISandboxToolchainImage, ISandboxSecretInjection
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 
     public string JobId => jobId;
+
+    // 2026-08-31-7097: the image this pod's toolchain container was created from.
+    public string ToolchainImage => toolchainImage;
+
+    // 2026-08-28-b630: the declared credentials the pod spec projected into this pod. The
+    // pod builder is their only consumer, so this backend is the only one that names them.
+    public ResolvedSandboxSecrets InjectedSecrets => injectedSecrets;
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)

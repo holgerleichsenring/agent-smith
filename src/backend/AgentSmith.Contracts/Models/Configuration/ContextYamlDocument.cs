@@ -25,4 +25,15 @@ public sealed record ContextYamlDocument(
     string? Prerequisites = null,
     // p0375: templated private-registry auth files (placeholder tokens only).
     // A present section is authoritative — replayed LLM-free every run.
-    ContextYamlRegistryAuth? RegistryAuth = null);
+    ContextYamlRegistryAuth? RegistryAuth = null,
+    // 2026-08-31-26d4: the ordered commands this repository declares as proof that a
+    // change in it holds. Executed ahead of every other source, at this context's
+    // workdir. Null = the repository declares nothing and the run infers as before.
+    IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
+    // 2026-09-01-e14d: the files those stages were derived from — the repository's own
+    // CI definition, scripts and manifests — and the framework's hash of them. The model
+    // names the files; the write path stamps the hash, because a model cannot compute one.
+    ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
+    // 2026-09-01-379a: the command that asks this context's target environment whether
+    // it answers, run after the prerequisites and before the master. Null = nothing asks.
+    ContextYamlTargetProbe? Probe = null);

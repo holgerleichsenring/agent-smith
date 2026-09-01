@@ -63,7 +63,7 @@ public sealed class PrinciplesTemplateContentTests
         foreach (var anchor in anchors)
         {
             today.Should().ContainEquivalentOf(anchor,
-                $"anchor '{anchor}' must characterize today's coding-principles.md");
+                $"anchor '{anchor}' must characterize today's principles.md");
             composed.Should().ContainEquivalentOf(anchor,
                 $"anchor '{anchor}' from today's principles must survive in core + .NET delta");
         }
@@ -202,6 +202,6 @@ public sealed class PrinciplesTemplateContentTests
     {
         var repoRoot = Path.GetFullPath(Path.Combine(
             Directory.GetCurrentDirectory().Split("bin")[0], "..", ".."));
-        return Path.Combine(repoRoot, ".agentsmith", "contexts", "default", "coding-principles.md");
+        return Path.Combine(repoRoot, ".agentsmith", "contexts", "default", "principles.md");
     }
 }

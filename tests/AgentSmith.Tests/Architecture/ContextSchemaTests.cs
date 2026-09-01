@@ -46,6 +46,7 @@ public sealed class ContextSchemaTests
     [InlineData(typeof(ContextYamlStack), "stack")]
     [InlineData(typeof(ContextYamlStackResources), "stack.resources")]
     [InlineData(typeof(ContextYamlRegistryAuth), "registry_auth")]
+    [InlineData(typeof(ContextYamlVerifyDerivation), "verify_derived_from")]
     public void Schema_EveryBlockTheWriterCanEmit_IsDeclared(Type written, string blockPath)
     {
         var declared = ContextSchemaFile.DeclaredKeys(blockPath);
