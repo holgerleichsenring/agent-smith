@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Workers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 
@@ -45,6 +46,8 @@ public sealed class PipelineCostTracker
     // creates it), so the tier cap is applied in place via ApplyCostCap.
     private CostCapValues? _costCap;
     private readonly SkillCostScopeManager _scopes = new();
+    // 2026-09-01-b0d7: worker-CLI spend, in its own channel — see WorkerCallLedger.
+    private readonly WorkerCallLedger _workerCalls = new();
 
     public PipelineCostTracker(
         IModelPricingResolver? resolver = null,
@@ -87,9 +90,17 @@ public sealed class PipelineCostTracker
     // stays full weight — it is a genuine write at ~1.25× the input price.
     private const double CacheReadCapWeight = 0.1;
 
+    // 2026-09-01-b0d7: worker volume counts here and NOWHERE in the USD arm. Token volume
+    // is real context on any transport, so the token cap binds; no money is spent on that
+    // transport, so the money cap has nothing to bind on.
     private long EffectiveCapTokensLocked()
-        => (long)_totalInputTokens + _totalOutputTokens + _totalCacheCreateTokens
-            + (long)(_totalCacheReadTokens * CacheReadCapWeight);
+        => Weighted(_totalInputTokens, _totalOutputTokens, _totalCacheCreateTokens,
+                _totalCacheReadTokens)
+            + Weighted(_workerCalls.InputTokens, _workerCalls.OutputTokens,
+                _workerCalls.CacheCreationTokens, _workerCalls.CacheReadTokens);
+
+    private static long Weighted(long input, long output, long cacheCreate, long cacheRead)
+        => input + output + cacheCreate + (long)(cacheRead * CacheReadCapWeight);
 
     /// <summary>p0341c: cumulative tokens across all four buckets — the RAW total, kept
     /// for honest reporting (result.md, metrics). The budget cap uses the cache-weighted
@@ -143,6 +154,9 @@ public sealed class PipelineCostTracker
 
     public IReadOnlyList<CallCostRecord> PerSkillBreakdown => _scopes.PerSkillBreakdown;
 
+    /// <summary>2026-09-01-b0d7: what the external agent CLI reported, kept apart.</summary>
+    public WorkerCallLedger WorkerCalls => _workerCalls;
+
     public SkillCallScope BeginCall(
         string skillName, string role, SkillExecutionPhase phase, string? repoName = null)
         => _scopes.BeginCall(skillName, role, phase, this, repoName);
@@ -160,66 +174,50 @@ public sealed class PipelineCostTracker
     /// </summary>
     public void Track(ChatResponse response)
     {
+        if (WorkerCallAccounting.Of(response) is { } worker) { TrackWorkerCall(worker); return; }
         if (response.Usage is null) return;
-        var input = (int)(response.Usage.InputTokenCount ?? 0);
-        var output = (int)(response.Usage.OutputTokenCount ?? 0);
-        var anthropicRead = ReadAdditionalCount(response.Usage, "CacheReadInputTokens")
-            + ReadAdditionalCount(response.Usage, "cache_read_input_tokens");
-        var openAiCached = OpenAiCachedInput(response.Usage);
-        var cacheRead = anthropicRead + openAiCached;
-        var cacheCreate = ReadAdditionalCount(response.Usage, "CacheCreationInputTokens")
-            + ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
-        var billable = Math.Max(0, input - openAiCached);
+        var usage = UsageBreakdown.Of(response.Usage);
         var model = response.ModelId;
         var callUsd = 0m;
         var effectiveModel = string.Empty;
         lock (_gate)
         {
-            _totalInputTokens += billable;
-            _totalOutputTokens += output;
-            _totalCacheCreateTokens += cacheCreate;
-            _totalCacheReadTokens += cacheRead;
+            _totalInputTokens += usage.Billable;
+            _totalOutputTokens += usage.Output;
+            _totalCacheCreateTokens += usage.CacheCreate;
+            _totalCacheReadTokens += usage.CacheRead;
             _callCount++;
             effectiveModel = string.IsNullOrEmpty(model) ? _lastModel : model;
             var pricing = _pricing.Resolve(effectiveModel);
             if (pricing is not null)
             {
-                callUsd = PriceUsage(pricing, billable, output, cacheCreate, cacheRead);
+                callUsd = usage.PriceAt(pricing);
                 _accruedUsd += callUsd;
             }
             else
             {
                 // p0361: no price for this model — record instead of silently
                 // accruing $0, so the summary can flag the total as incomplete.
-                var tokens = (long)billable + output + cacheCreate + cacheRead;
                 _unpricedTokensByModel[effectiveModel] =
-                    _unpricedTokensByModel.GetValueOrDefault(effectiveModel) + tokens;
+                    _unpricedTokensByModel.GetValueOrDefault(effectiveModel) + usage.Total;
             }
             if (!string.IsNullOrEmpty(model)) _lastModel = model;
         }
-        _scopes.AttributeTokens(billable, output, cacheCreate, cacheRead);
+        _scopes.AttributeTokens(usage.Billable, usage.Output, usage.CacheCreate, usage.CacheRead);
         _scopes.AttributeCost(effectiveModel, callUsd);
     }
 
-    private static decimal PriceUsage(
-        Contracts.Models.Configuration.ModelPricing pricing, int billable, int output, int cacheCreate, int cacheRead) =>
-        (billable / 1_000_000m * pricing.InputPerMillion)
-        + (output / 1_000_000m * pricing.OutputPerMillion)
-        + (cacheCreate / 1_000_000m * pricing.InputPerMillion
-            * Contracts.Models.Configuration.ModelPricing.CacheWritePremium5mTtl)
-        + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
-
-    private static int ReadAdditionalCount(UsageDetails usage, string key)
-        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
-
-    // OpenAI/Azure report the cached prompt subset on the first-class
-    // UsageDetails.CachedInputTokenCount (M.E.AI.OpenAI 10.3.0). They do NOT write
-    // AdditionalCounts["cached_tokens"] — reading that dead key is why OpenAI cache
-    // reads always priced as 0 (full input rate). Anthropic leaves this property null
-    // (its cache reads live in the PascalCase AdditionalCounts keys and are handled as
-    // ExclusiveRead), so the snake_case fallback stays 0 there — no double counting.
-    private static int OpenAiCachedInput(UsageDetails usage)
-        => (int)(usage.CachedInputTokenCount ?? ReadAdditionalCount(usage, "cached_tokens"));
+    /// <summary>
+    /// 2026-09-01-b0d7: the entry point for a call an external agent CLI answered. It is
+    /// distinct from <see cref="Track"/> on purpose: the model table would price a
+    /// subscription-answered call at API rates, and the unpriced-model path would raise a
+    /// pricing alarm for a call that has no price by design. Both produce a wrong number,
+    /// so the CLI's own figure is accumulated as the CLI's own figure.
+    /// </summary>
+    public void TrackWorkerCall(WorkerCallAccounting accounting)
+    {
+        lock (_gate) _workerCalls.Add(accounting);
+    }
 
     public decimal EstimateCostUsd()
     {
@@ -236,20 +234,11 @@ public sealed class PipelineCostTracker
     /// </summary>
     public decimal EstimateResponseCostUsd(ChatResponse response)
     {
-        if (response.Usage is null) return 0m;
-        var input = (int)(response.Usage.InputTokenCount ?? 0);
-        var output = (int)(response.Usage.OutputTokenCount ?? 0);
-        var anthropicRead = ReadAdditionalCount(response.Usage, "CacheReadInputTokens")
-            + ReadAdditionalCount(response.Usage, "cache_read_input_tokens");
-        var openAiCached = OpenAiCachedInput(response.Usage);
-        var cacheRead = anthropicRead + openAiCached;
-        var cacheCreate = ReadAdditionalCount(response.Usage, "CacheCreationInputTokens")
-            + ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
-        var billable = Math.Max(0, input - openAiCached);
+        // A worker call has no table price by design; pricing it would invent one.
+        if (response.Usage is null || WorkerCallAccounting.Of(response) is not null) return 0m;
         var model = string.IsNullOrEmpty(response.ModelId) ? _lastModel : response.ModelId;
         var pricing = _pricing.Resolve(model);
-        if (pricing is null) return 0m;
-        return PriceUsage(pricing, billable, output, cacheCreate, cacheRead);
+        return pricing is null ? 0m : UsageBreakdown.Of(response.Usage).PriceAt(pricing);
     }
 
     /// <summary>
@@ -265,7 +254,7 @@ public sealed class PipelineCostTracker
     {
         lock (_gate)
         {
-            if (_callCount == 0) return null;
+            if (_callCount == 0 && _workerCalls.CallCount == 0) return null;
 
             var records = _scopes.PerSkillBreakdown;
             var grouped = records
@@ -320,7 +309,8 @@ public sealed class PipelineCostTracker
                 grouped, EstimateCostUsdLocked(), perRepo,
                 _unpricedTokensByModel.Count > 0
                     ? new Dictionary<string, long>(_unpricedTokensByModel)
-                    : null);
+                    : null,
+                _workerCalls.Snapshot());
         }
     }
 
@@ -358,8 +348,9 @@ public sealed class PipelineCostTracker
                 ? ""
                 : " · COST INCOMPLETE, no price for: " + string.Join(", ",
                     _unpricedTokensByModel.Select(kv => $"{kv.Key} ({kv.Value} tokens)"));
+            var workerStr = _workerCalls.CallCount == 0 ? "" : $" · {_workerCalls}";
             return $"{_callCount} LLM calls · {_totalInputTokens + _totalOutputTokens} tokens " +
-                   $"({_totalInputTokens} in, {_totalOutputTokens} out){cacheStr} · {costStr} · {_lastModel}{unpricedStr}";
+                   $"({_totalInputTokens} in, {_totalOutputTokens} out){cacheStr} · {costStr} · {_lastModel}{unpricedStr}{workerStr}";
         }
     }
 
