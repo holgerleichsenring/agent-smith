@@ -40,6 +40,7 @@ public sealed class AgenticMasterHandler(
     Tools.VerifyDerivationStamp verifyDerivationStamp, // 2026-09-01-e14d: hashes the verify block's source
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
+    ScanCoverageRedrive coverageRedrive, // 2026-09-01-7df4: the deeper pass, unioned
     ISpecDialogPromptFactory specDialogPromptFactory,
     IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
@@ -331,11 +332,11 @@ public sealed class AgenticMasterHandler(
                 isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
                 progress, recall, remember, context),
             UserImageParts: extras.ImageParts,
-            // 2026-09-01-6c32: the scan master's closing answer is a findings ARRAY, not a
-            // coding turn — it gets an output budget sized for the answer it is asked for.
-            MaxOutputTokensOverride: isScanMaster ? context.AgentConfig.ScanMasterMaxOutputTokens : null,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
+        // The observation-schema surface's own ceiling, output budget and reduction.
+        if (isScanMaster)
+            request = ScanSurfaceLimits.Apply(request, context.AgentConfig, context.Pipeline);
 
         // p0341f: every drive below continues THIS conversation instead of opening a new one.
         var conversation = new MasterConversation();
@@ -410,22 +411,19 @@ public sealed class AgenticMasterHandler(
         // code. Coverage signal = distinct source reads (FilesystemToolHost.ReadPaths);
         // bounded, scan-only. Prevents a near-empty pass; it does not guarantee every
         // class is checked (model concern). The same fs accumulates the deeper reads.
+        // 2026-09-01-7df4: the deeper pass ADDS to the first instead of replacing it, and
+        // records itself in the conversation like every other drive.
+        string? scanAnswer = null;
         if (isScanMaster && fs.ReadPaths.Count < context.AgentConfig.ScanMinSourceReads)
         {
             logger.LogWarning(
                 "Scan master '{Skill}' read only {Count} source file(s) (< floor {Floor}) — re-prompting once for deeper coverage",
                 context.MasterSkillName, fs.ReadPaths.Count, context.AgentConfig.ScanMinSourceReads);
-            try
-            {
-                var deeper = await loopRunner.RunAsync(
-                    request with { UserPrompt = scanPromptFactory.BuildCoverageNudge(userPrompt) }, cancellationToken);
-                TrackMasterResponse(deeper.Response);
-                loopResult = deeper; // the deeper pass re-emits the complete observation array
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                logger.LogWarning(ex, "Coverage re-drive failed for scan master '{Skill}'", context.MasterSkillName);
-            }
+            var redrive = await coverageRedrive.DriveAsync(
+                context.Pipeline, request, userPrompt, loopResult, conversation,
+                TrackMasterResponse, cancellationToken);
+            loopResult = redrive.Result;
+            scanAnswer = redrive.Answer;
         }
 
         // p0315b/p0315e: a spec-dialog reply's typed terminal outcome (answer /
@@ -481,7 +479,8 @@ public sealed class AgenticMasterHandler(
         // findings-scrape (CollectMasterFindings on the api-security path) can route
         // the master's TRIAGED observation-array into SkillObservations. Unconditional
         // and content-agnostic — the coding path simply never runs a consumer.
-        context.Pipeline.Set(ContextKeys.MasterAnswer, loopResult.Response.Text ?? string.Empty);
+        context.Pipeline.Set(
+            ContextKeys.MasterAnswer, scanAnswer ?? loopResult.Response.Text ?? string.Empty);
         context.Pipeline.Set(ContextKeys.MasterSkillName, context.MasterSkillName);
         // p0279: publish the scan master's read-set (post re-drive) so the findings scrape
         // can downgrade an analyzed_from_source claim on a file the master never read.

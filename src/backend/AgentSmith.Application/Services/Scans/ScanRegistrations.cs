@@ -42,6 +42,8 @@ public static class ScanRegistrations
     {
         services.AddTransient<IScanContractCatalogue, ScanContractCatalogue>();
         services.AddTransient<IScanCoverageAccountant, ScanCoverageAccountant>();
+        // 2026-09-01-7df4: the deeper pass a shallow scan is driven into, unioned with the first.
+        services.AddTransient<AgentSmith.Application.Services.Handlers.ScanCoverageRedrive>();
         services.AddTransient<ICommandHandler<RatifyScanContractContext>, RatifyScanContractHandler>();
         services.AddTransient<ICommandHandler<AccountScanCoverageContext>, AccountScanCoverageHandler>();
         services.AddTransient<CitedCodeWindow>();

@@ -74,9 +74,13 @@ public sealed class ChatClientFactory(
 
     public IChatClient Create(
         AgentConfig agent, TaskType task, int? maxIterations,
-        MasterLoopHooks? masterLoopHooks, CompactionConfig? compaction)
+        MasterLoopHooks? masterLoopHooks, CompactionConfig? compaction,
+        int? contextWindowOverride = null)
     {
         var assignment = GetAssignment(agent, task);
+        // 2026-09-01-7df4: a role's own stated window always wins; the override is what the
+        // calling surface assumes when the operator stated nothing for that role.
+        var window = assignment.ContextWindowTokens ?? contextWindowOverride;
         var effectiveType = assignment.ProviderType ?? agent.Type;
         if (!_builderByType.TryGetValue(effectiveType.ToLowerInvariant(), out var builder))
             throw new InvalidOperationException(
@@ -138,8 +142,7 @@ public sealed class ChatClientFactory(
         // against and the setting that would have prevented it — innermost, so nothing
         // above rewrites the provider's own words first.
         var diagnosed = new ContextLengthRefusalChatClient(
-            scrubbed, task.ToString(), assignment.Model ?? effectiveType,
-            assignment.ContextWindowTokens, _logger);
+            scrubbed, task.ToString(), assignment.Model ?? effectiveType, window, _logger);
 
         if (!ToolBearingTasks.Contains(task))
             return diagnosed;
@@ -154,12 +157,12 @@ public sealed class ChatClientFactory(
         // client appends every tool result to one message list. The finalizer sits INSIDE
         // the compactor so it measures the view that is actually forwarded.
         IChatClient loopInner = diagnosed;
-        if (assignment.ContextWindowTokens is { } window and > 0)
+        if (window is { } stated and > 0)
             loopInner = new ContextPressureFinalizingChatClient(
-                loopInner, window, task.ToString(),
+                loopInner, stated, task.ToString(),
                 loggerFactory.CreateLogger<ContextPressureFinalizingChatClient>());
         var effective = masterLoopHooks?.Compaction
-            ?? windowCompaction.Derive(compaction, assignment.ContextWindowTokens);
+            ?? windowCompaction.Derive(compaction, window);
         if (effective is { IsEnabled: true })
             loopInner = new CompactingChatClient(
                 loopInner, effective, masterLoopHooks,

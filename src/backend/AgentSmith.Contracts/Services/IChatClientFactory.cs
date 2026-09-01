@@ -47,10 +47,15 @@ public interface IChatClientFactory
     /// resolved role states <c>context_window_tokens</c>: without a window there is no
     /// threshold to derive and the chain is the one built before. The default forwards to
     /// the four-argument overload, so a test double implements only what it needs.
+    /// <para>2026-09-01-7df4: <paramref name="contextWindowOverride"/> is the window to
+    /// assume when the resolved role states none — a surface that raises its iteration
+    /// ceiling has to be able to reduce, and no shipped configuration states a window for
+    /// the scan role. A role that states its own window wins over it.</para>
     /// </summary>
     IChatClient Create(
         AgentConfig agent, TaskType task, int? maxIterations,
-        MasterLoopHooks? masterLoopHooks, CompactionConfig? compaction)
+        MasterLoopHooks? masterLoopHooks, CompactionConfig? compaction,
+        int? contextWindowOverride = null)
         => Create(agent, task, maxIterations, masterLoopHooks);
 
     /// <summary>

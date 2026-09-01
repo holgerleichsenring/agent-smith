@@ -38,6 +38,7 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
+            BuildCoverageRedrive(loop),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
             BuildOutcomeResolver(),
@@ -109,6 +110,14 @@ internal static class MasterHandlerFixture
             },
             Pipeline: pipeline);
     }
+
+    // 2026-09-01-7df4: the coverage re-drive runs on the SAME loop runner the handler was
+    // given, so a test that counts requests still sees the deeper pass.
+    private static ScanCoverageRedrive BuildCoverageRedrive(IAgenticLoopRunner loop) =>
+        new(loop, new AgentSmith.Application.Services.ScanMasterPromptFactory(),
+            new MasterAnswerUnion(AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateTolerant()),
+            AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateTolerant(),
+            NullLogger<ScanCoverageRedrive>.Instance);
 
     // p0353: the master takes the web_fetch tool host by DI; a real instance (its
     // HttpClient is never called in these tests) keeps the ctor happy.
