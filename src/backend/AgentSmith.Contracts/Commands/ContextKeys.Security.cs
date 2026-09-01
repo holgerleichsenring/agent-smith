@@ -48,6 +48,11 @@ public static partial class ContextKeys
     /// would replace one invisible failure with another.</summary>
     public const string ScanTriageRecovered = "ScanTriageRecovered";
 
+    /// <summary>2026-09-01-7df4: the per-pass tool-iteration ceiling the scan master really
+    /// ran under. Recorded because the next argument about the number should start from a
+    /// run that says what it used, rather than from a private constant nobody chose.</summary>
+    public const string ScanMasterIterationCeiling = "ScanMasterIterationCeiling";
+
     /// <summary>p0429: the ScanContract ratified before the first scanner runs — what
     /// this scan states it is looking for. Read by AcceptanceCriteria as the run's
     /// contract and accounted for against the execution trail after delivery.</summary>

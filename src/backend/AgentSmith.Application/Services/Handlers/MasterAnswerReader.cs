@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -31,7 +30,7 @@ public sealed class MasterAnswerReader(
         string answer, string role, ILogger? logger = null,
         IReadOnlyCollection<string>? readPaths = null)
     {
-        if (IsStrictArray(answer))
+        if (tolerantParser.IsJsonArray(answer))
             return new MasterAnswerReading(
                 observationParser.TryParseWithoutIds(answer, role, logger, readPaths) ?? [],
                 Recovered: false, Rejection: null);
@@ -48,11 +47,5 @@ public sealed class MasterAnswerReader(
         return new MasterAnswerReading(
             [], Recovered: false,
             Rejection: "answer is not a JSON array and holds no recoverable observation");
-    }
-
-    private bool IsStrictArray(string answer)
-    {
-        using var document = tolerantParser.ParseArray(answer).Document;
-        return document is not null && document.RootElement.ValueKind == JsonValueKind.Array;
     }
 }
