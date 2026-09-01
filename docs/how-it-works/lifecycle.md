@@ -45,7 +45,7 @@ The fix is usually one of: declare the missing project language in `.agentsmith/
 
 ## Per-repo bootstrap
 
-When a project's repos haven't been bootstrapped yet (no `.agentsmith/context.yaml` in the repo), `BootstrapGate` aborts the run with a clear message: "run `init-project` first". The `init-project` pipeline iterates the project's repos, writes a `.agentsmith/context.yaml` and a `.agentsmith/coding-principles.md` into each, opens one bootstrap PR per repo, cross-links them. Run it once per project (it handles all the repos in one go).
+When a project's repos haven't been bootstrapped yet (no `.agentsmith/context.yaml` in the repo), `BootstrapGate` aborts the run with a clear message: "run `init-project` first". The `init-project` pipeline iterates the project's repos, writes a `.agentsmith/context.yaml` and a `.agentsmith/principles.md` into each, opens one bootstrap PR per repo, cross-links them. Run it once per project (it handles all the repos in one go).
 
 ## Run identifiers
 

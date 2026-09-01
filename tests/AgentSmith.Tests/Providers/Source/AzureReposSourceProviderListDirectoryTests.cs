@@ -59,7 +59,7 @@ public sealed class AzureReposSourceProviderListDirectoryTests
             new() { Path = "/.agentsmith/contexts",                          IsFolder = true  },
             new() { Path = "/.agentsmith/contexts/api",                      IsFolder = true  },
             new() { Path = "/.agentsmith/contexts/api/context.yaml",         IsFolder = false },
-            new() { Path = "/.agentsmith/contexts/api/coding-principles.md", IsFolder = false },
+            new() { Path = "/.agentsmith/contexts/api/principles.md", IsFolder = false },
             new() { Path = "/.agentsmith/contexts/docs",                     IsFolder = true  },
         };
         var sut = BuildSut(items);

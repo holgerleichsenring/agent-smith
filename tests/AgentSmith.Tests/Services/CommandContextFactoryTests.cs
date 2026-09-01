@@ -87,7 +87,7 @@ public class CommandContextFactoryTests
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/test/repo" },
             Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
             Pipeline = "fix-bug",
-            CodingPrinciplesPath = "config/coding-principles.md"
+            CodingPrinciplesPath = "config/principles.md"
         };
     }
 }

@@ -22,7 +22,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Per-command handlers driven by PipelineExecutor: ticket fetch, source checkout,
-/// load context / coding-principles / skills / swagger, analyze, plan-related, test,
+/// load context / principles / skills / swagger, analyze, plan-related, test,
 /// commit, init-commit, generate-docs/tests, compile-discussion/knowledge,
 /// acquire-source, deliver-output/findings, session-setup, ask, triage + activation,
 /// bootstrap (check/gate/dispatch + concept publishers), SpawnX security launchers,

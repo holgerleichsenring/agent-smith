@@ -74,7 +74,7 @@ Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, phas
 
 Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/phase-gate.sh) that lets a phase commit through once the build, all 3,760 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
 
-The `coding-principles.md` I built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
+The `principles.md` I built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
 **[The full account, including what didn't work](https://docs.agent-smith.org/how-it-works/built-by-the-method/)**: the skill catalog going from 95 down to 12, the plan generator I retired, the metric that quietly read zero for months, and how every figure above was counted.
 

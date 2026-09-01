@@ -129,7 +129,7 @@ public sealed class PipelineRunner(IServiceProvider services)
             Agent = agent,
             Pipeline = presetName,
             // p0199c: leave CodingPrinciplesPath unset so LoadCodingPrinciplesHandler
-            // resolves the default `.agentsmith/coding-principles.md` AND keeps the
+            // resolves the default `.agentsmith/principles.md` AND keeps the
             // nested per-context fallback (`.agentsmith/contexts/<name>/coding-
             // principles.md`) active. A non-default path disables the fallback,
             // which surfaced as "DomainRules not found" on the docker tier where
@@ -151,7 +151,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         var pipeline = new PipelineContext();
         var conceptValue = PipelineNameConceptMap.ToConceptValue(presetName);
         // p0199c: CodingPrinciplesPath left null so LoadCodingPrinciplesHandler
-        // resolves the default (.agentsmith/coding-principles.md) AND keeps the
+        // resolves the default (.agentsmith/principles.md) AND keeps the
         // nested per-context fallback active for fixtures that ship principles
         // only under .agentsmith/contexts/<name>/. A non-default value disables
         // the fallback path — that's how add-feature failed on the docker tier

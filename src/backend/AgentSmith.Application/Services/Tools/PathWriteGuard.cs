@@ -8,9 +8,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// runs first via <see cref="IPathReadGuard"/>; then phase-gating: only Implementation
 /// and Bootstrap may write. Bootstrap is further restricted to the two bootstrap
 /// files under the round's per-context MetaDir
-/// (<c>.agentsmith/contexts/&lt;ContextName&gt;/{context.yaml,coding-principles.md}</c>).
+/// (<c>.agentsmith/contexts/&lt;ContextName&gt;/{context.yaml,principles.md}</c>).
 /// Empty contextName falls back to the legacy flat layout
-/// (<c>.agentsmith/{context.yaml,coding-principles.md}</c>) for pre-p0161d test
+/// (<c>.agentsmith/{context.yaml,principles.md}</c>) for pre-p0161d test
 /// fixtures. Stateless — per-call values come from the caller.
 /// </summary>
 public sealed class PathWriteGuard(IPathReadGuard readGuard) : IPathWriteGuard
@@ -40,12 +40,12 @@ public sealed class PathWriteGuard(IPathReadGuard readGuard) : IPathWriteGuard
     private static string[] BuildBootstrapFileList(string? contextName)
     {
         if (string.IsNullOrEmpty(contextName))
-            return [ProjectMetaPaths.ContextYaml, ProjectMetaPaths.CodingPrinciples];
+            return [ProjectMetaPaths.ContextYaml, ProjectMetaPaths.Principles];
         var metaDir = $"{ProjectMetaPaths.Contexts}/{contextName}";
         return
         [
             $"{metaDir}/{ProjectMetaPaths.ContextYamlFile}",
-            $"{metaDir}/{ProjectMetaPaths.CodingPrinciplesFile}",
+            $"{metaDir}/{ProjectMetaPaths.PrinciplesFile}",
         ];
     }
 

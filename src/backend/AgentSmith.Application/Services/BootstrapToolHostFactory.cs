@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services;
 /// accumulated.
 ///
 /// p0161d: <c>contextName</c> scopes the write guard to
-/// <c>.agentsmith/contexts/&lt;contextName&gt;/{context.yaml,coding-principles.md}</c>
+/// <c>.agentsmith/contexts/&lt;contextName&gt;/{context.yaml,principles.md}</c>
 /// — never the flat root path, never a foreign context's path. Empty string
 /// falls back to the legacy flat layout for pre-p0161d test fixtures.
 /// </summary>
@@ -40,7 +40,7 @@ public sealed class BootstrapToolHostFactory(
         var log = new LogDecisionToolHost(decisionLogger, repoLocalPath);
         // p0193-fix: the bootstrap round writes context.yaml through the typed
         // write_context_yaml tool (write_file rejects context.yaml paths). Without
-        // this the round could only ever write coding-principles.md — context.yaml
+        // this the round could only ever write principles.md — context.yaml
         // was silently unproducible from p0193 until this wiring.
         var writeContextYaml = new WriteContextYamlToolHost(
             new Dictionary<string, ISandbox> { [repoName] = sandbox },

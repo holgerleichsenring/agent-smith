@@ -6,7 +6,7 @@ Full directory layout of the Agent Smith repository.
 agent-smith/
 ├── .agentsmith/                    # Agent meta-files (project context)
 │   ├── context.yaml                # Project description + phase tracking
-│   ├── coding-principles.md        # Detected coding conventions
+│   ├── principles.md        # Detected coding conventions
 │   ├── phases/
 │   │   ├── done/                   # Completed phase docs (historical)
 │   │   ├── active/                 # Currently active phase (max 1)

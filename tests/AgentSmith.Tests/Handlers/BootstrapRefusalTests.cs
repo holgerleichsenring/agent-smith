@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
@@ -39,7 +40,7 @@ public sealed class BootstrapRefusalTests
 
         refusal.Should()
             .Contain("/work/.agentsmith/contexts/default/context.yaml")
-            .And.Contain("/work/.agentsmith/contexts/default/coding-principles.md");
+            .And.Contain("/work/.agentsmith/contexts/default/principles.md");
     }
 
     [Fact]
@@ -51,7 +52,25 @@ public sealed class BootstrapRefusalTests
         refusal.Should().Contain("init-project", "the actionable half of the old text stays");
     }
 
-    private static async Task<string> RefuseAsync()
+    // 2026-09-01-eec0: nothing reads the old name as principles, so this repository is
+    // refused — but "file missing" would send the operator after a file they already
+    // wrote, so the refusal says which name went and what brings the new one back.
+    [Fact]
+    public async Task BootstrapGate_ARepositoryCarryingOnlyTheOldName_IsRefusedWithTheRemedy()
+    {
+        var refusal = await RefuseAsync(CarriesOnlyTheRetiredName);
+
+        refusal.Should()
+            .Contain(ProjectMetaPaths.RetiredPrinciplesFile)
+            .And.Contain(ProjectMetaPaths.PrinciplesFile)
+            .And.Contain("re-run init-project");
+    }
+
+    private static bool CarriesOnlyTheRetiredName(string path) =>
+        path.EndsWith(ProjectMetaPaths.RetiredPrinciplesFile, StringComparison.Ordinal)
+        || path.EndsWith(ProjectMetaPaths.ContextYamlFile, StringComparison.Ordinal);
+
+    private static async Task<string> RefuseAsync(Func<string, bool>? exists = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Repository, new Repository(new BranchName(WorkBranch), "https://x/server.git"));
@@ -68,7 +87,7 @@ public sealed class BootstrapRefusalTests
             PipelineName: "fix-bug", Agent: new AgentConfig(), SkillsPath: "skills",
             CodingPrinciplesPath: null));
 
-        await CheckHandler().ExecuteAsync(new BootstrapCheckContext(pipeline), CancellationToken.None);
+        await CheckHandler(exists).ExecuteAsync(new BootstrapCheckContext(pipeline), CancellationToken.None);
         var gate = await new BootstrapGateHandler(
                 RunStateConceptsTestFactory.Default, EventTestStubs.NoOp,
                 NullLogger<BootstrapGateHandler>.Instance)
@@ -78,11 +97,11 @@ public sealed class BootstrapRefusalTests
         return gate.Message ?? string.Empty;
     }
 
-    private static BootstrapCheckHandler CheckHandler()
+    private static BootstrapCheckHandler CheckHandler(Func<string, bool>? exists)
     {
         var reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+            .ReturnsAsync((string path, CancellationToken _) => exists?.Invoke(path) ?? false);
         var readerFactory = new Mock<ISandboxFileReaderFactory>();
         readerFactory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
         return new BootstrapCheckHandler(

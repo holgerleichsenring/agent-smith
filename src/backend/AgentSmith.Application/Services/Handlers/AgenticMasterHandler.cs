@@ -227,7 +227,7 @@ public sealed class AgenticMasterHandler(
         // p0380: memory recall (a read, every surface) + remember (a proposal
         // writing only run-record-class .agentsmith/memory/ paths). Backed by
         // the default sandbox's file reader — the same seam the run-record and
-        // coding-principles reads use.
+        // principles reads use.
         var memoryStore = new Memory.MemoryStore(
             sandboxFileReaderFactory.Create(sandboxes[defaultKey]), context.Repository.LocalPath, logger);
         var recall = new MemoryRecallToolHost(memoryStore);

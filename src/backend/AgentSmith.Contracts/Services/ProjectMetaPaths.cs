@@ -14,7 +14,7 @@ public static class ProjectMetaPaths
     public const string Root = ".agentsmith";
 
     public const string ContextYaml = Root + "/context.yaml";
-    public const string CodingPrinciples = Root + "/coding-principles.md";
+    public const string Principles = Root + "/" + PrinciplesFile;
     public const string ConfigYaml = Root + "/agentsmith.yml";
     public const string Runs = Root + "/runs";
     public const string Wiki = Root + "/wiki";
@@ -34,7 +34,15 @@ public static class ProjectMetaPaths
     public const string Decisions = Root + "/decisions";
 
     public const string ContextYamlFile = "context.yaml";
-    public const string CodingPrinciplesFile = "coding-principles.md";
+
+    /// <summary>2026-09-01-eec0: the authored rules a repository carries. Named for what
+    /// it holds — rules about the ENVIRONMENT belong in it as much as rules about code.</summary>
+    public const string PrinciplesFile = "principles.md";
+
+    /// <summary>2026-09-01-eec0: the name this file carried before the rename. Nothing
+    /// READS it as principles — it exists so a repository that still carries only the old
+    /// name is refused with re-init named as the remedy, instead of "file missing".</summary>
+    public const string RetiredPrinciplesFile = "coding-principles.md";
 
     /// <summary>p0161a: absolute MetaDir inside the sandbox for one discovered
     /// context. /work prefix matches Repository.SandboxWorkPath. Result is

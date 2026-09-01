@@ -22,7 +22,7 @@ namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
 /// p0379: the bootstrap round TRANSFERS the authored core+delta composition
-/// into coding-principles.md (framework write, before the skill call) instead
+/// into principles.md (framework write, before the skill call) instead
 /// of LLM-generating principles from code archaeology; ratified principles
 /// are never overwritten on re-init; pre-p0379 catalogs keep the legacy
 /// skill-writes behavior byte-for-byte.
@@ -32,7 +32,7 @@ public sealed class BootstrapPrinciplesTransferTests
     private const string ComposedContent =
         "# Coding Principles\nAUTHORED-GOLD core + delta\n## Project Specifics (ratified additions)\n";
 
-    private const string PrinciplesPath = ".agentsmith/contexts/server/coding-principles.md";
+    private const string PrinciplesPath = ".agentsmith/contexts/server/principles.md";
 
     private static readonly RoleSkillDefinition BootstrapSkill = new()
     {
@@ -44,6 +44,24 @@ public sealed class BootstrapPrinciplesTransferTests
         Role = "producer",
         OutputSchema = "bootstrap",
     };
+
+    // 2026-09-01-eec0: the file is named for what it holds. The composition lands under the
+    // new name and under no other — a second name would keep the retired one alive.
+    [Fact]
+    public async Task Compose_WritesPrinciplesMd()
+    {
+        var sandbox = new StubSandbox();
+        var handler = NewHandler(new CapturedPrompt(), PrinciplesTransferStubs.Composing(ComposedContent));
+
+        await handler.ExecuteAsync(
+            new BootstrapRoundContext(BootstrapSkill.Name, "monorepo", new AgentConfig(), NewPipeline(sandbox),
+                ContextName: "server", Workdir: "server"),
+            CancellationToken.None);
+
+        var writes = sandbox.RanSteps.Where(s => s.Kind == StepKind.WriteFile).ToList();
+        writes.Should().ContainSingle(s => s.Path == $".agentsmith/contexts/server/{ProjectMetaPaths.PrinciplesFile}");
+        writes.Should().NotContain(s => s.Path!.EndsWith(ProjectMetaPaths.RetiredPrinciplesFile, StringComparison.Ordinal));
+    }
 
     [Fact]
     public async Task Bootstrap_DoesNotGeneratePrinciplesFromArchaeology_TransfersAndRatifies()
@@ -112,7 +130,7 @@ public sealed class BootstrapPrinciplesTransferTests
                 ContextName: "server", Workdir: "server"),
             CancellationToken.None);
 
-        // Pre-p0379 shape: the prompt still names coding-principles.md as the
+        // Pre-p0379 shape: the prompt still names principles.md as the
         // skill's write_file target and the zero-write_file failure stays.
         captured.User.Should().Contain($"`{PrinciplesPath}` — use the `write_file` tool");
         sandbox.RanSteps.Should().NotContain(

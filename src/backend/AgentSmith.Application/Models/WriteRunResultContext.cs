@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Models;
 ///   handler writes plan.md + result.md grounded on the ticket.
 /// - Init mode (init-project): <see cref="Plan"/> and <see cref="Ticket"/> are
 ///   <c>null</c> and <see cref="Changes"/> is empty. The bootstrap skill writes
-///   the deliverable files (<c>.agentsmith/context.yaml</c>, coding-principles.md)
+///   the deliverable files (<c>.agentsmith/context.yaml</c>, principles.md)
 ///   directly; this handler persists bootstrap.md (when present in
 ///   <c>ContextKeys.BootstrapMarkdown</c>) plus an init-mode result.md and
 ///   appends the run entry to <c>context.yaml</c>.

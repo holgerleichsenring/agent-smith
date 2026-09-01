@@ -56,7 +56,7 @@ public sealed class LoadCodingPrinciplesContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var path = pipeline.Resolved().CodingPrinciplesPath ?? ProjectMetaPaths.CodingPrinciples;
+        var path = pipeline.Resolved().CodingPrinciplesPath ?? ProjectMetaPaths.Principles;
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         return new LoadCodingPrinciplesContext(path, repo, pipeline);
     }

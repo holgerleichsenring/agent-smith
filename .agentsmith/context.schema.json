@@ -917,7 +917,7 @@
           }
         },
         "principles": {
-          "$comment": "READING — measured in a live context, every entry was a build-file flag read back out, and the authored coding-principles.md is where the intent already lives. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
+          "$comment": "READING — measured in a live context, every entry was a build-file flag read back out, and the authored principles.md is where the intent already lives. DEPRECATED 2026-08-26-04b6: still accepted, no longer written or asked for.",
           "type": "array",
           "items": {
             "type": "string",

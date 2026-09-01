@@ -95,7 +95,7 @@ projects:
 
     pipeline: fix-bug               # Default pipeline for this project
     skills_path: skills/coding      # Relative to config/ directory
-    coding_principles_path: .agentsmith/coding-principles.md
+    coding_principles_path: .agentsmith/principles.md
 
     # ─── Trigger config ────────────────────────────────────────────
     # One section per platform; pick the one matching tickets.type.

@@ -95,7 +95,7 @@ public sealed class InitCommitHandler(
             // content was the run-record. A record-only stage IS the no-change
             // re-init: the record lives in the DB and dashboard anyway, so skip
             // without committing. Mixed diffs (record + context.yaml /
-            // coding-principles.md) proceed unchanged, record included.
+            // principles.md) proceed unchanged, record included.
             var staged = await gitOps.GetStagedFileNamesAsync(sandbox, ct);
             if (staged.Count > 0 && staged.All(RunRecordPaths.IsUnderRunsDir))
             {
@@ -153,7 +153,7 @@ public sealed class InitCommitHandler(
                 ### Pull requests
                 {RenderPullRequestList(opened)}
 
-                Bootstrap files (`.agentsmith/context.yaml`, `coding-principles.md`) generated. Review and merge to enable agent-smith pipelines.
+                Bootstrap files (`.agentsmith/context.yaml`, `principles.md`) generated. Review and merge to enable agent-smith pipelines.
                 """
             : $"""
                 ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)

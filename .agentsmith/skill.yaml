@@ -10,7 +10,7 @@ output:
   provider: local
 
 context:
-  rules: coding-principles.md
+  rules: principles.md
   map: code-map.yaml
 
 roles:

@@ -26,7 +26,7 @@ The first segment of every file path is the catalog key from `repos:`. Unknown p
 
 **One agent conversation, not N.** The orchestrator holds one plan across all repos and one agent conversation. The system prompt names the repos in scope. The agent decides where to make changes based on the plan.
 
-**Per-repo bootstrap.** Each repo gets its own `.agentsmith/context.yaml` (toolchain image, project language) and `.agentsmith/coding-principles.md` (project-specific rules). The handlers iterate per repo via `ContextKeys.Sandboxes` + `ContextKeys.Repos`. The `init-project` pipeline writes these files per repo and opens one bootstrap PR per repo, cross-linked.
+**Per-repo bootstrap.** Each repo gets its own `.agentsmith/context.yaml` (toolchain image, project language) and `.agentsmith/principles.md` (project-specific rules). The handlers iterate per repo via `ContextKeys.Sandboxes` + `ContextKeys.Repos`. The `init-project` pipeline writes these files per repo and opens one bootstrap PR per repo, cross-linked.
 
 **One PR per repo, cross-linked.** `CommitAndPRHandler` iterates the per-repo `Configs` list. Each PR body carries a `<!-- agentsmith:sibling-prs -->` marker. After every PR has been opened, `PrCrossLinkHandler` PATCHes each PR body and inserts links to the siblings:
 

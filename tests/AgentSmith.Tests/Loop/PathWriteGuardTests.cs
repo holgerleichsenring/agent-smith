@@ -75,13 +75,13 @@ public sealed class PathWriteGuardTests
     public void BootstrapPathWriteGuard_PerContext_AcceptsTargetContextMetaDir()
     {
         // p0161d: a Bootstrap-phase guard scoped to context "server" must accept
-        // .agentsmith/contexts/server/{context.yaml, coding-principles.md} and
+        // .agentsmith/contexts/server/{context.yaml, principles.md} and
         // nothing else.
         var guard = Build();
 
         guard.AssertWritable("/work/.agentsmith/contexts/server/context.yaml", RepoRoot, SkillExecutionPhase.Bootstrap, "server")
             .IsSuccess.Should().BeTrue();
-        guard.AssertWritable("/work/.agentsmith/contexts/server/coding-principles.md", RepoRoot, SkillExecutionPhase.Bootstrap, "server")
+        guard.AssertWritable("/work/.agentsmith/contexts/server/principles.md", RepoRoot, SkillExecutionPhase.Bootstrap, "server")
             .IsSuccess.Should().BeTrue();
     }
 

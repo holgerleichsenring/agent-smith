@@ -92,7 +92,7 @@ public sealed class BootstrapRoundHandler(
         return changes.Count == 0
             ? CommandResult.Fail(
                 $"BootstrapRound: skill '{context.SkillName}' did not call write_file "
-                + "(0 changes). coding-principles.md not produced.")
+                + "(0 changes). principles.md not produced.")
             : CommandResult.Ok(
                 BootstrapPrinciplesOutcome.SkillWroteThem(transfer, role.DisplayName, changes.Count));
     }
@@ -104,7 +104,7 @@ public sealed class BootstrapRoundHandler(
         return !string.IsNullOrEmpty(content);
     }
 
-    // p0202d: read the operator's existing context.yaml + coding-principles.md
+    // p0202d: read the operator's existing context.yaml + principles.md
     // so the producer merges (preserve + backfill) instead of regenerating
     // from source and clobbering. Both null on cold-init → generate-from-scratch.
     private async Task<(string? ContextYaml, string? Principles)> ReadExistingMetaFilesAsync(

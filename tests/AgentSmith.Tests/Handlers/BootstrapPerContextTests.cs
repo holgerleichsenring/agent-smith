@@ -112,7 +112,7 @@ public sealed class BootstrapPerContextTests
             CancellationToken.None);
 
         captured.User.Should().Contain($"{ProjectMetaPaths.Contexts}/server/{ProjectMetaPaths.ContextYamlFile}");
-        captured.User.Should().Contain($"{ProjectMetaPaths.Contexts}/server/{ProjectMetaPaths.CodingPrinciplesFile}");
+        captured.User.Should().Contain($"{ProjectMetaPaths.Contexts}/server/{ProjectMetaPaths.PrinciplesFile}");
         captured.User.Should().Contain("Workdir (repo-relative): server");
         // Negative: flat root path must NOT appear when context is set.
         captured.User.Should().NotContain($".agentsmith/{ProjectMetaPaths.ContextYamlFile}\n");

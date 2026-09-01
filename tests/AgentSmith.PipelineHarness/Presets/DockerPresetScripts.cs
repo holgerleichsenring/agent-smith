@@ -105,12 +105,12 @@ internal static class DockerPresetScripts
         .EnqueueText("Analysis complete.");
 
     // p0199d: BootstrapRound for csharp-bootstrap fires one WriteFile to
-    // coding-principles.md (the bootstrap surface forbids context.yaml via
+    // principles.md (the bootstrap surface forbids context.yaml via
     // write_file and the fixture skill is intentionally minimal) so the
     // "0 changes" guard stays green.
     private static void SeedInitProject(ScriptedChatClient client) => client
         .EnqueueToolCall("write_file",
-            """{"path":"primary/.agentsmith/contexts/default/coding-principles.md","content":"# Harness fixture coding principles"}""")
+            """{"path":"primary/.agentsmith/contexts/default/principles.md","content":"# Harness fixture coding principles"}""")
         .EnqueueText("Bootstrap files written.");
 
     // p0199d: Triage routes to autonomous-planner + autonomous-investigator;

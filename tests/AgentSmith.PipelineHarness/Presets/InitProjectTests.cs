@@ -12,7 +12,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// because StubSourceProvider surfaces an existing .agentsmith/contexts/
 /// default tree; BootstrapDispatch then matches csharp-bootstrap by
 /// project_language='csharp' and fans out one BootstrapRound. The scripted
-/// LLM writes coding-principles.md so BootstrapRound's "0 changes" guard
+/// LLM writes principles.md so BootstrapRound's "0 changes" guard
 /// stays green. StubProjectAnalyzer replaces the LLM-driven analyzer so the
 /// ScriptedChatClient queue isn't consumed before BootstrapRound runs.
 /// </summary>
@@ -34,7 +34,7 @@ public sealed class InitProjectTests
         result.IsSuccess.Should().BeTrue(
             $"init-project handler chain must complete with the fixture skill catalog: {result.Message}");
         harness.ChatClient.ToolCalls.First("write_file").StringArg("path")
-            .Should().Contain("coding-principles.md",
+            .Should().Contain("principles.md",
                 "BootstrapRound's only allowed write_file surface in the fixture is the principles file");
         harness.ChatClient.ToolCalls.First("write_context_yaml").StringArg("context_name")
             .Should().Be("default",
@@ -45,7 +45,7 @@ public sealed class InitProjectTests
     {
         harness.ChatClient
             .EnqueueToolCall("write_file",
-                """{"path":"primary/.agentsmith/contexts/default/coding-principles.md","content":"# Harness fixture coding principles"}""")
+                """{"path":"primary/.agentsmith/contexts/default/principles.md","content":"# Harness fixture coding principles"}""")
             // p0193-fix: BootstrapRound fails loudly unless context.yaml exists on
             // the sandbox after the round — script the typed write path too.
             .EnqueueToolCall("write_context_yaml",

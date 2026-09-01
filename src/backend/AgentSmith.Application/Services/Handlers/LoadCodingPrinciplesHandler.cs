@@ -11,10 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Loads each discovered context's coding-principles.md (p0158f + p0161a).
+/// Loads each discovered context's principles.md (p0158f + p0161a).
 /// Iterates ContextKeys.Sandboxes keys; per key derives the per-context
 /// MetaDir from ContextKeys.SandboxDiscoveries and reads
-/// coding-principles.md. Populates ContextKeys.RepoCodingPrinciples (now
+/// principles.md. Populates ContextKeys.RepoCodingPrinciples (now
 /// keyed by sandbox key) and legacy ContextKeys.DomainRules (concatenated
 /// with per-key headers; verbatim for single-key).
 /// </summary>
@@ -26,7 +26,7 @@ public sealed class LoadCodingPrinciplesHandler(
     ILogger<LoadCodingPrinciplesHandler> logger)
     : ICommandHandler<LoadCodingPrinciplesContext>
 {
-    private const string DefaultRelativePath = ProjectMetaPaths.CodingPrinciples;
+    private const string DefaultRelativePath = ProjectMetaPaths.Principles;
 
     public async Task<CommandResult> ExecuteAsync(
         LoadCodingPrinciplesContext context, CancellationToken cancellationToken)
@@ -43,7 +43,7 @@ public sealed class LoadCodingPrinciplesHandler(
             {
                 loaded[key] = content;
                 await EmitConfigReadAsync(
-                    path: $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.CodingPrinciplesFile}",
+                    path: $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.PrinciplesFile}",
                     sizeBytes: content.Length,
                     cancellationToken);
             }
@@ -56,7 +56,7 @@ public sealed class LoadCodingPrinciplesHandler(
         return CommandResult.Ok($"Loaded {loaded.Count} of {sandboxes.Count} context principles");
     }
 
-    // p0173c: emit a system event per coding-principles.md successfully read.
+    // p0173c: emit a system event per principles.md successfully read.
     // RunId comes from the active run scope via IRunContextAccessor.
     private async Task EmitConfigReadAsync(string path, int sizeBytes, CancellationToken ct)
     {
@@ -88,7 +88,7 @@ public sealed class LoadCodingPrinciplesHandler(
         if (!string.Equals(context.RelativePath, DefaultRelativePath, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        var nested = $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.CodingPrinciplesFile}";
+        var nested = $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.PrinciplesFile}";
         if (!await reader.ExistsAsync(nested, ct)) return null;
         var content = await reader.ReadRequiredAsync(nested, ct);
         logger.LogInformation("{Key}: loaded principles from {Path} ({Chars} chars)", key, nested, content.Length);

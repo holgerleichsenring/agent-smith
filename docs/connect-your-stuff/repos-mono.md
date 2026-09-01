@@ -67,7 +67,7 @@ The internal mechanics are the same as for multi-repo runs — there's just one 
 
 You add the new repo to the top-level `repos:` catalog and reference it from `projects.todolist.repos` — or, better, declare a `connections:` entry once (host, org, auth) and reference repos under it by glob, so new repos are discovered instead of hand-listed. The lifecycle code is identical either way; multi-repo just means the list has more than one entry. See [Repos: multi-repo](repos-multi.md) for the worked example.
 
-The interesting bit: every repo in the project needs its own `.agentsmith/context.yaml` (and ideally a `.agentsmith/coding-principles.md`) so Agent Smith knows the toolchain and conventions for each. The `init-project` pipeline bootstraps that for you per repo. Run it once per repo before the first `fix-bug` against the project.
+The interesting bit: every repo in the project needs its own `.agentsmith/context.yaml` (and ideally a `.agentsmith/principles.md`) so Agent Smith knows the toolchain and conventions for each. The `init-project` pipeline bootstraps that for you per repo. Run it once per repo before the first `fix-bug` against the project.
 
 ## What about pipelines, triggers, hosting?
 
