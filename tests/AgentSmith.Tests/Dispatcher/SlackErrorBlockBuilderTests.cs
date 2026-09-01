@@ -42,7 +42,7 @@ public sealed class SlackErrorBlockBuilderTests
     private static ErrorContext CreateErrorContext() => new(
         JobId: "job-123",
         ChannelId: "C12345",
-        TicketId: 42,
+        TicketId: "42",
         Project: "my-project",
         FailedStep: 3,
         TotalSteps: 9,

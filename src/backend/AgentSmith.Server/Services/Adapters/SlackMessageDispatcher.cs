@@ -73,7 +73,7 @@ public sealed class SlackMessageDispatcher(
                 await fixHandler.HandleAsync(new FixTicketIntent
                 {
                     RawText = sec.RawText, UserId = sec.UserId, ChannelId = sec.ChannelId,
-                    Platform = sec.Platform, TicketId = 0, Project = sec.Project,
+                    Platform = sec.Platform, TicketId = string.Empty, Project = sec.Project,
                     PipelineOverride = "security-scan"
                 }, ct);
                 break;

@@ -25,7 +25,7 @@ internal static class SpecDialogSessionMapper
         UserId = session.UserId,
         Platform = session.Platform,
         Project = session.Project,
-        TicketId = 0,
+        TicketId = string.Empty,
         StartedAt = session.CreatedAt,
         LastActivityAt = session.LastActivityAt,
         Mode = ConversationMode.SpecDialog,

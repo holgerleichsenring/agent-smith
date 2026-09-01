@@ -147,7 +147,7 @@ public sealed class SpecDialogTests
         UserId = "U-harness",
         Platform = "slack",
         Project = Project,
-        TicketId = 0,
+        TicketId = string.Empty,
         StartedAt = DateTimeOffset.UtcNow,
         Mode = ConversationMode.SpecDialog,
         ThreadId = "th-harness",

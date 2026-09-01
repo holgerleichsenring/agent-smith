@@ -56,7 +56,7 @@ public sealed class IntentEngine(
 
     private async Task<ChatIntent> ResolveFixProjectAsync(FixTicketIntent fix, CancellationToken ct)
     {
-        var result = await projectResolver.ResolveAsync(fix.TicketId.ToString(), ct);
+        var result = await projectResolver.ResolveAsync(fix.TicketId, ct);
 
         return result switch
         {
