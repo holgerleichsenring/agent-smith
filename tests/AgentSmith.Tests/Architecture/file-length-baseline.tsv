@@ -54,7 +54,7 @@
 194	AgentSmith.Server/Extensions/RunControlEndpoints.cs
 193	AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs
 193	AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs
-192	AgentSmith.Application/Services/PipelineErrorHandler.cs
+184	AgentSmith.Application/Services/PipelineErrorHandler.cs
 191	AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs
 190	AgentSmith.Application/Services/Handlers/InitCommitHandler.cs
 190	AgentSmith.Server/Services/Adapters/SlackTypedQuestionBlockBuilder.cs

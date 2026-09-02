@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-02-de87
+
+goal: "The failure path asks whether a run meant to change code by two marks that are true of the shipped presets, instead of a list that answers wrongly for every one of them."
+
+applies_to: "backend (the failure path's decision about whether a run had work worth saving)"
+
+scope:
+  in: >
+    The failure handler decides whether to persist a work branch from two marks that are true of
+    the shipped presets — a run that delivers findings never persists, a run that commits does —
+    and the legacy handler names stay for the paths that compose their own command lists; both
+    directions are proven against the REAL presets rather than hand-written command lists.
+  out: >
+    WHAT THE PERSIST STAGES — it stages everything in the working tree, which is what turned this
+    defect into an operator's uncommitted work being swept into a commit. Narrowing that to the
+    run's own changes is a real and separate improvement, and it must not be the reason this one
+    ships: a scan has nothing to persist at all, and stopping it is the fix. THE PERSIST ITSELF
+    stays exactly as it is for coding runs, whose whole purpose it is.
+
+decisions:
+  - key: |
+      THE GUARD IS WRONG IN BOTH DIRECTIONS, AND THE SECOND ONE WAS INVISIBLE. AgenticExecute,
+      GenerateTests and GenerateDocs appear in no pipeline preset in the tree — legacy names from
+      before the master collapsed the choreography. The fourth, AgenticMaster, is carried by the two
+      SCAN presets, so a failing scan persisted. The coding preset drives its master inside
+      PhaseSequence and therefore matches NONE of the four: the work-branch persist that exists to
+      save a coding run's work has never run for one. One defect, two opposite symptoms, and only
+      the loud one had ever been noticed.
+  - key: |
+      IT HAS ALREADY HAPPENED, TO A REAL WORKING TREE. A security scan failed, the failure path
+      persisted a work branch, the persist staged everything it found, and an operator's uncommitted
+      changes went into a commit that was then pushed at. The comment above the guard describes
+      exactly the behaviour it fails to produce.
+  - key: |
+      TWO POSITIVE MARKS, AND BOTH ARE EXACT TODAY. DeliverFindings is in the two scan presets and
+      nowhere else: this run's product is an opinion, not a diff. CommitAndPR is in the coding
+      preset and not in either scan: this run meant to change code. Both state what is true of a
+      run rather than enumerating the handlers that happen to write files, which is the enumeration
+      that rotted — and a pipeline that gains a commit step gains the persist with it, without
+      anyone remembering to add a name to a list.
+  - key: |
+      THE COMMAND LIST IS KEPT, NOT REPLACED. Those three names are dead in the presets and alive on
+      the skill-manager and autonomous paths that compose command lists of their own. Removing them
+      would change behaviour nobody has measured; leaving them costs nothing once the review
+      exclusion is in front.
+  - key: |
+      THE OLD TESTS PASSED BECAUSE THEY NEVER USED A PRESET. The existing guard tests hand the
+      executor hand-written command lists — one of them literally the three commands the author had
+      in mind — so both symptoms were invisible to a green suite. The new tests walk the shipped
+      presets, which is the only thing that could have caught either.
+
+steps:
+  - id: a-run-that-delivers-findings-persists-nothing
+    action: "A pipeline containing the findings-delivery step is excluded from the work-branch persist on the failure path."
+  - id: a-run-that-commits-saves-its-work
+    action: "A pipeline carrying the commit step persists its work branch on failure, which the coding preset has never done."
+  - id: the-tests-walk-the-real-presets
+    action: "The guard is proven against the shipped presets rather than hand-written command lists."
+
+tests:
+  - "FailedSecurityScan_PersistsNoWorkBranch"
+  - "FailedApiSecurityScan_PersistsNoWorkBranch"
+  - "FailedCodingRun_StillPersistsItsWorkBranch"
+  - "FailedRunWithNoRepository_PersistsNothing"
+
+done:
+  - "a failing scan leaves the working tree it read exactly as it found it"
+  - "a failing coding run saves its work, which it did not do before"
+  - "the guard is asserted against the presets that actually ship"
+  - "build green, full suite green"
