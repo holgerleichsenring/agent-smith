@@ -4,7 +4,7 @@
 
 - model: `sonnet`
 - scan master: `7e91dde7`
-- generated: 2026-09-01T22:00:54.4292880+00:00
+- generated: 2026-09-02T05:18:42.8575210+00:00
 
 **Misses:** 0/5 (0 %) — declared weaknesses no delivered finding named.
 
@@ -16,15 +16,15 @@ Cited line matched on 3 of 5 detections — a citation sub-metric, not a gate.
 
 ## reference-service
 - [x] src/orders/orderLookup.ts (sql-injection, flawed)
-  - found [Medium]: src/orders/orderLookup.ts:7: SQL built by concatenating req.params.id into the query string — SQL injection (on the declared line)
+  - found [High]: src/orders/orderLookup.ts:7: SQL built by string-concatenating req.params.id — classic SQL injection (on the declared line)
 - [x] src/admin/memberAdmin.ts (missing-authorization, flawed)
-  - found [High]: src/admin/memberAdmin.ts:16: removeMember omits the requireAdmin(req) check present in listMembers and suspendMember — any caller can delete a member
+  - found [High]: src/admin/memberAdmin.ts:16: removeMember lacks requireAdmin check — any caller can delete arbitrary members
 - [x] src/files/attachmentDownload.ts (path-traversal, flawed)
-  - found [High]: src/files/attachmentDownload.ts:9: path built with join() but not resolve()-checked against STORAGE_ROOT — path traversal to arbitrary filesystem reads (on the declared line)
+  - found [High]: src/files/attachmentDownload.ts:9: path traversal — req.query.name joined to STORAGE_ROOT with no containment check (on the declared line)
 - [x] src/auth/loginRedirect.ts (open-redirect, flawed)
-  - found [Medium]: src/auth/loginRedirect.ts:6: req.query.next is redirected to without allowlist validation — open redirect to arbitrary URLs
+  - found [High]: src/auth/loginRedirect.ts:6: open redirect — req.query.next forwarded to res.redirect() without allowlist validation
 - [x] src/jobs/jobPayload.ts (unsafe-deserialization, flawed)
-  - found [Critical]: src/jobs/jobPayload.ts:7: eval() called on raw job payload text — arbitrary code execution if the payload is attacker-influenced (on the declared line)
+  - found [Critical]: src/jobs/jobPayload.ts:7: job payload deserialized via eval() — arbitrary code execution if queue data is attacker-influenced (on the declared line)
 - [x] src/reports/reportLookup.ts (sql-injection, clean)
 - [x] src/files/exportPath.ts (path-traversal, clean)
 - [x] src/auth/returnTarget.ts (open-redirect, clean)

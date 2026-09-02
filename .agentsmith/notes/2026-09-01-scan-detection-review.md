@@ -63,32 +63,42 @@ pipeline runs did not.
    probe could write a scratch file and execute it. Left unspecced deliberately — it is
    a real change to a read-only guarantee and belongs to the operator, not to this batch.
 
-## The first variance measurement, unplanned
+## Four scored runs, and what they actually compare
 
-Running the full solution re-ran both scored tiers, so each corpus now has two runs
-ten minutes apart against an unchanged scan. What varies is not what was found.
+The first two runs were reported here as a variance measurement of an unchanged scan.
+That was wrong, and the correction matters more than the original claim.
 
-| security corpus | run A | run B |
+The first run happened inside the scoreboard worktree, which was cut from the spec commit
+and carries only cc40 and 6686 — none of the six phases that change how the scan behaves.
+The second ran on the merged branch. So those two were a BEFORE and AFTER of the batch,
+not two samples of one configuration. Two further runs were then taken on the merged
+branch, giving three samples of the shipped behaviour.
+
+| security corpus | before the batch | merged, 3 runs |
 |---|---|---|
-| misses | 0/5 | 0/5 |
-| false alarms | 1/5 | 0/5 |
-| cited line matched | 4/5 | 3/5 |
+| misses | 0/5 | 0/5, 0/5, 0/5 |
+| false alarms | 1/5 | 0/5, 0/5, 0/5 |
+| cited line matched | 4/5 | 3/5, 4/5, 3/5 |
 
-| api corpus | run A | run B |
+| api corpus | before the batch | merged, 3 runs |
 |---|---|---|
-| misses | 0/4 | 0/4 |
-| false alarms | 0/3 | 0/3 |
+| misses | 0/4 | 0/4, 0/4, 0/4 |
+| false alarms | 0/3 | 0/3, 0/3, 0/3 |
 
-Detection was identical in both: every declared weakness named, both times, on both
-corpora. **Severity was stable in none of them.** All four api findings changed severity
-between the two runs, and the role-assignment one moved from Low to High. On the security
-corpus the SQL injection was High in one run and Medium in the other, and run A's single
-false alarm was an Info row on a clean file whose own text said "FALSE POSITIVE".
+**The floor is already at the ceiling, and that is the finding.** Every declared weakness
+was named in every run, before the batch as well as after, so these corpora cannot show
+whether any of the six phases improved detection. They prove the scan is wired and reaches
+the code — which twelve live runs could not establish — and they are saturated for the
+question the batch was built to answer. The next corpus has to be hard enough to be
+failed, and cc40's own header already says why a planted defect is not: it is formulaic in
+a way a real defect is not.
 
-That reframes the run-to-run variance question. The delivered COUNT was never the unstable
-thing to chase; severity is, and severity is what the automation acts on — SpawnFix fires
-on Critical/High and escalation reads Critical/High, so the same defect gets a remediation
-PR on one run and not on the next. A phase that makes severity a judgement with stated
-criteria rather than a free field is the successor this measurement asks for. It is not
-built here: the batch's premise is that nothing is tuned before it is measured, and this
-is the first measurement.
+The single false alarm that disappeared is one sample against three and is not a claim.
+
+**Severity is the unstable axis, and it is unstable on identical code.** Across the three
+merged runs, `GET /members/{id}` was scored Medium, High, High and `GET /orders` Medium,
+High, Medium, while the other two endpoints held. SpawnFix fires on Critical/High and
+escalation reads Critical/High, so the same defect earns a remediation PR on one run and
+not on the next. A phase that makes severity a judgement against stated criteria rather
+than a free field is what this measurement asks for next. It is not built here: nothing is
+tuned before it is measured, and this is the first measurement.

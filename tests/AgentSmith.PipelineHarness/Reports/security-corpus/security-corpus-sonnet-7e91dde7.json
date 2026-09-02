@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "7e91dde7",
-  "generated_at": "2026-09-01T22:00:54.429288+00:00",
+  "generated_at": "2026-09-02T05:18:42.857521+00:00",
   "entries": [
     {
       "corpus_id": "reference-service",
@@ -12,8 +12,8 @@
           "truth_is_flawed": true,
           "has_finding": true,
           "cites_declared_line": true,
-          "finding_headline": "src/orders/orderLookup.ts:7: SQL built by concatenating req.params.id into the query string \u2014 SQL injection",
-          "highest_severity": "Medium",
+          "finding_headline": "src/orders/orderLookup.ts:7: SQL built by string-concatenating req.params.id \u2014 classic SQL injection",
+          "highest_severity": "High",
           "is_miss": false,
           "is_false_alarm": false,
           "agrees": true
@@ -24,7 +24,7 @@
           "truth_is_flawed": true,
           "has_finding": true,
           "cites_declared_line": false,
-          "finding_headline": "src/admin/memberAdmin.ts:16: removeMember omits the requireAdmin(req) check present in listMembers and suspendMember \u2014 any caller can delete a member",
+          "finding_headline": "src/admin/memberAdmin.ts:16: removeMember lacks requireAdmin check \u2014 any caller can delete arbitrary members",
           "highest_severity": "High",
           "is_miss": false,
           "is_false_alarm": false,
@@ -36,7 +36,7 @@
           "truth_is_flawed": true,
           "has_finding": true,
           "cites_declared_line": true,
-          "finding_headline": "src/files/attachmentDownload.ts:9: path built with join() but not resolve()-checked against STORAGE_ROOT \u2014 path traversal to arbitrary filesystem reads",
+          "finding_headline": "src/files/attachmentDownload.ts:9: path traversal \u2014 req.query.name joined to STORAGE_ROOT with no containment check",
           "highest_severity": "High",
           "is_miss": false,
           "is_false_alarm": false,
@@ -48,8 +48,8 @@
           "truth_is_flawed": true,
           "has_finding": true,
           "cites_declared_line": false,
-          "finding_headline": "src/auth/loginRedirect.ts:6: req.query.next is redirected to without allowlist validation \u2014 open redirect to arbitrary URLs",
-          "highest_severity": "Medium",
+          "finding_headline": "src/auth/loginRedirect.ts:6: open redirect \u2014 req.query.next forwarded to res.redirect() without allowlist validation",
+          "highest_severity": "High",
           "is_miss": false,
           "is_false_alarm": false,
           "agrees": true
@@ -60,7 +60,7 @@
           "truth_is_flawed": true,
           "has_finding": true,
           "cites_declared_line": true,
-          "finding_headline": "src/jobs/jobPayload.ts:7: eval() called on raw job payload text \u2014 arbitrary code execution if the payload is attacker-influenced",
+          "finding_headline": "src/jobs/jobPayload.ts:7: job payload deserialized via eval() \u2014 arbitrary code execution if queue data is attacker-influenced",
           "highest_severity": "Critical",
           "is_miss": false,
           "is_false_alarm": false,
