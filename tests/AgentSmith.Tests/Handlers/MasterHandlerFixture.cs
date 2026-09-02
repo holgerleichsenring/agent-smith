@@ -38,6 +38,7 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
+            BuildScanPasses(loop),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
             BuildOutcomeResolver(),
@@ -108,6 +109,18 @@ internal static class MasterHandlerFixture
                 SupportsVision = supportsVision,
             },
             Pipeline: pipeline);
+    }
+
+    // 2026-09-01-7df4/0e80: the scan's follow-up passes run on the SAME loop runner the
+    // handler was given, so a test that counts requests still sees every pass.
+    internal static ScanMasterPasses BuildScanPasses(IAgenticLoopRunner loop)
+    {
+        var prompts = new AgentSmith.Application.Services.ScanMasterPromptFactory();
+        var tolerant = AgentSmith.Tests.TestHelpers.TolerantJsonParserFactory.CreateTolerant();
+        return new ScanMasterPasses(
+            new ScanCoverageRedrive(loop, prompts, NullLogger<ScanCoverageRedrive>.Instance),
+            new ScanReconciliationDrive(loop, prompts, NullLogger<ScanReconciliationDrive>.Instance),
+            new MasterAnswerUnion(tolerant), tolerant, NullLogger<ScanMasterPasses>.Instance);
     }
 
     // p0353: the master takes the web_fetch tool host by DI; a real instance (its

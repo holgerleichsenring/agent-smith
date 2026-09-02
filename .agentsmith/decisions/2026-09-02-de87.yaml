@@ -1,0 +1,34 @@
+phase: 2026-09-02-de87
+decisions:
+  - what: "Decide the work-branch persist from two positive marks — DeliverFindings excludes, CommitAndPR includes — with the legacy handler list kept behind them."
+    alternatives:
+      - "Add AgenticMaster to an exclusion list when the pipeline is a scan: keeps an enumeration that has already rotted once, and says nothing about why."
+      - "Delete the handler list and key on CommitAndPR alone: changes behaviour on the skill-manager and autonomous paths, which compose command lists of their own and were never measured."
+      - "Decide from the pipeline NAME: presets are aliased (phase-execution resolves to code) and a name is not a statement about what a run does."
+    why: |
+      The list answered wrongly for every shipped preset, in both directions. Its three
+      code-modifying names are in no preset at all, and the fourth — AgenticMaster — is carried by
+      the two SCAN presets, so a failing scan persisted a work branch and staged the tree it had
+      been reading, including an operator's uncommitted changes. The coding preset drives its
+      master inside PhaseSequence and matched none of the four, so the persist that exists to save
+      a coding run's work has never run for one.
+      A mark is better than an enumeration because it states something true of the run: a pipeline
+      that delivers findings produces an opinion, and a pipeline that commits meant to change code.
+      A preset that later gains a commit step gains the persist with it, with nobody remembering to
+      add a name anywhere.
+  - what: "Assert the guard against the shipped presets instead of hand-written command lists."
+    alternatives:
+      - "Keep the existing hand-written lists and add cases: reproduces the reason both symptoms were invisible."
+    why: |
+      The existing tests were green throughout. They pass command lists the author composed by
+      hand — one of them three commands long — so neither symptom could appear. Walking
+      PipelinePresets.SecurityScan, .ApiSecurityScan and .Code is the only thing that could have
+      caught either, and the first run of the new tests failed on the coding case, which is how the
+      second symptom was found at all.
+  - what: "Leave what the persist STAGES alone."
+    alternatives:
+      - "Narrow the staging to the run's own changes in the same phase."
+    why: |
+      Staging everything is what turned this defect into swept operator work, and narrowing it is a
+      real improvement. It is not this fix: a scan has nothing to persist at all, and stopping it
+      is the whole remedy. Shipping both would leave no way to tell which one closed the incident.

@@ -1,0 +1,86 @@
+{
+  "id": "reference-service",
+  "description": "A small reference service carrying five structural weaknesses, three sound files shaped to look like three of them, and the two files the scan's own bootstrap gate requires. Every file that is not flawed is declared clean, bootstrap files included: the false-alarm denominator is every sound file, because a rate counted only over the deliberately tricky ones overstates itself. No credential literal in any issuer's format appears here by design - this repository is public, and a planted secret would be a real alert about a fake value.",
+  "files": [
+    {
+      "path": "src/orders/orderLookup.ts",
+      "verdict": "flawed",
+      "class": "sql-injection",
+      "because": "the order id arrives from the request and is concatenated straight into the SQL text; every other query in this service binds its parameters.",
+      "line": 7,
+      "content": "import { Request, Response } from \"express\";\nimport { pool } from \"../db/pool\";\n\n// Looks up one order for the signed-in member.\nexport async function findOrder(req: Request, res: Response) {\n  const orderId = req.params.id;\n  const sql = \"SELECT id, placed_at, total_cents FROM orders WHERE id = '\" + orderId + \"'\";\n  const rows = await pool.query(sql);\n  if (rows.length === 0) return res.status(404).json({ error: \"not found\" });\n  return res.json(rows[0]);\n}\n\nexport async function countOrders(memberId: string) {\n  return pool.query(\"SELECT count(*) FROM orders WHERE member_id = $1\", [memberId]);\n}\n"
+    },
+    {
+      "path": "src/admin/memberAdmin.ts",
+      "verdict": "flawed",
+      "class": "missing-authorization",
+      "because": "removeMember mutates another member's record with no role check, while the two sibling routes in the same file call requireAdmin first.",
+      "line": 17,
+      "content": "import { Request, Response } from \"express\";\nimport { requireAdmin } from \"../auth/requireAdmin\";\nimport { members } from \"../db/members\";\n\nexport async function listMembers(req: Request, res: Response) {\n  requireAdmin(req);\n  return res.json(await members.all());\n}\n\nexport async function suspendMember(req: Request, res: Response) {\n  requireAdmin(req);\n  await members.suspend(req.params.id);\n  return res.status(204).end();\n}\n\nexport async function removeMember(req: Request, res: Response) {\n  await members.remove(req.params.id);\n  return res.status(204).end();\n}\n"
+    },
+    {
+      "path": "src/files/attachmentDownload.ts",
+      "verdict": "flawed",
+      "class": "path-traversal",
+      "because": "the requested name is joined onto the storage root and read with no containment check, so a relative segment escapes the directory.",
+      "line": 9,
+      "content": "import { Request, Response } from \"express\";\nimport { join } from \"node:path\";\nimport { readFile } from \"node:fs/promises\";\n\nconst STORAGE_ROOT = \"/var/lib/reference-service/attachments\";\n\nexport async function downloadAttachment(req: Request, res: Response) {\n  const name = String(req.query.name ?? \"\");\n  const target = join(STORAGE_ROOT, name);\n  const body = await readFile(target);\n  res.setHeader(\"Content-Type\", \"application/octet-stream\");\n  return res.send(body);\n}\n"
+    },
+    {
+      "path": "src/auth/loginRedirect.ts",
+      "verdict": "flawed",
+      "class": "open-redirect",
+      "because": "the post-login destination is taken from the query string and redirected to unvalidated, so it can point anywhere.",
+      "line": 7,
+      "content": "import { Request, Response } from \"express\";\nimport { completeSignIn } from \"./session\";\n\nexport async function finishLogin(req: Request, res: Response) {\n  await completeSignIn(req);\n  const next = String(req.query.next ?? \"/home\");\n  return res.redirect(next);\n}\n"
+    },
+    {
+      "path": "src/jobs/jobPayload.ts",
+      "verdict": "flawed",
+      "class": "unsafe-deserialization",
+      "because": "the queued payload is a string from an external producer and is turned back into an object by evaluating it as code.",
+      "line": 7,
+      "content": "import { JobRecord } from \"./jobRecord\";\n\n// Rehydrates the payload a producer queued alongside the job.\nexport function readPayload(job: JobRecord): Record<string, unknown> {\n  const raw = job.payloadText;\n  if (!raw) return {};\n  return eval(\"(\" + raw + \")\");\n}\n\nexport function describe(job: JobRecord): string {\n  return `${job.kind}#${job.id}`;\n}\n"
+    },
+    {
+      "path": "src/reports/reportLookup.ts",
+      "verdict": "clean",
+      "class": "sql-injection",
+      "because": "the interpolated fragment is a constant chosen from a fixed map, never request text, and every value is a bound parameter \u2014 it is shaped like concatenation and is not one.",
+      "line": 15,
+      "content": "import { pool } from \"../db/pool\";\n\n// The only tables a report may read, and the column each one is ordered by.\nconst REPORTABLE = {\n  orders: \"placed_at\",\n  refunds: \"issued_at\",\n} as const;\n\ntype Reportable = keyof typeof REPORTABLE;\n\nexport async function readReport(kind: string, memberId: string, limit: number) {\n  if (!(kind in REPORTABLE)) throw new Error(\"unreportable: \" + kind);\n  const table = kind as Reportable;\n  const orderBy = REPORTABLE[table];\n  const sql = `SELECT * FROM ${table} WHERE member_id = $1 ORDER BY ${orderBy} DESC LIMIT $2`;\n  return pool.query(sql, [memberId, limit]);\n}\n"
+    },
+    {
+      "path": "src/files/exportPath.ts",
+      "verdict": "clean",
+      "class": "path-traversal",
+      "because": "the joined path is resolved and required to stay inside the export root before it is opened, so the traversal it looks vulnerable to is refused.",
+      "line": 7,
+      "content": "import { join, resolve, sep } from \"node:path\";\nimport { readFile } from \"node:fs/promises\";\n\nconst EXPORT_ROOT = resolve(\"/var/lib/reference-service/exports\");\n\nexport function resolveExport(name: string): string {\n  const candidate = resolve(join(EXPORT_ROOT, name));\n  if (candidate !== EXPORT_ROOT && !candidate.startsWith(EXPORT_ROOT + sep)) {\n    throw new Error(\"export path escapes the export root\");\n  }\n  return candidate;\n}\n\nexport async function readExport(name: string) {\n  return readFile(resolveExport(name));\n}\n"
+    },
+    {
+      "path": "src/auth/returnTarget.ts",
+      "verdict": "clean",
+      "class": "open-redirect",
+      "because": "the destination is matched against a fixed set of in-app paths and anything else falls back to the home route, so no caller-supplied location is ever redirected to.",
+      "line": 7,
+      "content": "import { Request, Response } from \"express\";\n\nconst RETURN_TARGETS = new Set([\"/home\", \"/orders\", \"/settings\"]);\n\nexport function safeReturnTarget(raw: unknown): string {\n  const candidate = typeof raw === \"string\" ? raw : \"\";\n  return RETURN_TARGETS.has(candidate) ? candidate : \"/home\";\n}\n\nexport function returnToApp(req: Request, res: Response) {\n  return res.redirect(safeReturnTarget(req.query.next));\n}\n"
+    },
+    {
+      "path": ".agentsmith/contexts/default/context.yaml",
+      "verdict": "clean",
+      "class": "project-metadata",
+      "because": "the bootstrap gate refuses a repository that declares no context; this is that declaration and holds no logic to be wrong about.",
+      "line": 0,
+      "content": "meta:\n  workdir: .\n  project: reference-service\nstack:\n  lang: typescript\n"
+    },
+    {
+      "path": ".agentsmith/contexts/default/principles.md",
+      "verdict": "clean",
+      "class": "project-metadata",
+      "because": "the second file the bootstrap gate requires. Markdown is not scanned for patterns, so it cannot raise a finding of its own.",
+      "line": 0,
+      "content": "# Principles\n\n- Every query binds its parameters.\n- Every route that mutates another member's data checks the caller's role first.\n- Every path built from caller input is resolved and contained before it is opened.\n- Every redirect target comes from a fixed set of in-app routes.\n"
+    }
+  ]
+}

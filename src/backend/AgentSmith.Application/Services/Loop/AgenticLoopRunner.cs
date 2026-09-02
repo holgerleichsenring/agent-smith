@@ -32,8 +32,11 @@ public sealed class AgenticLoopRunner(
         // p0341c: thread the per-pass iteration ceiling (the master's large anti-runaway
         // safety net / a sub-agent's real child budget) and the open-loop governor hooks
         // (within-pass budget fence + ledger-reminder injection) into the chat client.
+        // 2026-09-01-7df4: the compaction settings and the assumed input window travel with
+        // the request, so a surface that raises its ceiling can also reduce what it holds.
         var chat = chatClientFactory.Create(
-            request.AgentConfig, request.TaskType, request.MaxIterations, request.MasterLoopHooks);
+            request.AgentConfig, request.TaskType, request.MaxIterations, request.MasterLoopHooks,
+            request.Compaction, request.ContextWindowTokensOverride);
         var maxTokens = request.MaxOutputTokensOverride
             ?? chatClientFactory.GetMaxOutputTokens(request.AgentConfig, request.TaskType);
         // p0317: ticket images ride the user message as image content parts

@@ -33,6 +33,12 @@ internal static class WorkerProcessGuard
                 $"the worker CLI exited with {result.ExitCode} on a {promptChars:N0}-char "
                 + $"prompt: {Tail(result)}",
                 result.Duration);
+        // 2026-09-01-b0d7: the CLI states its own failure — out of turns, an error during
+        // execution — on the envelope and still exits 0. The exit code alone calls that a
+        // good call, and the loop then reasons about whatever half-answer came with it.
+        if (result.Envelope?.FailureReason is { } reported)
+            throw new ExternalWorkerCallException(
+                request, $"{reported} (prompt was {promptChars:N0} chars)", result.Duration);
     }
 
     /// <summary>

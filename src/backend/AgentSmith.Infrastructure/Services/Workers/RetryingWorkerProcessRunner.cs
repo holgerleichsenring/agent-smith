@@ -49,9 +49,14 @@ public sealed class RetryingWorkerProcessRunner(
         return result;
     }
 
+    // 2026-09-01-b0d7: on the ANSWER, never on raw stdout. A structured result is never
+    // empty, so reading stdout here would retire the silence check the moment an agent
+    // opts into it. A CLI that REPORTED an error answered — badly, but once; re-asking a
+    // worker that already spoke is what this decorator exists not to do.
     private static bool Answered(WorkerProcessResult result) =>
         !result.TimedOut && result.ExitCode == 0
-        && !string.IsNullOrWhiteSpace(result.StandardOutput);
+        && (result.Envelope?.FailureReason is not null
+            || !string.IsNullOrWhiteSpace(result.AnswerText));
 
     private static string Reason(WorkerProcessResult result) => result.TimedOut
         ? "timeout"

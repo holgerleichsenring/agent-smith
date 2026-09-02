@@ -171,7 +171,12 @@ if ! dotnet build AgentSmith.sln -clp:ErrorsOnly >"$tmp/build.log" 2>&1; then
 fi
 
 log "3/5 unit + harness xUnit tests..."
-if ! dotnet test AgentSmith.sln --no-build >"$tmp/test.log" 2>&1; then
+# Category=LiveLLM is excluded, the same way CI excludes it. Those suites drive a real
+# model or a real agent CLI: they cost money or subscription quota on every phase commit,
+# they need a binary the gate cannot require, and the gate runs the three test assemblies
+# at once — a scan eval spawning CLI subprocesses under that contention failed once here
+# and passed alone. A gate that charges for a commit and flakes is not a gate.
+if ! dotnet test AgentSmith.sln --no-build --filter "Category!=LiveLLM" >"$tmp/test.log" 2>&1; then
   tail -50 "$tmp/test.log" >&2; fail "dotnet test"
 fi
 

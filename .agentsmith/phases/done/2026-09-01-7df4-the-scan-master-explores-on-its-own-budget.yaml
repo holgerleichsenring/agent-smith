@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-7df4
+
+goal: "The scan master explores under a ceiling somebody chose, on a surface that can reduce what it accumulates, and its deeper pass adds to the first instead of replacing it."
+
+applies_to: "backend (the iteration ceiling for the observation-schema surface, the context handling that surface runs under, and the coverage re-drive)"
+
+requires:
+  - 2026-09-01-6c32
+
+scope:
+  in: >
+    The scan surface's per-pass iteration ceiling is an operator-visible number with its own default;
+    that surface states a context window and enables reduction, so a higher ceiling shrinks the view
+    instead of overflowing it; the coverage re-drive keeps the first pass's findings rather than
+    discarding them, and is recorded in the conversation like every other drive; the run states the
+    ceiling it ran under and how close it came.
+  out: >
+    A CLOSING TURN AT EXHAUSTION — the pinned SDK already does exactly this: at the ceiling it strips
+    every tool declaration and makes one more call, so the framework already receives a text answer.
+    Building it again would duplicate library behaviour and, worse, would be credited with whatever
+    the ceiling change achieved. A MONEY FENCE ON THE SCAN SURFACE — the coding surface has one and
+    this does not; raising a ceiling without one is defended below rather than fixed here, and a
+    successor can add it once one measured run says what a scan actually costs.
+
+decisions:
+  - key: |
+      NOBODY CHOSE 25. The handler passes a ceiling only for the coding surface and null for scan and
+      spec dialog; null falls through to a private constant of 25 in the chat-client factory, which is
+      the fallback for a call with no opinion. The coding surface runs at 200. The one surface whose
+      whole job is to look at a lot of code runs at an eighth of that, by omission.
+  - key: |
+      WHETHER 25 IS THE WALL IS STILL UNMEASURED, AND THE CEILING IS MADE CHOOSABLE ANYWAY. One
+      iteration executes every function call in a response, so the 97 tool calls across three runs
+      could be ten iterations or thirty — nothing records it. The number is exposed here because
+      2026-09-01-3653 cannot write "turns against the ceiling" while the ceiling is a private
+      constant, and because a value nobody chose is wrong on principle even when it happens to fit.
+  - key: |
+      RAISING IT IS ONLY SAFE ON A SURFACE THAT CAN REDUCE. No shipped configuration gives a scan role
+      a context window, so the pressure finalizer is never installed, and the loop runner passes no
+      compaction for this surface, so the compactor is never installed either. At 25 iterations that
+      never mattered. At a raised ceiling the run walks into a provider context refusal, which the
+      handler turns into a failed step — and a failed scan is worse than a shallow one. The reduction
+      ships in the same phase as the ceiling, or the ceiling does not ship.
+  - key: |
+      THE DEEPER PASS THROWS THE FIRST ONE AWAY. The coverage re-drive replaces the result outright,
+      never records itself in the conversation, and is not given the prior turns — while its own
+      comment claims the deeper pass "re-emits the complete observation array". It cannot: it opens on
+      an empty transcript. Whether the second pass should CONTINUE the first is a context-size
+      question this phase does not answer; that the two passes' findings should be UNIONED rather than
+      one discarded is not a question at all.
+  - key: |
+      THE CEILING IS RECORDED WITH THE RUN, NOT ARGUED ABOUT AGAIN. The next argument about this
+      number should start from a run that says what it used. That is the whole reason the ceiling
+      becomes readable before anyone proposes a value for it.
+
+steps:
+  - id: the-ceiling-is-a-number-someone-chose
+    action: "The observation-schema surface takes its per-pass ceiling from agent config with its own default, and the effective value is readable where the run is composed."
+  - id: the-surface-can-reduce-what-it-holds
+    action: "The scan surface states a context window and gets the same reduction the coding surface has, so a raised ceiling shrinks its view instead of overflowing."
+  - id: the-deeper-pass-keeps-the-first
+    action: "The coverage re-drive's findings are unioned with the first pass's rather than replacing them, and the drive is recorded in the conversation."
+  - id: the-run-states-the-ceiling-it-ran-under
+    action: "The effective ceiling is recorded on the run so the next argument about it starts from a measurement."
+
+tests:
+  - "ScanMaster_UsesTheConfiguredIterationCeiling_NotTheClientDefault"
+  - "ScanMaster_ConfiguredCeiling_IsReadableOnTheRun"
+  - "ScanMaster_AtARaisedCeiling_ReducesInsteadOfOverflowing"
+  - "ScanMaster_CoverageRedrive_KeepsTheFirstPassFindings"
+  - "ScanMaster_CoverageRedrive_IsRecordedInTheConversation"
+  - "ScanMaster_ThatDidNotNeedARedrive_IsUnchanged"
+
+done:
+  - "the ceiling is readable, changeable and recorded with the run"
+  - "a raised ceiling reduces instead of failing the step"
+  - "a shallow first pass plus a deeper second delivers the union of both"
+  - "build green, full suite green"

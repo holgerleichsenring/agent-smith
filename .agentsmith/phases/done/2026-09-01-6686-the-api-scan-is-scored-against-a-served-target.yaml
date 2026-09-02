@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-6686
+
+goal: "The api scan is scored against a target this repository serves itself, whose weaknesses are declared per endpoint, so it can be measured with no external machine."
+
+applies_to: "harness (the served stub target, the declaration it carries, and the scoring of an api scan against it)"
+
+requires:
+  - 2026-08-28-cc40
+
+scope:
+  in: >
+    The stub target the harness already serves grows a document with a handful of endpoints whose
+    weaknesses are declared per method and path; the api scan runs against it on the same opt-in tier
+    cc40 introduces for a real agent CLI; findings are scored against the declaration by method and
+    path, with a miss rate and a false-alarm rate over their own denominators; steps that could not
+    run are named, so a score is never read as a complete one; no prerequisite, no run, loud skip.
+  out: >
+    ONE FIXTURE FOR BOTH SCANS — a repo scan reads source and an api finding frequently carries no
+    file at all, so one match key cannot serve both. cc40 scores the repo half per file; this scores
+    the api half per endpoint, and the two stay separate for that reason rather than for convenience.
+    THE SANDBOX MOUNT DEFECT that blocks running the api preset over a source tree stays deferred to
+    its own phase; this needs a served surface, not a mounted one. THE OPERATOR'S TARGET remains the
+    real-world check — this exists so that no measurement depends on a machine being up.
+
+decisions:
+  - key: |
+      THE API HALF IS UNMEASURED, AND THE MACHINE BEING OFF IS THE SMALLER REASON. Since the cut-off
+      and difference changes landed, the api scan has not been measured once. The larger reason is
+      structural: no harness path drives a scan preset with a real model at all, so even with the
+      target up there was nothing to score. cc40 builds that seam for the repo half; this is the first
+      thing that reuses it.
+  - key: |
+      THE SERVED TARGET ALREADY EXISTS AND SERVES ONE HEALTH ENDPOINT. The harness starts a loopback
+      server on an ephemeral port and hands the run its address and its document, and the wiring for
+      that is done. What is missing is content — a document worth scanning and a statement of what is
+      wrong with it. That is why this phase is small and the withdrawn one was not.
+  - key: |
+      SCORING IS BY METHOD AND PATH, NOT BY FILE. An api finding's location is an endpoint; many carry
+      no file at all. Matching on the path template also survives the difference between a finding
+      that names the concrete request and one that names the route, which is a wording difference and
+      not a detection difference.
+  - key: |
+      A FALSE-ALARM DENOMINATOR, THE SHAPE cc40 SETTLED. Endpoints that are sound but shaped to look
+      suspect are declared too, and a finding on one is a false alarm. Reporting undeclared findings
+      without a denominator cannot see the failure that actually happened here — a scan that delivered
+      nine critical findings nobody could substantiate.
+  - key: |
+      A SCORE THAT DOES NOT SAY WHAT DID NOT RUN IS A WRONG SCORE. The dynamic steps of this scan have
+      already been observed reporting completion at their time limit and zero findings after burning
+      one; 2026-08-30-26ed made that visible. The score carries the same statement, or a run where
+      half the scan never executed reads as a detection result.
+  - key: |
+      LOOPBACK ONLY, AND NOTHING THAT LOOKS LIKE A REAL CREDENTIAL. The target is deliberately weak
+      and this repository is public. It binds to loopback as the existing host already does, and the
+      declared weaknesses are structural — missing authorization, an identifier that is not scoped, an
+      error that says too much — never a literal in any credential issuer's format.
+
+steps:
+  - id: the-served-target-declares-its-weaknesses
+    action: "The stub target's document grows a handful of endpoints, each declared as weak with its class or as sound and shaped to look suspect."
+  - id: the-scan-runs-against-it-on-the-real-tier
+    action: "The api scan runs against the served target on the opt-in tier that drives a real agent CLI, and skips loudly without one."
+  - id: findings-are-scored-by-endpoint
+    action: "Findings are matched to declarations by method and path template, with a miss rate and a false-alarm rate over their own denominators."
+  - id: the-score-names-what-did-not-run
+    action: "Steps that were cut off or contributed nothing are named beside the score, so it is never read as a complete measurement."
+
+tests:
+  - "ApiCorpus_DeclarationCoversEveryServedEndpoint"
+  - "ApiCorpus_AWeakEndpointWithNoFinding_CountsAsAMiss"
+  - "ApiCorpus_ASoundEndpointWithAFinding_CountsAsAFalseAlarm"
+  - "ApiCorpus_AFindingNamingTheConcreteRequest_MatchesItsPathTemplate"
+  - "ApiCorpus_EachRate_UsesItsOwnDenominator"
+  - "ApiCorpus_ACutOffStep_IsNamedBesideTheScore"
+  - "ApiCorpus_NoAgentCliConfigured_SkipsAndSaysSo"
+
+done:
+  - "the api scan produces a number without any external machine"
+  - "a change to the api scan can be shown to have moved detection or false alarms"
+  - "a score always states which steps did not run"
+  - "build green, full suite green"
