@@ -1,0 +1,160 @@
+{
+  "model_id": "sonnet",
+  "scan_prompt_version": "7e91dde7",
+  "generated_at": "2026-09-02T05:18:42.857521+00:00",
+  "entries": [
+    {
+      "corpus_id": "reference-service",
+      "files": [
+        {
+          "path": "src/orders/orderLookup.ts",
+          "class": "sql-injection",
+          "truth_is_flawed": true,
+          "has_finding": true,
+          "cites_declared_line": true,
+          "finding_headline": "src/orders/orderLookup.ts:7: SQL built by string-concatenating req.params.id \u2014 classic SQL injection",
+          "highest_severity": "High",
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": "src/admin/memberAdmin.ts",
+          "class": "missing-authorization",
+          "truth_is_flawed": true,
+          "has_finding": true,
+          "cites_declared_line": false,
+          "finding_headline": "src/admin/memberAdmin.ts:16: removeMember lacks requireAdmin check \u2014 any caller can delete arbitrary members",
+          "highest_severity": "High",
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": "src/files/attachmentDownload.ts",
+          "class": "path-traversal",
+          "truth_is_flawed": true,
+          "has_finding": true,
+          "cites_declared_line": true,
+          "finding_headline": "src/files/attachmentDownload.ts:9: path traversal \u2014 req.query.name joined to STORAGE_ROOT with no containment check",
+          "highest_severity": "High",
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": "src/auth/loginRedirect.ts",
+          "class": "open-redirect",
+          "truth_is_flawed": true,
+          "has_finding": true,
+          "cites_declared_line": false,
+          "finding_headline": "src/auth/loginRedirect.ts:6: open redirect \u2014 req.query.next forwarded to res.redirect() without allowlist validation",
+          "highest_severity": "High",
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": "src/jobs/jobPayload.ts",
+          "class": "unsafe-deserialization",
+          "truth_is_flawed": true,
+          "has_finding": true,
+          "cites_declared_line": true,
+          "finding_headline": "src/jobs/jobPayload.ts:7: job payload deserialized via eval() \u2014 arbitrary code execution if queue data is attacker-influenced",
+          "highest_severity": "Critical",
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": "src/reports/reportLookup.ts",
+          "class": "sql-injection",
+          "truth_is_flawed": false,
+          "has_finding": false,
+          "cites_declared_line": false,
+          "finding_headline": null,
+          "highest_severity": null,
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": "src/files/exportPath.ts",
+          "class": "path-traversal",
+          "truth_is_flawed": false,
+          "has_finding": false,
+          "cites_declared_line": false,
+          "finding_headline": null,
+          "highest_severity": null,
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": "src/auth/returnTarget.ts",
+          "class": "open-redirect",
+          "truth_is_flawed": false,
+          "has_finding": false,
+          "cites_declared_line": false,
+          "finding_headline": null,
+          "highest_severity": null,
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": ".agentsmith/contexts/default/context.yaml",
+          "class": "project-metadata",
+          "truth_is_flawed": false,
+          "has_finding": false,
+          "cites_declared_line": false,
+          "finding_headline": null,
+          "highest_severity": null,
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        },
+        {
+          "path": ".agentsmith/contexts/default/principles.md",
+          "class": "project-metadata",
+          "truth_is_flawed": false,
+          "has_finding": false,
+          "cites_declared_line": false,
+          "finding_headline": null,
+          "highest_severity": null,
+          "is_miss": false,
+          "is_false_alarm": false,
+          "agrees": true
+        }
+      ],
+      "steps_that_contributed_nothing": [
+        "GitHistoryScan (found nothing)",
+        "DependencyAudit (did not run)"
+      ],
+      "problem": null
+    }
+  ],
+  "rates": {
+    "weak_population": 5,
+    "sound_population": 5,
+    "misses": 0,
+    "false_alarms": 0,
+    "miss_rate": 0,
+    "false_alarm_rate": 0,
+    "detections": 5
+  },
+  "flawed_population": 5,
+  "clean_population": 5,
+  "misses": 0,
+  "false_alarms": 0,
+  "miss_rate": 0,
+  "false_alarm_rate": 0,
+  "missed_files": [],
+  "line_accurate_detections": 3,
+  "detections": 5,
+  "steps_that_contributed_nothing": [
+    "DependencyAudit (did not run)",
+    "GitHistoryScan (found nothing)"
+  ],
+  "scored": true
+}

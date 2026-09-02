@@ -40,6 +40,7 @@ agents:
     model: sonnet                # passed through to the CLI as --model
     endpoint: /usr/local/bin/claude   # optional: the CLI binary (default: `claude` on PATH)
     network_timeout_seconds: 1800     # per-call wait (default 300 = 5 minutes)
+    worker_structured_result: true    # optional: ask the CLI for its structured result
 
 projects:
   my-project:
@@ -50,6 +51,37 @@ projects:
 Then trigger the run exactly as usual (CLI, webhook, poller, dashboard). There is nothing
 to start alongside it and nothing to poll: the run spawns the CLI once per model call and
 waits for it. Runs are unattended.
+
+### What the call cost
+
+`worker_structured_result` asks the CLI for its own structured result
+(`--output-format json`) instead of bare text. With it, a worker call reports the tokens
+it used and the USD figure the CLI itself names, and the run's `result.md` carries a
+`worker_cli:` block under `cost:`.
+
+It is **opt-in per agent**, and unset means: on for the default `claude` binary, off for
+anything else. That is the whole point of the knob — this document promises that any
+binary reading a prompt on stdin and printing an answer works, and an unknown binary
+handed an unknown flag exits non-zero, which the bridge treats as a dead call.
+
+Two things the reported figure is not:
+
+- **It is not this run's spend.** No money is charged against an agent budget on this
+  transport. The figure is carried in its own channel with its own label, never added to
+  `total_usd` and never reported as an unpriced model — pricing it from the model table
+  would invent money the run never paid, and leaving it unpriced would raise a pricing
+  alarm for a call that has no price by design.
+- **It is not comparable to a provider call.** A trivial probe reported a third of a cent
+  on twenty-six thousand cache-creation tokens: the CLI's own system prompt and tool
+  schemas, charged per call, not this run's context.
+
+Token VOLUME is real on any transport, so the token arm of the per-pipeline budget cap
+counts worker calls. The USD arm does not.
+
+The answer is unwrapped at the transport, before anything else reads it. That matters more
+than it sounds: a structured result is never empty, so the retry-on-silence check and the
+empty-turn path would both stop firing if anything downstream still read raw stdout — and
+an empty answer would become a failed run where it used to be a nudge.
 
 ### Environment overrides
 
@@ -119,8 +151,10 @@ External worker call failed after 41.2s — request 9f13c0a2b7de
 the worker's answer is not the agreed JSON object …
 ```
 
-Per-call duration is logged for every call. Tokens cost nothing here; wall time and the
-CLI's own session caps are the real limits, so watch the durations.
+Per-call duration is logged for every call. Wall time and the CLI's own session caps are
+the real limits here, so watch the durations — and with `worker_structured_result`, a CLI
+that reports its own error (out of turns, an error during execution) fails the call with
+its stated reason even though it exited zero.
 
 ## Proving the wiring without a CLI
 

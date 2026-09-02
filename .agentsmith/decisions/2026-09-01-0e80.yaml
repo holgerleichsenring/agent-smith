@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-0e80
+
+decisions:
+  - category: Architecture
+    chose: "The scanner list moves to a SECOND turn on the same conversation, for reconciliation"
+    over: "Removing the scanner list, or keeping it and adding an instruction to search anyway"
+    reason: |
+      The scanners find things a model does not — a secret in git history, a dependency
+      advisory, a pattern across a thousand files — so their output stays and the merge's
+      promotion of uncovered High-and-above facts is untouched. What changes is WHEN it
+      arrives. Given a list and a codebase, the cheapest correct-looking behaviour is to
+      work the list: every item gets an anchored, defensible answer and the run reads as
+      thorough. An instruction not to do that costs nothing to ignore and nothing
+      downstream can tell the difference; an empty first turn cannot be worked. The second
+      turn runs on the same conversation, so the first pass's reads are still in view and it
+      is a reconciliation rather than a second search.
+
+  - category: Architecture
+    chose: "HasScannerReports separates the two scan paths, and the api path's ordering is untouched"
+    over: "Applying the unanchored first turn to every scan master"
+    reason: |
+      An api scan's master inputs ARE the scanner reports (Nuclei/Spectral/ZAP) plus the
+      OpenAPI document: there is no independent source to look at first, so an empty first
+      turn would be a turn with nothing in it. The presence of a live-target scanner RESULT
+      is what distinguishes the paths, which is the same fact the prompt already switched on
+      when it chose between the api summary and the repository observations —
+      ScanFindingsSection now names it, and BuildReconciliation returns null for that path
+      so no second turn is spent repeating what the first already carried.
+
+  - category: Architecture
+    chose: "Three collaborators: ScanCoverageRedrive, ScanReconciliationDrive, ScanMasterPasses"
+    over: "A second block in AgenticMasterHandler, or one class owning both drives"
+    reason: |
+      The handler sits at its p0402 baseline with a handful of lines of headroom for this
+      whole batch, so a second inline drive was not available and would not have been right
+      anyway: each drive is a distinct reason to change (a shallow review; an unreconciled
+      scanner list) and the sequencing plus the union is a third. The handler now asks one
+      question — run the scan's follow-up passes — and the union of the answers is computed
+      once, in the type that knows how many passes there were.
+
+  - category: Implementation
+    chose: "Origins are recorded per finding KEY, on the same key the union deduplicates on"
+    over: "Stamping the pass into each observation, or into the delivered artefact"
+    reason: |
+      The observation schema is a ratified shape and the deserializer drops unknown members,
+      so a pass field written into a literal would vanish at the first parse and reappear
+      nowhere. The origin is a fact about the RUN — which pass first produced a finding —
+      so it is recorded the way this repository records the other scan facts, on the
+      pipeline, keyed by location and wording. The union already computes that key, so the
+      map costs one dictionary. A first pass that restates a finding keeps its origin when a
+      later pass rewords it: the question is which pass FOUND it.
+
+  - category: TradeOff
+    chose: "A repository scan with scanner findings now spends one more model pass"
+    over: "Reconciling inside the first turn to keep the pass count"
+    reason: |
+      Reconciling inside the first turn is exactly the anchoring this phase removes. The
+      extra pass is the price of the measurement, and it is bounded: one turn, on an already
+      warm conversation, so it is read at cache price rather than paid for again. A scan
+      whose scanners found nothing spends no extra pass, and the api path spends none at
+      all. If the unanchored pass produces nothing the anchored one would not have, the
+      origins map says so and the phase is refuted on its own evidence.
+
+  - category: Scope
+    chose: "No execution surface for the scan master"
+    over: "Letting it write a scratch file and run it, the way the direct probe could"
+    reason: |
+      That is a real difference to the probe and a real change to a read-only guarantee the
+      whole scan surface rests on — the tools, the prompt and the pipeline all state it. It
+      is the operator's call, and mixing it into the ordering change would make the next
+      measurement unattributable to either.

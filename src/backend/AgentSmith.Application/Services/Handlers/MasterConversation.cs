@@ -26,7 +26,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// middleware's job, below this.
 /// </para>
 /// </summary>
-internal sealed class MasterConversation
+public sealed class MasterConversation
 {
     private readonly List<ChatMessage> _messages = [];
 
@@ -34,14 +34,14 @@ internal sealed class MasterConversation
     /// The first pass: the master's own turn — composed exactly as the runner puts it on
     /// the wire, so ticket images survive into the thread — and everything it answered with.
     /// </summary>
-    internal void Opened(AgenticLoopRequest request, ChatResponse? response)
+    public void Opened(AgenticLoopRequest request, ChatResponse? response)
     {
         _messages.Add(LoopUserMessage.Compose(request.UserPrompt, request.UserImageParts));
         Append(response);
     }
 
     /// <summary>A later pass: the nudge that drove it and everything it answered with.</summary>
-    internal void Continued(string nudge, ChatResponse? response)
+    public void Continued(string nudge, ChatResponse? response)
     {
         _messages.Add(new ChatMessage(ChatRole.User, nudge));
         Append(response);
@@ -51,7 +51,7 @@ internal sealed class MasterConversation
     /// What the next pass continues. A copy, so a request already in flight is never
     /// mutated underneath the provider by the pass that follows it.
     /// </summary>
-    internal IReadOnlyList<ChatMessage> Thread() => [.. _messages];
+    public IReadOnlyList<ChatMessage> Thread() => [.. _messages];
 
     private void Append(ChatResponse? response)
     {

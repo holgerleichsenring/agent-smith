@@ -28,7 +28,7 @@ public sealed class EndpointCitationResolver : ICandidateResolver
         return !evidence.Endpoints.IsEmpty && Citation(finding) is not null;
     }
 
-    public Task<CandidateFinding?> ResolveAsync(
+    public Task<CandidateResolution> ResolveAsync(
         SkillObservation finding, ScanEvidence evidence, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(finding);
@@ -36,11 +36,11 @@ public sealed class EndpointCitationResolver : ICandidateResolver
         var citation = Citation(finding)!;
         var declarations = evidence.Endpoints.Declarations(citation);
         return Task.FromResult(declarations.Count == 0
-            ? null
-            : new CandidateFinding(
+            ? CandidateResolution.Invented
+            : CandidateResolution.Refutable(new CandidateFinding(
                 finding, finding.DisplayLocation,
                 Describe(declarations, evidence.Exchanges.For(citation)),
-                EvidenceSurface.LiveTarget));
+                EvidenceSurface.LiveTarget)));
     }
 
     /// <summary>The endpoint or schema the finding points at, or null when it points at

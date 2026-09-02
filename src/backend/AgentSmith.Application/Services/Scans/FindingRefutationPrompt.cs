@@ -1,8 +1,8 @@
 namespace AgentSmith.Application.Services.Scans;
 
 /// <summary>
-/// p0429: the question put to a fresh instance about findings NOBODY has vouched for —
-/// the ones a scanner raised and the scan master never addressed.
+/// p0429: the question put to a fresh instance about the findings a scan is about to
+/// deliver — every one of them, whoever raised it.
 /// <para>
 /// Asked adversarially, like the cut review and the delivery account: not "is this
 /// finding real", to which "yes" is the cheap answer, but "REFUTE it". And a rebuttal
@@ -18,11 +18,10 @@ public static class FindingRefutationPrompt
         ArgumentNullException.ThrowIfNull(candidates);
         var listed = string.Join("\n\n", candidates.Select(Describe));
         return $$"""
-            Below are security findings raised by automated scanners. NOBODY has confirmed
-            them: the reviewing agent saw this evidence and did not report them, so each one
-            is either a real defect it missed or a false positive it silently rejected. Nine
-            findings of exactly this kind were once delivered as CRITICAL and all nine were
-            wrong.
+            Below are the security findings a scan is about to deliver. Some were raised by
+            automated scanners and never confirmed by anyone; others were written by the
+            reviewing agent itself. Treat them all the same way — nine findings of this kind
+            were once delivered as CRITICAL and all nine were wrong.
 
             Your job is to REFUTE each finding against the evidence shown under it. A source
             finding is NOT substantiated when the code shows it cannot be what it claims — a
@@ -37,11 +36,14 @@ public static class FindingRefutationPrompt
             is substantiated — say so. "I cannot tell" is substantiated, not refuted: leaving
             a real defect in is worse than leaving a false positive in.
 
-            Answer with JSON and nothing else. When you refute, quote VERBATIM a line of the
+            Answer with one row per finding, in JSON and nothing else, echoing the finding's
+            id EXACTLY as given — two findings can share a location, and a row whose id names
+            no finding answers none of them. When you refute, quote VERBATIM a line of the
             evidence shown under that finding — a refutation whose quote is not in what you
             were shown is discarded and the finding stands:
 
-              [{"location": "<the location string, verbatim>", "substantiated": true|false,
+              [{"id": "<the finding id, verbatim>",
+                "location": "<the location string, verbatim>", "substantiated": true|false,
                 "quote": "<verbatim line of the shown evidence, or null when substantiated>",
                 "why": "<one short sentence>"}]
 
@@ -51,7 +53,8 @@ public static class FindingRefutationPrompt
     }
 
     private static string Describe(CandidateFinding candidate) =>
-        $"location: {candidate.Location}\nseverity: {candidate.Observation.Severity}\n"
+        $"id: {candidate.Id}\nlocation: {candidate.Location}\n"
+        + $"severity: {candidate.Observation.Severity}\n"
         + $"raised by: {candidate.Observation.Role}\nclaim: {candidate.Observation.Description}\n"
         + $"{Label(candidate.Surface)}:\n{candidate.Evidence}";
 

@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-6c32
+
+goal: "A master answer the observation parser can still recover is not thrown away by the gate in front of it, and the answer is given room to be written in the first place."
+
+applies_to: "backend (the array gate in front of the findings merge, and the output budget the scan master's closing answer is written under)"
+
+scope:
+  in: >
+    The gate that decides whether a master answered with findings uses what the parser can actually
+    recover instead of a stricter check of its own; the scan master's answer is written under an
+    output budget sized for the findings it is asked to produce; a recovery that was needed is
+    visible on the run; the api-scan collector records an unreadable answer the way the merge already
+    does.
+  out: >
+    A SECOND MODEL CALL TO RE-WRITE THE ANSWER — that was drafted and withdrawn, because the answer
+    is not unreadable, it is being refused by a gate and cut off by a budget. RAISING THE SCAN
+    MASTER'S ITERATION CEILING is 2026-09-01-7df4, deliberately separate so the two cannot be
+    confused for each other in the next measurement.
+
+decisions:
+  - key: |
+      THE GATE IS STRICTER THAN THE PARSER IT GUARDS. MergeMasterFindings decides array-ness with a
+      strict parse of the extracted span, and only then calls ObservationParser — whose
+      TryResilientFallback recovers object literals one at a time from an array that was cut off
+      mid-write. So the one recovery built for exactly this failure has never run on the security-scan
+      path: the gate rejects the answer before the parser that could read it is reached.
+  - key: |
+      THIRTY-SEVEN FINDINGS DO NOT FIT IN THE BUDGET THEY ARE WRITTEN UNDER. The primary role is
+      configured at 8192 output tokens, and the observation schema allows 500 characters of
+      description, 300 of suggestion and 4000 of details per finding. The run that lost its triage
+      delivered 37 raw findings. This is the same failure class as the plan truncation an eval already
+      proved on the same model and the same budget, and it explains the observed runs better than any
+      premise about exploration budgets.
+  - key: |
+      TRUNCATION IS THE MOST LIKELY CAUSE AND THE CHEAPEST TO REMOVE. No new call, no prompt change,
+      no skills release, no catalog pin — a gate that asks the parser and a budget that fits the
+      answer. Everything else in this batch is more expensive and less certain, so this goes first
+      and is measured before the rest is judged.
+  - key: |
+      A RECOVERED ANSWER IS NOT A CLEAN ONE. If the array had to be salvaged object by object, the
+      run says so. A silent recovery would replace one invisible failure with another, and the whole
+      point of 2026-08-30-03e4 was that a scan must not look thorough when it was not.
+  - key: |
+      THE API-SCAN PATH NEVER GOT THE HONESTY FIX. CollectMasterFindings — the api preset's collector —
+      skips on an unparseable answer and sets nothing, so an unreadable triage there is a green run
+      with zero findings and a coverage account that still reports the criterion satisfied. 03e4
+      hardened the merge and not this. Same defect, same remedy, and it belongs here because it is the
+      same gate question.
+
+steps:
+  - id: the-gate-asks-the-parser
+    action: "Array-ness is decided by what the observation parser can recover, so a recoverable answer reaches the merge."
+  - id: the-answer-has-room-to-be-written
+    action: "The scan master's closing answer is written under an output budget sized for the finding count it is asked for."
+  - id: a-salvaged-answer-says-it-was-salvaged
+    action: "An answer that needed the resilient recovery is recorded on the run rather than passing as a clean triage."
+  - id: the-api-collector-degrades-like-the-merge
+    action: "An unreadable master answer on the api-scan path records the same degradation the merge records, instead of delivering nothing quietly."
+
+tests:
+  - "Merge_AnswerCutOffMidArray_RecoversTheFindingsItHolds"
+  - "Merge_AnswerThatIsNotFindingsAtAll_StillDegrades"
+  - "Merge_RecoveredAnswer_IsRecordedAsRecovered"
+  - "ScanMaster_ClosingAnswer_IsWrittenUnderItsOwnOutputBudget"
+  - "ApiScan_UnreadableMasterAnswer_RecordsADegradationNotAZeroCount"
+  - "ApiScan_ReadableMasterAnswer_IsUnchanged"
+
+done:
+  - "an answer truncated mid-array delivers the findings it holds, marked as recovered"
+  - "the closing answer is not cut off by a budget sized for a different task"
+  - "an unreadable api-scan triage is as visible as an unreadable repo-scan triage"
+  - "build green, full suite green"

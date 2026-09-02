@@ -1,0 +1,110 @@
+{
+  "model_id": "sonnet",
+  "scan_prompt_version": "e34e578a",
+  "generated_at": "2026-09-02T05:20:26.823047+00:00",
+  "target_id": "reference-target",
+  "endpoints": [
+    {
+      "endpoint": "GET /members/{id}",
+      "class": "missing-authorization",
+      "truth_is_weak": true,
+      "has_finding": true,
+      "finding_headline": "GET /members/{id}: no security scheme declared \u2014 endpoint is unauthenticated and returns Member PII including contactEmail and role",
+      "highest_severity": "High",
+      "is_miss": false,
+      "is_false_alarm": false,
+      "agrees": true
+    },
+    {
+      "endpoint": "GET /orders",
+      "class": "unscoped-identifier",
+      "truth_is_weak": true,
+      "has_finding": true,
+      "finding_headline": "GET /orders: caller-supplied memberId query parameter \u2014 if not verified against the token subject, any member can enumerate another member\u0027s orders (BOLA)",
+      "highest_severity": "Medium",
+      "is_miss": false,
+      "is_false_alarm": false,
+      "agrees": true
+    },
+    {
+      "endpoint": "POST /invoices",
+      "class": "verbose-error",
+      "truth_is_weak": true,
+      "has_finding": true,
+      "finding_headline": "POST /invoices: caller-supplied orderId with no visible ownership check \u2014 authenticated member may create invoices against orders they do not own",
+      "highest_severity": "Medium",
+      "is_miss": false,
+      "is_false_alarm": false,
+      "agrees": true
+    },
+    {
+      "endpoint": "PUT /members/{id}/role",
+      "class": "privilege-escalation",
+      "truth_is_weak": true,
+      "has_finding": true,
+      "finding_headline": "PUT /members/{id}/role: no privilege tier declared \u2014 any authenticated member bearer can set any member\u0027s role, including privilege escalation",
+      "highest_severity": "High",
+      "is_miss": false,
+      "is_false_alarm": false,
+      "agrees": true
+    },
+    {
+      "endpoint": "GET /health",
+      "class": "missing-authorization",
+      "truth_is_weak": false,
+      "has_finding": false,
+      "finding_headline": null,
+      "highest_severity": null,
+      "is_miss": false,
+      "is_false_alarm": false,
+      "agrees": true
+    },
+    {
+      "endpoint": "GET /orders/{id}",
+      "class": "unscoped-identifier",
+      "truth_is_weak": false,
+      "has_finding": false,
+      "finding_headline": null,
+      "highest_severity": null,
+      "is_miss": false,
+      "is_false_alarm": false,
+      "agrees": true
+    },
+    {
+      "endpoint": "POST /tokens/introspect",
+      "class": "credential-exposure",
+      "truth_is_weak": false,
+      "has_finding": false,
+      "finding_headline": null,
+      "highest_severity": null,
+      "is_miss": false,
+      "is_false_alarm": false,
+      "agrees": true
+    }
+  ],
+  "steps_that_contributed_nothing": [
+    "Nuclei (stubbed in this tier \u2014 set AGENTSMITH_HARNESS_REAL_SCANNERS=1 with a docker daemon for dynamic evidence)",
+    "Spectral (stubbed in this tier \u2014 set AGENTSMITH_HARNESS_REAL_SCANNERS=1 with a docker daemon for dynamic evidence)",
+    "ZAP (stubbed in this tier \u2014 set AGENTSMITH_HARNESS_REAL_SCANNERS=1 with a docker daemon for dynamic evidence)"
+  ],
+  "problem": null,
+  "rates": {
+    "weak_population": 4,
+    "sound_population": 3,
+    "misses": 0,
+    "false_alarms": 0,
+    "miss_rate": 0,
+    "false_alarm_rate": 0,
+    "detections": 4
+  },
+  "weak_population": 4,
+  "sound_population": 3,
+  "misses": 0,
+  "false_alarms": 0,
+  "miss_rate": 0,
+  "false_alarm_rate": 0,
+  "detections": 4,
+  "missed_endpoints": [],
+  "undeclared_locations": [],
+  "scored": true
+}

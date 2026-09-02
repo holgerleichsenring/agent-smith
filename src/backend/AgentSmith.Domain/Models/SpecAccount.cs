@@ -13,7 +13,11 @@ namespace AgentSmith.Domain.Models;
 public sealed record SpecAccount(
     string RepoKey,
     IReadOnlyList<CriterionAccount> Criteria,
-    string? Problem = null)
+    string? Problem = null,
+    // 2026-09-01-3653: what the run's master pass was given and how far it got. Trailing and
+    // optional, so every existing construction site keeps compiling; null on a phase account
+    // and on a scan whose master never ran, which OMITS the section rather than zeroing it.
+    ScanPassMeasures? Measures = null)
 {
     /// <summary>
     /// Nothing outstanding — and an account that could not be taken is not a pass.

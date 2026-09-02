@@ -13,8 +13,9 @@ public interface ICandidateResolver
     /// evidence it needs actually present?</summary>
     bool CanAnswer(SkillObservation finding, ScanEvidence evidence);
 
-    /// <summary>The candidate with its evidence attached, or null when the citation
-    /// resolves against nothing — which is invention, and the finding is dropped.</summary>
-    Task<CandidateFinding?> ResolveAsync(
+    /// <summary>The candidate with its evidence attached, or the reason there is none:
+    /// an invented citation, which may cost an unauthored finding its place, or a real
+    /// citation with no showable evidence, which costs nothing.</summary>
+    Task<CandidateResolution> ResolveAsync(
         SkillObservation finding, ScanEvidence evidence, CancellationToken cancellationToken);
 }

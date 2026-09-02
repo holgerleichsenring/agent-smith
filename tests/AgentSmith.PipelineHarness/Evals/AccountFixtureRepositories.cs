@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using Microsoft.Extensions.Logging;
@@ -116,26 +115,24 @@ public sealed class AccountFixtureRepositories : IAsyncDisposable
     private static async Task BuildAsync(
         string path, AccountFixtureRepo repo, CancellationToken ct)
     {
-        await GitAsync(path, ct, "init", "--quiet", "--initial-branch", BaseBranch);
-        await GitAsync(path, ct, "config", "user.email", "fixture@example.com");
-        await GitAsync(path, ct, "config", "user.name", "Account Fixture");
+        await FixtureGit.InitAsync(path, BaseBranch, ct);
 
         Write(path, repo.Base);
-        await GitAsync(path, ct, "add", "-A");
-        await GitAsync(path, ct, "commit", "--quiet", "-m", "base");
+        await FixtureGit.RunAsync(path, ct, "add", "-A");
+        await FixtureGit.RunAsync(path, ct, "commit", "--quiet", "-m", "base");
 
         // The clone's own answer to "what do I merge into" is a remote-tracking ref, so the
         // fixture creates one rather than leaving the production resolver to fall through.
-        await GitAsync(path, ct, "update-ref", $"refs/remotes/origin/{BaseBranch}", "HEAD");
-        await GitAsync(path, ct, "symbolic-ref", "refs/remotes/origin/HEAD",
+        await FixtureGit.RunAsync(path, ct, "update-ref", $"refs/remotes/origin/{BaseBranch}", "HEAD");
+        await FixtureGit.RunAsync(path, ct, "symbolic-ref", "refs/remotes/origin/HEAD",
             $"refs/remotes/origin/{BaseBranch}");
 
-        await GitAsync(path, ct, "checkout", "--quiet", "-b", WorkBranch);
+        await FixtureGit.RunAsync(path, ct, "checkout", "--quiet", "-b", WorkBranch);
         foreach (var relative in repo.Base.Keys.Where(k => !repo.Branch.ContainsKey(k)))
             File.Delete(Path.Combine(path, relative.Replace('/', Path.DirectorySeparatorChar)));
         Write(path, repo.Branch);
-        await GitAsync(path, ct, "add", "-A");
-        await GitAsync(path, ct, "commit", "--quiet", "-m", "delivery");
+        await FixtureGit.RunAsync(path, ct, "add", "-A");
+        await FixtureGit.RunAsync(path, ct, "commit", "--quiet", "-m", "delivery");
     }
 
     private static void Write(string root, IReadOnlyDictionary<string, string> tree)
@@ -146,26 +143,6 @@ public sealed class AccountFixtureRepositories : IAsyncDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             File.WriteAllText(full, content);
         }
-    }
-
-    /// <summary>A failed setup command is thrown, never warned: a fixture built wrong would
-    /// score the account against a tree nobody designed.</summary>
-    private static async Task GitAsync(string workDir, CancellationToken ct, params string[] args)
-    {
-        var info = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = workDir,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-        };
-        foreach (var arg in args) info.ArgumentList.Add(arg);
-        using var process = Process.Start(info)
-            ?? throw new InvalidOperationException("git could not be started");
-        var stderr = await process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
-        if (process.ExitCode != 0)
-            throw new InvalidOperationException(
-                $"git {string.Join(' ', args)} failed in {workDir}: {stderr}");
     }
 
     public async ValueTask DisposeAsync()

@@ -3,7 +3,7 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <summary>
 /// Configuration for an AI agent provider (Claude, OpenAI, Gemini, Ollama).
 /// </summary>
-public sealed class AgentConfig
+public sealed partial class AgentConfig
 {
     public string Type { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
@@ -49,14 +49,6 @@ public sealed class AgentConfig
     /// attached, not viewable" note instead. Set via <c>agent.supports_vision</c>.
     /// </summary>
     public bool SupportsVision { get; set; } = true;
-
-    /// <summary>
-    /// p0279: minimum distinct source files a scan/review master should read before its
-    /// review is considered non-shallow. Below this floor the master is re-prompted ONCE
-    /// to inventory the full surface and review each area. Default 6; raise via
-    /// <c>agent.scan_min_source_reads</c> for large targets.
-    /// </summary>
-    public int ScanMinSourceReads { get; set; } = 6;
 
     /// <summary>
     /// p0341c: the master loop's anti-runaway SAFETY ceiling — the maximum tool
@@ -106,15 +98,15 @@ public sealed class AgentConfig
     /// runs that flip ledger steps rapidly. Set &lt;= 0 to disable checkpoint pushes.
     /// </summary>
     public int CheckpointPushMinIntervalSeconds { get; set; } = 120;
-}
 
-/// <summary>
-/// p0188: per-agent rate-limit override. When unset, ChatClientFactory picks
-/// a conservative default based on agent type (subscription tokens get a
-/// tighter budget than API keys).
-/// </summary>
-public sealed class RateLimitConfig
-{
-    public int? RequestsPerMinute { get; set; }
-    public int? InputTokensPerMinute { get; set; }
+    /// <summary>
+    /// 2026-09-01-b0d7: whether an external-worker CLI is asked for its STRUCTURED result
+    /// (<c>--output-format json</c>), which is what makes a worker call able to report the
+    /// tokens it used. Opt-in per agent because worker mode promises that any binary
+    /// reading a prompt on stdin and printing an answer works, and an unknown binary handed
+    /// an unknown flag exits non-zero — a dead run. Unset means on for the default
+    /// <c>claude</c> binary, which documents the flag, and off for anything else. Set via
+    /// <c>agent.worker_structured_result</c>.
+    /// </summary>
+    public bool? WorkerStructuredResult { get; set; }
 }

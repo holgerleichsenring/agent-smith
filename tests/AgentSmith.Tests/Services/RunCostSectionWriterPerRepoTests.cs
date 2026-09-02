@@ -44,7 +44,7 @@ public sealed class RunCostSectionWriterPerRepoTests
         var summary = new RunCostSummary(
             Phases: new Dictionary<string, PhaseCost>
             {
-                ["Plan"] = new("gpt-4.1", 1_000_000, 0, 0, 1, 2.0m),
+                ["Plan"] = new("gpt-4.1", 1_000_000, 0, 0, 2.0m),
             },
             TotalCost: 2.0m,
             PerRepo: null);
@@ -85,7 +85,7 @@ public sealed class RunCostSectionWriterPerRepoTests
         new(
             Phases: new Dictionary<string, PhaseCost>
             {
-                ["Bootstrap"] = new("gpt-4.1", 5_000_000, 0, 0, 3, 15.0m),
+                ["Bootstrap"] = new("gpt-4.1", 5_000_000, 0, 0, 15.0m),
             },
             TotalCost: 15.0m,
             PerRepo: new Dictionary<string, RepoCost>
@@ -93,13 +93,13 @@ public sealed class RunCostSectionWriterPerRepoTests
                 ["repo-a"] = new(
                     Phases: new Dictionary<string, PhaseCost>
                     {
-                        ["Bootstrap"] = new("gpt-4.1", 2_500_000, 0, 0, 1, 5.0m),
+                        ["Bootstrap"] = new("gpt-4.1", 2_500_000, 0, 0, 5.0m),
                     },
                     TotalCost: 5.0m),
                 ["repo-b"] = new(
                     Phases: new Dictionary<string, PhaseCost>
                     {
-                        ["Bootstrap"] = new("gpt-4.1", 5_000_000, 0, 0, 2, 10.0m),
+                        ["Bootstrap"] = new("gpt-4.1", 5_000_000, 0, 0, 10.0m),
                     },
                     TotalCost: 10.0m),
             });

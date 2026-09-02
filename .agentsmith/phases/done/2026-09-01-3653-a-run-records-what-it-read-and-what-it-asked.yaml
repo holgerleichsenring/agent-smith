@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-3653
+
+goal: "A scan states, in the account it already writes, how large its prompt was, how many turns it used against its ceiling and how much of the source it read."
+
+applies_to: "backend (the scan's existing coverage account and what the master pass contributes to it)"
+
+requires:
+  - 2026-09-01-7df4
+
+scope:
+  in: >
+    The scan's existing account gains a measured section: the system prompt's size, the review
+    prompt's named parts, the turns the pass used against its ceiling, and the count of distinct
+    source files read; it is rendered where that account is already rendered; the turn number that
+    the run result prints today and that is always zero is either made true or removed.
+  out: >
+    A SECOND ACCOUNT. The scan already writes one, it is already rendered into the run result, and a
+    parallel surface that then disagrees with it is a failure this repository has already paid for.
+    REDUCING THE PROMPT — measured here, changed nowhere. A COMPARISON TOOL — three runs and a spread
+    is a shell command over three result files, and shipping it as a product surface would be
+    building a dashboard for a measurement nobody has learned to trust yet.
+
+decisions:
+  - key: |
+      EVERY NUMBER IN THIS DISCUSSION HAS BEEN A GUESS, INCLUDING THE ONES IN THIS PHASE'S FIRST
+      DRAFT. The scan prompt was called fifty-two thousand characters. The master skill was then called
+      seven and a half thousand with no placeholders — it carries three reference tokens that the body
+      resolver inlines, so it is about twelve and a half. Two wrong numbers in one argument, from the
+      same absence: nothing writes it down.
+  - key: |
+      IT EXTENDS THE COVERAGE ACCOUNT, WHICH ALREADY EXISTS AND IS ALREADY RENDERED. The scan's
+      account already reads the master's read-set and already reaches the run result through its
+      renderer. Half of what this phase wants is therefore a field on a type that is already
+      constructed and already printed, and the wiring cost is close to zero. The other half — the
+      prompt's named parts — is the only genuinely new measurement.
+  - key: |
+      THE RUN RESULT ALREADY PRINTS A TURN COUNT, AND IT IS ALWAYS ZERO. It is fed from a limit
+      enforcer whose recording method has no production caller anywhere. Adding a second turn number
+      beside a dead one puts two contradicting counts in one file. The dead one is fixed or deleted in
+      this phase; it is not left standing.
+  - key: |
+      TURNS ARE COUNTED FROM THE TRANSCRIPT, AND THE PHASE SAYS SO. The pinned SDK exposes no
+      iteration count on its response; it only logs at the ceiling. What the response does carry is
+      every message of the pass, so assistant messages are the honest handle — near-exact, since a
+      provider may split one turn across messages, and it must be described that way rather than as a
+      precise count. It also works on the external-worker path, where the cost tracker records nothing
+      at all until 2026-09-01-b0d7 lands.
+  - key: |
+      FOUR SECTIONS, NOT TWELVE PLACEHOLDERS. The question is whether the scan prompt is fifty-two
+      thousand or twelve. The system prompt's total plus the review prompt's four composed sections
+      answers it; sizing every placeholder of a master this surface does not even use is scope the
+      question does not have.
+
+steps:
+  - id: the-account-gains-a-measured-section
+    action: "The scan's existing account carries the system prompt's size, the review prompt's named part sizes, the turns used against the ceiling and the distinct read count."
+  - id: turns-are-counted-from-the-transcript
+    action: "Turns are derived from the pass's own messages and described as near-exact, not as an SDK-reported figure."
+  - id: the-dead-turn-count-stops-lying
+    action: "The turn field the run result prints today is either fed from the same source or removed."
+  - id: it-renders-where-the-account-renders
+    action: "The measured section appears in the run result through the account's existing renderer, with no new artifact."
+
+tests:
+  - "ScanAccount_CarriesThePromptSizesThePassWasGiven"
+  - "ScanAccount_CarriesTurnsUsedAgainstTheCeiling"
+  - "ScanAccount_CarriesTheDistinctReadCount"
+  - "ScanAccount_OfARunWithNoMaster_OmitsTheSectionRatherThanZeroingIt"
+  - "RunResult_DoesNotPrintTwoDisagreeingTurnCounts"
+  - "TurnCount_FromAMultiMessagePass_IsCountedFromAssistantMessages"
+
+done:
+  - "one run answers from its own result how large its prompt was and how far it got"
+  - "no second account and no second turn number exist"
+  - "no prompt content changes in this phase"
+  - "build green, full suite green"

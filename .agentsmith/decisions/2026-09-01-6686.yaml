@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-6686
+
+decisions:
+  - category: Implementation
+    chose: "The EXISTING StubApiTargetHost grew a document and the behaviour that document describes"
+    over: "A second host for the scored tier"
+    reason: |
+      The wiring was already done — a per-test Kestrel server on an ephemeral loopback port,
+      reaching the run through DockerPresetHarness → ApiTargetOverride/SwaggerPathOverride →
+      ContextKeys.ApiTarget/SwaggerPath. What was missing was content: nineteen lines of
+      document with a single /health GET. A second host would have been a second thing to keep
+      reachable and a second thing to keep loopback-bound.
+  - category: Architecture
+    chose: "The served endpoints really behave as declared, not only the document"
+    over: "Serving a document over a target that answers nothing"
+    reason: |
+      The scan master's tool surface carries http_request, and this tier's sandbox runs it on
+      the host, so the target IS reachable. With behaviour, a scan can be scored on scanning;
+      with a document alone it could only ever be scored on reading. The weaknesses are in the
+      responses too — an unauthenticated read that answers, a memberId nobody checks against
+      the bearer, a 500 carrying the internal exception and the failing SQL, a role change
+      nobody gates.
+  - category: Implementation
+    chose: "The eval composition restores the PRODUCTION SwaggerProvider and points SwaggerPath at the loopback document"
+    over: "Leaving LoadSwagger on the harness's ISwaggerProvider stub"
+    reason: |
+      The spec named this as a caveat to establish, and it was real: StubSwaggerProvider
+      returns ONE invented /health endpoint whatever it is asked, so under it the served
+      document is decorative and the score would be a score of a fiction. The production
+      provider fetches the URL, so the document that reaches the master is the one the target
+      serves — and a mechanics case proves it by title and endpoint count, over HTTP, with no
+      model. StubApiTargetHost gained LoopbackOpenApiUrl for it: the existing OpenApiUrl goes
+      through host.docker.internal, which resolves only from inside a container.
+  - category: Implementation
+    chose: "Scoring by (method, path template), with the method compared only when the finding names one"
+    over: "Scoring by file, as the repository scoreboard does"
+    reason: |
+      An api finding's location is an endpoint and many carry no File at all —
+      SkillObservation.DisplayLocation falls back to ApiPath and then to SchemaName. Matching
+      on the template also survives the difference between a finding naming the concrete
+      request it made and one naming the route, which is wording rather than detection.
+      Segment counts must agree, so /orders never matches /orders/{id} — those are two
+      declarations with two different verdicts, and collapsing them would score a detection
+      the scan did not make.
+  - category: Scope
+    chose: "No shared fixture with the repository scoreboard"
+    over: "One corpus scored by both scans"
+    reason: |
+      A repo scan reads source and an api finding frequently carries no file, so one match key
+      cannot serve both. Running the api preset over a mounted source tree is separately
+      blocked by a documented sandbox defect (DockerSandbox's /work is a docker-managed volume
+      and a second host bind at the same mount fails with "Duplicate mount point: /work",
+      deferred to p0199g). This half is scored against the SERVED surface only.
+  - category: Implementation
+    chose: "The rate arithmetic is shared through IScoredSubject + ScanDetectionRates; the match key is not"
+    over: "A second copy of the two rates and their denominators"
+    reason: |
+      The two scans differ in what a subject IS and in how a finding names one. They do not
+      differ in what a miss rate is. Two copies of that arithmetic are two numbers that can
+      start disagreeing, and the direction of a disagreement is exactly what these reports
+      exist to make visible.
+  - category: Implementation
+    chose: "A separate declaration.json beside openapi.json"
+    over: "x- extensions inside the served document"
+    reason: |
+      An extension would be text the scan under test can read. A corpus whose answers are
+      printed on the thing being scanned measures nothing. A mechanics case pins the two
+      together in BOTH directions — every served endpoint declared, every declaration served —
+      parsed by the production provider, so the declaration is compared against what the scan
+      really sees rather than against a second reading of the same file.
+  - category: Implementation
+    chose: "Findings that name no declared endpoint are REPORTED, never folded into a rate"
+    over: "Counting them as false alarms, or dropping them"
+    reason: |
+      They have no denominator. Counting them would invent one; dropping them would hide the
+      shape of the failure this exists to catch — a scan that delivered nine critical findings
+      nobody could substantiate. The report lists them under their own heading and says why
+      they are not scored.
+  - category: Implementation
+    chose: "The score names every dynamic step that contributed nothing, and distinguishes stubbed from cut off from empty"
+    over: "Reporting the two rates alone"
+    reason: |
+      2026-08-30-26ed made the distinction visible on the run's own result and it belongs
+      beside a score for the same reason: a step that reported completion at its time limit
+      having found nothing renders identically to a clean target. This tier adds a second
+      silence — the scanner adapters are stubbed unless an operator opts in with a docker
+      daemon — and the first scored run named all three, so 0/4 misses reads as what it is.
+  - category: Implementation
+    chose: "The run uses the PRODUCTION passive shape — a repo with no path and no url at all"
+    over: "Pointing the repo at a scratch directory"
+    reason: |
+      Found by running it. TryCheckoutSource resolves a Local repo whose path EXISTS as a real
+      checkout, so source_available went true, the strict bootstrap gate stopped skipping, and
+      the run aborted on a tree nobody meant to scan — scoring 0/0 over both denominators. An
+      operator running --target and --swagger has no source, which is the shape that both
+      reaches WarnPassive and matches what is being measured.
+  - category: TradeOff
+    chose: "A finding on the right endpoint counts as a detection even when it names a different weakness than the declared one"
+    over: "Requiring the finding's class to match the declaration's"
+    reason: |
+      The same reading the repository scoreboard applies to a line. The first scored run showed
+      the case: POST /invoices is declared for its verbose error and the master reported a
+      missing ownership check on the same endpoint. Requiring the class to agree would score
+      the WORDING of a weakness, and the phrasing of a class is the fixture author's, not the
+      scan's. The finding's headline is printed beside every outcome so a reader sees what was
+      actually said.
+  - category: Implementation
+    chose: "Loopback binding kept, and no literal in any credential issuer's format anywhere"
+    over: "Binding 0.0.0.0 so a container could reach it without host.docker.internal"
+    reason: |
+      The target is deliberately weak and this repository is public. It stays on 127.0.0.1 as
+      the existing host already binds it, and every declared weakness is structural, so nothing
+      here can be mistaken for a leaked credential by a scanner or by a person.

@@ -44,4 +44,12 @@ public sealed record AgenticLoopRequest(
     // away, so each re-engagement re-derived facts it had already paid for; this is where
     // the thread crosses that boundary. Appended-to, never rewritten, so the provider's
     // cache keeps hitting the growing prefix.
-    IReadOnlyList<ChatMessage>? PriorMessages = null);
+    IReadOnlyList<ChatMessage>? PriorMessages = null,
+    // 2026-09-01-7df4: the compaction settings THIS loop wants applied. The coding master
+    // carries them on its hooks; the scan surface has no hooks (no money fence yet) and had
+    // no other way to ask, so a raised ceiling would have walked into a context refusal.
+    CompactionConfig? Compaction = null,
+    // 2026-09-01-7df4: the input window to run against when the resolved model role states
+    // none. A role that states its own window wins — the window is a property of the
+    // deployment, and this is only the surface saying what it assumes when nobody said.
+    int? ContextWindowTokensOverride = null);

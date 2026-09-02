@@ -44,8 +44,8 @@ public sealed class FindingSubstantiationTests
     {
         var finding = Scanner(ObservationSeverity.Critical, RealFile, 2);
         var pipeline = ScanWith([finding], [finding]);
-        var refuter = new ScriptedRefuter(
-            [new FindingRefutation($"{RealFile}:2", false, SecretLine.Trim(), "an example value in a sample file")]);
+        var refuter = new ScriptedRefuter(c =>
+            [new FindingRefutation($"{RealFile}:2", false, SecretLine.Trim(), "an example value in a sample file", c[0].Id)]);
 
         var delivered = await Substantiate(pipeline, refuter);
 
@@ -62,8 +62,8 @@ public sealed class FindingSubstantiationTests
     {
         var finding = Scanner(ObservationSeverity.Critical, RealFile, 2);
         var pipeline = ScanWith([finding], [finding]);
-        var refuter = new ScriptedRefuter(
-            [new FindingRefutation($"{RealFile}:2", false, "this line is nowhere in the file", "trust me")]);
+        var refuter = new ScriptedRefuter(c =>
+            [new FindingRefutation($"{RealFile}:2", false, "this line is nowhere in the file", "trust me", c[0].Id)]);
 
         var delivered = await Substantiate(pipeline, refuter);
 
@@ -78,7 +78,7 @@ public sealed class FindingSubstantiationTests
         var finding = Scanner(ObservationSeverity.Critical, RealFile, 2);
         var pipeline = ScanWith([finding], [finding]);
 
-        var delivered = await Substantiate(pipeline, new ScriptedRefuter(null));
+        var delivered = await Substantiate(pipeline, ScriptedRefuter.Unreachable());
 
         delivered.Should().ContainSingle().Which.Severity.Should().Be(ObservationSeverity.Critical,
             "silence is not a verdict in either direction — a call that failed leaves the scan as loud as it was");
@@ -89,25 +89,12 @@ public sealed class FindingSubstantiationTests
     {
         var finding = Scanner(ObservationSeverity.Critical, RealFile, 2);
         var pipeline = ScanWith([finding], [finding]);
-        var refuter = new ScriptedRefuter([new FindingRefutation($"{RealFile}:2", true)]);
+        var refuter = new ScriptedRefuter(c => [new FindingRefutation($"{RealFile}:2", true, Id: c[0].Id)]);
 
         var delivered = await Substantiate(pipeline, refuter);
 
         delivered.Should().ContainSingle().Which.Severity.Should().Be(ObservationSeverity.Critical,
             "a real critical must still get through loudly");
-    }
-
-    [Fact]
-    public async Task Substantiation_MasterCuratedFindings_AreNeverRefuted()
-    {
-        var vouched = Scanner(ObservationSeverity.Critical, RealFile, 2, "the master's own finding");
-        var pipeline = ScanWith([vouched], unvouched: []);
-        var refuter = new ScriptedRefuter([]);
-
-        var delivered = await Substantiate(pipeline, refuter);
-
-        refuter.Asked.Should().BeEmpty("a finding the master itself reported has an author");
-        delivered.Should().ContainSingle().Which.Severity.Should().Be(ObservationSeverity.Critical);
     }
 
     [Fact]
@@ -155,6 +142,7 @@ public sealed class FindingSubstantiationTests
                 new EndpointCitationResolver(),
                 NullLogger<CandidateFindingFactory>.Instance),
             refuter,
+            new RefutationRouter(NullLogger<RefutationRouter>.Instance),
             new RefutationVerdicts(NullLogger<RefutationVerdicts>.Instance),
             new ScanEvidenceFactory(source),
             NullLogger<FindingSubstantiator>.Instance);

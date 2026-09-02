@@ -112,11 +112,9 @@ public sealed class PipelineErrorHandler(
                 return;
 
             // Skip persist for read-only pipelines (security-scan, api-security-scan, …).
-            // Without a code-modifying handler in the pipeline, the workdir contains scan
-            // artifacts (ZAP reports, findings JSON, …) that should NOT be staged into a
-            // WIP branch. Code-modifying handlers are AgenticExecute / GenerateTests /
-            // GenerateDocs — pipelines without any of those produce no source mutation.
-            if (!ContainsCodeModifyingHandler(commandNames))
+            // The workdir of a review holds scan artifacts (ZAP reports, findings JSON, …)
+            // and the tree it was reading, none of which belongs in a WIP commit.
+            if (!WorkBranchPersistPolicy.IntendedToChangeCode(commandNames))
                 return;
 
             var persistCmd = PipelineCommand.Simple(CommandNames.PersistWorkBranch);
@@ -134,12 +132,6 @@ public sealed class PipelineErrorHandler(
             logger.LogError(ex, "Work branch persist threw an exception — original failure cause preserved");
         }
     }
-
-    private static bool ContainsCodeModifyingHandler(IReadOnlyList<string> commandNames) =>
-        commandNames.Any(n => n == CommandNames.AgenticExecute
-                           || n == CommandNames.AgenticMaster // p0202c: the post-p0179b coding handler
-                           || n == CommandNames.GenerateTests
-                           || n == CommandNames.GenerateDocs);
 
     private async Task PostTicketStatusAsync(
         ResolvedProject projectConfig, PipelineContext context,

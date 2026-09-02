@@ -107,9 +107,16 @@ public sealed class CitedFileIndexTests
         window.Should().Contain("     1: a").And.Contain("     2: b");
     }
 
+    /// <summary>
+    /// 2026-09-01-85b2: it used to answer with a SENTENCE saying the line does not exist —
+    /// a non-null candidate. The refuter was shown that sentence, refuted on it, and
+    /// satisfied the quote check by quoting it back: a true finding downgraded with a clean
+    /// audit trail. There is nothing to show, so nothing is shown.
+    /// </summary>
     [Fact]
-    public void CitedCodeWindow_LineBeyondTheFile_SaysSoRatherThanInventing()
+    public void CitedCodeWindow_LineBeyondTheFile_ShowsNothingRatherThanASentenceAboutIt()
     {
-        new CitedCodeWindow().Around("a\nb\n", 400).Should().Contain("does not exist");
+        new CitedCodeWindow().Around("a\nb\n", 400).Should().BeNull();
+        new CitedCodeWindow().Around(string.Empty, 1).Should().BeNull();
     }
 }

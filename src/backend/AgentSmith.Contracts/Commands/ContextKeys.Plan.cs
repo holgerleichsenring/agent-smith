@@ -44,6 +44,16 @@ public static partial class ContextKeys
     /// MergeMasterFindings to downgrade an analyzed_from_source claim on a file the master
     /// never read, and used by the coverage re-drive gauge.</summary>
     public const string MasterReadPaths = "MasterReadPaths";
+
+    /// <summary>2026-09-01-3653: the size, in characters, of the system prompt the master
+    /// pass was given. Written down because every number in the argument about prompt size
+    /// had been a guess, twice wrong in the same discussion, from the same absence.</summary>
+    public const string MasterSystemPromptChars = "MasterSystemPromptChars";
+
+    /// <summary>2026-09-01-3653: how many turns the master's last pass used, counted from its
+    /// own assistant messages. NEAR-EXACT and biased high — a provider may split one turn
+    /// across messages — and everything that renders it says so.</summary>
+    public const string MasterTurnsUsed = "MasterTurnsUsed";
     public const string ConsolidatedPlan = "ConsolidatedPlan";
     public const string ConsolidatedDiscussion = "ConsolidatedDiscussion";
     public const string Approved = "Approved";

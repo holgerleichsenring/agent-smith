@@ -88,8 +88,8 @@ public sealed class WriteRunResultHandlerTests
         var pipeline = NewPipelineWithSandbox();
         var phases = new Dictionary<string, PhaseCost>
         {
-            ["scout"] = new("claude-haiku-4-5-20251001", 4200, 1800, 2100, 1, 0.02m),
-            ["primary"] = new("claude-sonnet-4-20250514", 38150, 6320, 16100, 6, 0.36m)
+            ["scout"] = new("claude-haiku-4-5-20251001", 4200, 1800, 2100, 0.02m),
+            ["primary"] = new("claude-sonnet-4-20250514", 38150, 6320, 16100, 0.36m)
         };
         pipeline.Set(ContextKeys.RunCostSummary, new RunCostSummary(phases.AsReadOnly(), 0.38m));
         pipeline.Set(ContextKeys.RunDurationSeconds, 145);
@@ -134,7 +134,7 @@ public sealed class WriteRunResultHandlerTests
     {
         var phases = new Dictionary<string, PhaseCost>
         {
-            ["primary"] = new("model", 1000, 500, 200, 3, 0.1234m)
+            ["primary"] = new("model", 1000, 500, 200, 0.1234m)
         };
         var costSummary = new RunCostSummary(phases.AsReadOnly(), 0.1234m);
         var ticket = new Ticket(new TicketId("1"), "Test", "Desc", null, "Open", "github");

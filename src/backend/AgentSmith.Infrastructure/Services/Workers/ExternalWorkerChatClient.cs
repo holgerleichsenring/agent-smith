@@ -46,21 +46,27 @@ public sealed class ExternalWorkerChatClient(
         // away eleven minutes of verified work over one of them. An empty turn is a shape
         // the loop already knows how to answer (its re-engage nudge), and its iteration
         // and time limits stay the ceiling, so this cannot spin forever.
-        if (string.IsNullOrWhiteSpace(result.StandardOutput))
+        if (string.IsNullOrWhiteSpace(result.AnswerText))
         {
             logger.LogWarning(
                 "External worker {Request} answered nothing on a {Chars:N0}-char prompt — "
                 + "surfacing an empty turn for the loop to nudge on.",
                 request.Describe(), prompt.Length);
-            return WorkerReplyTranslator.EmptyTurn(request);
+            return Account(WorkerReplyTranslator.EmptyTurn(request), result);
         }
 
-        if (!parser.TryParse(result.StandardOutput, out var reply, out var parseProblem))
+        if (!parser.TryParse(result.AnswerText, out var reply, out var parseProblem))
             throw new ExternalWorkerCallException(request, parseProblem!, result.Duration);
         if (!translator.TryTranslate(reply, request, out var response, out var replyProblem))
             throw new ExternalWorkerCallException(request, replyProblem!, result.Duration);
-        return response;
+        return Account(response, result);
     }
+
+    // 2026-09-01-b0d7: the CLI's own figures ride the response in their own channel. The
+    // ledger keeps them apart from priced spend, because this transport spends no money
+    // and a table lookup on the model name would invent some.
+    private static ChatResponse Account(ChatResponse response, WorkerProcessResult result) =>
+        result.Envelope?.Accounting.AttachTo(response) ?? response;
 
     private WorkerCallIdentity Identity()
     {

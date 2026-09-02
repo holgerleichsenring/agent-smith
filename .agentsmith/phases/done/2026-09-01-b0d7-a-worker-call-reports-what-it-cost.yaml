@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-01-b0d7
+
+goal: "A model call answered by the external agent CLI reports the tokens it used and the figure the CLI itself names, without the transport losing its handling of silence."
+
+applies_to: "backend (how the external-worker runner invokes the CLI, how its result is unwrapped, and how that spend is accounted apart from priced spend)"
+
+scope:
+  in: >
+    The CLI is asked for its structured result, per agent rather than for every binary; the runner
+    unwraps that result before anything else sees it, so silence, retry and the empty-turn path keep
+    working on the answer text rather than on an envelope that is never empty; token counts reach the
+    ledger in their own channel, kept apart from priced spend and from the unpriced-model alarm; a
+    CLI-reported error that exits zero is a failed call with its reason; the worker-mode document
+    says what the flag does.
+  out: >
+    PRICING A WORKER CALL FROM THE MODEL TABLE — a subscription-answered call spends no money, and a
+    table lookup on its model name would silently produce one. THE PROVIDER PATHS are untouched.
+    MAKING THE CLI'S TURN COUNT MEAN ANYTHING TO THIS SYSTEM — it counts the CLI's own inner turns for
+    one outer call, which is a different unit from the one 2026-09-01-3653 records, and conflating
+    them would put a wrong number in an account built to end wrong numbers.
+
+decisions:
+  - key: |
+      EVERY WORKER RUN IS ACCOUNTED AS FREE, AND FREE IS NOT A MEASUREMENT. The bridge builds its
+      response from text and tool calls and never sets usage, so the tracker returns early and records
+      nothing. Every comparison of a worker-driven scan against a provider-driven one this week
+      compared a real number with an absence.
+  - key: |
+      THE FLAG ALONE IS A SILENT TRANSPORT KILL, AND AN OPERATOR CAN SET IT TODAY. The envelope
+      carries none of the fields the reply parser recognises, so an unwrapped envelope falls through
+      to "the whole output is the assistant's text": no exception, no failed run, tool calling simply
+      stops. The existing extra-arguments environment variable already lets someone do this by hand.
+      Unwrapping is not an optimisation, it is what makes the flag safe.
+  - key: |
+      SILENCE MUST SURVIVE THE ENVELOPE, AND THIS IS WHERE THE PHASE IS BIGGER THAN IT LOOKS. With a
+      structured result the output is never empty, so the retry-on-silence check and the empty-turn
+      path both stop firing, and an empty answer becomes a thrown call instead of a nudge — the exact
+      failure that once threw away eleven minutes of verified work. The unwrap therefore happens in
+      the runner, so everything downstream keeps deciding on the answer text.
+  - key: |
+      ONE STRICT DISCRIMINATOR, PARSED ONCE, NOT SCANNED. It is an envelope when the whole trimmed
+      output is a single JSON object whose type says result; anything else passes through untouched.
+      The brace scanner must not be used for this — the answer text routinely contains unbalanced
+      braces, and the scanner would mis-cut the span.
+  - key: |
+      NOT EVERY WORKER IS THIS CLI. The worker document promises that any binary reading a prompt on
+      stdin and printing an answer works. An unconditional flag can make such a binary exit non-zero,
+      which the guard turns into a dead run. The flag is opt-in per agent and the document says so.
+  - key: |
+      THE FIGURE IS NOT COMPARABLE TO A PROVIDER CALL, AND SAYING WHOSE IT IS DOES NOT MAKE IT SO. A
+      trivial probe reported a third of a cent on twenty-six thousand cache-creation tokens — the
+      CLI's own system prompt and tool schemas, per call, not this system's prompt. It is carried in
+      its own channel with its own label, never folded into accrued spend and never into the
+      unpriced-model alarm, which would otherwise report a pricing failure for a call that has no
+      price by design.
+  - key: |
+      THE BUDGET FENCE WOULD SEE WORKER RUNS FOR THE FIRST TIME, SO THE CHOICE IS WRITTEN DOWN. Token
+      volume is real on any transport and the token arm binds; money is not spent here and the money
+      arm does not. This system has already lost a finished migration to a cap nobody sized for the
+      run it stopped, and that is not repeated by accident.
+
+steps:
+  - id: the-flag-is-asked-for-per-agent
+    action: "The structured-result flag is opt-in per agent rather than added to every worker invocation, and the worker document records it."
+  - id: the-runner-unwraps-before-anything-decides
+    action: "The runner recognises the envelope by a single strict discriminator, extracts the answer text and the accounting, and hands the answer text on."
+  - id: silence-and-retry-still-see-the-answer
+    action: "The retry-on-silence check and the empty-turn path decide on the extracted answer, so an empty answer is still a nudge and not a thrown call."
+  - id: a-reported-error-is-a-failed-call
+    action: "A CLI that reports an error while exiting zero fails the call with its stated reason."
+  - id: the-spend-is-carried-in-its-own-channel
+    action: "Worker tokens and the CLI's cost figure are accumulated apart from priced spend and apart from the unpriced-model alarm, and rendered as the CLI's own."
+  - id: the-fence-decision-is-implemented
+    action: "The token arm of the budget fence sees worker volume; the money arm does not."
+
+tests:
+  - "WorkerCall_WithAnEnvelope_ReportsItsTokenUsage"
+  - "WorkerCall_WithAnEnvelope_CarriesTheCliCostFigureInItsOwnChannel"
+  - "WorkerCall_EnvelopeWithEmptyResult_IsAnEmptyTurnNotAFailure"
+  - "WorkerCall_EnvelopeWithAReportedError_FailsWithItsReason"
+  - "WorkerCall_PlainTextOutput_StillAnswersTheCall"
+  - "WorkerCall_ToolCallReply_IsUnaffectedByTheUnwrap"
+  - "WorkerCall_AnswerTextContainingBraces_IsNotMisCut"
+  - "WorkerSpend_IsNotCountedAsPricedSpendOrAsAnUnpricedModel"
+  - "WorkerAgent_WithoutTheOptIn_GetsNoEnvelopeFlag"
+
+done:
+  - "a worker-driven run shows token counts, labelled as the CLI's own figures"
+  - "silence, retry and tool calling behave exactly as they do today"
+  - "no worker call is ever priced from the model table or alarmed as unpriced"
+  - "build green, full suite green"
