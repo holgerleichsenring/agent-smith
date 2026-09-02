@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-01T22:04:35.187981+00:00",
+  "generated_at": "2026-09-02T05:20:26.823047+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,8 +9,8 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: No authentication declared \u2014 endpoint returns Member schema including contactEmail (PII) and role field to any caller without a bearer token",
-      "highest_severity": "Medium",
+      "finding_headline": "GET /members/{id}: no security scheme declared \u2014 endpoint is unauthenticated and returns Member PII including contactEmail and role",
+      "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -20,7 +20,7 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders: IDOR \u2014 caller-supplied memberId query parameter with no spec-level ownership enforcement; any authenticated member can list another member\u0027s orders",
+      "finding_headline": "GET /orders: caller-supplied memberId query parameter \u2014 if not verified against the token subject, any member can enumerate another member\u0027s orders (BOLA)",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: No spec-level ownership check \u2014 caller-supplied orderId is not constrained to orders belonging to the authenticated member",
+      "finding_headline": "POST /invoices: caller-supplied orderId with no visible ownership check \u2014 authenticated member may create invoices against orders they do not own",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,7 +42,7 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: BFLA \u2014 role assignment operation is gated only by a standard memberToken with no elevated or admin-tier security scheme declared",
+      "finding_headline": "PUT /members/{id}/role: no privilege tier declared \u2014 any authenticated member bearer can set any member\u0027s role, including privilege escalation",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
