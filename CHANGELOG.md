@@ -1,5 +1,81 @@
 # Changelog
 
+## [0.143.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.142.0...v0.143.0) (2026-09-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* the principles file is named for what it holds (2026-09-01-eec0)
+
+### Features
+
+* a cut-off scan step does not report completion (2026-08-30-26ed) ([4c08d78](https://github.com/holgerleichsenring/agent-smith/commit/4c08d78919709c7a25e46b1f35edd35a061bf028))
+* a declared credential reaches the sandbox (2026-08-28-b630) ([2ce1891](https://github.com/holgerleichsenring/agent-smith/commit/2ce189168168eb59930e724ed00dcb1fbbdf1c51))
+* a finding names the requirement it breaks (2026-08-30-03e1) ([82cf94a](https://github.com/holgerleichsenring/agent-smith/commit/82cf94a44634f0ec8e876f5965e3d8a519e24c81))
+* a polyglot repository declares its own gates (2026-09-01-9723) ([3be5783](https://github.com/holgerleichsenring/agent-smith/commit/3be5783dc38f334a0131631b50020b35ff603637))
+* a prompt bench measures a review prompt before anything is built around it ([200c236](https://github.com/holgerleichsenring/agent-smith/commit/200c23612aa2f5a02d9885fdb915d8ae72d086b8))
+* a repository declares how it is verified (2026-08-31-26d4) ([d38524a](https://github.com/holgerleichsenring/agent-smith/commit/d38524aab75b13966414b9b77655907dfa2a2fd4))
+* a repository declares how it is verified, and the catalog stops claiming to know ([0cd930f](https://github.com/holgerleichsenring/agent-smith/commit/0cd930fb443713c74eb747a3a0601c2dcc513ebc))
+* a run names the catalog it resolved (2026-08-28-7675) ([9310171](https://github.com/holgerleichsenring/agent-smith/commit/93101714bac619b481a5ec09e611a70d3b1d5091))
+* a run records what it read and what it asked (2026-09-01-3653) ([b0d6f77](https://github.com/holgerleichsenring/agent-smith/commit/b0d6f7786c184971731fc4593285644a5139deb3))
+* a run reports the tools its stages could not find (2026-08-31-7097) ([5fbf33f](https://github.com/holgerleichsenring/agent-smith/commit/5fbf33f0b55bf67769557ff534dc5fddc7376f44))
+* a run with no gate does not read as verified (2026-08-28-5f71) ([264a28c](https://github.com/holgerleichsenring/agent-smith/commit/264a28cca1ed40d4602f481489235a021c1cab1b))
+* a sandbox pulls an image it must authenticate for (2026-08-31-46d7) ([9ad6d12](https://github.com/holgerleichsenring/agent-smith/commit/9ad6d12360f473867397a07fdce527efe568c589))
+* a scan question comes from a versioned standard (2026-08-30-0ea8) ([9f58a24](https://github.com/holgerleichsenring/agent-smith/commit/9f58a24a175ae770bddc3134c794b7fa61361754))
+* a scan says what it did not do ([50c975f](https://github.com/holgerleichsenring/agent-smith/commit/50c975f94dc146f3e40dae10e88e2db8f9588510))
+* a scan that lost its triage says so (2026-08-30-03e4) ([1fe3d29](https://github.com/holgerleichsenring/agent-smith/commit/1fe3d29d0486b73269734d2b5e1e54c82724c30b))
+* a worker call reports what it cost (2026-09-01-b0d7) ([38b0106](https://github.com/holgerleichsenring/agent-smith/commit/38b01063e4889361a8f8e3c86932306be5ec1728))
+* every delivered finding faces the refuter (2026-09-01-85b2) ([8147c89](https://github.com/holgerleichsenring/agent-smith/commit/8147c893a00a72742d17db2750b503a2f38da845))
+* every station answers the requirements that apply (2026-08-30-3c12) ([6cfaa9e](https://github.com/holgerleichsenring/agent-smith/commit/6cfaa9ebb62c5fb8dbb844f1705a1f9a425c1069))
+* onboarding names the repositories it can verify (2026-08-31-f634) ([7eee04f](https://github.com/holgerleichsenring/agent-smith/commit/7eee04f6dbfaf4d45e2a01c91d91a77dd972daa1))
+* the api scan is scored against a served target (2026-09-01-6686) ([9ee5c7c](https://github.com/holgerleichsenring/agent-smith/commit/9ee5c7cc6ec2e33c96b1f643cd0e05657be76ff0))
+* the binary ships the catalog with profiles (2026-08-28-c5e7) ([ffd4175](https://github.com/holgerleichsenring/agent-smith/commit/ffd4175244c5dee56275fca4fb1b403f958689bf))
+* the bootstrap proposes the gates the estate has (2026-09-01-e14d) ([9da94a1](https://github.com/holgerleichsenring/agent-smith/commit/9da94a1298e9ee74afe795f1d32d8b123a064e3a))
+* the domain-profile mechanism goes live, and the catalog stops carrying dead weight ([3ea19f3](https://github.com/holgerleichsenring/agent-smith/commit/3ea19f367fe18db410791503520d201732966e97))
+* the interface is wider than its clients use (2026-08-30-c6ec) ([54f5c1a](https://github.com/holgerleichsenring/agent-smith/commit/54f5c1a9457aa8004059b5a4f45967f93d467f60))
+* the master looks before it is shown the findings (2026-09-01-0e80) ([649e436](https://github.com/holgerleichsenring/agent-smith/commit/649e436e9377f161b1bd590615aa3bd62ea7b4cf))
+* the scan drops the apparatus it never used (2026-08-30-f6cf) ([70353bf](https://github.com/holgerleichsenring/agent-smith/commit/70353bf8e9b51f81bcd3d7ef9551b5cb1f0ace0a))
+* the scan master explores on its own budget (2026-09-01-7df4) ([4ab3592](https://github.com/holgerleichsenring/agent-smith/commit/4ab35925ee2d480a0e85c2ad0a970e757c43345d))
+* the scan names the stations of a request (2026-08-30-18e3) ([ea5e52c](https://github.com/holgerleichsenring/agent-smith/commit/ea5e52cf0f5bf160a1b84196e8a944aa4c3692e1))
+* the security scan is measured against known flaws (2026-08-28-cc40) ([fb3e1d6](https://github.com/holgerleichsenring/agent-smith/commit/fb3e1d6f1aeba6250a33efa9a32933bf30dd085d))
+* the target answers before the master runs (2026-09-01-379a) ([20e888c](https://github.com/holgerleichsenring/agent-smith/commit/20e888c0d05a9faa8bcaf1ee0d631922e535f4b8))
+* the two scans are measured, and what the measurement found is fixed ([1adf264](https://github.com/holgerleichsenring/agent-smith/commit/1adf264d45b86cfb5f8eed900ff89c43e5666bdc))
+
+
+### Bug Fixes
+
+* a catalog without a declared cap is refused (2026-08-28-a08d) ([f20e9d1](https://github.com/holgerleichsenring/agent-smith/commit/f20e9d160a3d05829faef8d1013cb572f874769a))
+* a committed delivery is not an empty one (2026-09-01-b467) ([0d690a2](https://github.com/holgerleichsenring/agent-smith/commit/0d690a239560e210b79605b15a3b3749cb7dce9f))
+* a diagnostic page is read at the width of the pages around it ([2f796c5](https://github.com/holgerleichsenring/agent-smith/commit/2f796c5fb3c74c546e7ab947c3b23547be0b5b5e))
+* a diagnostic page is read at the width of the pages around it (2026-08-28-3793) ([b30e4a2](https://github.com/holgerleichsenring/agent-smith/commit/b30e4a2e33571cded4c8b03e99cba99fec694cb9))
+* a local repository is read where it lives (2026-09-01-1335) ([357abf0](https://github.com/holgerleichsenring/agent-smith/commit/357abf009ff4d4fd47aa9185c9f11d70aa9ec295))
+* a ratified file survives its own rename (2026-09-01-72c5) ([a112e4e](https://github.com/holgerleichsenring/agent-smith/commit/a112e4ed7bdb0d398cc916b76f870e0990426c85))
+* a scan persists nothing and a coding run does (2026-09-02-de87) ([41daf3d](https://github.com/holgerleichsenring/agent-smith/commit/41daf3d078decca00713165643505c052979e124))
+* a session returns without a ten-second wait ([9489461](https://github.com/holgerleichsenring/agent-smith/commit/9489461189ae32be527015f5a1299db437ce80f5))
+* a session returns without a ten-second wait (2026-08-28-0f46) ([85cd0f9](https://github.com/holgerleichsenring/agent-smith/commit/85cd0f956064886de25c7aa99f974652c5fe9394))
+* a stalled loop and a slow host look different ([e3c3b85](https://github.com/holgerleichsenring/agent-smith/commit/e3c3b85fc555ad4302cd39ff95fd10925b1d9f82))
+* a stalled loop and a slow host look different (2026-08-30-f590) ([df3d8f3](https://github.com/holgerleichsenring/agent-smith/commit/df3d8f36e88186493f836b6ea2562800c32a0382))
+* a test that starts a real process runs alone (2026-08-30-f590) ([303b9a6](https://github.com/holgerleichsenring/agent-smith/commit/303b9a644426c93cbe001ecce1422aa56eafae7b))
+* a ticket is addressed by the name it has (2026-09-01-a17c) ([34d4b4f](https://github.com/holgerleichsenring/agent-smith/commit/34d4b4f99f3c822da43ae595befe23283a3774d9))
+* an armed assertion becomes a plain one (2026-08-28-3302) ([b807112](https://github.com/holgerleichsenring/agent-smith/commit/b8071124c525b8be027ad6330070ec4d1cfa545a))
+* an unknown field is named, not thrown (2026-09-01-0f80) ([e83abe1](https://github.com/holgerleichsenring/agent-smith/commit/e83abe128d7e2f211b0c4d231af72e9e6467265b))
+* the beat table splits so two parallel phases fit under the file rule ([7ad2715](https://github.com/holgerleichsenring/agent-smith/commit/7ad271532a627f919a79d387a4a0a5acb16a45af))
+* the chat path carries the identifier it was given (2026-09-01-ba47) ([91f52a5](https://github.com/holgerleichsenring/agent-smith/commit/91f52a5f93b5e7809658c1cd72c255cd73796651))
+* the cut-off test joins the isolated collection (2026-08-30-f590) ([0f65ef2](https://github.com/holgerleichsenring/agent-smith/commit/0f65ef251fb0e05d30c657d8649a9bb8384bcaa3))
+* the declared domain reaches the run (2026-08-28-7b41) ([8295869](https://github.com/holgerleichsenring/agent-smith/commit/8295869e12939bddcd7eda2fe09cce773f24a2a4))
+* the empty-state test awaits the state, not the panel ([fbb4c2a](https://github.com/holgerleichsenring/agent-smith/commit/fbb4c2a129ed3512e2a570c9168d98065c54138a))
+* the gate stops paying for a commit ([42c9b1b](https://github.com/holgerleichsenring/agent-smith/commit/42c9b1b21bf53be09798fb2ffbbc3d40aadfd7f3))
+* the pinned catalog is the release asset, not a 404 page ([758597b](https://github.com/holgerleichsenring/agent-smith/commit/758597bf61e9b54342e5eda703836c8642cbdc93))
+* the principles tests read the live catalog (2026-08-28-6403) ([90662b7](https://github.com/holgerleichsenring/agent-smith/commit/90662b7e310e604b6d65f4b1a1bd605143219784))
+* the scan keeps the answer it can still read (2026-09-01-6c32) ([62a397e](https://github.com/holgerleichsenring/agent-smith/commit/62a397eba0cac3e4bdf8efc2c2ae5c8d774773f5))
+* the stall budget clears the starvation window it was measured against (2026-08-30-f590) ([b70489d](https://github.com/holgerleichsenring/agent-smith/commit/b70489d6e667153c1c5a498e3970e2b97ab46f3e))
+* the test host asks for its worker threads up front (2026-08-30-f590) ([6b40773](https://github.com/holgerleichsenring/agent-smith/commit/6b40773135fa66716db8f195bb0b03f98c1cdaa3))
+
+
+### Code Refactoring
+
+* the principles file is named for what it holds (2026-09-01-eec0) ([d9c4063](https://github.com/holgerleichsenring/agent-smith/commit/d9c406313c0210e8a84fd2c7669edf42cf787e14))
+
 ## [0.142.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.141.0...v0.142.0) (2026-08-28)
 
 
