@@ -30,6 +30,18 @@ public interface ITolerantJsonParser
     TolerantParseResult ParseArray(string raw);
 
     /// <summary>
+    /// 2026-09-01-7df4: whether <paramref name="raw"/> is a WELL-FORMED JSON array once
+    /// fences and prose are stripped — the question "was this answer complete", asked in
+    /// one place because two callers used to ask it with two copies of the same three
+    /// lines. False for a truncated array; the recovered literals are a separate question.
+    /// </summary>
+    bool IsJsonArray(string raw)
+    {
+        using var document = ParseArray(raw).Document;
+        return document is not null && document.RootElement.ValueKind == JsonValueKind.Array;
+    }
+
+    /// <summary>
     /// Tolerantly extracts complete `{...}` object literals from a possibly
     /// truncated JSON array. The trailing partial object — when the response
     /// hit max_output_tokens mid-array — is silently dropped. Each returned

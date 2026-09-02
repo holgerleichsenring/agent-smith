@@ -54,7 +54,9 @@ public sealed class ScanMasterPromptFactoryTests
                 EvidenceMode: EvidenceMode.AnalyzedFromSource, Category: "secrets"),
         });
 
-        var prompt = _sut.Build(pipeline, Repo, ["repo"]);
+        // 2026-09-01-0e80: the repository scan's raw observations are still formatted the
+        // same way — they are handed over in the RECONCILIATION turn, not the first one.
+        var prompt = _sut.BuildReconciliation(pipeline);
 
         prompt.Should().Contain("Scanner Findings");
         prompt.Should().Contain("static-pattern-scanner");

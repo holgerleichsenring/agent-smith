@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-85b2
+
+decisions:
+  - category: Design
+    chose: "Widen the CHECKED set to every delivered finding, and narrow the DELETABLE set to the findings nobody authored"
+    over: "Widening the checked set alone, as the step reads"
+    reason: |
+      The two sets were the same set, and only one of them was safe to widen. The source
+      resolver claims essentially every AnalyzedFromSource finding with a file and a line —
+      which is what a master finding always is — and an unresolvable citation used to remove
+      a finding from delivery. Widening the selection alone would have deleted every master
+      finding whose cited path the reader could not open, on a step whose purpose is that
+      nothing is lost. UnsubstantiatedFindings became UnauthoredFindings and is now asked a
+      different question: not "what should be checked" (everything) but "what may be dropped
+      for an invented location" (a promoted scanner fact, a repeated live-target claim, and
+      nothing else). Pinned by Refuter_MasterFindingWhoseFileCannotBeRead_IsStillDelivered
+      and its opposite, Refuter_PromotedFindingWhoseFileCannotBeRead_IsStillDropped.
+  - category: Design
+    chose: "A CandidateResolution carrying whether the CITATION exists, separate from whether evidence could be built"
+    over: "Keeping the resolver's nullable CandidateFinding return"
+    reason: |
+      Null meant two different things to a caller that deletes on one of them: 'this location
+      is not in the evidence' and 'the location is real but I cannot show it'. A line past the
+      end of a file that really exists is the second, and the old shape could not say so. The
+      record makes the third fate reachable from a resolver, which is what lets an
+      out-of-range citation pass through untouched instead of being dropped as invention.
+  - category: Design
+    chose: "The cited window is NOTHING when the file does not have the line"
+    over: "The sentence saying the line does not exist"
+    reason: |
+      The sentence is a non-null candidate. The refuter was shown it, refuted on it, and
+      satisfied the verbatim-quote check by quoting the sentence back — a true finding
+      downgraded to Medium with Blocking cleared and a clean audit trail behind it. The
+      range test also changed: 'first > lines.Length' let a line slightly past the end
+      produce a window that looked ordinary and did not contain the cited line at all.
+  - category: Design
+    chose: "Route a verdict by an id the call stamps on each candidate, in a RefutationRouter"
+    over: "Matching the refuter's echoed location string, as before"
+    reason: |
+      Two master findings on one line — an authorization gap and an injection — share one
+      DisplayLocation, so one refutation silenced both; on the api path the location is often
+      just the endpoint, where collisions are the norm rather than the corner case. Routing
+      and JUDGING are separate questions, so RefutationVerdicts now answers only "is this
+      rebuttal quoted", and the router answers "which finding is this about". A row that
+      echoed no usable id is honoured only when its location names exactly one candidate;
+      ambiguity answers nobody and every finding stands.
+  - category: Design
+    chose: "One reader over every sandbox, with per-path memoisation and the merge's own path rule"
+    over: "Reading ContextKeys.Sandbox, the single default sandbox"
+    reason: |
+      The scan master addresses every repository via ContextKeys.Sandboxes while the evidence
+      factory took the singular key, so on a multi-repo scan every finding in the second
+      repository resolved against nothing — which used to mean deleted. The exact-path read
+      also could not absorb the prefix mismatch the merge has forgiven since p0333, so
+      MasterFindingsMerger's normalisation moved into CitedPathMatch and the merge now calls
+      it; a second copy would let the two disagree about which file was cited. Memoisation is
+      not an optimisation here: the checked set went from ~2-9 candidates to every delivered
+      finding, and each miss is a 30-second-budget sandbox round trip.
+  - category: Design
+    chose: "An output budget and a truncation-tolerant read for the one refutation call"
+    over: "Batching the candidates into several calls"
+    reason: |
+      The call already sends every candidate at once, so batching would RAISE the round-trip
+      count. What breaks at thirty findings is the ANSWER: it truncated, the strict
+      deserialize threw, the reader returned null and the whole step no-opped. It failed
+      open, which is safe, and silent, which is not. The call now states MaxOutputTokens for
+      its own task type, the reader falls back to ITolerantJsonParser.ExtractArrayObjects —
+      complete object literals in a cut-off array are real verdicts — and both the salvage
+      and the total loss are logged.
+  - category: Scope
+    chose: "Report asked/refuted through the substantiator's log line and the step's own result message"
+    over: "Adding a measures field to SpecAccount for the coverage account"
+    reason: |
+      The spec's original step 3 asked the coverage account to carry the counts.
+      ScanCoverageAccountant.Account builds its rows purely from ratified ScanContract
+      criteria and has no field for a measure, and 2026-09-01-3653 is adding a measures
+      parameter to SpecAccount in a parallel worktree. A competing parameter would collide on
+      merge. Folding these counts into the account is left to whichever of the two lands
+      second; nothing here has to be undone for that, because the counts are computed where
+      they are known rather than stored.
+  - category: Testing
+    chose: "Prove the pr-review path explicitly, though the spec does not mention it"
+    over: "Testing the security-scan and api-scan paths the spec names"
+    reason: |
+      SubstantiateFindings is in PipelinePresets.PrReview too, and a pr-review master writes
+      every finding itself — so the widened selection has its largest effect exactly where
+      the spec was silent. Refuter_PrReviewFindings_AreCheckedAndNeverDeleted asserts the
+      preset still contains the step, that a readable review finding is asked about, and that
+      a review finding whose file cannot be read is delivered anyway.

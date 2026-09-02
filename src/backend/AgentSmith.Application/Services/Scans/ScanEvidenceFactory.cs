@@ -15,10 +15,22 @@ public sealed class ScanEvidenceFactory(ISandboxFileReaderFactory readerFactory)
     public ScanEvidence For(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        var source = pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox) && sandbox is not null
-            ? readerFactory.Create(sandbox)
-            : null;
+        var readers = Sandboxes(pipeline).Select(readerFactory.Create).ToList();
+        var source = readers.Count == 0 ? null : new ScanSourceReader(readers);
         return new ScanEvidence(source, CitedEndpointIndex.FromSpec(Spec(pipeline)), Exchanges(pipeline));
+    }
+
+    /// <summary>
+    /// 2026-09-01-85b2: EVERY sandbox the run holds. The scan master addresses every
+    /// repository, so reading only the default one made a second repository's findings
+    /// unresolvable — which used to mean deleted.
+    /// </summary>
+    private static IReadOnlyList<ISandbox> Sandboxes(PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var all)
+            && all is { Count: > 0 })
+            return [.. all.Values];
+        return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var one) && one is not null ? [one] : [];
     }
 
     /// <summary>

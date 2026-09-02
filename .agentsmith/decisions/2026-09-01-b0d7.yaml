@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-01-b0d7
+
+decisions:
+  - category: Architecture
+    chose: "The envelope is unwrapped in WorkerProcessResult, at the process boundary, and everything downstream decides on AnswerText"
+    over: "Teaching WorkerReplyParser to recognise the CLI envelope alongside the worker protocol"
+    reason: |
+      This is where the phase is bigger than it looks. With a structured result stdout is
+      NEVER empty, so RetryingWorkerProcessRunner.Answered() (which tested
+      !IsNullOrWhiteSpace(StandardOutput)) would have returned true for every call and the
+      p0426 retry-on-silence would have quietly died; and ExternalWorkerChatClient's
+      empty-turn check would never have fired, so an envelope carrying result: "" would
+      have reached the parser, failed with "the worker returned an empty answer", and been
+      thrown as ExternalWorkerCallException — the exact failure whose comment in that file
+      records that it once threw away eleven minutes of verified work. Parsing in the reply
+      parser fixes the text and leaves both of those broken, because they read the process
+      result, not the reply. Unwrapping at the boundary keeps every one of them deciding on
+      the ANSWER: the guard, the retry, the empty-turn path and the parser are unchanged in
+      what they mean and only changed in what they read.
+      It is computed once, in a field initializer on the record, rather than in
+      AgentCliWorkerProcessRunner: the scripted runner and the pipeline harness construct
+      the same result type, so a runner-local unwrap would have left the deterministic
+      harness testing a different transport from the live one.
+  - category: Architecture
+    chose: "One strict discriminator — the whole trimmed output parses as a single JSON object whose type is result"
+    over: "JsonObjectScanner.BalancedObjects, which the reply parser already uses to find envelopes"
+    reason: |
+      The scanner counts braces. The CLI's answer sits inside "result" as model prose,
+      which routinely carries unbalanced braces — a code fragment, a JSON example, a
+      sentence about a missing brace — and the scanner would cut the span somewhere inside
+      the answer and hand a truncated object to the deserialiser. JsonDocument.Parse over
+      the whole trimmed text rejects trailing content, so it cannot half-match; the type
+      check makes it a positive identification rather than "it looked like JSON".
+      Nothing is at risk in the other direction: JsonObjectScanner.HasEnvelopeField accepts
+      only text/tool_calls/toolCalls/error and NameEquals is exact, so is_error does not
+      register as error and the two contracts cannot be confused. What WAS at risk is an
+      unrecognised envelope: it carries none of those fields, so it falls through to
+      reply = new WorkerReply { Text = raw } — the whole JSON blob becomes the assistant's
+      text and tool calling silently stops, with no exception and no failed run. An
+      operator can trigger exactly that today through AGENTSMITH_WORKER_CLI_ARGS. The
+      unwrap is what makes the flag safe, not what makes it efficient.
+  - category: Architecture
+    chose: "A distinct entry point — PipelineCostTracker.TrackWorkerCall, feeding a WorkerCallLedger that is excluded from accrued spend AND from the unpriced-model alarm"
+    over: "Letting worker usage flow through Track and be priced like any other response"
+    reason: |
+      Both of the obvious routes produce a wrong number, in opposite directions. With
+      model: sonnet the pricing table resolves nothing and the tokens land in
+      _unpricedTokensByModel, so result.md prints "COST INCOMPLETE, no price for: sonnet" —
+      a pricing failure reported for a call that has no price by design. With the model id
+      the CLI actually names (claude-haiku-4-5-20251001) the table PREFIX-MATCHES
+      claude-haiku-4-5 and prices it at real API rates — a money figure for a
+      subscription-answered call that spent none. Neither is a measurement.
+      So the CLI's own number is carried as the CLI's own number: its own accumulator, its
+      own worker_cli: block in result.md, never folded into total_usd. It is not comparable
+      to a provider call anyway — a trivial probe reported a third of a cent on 26k
+      cache-creation tokens, which are the CLI's own system prompt and tool schemas per
+      call, not this run's context.
+      The model is attributed from the modelUsage key rather than from request.Model,
+      because the alias an agent is configured with attributes nothing.
+  - category: Implementation
+    chose: "AdditionalCounts[\"cache_read_input_tokens\"] and [\"cache_creation_input_tokens\"], with UsageDetails.CachedInputTokenCount left null"
+    over: "Setting CachedInputTokenCount, the first-class property for a cached prompt subset"
+    reason: |
+      The CLI follows Anthropic semantics, where input_tokens ALREADY excludes cache reads.
+      CachedInputTokenCount is the OpenAI/Azure shape, where the cached count is a SUBSET
+      of the input total — so the tracker subtracts it from billable input and adds it to
+      cache reads. Setting it here would both double-count the read and remove tokens from
+      billable that were never in it. The snake_case AdditionalCounts keys are the ones
+      Track already reads, so the mapping needs no new reader.
+  - category: Architecture
+    chose: "The TOKEN arm of the budget fence sees worker volume; the MONEY arm does not"
+    over: "Leaving both arms blind to worker runs, as they are today"
+    reason: |
+      The fence has never seen this path — IsBudgetExhausted and EffectiveBudgetTokens both
+      read zero for a worker-driven run — so this phase is the first time the choice is
+      made rather than inherited, and it is written down for that reason. Token volume is
+      real context on any transport, and a runaway worker run is exactly as runaway as a
+      runaway provider run, so the token cap binds and worker tokens are cache-weighted the
+      same way p0376 weights provider tokens. Money is not spent here, so the USD arm has
+      nothing to bind on; making it bind would stop runs against a budget they never
+      consumed. This system has already lost a finished migration to a cap nobody sized for
+      the run it stopped, which is why the asymmetry is a recorded decision and not a
+      side effect of where the code happened to be added.
+  - category: Implementation
+    chose: "--output-format json is opt-in per agent (agent.worker_structured_result), defaulting to on only for the default claude binary"
+    over: "Adding the flag to every worker invocation"
+    reason: |
+      WORKER-MODE.md promises that any binary reading a prompt on stdin and printing an
+      answer works. An unknown binary handed an unknown flag exits non-zero, and
+      WorkerProcessGuard turns a non-zero exit into a failed call — so an unconditional
+      flag converts a documented capability into a dead run for every worker that is not
+      Claude Code. The nullable tri-state is what lets the default be both safe and useful:
+      unset means on for the binary that documents the flag and off for anything else,
+      while an operator can force either way. AgentConfig was at exactly the 120-line
+      limit, so RateLimitConfig moved to its own file — one type per file, which is the
+      principle the limit exists to serve.
+  - category: Implementation
+    chose: "A CLI that reports is_error while exiting 0 is a failed call, and is NOT retried"
+    over: "Treating a reported error as silence, which the retry decorator would ask again three times"
+    reason: |
+      error_max_turns and error_during_execution exit ZERO, so WorkerProcessGuard's exit-code
+      check alone calls them good calls and the loop then reasons about whatever half-answer
+      came with them. The guard now fails them with the CLI's stated subtype and its
+      terminal_reason. They are excluded from the retry because RetryingWorkerProcessRunner's
+      documented subject is the PROCESS: a worker that ANSWERED is never asked twice, and a
+      worker that stated its own failure spoke. error_max_turns in particular does not
+      recover on a re-ask; three of them would be three times the wall clock for the same
+      failure.
+  - category: Scope
+    chose: "num_turns is recorded as the CLI's own figure and fed into nothing"
+    over: "Adding it to any run-level turn or iteration count"
+    reason: |
+      It counts the CLI's inner turns for ONE outer model call. 2026-09-01-3653 records
+      turns in a different unit, and adding the two would put a wrong number into an
+      account built to end wrong numbers. It rides on the accounting so it can be reported;
+      nothing derives anything from it.
+  - category: TradeOff
+    chose: "UsageBreakdown extracted from PipelineCostTracker, and WorkerSpendSectionWriter from RunCostSectionWriter"
+    over: "Adding the worker channel inline in both files"
+    reason: |
+      Both files are in the FileLengthRatchetTests baseline and may only get shorter. That
+      constraint pointed at real duplication rather than at a workaround: Track and
+      EstimateResponseCostUsd each read the same four token buckets out of UsageDetails
+      with the same three-producer name juggling, which is precisely the drift that made
+      OpenAI cache reads price as zero for months. One reader now serves both, and both
+      files came out of the phase shorter than they went in (385 -> 376 and 160 -> 153,
+      ratcheted in the baseline).

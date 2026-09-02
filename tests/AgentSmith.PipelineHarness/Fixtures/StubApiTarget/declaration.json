@@ -1,0 +1,55 @@
+{
+  "id": "reference-target",
+  "description": "What is wrong with the served interface, per method and path template. Four endpoints are weak; three are sound and shaped to look suspect, so a finding on one of them is a false alarm rather than an undeclared observation with no denominator. Every weakness is structural — a missing authorization check, an identifier that is not scoped, an error that says too much, an escalation nobody gates. No literal in any credential issuer's format appears here or in the document it describes: the target is deliberately weak and this repository is public.",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/members/{id}",
+      "verdict": "weak",
+      "class": "missing-authorization",
+      "because": "the document declares no security for it and the served endpoint asks for none, so any caller reads any member record including its contact details."
+    },
+    {
+      "method": "GET",
+      "path": "/orders",
+      "verdict": "weak",
+      "class": "unscoped-identifier",
+      "because": "memberId is a caller-supplied query parameter and the served endpoint never checks it against the bearer, so one member lists another member's orders."
+    },
+    {
+      "method": "POST",
+      "path": "/invoices",
+      "verdict": "weak",
+      "class": "verbose-error",
+      "because": "a malformed body answers 500 with the internal exception text and the SQL that failed, naming the schema to anyone who sends nonsense."
+    },
+    {
+      "method": "PUT",
+      "path": "/members/{id}/role",
+      "verdict": "weak",
+      "class": "privilege-escalation",
+      "because": "any authenticated bearer may set any member's role, its own included; nothing distinguishes an administrator from a member."
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "verdict": "sound",
+      "class": "missing-authorization",
+      "because": "unauthenticated on purpose and it answers with a status word only. It is the shape an unauthenticated-endpoint finding looks for and holds nothing behind it."
+    },
+    {
+      "method": "GET",
+      "path": "/orders/{id}",
+      "verdict": "sound",
+      "class": "unscoped-identifier",
+      "because": "it takes an identifier in the path, which is the shape of an unscoped read, but the served endpoint resolves it within the bearer's own member id and answers 404 for anyone else's order."
+    },
+    {
+      "method": "POST",
+      "path": "/tokens/introspect",
+      "verdict": "sound",
+      "class": "credential-exposure",
+      "because": "the name and the path read like a credential surface, and the endpoint answers with one boolean; it never echoes the presented bearer or any part of it."
+    }
+  ]
+}

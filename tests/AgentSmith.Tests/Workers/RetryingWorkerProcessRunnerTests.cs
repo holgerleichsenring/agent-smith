@@ -72,4 +72,26 @@ public sealed class RetryingWorkerProcessRunnerTests
         result.TimedOut.Should().BeFalse();
         inner.Prompts.Should().HaveCount(2);
     }
+    /// <summary>
+    /// 2026-09-01-b0d7: a structured result is NEVER empty, so a silence check reading raw
+    /// stdout would quietly stop firing the moment an agent opts into the flag. Silence is
+    /// judged on the unwrapped answer, and a CLI that reported its own error counts as
+    /// having spoken — this decorator's subject is the process, not the answer's quality.
+    /// </summary>
+    [Fact]
+    public async Task EnvelopeWithAnEmptyAnswer_IsStillSilence_AndIsAskedAgain()
+    {
+        const string Silent =
+            """{"type":"result","subtype":"success","is_error":false,"result":"","num_turns":1}""";
+        const string Errored =
+            """{"type":"result","subtype":"error_max_turns","is_error":true,"result":""}""";
+        var inner = new ScriptedWorkerProcessRunner()
+            .EnqueueRaw(Silent).EnqueueRaw(Errored);
+
+        var result = await Wrap(inner).RunAsync("go", Options, CancellationToken.None);
+
+        inner.Prompts.Should().HaveCount(2, "an empty answer inside an envelope is silence");
+        result.Envelope!.FailureReason.Should().Contain("error_max_turns",
+            "and a CLI that stated its own failure is not asked a third time");
+    }
 }
