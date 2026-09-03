@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.143.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.1...v0.143.2) (2026-09-03)
+
+
+### Bug Fixes
+
+* the active phase record takes the shape its schema declares ([d534a84](https://github.com/holgerleichsenring/agent-smith/commit/d534a84243ebf0115ea781e943824d8e5b5472a7))
+* the context workdir stops placing commands (2026-09-03-7bac) ([6b32ebd](https://github.com/holgerleichsenring/agent-smith/commit/6b32ebd4ad55b572584e081411347be20580d6e6))
+* the context workdir stops placing commands (2026-09-03-7bac) ([2610ab5](https://github.com/holgerleichsenring/agent-smith/commit/2610ab5565c85c68f51ffa9ef50dbcebb05c1d88))
+
 ## [0.143.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.0...v0.143.1) (2026-09-03)
 
 
