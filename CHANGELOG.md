@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.143.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.0...v0.143.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* a verify command runs where the project says (2026-09-03-ee12) ([a47f122](https://github.com/holgerleichsenring/agent-smith/commit/a47f122d8f63071a6f5774cf4ec162e50e6b0d51))
+* a verify command runs where the project says (2026-09-03-ee12) ([677ca1b](https://github.com/holgerleichsenring/agent-smith/commit/677ca1bdc5972bc97b77fcac83280ad4fabd76f0))
+
 ## [0.143.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.142.0...v0.143.0) (2026-09-02)
 
 
