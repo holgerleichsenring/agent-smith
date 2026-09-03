@@ -770,6 +770,7 @@ state:
     p0179d: "Collapse scan pipelines (security/api/legal) to one master step via per-pipeline routing table -> .agentsmith/phases/done/p0179d-scan-master-step.yaml"
     p0179b: "Collapse coding pipelines to one AgenticMaster step replacing triage/plan/execute/review choreography -> .agentsmith/phases/done/p0179b-coding-master-step.yaml"
     p0179a: "Master prompts as role:master skills loaded from _masters dir, catalog adapter routes prompt names -> .agentsmith/phases/done/p0179a-master-prompt-as-skill.yaml"
+    2026-09-03-ee12: "A VERIFY COMMAND RUNS WHERE THE PROJECT SAYS (verify stage resolution). The inferred rung pinned every command to /work, so a repo whose manifests live a directory down built nothing (a06c). It reads meta.workdir now, p0224's one location source; IsDotnet and the .NET search go. -> .agentsmith/phases/done/2026-09-03-ee12-a-verify-command-runs-where-the-project-says.yaml"
   active: {}
   planned:
     p0429b: "A SCAN REPORTS BACK TO THE TICKET IT CAME FROM (backend). Sliced out of p0429a: the coverage account the gate has judged since p0421 renders on three surfaces, but a scan preset reaches NEITHER the ticket comment nor the PR body — both end at DeliverFindings + WriteRunResult, and only the failure path ever comments on a scan's ticket. Giving a scan its own reporting surface is a delivery feature with its own questions. -> .agentsmith/phases/planned/p0429b-a-scan-reports-back-to-the-ticket-it-came-from.yaml"

@@ -16,17 +16,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Commands;
 
-// p0400: the build gate never guesses a filename. Declared context commands win;
-// a .NET repo without them gets its entry point DISCOVERED from files that exist,
-// and an ambiguous/absent entry point is a named resolution failure — not a
-// compile result. p0430: a branch carrying no source change skips the gate entirely —
+// p0400: the build gate never guesses a filename. Declared context commands win, then
+// the analyzer's inferred pair, then nothing — reported, never invented. 2026-09-03-ee12:
+// every stage runs at the workdir the project declared, and no rung branches on a
+// language. p0430: a branch carrying no source change skips the gate entirely —
 // read from the branch, never from a declaration.
 public sealed class VerifyPhaseHandlerTests
 {
     private static VerifyPhaseHandler Handler(ISpecAccountant? accountant = null) => new(
         new VerifyStageResolver(
-            new DotnetEntryPointDiscovery(
-                new SandboxFileReaderFactory(), NullLogger<DotnetEntryPointDiscovery>.Instance),
             new DeclaredStagePresence(
                 new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
             NullLogger<VerifyStageResolver>.Instance),
@@ -140,62 +138,51 @@ public sealed class VerifyPhaseHandlerTests
         sandbox.RanSteps.Should().Contain(s => IsDotnet(s));
     }
 
-    // p0400a: declared ci commands are authored against the repo root (run b9b0:
-    // executing them at the context workdir turned a green baseline into MSB1009).
+    // 2026-09-03-ee12: this replaces p0400a's repo-root pin. An inferred command runs at
+    // the workdir the project declared — p0224's single location source, which the
+    // prerequisites command and every declared stage already read. Run a06c ran
+    // 'npm run build' at /work in a repository whose manifests live one directory down,
+    // and reported a green delivery red.
     [Fact]
-    public async Task VerifyPhase_DeclaredCommand_RunsAtRepoRoot()
+    public async Task VerifyPhase_InferredCommand_RunsAtDeclaredWorkdir()
     {
         var (context, sandbox) = Setup(
-            Map("csharp", new CiConfig(true, "dotnet build Sample.sln", null, null)),
-            workdir: "Sample.Api");
+            Map("typescript", new CiConfig(true, "npm run build", null, null)),
+            workdir: "backend");
 
         await Handler().ExecuteAsync(context, CancellationToken.None);
 
-        var build = sandbox.RanSteps.Single(IsDotnet);
+        var build = sandbox.RanSteps.Single(s => CommandLineOf(s) == "npm run build");
+        build.WorkingDirectory.Should().Be($"{Repository.SandboxWorkPath}/backend",
+            "the project declared where it is built, and the resolver reads that declaration");
+    }
+
+    [Fact]
+    public async Task VerifyPhase_InferredCommand_NoWorkdir_RunsAtRepoRoot()
+    {
+        var (context, sandbox) = Setup(
+            Map("typescript", new CiConfig(true, "npm run build", null, null)));
+
+        await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        var build = sandbox.RanSteps.Single(s => CommandLineOf(s) == "npm run build");
         build.WorkingDirectory.Should().Be(Repository.SandboxWorkPath,
-            "the analyzer authored the command against the repo root, where the master proved it green");
+            "a repository declaring no workdir is left exactly where it was");
     }
 
     [Fact]
-    public async Task VerifyPhase_DiscoveredEntryPoint_RunsAtContextWorkdir()
-    {
-        var (context, sandbox) = Setup(
-            Map("csharp", new CiConfig(false, null, null, null)), workdir: "Sample.Api");
-        sandbox.ListFilesJson = """["Sample.sln"]""";
-
-        await Handler().ExecuteAsync(context, CancellationToken.None);
-
-        var build = sandbox.RanSteps.Single(IsDotnet);
-        build.WorkingDirectory.Should().Be($"{Repository.SandboxWorkPath}/Sample.Api",
-            "a discovered entry point's path is relative to where it was found");
-    }
-
-    [Fact]
-    public async Task VerifyCommandResolution_NoContextCommand_DiscoversSingleSln()
+    public async Task VerifyPhase_DotnetRepoWithoutCommand_IsReportedNotDiscovered()
     {
         var (context, sandbox) = Setup(Map("csharp", new CiConfig(false, null, null, null)));
         sandbox.ListFilesJson = """["Sample.sln", "src/Sample.Api.csproj"]""";
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        var build = sandbox.RanSteps.Single(IsDotnet);
-        CommandLineOf(build).Should().Contain("build").And.Contain("Sample.sln");
-    }
-
-    [Fact]
-    public async Task VerifyCommandResolution_NoSlnFound_NamedResolutionFinding_NotBuildFailure()
-    {
-        var (context, sandbox) = Setup(Map("csharp", new CiConfig(false, null, null, null)));
-        sandbox.ListFilesJson = """["README.md", "docs/notes.md"]""";
-
-        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("resolution failure").And.Contain("searched");
-        result.Message.Should().NotContain("exited", "no command ran, so there is no compile result");
         sandbox.RanSteps.Should().NotContain(s => IsDotnet(s),
-            "a filename is never invented when the entry point cannot be resolved");
+            "a solution file lying in the tree is not a declaration that it builds this repository");
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("UNVERIFIED",
+            "csharp is told what python, rust and lua are already told — nothing named a command");
     }
 
     // ---- 2026-08-28-5f71: a run with no gate does not read as verified ----
@@ -203,8 +190,7 @@ public sealed class VerifyPhaseHandlerTests
     /// <summary>
     /// p0393's rule, narrowed rather than dropped. Its rationale stands PER REPOSITORY:
     /// a docs or infra repository declaring no commands is skipped, not failed, because
-    /// not every repository in a multi-repo run is buildable — and discovery only applies
-    /// where the map says .NET. What is narrowed is the RUN. Here the skipped repository
+    /// not every repository in a multi-repo run is buildable. What is narrowed is the RUN. Here the skipped repository
     /// is not the whole run: another one verified something, so the run keeps a second
     /// opinion and stays green.
     /// </summary>
@@ -410,14 +396,16 @@ public sealed class VerifyPhaseHandlerTests
     }
 
     /// <summary>
-    /// The behaviour the predecessor leaves, unchanged: no declaration falls to the
-    /// analyzer's inferred pair, then to the .NET entry-point discovery, then to nothing.
+    /// 2026-09-03-ee12: no declaration falls to the analyzer's inferred pair and then to
+    /// nothing — the same two rungs for every language. The .NET entry-point search that
+    /// used to sit between them is gone; a solution file present in the tree resolves no
+    /// command for csharp any more than a Cargo.toml does for rust.
     /// </summary>
     [Theory]
     [InlineData("csharp", true, "dotnet build Sample.sln", "[]", "dotnet build Sample.sln")]
-    [InlineData("csharp", false, null, "[\"Sample.sln\"]", "Sample.sln")]
+    [InlineData("csharp", false, null, "[\"Sample.sln\"]", null)]
     [InlineData("generic", false, null, "[]", null)]
-    public async Task Verify_ARepositoryDeclaringNothing_ResolvesInferredThenDotnetThenNothing(
+    public async Task Verify_ARepositoryDeclaringNothing_ResolvesInferredThenNothing(
         string language, bool hasCi, string? buildCommand, string listFiles, string? expected)
     {
         var (context, sandbox) = Setup(Map(language, new CiConfig(hasCi, buildCommand, null, null)));

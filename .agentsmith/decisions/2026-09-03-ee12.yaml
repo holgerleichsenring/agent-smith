@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-03-ee12
+
+decisions:
+  - category: Architecture
+    chose: "The inferred stage runs at meta.workdir — the location source p0224 already settled"
+    over: "A new ci.working_directory field the analyzer would fill and the resolver would read"
+    reason: |
+      The field looked missing and was not. p0224 wrote the rule into
+      EnsurePrerequisitesHandler in as many words: the only location source is the
+      operator's meta.workdir, with no analyzer module-path derivation. The declared
+      context stages read it, the prerequisites command reads it, the discovered .NET
+      entry point read it. VerifyStageResolver's inferred rung was the single exception,
+      and it was the one that failed.
+
+      A second, analyzer-authored location would have been able to disagree with the
+      first, and nothing would arbitrate between them — the same class of defect as the
+      constant it replaced, one indirection further away. It would also have changed the
+      persisted ProjectMap shape, and RedisProjectMapStore.ListByPrefixAsync serves maps
+      WITHOUT comparing the content hash, so cached maps of the old shape would have kept
+      being served while the field read as absent. Adding no field removes that whole
+      question rather than answering it.
+
+  - category: Architecture
+    chose: "The .NET entry-point rung is deleted, and a repository with no named command is reported"
+    over: "Keeping it as the 'analyzer named nothing' fallback for one language"
+    reason: |
+      IsDotnet(map) decided WHICH fallback a repository got. csharp got a solution search;
+      python, rust, zig and lua got nothing. That is a table the framework has to grow one
+      language at a time, and every language not in it is a repository the product cannot
+      verify — the failure is not that the rung is wrong for .NET, it is that the question
+      "how is this built" was answered in C# for one stack when the analyzer already
+      answers it for every stack and is the only thing that reads the repository.
+
+      Deleting it is safe here and would not have been on the 0.142 line: 2026-08-28-5f71
+      already separates a FINDING (a refusal, fails the run) from a SEARCHED note (every
+      source was consulted, nothing named a command). A .NET repository that named no
+      command now lands exactly where a generic one already landed, and
+      Verify_SourceDeliveredAndNoCommandResolved_IsNotReportedAsVerified is the verdict
+      for both. On v0.142.0 the same case returned CommandResult.Ok with the word
+      UNVERIFIED in the text, so the deletion there would have opened pull requests over
+      unbuilt trees.
+
+  - category: Testing
+    chose: "The p0400a pin is rewritten to assert the declaration is followed"
+    over: "Deleting VerifyPhase_DeclaredCommand_RunsAtRepoRoot along with the behaviour"
+    reason: |
+      That test IS p0400a's evidence — run b9b0, where a .NET context's solution sat at
+      the repo root while its workdir was a subproject. Removing it silently would leave
+      the shape it guarded untested and the reversal unrecorded. It now asserts the
+      opposite truth for a reason stated in the file: under p0224 that context declared
+      the wrong workdir, and a component built from the root declares '.'. The inert case
+      (no workdir declared, /work either way) is pinned separately, so the change is
+      provably a no-op everywhere nothing was declared.
+
+  - category: Scope
+    chose: "The collapsed-sandbox gap is named as its own phase, not fixed here"
+    over: "Extending this phase to verify every context in a collapsed sandbox"
+    reason: |
+      Two contexts sharing an image collapse into one sandbox, and analysis, context
+      loading and verification all read the grouped REPRESENTATIVE. In run a06c that means
+      the backend component is analyzed and verified while the frontend one is changed and
+      never gated — so this phase makes that run green while half of it stays unproven.
+      That is a real limit and it is written into the spec rather than left for the next
+      reader to discover: it is the same representative-instead-of-list defect
+      ContextVerifyStagesResolver was already fixed for, and it wants its own phase with
+      its own evidence.

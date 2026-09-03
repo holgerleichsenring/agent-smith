@@ -43,9 +43,9 @@ public sealed class VerifyResolutionNotes
 
     public void NothingDeclared(string key, string? primaryLanguage) =>
         Searched.Add(
-            $"{Named(key)}: searched the context.yaml verify block (none), the analyzer's "
-            + "ci.build_command / ci.test_command (none) and a .NET entry point to discover "
-            + $"(primary language '{Language(primaryLanguage)}') — nothing named a command.");
+            $"{Named(key)}: searched the context.yaml verify block (none) and the analyzer's "
+            + "ci.build_command / ci.test_command (none) — nothing named a command for this "
+            + $"'{Language(primaryLanguage)}' repository.");
 
     public void EveryDeclaredStageSkipped(string key, int declared) =>
         Searched.Add(
