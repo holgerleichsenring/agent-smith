@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-ee12
+goal: "Verification runs each command at the workdir the project declares, the one location source p0224 already settled, and the resolver drops its repo-root constant and its .NET-only rung."
+
+applies_to: "backend"
+
+requires:
+  - p0224    # which settled meta.workdir as the ONLY location source
+  - p0400    # the discovered .NET entry point this removes
+  - p0400a   # whose global "inferred commands run at the repo root" this replaces
+
+decisions:
+  - key: |
+      LIVE FINDING (run 2026-09-03T11-33-19-a06c, a node repository with backend/ and
+      frontend/ contexts and NO root manifest): the inferred stage ran 'npm run build'
+      at /work and got ENOENT on /work/package.json, exit 254. The phase work was green
+      in both components. A correct run was reported red by its own gate and opened no
+      pull request.
+  - key: |
+      THE LOCATION SOURCE ALREADY EXISTS. p0224 settled it in EnsurePrerequisitesHandler:
+      the only location source is the operator's meta.workdir (discovery.Workdir), with
+      no analyzer module-path derivation. Declared context stages honour it, the
+      discovered .NET entry point honours it, the prerequisites command honours it.
+      VerifyStageResolver's inferred rung is the sole exception, and it is the one that
+      failed. A new ci.working_directory would be a SECOND location source able to
+      disagree with the first, so no field is added.
+  - key: |
+      P0400A IS REPLACED, NOT IGNORED. It pinned inferred commands to the repo root on
+      the evidence of one .NET context whose workdir was a subproject while its solution
+      sat at the root. Under p0224 that context was mis-declared: a component built from
+      the root declares workdir '.'. A constant cannot serve both shapes, and choosing
+      the constant made the operator's declaration unreadable. The pin
+      VerifyPhase_DeclaredCommand_RunsAtRepoRoot is REWRITTEN to assert that the
+      declaration is followed, never quietly deleted.
+  - key: |
+      NO LANGUAGE IN THE FRAMEWORK. IsDotnet(map) decides which fallback a repository
+      gets, so csharp gets an entry-point search while python, rust, zig and lua get
+      nothing - a table the framework would have to grow per language forever. The
+      analyzer already answers how a repository is built for every stack and is the only
+      thing that reads it. The rung and its discovery class go; a repository whose
+      analyzer named no command is REPORTED through the Searched note that 2026-08-28-5f71
+      already built, which is the answer every non-.NET repository gets today. The
+      operator-facing text in NothingDeclared stops naming .NET for the same reason.
+  - key: |
+      NOT IN THIS PHASE, AND NAMED: two contexts sharing one image collapse into one
+      sandbox, and analysis, context loading and verification all read the grouped
+      REPRESENTATIVE. In the run above only the backend component is analyzed and
+      verified while the frontend one is changed and never gated. That is the same
+      representative-instead-of-list defect ContextVerifyStagesResolver was already fixed
+      for, and it needs its own phase: every context in a collapsed sandbox is verified,
+      not just the first.
+
+steps:
+  - id: inferred-runs-at-the-declared-workdir
+    action: "VerifyStageResolver: the inferred stages take the workdir already passed into ResolveAsync; Repository.SandboxWorkPath leaves the class."
+  - id: the-language-rung-goes
+    action: "Delete IsDotnet and the DotnetEntryPointDiscovery dependency, class and DI registration; a repository with no named command falls to the existing NothingDeclared report."
+  - id: the-report-stops-naming-a-language
+    action: "VerifyResolutionNotes.NothingDeclared says which sources were consulted without naming a stack."
+  - id: the-p0400a-pin-is-rewritten
+    action: "VerifyPhaseHandlerTests: the repo-root assertion becomes a declared-workdir assertion; the .NET discovery tests go with the class."
+
+tests:
+  - "VerifyPhase_InferredCommand_RunsAtDeclaredWorkdir"
+  - "VerifyPhase_InferredCommand_NoWorkdir_RunsAtRepoRoot"
+  - "VerifyPhase_DotnetRepoWithoutCommand_IsReportedNotDiscovered"
+  - "NothingDeclared_NamesNoLanguage"
+
+done:
+  - "A context declaring meta.workdir runs its inferred build there, pinned by a test built on the shape of the run above."
+  - "A repository declaring no workdir still resolves to /work, so the change is inert where nothing was declared, pinned by test."
+  - "No resolver rung branches on a language, and none carries a hardcoded execution directory."
+  - "A .NET repository whose analyzer named no command is reported the same way every other language is, pinned by test."

@@ -183,7 +183,7 @@ public static class PipelineHandlersExtensions
         // 2026-08-25-014d: the registry boundary reads configuration, so it is a service.
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.ImageRegistryTrust>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
-        services.AddTransient<DotnetEntryPointDiscovery>().AddTransient<DeclaredStagePresence>();
+        services.AddTransient<DeclaredStagePresence>();
         services.AddTransient<VerifyStageResolver>();
         // 2026-08-31-26d4/7097: what each context declared, and what it named that the
         // image does not carry.
