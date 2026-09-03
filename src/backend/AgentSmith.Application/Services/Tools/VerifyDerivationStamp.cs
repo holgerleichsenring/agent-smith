@@ -29,8 +29,7 @@ public sealed class VerifyDerivationStamp(VerifyDerivationDigest digest)
         if (document.Verify is not { Count: > 0 })
             return document with { VerifyDerivedFrom = null };
 
-        var workdir = SandboxWorkdir.Resolve(document.Meta?.Workdir);
-        var hash = await digest.ComputeAsync(sandbox, workdir, derivation.Files, ct);
+        var hash = await digest.ComputeAsync(sandbox, derivation.Files, ct);
         return document with { VerifyDerivedFrom = derivation with { Hash = hash } };
     }
 }

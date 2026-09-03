@@ -40,7 +40,7 @@ public sealed class EnsurePrerequisitesHandlerTests
     }
 
     [Fact]
-    public async Task EnsurePrerequisitesHandler_PerContextCommandResolved_RunsInWorkdir()
+    public async Task EnsurePrerequisitesHandler_PerContextCommandResolved_RunsAtRepoRoot()
     {
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
@@ -54,7 +54,7 @@ public sealed class EnsurePrerequisitesHandlerTests
         var step = captured.Should().ContainSingle().Subject;
         step.Command.Should().Be("npm");
         step.Args.Should().Equal("ci");
-        step.WorkingDirectory.Should().Be("/work/frontend");
+        step.WorkingDirectory.Should().Be("/work");
     }
 
     [Fact]
@@ -114,18 +114,23 @@ public sealed class EnsurePrerequisitesHandlerTests
     }
 
     [Fact]
-    public async Task EnsurePrerequisitesHandler_OperatorWorkdir_RunsInThatSubtree()
+    public async Task EnsurePrerequisitesHandler_OperatorWorkdir_PlacesNoCommand()
     {
-        // p0224: the only location source is the operator's meta.workdir.
+        // 2026-09-03-7bac, replacing p0224's "meta.workdir is the location source": it is
+        // the location of a context's SOURCE. A dependency manifest sits wherever the
+        // repository puts it, so the operator who wrote the command writes its cd too.
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = new Ctx(Prerequisites: "npm ci", Workdir: "override-dir", Sandbox: BuildSandbox(captured, 0)),
+            ["default"] = new Ctx(
+                Prerequisites: "cd override-dir && npm ci", Workdir: "some-other-dir",
+                Sandbox: BuildSandbox(captured, 0)),
         });
 
         await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
-        captured.Should().ContainSingle().Which.WorkingDirectory.Should().Be("/work/override-dir");
+        var step = captured.Should().ContainSingle().Subject;
+        step.WorkingDirectory.Should().Be("/work");
     }
 
     [Fact]

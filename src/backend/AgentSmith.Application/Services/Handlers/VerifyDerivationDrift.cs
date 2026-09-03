@@ -36,7 +36,7 @@ public sealed class VerifyDerivationDrift(
             // being stale because nobody hashed it.
             if (context.DerivedFrom is not { Hash: { Length: > 0 } recorded } derivation) continue;
 
-            var current = await digest.ComputeAsync(sandbox, context.Workdir, derivation.Files, ct);
+            var current = await digest.ComputeAsync(sandbox, derivation.Files, ct);
             if (string.Equals(current, recorded, StringComparison.Ordinal)) continue;
 
             logger.LogWarning(

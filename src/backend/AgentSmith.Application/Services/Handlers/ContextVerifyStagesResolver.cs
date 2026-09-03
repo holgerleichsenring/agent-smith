@@ -29,8 +29,7 @@ public sealed class ContextVerifyStagesResolver
         {
             if (context.Verify is not { Count: > 0 } stages) continue;
             declared.Add(new ContextVerifyStages(
-                context.ContextName, stages, SandboxWorkdir.Resolve(context.Workdir),
-                context.VerifyDerivedFrom));
+                context.ContextName, stages, context.VerifyDerivedFrom));
         }
         return declared;
     }

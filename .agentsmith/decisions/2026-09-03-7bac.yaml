@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-03-7bac
+
+decisions:
+  - category: Architecture
+    chose: "Every sandbox command runs at the repository root, and the party that read the tree writes any cd into the command"
+    over: "A per-command working_directory the analyzer fills and the resolver reads"
+    reason: |
+      ee12 rejected such a field on the grounds that it would be a second location source
+      able to disagree with meta.workdir. That reasoning survives, but the field is
+      rejected for a nearer reason: a ci block holds a build AND a test command, and run
+      5a18 is the proof that those two need different directories. At a context workdir one
+      level down, 'dotnet build' exited 0 while 'dotnet test <sibling test project>' could
+      not find a project that exists at the root. So the field would have to be per
+      command — and a per-command directory that can disagree with a path already inside
+      that command is two ways to say one thing, with no arbiter.
+
+      A command is a shell line run through /bin/sh -c. It can carry its own cd, in every
+      language, with nothing to widen and nothing to keep in sync.
+
+  - category: Architecture
+    chose: "meta.workdir places no command at all — inferred stages, declared stages, when_present, verify_derived_from, prerequisites and probe all move together"
+    over: "Fixing only the inferred rung that failed in run 5a18"
+    reason: |
+      meta.workdir says where a context's SOURCE lives. It does not say where that source
+      is built, where its dependencies install, or where its tests are. Reading it as a
+      command's directory ANTICIPATES that the tests sit beside the executable — true in
+      some repositories of every language and false in others: .NET puts sibling test
+      projects under one solution, Node puts them inside the package, Go beside the
+      source, Python in a top-level tests/. Knowing which requires looking, in every
+      language, which is what an LLM analyzer is for and what a framework constant can
+      never be.
+
+      Fixing one rung would have left the same anticipation in five other places and made
+      the rule unstatable. One rule for both authors, or it is not a rule.
+
+  - category: Architecture
+    chose: "The repository root, because it is the frame the commands were written in"
+    over: "The repository root as the safer default"
+    reason: |
+      FilesystemToolHost passes repoPath to the GUARDS only; it never roots the tools, and
+      SandboxStepRunner sends no WorkingDirectory, so the sandbox default applies. Every
+      actor that reads a tree therefore reads it from /work: the analyzer, the coding
+      master, every run_command. Run 5a18 shows the analyzer doing exactly that — pointed
+      at a component sub-tree, it listed '.', found the root solution file, the root
+      pipeline directory and a sibling test project, and wrote its command against that
+      vantage. Verification was the only step standing somewhere else.
+
+      This matters because p0400a chose the same constant on one .NET repository's
+      evidence, and ee12 read that as a guess and moved it. It was not a guess; its reason
+      was simply never written down. Now it is.
+
+  - category: Process
+    chose: "The skills contract and the embedded pin ship WITH the backend change"
+    over: "Backend now, analyzer prompt as a follow-up"
+    reason: |
+      Under the root anchor an analyzer running the old catalog still emits a bare
+      'npm run build' with no cd, which fails the a06c shape the ee12 change was written
+      for. Shipping the backend alone would trade one language's repositories for
+      another's and would be indistinguishable, from the operator's seat, from the bug it
+      replaces.
+
+      Run 5a18 also loaded catalog v4.7.0 with fromCache true while the embedded pin was
+      v5.0.0, so a released catalog does not reach a run until that cache is invalidated.
+      The deploy step has to account for that, not assume it.
+
+  - category: Implementation
+    chose: "A red stage's message names the directory it ran in"
+    over: "Leaving the outcome as command plus exit code"
+    reason: |
+      5a18's message said which repository, which stage, which command and which exit
+      code — everything except the one fact that explained it. Reading it as a
+      wrong-directory failure took a trail dig. The cwd is one string on an outcome the
+      runner already holds.

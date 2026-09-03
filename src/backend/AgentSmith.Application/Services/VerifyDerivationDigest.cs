@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services;
 
@@ -24,18 +25,19 @@ public sealed class VerifyDerivationDigest(ISandboxFileReaderFactory readerFacto
     private const string Absent = "(absent)";
 
     /// <summary>
-    /// The digest of <paramref name="files"/>, each resolved relative to
-    /// <paramref name="workdir"/> (an absolute in-sandbox path), in declaration order.
+    /// The digest of <paramref name="files"/>, each resolved from the repository root
+    /// (2026-09-03-7bac: where the declaration that names them is written), in
+    /// declaration order.
     /// </summary>
     public async Task<string> ComputeAsync(
-        ISandbox sandbox, string workdir, IReadOnlyList<string> files, CancellationToken ct)
+        ISandbox sandbox, IReadOnlyList<string> files, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(files);
         var reader = readerFactory.Create(sandbox);
         var builder = new StringBuilder();
         foreach (var file in files)
         {
-            var content = await reader.TryReadAsync(Combine(workdir, file), ct);
+            var content = await reader.TryReadAsync(FromRoot(file), ct);
             builder.Append(file).Append('\n').Append(Normalised(content)).Append('\n');
         }
         return "sha256:" + Convert.ToHexString(
@@ -48,9 +50,9 @@ public sealed class VerifyDerivationDigest(ISandboxFileReaderFactory readerFacto
     private static string Normalised(string? content) =>
         content is null ? Absent : content.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-    private static string Combine(string workdir, string relative)
+    private static string FromRoot(string relative)
     {
         var trimmed = relative.Trim().Replace('\\', '/').TrimStart('/');
-        return $"{workdir.TrimEnd('/')}/{trimmed}";
+        return $"{Repository.SandboxWorkPath.TrimEnd('/')}/{trimmed}";
     }
 }
