@@ -44,8 +44,12 @@ public sealed class EnsurePrerequisitesHandler(
         // hard-failed the run. Dependency install for code projects is now the
         // coding-agent-master's job (run_command, prompt-instructed), the same way
         // p0216 handed it build+test. An explicit context.yaml prerequisite is the
-        // one deterministic command we DO run — the operator gave it, no guessing —
-        // at the operator's meta.workdir (or the repo root).
+        // one deterministic command we DO run — the operator gave it, no guessing.
+        // 2026-09-03-7bac: it runs at the REPOSITORY ROOT. meta.workdir says where a
+        // context's source lives, not where its dependency manifest is; a package.json
+        // one directory below the executable is as ordinary as one beside it, and the
+        // framework cannot know which without looking. The operator who wrote the command
+        // looked, so a command needing another directory carries its own cd.
         var outcomes = new List<InstallOutcome>(sandboxes.Count);
         foreach (var (key, sandbox) in sandboxes)
         {
@@ -58,8 +62,8 @@ public sealed class EnsurePrerequisitesHandler(
                 outcomes.Add(new InstallOutcome(key, ExitCode: 0, Skipped: true));
                 continue;
             }
-            var workdir = SubTreeWorkdir(NormalizeWorkdir(discovery.Workdir));
-            outcomes.Add(await RunOneAsync(key, sandbox, workdir, command!, cancellationToken));
+            outcomes.Add(await RunOneAsync(
+                key, sandbox, Repository.SandboxWorkPath, command!, cancellationToken));
         }
 
         return BuildAggregateResult(outcomes);
@@ -104,18 +108,6 @@ public sealed class EnsurePrerequisitesHandler(
         var reason = string.IsNullOrWhiteSpace(detail) ? "" : $"\n{failed[0].Key}: {detail}";
         return CommandResult.Fail(
             $"Dependency install failed in {failed.Count}/{ran.Count} repo(s): {names}{reason}");
-    }
-
-    private static string SubTreeWorkdir(string workdir) =>
-        workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
-
-    // p0224: the only location source is the operator's meta.workdir (discovery.Workdir);
-    // no analyzer module-path derivation. "." (or unset) means the repo root.
-    private static string NormalizeWorkdir(string? workdir)
-    {
-        if (string.IsNullOrWhiteSpace(workdir)) return ".";
-        var trimmed = workdir.Trim().Replace('\\', '/').Trim('/');
-        return trimmed.Length == 0 ? "." : trimmed;
     }
 
     private static string Combine(string? stdout, string? stderr) =>

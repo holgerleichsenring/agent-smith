@@ -53,7 +53,7 @@ public sealed class DeclaredStageBinariesTests
         [
             new ContextVerifyStages("api",
                 [new ContextYamlVerifyStage("lint", "npm run lint"),
-                 new ContextYamlVerifyStage("test", "npm test")], "/work"),
+                 new ContextYamlVerifyStage("test", "npm test")]),
         ]);
 
         derived.Binaries.Should().ContainSingle().Which.StageLabel.Should().Be("lint");
@@ -71,5 +71,5 @@ public sealed class DeclaredStageBinariesTests
     }
 
     private static ContextVerifyStages Declaring(string context, string label, string command) =>
-        new(context, [new ContextYamlVerifyStage(label, command)], "/work");
+        new(context, [new ContextYamlVerifyStage(label, command)]);
 }

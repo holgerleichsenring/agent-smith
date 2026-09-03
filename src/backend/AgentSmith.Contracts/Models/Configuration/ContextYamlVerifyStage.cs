@@ -17,10 +17,10 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// </para>
 /// </summary>
 /// <param name="Label">What this stage is called in the run's outcome ("build", "lint").</param>
-/// <param name="Command">The command line, run through /bin/sh -c at the declaring
-/// context's workdir.</param>
-/// <param name="WhenPresent">Optional path, relative to that workdir, the command needs
-/// in order to mean anything. Absent path =&gt; the stage is skipped and reported, never
+/// <param name="Command">The command line, run through /bin/sh -c at the REPOSITORY ROOT
+/// (2026-09-03-7bac). A command needing another directory carries its own cd.</param>
+/// <param name="WhenPresent">Optional path, relative to the repository root, the command
+/// needs in order to mean anything. Absent path =&gt; the stage is skipped and reported, never
 /// failed: verification stops at the first non-zero exit, so a red it was never measured
 /// for would hide every real gate behind it.</param>
 public sealed record ContextYamlVerifyStage(

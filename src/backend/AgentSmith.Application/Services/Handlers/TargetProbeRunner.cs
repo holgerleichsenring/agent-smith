@@ -1,6 +1,7 @@
 using System.Text;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
@@ -33,7 +34,7 @@ public sealed class TargetProbeRunner(ILogger<TargetProbeRunner> logger)
         ArgumentNullException.ThrowIfNull(probe);
         logger.LogInformation(
             "{Key}: asking {Target} whether it answers via '{Command}' at {Cwd}",
-            key, probe.Target, probe.Command, probe.Workdir);
+            key, probe.Target, probe.Command, Repository.SandboxWorkPath);
 
         // The verify runner's shell, not the prerequisite tokenizer: a declared command is a
         // command LINE, and an injected credential is reached as $VAR, which only a shell
@@ -41,7 +42,7 @@ public sealed class TargetProbeRunner(ILogger<TargetProbeRunner> logger)
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "/bin/sh", Args: ["-c", probe.Command],
-            WorkingDirectory: probe.Workdir, TimeoutSeconds: ProbeTimeoutSeconds);
+            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: ProbeTimeoutSeconds);
 
         var streamed = new StringBuilder();
         var progress = new SyncProgress<StepEvent>(ev =>
@@ -62,7 +63,7 @@ public sealed class TargetProbeRunner(ILogger<TargetProbeRunner> logger)
         if (string.IsNullOrWhiteSpace(output)) output = streamed.ToString().TrimEnd();
         logger.LogError(
             "{Key}: {Target} refused '{Command}' (exit {Exit}) at {Cwd}:\n{Output}",
-            key, probe.Target, probe.Command, result.ExitCode, probe.Workdir,
+            key, probe.Target, probe.Command, result.ExitCode, Repository.SandboxWorkPath,
             Tail(output, OutputTailChars));
     }
 

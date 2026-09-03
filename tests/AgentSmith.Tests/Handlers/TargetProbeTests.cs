@@ -89,7 +89,7 @@ public sealed class TargetProbeTests
     }
 
     [Fact]
-    public async Task Probe_TheDeclaredCommand_RunsThroughAShellAtTheDeclaringWorkdir()
+    public async Task Probe_TheDeclaredCommand_RunsThroughAShellAtTheRepoRoot()
     {
         var sandbox = new AnsweringSandbox(exitCode: 0);
 
@@ -98,7 +98,9 @@ public sealed class TargetProbeTests
         var step = sandbox.RanSteps.Should().ContainSingle().Subject;
         step.Command.Should().Be("/bin/sh", "an injected credential is reached as $VAR");
         step.Args.Should().Equal(["-c", Command]);
-        step.WorkingDirectory.Should().Be("/work/warehouse");
+        step.WorkingDirectory.Should().Be("/work",
+            "2026-09-03-7bac: a probe runs where every other command runs; the declaring "
+            + "context's meta.workdir places nothing");
     }
 
     private static readonly ContextYamlTargetProbe Probe = new(Target, Command);

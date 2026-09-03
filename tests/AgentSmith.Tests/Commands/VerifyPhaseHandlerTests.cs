@@ -138,27 +138,32 @@ public sealed class VerifyPhaseHandlerTests
         sandbox.RanSteps.Should().Contain(s => IsDotnet(s));
     }
 
-    // 2026-09-03-ee12: this replaces p0400a's repo-root pin. An inferred command runs at
-    // the workdir the project declared — p0224's single location source, which the
-    // prerequisites command and every declared stage already read. Run a06c ran
-    // 'npm run build' at /work in a repository whose manifests live one directory down,
-    // and reported a green delivery red.
+    // 2026-09-03-7bac: every command runs at the REPOSITORY ROOT, the frame the analyzer
+    // and the coding master already work in, and meta.workdir places none of them. ee12
+    // had moved them to the declaration on run a06c's evidence ('npm run build' at /work
+    // in a repository whose manifests live one directory down); run 5a18 is the same
+    // mistake from the other side. Neither directory is knowable without looking, so the
+    // party that looked writes its own cd into the command.
     [Fact]
-    public async Task VerifyPhase_InferredCommand_RunsAtDeclaredWorkdir()
+    public async Task VerifyPhase_InferredCommand_ContextDeclaresSubtreeWorkdir_StillRunsAtRepoRoot()
     {
+        // 2026-09-03-7bac, run 5a18's shape: the context declares the sub-tree its SOURCE
+        // occupies, and the analyzer's command names a sibling of that sub-tree. Placing
+        // the command at the declaration made a green delivery red.
         var (context, sandbox) = Setup(
-            Map("typescript", new CiConfig(true, "npm run build", null, null)),
-            workdir: "backend");
+            Map("csharp", new CiConfig(true, null, "dotnet test Sample.Tests.Unit", null)),
+            workdir: "Sample.Api");
 
         await Handler().ExecuteAsync(context, CancellationToken.None);
 
-        var build = sandbox.RanSteps.Single(s => CommandLineOf(s) == "npm run build");
-        build.WorkingDirectory.Should().Be($"{Repository.SandboxWorkPath}/backend",
-            "the project declared where it is built, and the resolver reads that declaration");
+        var test = sandbox.RanSteps.Single(s => CommandLineOf(s) == "dotnet test Sample.Tests.Unit");
+        test.WorkingDirectory.Should().Be(Repository.SandboxWorkPath,
+            "meta.workdir says where the source lives, not where a command runs — the "
+            + "analyzer wrote this path from the root, which is where it stood");
     }
 
     [Fact]
-    public async Task VerifyPhase_InferredCommand_NoWorkdir_RunsAtRepoRoot()
+    public async Task VerifyPhase_InferredCommand_RunsAtRepoRoot()
     {
         var (context, sandbox) = Setup(
             Map("typescript", new CiConfig(true, "npm run build", null, null)));
@@ -167,7 +172,7 @@ public sealed class VerifyPhaseHandlerTests
 
         var build = sandbox.RanSteps.Single(s => CommandLineOf(s) == "npm run build");
         build.WorkingDirectory.Should().Be(Repository.SandboxWorkPath,
-            "a repository declaring no workdir is left exactly where it was");
+            "every command runs in the frame it was written in");
     }
 
     [Fact]
@@ -315,6 +320,66 @@ public sealed class VerifyPhaseHandlerTests
         new(contextName, workdir, "csharp", Verify: stages);
 
     /// <summary>
+    /// 2026-09-03-7bac: a DECLARED stage takes its frame from the same rule the inferred
+    /// one does. An operator writing a verify block inside a context whose source sits in
+    /// a sub-tree is writing against the repository root, because that is where the
+    /// commands they copied from their own pipeline were written to run.
+    /// </summary>
+    [Fact]
+    public async Task VerifyPhase_DeclaredStage_RunsAtRepoRoot()
+    {
+        var (context, sandbox) = Setup(
+            Map("csharp", new CiConfig(false, null, null, null)),
+            contexts: [Declaring("api", "src/Api",
+                new ContextYamlVerifyStage("test", "dotnet test tests/Sample.Tests"))]);
+
+        await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        sandbox.RanSteps.Single(s => CommandLineOf(s) == "dotnet test tests/Sample.Tests")
+            .WorkingDirectory.Should().Be(Repository.SandboxWorkPath);
+    }
+
+    /// <summary>
+    /// 2026-09-03-7bac: the path a stage names as its condition is read from the same
+    /// place the stage runs. A when_present resolved against the context's sub-tree while
+    /// the command ran at the root would skip a gate the repository actually carries.
+    /// </summary>
+    [Fact]
+    public async Task VerifyPhase_DeclaredStage_WhenPresentPathIsRootRelative()
+    {
+        var (context, sandbox) = Setup(
+            Map("csharp", new CiConfig(false, null, null, null)),
+            contexts: [Declaring("api", "src/Api",
+                new ContextYamlVerifyStage("test", "dotnet test", WhenPresent: "Sample.sln"))]);
+        // The sub-tree copy does not exist; only the root one does. Resolving the
+        // condition against the declaration would skip a gate the repository carries.
+        sandbox.MissingPaths.Add("/work/src/Api/Sample.sln");
+
+        await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        sandbox.RanSteps.Should().Contain(s => CommandLineOf(s) == "dotnet test",
+            "the condition names a path at the root, which is where the command runs");
+    }
+
+    /// <summary>
+    /// 2026-09-03-7bac: run 5a18 was a command run in the wrong place, and reading it as
+    /// one meant digging through the trail — the outcome named everything except where it
+    /// stood.
+    /// </summary>
+    [Fact]
+    public async Task VerifyPhase_FailureMessage_NamesTheWorkingDirectory()
+    {
+        var (context, sandbox) = Setup(
+            Map("csharp", new CiConfig(true, "dotnet build", null, null)));
+        sandbox.FailingCommand = "dotnet build";
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain($"run at {Repository.SandboxWorkPath}");
+    }
+
+    /// <summary>
     /// Two contexts resolving the same image collapse into ONE sandbox. The gate reads the
     /// per-sandbox CONTEXT LIST, so BOTH declarations run, each at its own workdir —
     /// reading the sandbox's representative discovery would make whose stages run depend
@@ -339,8 +404,9 @@ public sealed class VerifyPhaseHandlerTests
             ["npm run lint", "npm run build"],
             "the declaration states the order, and both contexts are in this sandbox");
         ran.Select(s => s.WorkingDirectory).Should().Equal(
-            [$"{Repository.SandboxWorkPath}/src/Api", $"{Repository.SandboxWorkPath}/src/Web"],
-            "each stage runs at ITS OWN context's workdir");
+            [Repository.SandboxWorkPath, Repository.SandboxWorkPath],
+            "both declarations are honoured, and both run in the frame they were written "
+            + "in — the collapse is about WHOSE stages run, not about where");
         sandbox.RanSteps.Should().NotContain(s => IsDotnet(s),
             "the declaration wins over what the analyzer emitted for this run");
     }
@@ -451,6 +517,8 @@ public sealed class VerifyPhaseHandlerTests
         public bool DiffFails { get; set; }
         /// <summary>Paths ReadFile answers non-zero for — an absent when_present path.</summary>
         public HashSet<string> MissingPaths { get; } = new(StringComparer.Ordinal);
+        /// <summary>A shell command line whose run exits non-zero.</summary>
+        public string? FailingCommand { get; set; }
 
         public Task<StepResult> RunStepAsync(
             Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
@@ -462,6 +530,12 @@ public sealed class VerifyPhaseHandlerTests
                     StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 128,
                     TimedOut: false, DurationSeconds: 0.01,
                     ErrorMessage: "no comparable base ref", OutputContent: null));
+            if (FailingCommand is not null && step.Kind == StepKind.Run
+                && step.Command == "/bin/sh" && step.Args is [_, var line] && line == FailingCommand)
+                return Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1,
+                    TimedOut: false, DurationSeconds: 0.01,
+                    ErrorMessage: "the build is red", OutputContent: null));
             if (step.Kind == StepKind.ReadFile && MissingPaths.Contains(step.Path ?? ""))
                 return Task.FromResult(new StepResult(
                     StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1,
