@@ -27,7 +27,6 @@ public sealed class ContextTargetProbeResolver
         return [.. contexts
             .Where(context => context.Probe is not null)
             .Select(context => new ContextTargetProbe(
-                context.ContextName, context.Probe!.Target, context.Probe.Command,
-                SandboxWorkdir.Resolve(context.Workdir)))];
+                context.ContextName, context.Probe!.Target, context.Probe.Command))];
     }
 }

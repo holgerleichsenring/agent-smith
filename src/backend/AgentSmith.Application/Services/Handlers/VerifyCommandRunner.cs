@@ -31,7 +31,8 @@ public sealed class VerifyCommandRunner(ILogger<VerifyCommandRunner> logger)
         {
             logger.LogWarning(
                 "{Key}: {Stage} command is blank; treating as absent", key, stage);
-            return new VerifyOutcome(key, stage, rawCommand, ExitCode: 0, Skipped: true);
+            return new VerifyOutcome(
+                key, stage, rawCommand, ExitCode: 0, Skipped: true, Cwd: workingDirectory);
         }
 
         logger.LogInformation("{Key}: verifying via {Stage} command '{Command}' at {Cwd}",
@@ -68,7 +69,9 @@ public sealed class VerifyCommandRunner(ILogger<VerifyCommandRunner> logger)
                 key, stage, rawCommand, result.ExitCode, workingDirectory,
                 Tail(output, OutputTailChars));
 
-        return new VerifyOutcome(key, stage, rawCommand, result.ExitCode, Skipped: false, Output: output);
+        return new VerifyOutcome(
+            key, stage, rawCommand, result.ExitCode, Skipped: false, Output: output,
+            Cwd: workingDirectory);
     }
 
     private static string Combine(string? outputContent, string? errorMessage) =>

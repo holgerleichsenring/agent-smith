@@ -150,7 +150,7 @@ public sealed class VerifyDerivationTests : IDisposable
     {
         await using var sandbox = NewSandbox();
         return await NewDigest().ComputeAsync(
-            sandbox, SandboxWorkdir.Resolve("."), [PipelineFile], CancellationToken.None);
+            sandbox, [PipelineFile], CancellationToken.None);
     }
 
     private static VerifyDerivationDigest NewDigest() => new(new SandboxFileReaderFactory());

@@ -63,7 +63,7 @@ public sealed class VerifyPhaseHandler(
         VerifyPhaseContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out _))
             return await RecordAsync(
                 context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."),
                 cancellationToken);
@@ -98,12 +98,10 @@ public sealed class VerifyPhaseHandler(
             }
 
             var map = context.RepoProjectMaps.TryGetValue(key, out var m) ? m : null;
-            var workdir = SandboxWorkdir.Resolve(
-                discoveries.TryGetValue(key, out var discovery) ? discovery.Workdir : null);
 
-            // 2026-08-31-26d4: the PER-SANDBOX CONTEXT LIST, not the representative
-            // discovery above — two contexts resolving one image collapse into one
-            // sandbox, and each declaration runs at its own workdir.
+            // 2026-08-31-26d4: the PER-SANDBOX CONTEXT LIST, not the sandbox's
+            // representative discovery — two contexts resolving one image collapse into
+            // one sandbox, and both declarations are honoured.
             var declared = declaredStages.For(context.Pipeline, key);
             // 2026-09-01-e14d: the declaration is executed as written, and the run says
             // once whether the pipeline it was derived from has moved since. Reading a
@@ -112,7 +110,7 @@ public sealed class VerifyPhaseHandler(
             await derivationDrift.ReportAsync(key, sandbox, declared, notes, cancellationToken);
 
             foreach (var stage in await stageResolver.ResolveAsync(
-                key, map, sandbox, workdir, declared, notes, cancellationToken))
+                key, map, sandbox, declared, notes, cancellationToken))
             {
                 var outcome = await commandRunner.RunAsync(
                     key, stage.Stage, sandbox, stage.Cwd, stage.Command, cancellationToken);
@@ -245,8 +243,12 @@ public sealed class VerifyPhaseHandler(
         var first = failed[0];
         var detail = Tail(first.Output, ReasonTailChars);
         var reason = string.IsNullOrWhiteSpace(detail) ? string.Empty : $"\n{detail}";
+        // 2026-09-03-7bac: the message names the DIRECTORY as well as the command. Run
+        // 5a18 was a command run in the wrong place, and reading it as one took a trail
+        // dig because the outcome said everything except where it stood.
         return CommandResult.Fail(
-            $"Verification failed: {Where(first.Key)} {first.Stage} '{first.Command}' exited {first.ExitCode}."
+            $"Verification failed: {Where(first.Key)} {first.Stage} '{first.Command}' exited "
+            + $"{first.ExitCode} (run at {first.Cwd})."
             + $" No pull request is opened for a red build.{reason}");
     }
 

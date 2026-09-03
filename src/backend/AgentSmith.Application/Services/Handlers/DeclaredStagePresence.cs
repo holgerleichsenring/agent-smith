@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -29,16 +30,17 @@ public sealed class DeclaredStagePresence(
     /// <summary>
     /// True when the stage may run: it declares no condition
     /// (<see cref="ContextYamlVerifyStage.WhenPresent"/> empty), or the path it declares
-    /// exists under <paramref name="workdir"/> in the sandbox.
+    /// exists in the sandbox. 2026-09-03-7bac: the path is read from the repository root,
+    /// the frame the command it guards runs in.
     /// </summary>
     public async Task<bool> IsSatisfiedAsync(
         string key, ContextYamlVerifyStage stage, ISandbox sandbox,
-        string workdir, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stage);
         if (string.IsNullOrWhiteSpace(stage.WhenPresent)) return true;
 
-        var path = Combine(workdir, stage.WhenPresent);
+        var path = FromRoot(stage.WhenPresent);
         if (await readerFactory.Create(sandbox).ExistsAsync(path, cancellationToken)) return true;
 
         logger.LogInformation(
@@ -48,9 +50,9 @@ public sealed class DeclaredStagePresence(
         return false;
     }
 
-    private static string Combine(string workdir, string relative)
+    private static string FromRoot(string relative)
     {
         var trimmed = relative.Trim().Replace('\\', '/').TrimStart('/');
-        return $"{workdir.TrimEnd('/')}/{trimmed}";
+        return $"{Repository.SandboxWorkPath.TrimEnd('/')}/{trimmed}";
     }
 }

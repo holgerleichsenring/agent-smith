@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-7bac
+goal: "Every command the framework runs in a sandbox runs at the repository root, and whoever looked at the tree writes the directory into the command; meta.workdir places nothing."
+
+applies_to: "backend"
+
+requires:
+  - p0224     # which made meta.workdir the location source this removes
+  - p0400a    # whose repo-root anchor this restores, with the producer as its reason
+  - 2026-08-31-26d4  # which gave declared stages the workdir anchor
+  - 2026-09-01-379a  # whose probe took the same anchor
+  - 2026-09-03-ee12  # which gave the inferred rung the workdir anchor
+
+decisions:
+  - key: |
+      LIVE FINDING (run 2026-09-03T15-28-51-5a18, first run on the ee12 build). One
+      sandbox, one context declaring meta.workdir '<Component>.Api'. Two inferred stages
+      at that same cwd: 'dotnet build' exited 0, 'dotnet test <Component>.Tests.Unit'
+      exited 1 with MSB1009 — the test project is a SIBLING of the component, one level
+      up. The tests are green in that branch. A correct delivery was reported red by its
+      own gate.
+  - key: |
+      META.WORKDIR ANSWERS A DIFFERENT QUESTION. It says where a component's SOURCE
+      lives — the operator's word for what this context covers. It does not say where
+      that component is built, where its dependencies install, or where its tests live,
+      and no path in a context.yaml does. Reading it as a command's cwd is an
+      ANTICIPATION: it assumes the tests sit next to the executable. To know that, you
+      have to LOOK, in every language — .NET puts sibling test projects under one
+      solution, Node puts them inside the package, Go puts them next to the source,
+      Python puts them in a top-level tests/. A framework that anticipates gets one of
+      those right and calls the rest broken.
+  - key: |
+      THE ROOT IS NOT A GUESS, IT IS THE PRODUCER'S OWN FRAME. FilesystemToolHost passes
+      repoPath to the GUARDS ONLY — it never roots the tools, and SandboxStepRunner sends
+      no WorkingDirectory, so the sandbox default applies. Every actor that looks at the
+      tree therefore looks from /work: the analyzer (proved in 5a18 — handed the
+      component sub-tree, it listed '.', found the root solution file, the root pipeline
+      directory and the sibling test project), the coding master, and every run_command
+      in between. The paths and commands they emit are root-relative because the root is
+      where they stood. Verification was the only step standing somewhere else.
+  - key: |
+      THE DIRECTORY BELONGS INSIDE THE COMMAND, NOT BESIDE IT. A ci.working_directory
+      field was the obvious alternative and is rejected: a ci block holds a build AND a
+      test command, and this run is the proof that those two need different directories
+      — so the field would have to be per command, and a per-command field that can
+      disagree with a path already inside that command is a second way to say one thing.
+      A command is a shell line run through /bin/sh -c (the trail shows '-c dotnet
+      build'), so it can carry its own cd, in every language, with no schema to widen.
+      The rule is one sentence: a command is valid from the repository root; prefix it
+      with 'cd <dir> && ' when the tool needs another directory.
+  - key: |
+      ONE RULE FOR BOTH AUTHORS, OR IT IS NOT A RULE. The inferred rung is not fixed
+      alone: prerequisites (p0224), the declared verify stages and their when_present
+      (26d4), the probe (379a) and the derivation stamp's file paths all read
+      meta.workdir today, and each is the same anticipation wearing a different hat. They
+      move together, so an operator writing a verify block and an analyzer emitting a
+      test command are writing against the same frame the master already runs in.
+  - key: |
+      THIS REPOSITORY HAS NOW ANSWERED THE QUESTION THREE TIMES: p0400a pinned commands
+      to the root on one .NET repository's evidence, 26d4 and ee12 moved them to the
+      workdir on one Node repository's evidence, and each broke the other's repository.
+      Neither side was wrong about its repository; both were answering "where does this
+      command run" with a fact about where source lives. The oscillation stops because
+      the question is handed to whoever ran the tools, not because the constant flipped
+      back.
+  - key: |
+      THE OLD CATALOG WOULD REGRESS THE NODE CASE, SO IT SHIPS TOGETHER. Under the root
+      anchor, an analyzer running the CURRENT catalog still emits a bare 'npm run build'
+      with no cd and fails the a06c shape. The skills change (analyzer master states the
+      root frame for ci.build_command, ci.test_command and prerequisites) and the
+      embedded pin bump are PART of this delivery, not a follow-up — backend alone is a
+      half-fix that trades one language's repositories for another's.
+  - key: |
+      NOT IN THIS PHASE, AND NAMED: a failing stage names its command and its exit code
+      but not the directory it ran in, which is why 5a18 needed a trail dig to read as a
+      cwd bug. The cwd joins the failure text here because it is one string; the wider
+      question of what a verify failure should show belongs to the run-viewer.
+
+steps:
+  - id: the-inferred-rung-runs-at-the-root
+    action: "VerifyStageResolver.Inferred: the stage cwd is Repository.SandboxWorkPath; ResolveAsync stops taking a workdir argument."
+  - id: the-declared-stages-run-at-the-root
+    action: "ContextVerifyStagesResolver + ContextVerifyStages: drop Workdir; declared stages, their when_present probe (DeclaredStagePresence) and the derivation digest resolve from the repo root."
+  - id: prerequisites-and-probe-run-at-the-root
+    action: "EnsurePrerequisitesHandler and ContextTargetProbeResolver run at Repository.SandboxWorkPath; VerifyDerivationStamp hashes from the root. SandboxWorkdir and its remaining callers go."
+  - id: a-failure-names-where-it-ran
+    action: "VerifyPhaseHandler's failure text and VerifyOutcome name the working directory beside the command."
+  - id: the-analyzer-states-the-frame
+    action: "agent-smith-skills project-analyzer-master: ci.build_command, ci.test_command and prerequisites are shell lines valid from the repository root, prefixed 'cd <dir> && ' when the tool needs another directory; the tests are wherever the repository puts them, never assumed beside the component."
+  - id: the-context-yaml-says-what-a-path-means
+    action: "template.context.yaml and the ContextYaml* field docs: verify commands, when_present, verify_derived_from files, prerequisites and probe are root-relative; meta.workdir covers a context's source and places no command."
+  - id: the-pin-moves-with-the-contract
+    action: "Bump the embedded skills pin to the release carrying the analyzer change."
+
+tests:
+  - "VerifyPhase_InferredCommand_RunsAtRepoRoot"
+  - "VerifyPhase_InferredCommand_ContextDeclaresSubtreeWorkdir_StillRunsAtRepoRoot"
+  - "VerifyPhase_DeclaredStage_RunsAtRepoRoot"
+  - "VerifyPhase_DeclaredStage_WhenPresentPathIsRootRelative"
+  - "VerifyPhase_FailureMessage_NamesTheWorkingDirectory"
+  - "EnsurePrerequisites_RunsAtRepoRoot"
+  - "TargetProbe_RunsAtRepoRoot"
+  - "AnalyzerPrompt_StatesTheRepoRootFrame"
+
+done:
+  - "A context declaring a sub-tree workdir runs its inferred build and test at the repo root, pinned by a test built on run 5a18's shape."
+  - "A declared verify stage, its when_present path, the prerequisites command and the probe all run from the repo root, each pinned by test."
+  - "No production type resolves a command's working directory from meta.workdir; SandboxWorkdir no longer exists."
+  - "A red stage's message names the directory it ran in."
+  - "The analyzer master states the root frame for every command it emits, pinned by a prompt-content test, and the embedded pin names the release carrying it."
