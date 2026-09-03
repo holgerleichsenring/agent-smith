@@ -21,7 +21,7 @@ public sealed class JobsHub(
     ResultMarkdownReader resultReader,
     PlanMarkdownReader planReader,
     SpecMarkdownReader specReader, // p0390
-    AnalyzeMarkdownReader analyzeReader) : Hub
+    AnalyzeMarkdownReader analyzeReader, EventEnvelopeSerializer envelopes) : Hub
 {
     // p0246f: the run list + detail are served from the DB system-of-record over
     // REST (GET /api/runs, RunQueryEndpoints) — survives a process restart AND a
@@ -77,7 +77,7 @@ public sealed class JobsHub(
             {
                 var payload = pair.Value.ToString();
                 if (string.IsNullOrEmpty(payload)) continue;
-                var systemEvent = new EventEnvelopeSerializer().DeserializeSystem(payload);
+                var systemEvent = envelopes.DeserializeSystem(payload);
                 if (systemEvent is null) continue;
                 backlog.Add(systemEvent);
             }
