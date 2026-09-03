@@ -33,7 +33,7 @@ public sealed class DeclaredStagePresenceTests
     private static Task<bool> SatisfiedAsync(DeclaredStagePresence sut, string? whenPresent) =>
         sut.IsSatisfiedAsync(
             "data", new ContextYamlVerifyStage("parse", "dbt parse", whenPresent),
-            new Mock<ISandbox>().Object, "/work", CancellationToken.None);
+            new Mock<ISandbox>().Object, CancellationToken.None);
 
     [Fact]
     public async Task Condition_NoConditionDeclared_TheCommandAlwaysRuns() =>
@@ -53,6 +53,6 @@ public sealed class DeclaredStagePresenceTests
             "an unmeasured shape yields no command, not a red one");
 
     [Fact]
-    public async Task Condition_ALeadingSlashInTheCondition_IsStillReadAgainstTheWorkdir() =>
+    public async Task Condition_ALeadingSlashInTheCondition_IsStillReadFromTheRepoRoot() =>
         (await SatisfiedAsync(Sut("/work/models"), "/models")).Should().BeTrue();
 }

@@ -75,7 +75,7 @@ public sealed class ContextYamlProbeBlockTests
     }
 
     [Fact]
-    public async Task ContextYaml_AProbeBlock_ReachesTheResolverAtItsOwnWorkdir()
+    public async Task ContextYaml_AProbeBlock_ReachesTheResolverFromItsOwnDeclaration()
     {
         var discoveries = await Resolver().ResolveAllAsync(Source, CancellationToken.None);
         var pipeline = new PipelineContext();
@@ -88,8 +88,12 @@ public sealed class ContextYamlProbeBlockTests
 
         var resolved = new ContextTargetProbeResolver().For(pipeline, "repo");
 
-        resolved.Should().ContainSingle().Which.Workdir.Should().Be("/work/warehouse",
-            "each declaration is asked from its own sub-tree, not the representative's");
+        // 2026-09-03-7bac: the declaration that is asked is still this context's own —
+        // the representative-vs-list distinction the resolver exists for. Where it is
+        // asked FROM is no longer read off meta.workdir: the probe runs at the repository
+        // root like every other command, and one needing another directory says so.
+        resolved.Should().ContainSingle().Which.Target.Should().Be("the warehouse dev workspace",
+            "each declaration is asked with its own command, not the representative's");
     }
 
     /// <summary>
