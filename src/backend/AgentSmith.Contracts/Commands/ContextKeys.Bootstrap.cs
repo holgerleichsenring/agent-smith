@@ -59,4 +59,10 @@ public static partial class ContextKeys
     public const string RunHistory = "RunHistory";
     public const string AutonomousFindings = "AutonomousFindings";
     public const string WrittenTickets = "WrittenTickets";
+
+    /// <summary>2026-09-04-0721: the analyzed ProjectMap of each CONTEXT, keyed repo name then
+    /// context name. RepoProjectMaps is keyed by SANDBOX, so it describes the subtree of that
+    /// sandbox's representative — and a bootstrap round writes one context's context.yaml from
+    /// the map it is handed. The per-sandbox map stays what the plan and the masters read.</summary>
+    public const string ContextProjectMaps = "ContextProjectMaps";
 }

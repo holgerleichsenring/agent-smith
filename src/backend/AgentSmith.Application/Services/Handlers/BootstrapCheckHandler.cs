@@ -54,7 +54,8 @@ public sealed class BootstrapCheckHandler(
         ISandbox? firstMissing = null;
         foreach (var (key, sandbox) in sandboxes)
         {
-            var contexts = ContextsIn(context.Pipeline, key, discoveries);
+            var contexts = SandboxContextList.InOr(
+                context.Pipeline, key, discoveries.GetValueOrDefault(key));
             if (contexts.Count > 0) paths.AddRange(BootstrapContextProbe.PathsFor(contexts));
             var (contextOk, principlesOk, retired) = contexts.Count == 0
                 ? NoContexts(key)
@@ -88,19 +89,6 @@ public sealed class BootstrapCheckHandler(
     {
         logger.LogWarning("Probe {Key}: no context entries. Counted as missing.", key);
         return (false, false, false);
-    }
-
-    // p0180: prefer the per-sandbox context list (one sandbox can hold many contexts when
-    // they share a toolchain image); fall back to the representative discovery.
-    private static IReadOnlyList<RemoteContextDiscovery> ContextsIn(
-        PipelineContext pipeline, string key,
-        IReadOnlyDictionary<string, RemoteContextDiscovery> discoveries)
-    {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-                ContextKeys.SandboxContexts, out var bySandbox)
-            && bySandbox is not null && bySandbox.TryGetValue(key, out var list))
-            return list;
-        return discoveries.TryGetValue(key, out var discovery) ? [discovery] : [];
     }
 
     private async Task<BootstrapProbeReport> ReportAsync(

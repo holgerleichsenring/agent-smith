@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-04-0721
+
+decisions:
+  - category: Architecture
+    chose: "The re-init projection reads the per-sandbox context LIST"
+    over: "Reading the grouped representative, as it had since p0161d"
+    reason: |
+      A sandbox is one toolchain image, so a repository's contexts that share an image share a
+      sandbox and only the first of them is the group's representative. BootstrapCheck probes
+      every context in a sandbox; the re-init short-circuit projected one per sandbox. On a Node
+      repository with a backend and a frontend context that meant: init reports success having
+      bootstrapped backend, frontend keeps the retired principles file and gains no verify block,
+      and the next coding run is refused by the gate — with neither message mentioning the other.
+
+  - category: Architecture
+    chose: "One SandboxContextList accessor, called by the projection, the probe and both context resolvers"
+    over: "A fifth copy of the same six lines in the projection"
+    reason: |
+      ContextTargetProbeResolver and ContextVerifyStagesResolver already carry this lookup with a
+      comment explaining that the list is not the representative; BootstrapCheck had it a third
+      time. Four readings of one question is how a fifth consumer picks the wrong map — which is
+      exactly what happened. The extraction is also what makes the phase buildable:
+      BootstrapDiscoverHandler sat ON its 343-line ratchet entry and BootstrapCheckHandler two
+      lines under the 120-line cap.
+
+  - category: Architecture
+    chose: "Each bootstrap round is prompted with the ProjectMap of its OWN context"
+    over: "Fanning out more rounds and leaving them the per-sandbox map"
+    reason: |
+      AnalyzeCode maps one subtree per sandbox — the representative's workdir — and the round
+      embeds that map verbatim beside its own 'Workdir:' line, then writes that context's
+      context.yaml from it. Fanning out without this would have traded a context.yaml that is
+      merely STALE for one actively rewritten from a sibling's analysis, and every done criterion
+      in the first draft of this spec would still have been green. The adversarial review found
+      this before a line was written.
+
+  - category: Architecture
+    chose: "Per-context maps published BESIDE the per-sandbox map, not instead of it"
+    over: "Re-keying RepoProjectMaps by context"
+    reason: |
+      RepoProjectMaps is keyed by sandbox key and read by the plan, the ledger and every master
+      (p0384). Re-keying it would ripple through all of them for a benefit only the bootstrap
+      round needs. ContextProjectMaps is nested repo -> context, so two repositories may each
+      carry a context called 'backend' without composing a key that could collide.
+
+  - category: Architecture
+    chose: "A projected context with no declared language takes its sandbox's"
+    over: "Letting BootstrapDispatch fail the run on an empty slug"
+    reason: |
+      Dispatch aborts the whole re-init when a component's language is empty, and a context that
+      declares an image but no stack.lang is legal — it was simply never projected before. A
+      sandbox is ONE toolchain image, so the group's language is the honest answer rather than a
+      guess, and the alternative is a re-init that starts failing on repositories it used to
+      half-serve.
+
+  - category: Process
+    chose: "AnalyzeMarkdownRenderer extracted from AnalyzeProjectHandler"
+    over: "Growing a file that sits on its ratchet baseline"
+    reason: |
+      Rendering 'what the agent understood' for the dashboard changes for reasons that have
+      nothing to do with running an analyzer, and the handler was at 174 lines against a
+      174-line baseline entry. Same medicine the ratchet prescribes rather than a baseline bump.
+
+  - category: Process
+    chose: "Repair main's duplicate `active:` key in the same branch"
+    over: "Leaving it and reporting it"
+    reason: |
+      A merge into a feature branch kept both sides of the state block, so
+      contexts/default/context.yaml carried `active:` twice and every YAML reader threw
+      'Duplicate key active' — five architecture tests red on main, and the phase gate closed for
+      everyone. The 7bac entry was the stale side: its spec is in done/ and its record is in
+      done:. Repaired as its own commit so the phase's diff stays about the phase.
