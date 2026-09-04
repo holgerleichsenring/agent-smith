@@ -107,14 +107,18 @@ deployment:
 # Apply migrations with `agentsmith database migrate` (an init-container / one-shot
 # job in your deployment) BEFORE starting the server — never on startup.
 # These are the defaults; uncomment to override. SQLite needs no service; for a
-# shared/HA deployment point it at Postgres/MySQL/SQL Server (creds via ${secret}).
+# shared/HA deployment point it at Postgres/MySQL/SQL Server. The credential is part
+# of the connection string — a ${name} placeholder inside it is expanded by NOTHING,
+# because this block is read before the secrets map exists. To keep the credential out
+# of this file, set AGENTSMITH_PERSISTENCE_PROVIDER + AGENTSMITH_PERSISTENCE_CONNECTION:
+# set together they replace this whole block, and one without the other is refused.
 persistence:
   provider: sqlite                                  # sqlite | postgresql | mysql | sqlserver
   connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
   # provider: postgresql
-  # connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=${db_password}"
+  # connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=…"
   # provider: sqlserver
-  # connection_string: "Server=mssql,1433;Database=agentsmith;User Id=agentsmith;Password=${db_password};Encrypt=True;TrustServerCertificate=True"
+  # connection_string: "Server=mssql,1433;Database=agentsmith;User Id=agentsmith;Password=…;Encrypt=True;TrustServerCertificate=True"
 
 # --- Who may call this server (SERVER only; bootstrap, never stored in the DB) ---
 # One OIDC authority validates every bearer token presented to the server. Every

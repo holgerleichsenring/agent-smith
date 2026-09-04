@@ -9,15 +9,23 @@ A server reads `persistence:` and `secrets:` out of this file at boot and nothin
 ```yaml
 persistence:
   provider: postgresql
-  connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=${db_password}"
+  connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=…"
 
 secrets:
-  db_password:       ${DB_PASSWORD}
   anthropic_api_key: ${ANTHROPIC_API_KEY}
   github_token:      ${GITHUB_TOKEN}
 ```
 
 The `${...}` references resolve from the process environment. Values never belong in this file. Agent Smith refuses a config that carries raw secrets.
+
+`persistence:` is the exception, and it cuts the other way: it is read *before* the secrets map exists, so a `${...}` inside `connection_string` is expanded by nothing and would be sent to the database as the password itself. A deployment that must keep the credential out of this file sets the pair
+
+```
+AGENTSMITH_PERSISTENCE_PROVIDER=postgresql
+AGENTSMITH_PERSISTENCE_CONNECTION=Host=postgres;Database=agentsmith;Username=agentsmith;Password=…
+```
+
+which replaces the whole `persistence:` block wherever both are set — in the server and in the `database migrate` container alike, which is why they have to be set on both. Set one without the other and neither is used: the provider decides how the connection string is parsed, so half a pair is reported as a blocking startup finding and the file's block keeps running.
 
 The server looks for the file at `CONFIG_PATH`, and the container images default that to `/app/config/agentsmith.yml`. If the file is missing entirely the server still boots, on a SQLite default with no secret names, and tells you so in its startup findings rather than dying silently.
 

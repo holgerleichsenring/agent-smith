@@ -39,14 +39,25 @@ spec:
           # privileges, and there is no `agentsmith` executable on PATH — the k8s
           # `command:` overrides the ENTRYPOINT, so the shim never runs anyway.
           command: ["dotnet", "AgentSmith.Cli.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
-          # For an external DB whose connection string uses ${db_password},
-          # uncomment so the placeholder resolves during migration:
-          # env:
-          #   - name: DB_PASSWORD
-          #     valueFrom:
-          #       secretKeyRef:
-          #         name: agentsmith-secrets
-          #         key: db-password
+          # 2026-09-04-102b: the database, for an installation that keeps it out of the
+          # shared ConfigMap. THE SAME PAIR MUST BE ON THE SERVER BELOW — this container
+          # migrates whatever it is pointed at, and a pair set here alone would migrate a
+          # database the server never opens. optional:true because a secretKeyRef to a key
+          # the Secret does not carry gives CreateContainerConfigError and the pod never
+          # starts; empty or unset means the ConfigMap's persistence block is used.
+          env:
+            - name: AGENTSMITH_PERSISTENCE_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: db-provider
+                  optional: true
+            - name: AGENTSMITH_PERSISTENCE_CONNECTION
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: db-connection
+                  optional: true
           volumeMounts:
             - name: config
               mountPath: /app/config
@@ -190,13 +201,22 @@ spec:
               value: "512Mi"
             - name: JobSpawner__Resources__MemoryLimit
               value: "2Gi"
-            # For an external DB whose connection string uses ${db_password},
-            # uncomment (mirrors the migrate init container above):
-            # - name: DB_PASSWORD
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: agentsmith-secrets
-            #       key: db-password
+            # 2026-09-04-102b: the database, mirroring the migrate init container above.
+            # Both variables or neither: the provider decides how the connection string
+            # is parsed, so exactly one set changes nothing and reports a blocking
+            # startup finding instead of connecting to something half-described.
+            - name: AGENTSMITH_PERSISTENCE_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: db-provider
+                  optional: true
+            - name: AGENTSMITH_PERSISTENCE_CONNECTION
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: db-connection
+                  optional: true
           volumeMounts:
             - name: config
               mountPath: /app/config
