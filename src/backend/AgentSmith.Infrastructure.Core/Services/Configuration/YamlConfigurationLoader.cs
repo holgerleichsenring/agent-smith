@@ -17,8 +17,18 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// </summary>
 public sealed class YamlConfigurationLoader(
     RawConfigMaterializer materializer,
-    ISystemEventPublisher systemEvents) : IConfigurationLoader
+    ISystemEventPublisher systemEvents,
+    PersistenceEnvironmentOverlay? persistenceEnvironment = null) : IConfigurationLoader
 {
+    // 2026-09-04-102b: the one-shot processes — the CLI that runs `database migrate` as the
+    // init container above all — take the database from the environment on exactly the terms
+    // the server's bootstrap read does, or the container migrates a different database than
+    // the server then opens.
+    private readonly PersistenceEnvironmentOverlay _persistenceEnvironment =
+        persistenceEnvironment ?? new PersistenceEnvironmentOverlay();
+
+    private readonly ConfigFileReadAnnouncer _announcer = new(systemEvents);
+
     /// <summary>
     /// p0345c: the last successful read this process performed — the dashboard's
     /// drift story compares the file's mtime against this. Set only after the
@@ -30,9 +40,10 @@ public sealed class YamlConfigurationLoader(
     {
         var yaml = ReadFile(configPath);
         var raw = Deserialize(yaml, configPath);
+        raw.Persistence = _persistenceEnvironment.Apply(raw.Persistence);
         var config = materializer.Materialize(raw);
         RefuseUnresolvable();
-        EmitConfigRead(configPath, yaml.Length);
+        _announcer.Announce(configPath, yaml.Length);
         LastRead = new ConfigFileReadFact(configPath, DateTimeOffset.UtcNow);
         return config;
     }
@@ -52,37 +63,6 @@ public sealed class YamlConfigurationLoader(
             Environment.NewLine + "  - ", findings.Select(f => f.Reason));
         throw new ConfigurationException(
             $"Configuration error(s):{Environment.NewLine}  - {joined}");
-    }
-
-    private readonly object _emitLock = new();
-    private (string Path, long Mtime, int Size)? _lastEmitted;
-
-    // p0173c: emit ConfigFileReadEvent after a successful agentsmith.yml load (RunId null).
-    // p0283b: dedupe — LoadConfig runs on every poll/webhook (~30 sites), so emitting on each
-    // call floods the event stream + logs. Publish only when the file actually changed
-    // (path + last-write-time + size) since the previous emit.
-    private void EmitConfigRead(string path, int sizeBytes)
-    {
-        try
-        {
-            var key = (path, System.IO.File.GetLastWriteTimeUtc(path).Ticks, sizeBytes);
-            lock (_emitLock)
-            {
-                if (_lastEmitted == key) return;
-                _lastEmitted = key;
-            }
-            _ = systemEvents.PublishAsync(new ConfigFileReadEvent(
-                Source: "config-loader",
-                Path: path,
-                Kind: ConfigFileKind.AgentSmithYml,
-                SizeBytes: sizeBytes,
-                RunId: null,
-                Timestamp: DateTimeOffset.UtcNow));
-        }
-        catch
-        {
-            /* fire-and-warn — never break configuration load on a publish failure */
-        }
     }
 
     private static string ReadFile(string configPath)

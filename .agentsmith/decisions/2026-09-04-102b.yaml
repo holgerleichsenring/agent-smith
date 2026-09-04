@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-04-102b
+
+decisions:
+  - category: Architecture
+    chose: "The provider and the connection string move together — both variables, or neither"
+    over: "Per-field precedence, the rule the auth block follows"
+    reason: |
+      The auth analogy was the first draft and it does not hold. AuthEnvironmentOverlay
+      overlays six orthogonal scalars — authority, audience, enforce, three claim names —
+      and any subset of them is a coherent configuration. Persistence has two fields and
+      the first one decides how the second is PARSED, so half the cross-product of
+      file x environment is invalid. The shipped ConfigMap declares sqlite with a
+      'Data Source='; a connection alone would hand 'Host=postgres;...' to
+      Microsoft.Data.Sqlite and throw out of the DbContext factory at first use — the
+      failure shape BootstrapConfigReader already carries a p0391b comment about.
+
+      So exactly one variable set applies NOTHING and records a blocking finding naming
+      the missing one. The file's coherent pair keeps running and every process that reads
+      it still agrees on which database that is, which is the property this phase exists
+      to protect.
+
+  - category: Architecture
+    chose: "One overlay applied at BootstrapConfigReader and at YamlConfigurationLoader"
+    over: "An overlay in the server's bootstrap read alone"
+    reason: |
+      The server reads persistence through BootstrapConfigReader (DbConfigurationLoader
+      stamps that same block over the stored copy, so the server has one materialization
+      point). The CLI that runs 'database migrate' — the k8s init container and the
+      compose migrate service — reads through YamlConfigurationLoader. Wiring only the
+      server would leave the init container migrating the SQLite file while the server
+      opens Postgres: no test failure, no error, an empty database at runtime. The proof
+      is therefore ONE test that asserts both readers answer the same environment
+      identically, not one test per reader.
+
+      ResolvedConfigComposer, the other place raw.Persistence becomes typed config, was
+      rejected as the seam: it is constructed with 'new' inside ConfigCatalogResolver and
+      is not DI-registered, so threading an overlay there means touching 19 manual
+      construction sites in tests. AgentSmithConfig.Persistence is init-only on a sealed
+      class, so a post-materialization fixup is not available either.
+
+  - category: Architecture
+    chose: "The variable names live in AgentSmith.Contracts"
+    over: "Constants on the overlay in Infrastructure.Core"
+    reason: |
+      Three projects read these names: the overlay, and the two design-time factories
+      dotnet ef builds a migration against. Infrastructure.Core and
+      Infrastructure.Persistence do not reference each other — Contracts is the only
+      project all three share. Constants anywhere else would have meant the same string
+      written twice, which is how one of them drifts.
+
+      This gives the concept one NAME across all three paths, not one value: the
+      design-time factories still never read the configuration file, and a developer who
+      exports the pair for a migration also points that shell's CLI runs at that database.
+      That is what every other AGENTSMITH_ variable already does.
+
+  - category: Process
+    chose: "Withdraw the ${db_password} promise at all six sites, PersistenceConfig's own doc comment included"
+    over: "Fixing the two manifest comments the k8s question surfaced"
+    reason: |
+      ConfigSecretReferences recognises a reference only when the WHOLE value is ${NAME},
+      and ConfigSecretResolver touches three keys, none of them persistence — so a
+      placeholder inside a connection string is expanded by nothing and reaches the
+      database as the password itself. The ConfigMap, the Secret template, the example
+      config and the YAML docs all promised otherwise, and all four were written from the
+      sentence in PersistenceConfig's doc comment. Leaving the source in place would have
+      regrown the other five. The now-consumerless 'db_password' secret entry goes with
+      them.
+
+  - category: Architecture
+    chose: "optional:true on both secretKeyRefs, with the two keys added to the Secret template"
+    over: "Plain secretKeyRefs to the new keys"
+    reason: |
+      A secretKeyRef to a key the Secret does not carry gives CreateContainerConfigError
+      and the pod never starts. Every installation upgrading to this manifest has a Secret
+      that predates the phase, so a required reference would stop the pod on upgrade — the
+      reason the deployment already carries optional:true twice, for the webhook secrets
+      (p0506) and the auth block (p0503b). An empty key reads as unset, which is exactly
+      the sqlite default an installation that never moved to an external database wants.
+
+  - category: Testing
+    chose: "Pin that an environment connection string never reaches a config export"
+    over: "Trusting that FileConfigStore re-reads the file"
+    reason: |
+      This phase makes a database credential a value that exists only in the process
+      environment. FileConfigStore.ExportYaml exports its own re-read of the raw file, so
+      the credential cannot reach the exported artifact — a real property held by a
+      construction detail and asserted by nothing. The snapshot boundary was already
+      covered (ConfigSnapshotMapperTests asserts the connection string never reaches
+      /api/config), so only the export needed a new test.
+
+  - category: Architecture
+    chose: "The config-read announcement moved to ConfigFileReadAnnouncer"
+    over: "Trimming comments until YamlConfigurationLoader fit under the ratchet again"
+    reason: |
+      Taking the overlay pushed the loader to 126 lines and FileLengthRatchetTests refused it
+      with its own instruction: split the responsibilities, do not add a baseline entry.
+      Deciding WHEN a read is worth announcing — dedupe by path, last-write-time and size,
+      because LoadConfig runs on every poll and webhook — changes for reasons that have
+      nothing to do with reading a configuration file, so it was the piece to move. Trimming
+      a comment would have parked the file at exactly the cap and handed the same split to
+      whoever touched it next.

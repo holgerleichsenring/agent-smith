@@ -30,12 +30,17 @@ data:
     persistence:
       provider: sqlite
       connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
-      # For a shared/HA deployment point at an external DB instead; the
-      # ${db_password} placeholder resolves via the secrets map below.
+      # For a shared/HA deployment point at an external DB instead. A ${name}
+      # placeholder inside connection_string is expanded by NOTHING — persistence is
+      # read before the secrets map exists — and this ConfigMap is shared and not
+      # secret, so an external DB's credential does not belong here at all. Set
+      # AGENTSMITH_PERSISTENCE_PROVIDER + AGENTSMITH_PERSISTENCE_CONNECTION instead
+      # (8-deployment-server.yaml, both containers): set together they replace this
+      # whole block, and this stays the default for a deployment that sets neither.
       # provider: postgresql
-      # connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=${db_password}"
+      # connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=…"
       # provider: sqlserver
-      # connection_string: "Server=mssql,1433;Database=agentsmith;User Id=agentsmith;Password=${db_password};Encrypt=True;TrustServerCertificate=True"
+      # connection_string: "Server=mssql,1433;Database=agentsmith;User Id=agentsmith;Password=…;Encrypt=True;TrustServerCertificate=True"
 
     # Secret NAME map: config placeholders (${github_token} etc.) resolve to
     # these environment variables. The VALUES come from the agentsmith-secrets
@@ -52,4 +57,3 @@ data:
       jira_token: ${JIRA_TOKEN}
       jira_email: ${JIRA_EMAIL}
       jira_webhook_secret: ${JIRA_WEBHOOK_SECRET}
-      db_password: ${DB_PASSWORD}

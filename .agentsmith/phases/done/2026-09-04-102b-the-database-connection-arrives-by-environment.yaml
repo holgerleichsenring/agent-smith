@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-04-102b
+
+goal: "The persistence provider and connection string are taken from the environment when both are set, so a cluster injects its database secret the way it injects every other one."
+
+applies_to: "backend (the configuration bootstrap, the file loader, and the manifests and docs that wire them)"
+
+scope:
+  in: >
+    An environment overlay over the persistence block, applied at BOTH places a raw configuration
+    becomes a typed one — the server's bootstrap read and the file loader the migrating CLI uses —
+    so the init container and the server cannot open different databases. The pair is taken
+    together or not at all, and exactly one of the two set is reported as the configuration error
+    it is. The overlay applies with no file present, the rule the auth block already has. The
+    shipped manifests wire both variables, optionally, from the existing Secret; the six places
+    that promise ${db_password} expansion inside a connection string stop promising it.
+  out: >
+    EXPANDING ${name} INSIDE A CONNECTION STRING. Persistence is the bootstrap slice, read before
+    any secret map exists, and a reference is only recognised when it is the WHOLE value — a
+    placeholder that resolved in one file and not another would be worse than one that never
+    resolves. The manifests withdraw the promise instead.
+    MOVING PERSISTENCE INTO THE CONFIGURATION STORE. It describes the database the store lives in.
+    MAKING `dotnet ef` READ THE CONFIG FILE. The design-time factories share the variable NAMES
+    after this phase and keep their own SQLite fallback; a developer who exports the pair for a
+    migration retargets their local CLI runs too, which is the same behaviour every other
+    AGENTSMITH_ variable has.
+    SEALED-SECRET OR EXTERNAL-SECRET TOOLING. The product reads an environment variable; which
+    controller fills the Secret is the operator's choice and no concern of this repository.
+
+decisions:
+  - key: |
+      ONE OVERLAY, TWO CALL SITES, AND A TEST THAT BINDS THEM. The server reads persistence through
+      BootstrapConfigReader (and the DB loader stamps that same block over its stored copy); the CLI
+      that runs `database migrate` reads it through YamlConfigurationLoader. An overlay wired into
+      only one of them leaves the init container migrating the SQLite file while the server opens
+      Postgres — and two separate unit tests would both be green while that happened. The proof is
+      one test that asserts both readers answer the same environment identically.
+  - key: |
+      THE PAIR IS ALL-OR-NOTHING, AND HALF A PAIR IS A REPORTED ERROR. The provider chooses the
+      GRAMMAR of the connection string, so file and environment cannot be mixed per field: the
+      shipped ConfigMap declares sqlite with a `Data Source=`, and a connection alone would hand
+      that provider a `Host=…` it throws on, out of the DbContext factory, at first use. The auth
+      block's per-field rule does not transfer — its six fields are orthogonal scalars, any subset
+      of which is a coherent configuration. Exactly one variable set therefore changes nothing and
+      records a blocking finding naming the missing one: the file's coherent pair still runs, and
+      both processes still agree on it.
+  - key: |
+      THE VARIABLE NAMES LIVE IN CONTRACTS. AGENTSMITH_PERSISTENCE_PROVIDER and
+      AGENTSMITH_PERSISTENCE_CONNECTION are already what the two design-time factories read for
+      `dotnet ef`, and those live in a project that shares only Contracts with the overlay's. One
+      constant, three readers, one spelling — the phase gives the concept one NAME across all three
+      paths, not one value.
+  - key: |
+      THE PROMISE IS WITHDRAWN AT ITS SOURCE. `PersistenceConfig`'s own doc comment says
+      server-based connection strings carry credentials via ${secret}; the ConfigMap, the Secret
+      template, the example config and the YAML docs were all written from it. Nothing expands it,
+      so an operator who follows it authenticates with the literal placeholder. All six sites go,
+      and the now-consumerless `db_password` secret entry goes with them.
+  - key: |
+      OPTIONAL SECRET KEYS, OR NO POD STARTS. A secretKeyRef to a key the Secret does not carry
+      gives CreateContainerConfigError, so an installation whose Secret predates this phase would
+      stop starting. Both references carry optional:true, the reason the deployment already gives
+      twice for the webhook and auth secrets.
+
+steps:
+  - id: an-overlay-reads-the-pair
+    action: "A persistence environment overlay returns the environment's pair when both are set, the declared block otherwise, and records a blocking finding when exactly one is set."
+  - id: both-readers-apply-the-overlay
+    action: "The bootstrap read applies it before its no-file branch, and the file loader applies it before materializing, so one environment yields one database."
+  - id: the-manifests-wire-the-secret
+    action: "The k8s deployment and both example deployments take the pair from the Secret with optional:true, the template carries the keys, and the ${db_password} promise is withdrawn from all six sites."
+
+done:
+  - "with both variables set, the bootstrap read and the file loader report that same provider and connection"
+  - "with both variables set and no config file at all, the bootstrap read still reports them"
+  - "with exactly one set, both readers report the file's pair unchanged and a blocking finding names the missing variable"
+  - "a blank or unset pair leaves the connection and provider the file declared"
+  - "a test fails if either reader stops applying the overlay"
+  - "the connection string reaches no log line, no config snapshot, no export and no diagnostics payload"
+  - "the manifests name both variables for init container and server as optional secret keys, and no site promises ${db_password} expansion"
+  - "backend build green, full suite green"

@@ -107,6 +107,10 @@ services:
     image: agentsmith-cli:${AGENTSMITH_VERSION:-0.129.0}
     restart: "no"
     env_file:
+      # 2026-09-04-102b: both services read ../.env, so AGENTSMITH_PERSISTENCE_PROVIDER
+      # and AGENTSMITH_PERSISTENCE_CONNECTION set there reach this container AND the
+      # server together — set as a pair they replace the config file's persistence
+      # block, and one without the other is refused with a startup finding.
       - ../.env
     command: ["database", "migrate", "--config", "/app/config/agentsmith.yml"]
     volumes:
