@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Constants;
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
@@ -15,8 +16,8 @@ public sealed class AgentSmithDbContextDesignTimeFactory : IDesignTimeDbContextF
 {
     public AgentSmithDbContext CreateDbContext(string[] args)
     {
-        var provider = Environment.GetEnvironmentVariable("AGENTSMITH_PERSISTENCE_PROVIDER");
-        var connection = Environment.GetEnvironmentVariable("AGENTSMITH_PERSISTENCE_CONNECTION");
+        var provider = Environment.GetEnvironmentVariable(PersistenceEnvKeys.Provider);
+        var connection = Environment.GetEnvironmentVariable(PersistenceEnvKeys.Connection);
         var options = new PersistenceOptions
         {
             Provider = Enum.TryParse<PersistenceProvider>(provider, ignoreCase: true, out var p)

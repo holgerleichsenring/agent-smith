@@ -57,7 +57,8 @@ public sealed class AuthBootstrapReadTests : IDisposable
     }
 
     private BootstrapConfig Read() => new BootstrapConfigReader(
-        new FixedConfigPath(_configPath), new RawConfigYaml(), new AuthEnvironmentOverlay()).Read();
+        new FixedConfigPath(_configPath), new RawConfigYaml(), new AuthEnvironmentOverlay(),
+        new PersistenceEnvironmentOverlay()).Read();
 
     private sealed record FixedConfigPath(string ConfigPath) : IConfigStoreLocation;
 

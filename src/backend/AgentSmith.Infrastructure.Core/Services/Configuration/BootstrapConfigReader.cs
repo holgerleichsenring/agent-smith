@@ -13,6 +13,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 public sealed class BootstrapConfigReader(IConfigStoreLocation location,
     RawConfigYaml rawConfigYaml,
     AuthEnvironmentOverlay authEnvironment,
+    PersistenceEnvironmentOverlay persistenceEnvironment,
     IStartupFindings? findings = null)
 {
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
@@ -25,9 +26,13 @@ public sealed class BootstrapConfigReader(IConfigStoreLocation location,
         // the authority down with it.
         var auth = authEnvironment.Apply(raw?.Auth);
         RecordIfUnusable(auth);
+        // 2026-09-04-102b: persistence is read from the environment on the same terms and for
+        // the same reason — a cluster carries the database in a Secret, and a file that failed
+        // to parse must not silently retarget the server to the built-in SQLite default.
+        var persistence = persistenceEnvironment.Apply(raw?.Persistence);
         return raw is null
-            ? BootstrapConfig.Default() with { Auth = auth }
-            : new BootstrapConfig(raw.Persistence, raw.Secrets, auth);
+            ? BootstrapConfig.Default() with { Persistence = persistence, Auth = auth }
+            : new BootstrapConfig(persistence, raw.Secrets, auth);
     }
 
     private RawAgentSmithConfig? ReadFile()

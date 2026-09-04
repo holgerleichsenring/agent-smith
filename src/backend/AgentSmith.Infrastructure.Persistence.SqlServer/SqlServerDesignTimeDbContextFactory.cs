@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Constants;
 using AgentSmith.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -22,7 +23,7 @@ public sealed class SqlServerDesignTimeDbContextFactory : IDesignTimeDbContextFa
 
     public AgentSmithDbContext CreateDbContext(string[] args)
     {
-        var connection = Environment.GetEnvironmentVariable("AGENTSMITH_PERSISTENCE_CONNECTION");
+        var connection = Environment.GetEnvironmentVariable(PersistenceEnvKeys.Connection);
         var builder = new DbContextOptionsBuilder<AgentSmithDbContext>()
             .UseSqlServer(
                 string.IsNullOrEmpty(connection) ? PlaceholderConnection : connection,
