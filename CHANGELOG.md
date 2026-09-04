@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.144.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.2...v0.144.0) (2026-09-04)
+
+
+### Features
+
+* the database connection arrives by environment (2026-09-04-102b) ([c2f5d26](https://github.com/holgerleichsenring/agent-smith/commit/c2f5d262a1aecf138544181ace9de0d131bb73f5))
+* the database connection arrives by environment (2026-09-04-102b) ([3d59774](https://github.com/holgerleichsenring/agent-smith/commit/3d59774f51d0790bdff52468ea81c77dd4ed52f4))
+
+
+### Bug Fixes
+
+* a published event reaches its reader (2026-09-03-b028) ([6cd3d59](https://github.com/holgerleichsenring/agent-smith/commit/6cd3d59910e6f51ffd719aee93a69e2f2bb41a69))
+* a published event reaches its reader (2026-09-03-b028) ([b440adb](https://github.com/holgerleichsenring/agent-smith/commit/b440adb97b165ccf26bb9bdf559073a6cd609662))
+
 ## [0.143.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.1...v0.143.2) (2026-09-03)
 
 
