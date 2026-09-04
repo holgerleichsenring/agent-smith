@@ -17,14 +17,7 @@ public sealed class ContextTargetProbeResolver
 {
     public IReadOnlyList<ContextTargetProbe> For(PipelineContext pipeline, string sandboxKey)
     {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-                ContextKeys.SandboxContexts, out var bySandbox)
-            || bySandbox is null
-            || !bySandbox.TryGetValue(sandboxKey, out var contexts))
-            return [];
-
-        return [.. contexts
+        return [.. SandboxContextList.In(pipeline, sandboxKey)
             .Where(context => context.Probe is not null)
             .Select(context => new ContextTargetProbe(
                 context.ContextName, context.Probe!.Target, context.Probe.Command))];
