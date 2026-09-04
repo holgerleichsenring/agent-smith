@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-03-b028
+
+decisions:
+  - category: Architecture
+    chose: "A test that reads Enum.GetValues<EventType>() and asserts every value resolves"
+    over: "Adding the two missing rows and moving on"
+    reason: |
+      p0405 split EventTypeResolver out and wrote that it "grows by one line every time an
+      event is added". Nothing checked it, and two events were added since without one:
+      PullRequestOutcome (28) and TicketInstructionIgnored (31). A rule stated only in a
+      comment is a rule the next contributor cannot break loudly.
+
+      The test reads the enum rather than a copy of it, so it cannot drift from the thing
+      it guards, and a value that is deliberately unresolvable has to be named in an
+      explicit list with a reason. Both lists came out EMPTY, which is the outcome worth
+      having: there is no such value today, and adding one is now a deliberate act.
+
+  - category: Architecture
+    chose: "An unresolvable envelope still returns null, but names the code first — once per distinct code"
+    over: "Throwing, or leaving the silent null"
+    reason: |
+      Throwing would make a reader running behind its producers fail the run it is only
+      observing, which is the wrong trade for a telemetry path. But the silence is what
+      turned a missing line into a months-long blind spot: the event was published,
+      serialised, carried across the transport and dropped on arrival with nothing written
+      anywhere. A misrouted event was indistinguishable from an event nobody sent.
+
+      Once per distinct code, not per event: this sits on a hot stream, and a producer
+      deployed ahead of its reader emits continuously. The key carries the path as well as
+      the code so a run code 28 and a system code 28 cannot mask each other.
+
+  - category: Implementation
+    chose: "The already-reported set is instance state on the codec"
+    over: "A process-wide static"
+    reason: |
+      The codec is a DI singleton on every path that reads a stream, so instance state
+      already yields one line per code per process — the property a static was meant to
+      buy. It also keeps the log-once test deterministic instead of dependent on whatever
+      ran before it in the same process.
+
+      This holds only because no production site constructs the codec per call any more.
+      One did: JobsHub.SubscribeSystem built a new one per event. It now takes the DI
+      singleton, which is what the surrounding code does and what the codebase's own rule
+      about manually newing a logger-bearing type says.
+
+  - category: Scope
+    chose: "TicketInstructionIgnored reaches the durable trail, and nothing more is built for it"
+    over: "Giving it an operator-facing surface in this phase"
+    reason: |
+      It has two producers and no consumer beyond the trail. Repairing the transport is
+      what this phase is about and is what unblocks the successor that needs the channel —
+      a ticket body field the run did not use has to be reportable before it can be
+      reported. Designing where that message is READ is that successor's question, and
+      answering it here would decide it without the evidence that phase will gather.
