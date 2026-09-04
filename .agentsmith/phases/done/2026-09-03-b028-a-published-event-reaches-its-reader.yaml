@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-b028
+goal: "Every EventType a producer publishes resolves to its record, and an envelope that resolves to nothing is reported instead of becoming null."
+
+applies_to: "backend"
+
+requires:
+  - p0347   # the per-repo PR outcome this restores
+  - p0405   # which split the resolver out and stated the one-line-per-event rule
+
+decisions:
+  - key: |
+      LIVE FINDING (2026-09-03). GET /api/pull-requests returns 0 items, and every run
+      snapshot carries prUrl null with pullRequests empty — including runs whose
+      CommitAndPR step opened a real pull request and whose RunCompleted event names its
+      URL. The operator had to open the pipeline and read the steps to find a PR that the
+      Outcome surface was built to show.
+  - key: |
+      THE CAUSE IS A MISSING LINE, AND THE SILENCE IS THE DEFECT. EventTypeResolver.Resolve
+      maps each EventType to the record that carries it; EventType.PullRequestOutcome (28)
+      has no case. EventEnvelopeSerializer.Deserialize then does 'if (concrete is null)
+      return null' — the event is serialised on publish, crosses the transport, and is
+      dropped on arrival with no log, no metric and no failed run. RunPullRequestProjection
+      never applies, Runs.PullRequestsJson stays empty, and RunSnapshotFold's prUrl case
+      never fires. A misrouted event is indistinguishable from an event nobody sent.
+  - key: |
+      A SWEEP, NOT A FIX FOR THE ONE THAT WAS NOTICED. 39 EventType values, 2 with no
+      resolver row: PullRequestOutcome (28) and TicketInstructionIgnored (31). The second
+      has two live producers (SpecRefusalReporter, WriteRunResultHandler) and is the channel
+      that says "I did not use part of your ticket" — the one message whose absence costs an
+      operator an evening of reading trails. Fixing only the visible one would leave the
+      instrument that reports the next such defect switched off.
+  - key: |
+      THE RULE THE COMMENT ALREADY CLAIMS IS THE THING TO ENFORCE. p0405 wrote that the
+      resolver "grows by one line every time an event is added". Nothing checks it, and two
+      events have since been added without one. A test over Enum.GetValues<EventType>() is
+      the whole guard: it needs no fixture, it fails at build time, and it cannot drift from
+      the enum because it reads it. The same holds for SystemEventType, whose ResolveSystem
+      has the identical shape and the identical unwritten rule.
+  - key: |
+      AN UNRESOLVABLE ENVELOPE STOPS BEING NULL-AND-QUIET. Returning null is right — the
+      reader cannot invent a type — but doing it silently is what turned a missing line into
+      a months-old blind spot. The deserialiser logs the unresolved type code once per code
+      (not per event, which would flood a stream), so a producer running ahead of a
+      deployed reader is visible in the log the moment it happens. That is the p0451 shape:
+      the framework says what it could not do rather than passing.
+  - key: |
+      NOT IN THIS PHASE, AND NAMED. Two successors depend on this one and are not folded in:
+      (a) a ticket body field the run did not use is REPORTED — the operator's instruction
+      lived in Microsoft.VSTS.TCM.ReproSteps while AzureDevOpsFieldMapper.ReadDescription
+      returned the non-empty System.Description left behind by an earlier work item type,
+      and the run never mentioned the field it dropped; (b) the tracker DECLARES which field
+      carries the order, discovered from the estate's own work item type metadata and
+      ratified by the operator, because a type-to-field table in this binary is a copy of
+      somebody else's truth. (a) needs the channel this phase repairs, so it comes second.
+
+steps:
+  - id: the-two-missing-rows
+    action: "EventTypeResolver: add EventType.PullRequestOutcome => typeof(PullRequestOutcomeEvent) and EventType.TicketInstructionIgnored => typeof(TicketInstructionIgnoredEvent)."
+  - id: the-rule-becomes-a-test
+    action: "A test over every Enum.GetValues<EventType>() and <SystemEventType>() value asserts Resolve/ResolveSystem returns a record, with an explicit named list for any value that is deliberately unresolved."
+  - id: an-unresolved-envelope-says-so
+    action: "EventEnvelopeSerializer logs the unresolved type code once per distinct code before returning null, on both the envelope and the raw-trail path."
+  - id: the-round-trip-is-pinned
+    action: "A test serialises one instance of every resolvable event and reads it back, so a record whose shape the serializer cannot rebuild fails here rather than on a dashboard."
+
+tests:
+  - "EveryEventType_ResolvesToARecord"
+  - "EverySystemEventType_ResolvesToARecord"
+  - "PullRequestOutcome_RoundTripsThroughTheEnvelope"
+  - "TicketInstructionIgnored_RoundTripsThroughTheEnvelope"
+  - "AnUnresolvedTypeCode_IsLoggedOncePerCode"
+
+done:
+  - "Every EventType and SystemEventType value resolves to a record, or is named in the test's explicit exceptions list — pinned by a test that reads the enum, not a copy of it."
+  - "A run that opens a pull request carries it on the run snapshot and on GET /api/pull-requests, pinned by a projection test over the real event."
+  - "A TicketInstructionIgnored event published by either of its two producers reaches the run, pinned by test."
+  - "An envelope whose type code resolves to nothing is logged once per code; the log line names the code."

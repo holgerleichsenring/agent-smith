@@ -313,6 +313,59 @@ public sealed class RunDbProjectorTests : IDisposable
         run.Summary.Should().Be("Fixed the bug", "the run summary is KEPT — history survives retention");
     }
 
+    // 2026-09-03-b028: the run stream's reader DESERIALISES before it projects. An
+    // EventType with no EventTypeResolver row became null on arrival, so the two tests
+    // below crossed the envelope the way the broadcaster does — projecting the typed
+    // instance directly would pass on a resolver that drops the event.
+    private static AgentSmith.Contracts.Events.RunEvent Deliver(
+        AgentSmith.Contracts.Events.RunEvent published)
+    {
+        var codec = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer();
+        var delivered = codec.Deserialize(codec.Serialize(published));
+        delivered.Should().NotBeNull(
+            $"{published.Type} is published, so the reader must be able to rebuild it");
+        return delivered!;
+    }
+
+    [Fact]
+    public async Task PullRequestOutcome_CrossesTheEnvelope_AndLandsOnTheRunRepo()
+    {
+        var projector = NewProjector();
+        var t = _clock.Now;
+        foreach (var ev in new AgentSmith.Contracts.Events.RunEvent[]
+        {
+            new RunStartedEvent("run-pr", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new PullRequestOutcomeEvent("run-pr", "primary", "opened", t, "https://pr/7"),
+        })
+            await projector.ProjectAsync(Deliver(ev), CancellationToken.None);
+
+        var run = await NewStore().GetRunDetailAsync("run-pr", CancellationToken.None);
+
+        run!.Repos.Should().ContainSingle(
+            r => r.RepoName == "primary" && r.PrStatus == "opened" && r.PrUrl == "https://pr/7",
+            "a run that opened a pull request carries it, which is what GET /api/pull-requests reads");
+    }
+
+    [Fact]
+    public async Task TicketInstructionIgnored_CrossesTheEnvelope_AndReachesTheTrail()
+    {
+        var projector = NewProjector();
+        var t = _clock.Now;
+        foreach (var ev in new AgentSmith.Contracts.Events.RunEvent[]
+        {
+            new RunStartedEvent("run-ignored", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new TicketInstructionIgnoredEvent(
+                "run-ignored", "drop the production database", "destructive instruction", t),
+        })
+            await projector.ProjectAsync(Deliver(ev), CancellationToken.None);
+        await projector.FlushAllAsync(CancellationToken.None);
+
+        using var ctx = new AgentSmithDbContext(Options());
+        var row = ctx.RunEvents.Should().ContainSingle(
+            e => e.RunId == "run-ignored" && e.Type == "TicketInstructionIgnored").Subject;
+        row.PayloadJson.Should().Contain("drop the production database");
+    }
+
     private sealed class Factory(SqliteConnection connection) : IDbContextFactory<AgentSmithDbContext>
     {
         public AgentSmithDbContext CreateDbContext() =>
