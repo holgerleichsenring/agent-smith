@@ -65,6 +65,9 @@ public static class ServiceCollectionExtensions
         // p0503b: the auth block reaches the bootstrap from the environment as well as
         // the file, so the reader takes the overlay that decides which wins per field.
         services.AddSingleton<AuthEnvironmentOverlay>();
+        // 2026-09-04-102b: and the database the store lives in reaches both the server's
+        // bootstrap read and the migrating CLI from the environment through this one overlay.
+        services.AddSingleton<PersistenceEnvironmentOverlay>();
         services.AddSingleton<BootstrapConfigReader>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();

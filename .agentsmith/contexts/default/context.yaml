@@ -771,6 +771,7 @@ state:
     p0179b: "Collapse coding pipelines to one AgenticMaster step replacing triage/plan/execute/review choreography -> .agentsmith/phases/done/p0179b-coding-master-step.yaml"
     p0179a: "Master prompts as role:master skills loaded from _masters dir, catalog adapter routes prompt names -> .agentsmith/phases/done/p0179a-master-prompt-as-skill.yaml"
     2026-09-03-ee12: "A VERIFY COMMAND RUNS WHERE THE PROJECT SAYS (verify stage resolution). The inferred rung pinned every command to /work, so a repo whose manifests live a directory down built nothing (a06c). It reads meta.workdir now, p0224's one location source; IsDotnet and the .NET search go. -> .agentsmith/phases/done/2026-09-03-ee12-a-verify-command-runs-where-the-project-says.yaml"
+    2026-09-04-102b: "THE DATABASE CONNECTION ARRIVES BY ENVIRONMENT (config bootstrap + file loader + k8s manifests). AGENTSMITH_PERSISTENCE_PROVIDER + _CONNECTION replace the file's block at BOTH readers, together or not at all — half a pair is a blocking finding. The ${db_password} promise nothing expanded is withdrawn. -> .agentsmith/phases/done/2026-09-04-102b-the-database-connection-arrives-by-environment.yaml"
   active:
     2026-09-03-7bac:
       goal: "Commands run at the repo root; meta.workdir places none"

@@ -78,7 +78,8 @@ public static class ServerHostFactory
     /// </summary>
     private static TokenAuthorityConfig? TokenAuthority() =>
         new BootstrapConfigReader(
-            new EnvConfigStoreLocation(), new RawConfigYaml(), new AuthEnvironmentOverlay())
+            new EnvConfigStoreLocation(), new RawConfigYaml(),
+            new AuthEnvironmentOverlay(), new PersistenceEnvironmentOverlay())
             .Read().Auth;
 
     private static void ConfigureServices(WebApplicationBuilder builder, TokenAuthorityConfig? auth)
