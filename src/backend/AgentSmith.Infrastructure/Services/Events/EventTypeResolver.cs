@@ -32,7 +32,9 @@ public static class EventTypeResolver
         EventType.L1StepDetail => typeof(L1StepDetailEvent),
         EventType.TicketFetched => typeof(TicketFetchedEvent),
         EventType.CatalogLoaded => typeof(CatalogLoadedEvent),
+        EventType.PullRequestOutcome => typeof(PullRequestOutcomeEvent), // 2026-09-03-b028
         EventType.CatalogIssue => typeof(CatalogIssueEvent),
+        EventType.TicketInstructionIgnored => typeof(TicketInstructionIgnoredEvent), // 2026-09-03-b028
         EventType.SubAgentSpawned => typeof(SubAgentSpawnedEvent),
         EventType.SubAgentObservation => typeof(SubAgentObservationEvent),
         EventType.SubAgentFinding => typeof(SubAgentFindingEvent),
