@@ -27,6 +27,7 @@ public static partial class CommandDisplayNames
         [CommandNames.AnalyzeCode] = "Analyze codebase",
         [CommandNames.NegotiateExpectation] = "Negotiate expectation", // p0328
         [CommandNames.DeriveSpec] = "Derive the phase specs",
+        [CommandNames.ReviewSpec] = "Review the phase specs",
         [CommandNames.SpecHandback] = "Hand the ticket back",
         [CommandNames.PhaseSequence] = "Plan the phase sequence",
         [CommandNames.SelectPhase] = "Start the phase",

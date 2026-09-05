@@ -19,6 +19,7 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private readonly ScopeClassificationScript _scopeScript = new();
+    private readonly SpecReviewScript _specReviewScript = new();
     private int _toolCallCounter;
 
     public int InvocationCount { get; private set; }
@@ -38,6 +39,14 @@ public sealed class ScriptedChatClient : IChatClient
     public ScriptedChatClient EnqueueScopeReply(string text)
     {
         _scopeScript.Enqueue(text);
+        return this;
+    }
+
+    /// <summary>Scripts the spec-review call, which draws from its own slot (see
+    /// <see cref="SpecReviewScript"/>) instead of the FIFO.</summary>
+    public ScriptedChatClient EnqueueSpecReviewReply(string text)
+    {
+        _specReviewScript.Enqueue(text);
         return this;
     }
 
@@ -83,6 +92,8 @@ public sealed class ScriptedChatClient : IChatClient
         LastMessages = messages.ToList();
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
+        if (SpecReviewScript.Answers(LastMessages))
+            return Task.FromResult(_specReviewScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());
         var next = _responses.Dequeue();
         if (next is Func<ChatResponse> deferred)

@@ -66,6 +66,22 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
         cfg.Limits.MaxOutputTokensPerSkillCall.Should().Be(16_000);
         cfg.Limits.MaxSecondsPerSkillCall.Should().Be(300);
         cfg.Limits.MaxConcurrentSkillCalls.Should().Be(10);
+        cfg.Limits.MaxSpecReviewRounds.Should().Be(1);
+    }
+
+    [Fact]
+    public void BindFromYaml_SpecReviewRoundsPresent_BindsCorrectly()
+    {
+        var cfg = Load("""
+            projects: {}
+            limits:
+              max_spec_review_rounds: 0
+            secrets: {}
+            """);
+
+        // 0 is the value that disables the review, so it has to survive binding
+        // rather than read back as the default.
+        cfg.Limits.MaxSpecReviewRounds.Should().Be(0);
     }
 
     [Fact]

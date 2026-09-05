@@ -518,6 +518,10 @@ limits:
   # SubAgentBudget + SubAgentRunner. spawn_agents is opt-in per pipeline.
   max_concurrent_sub_agents: 4
   max_sub_agents_per_run: 20
+  # Correction rounds the spec review may take on a derived spec. Its
+  # corrections come from a closed set, so one round is enough; 0 disables
+  # the review.
+  max_spec_review_rounds: 1
 
 # p0151d: per-pipeline cost cap. When cumulative USD or tokens cross the cap,
 # remaining LLM-driven skill calls short-circuit with a `cost-cap-exhausted`

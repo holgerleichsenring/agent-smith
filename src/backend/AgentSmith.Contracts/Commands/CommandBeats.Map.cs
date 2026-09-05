@@ -47,6 +47,7 @@ public static partial class CommandBeats
         // p0390: the work spec is the statement of the work — it belongs to the
         // same beat as the plan, immediately before it.
             [CommandNames.DeriveSpec] = RunBeat.Plan,
+            [CommandNames.ReviewSpec] = RunBeat.Plan,
             [CommandNames.SpecHandback] = RunBeat.Plan,
             [CommandNames.PhaseSequence] = RunBeat.Plan,
             [CommandNames.SelectPhase] = RunBeat.Plan,

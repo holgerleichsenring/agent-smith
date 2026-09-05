@@ -214,8 +214,8 @@ function LimitsForm({ value, onChange }: { value: LimitsSetting; onChange: (v: S
       help={help}
     />
   );
-  // The 11 flat limits grouped by domain: per-skill call counts, the per-call token/
-  // time budgets, and the sub-agent fan-out caps.
+  // The 12 flat limits grouped by domain: per-skill call counts, the per-call token/
+  // time budgets, the sub-agent fan-out caps, and the spec-review round count.
   return (
     <>
       <DrawerSection title="Call caps" defaultOpen testId="setting-limits-calls">
@@ -236,6 +236,11 @@ function LimitsForm({ value, onChange }: { value: LimitsSetting; onChange: (v: S
       <DrawerSection title="Sub-agent caps" defaultOpen testId="setting-limits-subagents">
         {field("maxConcurrentSubAgents", "Max concurrent sub-agents")}
         {field("maxSubAgentsPerRun", "Max sub-agents per run")}
+      </DrawerSection>
+
+      <DrawerSection title="Spec review" defaultOpen testId="setting-limits-specreview">
+        {field("maxSpecReviewRounds", "Max spec review rounds",
+          "correction rounds a derived spec may take before it is admitted as it stands — 0 disables the review")}
       </DrawerSection>
     </>
   );

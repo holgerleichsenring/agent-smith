@@ -22,8 +22,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class BranchSearch(
     IReadOnlyDictionary<string, ISandbox> sandboxes, ILogger logger,
-    IReadOnlyDictionary<string, string?>? baseRefs = null)
+    IReadOnlyDictionary<string, string?>? baseRefs = null,
+    // Who is looking: two callers now, and a log naming the wrong one misdirects its reader.
+    string searcher = "The delivery account")
 {
+
     /// <summary>The repositories a search may name, for the prompt to list.</summary>
     public IReadOnlyList<string> Repositories => [.. sandboxes.Keys];
 
@@ -78,7 +81,7 @@ public sealed class BranchSearch(
             SearchCommands.OverTree(pattern, path), progress: null, ct);
         _evidence.Remember(repository, pattern, result.ExitCode);
         logger.LogInformation(
-            "The delivery account searched {Repo} for {Pattern} under {Path} — exit {Exit}",
+            "{Searcher} searched {Repo} for {Pattern} under {Path} — exit {Exit}", searcher,
             repository, pattern, path ?? ".", result.ExitCode);
         return SearchOutcome.Report(result, repository, path, pattern);
     }
@@ -110,7 +113,7 @@ public sealed class BranchSearch(
             SearchCommands.OverRef(baseRef, pattern, path), progress: null, ct);
         _evidence.Remember(repository, pattern, result.ExitCode, baseRef);
         logger.LogInformation(
-            "The delivery account searched {Repo}@{Ref} for {Pattern} under {Path} — exit {Exit}",
+            "{Searcher} searched {Repo}@{Ref} for {Pattern} under {Path} — exit {Exit}", searcher,
             repository, baseRef, pattern, path ?? ".", result.ExitCode);
         return SearchOutcome.Report(result, $"{repository}@{baseRef}", path, pattern);
     }

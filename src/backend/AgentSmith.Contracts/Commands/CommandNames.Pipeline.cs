@@ -68,24 +68,7 @@ public static partial class CommandNames
     /// visible 'unratified' stamp.</summary>
     public const string NegotiateExpectation = "NegotiateExpectationCommand";
 
-    /// <summary>p0393a: turns any ticket into an ORDERED SET of phase specs on the ticket
-    /// branch — yaml for what and done, markdown for the verbatim code templates — so the
-    /// `code` pipeline runs on ordinary tickets and not only on ones an operator hand-wrote.
-    /// Runs after AnalyzeCode because one of its two hand-backs ("the requirement
-    /// contradicts the repository") is only findable once the code has been read. Source
-    /// precedence is fixed: branch artifact, then a spec embedded in the ticket
-    /// DESCRIPTION, then derivation — a ticket COMMENT is never a source. Every ticket
-    /// segment is carried by a named phase or discarded with a reason; an accounting that
-    /// cannot be produced does not split at all.</summary>
-    public const string DeriveSpec = "DeriveSpecCommand";
 
-    /// <summary>p0393a: routes the derivation's two hand-back cases. A requirement that
-    /// contradicts the repository parks in needs_clarification_status and re-triggers on an
-    /// answer; not-implementable is a VERDICT — it parks in its own
-    /// not_implementable_status, does NOT auto-retry on a comment and restarts only on an
-    /// explicit operator Retry. Two hand-backs with the same case code and no source commit
-    /// between them end the loop. No-op when the derivation handed nothing back.</summary>
-    public const string SpecHandback = "SpecHandbackCommand";
 
     /// <summary>p0393a: splices one master → verify → record block per derived
     /// phase, in order. The sequence is where termination comes from: each phase ends at

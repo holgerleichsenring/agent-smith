@@ -38,6 +38,10 @@ public sealed class ExternalWorkerTicketTests
             // worker mode the worker answers that call like every other.
             .EnqueueText(ScopeEstimateReply)
             .EnqueueText(SpecDerivationFixture.DerivationJson)
+            // The spec review challenges the derived contract before the master runs, and in
+            // worker mode the worker answers that call like every other. An empty answer
+            // leaves every criterion decidable, which is what this fixture is asserting about.
+            .EnqueueText("[]")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress",
