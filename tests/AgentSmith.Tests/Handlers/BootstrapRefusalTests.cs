@@ -66,11 +66,50 @@ public sealed class BootstrapRefusalTests
             .And.Contain("re-run init-project");
     }
 
+    // 2026-09-04-ae3a: a two-context sandbox where ONE context was migrated and the other
+    // was not. Folded over the sandbox, the refusal told a repository that IT predates the
+    // rename — false of the migrated context, and its remedy was the run that skipped the
+    // other one.
+    [Fact]
+    public async Task BootstrapRefusal_OneContextOfTwoIsMissingItsFile_NamesThatContext()
+    {
+        var refusal = await RefuseAsync(FrontendKeepsTheRetiredName, TwoContexts);
+
+        refusal.Should().Contain("'frontend' has no principles.md");
+        refusal.Should().NotContain("'backend' has no");
+    }
+
+    [Fact]
+    public async Task BootstrapRefusal_TheRenameSentence_GoesWithTheContextItIsTrueOf()
+    {
+        var refusal = await RefuseAsync(FrontendKeepsTheRetiredName, TwoContexts);
+
+        var frontend = refusal.IndexOf("'frontend' has no principles.md", StringComparison.Ordinal);
+        var retired = refusal.IndexOf(ProjectMetaPaths.RetiredPrinciplesFile, StringComparison.Ordinal);
+        frontend.Should().BeGreaterThan(-1);
+        retired.Should().BeGreaterThan(frontend, "the sentence belongs to the context it describes");
+    }
+
+    private static readonly IReadOnlyList<RemoteContextDiscovery> TwoContexts =
+    [
+        new RemoteContextDiscovery("backend", "backend", "typescript"),
+        new RemoteContextDiscovery("frontend", "frontend", "typescript"),
+    ];
+
+    // backend was migrated by an earlier init; frontend still carries the old name.
+    private static bool FrontendKeepsTheRetiredName(string path) =>
+        path.EndsWith(ProjectMetaPaths.ContextYamlFile, StringComparison.Ordinal)
+        || (path.Contains("/backend/", StringComparison.Ordinal)
+            && path.EndsWith(ProjectMetaPaths.PrinciplesFile, StringComparison.Ordinal))
+        || (path.Contains("/frontend/", StringComparison.Ordinal)
+            && path.EndsWith(ProjectMetaPaths.RetiredPrinciplesFile, StringComparison.Ordinal));
+
     private static bool CarriesOnlyTheRetiredName(string path) =>
         path.EndsWith(ProjectMetaPaths.RetiredPrinciplesFile, StringComparison.Ordinal)
         || path.EndsWith(ProjectMetaPaths.ContextYamlFile, StringComparison.Ordinal);
 
-    private static async Task<string> RefuseAsync(Func<string, bool>? exists = null)
+    private static async Task<string> RefuseAsync(
+        Func<string, bool>? exists = null, IReadOnlyList<RemoteContextDiscovery>? contexts = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Repository, new Repository(new BranchName(WorkBranch), "https://x/server.git"));
@@ -83,6 +122,13 @@ public sealed class BootstrapRefusalTests
             {
                 ["server"] = new RemoteContextDiscovery("default", ".", "csharp")
             });
+        if (contexts is not null)
+            pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+                ContextKeys.SandboxContexts,
+                new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal)
+                {
+                    ["server"] = contexts,
+                });
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
             PipelineName: "fix-bug", Agent: new AgentConfig(), SkillsPath: "skills",
             CodingPrinciplesPath: null));
