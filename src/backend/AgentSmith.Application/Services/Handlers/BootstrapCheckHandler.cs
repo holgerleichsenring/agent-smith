@@ -21,7 +21,8 @@ namespace AgentSmith.Application.Services.Handlers;
 ///   - ContextKeys.MissingBootstrapRepos : comma-separated sandbox keys
 ///     missing either file (consumed by BootstrapGateHandler).
 ///   - ContextKeys.BootstrapProbeReport : p0496 — the branch, its base and the
-///     paths that were read, so a refusal states what it did instead of guessing.
+///     paths that were read, so a refusal states what it did instead of guessing;
+///     2026-09-04-ae3a — plus which context lacks which file.
 /// </summary>
 public sealed class BootstrapCheckHandler(
     BootstrapContextProbe probe,
@@ -48,25 +49,28 @@ public sealed class BootstrapCheckHandler(
 
         var allContext = true;
         var allPrinciples = true;
-        var anyRetired = false;
         var missing = new List<string>();
         var paths = new List<string>();
+        var missingFiles = new List<MissingBootstrapFile>();
         ISandbox? firstMissing = null;
         foreach (var (key, sandbox) in sandboxes)
         {
-            var contexts = ContextsIn(context.Pipeline, key, discoveries);
+            var contexts = SandboxContextList.InOr(
+                context.Pipeline, key, discoveries.GetValueOrDefault(key));
             if (contexts.Count > 0) paths.AddRange(BootstrapContextProbe.PathsFor(contexts));
-            var (contextOk, principlesOk, retired) = contexts.Count == 0
+            var probed = contexts.Count == 0
                 ? NoContexts(key)
                 : await probe.ProbeAsync(sandbox, key, contexts, cancellationToken);
-            if (!contextOk || !principlesOk)
+            if (probed.Any(r => !r.Complete))
             {
                 missing.Add(key);
                 firstMissing ??= sandbox;
+                // 2026-09-04-ae3a: which context lacks which file, so a repository whose
+                // FIRST context is fine is not told the whole repository predates a rename.
+                missingFiles.AddRange(probed.SelectMany(r => r.Missing()));
             }
-            allContext &= contextOk;
-            allPrinciples &= principlesOk;
-            anyRetired |= retired;
+            allContext &= probed.All(r => r.ContextYaml);
+            allPrinciples &= probed.All(r => r.Principles);
         }
 
         var concepts = conceptsFactory(context.Pipeline);
@@ -76,7 +80,7 @@ public sealed class BootstrapCheckHandler(
         if (firstMissing is not null)
             context.Pipeline.Set(
                 ContextKeys.BootstrapProbeReport,
-                await ReportAsync(context.Pipeline, firstMissing, paths, anyRetired, cancellationToken));
+                await ReportAsync(context.Pipeline, firstMissing, paths, missingFiles, cancellationToken));
 
         logger.LogInformation(
             "Probe done: context.yaml={Context} principles={Principles} missing=[{Missing}]",
@@ -84,29 +88,16 @@ public sealed class BootstrapCheckHandler(
         return CommandResult.Ok($"context.yaml={allContext}, principles={allPrinciples}, missing={missing.Count}");
     }
 
-    private (bool Context, bool Principles, bool Retired) NoContexts(string key)
+    private IReadOnlyList<ContextProbeResult> NoContexts(string key)
     {
         logger.LogWarning("Probe {Key}: no context entries. Counted as missing.", key);
-        return (false, false, false);
-    }
-
-    // p0180: prefer the per-sandbox context list (one sandbox can hold many contexts when
-    // they share a toolchain image); fall back to the representative discovery.
-    private static IReadOnlyList<RemoteContextDiscovery> ContextsIn(
-        PipelineContext pipeline, string key,
-        IReadOnlyDictionary<string, RemoteContextDiscovery> discoveries)
-    {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-                ContextKeys.SandboxContexts, out var bySandbox)
-            && bySandbox is not null && bySandbox.TryGetValue(key, out var list))
-            return list;
-        return discoveries.TryGetValue(key, out var discovery) ? [discovery] : [];
+        return [new ContextProbeResult(key, ContextYaml: false, Principles: false, RetiredPrinciples: false)];
     }
 
     private async Task<BootstrapProbeReport> ReportAsync(
         PipelineContext pipeline, ISandbox sandbox, IReadOnlyList<string> paths,
-        bool retiredPrinciplesFound, CancellationToken ct) =>
-        new(BranchOf(pipeline), await baseBranch.ResolveAsync(sandbox, ct), paths, retiredPrinciplesFound);
+        IReadOnlyList<MissingBootstrapFile> missing, CancellationToken ct) =>
+        new(BranchOf(pipeline), await baseBranch.ResolveAsync(sandbox, ct), paths, missing);
 
     private static string? BranchOf(PipelineContext pipeline)
     {

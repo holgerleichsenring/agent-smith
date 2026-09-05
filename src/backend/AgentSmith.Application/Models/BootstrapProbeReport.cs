@@ -15,22 +15,27 @@ namespace AgentSmith.Application.Models;
 /// the principles file was named for what it holds still has the old file, and "file
 /// missing" would send the operator looking for something they already wrote.
 /// </para>
+/// <para>
+/// 2026-09-04-ae3a: and the same reason again, one level down. Folded over a sandbox, the
+/// rename sentence was told to a repository whose FIRST context had already been migrated —
+/// false of that context, and its remedy was the run that had skipped the other one. The
+/// missing files are carried per context and the sentence goes with the context it is true of.
+/// </para>
 /// </summary>
 public sealed record BootstrapProbeReport(
     string? Branch, string? BaseBranch, IReadOnlyList<string> Paths,
-    bool RetiredPrinciplesFound = false)
+    IReadOnlyList<MissingBootstrapFile>? Missing = null)
 {
     public string Describe()
     {
         var branch = Branch is null ? "the checked-out branch" : $"branch '{Branch}'";
         var cutFrom = BaseBranch is null ? string.Empty : $" (cut from '{BaseBranch}')";
         var paths = Paths.Count == 0 ? "no path" : string.Join(", ", Paths.Distinct(StringComparer.Ordinal));
-        return $"Read on {branch}{cutFrom}: {paths}.{Retired()}";
+        return $"Read on {branch}{cutFrom}: {paths}.{MissingText()}";
     }
 
-    private string Retired() => RetiredPrinciplesFound
-        ? $" This repository carries the retired {ProjectMetaPaths.RetiredPrinciplesFile} and no "
-          + $"{ProjectMetaPaths.PrinciplesFile}: it was initialised before the rename, so re-run "
-          + "init-project to compose it — the file now also holds this project's environment rules."
-        : string.Empty;
+    private string MissingText() =>
+        Missing is not { Count: > 0 }
+            ? string.Empty
+            : " Missing per context: " + string.Join("; ", Missing.Select(m => m.Describe())) + ".";
 }
