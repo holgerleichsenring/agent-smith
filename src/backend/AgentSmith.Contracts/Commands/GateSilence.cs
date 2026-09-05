@@ -32,6 +32,13 @@ public static class GateSilence
             // ScopeReposHandler: single-repo run / no ticket — nothing was scoped.
             "Repo scoping skipped:",
         ],
+        [CommandNames.ReviewSpec] =
+        [
+            // ReviewSpecHandler: nothing to challenge, or nothing the repository refuses.
+            "Spec review is off",
+            "Spec review skipped:",
+            "The spec review found nothing the repository refuses",
+        ],
         [CommandNames.SpecHandback] =
         [
             // SpecHandbackHandler: the derivation produced specs, no handback to route.

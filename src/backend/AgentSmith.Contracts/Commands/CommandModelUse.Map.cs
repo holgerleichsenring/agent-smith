@@ -34,6 +34,9 @@ public static partial class CommandModelUse
             ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
         [CommandNames.DeriveSpec] = new(
             ModelUse.Call, "spec-derivation-master", "an ordered set of phase specs, as anchors"),
+        [CommandNames.ReviewSpec] = new(
+            ModelUse.Call, "spec-review prompt",
+            "per criterion: decidable, or the search that shows the repository refuses it"),
         [CommandNames.BootstrapDocument] = new(
             ModelUse.Call, "contract-classifier-master", "the document type"),
         [CommandNames.BootstrapDiscover] = new(

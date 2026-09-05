@@ -22,6 +22,22 @@ public sealed class DeriveSpecContextBuilder : IContextBuilder
     }
 }
 
+/// <summary>Builds the spec-review context: the same scope the derivation ran over, plus
+/// the agent whose model takes the review call.</summary>
+public sealed class ReviewSpecContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(
+        PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(pipeline);
+        var ticket = pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) ? t : null;
+        var repos = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
+            && r is not null ? r : project.Repos;
+        return new ReviewSpecContext(ticket, repos, project.Agent, pipeline);
+    }
+}
+
 /// <summary>p0393a: builds the hand-back context from the pipeline state.</summary>
 public sealed class SpecHandbackContextBuilder : IContextBuilder
 {

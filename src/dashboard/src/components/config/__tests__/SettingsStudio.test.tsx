@@ -41,6 +41,7 @@ const FIXTURES: Record<string, unknown> = {
     maxSkillsPerPhase: 5,
     maxConcurrentSubAgents: 4,
     maxSubAgentsPerRun: 20,
+    maxSpecReviewRounds: 1,
   },
 };
 
@@ -124,13 +125,31 @@ describe("SettingsStudio", () => {
   it("LimitsForm_GroupsFieldsIntoDomainSections", async () => {
     render(<SettingsStudio settingKey="limits" />);
     await screen.findByTestId("setting-limits-maxToolCallsPerSkill");
-    // The 11 flat fields are grouped into three labelled sections.
+    // The 12 flat fields are grouped into four labelled sections.
     expect(screen.getByTestId("setting-limits-calls")).toBeInTheDocument();
     expect(screen.getByTestId("setting-limits-budgets")).toBeInTheDocument();
     expect(screen.getByTestId("setting-limits-subagents")).toBeInTheDocument();
+    expect(screen.getByTestId("setting-limits-specreview")).toBeInTheDocument();
     // Fields land under their group and load their values.
     expect(screen.getByTestId("setting-limits-maxToolCallsPerSkill")).toHaveValue(30);
     expect(screen.getByTestId("setting-limits-maxSubAgentsPerRun")).toHaveValue(20);
+    expect(screen.getByTestId("setting-limits-maxSpecReviewRounds")).toHaveValue(1);
+  });
+
+  it("LimitsForm_SpecReviewRoundsSetToZero_IsDraftedNotTreatedAsCleared", async () => {
+    render(<SettingsStudio settingKey="limits" />);
+    const field = await screen.findByTestId("setting-limits-maxSpecReviewRounds");
+    // 0 disables the review, so it must reach the draft as a typed value — unlike an
+    // emptied field, which keeps what was loaded.
+    fireEvent.change(field, { target: { value: "0" } });
+    expect(field).toHaveValue(0);
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() =>
+      expect(saveSetting).toHaveBeenCalledWith(
+        "limits",
+        expect.objectContaining({ maxSpecReviewRounds: 0 }),
+      ),
+    );
   });
 
   it("LimitsForm_ClearingARequiredNumber_RetainsTheLoadedValueNotZero", async () => {

@@ -29,3 +29,13 @@ public sealed record PhaseSequenceContext(PipelineContext Pipeline) : ICommandCo
 
 /// <summary>p0393a: input for SelectPhase — the phase id travels on the command.</summary>
 public sealed record SelectPhaseContext(string PhaseId, PipelineContext Pipeline) : ICommandContext;
+
+/// <summary>
+/// Input for the ReviewSpec step: the derived set is on the branch, the sandboxes are
+/// checked out, and nothing has been spent on the master yet.
+/// </summary>
+public sealed record ReviewSpecContext(
+    Ticket? Ticket,
+    IReadOnlyList<RepoConnection> Repos,
+    AgentConfig AgentConfig,
+    PipelineContext Pipeline) : ICommandContext;

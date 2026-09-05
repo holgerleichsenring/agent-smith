@@ -32,6 +32,7 @@ public static class ContextBuildersExtensions
         AddBuilder<PostPrCommentsContextBuilder>(services, CommandNames.PostPrComments);
         AddBuilder<NegotiateExpectationContextBuilder>(services, CommandNames.NegotiateExpectation); // p0328
         AddBuilder<DeriveSpecContextBuilder>(services, CommandNames.DeriveSpec); // p0393a
+        AddBuilder<ReviewSpecContextBuilder>(services, CommandNames.ReviewSpec);
         AddBuilder<SpecHandbackContextBuilder>(services, CommandNames.SpecHandback); // p0393a
         AddBuilder<PhaseSequenceContextBuilder>(services, CommandNames.PhaseSequence); // p0393a
         AddBuilder<SelectPhaseContextBuilder>(services, CommandNames.SelectPhase); // p0393a

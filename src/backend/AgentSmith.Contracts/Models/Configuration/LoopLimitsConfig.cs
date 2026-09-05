@@ -46,6 +46,16 @@ public sealed class LoopLimitsConfig
     public int MaxSubAgentsPerRun { get; set; } = 20;
 
     /// <summary>
+    /// Max correction rounds the spec review may take on a derived spec before the
+    /// spec is admitted as it stands. Defaults to 1 — the review may only apply
+    /// corrections from a closed set, so a corrected spec cannot carry a new
+    /// finding and a second round would re-inspect what could not have broken.
+    /// 0 leaves no round to run and so disables the review: that is how an operator
+    /// turns the check off.
+    /// </summary>
+    public int MaxSpecReviewRounds { get; set; } = 1;
+
+    /// <summary>
     /// Returns the per-call tool-call cap for the active investigator mode.
     /// <c>verify_diff</c> → MaxToolCallsPerVerifier; <c>verify_hint</c> / <c>survey</c>
     /// → MaxToolCallsPerInvestigator; null/unknown → MaxToolCallsPerSkill.

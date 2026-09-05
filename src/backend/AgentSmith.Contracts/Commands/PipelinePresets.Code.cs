@@ -53,6 +53,9 @@ public static partial class PipelinePresets
         // AnalyzeCode, because "the requirement contradicts the repository" is only
         // findable once the code has been read.
         CommandNames.DeriveSpec,
+        // The contract is challenged against the repository BEFORE the hand-back, because
+        // a criterion no work can satisfy is exactly what that step exists to park on.
+        CommandNames.ReviewSpec,
         CommandNames.SpecHandback,        // not implementable / contradicts the repo => park
         CommandNames.PhaseSpecGate,       // spec validated before a single master token
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master

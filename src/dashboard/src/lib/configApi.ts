@@ -586,6 +586,7 @@ export interface LimitsSetting {
   maxSkillsPerPhase: number;
   maxConcurrentSubAgents: number;
   maxSubAgentsPerRun: number;
+  maxSpecReviewRounds: number;
 }
 
 export interface CostCapValues {

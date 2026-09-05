@@ -93,6 +93,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<DeriveSpecContext>, DeriveSpecHandler>();
         services.AddTransient<ICommandHandler<PhaseSequenceContext>, PhaseSequenceHandler>();
         services.AddTransient<ICommandHandler<SelectPhaseContext>, SelectPhaseHandler>();
+        services.AddTransient<ICommandHandler<ReviewSpecContext>, ReviewSpecHandler>();
         services.AddTransient<ICommandHandler<SpecHandbackContext>, SpecHandbackHandler>();
         services.AddSpecDerivation();
         services.AddTransient<DiscoveryOutputParser>();
@@ -189,10 +190,7 @@ public static class PipelineHandlersExtensions
         // image does not carry.
         services.AddTransient<ContextVerifyStagesResolver>()
             .AddTransient<AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter>();
-        // p0420: delivery is accounted for against the branch, not inferred from the run.
-        services.AddTransient<DeliveryDiff>();
-        services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
-        services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
+        services.AddSpecJudgementServices();
         services.AddTransient<Specs.PhaseAccounting>();
         services.AddTransient<Specs.PhaseEntryAccount>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393

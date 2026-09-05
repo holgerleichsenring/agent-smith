@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-05-c4e1
+
+decisions:
+  - category: Architecture
+    chose: "The review inherits the delivery account's read-only branch search and gains no command execution"
+    over: "A bounded run_command surface of its own, so it could run the project's own tooling"
+    reason: |
+      The failure this phase exists for is a gate that spent money without converging, and
+      the obvious way to repeat it is to add a second agent that can spend at the same gate.
+      A search settles the question the review actually asks: a criterion naming a package,
+      a file or a symbol the repository does not carry is a criterion about a world this
+      repository is not in, and the search that finds nothing IS the demonstration. The
+      account's tool shape already exists, is already bounded per pass by
+      AccountSearchBudget, and its evidence is already written in the grammar a citation is
+      read in — so reuse costs one call to AccountTools.For and adds no new capability, no
+      new budget and no new failure mode. What it gives up is a review that could run the
+      repository's own audit tooling; that is worth revisiting only if a live finding turns
+      out to need it, and it should be a phase of its own rather than a quiet widening here.
+  - category: Architecture
+    chose: "A correction is closed to three shapes AND must name the replacement it applies"
+    over: "Letting the review rewrite the done-list it objects to"
+    reason: |
+      A critic free to reshape what it is judged by will make the contract satisfiable,
+      which is the p0393 disease one level up and without the diff as a counter-check. So
+      the review rules on DECIDABILITY and a human keeps SCOPE: it may replace a criterion
+      with the observation that decides it, and nothing else. The second half of this was
+      found by its own test rather than reasoned out — CriterionReview.IsCorrectable
+      originally called any non-already-true finding correctable, so a finding that objected
+      without naming a replacement would have been routed to a correction with nothing to
+      apply. Objecting is not the same as knowing what should stand instead, and inventing
+      the difference is exactly the licence the closure exists to deny. A finding with no
+      replacement is now the author's, and SpecReviewCorrection additionally refuses any
+      swap the yaml cannot carry verbatim: an edit nobody can predict is worse than a
+      hand-back.
+  - category: Architecture
+    chose: "Unrecognised dispositions read as DECIDABLE — the floor passes the criterion through"
+    over: "Mirroring the delivery account, whose floor is NotSatisfied"
+    reason: |
+      The two gates have opposite costs of being wrong, so they cannot share a floor. A
+      wrong NotSatisfied in the account costs one repair pass inside a run. A wrong finding
+      here reaches the person who wrote the ticket, costs their next working day, and three
+      of them teach that person to stop reading the channel this phase exists to open —
+      after which the mechanism is worse than nothing, because it still spends and no longer
+      informs. So an answer nobody can interpret, a disposition with no observation behind
+      it, and a criterion the answer skipped all pass. The review is allowed to be silent
+      and is not allowed to be unfounded.
+  - category: Architecture
+    chose: "One global knob in limits:, defaulting to 1"
+    over: "A default plus per-project overrides in the shape of pipeline_cost_cap"
+    reason: |
+      The first cut of this spec cited pipeline_cost_cap as the precedent for per-project
+      overrides. It carries none: its slots are default, per-pipeline and per-tier, keyed by
+      pipeline name and complexity, and ConfigResolutionPass keys the resolution on the
+      pipeline alone — two projects on the same pipeline cannot differ. Building that
+      dimension would mean a new project field, a resolver, and a different studio surface,
+      for a feature nobody asked to vary per project. LoopLimitsConfig declares itself global
+      on purpose, the schema already admits a limits: object and the studio already renders
+      that rail, so the knob costs one property. The value that matters is 0, which turns the
+      review off; 1 is the default because corrections come from a closed set and a second
+      round would re-inspect what could not have broken. If anyone ever sets 2 and that round
+      returns a finding, the closure argument above is wrong and that should be recorded.
+  - category: Architecture
+    chose: "The step runs between DeriveSpec and SpecHandback, and a finding is published as a spec revision"
+    over: "Running after PhaseSpecGate, and correcting the draft in memory"
+    reason: |
+      Both halves follow from what has already happened by then. SpecHandback is the step
+      that parks a ticket whose requirements contradict the repository — which is precisely
+      what an unsatisfiable criterion is — so the review must precede it to use that park,
+      and it inherits SpecHandbackProgress.RepeatsWithoutProgress, which already refuses to
+      ask the same unanswered question twice. And DeriveSpecHandler writes the set to the
+      branch and comments it on the ticket BEFORE it returns, so a correction held in memory
+      would leave the branch and the ticket both stating a contract nobody is judged by.
+      Every correction therefore appends a SpecSet revision whose cause names the criteria
+      that changed, which is also what makes the diff a reviewer opens explain itself.

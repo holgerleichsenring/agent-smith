@@ -67,6 +67,7 @@ public static partial class CommandStepClasses
 
         // --- Gates: visible only when they have a finding. ---
         [CommandNames.ScopeRepos] = Gate,          // speaks when it actually narrowed the repo set
+        [CommandNames.ReviewSpec] = Gate,          // speaks when the contract cannot be met
         [CommandNames.SpecHandback] = Gate,        // speaks when the derivation handed the ticket back
         [CommandNames.PhaseSpecGate] = Gate,       // ms validation — speaks only on a real problem
         [CommandNames.MasterOpenQuestions] = Gate, // speaks when the master parked a question

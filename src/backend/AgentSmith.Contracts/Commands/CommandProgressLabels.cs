@@ -36,6 +36,7 @@ public static partial class CommandNames
         [AnalyzeCode] = "Analyzing codebase",
         [NegotiateExpectation] = "Negotiating expectation", // p0328
         [DeriveSpec] = "Deriving the phase specs",
+        [ReviewSpec] = "Reviewing the phase specs",
         [SpecHandback] = "Handing the ticket back",
         [PhaseSequence] = "Planning the phase sequence",
         [SelectPhase] = "Starting the phase",
