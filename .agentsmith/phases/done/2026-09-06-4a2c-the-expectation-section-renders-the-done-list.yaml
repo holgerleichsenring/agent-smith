@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-06-4a2c
+goal: "The master is given the run's ratified criteria as the acceptance contract it is conditioned to answer, so a finished run can satisfy the gate instead of re-driving until the budget stops it."
+
+applies_to: "backend (the master prompt's expectation section)"
+
+scope:
+  in: "Filling the {ExpectationSection} token on a spec-derived run from the same funnel the gate judges by, under the heading and in the shape the pinned master is conditioned on, and pinning prompt and gate to that one source with a test."
+  out: "How the master's dispositions are PAIRED with the criteria once they arrive — a different subject with its own risk, split into its own phase and deliberately not bundled here. Whether a criterion is a good one, which is the spec review's job and stays the net under this. And the plan section's own copy of the done-list, left alone (see below)."
+
+decisions:
+  - key: |
+      THE GATE JUDGES BY ONE LIST AND THE PROMPT ASKS ABOUT NOTHING. p0393 removed
+      NegotiateExpectation because the derived spec IS the negotiated expectation — its own decision
+      record names the three consumers whose slot AcceptanceCriteria.For then had to fill: the
+      keystone, the pull request, result.md. The MASTER PROMPT is not in that list, and that is the
+      omission. ExpectationPromptSection still reads ContextKeys.RunExpectation and returns
+      string.Empty without it; no composed pipeline sets that key any more, so the token renders
+      empty on every run. The pinned master conditions its answer on the heading — "acceptance:
+      REQUIRED when an `## Acceptance contract` section was given above", and "omit the array
+      entirely only when no acceptance contract was given" — so it correctly omits the array,
+      AcceptanceDispositions is null, and MasterAcceptanceGate returns false at "dispositions is
+      null" on every pass. VerdictlessAfterOneRedrive cannot bound it: that guard needs a NULL
+      verdict, and here the verdict is present and green — only the dispositions are missing.
+  - key: |
+      IT FIRES ON A LIVE RUN, AND NOTHING ABOUT IT DEPENDS ON TICKET QUALITY. A worker-mode run of
+      the whole loop finished its work, committed it, and passed VerifyPhase with build and test
+      green and both criteria accounted for by the delivery account. The string "acceptance" does
+      not occur once in that run's log. The run then logged "re-engaging the open loop — 0
+      actionable step(s) remain, budget OK" and survived only because the model called no tool in
+      the next pass — StopIdle is the single non-budget stop the re-engagement policy has for a
+      working model. A model that instead re-runs a test fires a tool and the loop continues to the
+      cost cap or the hard cap of 50. No criterion has to be unsatisfiable for this to happen.
+  - key: |
+      ONE SOURCE, NOT A SECOND RENDERER. AcceptanceCriteria.For is already the funnel that resolves
+      what a run is judged by, and both the loop gate and the delivery gate read it. The prompt
+      reads the same call, so the master is asked about exactly the list it will be measured
+      against and the two cannot drift again; a test pins that rather than a comment asking the
+      next person to remember. Scans are unaffected — only the coding master declares
+      ExpectationSection among its inputs, so widening the source cannot leak a contract section
+      into a scan prompt.
+  - key: |
+      THE HEADING IS KNOWN; THE BODY IS DECIDED HERE. ExpectationPromptSection already emits
+      "## Acceptance contract" verbatim, so the heading the skill conditions on is not invented.
+      Its BODY, however, is an expectation: Observed, then Expected, then constraints. A phase
+      done-list has no Observed — there is no statement of present behaviour in a derived spec, and
+      inventing one would be writing fiction into a contract. So the contract renders the heading
+      and an "## Expected" block of the criteria, one per line, and nothing else. Expected is not
+      decoration: the skill says "one entry per ratified 'Expected' assertion" and "walk EACH
+      'Expected' assertion", so the instructions the master already carries have to land on
+      something bearing that name.
+  - key: |
+      THE PLAN SECTION KEEPS ITS COPY. An earlier cut of this phase removed the done-list from the
+      plan section so the criteria would appear exactly once. That goal is unreachable and was
+      based on a miscount: the criteria reach the model from THREE places — the plan section in the
+      master body, the "### Done criteria" block in the phase-execution user prompt, and the phase
+      yaml carried verbatim inside the untrusted-ticket delimiters. Removing one of three buys no
+      disambiguation, breaks two prompt tests that pin the wording, and changes what the master
+      reads while this phase is trying to change only what it is ASKED. The duplication is
+      pre-existing and stays; if it is worth removing it is worth its own phase.
+  - key: |
+      A PRIOR RULING POINTED THE OTHER WAY AND IS SUPERSEDED HERE, NOT IGNORED. p0389 recorded that
+      "pairing the verdict 1:1 with generated done-criteria is a gate on day one", citing p0341c's
+      lesson that an artifact declared memory-not-a-gate became a gate. p0393a then made the
+      done-list the gate's criteria anyway, and this phase is what makes that pairing operative
+      instead of vacuous — so the objection lands here and deserves an answer. It is this: the
+      alternative in force today is not "no gate", it is a gate STUCK CLOSED, which is the same
+      concern's worse half — generated criteria that can never be disposed of at all. And the
+      mitigation p0389 lacked now exists: the spec review challenges the derived criteria against
+      the repository before they bind. A gate that can be satisfied and is reviewed beats a gate
+      that cannot be satisfied and is not.
+  - key: |
+      WHAT THIS DOES NOT FIX. It does not make a bad criterion good: one that no work can satisfy
+      still cannot be disposed of as met, and will still re-drive — that is the review's job. It
+      does not change the PAIRING, which today walks dispositions by index against a count and
+      mis-measures a longer answer in another order; that is real, it is a bug today, and it is a
+      separate phase because it changes a signature, rewrites a test file and flips roughly eleven
+      harness fixtures that answer "criterion 1" to real done-lists. And the evidence has a limit:
+      the run that cost an operator $10 left no transcript, so what is proven here is that the
+      mechanism fires today on a live run — not that it is what killed that one.
+
+steps:
+  - id: the-contract-section-renders-the-ratified-criteria
+    action: "Fill the expectation section from AcceptanceCriteria.For when the run has no ratified expectation, emitting the acceptance-contract heading and an Expected block of the criteria, so a spec-derived run presents a contract instead of an empty token."
+  - id: the-prompt-and-the-gate-are-pinned-to-one-source
+    action: "Assert that what the prompt presents as the acceptance contract is what the gate resolves as the ratified criteria, so a later edit to either cannot separate them again without a red test."
+
+tests:
+  - "Acceptance_ASpecDerivedRun_PresentsAnAcceptanceContractSection"
+  - "Acceptance_TheContractSection_CarriesEveryRatifiedCriterion"
+  - "Acceptance_TheContractSection_NamesTheExpectedAssertionsTheSkillAsksFor"
+  - "Acceptance_ThePromptAndTheGate_ResolveTheSameCriteria"
+  - "Acceptance_ARatifiedExpectation_StillRendersItsOwnContractUnchanged"
+  - "Acceptance_ARunWithNeitherSpecNorExpectation_RendersNoContractSection"
+
+done:
+  - "a spec-derived run's master prompt carries an acceptance-contract section naming every criterion the gate resolves for that run"
+  - "the criteria that section presents come from the same call the gate judges by"
+  - "a run that did negotiate an expectation renders the contract it rendered before"
+  - "a run with neither a phase spec nor an expectation renders no contract section"
+  - "build green, full suite green"
