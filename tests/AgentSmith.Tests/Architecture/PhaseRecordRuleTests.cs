@@ -47,6 +47,24 @@ public sealed class PhaseRecordRuleTests
             + "does not exist. Write the spec, or drop the reference.");
 
     /// <summary>
+    /// 2026-09-07-4e6a: a phase file is <c>{id}-{label}.yaml</c>, and the label may move —
+    /// the id is the identity, so a <c>requires:</c> or a commit message survives a rename
+    /// untouched. The context pointer is the one reference that carries the file name,
+    /// so it is the one reference a rename can break. No baseline: every pointer resolved
+    /// when the rule was installed, and a renamed file takes its pointer with it.
+    /// </summary>
+    [Fact]
+    public void PhaseRecord_EveryPointer_ResolvesToAFile()
+    {
+        var unresolved = Record.UnresolvedPointers();
+
+        unresolved.Should().BeEmpty(
+            "a `-> .agentsmith/phases/…` pointer names a file the reader will open; a "
+            + "renamed or moved phase file takes its pointer with it.\n  "
+            + string.Join("\n  ", unresolved));
+    }
+
+    /// <summary>
     /// A phase cannot be both shipped and upcoming. No baseline: the overlap was two
     /// entries, both fixed in p0430, so there is no debt to ratchet.
     /// </summary>

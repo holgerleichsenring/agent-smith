@@ -14,6 +14,9 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
     private static readonly Regex ContextSectionPattern =
         new(@"^  (?<section>done|active|planned):", RegexOptions.Multiline | RegexOptions.Compiled);
 
+    private static readonly Regex PointerPattern =
+        new(@"-> (?<path>\.agentsmith/phases/[^\s""']+)", RegexOptions.Compiled);
+
     public static PhaseRecord Current { get; } = new(PhaseIdReader.Current);
 
     /// <summary>A phase id that resolves to more than one spec file.</summary>
@@ -54,6 +57,25 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(x => x, StringComparer.Ordinal)];
     }
+
+    /// <summary>
+    /// 2026-09-07-4e6a: a <c>-> .agentsmith/phases/…</c> pointer in any context that names
+    /// no file. The id is a phase's identity and never changes; the FILE NAME is a label
+    /// and may — which is exactly why the pointer, the one thing that carries the file
+    /// name, has to be checked rather than trusted.
+    /// </summary>
+    public IReadOnlyCollection<string> UnresolvedPointers() =>
+    [
+        .. Directory.EnumerateFiles(
+                Path.Combine(RepoRoot(), ".agentsmith", "contexts"), "context.yaml",
+                SearchOption.AllDirectories)
+            .SelectMany(context => PointerPattern.Matches(File.ReadAllText(context))
+                .Select(m => m.Groups["path"].Value)
+                .Where(pointer => !File.Exists(Path.Combine(RepoRoot(), pointer)))
+                .Select(pointer => $"{Path.GetRelativePath(RepoRoot(), context)}: {pointer}"))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(x => x, StringComparer.Ordinal)
+    ];
 
     public HashSet<string> ContextIdsUnder(string section)
     {

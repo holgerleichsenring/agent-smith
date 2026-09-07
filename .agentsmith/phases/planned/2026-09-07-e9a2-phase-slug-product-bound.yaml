@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-e9a2
+
+goal: "The product's phase slug obeys the same bound as the repository rule, and the done record carries the derived slug instead of minting a second one."
+
+applies_to: "backend (spec derivation, the phase record writer)"
+
+requires:
+  - 2026-09-07-4e6a
+
+scope:
+  in: >
+    PhaseIdFactory.Slug bounds a slug by words as well as by characters, and the value the
+    repository rule states is the value the product mints against; WritePhaseRecordHandler
+    writes the record under SpecPhase.Slug, the slug the derivation already chose, and its own
+    slug function goes; the derivation prompt asks the model for a topic label.
+  out: >
+    THE REPOSITORY RULE AND THE NAMES ON DISK, which 2026-09-07-4e6a owns.
+    THE EMBEDDED SCHEMA, a product contract p0521 ruled a repo convention must not narrow.
+
+decisions:
+  - key: |
+      TWO SLUG FUNCTIONS MINT TWO NAMES FOR ONE PHASE. PhaseIdFactory.Slug (Services/Specs) cuts a
+      goal to fifty characters with no word bound and is what DerivedPhaseBuilder, SpecFallback and
+      SpecSourceResolver call; WritePhaseRecordHandler.Slug (Services/PhaseExecution) cuts the same
+      goal to sixty and ignores SpecPhase.Slug entirely, so the file the record commits need not be
+      the file the derivation named. One of them is the product's slug; the other is a duplicate.
+  - key: |
+      THE PRODUCT CANNOT MINT A NAME THE RULE REFUSES. SlugGenerator_AndTheRule_AgreeOnOneNumber
+      pins the character bound; the word ceiling 4e6a introduced has no such pin, so a goal-derived
+      slug is a sentence again in every customer repository until the generator is bounded too.
+
+steps:
+  - id: the-generator-bounds-words-as-well-as-characters
+    action: "PhaseIdFactory.Slug keeps at most the word ceiling the repository rule states, at most fifty characters, and the two numbers are pinned against the rule's constants."
+  - id: the-record-carries-the-derived-slug
+    action: "WritePhaseRecordHandler names the done file by SpecPhase.Slug and its own Slug function is removed."
+  - id: the-derivation-asks-for-a-label
+    action: "The derivation prompt asks the model for an area-first topic label in its slug field, so the goal is a sentence and the slug is not."
+
+tests:
+  - "SlugGenerator_AndTheRule_AgreeOnOneNumber"
+  - "SlugGenerator_AndTheRule_AgreeOnTheWordCeiling"
+  - "PhaseRecord_IsWrittenUnderTheDerivedSlug"
+
+done:
+  - "a goal of any length yields a slug of at most the rule's word ceiling and fifty characters"
+  - "the done record's file stem equals SpecPhase.FileStem for every executed phase"
+  - "one slug function remains in the product"
+  - "build green, full suite green"
