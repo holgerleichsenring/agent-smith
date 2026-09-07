@@ -5,7 +5,9 @@ namespace AgentSmith.Contracts.Specs;
 /// lives in git on the ticket branch (diff, blame, history and the PR review are
 /// the UI), and only what nobody reads by hand lives in the database: which repo
 /// carries the set, the sha of the last revision this system wrote, and the
-/// per-ticket hand-back counters that end a non-progressing loop.
+/// per-ticket hand-back case and counter. Whether a repeat ends the loop is read from
+/// the ticket thread, not from a sha: every derivation commits a fresh revision, so
+/// the sha this slot once carried never matched (2026-09-07-bd7a).
 /// </summary>
 public sealed record SpecSetPointer(
     string Key,
@@ -13,8 +15,7 @@ public sealed record SpecSetPointer(
     string RevisionSha,
     int RevisionNumber,
     SpecHandbackCase LastHandbackCase = SpecHandbackCase.None,
-    int RepeatedHandbackCount = 0,
-    string? HandbackSourceSha = null);
+    int RepeatedHandbackCount = 0);
 
 /// <summary>
 /// p0393a: a set found on the ticket branch, with the sha of the last commit that
