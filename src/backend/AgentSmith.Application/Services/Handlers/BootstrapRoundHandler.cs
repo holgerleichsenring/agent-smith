@@ -44,7 +44,11 @@ public sealed class BootstrapRoundHandler(
             return CommandResult.Fail(
                 $"BootstrapRound: no sandbox available for repo '{context.RepoName}' " +
                 "(checked Sandboxes[RepoName] and legacy ContextKeys.Sandbox)");
-        var projectMap = ResolvePerRepoProjectMap(pipeline, context.RepoName);
+        // 2026-09-04-0721: this context's own map first. RepoProjectMaps is keyed by SANDBOX,
+        // so on a repository whose contexts share a toolchain image it describes the
+        // representative's subtree — and this round writes a DIFFERENT context's context.yaml.
+        var projectMap = ResolveContextProjectMap(pipeline, context.RepoName, context.ContextName)
+                         ?? ResolvePerRepoProjectMap(pipeline, context.RepoName);
         if (projectMap is null)
             return CommandResult.Fail(
                 $"BootstrapRound: no ProjectMap available for repo '{context.RepoName}' " +
@@ -155,6 +159,16 @@ public sealed class BootstrapRoundHandler(
         if (dict.TryGetValue(repoName ?? string.Empty, out var perRepo)) return perRepo;
         return dict.Count == 1 && SandboxCount(pipeline) <= 1 ? dict.Values.First() : null;
     }
+
+    private static ProjectMap? ResolveContextProjectMap(
+        PipelineContext pipeline, string repoName, string contextName) =>
+        pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyDictionary<string, ProjectMap>>>(
+            ContextKeys.ContextProjectMaps, out var byRepo)
+        && byRepo is not null
+        && byRepo.TryGetValue(repoName ?? string.Empty, out var byContext)
+        && byContext.TryGetValue(contextName, out var map)
+            ? map
+            : null;
 
     private static int SandboxCount(PipelineContext pipeline) =>
         pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(

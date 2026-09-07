@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-04-ae3a
+
+goal: "A bootstrap refusal names the context that lacks a file and the file it lacks, so a repository where one context is fine is not told the whole repository predates a rename."
+
+applies_to: "backend (the bootstrap probe's result shape, the probe report and the gate's refusal)"
+
+requires:
+  - 2026-09-04-0721
+
+scope:
+  in: >
+    The probe returns a result PER CONTEXT rather than three booleans folded over a sandbox; the
+    report carries which context lacks which file, and the retired-name sentence is attached to
+    the context it is true of. The gate's refusal renders those pairs.
+  out: >
+    THE KEY SHAPE OF MissingBootstrapRepos. It is a sandbox-key CSV that MultiRepoBootstrapTests
+    pins, and the detail belongs in the report that exists to carry detail — changing both would
+    make one message with two producers.
+    WHY A CONTEXT IS MISSING ITS FILE. 2026-09-04-0721 fixes the producer; this phase makes the
+    refusal legible for every other reason a file can be absent.
+
+decisions:
+  - key: |
+      A REFUSAL NAMES WHAT IS MISSING, NOT ONLY WHERE IT LOOKED. p0496 made the refusal state the
+      branch, the base and the paths — a real improvement over guessing — and 2026-09-01-eec0
+      added the retired-name sentence. Both are folded over the whole sandbox, so a repository
+      whose FIRST context was migrated and whose second was not is told it "carries the retired
+      coding-principles.md and no principles.md". That sentence is false of the migrated context,
+      and its remedy — re-run init-project — is what produced the state.
+  - key: |
+      THE PROBE RETURNS PER-CONTEXT RESULTS. Folding three booleans over the contexts of a sandbox
+      is what makes the message unable to name anything: by the time the handler sees the answer,
+      which context contributed which false is gone. The probe already iterates per context and
+      logs per context; it returns the aggregate only because nothing asked for more.
+
+steps:
+  - id: the-probe-answers-per-context
+    action: "BootstrapContextProbe returns one result per context — its name, and which of the two files it lacks."
+  - id: the-report-carries-the-pairs
+    action: "The probe report carries context-and-missing-file pairs, and the retired-name sentence names the context it applies to."
+  - id: the-refusal-renders-them
+    action: "The gate's refusal lists which context lacks which file, keeping the sandbox-key list it already prints."
+
+done:
+  - "a two-context sandbox where one context lacks principles.md names that context in the refusal"
+  - "the retired-name sentence appears only for a context that actually carries the retired file"
+  - "a sandbox missing everything still refuses, naming each context once"
+  - "MissingBootstrapRepos keeps its sandbox-key CSV shape"
+  - "backend build green, full suite green"
