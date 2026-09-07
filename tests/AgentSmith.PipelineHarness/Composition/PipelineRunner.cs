@@ -95,6 +95,15 @@ public sealed class PipelineRunner(IServiceProvider services)
     public string? NeedsClarificationStatus { get; set; }
 
     /// <summary>
+    /// 2026-09-07-f420: mirrors the ContextKeys.DoneStatus / FailedStatus seeds
+    /// SpawnRequestBuilder performs from the trigger config, so a test can tell a
+    /// finalize that closed the ticket from one that failed it. Unset → not seeded.
+    /// </summary>
+    public string? DoneStatus { get; set; }
+
+    public string? FailedStatus { get; set; }
+
+    /// <summary>
     /// p0326: seeds ContextKeys.InlineTicket INSTEAD of the stub TicketId,
     /// mirroring the demo's PipelineRequest shape (trackerless run) so the
     /// harness proves FetchTicket's inline materialization drives the real
@@ -230,6 +239,8 @@ public sealed class PipelineRunner(IServiceProvider services)
     {
         if (NeedsClarificationStatus is not null)
             pipeline.Set(ContextKeys.NeedsClarificationStatus, NeedsClarificationStatus);
+        if (DoneStatus is not null) pipeline.Set(ContextKeys.DoneStatus, DoneStatus);
+        if (FailedStatus is not null) pipeline.Set(ContextKeys.FailedStatus, FailedStatus);
         pipeline.Set(ContextKeys.SourceFilePath, SourceFilePathOverride ?? CreateLegalStubFile());
         pipeline.Set(ContextKeys.SwaggerPath, SwaggerPathOverride ?? "https://stub.test/swagger.json");
         pipeline.Set(ContextKeys.ApiTarget, ApiTargetOverride ?? "https://stub.test");

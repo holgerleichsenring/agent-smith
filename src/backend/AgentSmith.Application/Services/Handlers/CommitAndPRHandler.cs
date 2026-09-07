@@ -3,7 +3,6 @@ using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -35,6 +34,8 @@ public sealed class CommitAndPRHandler(
     TicketLifecycle ticketLifecycle,
     SandboxTargets sandboxTargets,
     Specs.PhaseAccounting accounting,
+    FailedRunPersistence failedRun,
+    CompletedRunTicketSummary completedSummary,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -97,25 +98,15 @@ public sealed class CommitAndPRHandler(
 
         var anyCode = stagedRepos.Any(s => s.HasCode);
 
-        // p0300c: evaluate the outcome keystone BEFORE opening PRs so a
-        // verification-red run opens its PR(s) as DRAFT (visible for review, not
-        // mergeable) instead of a normal PR that reads as a green, ready change.
-        // Same inputs the post-loop gate uses — hoisted, not duplicated.
-        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
-            ? pn : string.Empty;
-        var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
-            ? mv : null;
-        var realCodeChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
-        // p0393a: the acceptance contract is the current phase's done-list, falling back to
-        // a ratified expectation for pipelines that still negotiate one.
-        var criteria = Specs.AcceptanceCriteria.For(context.Pipeline);
-        // p0421: ONE gate, reading what every phase accounted for against the branch.
-        // Its predecessor asked whether THIS run had committed code and needed six
-        // signals to teach that question its exceptions — a resumed branch carrying a
-        // complete delivery still came out FAILED.
-        var accounts = await accounting.TakeOrReuseAsync(
-            context.Pipeline, criteria, cancellationToken);
-        var keystone = RunDeliveryGate.Evaluate(accounts, criteria.Count);
+        // 2026-09-07-f420: the p0237 finalizer tail reaches this handler after a step has
+        // FAILED. The verdict is then already known, so the account is not taken and the
+        // keystone is not asked; the PR is a draft that names the failure, and the ticket
+        // is left to the error path — the tail used to finalize it "Completed" with the
+        // done status before the failure comment landed (runs b7bc and 0c88).
+        var failureReason = failedRun.Reason(context.Pipeline);
+        var keystone = failureReason is null
+            ? await EvaluateKeystoneAsync(context, cancellationToken)
+            : DeliveryVerdict.Fail(failureReason);
 
         // p0393a: a sequence that stopped mid-way leaves a HALF-MIGRATED repository — some
         // phases applied, others not. That state must be unmergeable BY CONSTRUCTION, not
@@ -140,7 +131,7 @@ public sealed class CommitAndPRHandler(
             {
                 var (result, body) = await OpenOneAsync(
                     context, sandbox, repo,
-                    isDraft: !keystone.Satisfied || halfMigrated, progress, cancellationToken);
+                    isDraft: !keystone.Satisfied || halfMigrated, failureReason, progress, cancellationToken);
                 outcome = result;
                 if (body is not null) bodies[repo.Name] = body;
             }
@@ -159,6 +150,12 @@ public sealed class CommitAndPRHandler(
         var primaryUrl = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened)?.Url;
         if (primaryUrl is not null)
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
+
+        // 2026-09-07-f420: a failed run's work is persisted above; nothing below — the
+        // keystone's wording, the summary, the done status — describes it. The failed
+        // step is the run's report; the error path posts it with what was kept.
+        if (failureReason is not null)
+            return failedRun.StepResult(failureReason, opened);
 
         // p0241 keystone: a fix/feature run that shipped no code, or whose
         // build/tests are not verified green, must NOT be reported as success and
@@ -188,6 +185,24 @@ public sealed class CommitAndPRHandler(
 
         await FinalizeTicketAsync(context, opened, cancellationToken);
         return BuildResult(opened, anyCode, context.Changes.Count);
+    }
+
+    // p0300c: the outcome keystone is evaluated BEFORE opening PRs so a verification-red
+    // run opens its PR(s) as DRAFT (visible for review, not mergeable) instead of a
+    // normal PR that reads as a green, ready change. Same inputs the post-loop gate
+    // uses — hoisted, not duplicated.
+    private async Task<DeliveryVerdict> EvaluateKeystoneAsync(
+        CommitAndPRContext context, CancellationToken ct)
+    {
+        // p0393a: the acceptance contract is the current phase's done-list, falling back to
+        // a ratified expectation for pipelines that still negotiate one.
+        var criteria = Specs.AcceptanceCriteria.For(context.Pipeline);
+        // p0421: ONE gate, reading what every phase accounted for against the branch.
+        // Its predecessor asked whether THIS run had committed code and needed six
+        // signals to teach that question its exceptions — a resumed branch carrying a
+        // complete delivery still came out FAILED.
+        var accounts = await accounting.TakeOrReuseAsync(context.Pipeline, criteria, ct);
+        return RunDeliveryGate.Evaluate(accounts, criteria.Count);
     }
 
     // p0223: surface the structured per-repo outcome to the run detail so the UI
@@ -220,7 +235,7 @@ public sealed class CommitAndPRHandler(
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
         CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, bool isDraft,
-        SpecSequenceProgress? progress, CancellationToken ct)
+        string? failureReason, SpecSequenceProgress? progress, CancellationToken ct)
     {
         var branch = context.Repository.CurrentBranch.Value;
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
@@ -289,9 +304,12 @@ public sealed class CommitAndPRHandler(
 
         // A red run's PR is a draft and says so at the top of the body, so a reviewer
         // sees "verification red" before the ticket text — not a change that looks ready.
-        var redBanner = isDraft
-            ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
-            : string.Empty;
+        // 2026-09-07-f420: a FAILED run's draft names the failure instead.
+        var redBanner = failureReason is not null
+            ? failedRun.PullRequestBanner(failureReason)
+            : isDraft
+                ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
+                : string.Empty;
         // p0328/p0393a: the acceptance contract renders as a reviewer checklist. p0393a
         // adds the per-phase table and the discarded list — for a stopped sequence the
         // table is the statement that the repository is half migrated, spelled out phase
@@ -371,33 +389,13 @@ public sealed class CommitAndPRHandler(
         // item to comment on or transition, so skip instead of a doomed provider call.
         if (context.Pipeline.Has(ContextKeys.InlineTicket)) return Task.CompletedTask;
 
-        var changes = string.Join("\n",
-            context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
-        var summary = $"""
-            ## Agent Smith - Completed across {context.Configs.Count} repo(s)
-
-            ### Pull requests
-            {RenderPullRequestList(opened)}
-
-            ### Changes
-            {changes}
-            {RunAccountSection.Build(context.Pipeline)}
-
-            This ticket was automatically processed by Agent Smith.
-            """;
+        var summary = completedSummary.Build(
+            context.Pipeline, context.Configs.Count, opened, context.Changes);
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
         return ticketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, context.Ticket.Id,
             doneStatus, summary, logger, ct);
     }
-
-    private static string RenderPullRequestList(IReadOnlyList<OpenedPullRequest> opened) =>
-        string.Join("\n", opened.Select(o => o.Status switch
-        {
-            OpenStatus.Opened => $"- **{o.RepoName}**: {o.Url}",
-            OpenStatus.SkippedNoChanges => $"- **{o.RepoName}**: _(no changes)_",
-            _ => $"- **{o.RepoName}**: _(open failed)_",
-        }));
 
     // p0235: a clear, factual run outcome — this message becomes the step's
     // result line, so it must say plainly what happened (changes + PR, or "no

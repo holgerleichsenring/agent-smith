@@ -73,6 +73,8 @@ public class CommitAndPRHandlerTests
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
+            new FailedRunPersistence(),
+            new CompletedRunTicketSummary(),
             NullLogger<CommitAndPRHandler>.Instance);
     }
 
@@ -399,6 +401,43 @@ public class CommitAndPRHandlerTests
         _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "123"), It.IsAny<string>(), It.IsAny<string?>(),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FailedRun_OpensADraftAndNeverFinalizesTheTicket()
+    {
+        // 2026-09-07-f420: the finalizer tail reaches this handler after a step FAILED.
+        // The partial work is committed, pushed and opened as a DRAFT naming the failure;
+        // the ticket is never finalized (no "Completed", no done status) and the step's
+        // own result never says completed either. Live: runs b7bc and 0c88.
+        string? capturedBody = null;
+        var capturedDraft = false;
+        _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
+                It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
+                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+            .ReturnsAsync("https://github.com/test/repo/pull/42");
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.DoneStatus, "done");
+        pipeline.Set(ContextKeys.MasterVerification,
+            new MasterVerification(VerificationStatus.Green, true, true, true, true, "fixed"));
+        pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue("the persistence itself succeeded");
+        result.Message.Should().Contain("Run failed").And.Contain("pull/42").And.NotContain("Completed");
+        capturedDraft.Should().BeTrue("a failed run's PR is never a ready PR");
+        capturedBody.Should().StartWith("> ⚠️ **Run failed**").And.Contain("cost budget exhausted");
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("push")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
