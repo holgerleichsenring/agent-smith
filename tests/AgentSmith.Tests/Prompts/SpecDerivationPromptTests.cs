@@ -52,6 +52,44 @@ public sealed class SpecDerivationPromptTests
             "an unclassified ticket must reach the cut it always got");
     }
 
+    /// <summary>
+    /// 2026-09-07-b7e2: the derivation wrote criteria on a guess about the code, and the
+    /// guess became binding. The master is offered read-only tools under a look budget and
+    /// must use them BEFORE a criterion rests on repository content; every fact cites the
+    /// evidence id of the tool result it came from, and one that does not is recorded as an
+    /// assumption by the reader. Ships with the v5.1.0 pin (skills PR #179).
+    /// </summary>
+    [Fact]
+    public void SpecDerivationMaster_MayLookBeforeItWrites()
+    {
+        var prompt = DerivationPrompt();
+
+        prompt.Should().Contain("LOOK BEFORE YOU WRITE");
+        prompt.Should().Contain("each citing the id of the result it came from",
+            "a fact is only a fact when a tool result stands behind it");
+        prompt.Should().Contain("recorded as an ASSUMPTION",
+            "an uncited claim must be downgraded by the reader, not silently believed");
+    }
+
+    /// <summary>
+    /// 2026-09-07-c9d4: a ticket that reads two ways, where the code cannot settle which
+    /// and the work differs, is a question for the author — a hand-back that carries both
+    /// readings and the one the master would take, so an unanswered question can proceed on
+    /// that reading next run. Ships with the v5.1.0 pin (skills PR #180).
+    /// </summary>
+    [Fact]
+    public void SpecDerivationMaster_AsksInsteadOfChoosingSilently()
+    {
+        var prompt = DerivationPrompt();
+
+        prompt.Should().Contain("\"question\"");
+        prompt.Should().Contain("the code cannot settle which");
+        prompt.Should().Contain("put the index of the one you would take in \"taken\"",
+            "the next run proceeds on the taken reading when nobody answers");
+        prompt.Should().Contain("An assumption that does not change the work is NOT a hand-back",
+            "a question that changes nothing is a silent choice the master should make itself");
+    }
+
     // The prompt as the pinned catalog ships it, with WHITESPACE COLLAPSED: these
     // assertions are about the master's wording, and an authored markdown file wraps its
     // lines where the author felt like it. "the branch diff" straddles a line break in
