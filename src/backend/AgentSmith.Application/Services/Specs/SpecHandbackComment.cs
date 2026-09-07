@@ -3,10 +3,12 @@ using AgentSmith.Contracts.Specs;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0393a: the ticket comment a hand-back posts. The contradiction case carries the
-/// p0318 anchors, so an operator's reply parses back as an answer and re-triggers
-/// the run. The VERDICT case carries none on purpose: without an anchor no comment
-/// can be read as an answer, so commenting cannot restart a not-implementable
+/// p0393a: the ticket comment a hand-back posts. The CONTRADICTION case carries no
+/// p0318 anchor — nothing is parsed back as an answer; its heading carries
+/// <see cref="ContradictionMarker"/>, so the next run's conversation section keeps the
+/// comment in view while it is unanswered, and the repeat guard reads a reply after it
+/// as the progress that parks the ticket again instead of ending the loop. The VERDICT
+/// case carries no marker on purpose: commenting cannot restart a not-implementable
 /// ticket — only an explicit operator Retry can.
 /// <para>
 /// The REFUSED case names what was refused — the quoted sentence and the reason — and
@@ -24,6 +26,9 @@ public static class SpecHandbackComment
 {
     /// <summary>The phrase that marks a question comment as still awaiting an answer.</summary>
     public const string QuestionMarker = "the ticket reads two ways";
+
+    /// <summary>The phrase that marks a contradiction comment as still awaiting a reply.</summary>
+    public const string ContradictionMarker = "the requirement contradicts what is in the repository";
 
     /// <param name="waitingLine">
     /// p0454: who the hand-back waits for, in the platform's mention form. Every case
@@ -56,7 +61,7 @@ public static class SpecHandbackComment
         + "Change the ticket and use Retry on the run when it should be attempted again.";
 
     private static string Contradiction(SpecHandback handback) =>
-        "## Agent Smith — the requirement contradicts what is in the repository\n\n"
+        $"## Agent Smith — {ContradictionMarker}\n\n"
         + handback.Reason;
 
     private static string Refused(SpecHandback handback)

@@ -131,7 +131,7 @@ public sealed class DeriveSpecQuestionTests
             .ReturnsAsync(new SpecSetReadResult(PreviousQuestion(), "sha-1"));
         var pointers = new InMemorySpecSetPointerStore();
         pointers.SaveAsync(string.Empty,
-            new SpecSetPointer("azdo-19106", "primary", "sha-1", 1, SpecHandbackCase.Question, 1, "sha-1"),
+            new SpecSetPointer("azdo-19106", "primary", "sha-1", 1, SpecHandbackCase.Question, 1),
             CancellationToken.None).GetAwaiter().GetResult();
         return new DeriveSpecHandler(
             deriver, reader.Object, publisher, pointers,
