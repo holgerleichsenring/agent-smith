@@ -79,6 +79,7 @@ internal sealed class PipelineExecutorTestBuilder
             ExecutorMock.Object,
             FactoryMock.Object,
             TicketFactoryMock.Object,
+            new FailureTicketComment(),
             NullLogger<PipelineErrorHandler>.Instance);
 
         // SandboxCoordinator owns mutable per-run state; the executor resolves a

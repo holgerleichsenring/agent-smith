@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-f420
+
+decisions:
+  - category: Architecture
+    chose: "CommitAndPR reads the failure the executor left on the context (ContextKeys.FailureReason) and branches before the account is taken: draft PR with a failure banner, no keystone, no ticket finalize, a step result that says partial work was persisted"
+    over: "Skipping CommitAndPR on the finalizer tail and leaving persistence to PersistWorkBranch on the error path"
+    reason: |
+      p0237 put CommitAndPR on the tail so a failed run keeps its partial work as a record
+      PR; that is right and the operator confirmed it stays. What ran wrongly was the
+      handler's success epilogue: PhaseAccounting.TakeOrReuseAsync (an LLM account on a
+      run that had just died on its cost budget), RunDeliveryGate, the "Completed across
+      N repo(s)" summary and TicketLifecycle.FinalizeAsync with the done status. Live run
+      2026-09-07T20-43-51-b7bc showed exactly that order: phase p0010a green, p0010b's
+      master failed on the budget, the tail finalized the ticket completed and moved it to
+      the done status, then PipelineErrorHandler posted the failure. Run 14-04-31-0c88
+      showed the same shape after a keystone refusal. The failed step already IS the
+      verdict, so the handler takes it as DeliveryVerdict.Fail(reason) — the PR is a draft
+      the way p0273/p0300c/p0390 already draft a keystone-red run — and returns before the
+      gate. The harness repro (FailedRunFinalizationTests) reproduced the live comment and
+      status on main and is green after.
+  - category: Implementation
+    chose: "The failure comment PipelineErrorHandler posts carries what was kept and where, read from ContextKeys.OpenedPullRequests and the repository branch"
+    over: "A second ticket comment from the tail describing the partial PR"
+    reason: |
+      One comment on the ticket for a failed run: the failure, what was persisted, where.
+      CommitAndPR publishes OpenedPullRequests before the error path runs, so the note is
+      already available when the failure is posted; a second comment would be a second
+      thing for a reader to reconcile. Nothing persisted → nothing appended.
+  - category: Implementation
+    chose: "Three transient types for the three things a run can say: CompletedRunTicketSummary, FailedRunPersistence (banner + step result, into CommitAndPRHandler) and FailureTicketComment (into PipelineErrorHandler)"
+    over: "Inline strings in the two handlers, as before"
+    reason: |
+      FileLengthRatchetTests refuses growth in either handler (both are far over the
+      120-line limit) and in the two registration files, so the change had to extract a
+      responsibility rather than add lines. The wording of a run's outcome is that
+      responsibility: the completed summary left CommitAndPRHandler (it shrank 421 → 420
+      while gaining the failed branch), the three failure-comment shapes left the error
+      handler (184 → 172), and the three are registered in RunOutcomeWordingExtensions from
+      the root. The keystone evaluation moved into EvaluateKeystoneAsync alongside, which
+      also removed three locals nothing read (pipelineName, verification, realCodeChanges —
+      dead since p0421).
+  - category: Scope
+    chose: "The draft-PR-with-banner shape for a failed run; whether a red run should open a PR at all is not reopened"
+    over: "No PR on a failed run, as the p0300c keystone wording once implied"
+    reason: |
+      p0273 and p0300c already open a draft for a verification-red run and p0390 opens the
+      draft at the spec commit before any phase runs, so on a spec-derived run the PR
+      exists before the failure; the honest move is to refresh it as a draft that names
+      the failure, not to leave it with a stale body. A failed run is now consistent with
+      a keystone-red one; the success path is untouched.

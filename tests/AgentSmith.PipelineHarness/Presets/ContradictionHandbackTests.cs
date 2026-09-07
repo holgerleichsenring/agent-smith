@@ -45,9 +45,9 @@ public sealed class ContradictionHandbackTests
     // The loop ends as a FAILED step. Probed before this shape was chosen: a run that
     // CONTINUED past the repeat, as the old branch did, reached CommitAndPR with the spec
     // draft already pushed and finalized the ticket "Completed across 1 repo(s)" with
-    // nothing built and the run reported green. (The p0237 finalizer tail still posts that
-    // record-PR summary on a failed run before the failure comment lands — a defect of its
-    // own, named in the phase's scope, so this test pins the failure and the last word.)
+    // nothing built and the run reported green. (The p0237 finalizer tail used to post that
+    // record-PR summary on a failed run before the failure comment landed; 2026-09-07-f420
+    // ended that, so the failure is the ticket's only word.)
     [Fact]
     public async Task Contradiction_ASecondTimeWithNoReply_EndsTheLoopAsAFailureNotAPark()
     {
@@ -62,8 +62,8 @@ public sealed class ContradictionHandbackTests
         result.IsSuccess.Should().BeFalse("nobody replied, so the loop ends — as a failure, never a green run");
         result.Message.Should().Contain("the loop ends here").And.Contain("does not contain");
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info", "the ticket is not parked a second time");
-        tickets.Finalized.Last().Comment.Should().Contain("Agent Smith — Failed").And.Contain("the loop ends here",
-            "the failure, with its reason, is the ticket's last word");
+        tickets.Finalized.Should().ContainSingle("the failure is the ticket's only word")
+            .Which.Comment.Should().Contain("Agent Smith — Failed").And.Contain("the loop ends here");
         harness.ChatClient.ToolCalls.Should().BeEmpty("no master runs on a hand-back");
         runner.LastContext!.TryGet<bool>(ContextKeys.OpenQuestionsAwaitingAnswer, out _).Should().BeFalse();
     }

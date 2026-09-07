@@ -296,6 +296,8 @@ public sealed class MultiRepoHandlerTests
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
+            new FailedRunPersistence(),
+            new CompletedRunTicketSummary(),
             NullLogger<CommitAndPRHandler>.Instance);
             var repository = new Repository(new BranchName("agent-smith/ticket-42"), "primary");
             var ticket = new Ticket(new TicketId("42"), "title", "desc", null, "Open", "GitHub");
