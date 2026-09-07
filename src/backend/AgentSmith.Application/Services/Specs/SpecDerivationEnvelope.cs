@@ -26,6 +26,15 @@ public sealed class SpecDerivationEnvelope
                 SpecJsonReader.ReadString(e, "reason")))
             .Where(i => i.Quote.Length > 0)];
 
+    /// <summary>2026-09-07-b7e2: a phase's fact lines as the model wrote them — claim and
+    /// the id it cites. Which of them ARE facts is <see cref="FactResolver"/>'s call.</summary>
+    public IReadOnlyList<FactLine> Facts(JsonElement phase) =>
+        [.. SpecJsonReader.ReadObjects(phase, "facts")
+            .Select(e => new FactLine(
+                SpecJsonReader.ReadString(e, "claim"),
+                SpecJsonReader.ReadString(e, "cites")))
+            .Where(f => f.Claim.Length > 0)];
+
     public SpecHandback? Handback(JsonElement root)
     {
         if (!SpecJsonReader.TryGet(root, "handback", out var el)
