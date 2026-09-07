@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddSkillRunHandlers();
         services.AddContextBuilders();
         services.AddPipelineExecution();
+        services.AddRunOutcomeWording(); // 2026-09-07-f420
         services.AddLoopRuntime();
         services.AddSwaggerCompression();
         services.AddWebhookCommentIntent();

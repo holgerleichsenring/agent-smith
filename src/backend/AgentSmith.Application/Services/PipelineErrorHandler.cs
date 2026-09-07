@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// Pipeline error policy. Concerns kept here:
-///   - log + post HTML-formatted failure comment to the ticket
+///   - log + post the failure comment (FailureTicketComment) to the ticket
 ///   - best-effort WIP-persist guard (skip for sourceless / read-only pipelines)
 ///   - lifecycle.MarkFailed() — the operator-visible Done-vs-Failed terminal signal
 /// </summary>
@@ -17,6 +17,7 @@ public sealed class PipelineErrorHandler(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
     ITicketProviderFactory ticketFactory,
+    FailureTicketComment failureComment,
     ILogger<PipelineErrorHandler> logger) : IPipelineErrorHandler
 {
     public async Task HandleStepFailureAsync(
@@ -27,23 +28,16 @@ public sealed class PipelineErrorHandler(
         CommandResult failure,
         CancellationToken cancellationToken)
     {
-        var executionCount = failure.FailedStep;
-        var total = failure.TotalSteps;
-        var label = failure.StepName;
-
         logger.LogWarning("Pipeline stopped at step {Step}: {Step} failed - {Message}",
-            executionCount, label, failure.Message);
-        // HTML-formatted: AzDO System.History accepts HTML; GitHub/GitLab markdown comments
-        // render inline HTML; only Jira's ADF flattens it to plain text (acceptable fallback).
-        var safeMessage = System.Net.WebUtility.HtmlEncode(failure.Message ?? "");
+            failure.FailedStep, failure.StepName, failure.Message);
         // p0261: a FAILED run TERMINALIZES the native ticket status (not just a comment),
         // so the ticket no longer reads as New/Active — the same one-step comment+status
         // move success uses. The "working" status (PostWorkingStatusAsync) deliberately
         // stays a comment-only UpdateStatus; only this terminal failure moves the status.
+        // 2026-09-07-f420: this is the ticket's ONE comment on a failed run, so it also
+        // says what the finalizer tail kept and where (the draft PR, the branch).
         await FinalizeFailureAsync(projectConfig, context,
-            $"<b>Agent Smith — Failed</b><br/>" +
-            $"<b>Step:</b> {System.Net.WebUtility.HtmlEncode(label)} ({executionCount}/{total})<br/>" +
-            $"<b>Error:</b> {safeMessage}", cancellationToken);
+            failureComment.ForStep(failure, context), cancellationToken);
 
         await TryPersistWorkBranchAsync(commandNames, projectConfig, context, failure, cancellationToken);
         lifecycle.MarkFailed();
@@ -71,10 +65,8 @@ public sealed class PipelineErrorHandler(
     {
         logger.LogWarning(exception,
             "Pipeline aborted by a thrown exception before any step failed — terminalizing ticket status");
-        var safeMessage = System.Net.WebUtility.HtmlEncode(
-            string.IsNullOrEmpty(exception.Message) ? exception.GetType().Name : exception.Message);
         return FinalizeFailureAsync(projectConfig, context,
-            $"<b>Agent Smith — Failed</b><br/><b>Error:</b> {safeMessage}", cancellationToken);
+            failureComment.ForFatal(exception), cancellationToken);
     }
 
     /// <summary>
@@ -87,11 +79,7 @@ public sealed class PipelineErrorHandler(
     public Task FinalizeFailedTicketAsync(
         ResolvedProject projectConfig, PipelineContext context,
         string message, CancellationToken cancellationToken)
-    {
-        var safeMessage = System.Net.WebUtility.HtmlEncode(message);
-        return FinalizeFailureAsync(projectConfig, context,
-            $"<b>Agent Smith — Failed</b><br/>{safeMessage}", cancellationToken);
-    }
+        => FinalizeFailureAsync(projectConfig, context, failureComment.ForMessage(message), cancellationToken);
 
     /// <summary>
     /// Best-effort persist of the WIP branch when the pipeline fails after producing
