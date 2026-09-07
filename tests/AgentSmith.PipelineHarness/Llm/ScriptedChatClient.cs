@@ -23,6 +23,8 @@ public sealed class ScriptedChatClient : IChatClient
 
     public int InvocationCount { get; private set; }
     public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = Array.Empty<ChatMessage>();
+    /// <summary>The options of the most recent call — which tools, if any, it carried.</summary>
+    public ChatOptions? LastOptions { get; private set; }
     public IReadOnlyList<ScriptedToolCall> ToolCalls => _toolCalls;
 
     public ScriptedChatClient EnqueueText(string text)
@@ -81,6 +83,7 @@ public sealed class ScriptedChatClient : IChatClient
     {
         InvocationCount++;
         LastMessages = messages.ToList();
+        LastOptions = options;
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());

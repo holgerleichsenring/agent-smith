@@ -13,7 +13,8 @@ namespace AgentSmith.Infrastructure.Services.Security;
 /// dependency audit tool (npm audit, pip-audit, dotnet list package) inside
 /// the sandbox via Step{Kind=Run}. Returns null when no supported ecosystem.
 /// </summary>
-public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDependencyAuditor
+public sealed class DependencyAuditor(
+    IPackageEcosystemDetector ecosystems, ILogger<DependencyAuditor> logger) : IDependencyAuditor
 {
     private readonly AuditProcessRunner _processRunner = new(logger);
     private readonly NpmAuditParser _npmParser = new();
@@ -51,22 +52,16 @@ public sealed class DependencyAuditor(ILogger<DependencyAuditor> logger) : IDepe
     private async Task<(string? Ecosystem, List<DependencyFinding>? Findings)> DetectAndAuditAsync(
         ISandbox sandbox, ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
     {
-        if (await reader.ExistsAsync(Path.Combine(repoPath, "package-lock.json"), cancellationToken)
-            || await reader.ExistsAsync(Path.Combine(repoPath, "package.json"), cancellationToken))
-            return ("npm", await AuditNpmAsync(sandbox, cancellationToken));
-
-        if (await reader.ExistsAsync(Path.Combine(repoPath, "requirements.txt"), cancellationToken)
-            || await reader.ExistsAsync(Path.Combine(repoPath, "pyproject.toml"), cancellationToken))
-            return ("python", await AuditPythonAsync(sandbox, reader, repoPath, cancellationToken));
-
-        var entries = await reader.ListAsync(repoPath, maxDepth: 8, cancellationToken);
-        if (entries.Any(e => e.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
-            return ("dotnet", await AuditDotNetAsync(sandbox, cancellationToken));
-
-        if (await reader.ExistsAsync(Path.Combine(repoPath, "go.mod"), cancellationToken))
-            return ("go", []);
-
-        return (null, null);
+        var ecosystem = await ecosystems.DetectAsync(reader, repoPath, cancellationToken);
+        return ecosystem?.Kind switch
+        {
+            PackageEcosystemKind.Npm => ("npm", await AuditNpmAsync(sandbox, cancellationToken)),
+            PackageEcosystemKind.Python =>
+                ("python", await AuditPythonAsync(sandbox, reader, repoPath, cancellationToken)),
+            PackageEcosystemKind.DotNet => ("dotnet", await AuditDotNetAsync(sandbox, cancellationToken)),
+            PackageEcosystemKind.Go => ("go", []),
+            _ => (null, null),
+        };
     }
 
     private async Task<List<DependencyFinding>?> AuditNpmAsync(

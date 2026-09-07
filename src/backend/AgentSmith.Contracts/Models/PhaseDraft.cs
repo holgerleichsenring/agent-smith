@@ -28,6 +28,19 @@ public sealed record PhaseDraft(
     /// </summary>
     public IReadOnlyList<PhaseStep> Steps { get; init; } = [];
 
+    /// <summary>
+    /// 2026-09-07-b7e2: what the derivation LOOKED UP before writing, each line with the
+    /// evidence it cites. Read from the spec's own <c>facts</c> key, admitted by the
+    /// schema's open top level; a spec written before this phase has none.
+    /// </summary>
+    public IReadOnlyList<PhaseFact> Facts { get; init; } = [];
+
+    /// <summary>
+    /// 2026-09-07-b7e2: what the derivation stated WITHOUT a look behind it — a fact line
+    /// that cited nothing, or an id nobody minted, downgraded in code. Read from the
+    /// spec's <c>assumptions</c> key.
+    /// </summary>
+    public IReadOnlyList<string> Assumptions { get; init; } = [];
 }
 
 /// <summary>

@@ -52,6 +52,21 @@ internal static class SpecDerivationFixture
                       "reason": "The ticket asks for a rollback of a schema that was never shipped."}}
         """;
 
+    /// <summary>
+    /// 2026-09-07-c9d4: a derivation that found the ticket reading two ways, with the work
+    /// differing between them — both readings named, and the one the run would take.
+    /// </summary>
+    public const string QuestionJson = """
+        {"phases": [],
+         "discarded": [],
+         "ignored_instructions": [],
+         "handback": {"case": "question",
+                      "reason": "'Adopt the newest versions, even breaking' reads two ways and the work differs.",
+                      "readings": ["a major only where nothing lower clears the advisory",
+                                   "the newest major everywhere, breaking changes included"],
+                      "taken": 0}}
+        """;
+
     /// <summary>A derivation that found the requirement contradicting the repository.</summary>
     public const string ContradictsRepositoryJson = """
         {"phases": [],

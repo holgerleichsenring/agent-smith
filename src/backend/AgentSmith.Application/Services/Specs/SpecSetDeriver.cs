@@ -1,6 +1,5 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -22,13 +21,18 @@ namespace AgentSmith.Application.Services.Specs;
 /// bounded retries, then the step reports the failure and the caller falls back to
 /// the shape that is known to work.
 /// </para>
+/// <para>
+/// 2026-09-07-b7e2: before it writes, the derivation may LOOK — through the named
+/// read-only tools one host offers across every attempt, so a retry sees the looks
+/// already taken and the evidence ids it may cite.
+/// </para>
 /// </summary>
 public sealed class SpecSetDeriver(
     ISpecCutReviewer reviewer,
-    IChatClientFactory chatClientFactory,
+    SpecDerivationCall call,
+    DerivationLookFactory looks,
     IPromptCatalog prompts,
     SpecDerivationParser parser,
-    IRunContextAccessor runContext,
     ILogger<SpecSetDeriver> logger) : ISpecSetDeriver
 {
     /// <summary>Name of the pinned master skill carrying the judgement prompt.</summary>
@@ -42,21 +46,27 @@ public sealed class SpecSetDeriver(
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var key = previous?.Key ?? SpecSetKeyFactory.For(ticket, pipeline).Value;
+        var look = looks.Create(pipeline);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, RenderSystemPrompt()),
-            new(ChatRole.User, SpecPromptComposer.Compose(ticket, segments, previous, cause, pipeline)),
+            new(ChatRole.User,
+                SpecPromptComposer.Compose(ticket, segments, previous, cause, pipeline)
+                + DerivationLookPromptSection.Render(look)),
         };
 
         string? lastError = null;
         var kept = new LeastObjectedCut();
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
-            var text = await CallModelAsync(agentConfig, pipeline, messages, cancellationToken);
+            var response = await call.AskAsync(
+                agentConfig, pipeline, messages, DerivationTools.For(look), cancellationToken);
+            // The whole exchange is kept, not its text: the looks travel as tool calls.
+            messages.AddRange(response.Messages);
             var parsed = parser.Parse(
-                text, key, ticket.Id.Value, segments,
+                response.Text, key, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
-                ExecutedHeadOf(previous));
+                ExecutedHeadOf(previous), look?.Evidence.Lines);
             if (parsed.Derivation is not null)
             {
                 // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut
@@ -73,7 +83,6 @@ public sealed class SpecSetDeriver(
                 logger.LogWarning(
                     "Spec cut attempt {Attempt}/{Max} is not deliverable: {Error}",
                     attempt, MaxAttempts, lastError);
-                messages.Add(new ChatMessage(ChatRole.Assistant, text));
                 messages.Add(new ChatMessage(ChatRole.User,
                     $"Your cut cannot be delivered:\n{lastError}\nRespond again with ONLY the corrected JSON object."));
                 continue;
@@ -82,7 +91,6 @@ public sealed class SpecSetDeriver(
             logger.LogWarning(
                 "Spec derivation attempt {Attempt}/{Max} rejected: {Error}",
                 attempt, MaxAttempts, parsed.Error);
-            messages.Add(new ChatMessage(ChatRole.Assistant, text));
             messages.Add(new ChatMessage(ChatRole.User,
                 $"Your cut was rejected:\n{parsed.Error}\nRespond again with ONLY the corrected JSON object."));
         }
@@ -102,18 +110,4 @@ public sealed class SpecSetDeriver(
     {
         ["MaxPhases"] = SpecSet.MaxPhases.ToString(),
     });
-
-    private async Task<string> CallModelAsync(
-        AgentConfig agentConfig, PipelineContext pipeline,
-        List<ChatMessage> messages, CancellationToken cancellationToken)
-    {
-        var chat = chatClientFactory.Create(agentConfig, TaskType.Planning);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(agentConfig, TaskType.Planning);
-        using var _scope = runContext.BeginCallScope(
-            "spec-derivation", SkillExecutionPhase.Plan.ToString());
-        var response = await chat.GetResponseAsync(
-            messages, new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
-        PipelineCostTracker.GetOrCreate(pipeline).Track(response);
-        return response.Text ?? string.Empty;
-    }
 }

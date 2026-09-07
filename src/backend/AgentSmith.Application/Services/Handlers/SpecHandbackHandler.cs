@@ -19,6 +19,17 @@ namespace AgentSmith.Application.Services.Handlers;
 /// loop: the run proceeds instead of parking again, because a signal that fires
 /// forever teaches the operator to ignore it.
 /// </para>
+/// <para>
+/// A REFUSAL (raised by ScopeRepos, which splices this step in behind itself) parks
+/// like the contradiction case and is excluded from that loop-ending: continuing past
+/// what must not be done is the one wrong answer. With no tracker to park on it ends
+/// the run as a failed step — the continue branch would run checkout.
+/// </para>
+/// <para>
+/// A QUESTION parks like the contradiction case every time it is raised; its loop is
+/// ended by the conversation, not here: an unanswered question is pinned into the next
+/// derivation as the answer, so a second park is the model asking again.
+/// </para>
 /// </summary>
 public sealed class SpecHandbackHandler(
     ITicketProviderFactory ticketFactory,
@@ -35,7 +46,7 @@ public sealed class SpecHandbackHandler(
             || handback is null || handback.Case == SpecHandbackCase.None)
             return CommandResult.Ok("The derivation handed nothing back");
         if (context.Ticket is null || context.Tracker is null)
-            return CommandResult.Ok($"Derivation handed back ({handback.Case}) but the run has no tracker");
+            return NoTracker(handback);
 
         var project = context.Pipeline.TryGet<string>(ContextKeys.ProjectName, out var p) ? p! : string.Empty;
         var key = SpecSetKeyFactory.For(context.Ticket, context.Pipeline).Value;
@@ -80,13 +91,25 @@ public sealed class SpecHandbackHandler(
         // an answered question re-triggers, a verdict waits for a Retry.
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
         logger.LogInformation(
-            "The derivation handed ticket {Ticket} back ({Case}) — parked in {Status}",
+            "Ticket {Ticket} handed back ({Case}) — parked in {Status}",
             context.Ticket.Id.Value, handback.Case, status);
     }
 
-    private static CommandResult Result(SpecHandback handback) =>
-        handback.IsVerdict
-            ? CommandResult.Ok(
-                $"awaiting_user_input: not implementable as specified — {handback.Reason}")
-            : CommandResult.Ok($"awaiting_user_input: handed back ({handback.Case})");
+    private static CommandResult Result(SpecHandback handback) => handback.Case switch
+    {
+        SpecHandbackCase.NotImplementable => CommandResult.Ok(
+            $"awaiting_user_input: not implementable as specified — {handback.Reason}"),
+        SpecHandbackCase.Refused => CommandResult.Ok(
+            $"awaiting_user_input: refused — {handback.Reason}"),
+        SpecHandbackCase.Question => CommandResult.Ok(
+            $"awaiting_user_input: the ticket reads two ways — {handback.Reason}"),
+        _ => CommandResult.Ok($"awaiting_user_input: handed back ({handback.Case})"),
+    };
+
+    private static CommandResult NoTracker(SpecHandback handback) =>
+        handback.Case == SpecHandbackCase.Refused
+            ? CommandResult.Fail(
+                $"Refused: {handback.Reason} — quoted: \"{handback.Quote}\" — "
+                + "and the run has no tracker to park the ticket on")
+            : CommandResult.Ok($"Derivation handed back ({handback.Case}) but the run has no tracker");
 }
