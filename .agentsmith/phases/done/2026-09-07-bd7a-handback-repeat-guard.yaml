@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-bd7a
+goal: "A contradiction hand-back that repeats with no reply on the ticket ends the loop as a failed step; the guard reads the ticket thread, not a branch sha that every derivation moves."
+
+applies_to: "backend (the spec hand-back repeat guard, the hand-back comment markers, the pointer contract)"
+
+requires:
+  - 2026-09-07-c9d4
+
+scope:
+  in: "The repeat verdict for RequirementsContradictRepository, taken from the ticket conversation — the same signal the question case reads since c9d4 — through one predicate both cases share; a marker on the contradiction comment so the conversation section keeps it; the sha comparison and the pointer's HandbackSourceSha deleted; the loop's end as a failed step carrying the reason; a producer-level test that publishes through the real writer twice and proves the old guard could never fire; the stale doc-comment on SpecHandbackComment."
+  out: "The p0237 finalizer tail, which on EVERY failed coding run lets CommitAndPR open a record PR and post 'Completed across N repo(s)' with the done status before the failure comment lands — found while probing what 'continue' does; its own phase, 'the record PR summary says completed on a failed run'. The persistence column HandbackSourceSha: it stays, unwritten, because dropping it is a migration on both providers for a column nobody reads. The Refused case, which parks every time (a1c3); the NotImplementable verdict, which restarts only on a Retry that resets the pointer."
+
+decisions:
+  - key: |
+      THE SHA GUARD WAS UNREACHABLE IN PRODUCTION. RepeatsWithoutProgress compared the pointer's
+      HandbackSourceSha with the pointer's RevisionSha. DeriveSpecHandler.Finalize appends a revision
+      stamped DateTimeOffset.UtcNow; SpecSetIndex.Serialize writes that stamp into set.yaml; the writer
+      therefore always stages a change and always commits; the publisher stores the new sha. The sha
+      recorded at the last park was the previous run's commit, the head at the next park is this run's
+      commit, and the two are never equal. A contradiction parked again on every re-trigger, forever.
+      The only test fed hand-built shas and could not see it; the producer test here runs the real
+      publisher, writer, git operations and index over a sandbox that models git, twice, and was red
+      before the fix.
+  - key: |
+      THE CONVERSATION IS THE SIGNAL, IN ONE PLACE. The question the guard asks is "has anything
+      changed since we last handed back", and for a park that waits on a person the honest answer is
+      whether a person said anything. c9d4 already reads it for the question case — the last of our
+      comments carrying the question marker, followed by any comment that is not ours. The predicate
+      moves to OwnTicketComment, whose responsibility is already which comments are ours and which
+      wait on a person, and both the pin and the repeat guard call it with their own marker. A repeat
+      is: the previous hand-back was the same case AND nobody but us commented after our comment.
+  - key: |
+      THE CONTRADICTION COMMENT CARRIES A MARKER, AS THE QUESTION COMMENT DOES. Its heading phrase is
+      the marker; it joins OwnTicketComment.AwaitingAnswer so TicketConversationPromptSection keeps the
+      comment in view while it is unanswered and shows it beside its answer once there is one. The
+      doc-comment that claimed the contradiction comment carries the p0318 open-questions anchors was
+      false since p0393a and is corrected: it carries no anchor, a reply is read from the thread.
+  - key: |
+      ONLY THE CONTRADICTION CASE CAN END ITS LOOP. Refused parks every time (a1c3: continuing past
+      what must not be done is the one wrong answer). Question is ended by the pin (c9d4). The
+      NotImplementable verdict restarts only on an operator Retry, and that Retry resets the pointer's
+      case to None, so it is never a repeat by construction. A positive check is safer than three
+      exclusions: a future case has to opt in to continuing.
+  - key: |
+      HandbackSourceSha LEAVES THE CONTRACT, THE COLUMN STAYS. Nothing reads it besides the guard and
+      the round-trip through the row. The record slot, the publisher's carry-forward, the retry
+      service's reset and the repository's mapping go; the entity property and its column stay,
+      unwritten, because removing them is a migration on SQLite and SQL Server for a column nobody
+      reads. RepeatedHandbackCount stays: it is still counted and still stored.
+  - key: |
+      SpecHandbackRepeat IS A SERVICE, SHAPED LIKE UnansweredQuestionPin. Logger injected, one public
+      method over the pointer, the case and the pipeline, registered transient in
+      SpecDerivationRegistrations. SpecHandbackProgress keeps only the pointer record.
+  - key: |
+      THE LOOP ENDS AS A FAILED STEP, NOT AS A CONTINUE. The old branch returned Ok and let the run
+      go on. Probed end to end once it was reachable: a hand-back set has no phases, the gate and the
+      sequence pass it through, and CommitAndPR reaches a branch that already carries the pushed spec
+      draft and its PR — so the ticket was finalized "Completed across 1 repo(s)" with the done status
+      and the run reported green, with nothing built. That is the faked-green outcome this product is
+      built against, and worse than the park-forever it replaced. The precedent is p0391a and a1c3: a
+      hand-back that cannot do the right thing FAILS with the reason. The failure names the case, the
+      reason and what to do — reply on the ticket, move it back to a trigger status — and the error
+      path terminalizes the ticket status, so the poller does not re-claim it.
+
+steps:
+  - id: the-producer-test-shows-the-guard-never-fires
+    action: "Write a test that publishes a contradiction set through SpecSetPublisher, SpecSetWriter, SandboxGitOperations and SpecSetIndex over a git-modelling sandbox, runs SpecHandbackHandler, then does both again with a second timestamped revision and no reply on the ticket; assert the second hand-back ends the loop. Red on main: it parked again."
+  - id: the-contradiction-comment-carries-a-marker
+    action: "Add SpecHandbackComment.ContradictionMarker, list it in OwnTicketComment.AwaitingAnswer, and correct the doc-comment on SpecHandbackComment."
+  - id: the-repeat-guard-reads-the-thread
+    action: "Move the reply predicate into OwnTicketComment; build SpecHandbackRepeat over it; SpecHandbackHandler asks it instead of the sha comparison and ends the loop as a failed step naming the reason; UnansweredQuestionPin calls the shared predicate; delete RepeatsWithoutProgress and HandbackSourceSha."
+  - id: the-unit-cases-name-each-outcome
+    action: "A reply after ours is not a repeat; no reply is a repeat and the run ends; Refused always parks; NotImplementable parks; the sha-based cases are deleted. A fast-tier harness run covers the first park, the repeat, and the repeat after a reply."
+
+tests:
+  - "Contradiction_PublishedTwiceThroughTheRealWriter_TheSecondHandbackEndsTheLoop"
+  - "Contradiction_ARepeatWithNoReply_EndsTheRunInsteadOfParkingAgain"
+  - "Contradiction_ARepeatAfterAReply_ParksAgainAndCountsTheRepeat"
+  - "IsRepeat_AReplyAfterOurComment_IsNotARepeat"
+  - "IsRepeat_NoReplyAfterOurComment_IsARepeat"
+  - "IsRepeat_Refused_NeverEndsTheLoop"
+  - "IsRepeat_NotImplementable_NeverEndsTheLoop"
+  - "IsAnswered_ACommentByOthersAfterOurs_IsTrue"
+  - "Build_ContradictionCase_CarriesTheAwaitingAnswerMarker"
+  - "Contradiction_ASecondTimeWithNoReply_EndsTheLoopAsAFailureNotAPark"
+  - "Contradiction_ASecondTimeAfterAReply_ParksAgain"
+
+done:
+  - "a contradiction handed back a second time with no reply on the ticket ends the loop as a failed step naming the reason — never a second park, never a green run"
+  - "a contradiction handed back after a person replied parks again with the reply in the derivation's view"
+  - "the producer test is green over the real publish path and was red before the fix"
+  - "no code reads or writes SpecSetPointer.HandbackSourceSha; the column is untouched"
+  - "build green, full suite green"

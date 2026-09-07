@@ -13,11 +13,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// the derivation prompt as if the author had confirmed it, and the cut proceeds.
 /// <para>
 /// "Unanswered" is mechanical: no comment by anyone but us after our question, read
-/// from the thread the run already carries. The branch is never the signal — every
-/// derivation commits a fresh revision, so a sha comparison would call every
-/// re-trigger progress. A thread that holds comments by others but not our question
-/// is read as answered: the model then sees the thread and asks again if it must,
-/// which costs one park, whereas a wrong proceed costs the work.
+/// from the thread the run already carries through
+/// <see cref="OwnTicketComment.IsAnswered"/> — the predicate the contradiction repeat
+/// guard reads too. A wrong proceed costs the work; a wrong park costs one park.
 /// </para>
 /// </summary>
 public sealed class UnansweredQuestionPin(ILogger<UnansweredQuestionPin> logger)
@@ -33,7 +31,7 @@ public sealed class UnansweredQuestionPin(ILogger<UnansweredQuestionPin> logger)
         if (question is null || question.TakenReading is not { } taken) return null;
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
             ContextKeys.TicketComments, out var c) ? c : null;
-        if (IsAnswered(comments))
+        if (OwnTicketComment.IsAnswered(comments, SpecHandbackComment.QuestionMarker))
         {
             logger.LogInformation("The question on {Key} was answered — deriving on the answer", previous!.Key);
             return null;
@@ -46,17 +44,4 @@ public sealed class UnansweredQuestionPin(ILogger<UnansweredQuestionPin> logger)
             previous!.Key, unanswered.TakenLabel);
         return unanswered;
     }
-
-    private static bool IsAnswered(IReadOnlyList<TicketComment>? comments)
-    {
-        if (comments is null || comments.Count == 0) return false;
-        var ordered = comments.OrderBy(c => c.CreatedAt).ToList();
-        var asked = ordered.LastOrDefault(IsOurQuestion);
-        var after = asked is null ? ordered : ordered.Where(c => c.CreatedAt > asked.CreatedAt);
-        return after.Any(c => !OwnTicketComment.IsOurs(c));
-    }
-
-    private static bool IsOurQuestion(TicketComment comment) =>
-        OwnTicketComment.IsOurs(comment)
-        && comment.Body.Contains(SpecHandbackComment.QuestionMarker, StringComparison.OrdinalIgnoreCase);
 }

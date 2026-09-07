@@ -15,9 +15,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// not-implementable is a VERDICT — it parks in its own status, does not auto-retry
 /// on a comment, and restarts only on an explicit operator Retry.
 /// <para>
-/// Two hand-backs with the same case code and no source commit between them end the
-/// loop: the run proceeds instead of parking again, because a signal that fires
-/// forever teaches the operator to ignore it.
+/// Two contradictions in a row with no reply on the ticket between them end the loop,
+/// because a signal that fires forever teaches the operator to ignore it.
+/// <see cref="SpecHandbackRepeat"/> reads the thread. The loop ends as a FAILED step,
+/// not a continue: a hand-back carries no phases, and a run that continues past one
+/// reaches CommitAndPR with the spec draft already pushed, which closes the ticket as
+/// completed with nothing built (2026-09-07-bd7a).
 /// </para>
 /// <para>
 /// A REFUSAL (raised by ScopeRepos, which splices this step in behind itself) parks
@@ -35,6 +38,7 @@ public sealed class SpecHandbackHandler(
     ITicketProviderFactory ticketFactory,
     SpecParkStatusResolver parkStatus,
     ISpecSetPointerStore pointers,
+    SpecHandbackRepeat repeat,
     ILogger<SpecHandbackHandler> logger)
     : ICommandHandler<SpecHandbackContext>
 {
@@ -51,15 +55,15 @@ public sealed class SpecHandbackHandler(
         var project = context.Pipeline.TryGet<string>(ContextKeys.ProjectName, out var p) ? p! : string.Empty;
         var key = SpecSetKeyFactory.For(context.Ticket, context.Pipeline).Value;
         var pointer = await pointers.GetAsync(project, key, cancellationToken);
-        var head = pointer?.RevisionSha ?? string.Empty;
-        if (SpecHandbackProgress.RepeatsWithoutProgress(pointer, handback.Case, head))
+        if (repeat.IsRepeat(pointer, handback.Case, context.Pipeline))
         {
             logger.LogWarning(
-                "Spec {Key} handed back '{Case}' again with nothing committed since — "
+                "Spec {Key} handed back '{Case}' again with no reply on the ticket since — "
                 + "not parking a second time", key, handback.Case);
-            return CommandResult.Ok(
-                $"The derivation handed back '{handback.Case}' again with no change since the last "
-                + "hand-back — the loop ends here and the run continues");
+            return CommandResult.Fail(
+                $"The derivation handed back '{handback.Case}' again with no reply since the last "
+                + $"hand-back: {handback.Reason} — the loop ends here. Reply on the ticket with what "
+                + "changes the picture and move it back to a trigger status.");
         }
 
         // p0391a: an unresolvable park status is the RUN's failure, not a park in the wrong
@@ -74,7 +78,7 @@ public sealed class SpecHandbackHandler(
         await ParkAsync(context, handback, status!, cancellationToken);
         if (pointer is not null)
             await pointers.SaveAsync(project,
-                SpecHandbackProgress.Record(pointer, handback.Case, head), cancellationToken);
+                SpecHandbackProgress.Record(pointer, handback.Case), cancellationToken);
         return Result(handback);
     }
 
