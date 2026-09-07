@@ -17,13 +17,7 @@ public sealed class ContextVerifyStagesResolver
 {
     public IReadOnlyList<ContextVerifyStages> For(PipelineContext pipeline, string sandboxKey)
     {
-        ArgumentNullException.ThrowIfNull(pipeline);
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-                ContextKeys.SandboxContexts, out var bySandbox)
-            || bySandbox is null
-            || !bySandbox.TryGetValue(sandboxKey, out var contexts))
-            return [];
-
+        var contexts = SandboxContextList.In(pipeline, sandboxKey);
         var declared = new List<ContextVerifyStages>();
         foreach (var context in contexts)
         {

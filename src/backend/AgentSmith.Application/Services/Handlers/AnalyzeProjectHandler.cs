@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Persistence;
@@ -37,17 +36,36 @@ public sealed class AnalyzeProjectHandler(
             return CommandResult.Ok("No Sandboxes/SandboxDiscoveries in pipeline context, skipping");
 
         var perKey = new Dictionary<string, ProjectMap>(StringComparer.Ordinal);
+        var perContext = new Dictionary<string, Dictionary<string, ProjectMap>>(StringComparer.Ordinal);
+        context.Pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+            ContextKeys.SandboxRepos, out var owners);
         foreach (var (key, sandbox) in sandboxes)
         {
             if (!discoveries.TryGetValue(key, out var discovery)) continue;
-            var map = await AnalyzeOneAsync(context, sandbox, key, discovery, cancellationToken);
-            perKey[key] = map;
+            // 2026-09-04-0721: every context in the sandbox, not the group's representative
+            // alone. A bootstrap round writes a context.yaml from the map it is handed, and
+            // the representative's map describes a different subtree. The analyzer is cached
+            // per (sandbox key, workdir), so a re-run of an unchanged context costs nothing.
+            foreach (var ctx in SandboxContextList.InOr(context.Pipeline, key, discovery))
+            {
+                var map = await AnalyzeOneAsync(context, sandbox, key, ctx, cancellationToken);
+                if (string.Equals(ctx.ContextName, discovery.ContextName, StringComparison.Ordinal))
+                    perKey[key] = map;
+                var repoName = owners?.GetValueOrDefault(key) ?? key;
+                if (!perContext.TryGetValue(repoName, out var byContext))
+                    perContext[repoName] = byContext = new(StringComparer.Ordinal);
+                byContext[ctx.ContextName] = map;
+            }
         }
 
         // p0384: per-repo maps are the ONLY output — no collapse to a "primary"
         // (formerly sandboxes.Keys.First(), which made plan/contract/ledger blind
         // to every repo but the first configured one).
         context.Pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(ContextKeys.RepoProjectMaps, perKey);
+        context.Pipeline.Set<IReadOnlyDictionary<string, IReadOnlyDictionary<string, ProjectMap>>>(
+            ContextKeys.ContextProjectMaps,
+            perContext.ToDictionary(
+                kv => kv.Key, kv => (IReadOnlyDictionary<string, ProjectMap>)kv.Value, StringComparer.Ordinal));
         context.Pipeline.Set<IReadOnlyDictionary<string, string>>(
             ContextKeys.RepoCodeMaps,
             perKey.ToDictionary(
@@ -109,7 +127,7 @@ public sealed class AnalyzeProjectHandler(
             return;
         try
         {
-            await artifactStore.WriteAnalyzeMarkdownAsync(runId!, RenderAnalyzeMarkdown(maps), ct);
+            await artifactStore.WriteAnalyzeMarkdownAsync(runId!, AnalyzeMarkdownRenderer.Render(maps), ct);
         }
         catch (Exception ex)
         {
@@ -118,52 +136,6 @@ public sealed class AnalyzeProjectHandler(
             logger.LogWarning(ex, "Failed to cache analyze.md for run {RunId}", runId);
         }
     }
-
-    // p0243: render the per-repo ProjectMap(s) as operator-readable markdown —
-    // language, build/test commands, modules, test projects, conventions. This is
-    // "what the agent understood before it started"; the dashboard shows it after
-    // the Analyze step so the operator isn't flying blind on the agent's intent.
-    private static string RenderAnalyzeMarkdown(IReadOnlyDictionary<string, ProjectMap> maps)
-    {
-        var sb = new StringBuilder();
-        sb.Append("# Analyze — what the agent understood\n\n");
-        sb.Append($"{maps.Count} context(s) analyzed.\n");
-        foreach (var (key, m) in maps)
-        {
-            sb.Append($"\n## {key}\n\n");
-            sb.Append($"- **Language:** {m.PrimaryLanguage}\n");
-            if (m.Frameworks.Count > 0)
-                sb.Append($"- **Frameworks:** {string.Join(", ", m.Frameworks)}\n");
-            sb.Append($"- **Build:** {Code(m.Ci.BuildCommand)}\n");
-            sb.Append($"- **Test:** {Code(m.Ci.TestCommand)}\n");
-            sb.Append($"- **Prerequisites:** {Code(m.Prerequisites)}\n");
-            if (m.EntryPoints.Count > 0)
-                sb.Append($"- **Entry points:** {string.Join(", ", m.EntryPoints.Select(e => $"`{e}`"))}\n");
-
-            sb.Append($"\n**Modules ({m.Modules.Count})**\n\n");
-            foreach (var mod in m.Modules)
-                sb.Append($"- `{mod.Path}` — {mod.Role}\n");
-
-            sb.Append($"\n**Test projects ({m.TestProjects.Count})**\n\n");
-            if (m.TestProjects.Count == 0)
-                sb.Append("- _none discovered_\n");
-            foreach (var t in m.TestProjects)
-                sb.Append($"- `{t.Path}` — {t.Framework} ({t.FileCount} file(s))\n");
-
-            if (m.Conventions is { } c &&
-                (c.NamingPattern is not null || c.TestLayout is not null || c.ErrorHandling is not null))
-            {
-                sb.Append("\n**Conventions**\n\n");
-                if (c.NamingPattern is not null) sb.Append($"- naming: {c.NamingPattern}\n");
-                if (c.TestLayout is not null) sb.Append($"- test layout: {c.TestLayout}\n");
-                if (c.ErrorHandling is not null) sb.Append($"- error handling: {c.ErrorHandling}\n");
-            }
-        }
-        return sb.ToString();
-    }
-
-    private static string Code(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? "_n/a_" : $"`{value}`";
 
     private static string SubTreePath(string workdir) =>
         workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";

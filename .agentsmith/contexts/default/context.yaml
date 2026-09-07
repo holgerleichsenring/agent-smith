@@ -774,10 +774,8 @@ state:
     p0179a: "Master prompts as role:master skills loaded from _masters dir, catalog adapter routes prompt names -> .agentsmith/phases/done/p0179a-master-prompt-as-skill.yaml"
     2026-09-03-ee12: "A VERIFY COMMAND RUNS WHERE THE PROJECT SAYS (verify stage resolution). The inferred rung pinned every command to /work, so a repo whose manifests live a directory down built nothing (a06c). It reads meta.workdir now, p0224's one location source; IsDotnet and the .NET search go. -> .agentsmith/phases/done/2026-09-03-ee12-a-verify-command-runs-where-the-project-says.yaml"
     2026-09-04-102b: "THE DATABASE CONNECTION ARRIVES BY ENVIRONMENT (config bootstrap + file loader + k8s manifests). AGENTSMITH_PERSISTENCE_PROVIDER + _CONNECTION replace the file's block at BOTH readers, together or not at all — half a pair is a blocking finding. The ${db_password} promise nothing expanded is withdrawn. -> .agentsmith/phases/done/2026-09-04-102b-the-database-connection-arrives-by-environment.yaml"
-  active:
-    2026-09-03-7bac:
-      goal: "Commands run at the repo root; meta.workdir places none"
-      blocked-by: "agent-smith-skills release + embedded pin bump"
+    2026-09-04-0721: "RE-INIT BOOTSTRAPS EVERY CONTEXT IT PROBES (init discovery + per-context analysis). The short-circuit projected one context per SANDBOX while the gate probed every one, so a two-context repo was half-migrated and the next coding run refused. Each round now carries its own subtree's map. -> .agentsmith/phases/done/2026-09-04-0721-re-init-bootstraps-every-context-it-probes.yaml"
+    2026-09-04-ae3a: "A BOOTSTRAP REFUSAL NAMES THE CONTEXT IT MEANS (probe + gate). The probe answers per context instead of folding three booleans over a sandbox, so the refusal says which context lacks which file — and the retired-name sentence goes with the context it is true of, not the repository. -> .agentsmith/phases/done/2026-09-04-ae3a-a-bootstrap-refusal-names-the-context-it-means.yaml"
   active: {}
   planned:
     p0429b: "A SCAN REPORTS BACK TO THE TICKET IT CAME FROM (backend). Sliced out of p0429a: the coverage account the gate has judged since p0421 renders on three surfaces, but a scan preset reaches NEITHER the ticket comment nor the PR body — both end at DeliverFindings + WriteRunResult, and only the failure path ever comments on a scan's ticket. Giving a scan its own reporting surface is a delivery feature with its own questions. -> .agentsmith/phases/planned/p0429b-a-scan-reports-back-to-the-ticket-it-came-from.yaml"
