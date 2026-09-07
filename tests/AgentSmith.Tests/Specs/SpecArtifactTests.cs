@@ -105,6 +105,25 @@ public sealed class SpecArtifactTests
         index.RevisionsOf(doc)[^1].Cause.Should().Be(SpecRevisionCause.Initial);
     }
 
+    // 2026-09-07-c9d4: the readings and the taken index survive the branch, so the next run
+    // names the reading it proceeds on from the question that was actually asked.
+    [Fact]
+    public void SpecSetIndex_RoundTripsAQuestionHandbackWithItsReadings()
+    {
+        var question = new SpecHandback(
+            SpecHandbackCase.Question, "reads two ways",
+            Readings: ["only where an advisory forces it", "everywhere"], Taken: 1);
+        var set = TwoPhaseSet() with { Phases = [], Handback = question };
+
+        var index = new SpecSetIndex();
+        var read = index.HandbackOf(index.Parse(index.Serialize(set))!)!;
+
+        read.Case.Should().Be(SpecHandbackCase.Question);
+        read.Readings.Should().Equal("only where an advisory forces it", "everywhere");
+        read.Taken.Should().Be(1);
+        read.TakenReading.Should().Be("everywhere");
+    }
+
     [Fact]
     public void SpecSetKey_IsProviderAndTicketId_SoMergedSpecsCoexistInTheTrunk()
     {

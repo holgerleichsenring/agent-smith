@@ -71,7 +71,8 @@ public sealed class SpecDerivationParser(
 
         var phaseElements = SpecJsonReader.ReadObjects(root, "phases").ToList();
         if (phaseElements.Count == 0)
-            return new Parsed(null, "the reply carried neither a phase nor a hand-back");
+            return new Parsed(null,
+                envelope.HandbackRejection(root) ?? "the reply carried neither a phase nor a hand-back");
         if (phaseElements.Count > SpecSet.MaxPhases)
             return new Parsed(null,
                 $"{phaseElements.Count} phases exceed the maximum of {SpecSet.MaxPhases} — "

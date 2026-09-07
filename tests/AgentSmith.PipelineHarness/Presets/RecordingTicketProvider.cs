@@ -18,10 +18,17 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
     : ITicketProvider
 {
     private readonly List<(TicketId Id, string Comment, string? Status)> _finalized = [];
+    private readonly List<(TicketId Id, string Comment)> _commented = [];
 
     public IReadOnlyList<(TicketId Id, string Comment, string? Status)> Finalized
     {
         get { lock (_finalized) return [.. _finalized]; }
+    }
+
+    /// <summary>Plain comments — the ticket kept its status; the run did not park or close.</summary>
+    public IReadOnlyList<(TicketId Id, string Comment)> Commented
+    {
+        get { lock (_commented) return [.. _commented]; }
     }
 
     public string ProviderType => "recording";
@@ -43,6 +50,12 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
     public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>
         Task.FromResult(comments ?? []);
+
+    public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
+    {
+        lock (_commented) _commented.Add((ticketId, comment));
+        return Task.CompletedTask;
+    }
 
     public Task FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)

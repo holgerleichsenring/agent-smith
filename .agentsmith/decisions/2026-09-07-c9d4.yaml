@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-c9d4
+
+decisions:
+  - category: Architecture
+    chose: "B — on an unanswered re-trigger, re-derive with the taken reading pinned into the prompt as the answer"
+    over: "A — a question hand-back that carries the phases it would cut under the taken reading, published on the second park"
+    reason: |
+      A hand-back replaces the spec: SpecDerivationParser.Build returns no phases beside
+      one, and SpecDerivationTests pins it. A would make every hand-back a possible
+      spec, double the reply shape, change the parser and the gate, and ask the FIRST run
+      to do the work it has just said it cannot settle. B costs one model call more than
+      A on the second run and changes nothing in the parser: before the derivation call
+      the run reads the previous set's hand-back and the ticket thread, and if the
+      hand-back is a question nobody answered it sets ContextKeys.SpecQuestionPin — a
+      prompt section naming both readings and the taken one as confirmed. The derivation
+      cuts real phases under it; a plain comment then names the reading on the ticket.
+
+  - category: Implementation
+    chose: "Readings and Taken are typed slots on SpecHandback; SpecHandbackCase.Question = 4 appended"
+    over: "The spec's original shape: both readings and the assumption as prose in the reason"
+    reason: |
+      The framework names the taken reading twice — in the question comment and in the
+      proceed notice — and the second run holds only the model's SECOND phrasing. Prose
+      cannot do that without parsing model text, which is what p0393a's case codes were
+      introduced to avoid. The slots default so the existing cases construct unchanged;
+      the envelope reads them the way it reads the discarded list and refuses a question
+      with fewer than two readings or a taken index outside them, with the parser naming
+      the rejection so the retry sees it; SpecSetIndex persists them so the earlier
+      question is readable off the branch. LastHandbackCase is an int column, so the
+      value is appended after a1c3's Refused = 3, never renumbered — no migration.
+      SpecSetIndexDocument left SpecSetIndex.cs for its own file: the file sat exactly
+      at its ratchet baseline and the four document types were one-type-per-file
+      violations anyway; the baseline entry is removed.
+
+  - category: Implementation
+    chose: "Routing through the existing non-verdict branch: a question parks in the clarification status"
+    over: "A new status, or a resolver change"
+    reason: |
+      SpecParkStatusResolver already sends every non-NotImplementable case to
+      needs_clarification_status, and IsVerdict is untouched. The ticket comes back when a
+      person moves it to a trigger status; a comment alone re-triggers nothing (the
+      webhooks and the poller skip a parked status), as a1c3 established.
+
+  - category: Implementation
+    chose: "The conversation is the progress signal: no comment by anyone but us after our question"
+    over: "The pointer's sha guard (HandbackSourceSha == RevisionSha)"
+    reason: |
+      The guard is dead for derivation hand-backs. Every derivation commits a fresh
+      timestamped revision — DeriveSpecHandler.Finalize writes the timestamp into
+      set.yaml, SpecSetWriter always commits — so RevisionSha moves on every run and
+      never equals the HandbackSourceSha recorded at the last park; a contradiction parks
+      again on every re-trigger. Its repair is a separate phase, "the repeat guard reads a
+      sha that always moves"; this phase leaves it as it is for the other cases and
+      EXCLUDES Question from it, so a question parks every time the model asks and the
+      pin makes the second park the exception. "Answered" is read from the ticket comments
+      the run already carries: the last of our comments carrying the question heading,
+      followed by any comment that is not ours. A thread holding comments by others but
+      not our question reads as answered — the safe direction, since the model then sees
+      the thread and asks again if it must, at the cost of one park rather than the work.
+
+  - category: Implementation
+    chose: "The question heading carries the awaiting-answer marker, and a handed-back previous set renders no 'previous cut' section"
+    over: "Relying on the pin alone to carry the question into the next prompt"
+    reason: |
+      TicketConversationPromptSection drops our own comment unless the operator replied
+      after it or it carries OwnTicketComment.AwaitingAnswer; with the marker the
+      unanswered question stays in view beside the pin, and an ANSWERED question is shown
+      with its answer. The previous-cut section used to render for a hand-back too —
+      "AMEND it, repeat every executed phase" over zero phases — which is noise on every
+      hand-back re-run; PreviousCutPromptSection (extracted from SpecPromptComposer for
+      the line budget) renders nothing for a handed-back set.
+
+  - category: Implementation
+    chose: "The proceed notice is a plain comment through UpdateStatusAsync, posted only after a cut with phases"
+    over: "FinalizeAsync with a null status, or posting the notice before the derivation"
+    reason: |
+      FinalizeAsync with no status CLOSES the ticket. UpdateStatusAsync posts a comment and
+      leaves the status alone, which is what "the run continues" means. It is posted after
+      the publish and only when the finalized set is not a hand-back: a run that asked
+      again proceeded on nothing, and a notice saying otherwise would be the silent
+      continue this phase was written against. Inline tickets and runs without a tracker
+      skip it the way SpecSetTicketCommenter does.
+
+  - category: Process
+    chose: "requires names a1c3 only; the sibling phase is named in prose"
+    over: "requires naming b7e2, as the original spec did"
+    reason: |
+      b7e2 (the derivation reads the repo before it writes) is a sibling PR not in this
+      tree, and PhaseRecord_EveryRequires_NamesAPhaseThatExists is red on a dangling
+      requires. Its tools make the judgement better informed; nothing here depends on
+      them mechanically.
+
+  - category: Process
+    chose: "Skills PR #180 without a pin bump; no prompt-substring test for the new wording"
+    over: "Bumping the embedded pin in this phase"
+    reason: |
+      The release does not exist until #180 merges and release-please cuts it. An old
+      master never emits "question", so the binary ships safely ahead of the catalog; a
+      new master on an old binary fails the case parse, is read as a phases reply, is
+      rejected for empty phases and falls back to the whole ticket — harmless, but the
+      pin bump must precede the deployment that expects questions. #179 (b7e2) edits other
+      paragraphs of the same file; the hunks are kept separate and the merge order is in
+      the PR body. Both are operator follow-ups.

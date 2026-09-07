@@ -24,6 +24,12 @@ public static partial class ContextKeys
     /// case, a verdict park for not-implementable.</summary>
     public const string SpecHandback = "SpecHandback";
 
+    /// <summary>The question the previous run handed the ticket back with, left unanswered,
+    /// rendered as a prompt section that pins the taken reading as the answer for this run's
+    /// derivation (<see cref="Specs.SpecHandbackCase.Question"/>). Absent when there was no
+    /// question, or a person answered it.</summary>
+    public const string SpecQuestionPin = "SpecQuestionPin";
+
     /// <summary>p0393a: which phases of the sequence are through and which are not
     /// (<see cref="Specs.SpecSequenceProgress"/>). A stopped sequence leaves a
     /// half-migrated repository, and the pull request must state it per phase.</summary>
