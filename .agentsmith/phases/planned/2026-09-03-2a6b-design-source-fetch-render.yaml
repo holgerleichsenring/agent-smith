@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-2a6b
+
+goal: "A declared design source can be fetched for named nodes at a pinned version, and what came back is rendered for a person to look at."
+
+applies_to: "backend and dashboard (a design provider port, its first adapter, a read-only surface)"
+
+requires:
+  - 2026-09-03-c4f9
+
+scope:
+  in: >
+    A design provider port that returns a document's structure for named nodes at a stated version;
+    a first adapter against the vendor's HTTP API, naming the vendor, its authentication, its rate
+    limits and how a version is pinned; a read-only surface that renders what came back — node
+    names, literal text, geometry, variant properties and prototype edges — with the source version
+    shown; failures distinguished by kind: not found, no permission, rate limited, unreachable.
+  out: >
+    A SEMANTIC EXTRACT. Screens, fields, actions and states are not node types and cannot be mapped
+    without design-convention heuristics; what that layer may claim is decided after this phase has
+    shown what the payload actually contains.
+    ANY PIPELINE COUPLING. No step, no run context, no derivation input.
+
+decisions:
+  - key: |
+      WHAT THE PAYLOAD CONTAINS IS AN OPEN QUESTION, AND LOOKING IS CHEAPER THAN ASSUMING. The
+      structure yields node names, literal text, geometry, variant properties where a component set
+      exists, prototype edges where prototyping was wired, and token bindings where a designer bound
+      one. It has no screen type, no field type, no state model, and nothing that pairs a label with
+      an input. A phase that promised those would be promising a heuristic layer.
+  - key: |
+      A FETCH WITHOUT A PINNED VERSION IS NOT REPEATABLE. Asking for a file returns the file as it
+      is now, so the same reference resolves differently next week. The version is part of the
+      request and part of what is shown.
+  - key: |
+      FAILURE KINDS ARE NOT INTERCHANGEABLE. Not found, no permission, rate limited and unreachable
+      lead to different operator actions, and any later step that decides whether to stop a run
+      needs them separated at the adapter, not guessed from a status code upstream.
+  - key: |
+      READING FIRST IS THE HOUSE RULE. A shared artifact may hold mechanisms that read an
+      environment and gates that prove it, never a claim about it. A declared model of what a design
+      file contains, written before one has been read, would be exactly such a claim.
+
+steps:
+  - id: a-design-provider-port
+    action: "A port returns a document's structure for named nodes at a stated version, with typed failure kinds."
+  - id: the-first-adapter-names-its-vendor
+    action: "An adapter implements the port against the vendor's HTTP API, pinning a version and mapping its errors to the failure kinds."
+  - id: a-read-only-surface-renders-the-result
+    action: "A dashboard view fetches a declared source for given nodes and renders what came back, with the version shown."
+
+done:
+  - "a declared design source is fetched for a named node and the result is rendered"
+  - "the rendered result names the version it was fetched at"
+  - "a missing node, a forbidden token, a rate limit and an unreachable host each render distinctly"
+  - "nothing in any pipeline preset changes"
+  - "dashboard tests and build green, backend build green, full suite green"

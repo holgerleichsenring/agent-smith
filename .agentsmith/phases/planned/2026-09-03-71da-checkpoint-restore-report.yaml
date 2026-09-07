@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-71da
+
+goal: "Checkpoint restoration records which entries were restored, which failed and which came back empty, so the next context loss is diagnosable."
+
+applies_to: "backend (checkpoint serialisation, run trail)"
+
+scope:
+  in: >
+    Restore returns a per-entry outcome rather than a count; an entry that deserialises to a value
+    carrying no state is reported as empty, distinct from restored; the outcomes are written to the
+    run trail; behaviour is otherwise unchanged — nothing is refused.
+  out: >
+    REFUSING A RESUME on a missing entry. Which keys a run actually needs is not declared anywhere:
+    context keys are read at hundreds of call sites with no declaration of necessity, the data-flow
+    layer models permission rather than requirement and declares a wildcard everywhere, and the
+    remaining commands legitimately include producers of keys that do not exist yet. A refusal
+    built on that would reject the ordinary resume.
+
+decisions:
+  - key: |
+      THE OBSERVED LOSS MODE IS SILENT SUCCESS, NOT FAILURE. A type with no public state round-trips
+      as an empty object and comes back present-but-empty; that is how a run lost its command log.
+      A restore that counts successes cannot see it, and neither could a rule that only asked
+      whether a key is present.
+  - key: |
+      OBSERVABILITY FIRST, BECAUSE THE FAILURE CLASS IS NOT ENUMERABLE YET. The serialiser has
+      already been through throw-on-loss and warn-on-loss; both were wrong. Recording what actually
+      happens is what makes the third answer designable instead of guessed.
+  - key: |
+      THE TRAIL IS THE RIGHT PLACE. A resume is an operator-visible event and the trail is where a
+      run says what it did. A log line is invisible once the pod is gone.
+
+steps:
+  - id: restore-returns-per-entry-outcomes
+    action: "Restore reports each entry as restored, failed, or restored-empty instead of returning a count."
+  - id: an-empty-restore-is-its-own-outcome
+    action: "An entry that deserialises to a value carrying no state is reported as empty."
+  - id: the-outcomes-reach-the-run-trail
+    action: "The outcomes are written to the run trail on every resume."
+
+done:
+  - "a resume records one trail entry naming the keys restored, failed and empty"
+  - "an entry that round-trips to an empty value is reported as empty, not restored"
+  - "no resume is refused that succeeds today"
+  - "build green, full suite green"

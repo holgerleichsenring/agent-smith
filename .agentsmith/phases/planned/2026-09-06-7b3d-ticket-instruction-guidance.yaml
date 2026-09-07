@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+# SUPERSEDED by 2026-09-07-b7e2 (blocked in review 2026-09-06: segments are blank-line blocks, the rule already exists in the catalog, and guidance already reaches the master via SpecPromptSection). Kept as a record; do not build.
+phase: 2026-09-06-7b3d
+goal: "A ticket's working instructions reach the master as guidance and reminder instead of becoming criteria it is judged by, so only facts bind and no method sentence can re-drive a run."
+
+applies_to: "backend (spec derivation, the segment accounting, the master prompt and its re-engagement nudge, the acceptance gate)"
+
+scope:
+  in: "Sorting each ticket segment into a fact the run is judged by or an instruction the master is given; carrying instructions with the phase and rendering them into the master's prompt and its re-engagement nudge; a third disposition in the segment accounting so nothing goes missing; and matching acceptance dispositions by criterion instead of by list position, which separating the two lists would otherwise silently break."
+  out: "Classifying criteria by the KIND of check that would settle them — tried, refuted, recorded below. Giving the spec review command execution: it stays the net under this, not the mechanism. And any change to what the master may DO; this phase moves sentences between two lists and touches no permission."
+
+decisions:
+  - key: |
+      BOTH OBSERVED FAILURES BEGAN AS A METHOD SENTENCE TURNED INTO A CONTRACT. A dependency
+      ticket carried "adopt to the newest versions, even for breaking changes" and "run linting,
+      testing and coverage to see if you are done". The derivation turned the first into a
+      criterion requiring the package manifest to carry the upgraded versions — over a repository
+      whose findings were all transitive, so no fix touches the manifest — and the second into a
+      criterion about a coverage command that neither package manifest defines. Both are false
+      before the work starts and no work can make them true. The acceptance gate then re-drove the
+      master against them pass after pass while the progress ledger stayed green, and the operator
+      cancelled at $10 with the real work finished in the first minutes. Neither sentence was a
+      statement about the world. Both were instructions about how to work.
+  - key: |
+      SO THE TICKET'S INSTRUCTIONS GOVERN THE WORK, AND ONLY ITS FACTS GOVERN THE VERDICT.
+      That is the whole phase. A ticket mixes two kinds of sentence — what must be TRUE when this
+      is done, and how the work should be DONE — and the derivation currently flattens both into
+      one done-list, which is the acceptance contract. An instruction in that list is a gate that
+      fires on a preference. Sorted apart, the instruction still reaches the agent and still
+      shapes the work; it simply stops being something a run can fail against forever.
+      Nothing is dropped and nothing is forbidden: "adopt the newest versions" and "run lint,
+      test and coverage" are handed to the master as instructions and repeated to it when it is
+      re-engaged. It is asked and reminded, not constrained.
+  - key: |
+      FREE IN CLAIMING, MECHANICAL IN ADMITTING — THE ACCOUNTING'S OWN POSTURE, ONE LEVEL UP.
+      The delivery account works because it forbids the model nothing and is still hard: the
+      account may claim whatever it likes, and a row becomes Satisfied only when its citation
+      resolves against the diff. The same shape here. The derivation sorts the ticket however it
+      reads it — no keyword list, no grammar rule, no vocabulary of forbidden verbs, because a
+      rule like that would be wrong on the first ticket that phrases a fact as an imperative.
+      What is mechanical is the CONSEQUENCE: a segment sorted as guidance cannot enter the
+      done-list, and therefore cannot re-drive, whatever anyone believes about it.
+  - key: |
+      GUIDANCE IS A THIRD DISPOSITION IN AN ACCOUNTING THAT ALREADY EXISTS. SpecAccounting already
+      states, per ticket segment, that it is Carried by a named phase or Discarded with a reason,
+      and refuses to split at all when a segment is Unaccounted. Guidance joins that list rather
+      than becoming a new mechanism: a segment carried as guidance is spoken for, visible in the
+      pull request, and auditable by a human in seconds — which is the property that accounting
+      was built for and the reason a percentage was rejected in its place. It also means a
+      mis-sort is VISIBLE. If the derivation files a fact as guidance, that shows in the
+      accounting, not in an invoice three passes later.
+  - key: |
+      THE MASTER IS ASKED AND REMINDED, NOT CONSTRAINED, SO GUIDANCE RIDES IN TWO PLACES.
+      Once in the prompt beside the done-list, and again in the re-engagement nudge, because a
+      long run compacts and an instruction stated only in the opening turn is an instruction the
+      model has already forgotten by the pass that would have used it. This mirrors what the
+      progress ledger already does — pinned, re-rendered, reminded — and it is deliberately a
+      reminder rather than a check: the run is not judged on whether guidance was followed, and
+      no pass is spent proving it was.
+  - key: |
+      THE POSITIONAL DISPOSITION INDEX HAS TO GO FIRST, AND IT IS A BUG TODAY.
+      MasterAcceptanceGate walks dispositions by INDEX against a criteria COUNT, while the master
+      is only asked to return them "ordered to match" — so a short or reordered answer already
+      measures criterion i against the disposition of j, silently, before this phase changes
+      anything. Separating criteria from guidance shifts what index i means, so building on top
+      of it would turn a latent bug into a systematic one. AcceptanceDisposition already carries
+      its Criterion text; matching on that is the fix, and it is worth doing on its own.
+  - key: |
+      WHY NOT CLASSIFY THE CRITERIA INSTEAD — TRIED, REFUTED, RECORDED SO IT IS NOT RE-PROPOSED.
+      The obvious alternative is to keep one list and let each criterion declare the kind of check
+      that would settle it, binding only for kinds a machine can run. It fails on the very case it
+      is built for. "The package manifest carries the upgraded versions" is a predicate over the
+      repository as it stands afterwards, so it lands in the binding bucket, and a check for it
+      (grep the manifest for a version) runs and fails at the start like any honest criterion. Two
+      independent sources said so: a design review reading the code, and a live run of the real
+      review prompt over the real repository at its pre-work state, which answered "decidable —
+      state of the files is directly inspectable". A taxonomy that cannot separate the failure it
+      was designed against only moves the error from a bad criterion to a bad label, and the label
+      is invisible in the pull request while the criterion is not.
+  - key: |
+      THE SCHEMA DOOR IS SOFT, BUT THE READER IS NOT. The phase-spec schema sets no
+      additionalProperties:false at its root, so a spec carrying a guidance list is still valid to
+      a binary built before this phase — it ignores what it does not know, and the run degrades to
+      today's behaviour rather than failing. The danger is the other reader: the derivation's JSON
+      reader keeps only string elements of done, so a prompt that starts asking for a richer shape
+      while that reader is unchanged yields an EMPTY done-list, and an empty contract passes the
+      acceptance gate by definition. Guidance therefore travels as its own list and never as a
+      shape change inside done, and a test drives the derivation output through the real reader to
+      prove the contract is non-empty.
+
+steps:
+  - id: dispositions-are-matched-by-criterion
+    action: "Match the master's acceptance dispositions to the ratified criteria by criterion text rather than list position, in the acceptance gate and anywhere else that pairs them, so a short or reordered answer cannot measure one criterion against another's disposition."
+  - id: the-derivation-sorts-fact-from-instruction
+    action: "Ask the derivation, per ticket segment, whether it states what must be true when the work is done or how the work should be done, and let it place each segment in the phase's done-list or in a guidance list accordingly."
+  - id: guidance-rides-with-the-phase
+    action: "Carry the guidance list on the phase, through the derived yaml and the branch artifact, and render it into the master's prompt beside the done-list as instruction rather than as something judged."
+  - id: guidance-is-repeated-when-the-master-is-re-engaged
+    action: "Include the phase's guidance in the re-engagement nudge, so an instruction survives compaction and the pass that would use it still has it."
+  - id: the-accounting-says-where-each-segment-went
+    action: "Record a segment carried as guidance in the spec accounting alongside carried and discarded, and render it where the accounting is already rendered, so a mis-sort is visible to a reviewer instead of silent."
+
+tests:
+  - "Acceptance_ADispositionListInAnotherOrder_IsMatchedByCriterionNotByPosition"
+  - "Acceptance_AShortDispositionList_LeavesTheUnnamedCriterionUnmet"
+  - "Derivation_AMethodSentence_BecomesGuidanceAndNotACriterion"
+  - "Derivation_AStatementOfWhatMustBeTrue_StaysInTheDoneList"
+  - "Derivation_ATicketOfOnlyInstructions_StillYieldsANonEmptyContractOrHandsBack"
+  - "Guidance_ReachesTheMasterPrompt_AsInstructionBesideTheDoneList"
+  - "Guidance_IsRepeatedInTheReengagementNudge"
+  - "Guidance_IsNeverRatified_SoItCannotReengageTheMaster"
+  - "Accounting_ASegmentCarriedAsGuidance_IsSpokenForAndRendered"
+  - "Derivation_TheRealReaderOverTheDerivationOutput_YieldsANonEmptyDoneList"
+
+done:
+  - "a ticket sentence stating how the work should be done does not appear in the phase's done-list"
+  - "that sentence reaches the master in its prompt and again when the master is re-engaged"
+  - "no criterion the master is judged by comes from a sentence the derivation filed as guidance"
+  - "a disposition list in another order or one entry short is matched by criterion, and an unnamed criterion counts as unmet"
+  - "every ticket segment is carried, carried as guidance, or discarded with a reason, and the accounting renders which"
+  - "the derivation output read by the real reader yields a non-empty done-list"
+  - "build green, full suite green"
