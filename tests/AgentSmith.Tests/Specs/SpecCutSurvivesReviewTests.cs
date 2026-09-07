@@ -77,12 +77,11 @@ public sealed class SpecCutSurvivesReviewTests
     {
         var deriver = new SpecSetDeriver(
             new FixedReviewer(verdict),
-            new SingleClientFactory(new AlwaysAnswers(reply)),
+            new SpecDerivationCall(
+                new SingleClientFactory(new AlwaysAnswers(reply)), new AsyncLocalRunContextAccessor()),
+            DerivationTestLooks.Factory(),
             new FixedPrompt(),
-            new SpecDerivationParser(
-                new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(),
-                new DerivedPhaseYamlRenderer(), new SpecDerivationEnvelope()),
-            new AsyncLocalRunContextAccessor(),
+            DerivationTestParsers.Real(),
             NullLogger<SpecSetDeriver>.Instance);
 
         var ticket = new Ticket(
