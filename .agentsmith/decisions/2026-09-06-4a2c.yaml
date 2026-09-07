@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-06-4a2c
+
+decisions:
+  - category: Architecture
+    chose: "The section renders from AcceptanceCriteria.For — the funnel the gate already judges by"
+    over: "A second renderer reading ContextKeys.PhaseSpec directly, or teaching the master prompt about phase specs"
+    reason: |
+      The defect being fixed IS two sources for one contract: the gate resolved the run's criteria
+      through AcceptanceCriteria.For while the prompt asked about ContextKeys.RunExpectation, a key
+      no composed pipeline sets any more. A second renderer with its own source would be the same
+      defect with a fresh face — it would drift again the first time either side learns a new
+      source. Reading the same call makes the invariant structural rather than remembered, and a
+      test asserts it directly: what the section presents equals what the gate resolves. The
+      funnel already handles the scan case, and only the coding master declares ExpectationSection
+      among its inputs, so widening the source cannot leak a contract into a scan prompt.
+  - category: Architecture
+    chose: "The criteria render under an Expected heading, with no Observed section"
+    over: "Synthesising an ExpectationDraft so the existing ExpectationMarkdown renderer could be reused"
+    reason: |
+      Reuse was the tempting option and it would have required inventing an Observed statement,
+      because a derived spec says what must become true and never what is presently the case.
+      Writing a present state nobody observed into a binding contract is fiction, and the master is
+      instructed to implement exactly what the contract asserts. The Expected heading is kept
+      because it is load-bearing rather than cosmetic: the pinned master says "one entry per
+      ratified 'Expected' assertion" and "walk EACH 'Expected' assertion", so the instructions the
+      model already carries need something of that name to land on. Heading and structure are
+      therefore matched to the skill; the Observed half is dropped because it has no referent.
+  - category: Architecture
+    chose: "The plan section keeps its own copy of the done-list"
+    over: "Removing it so the criteria would appear exactly once in the prompt"
+    reason: |
+      An earlier cut of this phase removed it, on the belief that there were two copies and that
+      one prompt should carry the criteria once. The count was wrong. They reach the model from
+      three places — the plan section in the master body, the done-criteria block in the
+      phase-execution user prompt, and the phase yaml carried verbatim inside the untrusted-ticket
+      delimiters. Removing one of three buys no disambiguation, breaks two tests that pin the plan
+      section's wording, and changes what the master READS while this phase is trying to change
+      only what it is ASKED. The duplication predates this work and outlives it; if it is worth
+      removing, that is a phase about the prompt's shape, not a rider on this one.
+  - category: Architecture
+    chose: "Ship the contract section alone; split the disposition pairing into its own phase"
+    over: "One phase that both delivers the dispositions and fixes how they are paired"
+    reason: |
+      The gate walks dispositions by index against a criteria count, so a longer answer in another
+      order is measured against the wrong criterion. That is a real bug and it is tempting to fix
+      in the same commit, since this phase is what finally makes dispositions arrive. It was split
+      because the pairing change is not small: it turns a count parameter into the criteria
+      themselves, rewrites the gate's own test file, and flips roughly eleven harness fixtures that
+      answer "criterion 1" against real done-lists. Bundled together, a red fixture would have been
+      ambiguous between "the contract now renders" and "the pairing now matches", which is exactly
+      the ambiguity a phase boundary exists to prevent. The successor is recorded as its own
+      planned phase, with the per-disposition fallback its safety argument needs.
+  - category: Architecture
+    chose: "Supersede p0389's ruling against a 1:1 verdict pairing rather than work around it"
+    over: "Leaving the section empty and adding a bound elsewhere, e.g. capping re-drives"
+    reason: |
+      p0389 recorded that "pairing the verdict 1:1 with generated done-criteria is a gate on day
+      one", citing p0341c's lesson about an artifact declared memory-not-a-gate becoming a gate.
+      p0393a then made the done-list the gate's criteria anyway, and this phase is what makes that
+      pairing operative instead of vacuous, so the objection lands here and is answered rather than
+      passed over. The answer: what is in force today is not "no gate" but a gate STUCK CLOSED —
+      generated criteria that can never be disposed of at all, which is the same worry's worse
+      half. And the mitigation p0389 did not have now exists: the spec review challenges the
+      derived criteria against the repository before they bind. Capping re-drives instead would
+      have left a run unable to state that it was finished, and treated the symptom.

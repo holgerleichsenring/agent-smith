@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-06-9f14
+goal: "The acceptance gate pairs each of the master's dispositions with the criterion it names, so an answer in another order stops being measured against the wrong criterion."
+
+applies_to: "backend (the acceptance gate's pairing of dispositions to ratified criteria)"
+
+requires:
+  - 2026-09-06-4a2c
+
+scope:
+  in: "Matching a disposition to its criterion by the text it carries, with today's positional pairing kept as the per-disposition fallback, plus the normalisation and duplicate-text rules that makes safe."
+  out: "Making the master emit dispositions at all — that is the phase this one requires, and until it lands this pairing has nothing to pair."
+
+decisions:
+  - key: |
+      THE GATE WALKS BY INDEX AND THE MODEL IS ONLY ASKED FOR ORDER. MasterAcceptanceGate walks
+      dispositions by position against a criteria COUNT. A SHORT answer fails closed one line
+      earlier and is safe; a LONGER answer in another order is not — criterion i is then measured
+      against the disposition of j, silently. AcceptanceDisposition already carries its Criterion
+      text, so the pairing it needs is available and unused.
+  - key: |
+      THE FALLBACK IS PER DISPOSITION, NEVER PER ARRAY, AND THAT DISTINCTION IS THE WHOLE PHASE.
+      An all-or-nothing rule — match by name if every entry carries one, else fall back — looks
+      safe and is not: an array whose entries all carry names that match NOTHING yields zero
+      matches and marks every criterion unmet, which is the same burn through a new door. It is
+      also not hypothetical. Roughly eleven harness fixtures answer "criterion 1" and "criterion 2"
+      against real done-lists, and every test in the gate's own test file constructs dispositions
+      the same way. So: match by name where a name matches; fall back to position for anything
+      unmatched; and never let a non-matching name REMOVE a pairing that position would have made.
+      Then no answer that passes today can fail after.
+  - key: |
+      NORMALISATION AND DUPLICATES HAVE TO BE STATED, NOT LEFT TO THE READER. A model that trims a
+      full stop or re-wraps whitespace should still match, so comparison is on trimmed text with
+      collapsed inner whitespace, ordinal and case-sensitive otherwise. A done-list may legally
+      repeat a string — the schema does not enforce uniqueness — so duplicate criterion texts pair
+      in order of appearance, and the second disposition naming that text takes the second slot.
+  - key: |
+      THE SIGNATURE CHANGES, WHICH IS WHY THIS IS ITS OWN PHASE. ObjectivelySatisfied takes an int
+      count today; matching by name needs the criteria themselves. That reaches its caller in the
+      re-engagement policy, the master handler, and every test in the gate's test file. Bundled
+      with the phase that makes dispositions arrive at all, a red fixture would have been
+      ambiguous between the two changes.
+
+steps:
+  - id: the-gate-takes-the-criteria-not-a-count
+    action: "Give the acceptance gate the ratified criteria rather than their number, threading the change through its callers."
+  - id: a-disposition-is-paired-with-the-criterion-it-names
+    action: "Pair each disposition with the criterion whose normalised text it names, falling back to that disposition's position when it names nothing that matches, so a pairing position would have made is never removed."
+
+tests:
+  - "Pairing_DispositionsInAnotherOrder_AreMatchedByCriterion"
+  - "Pairing_ADispositionNamingNothing_StillPairsByItsPosition"
+  - "Pairing_ADispositionWithTrailingPunctuationOrExtraSpace_StillMatches"
+  - "Pairing_ADoneListRepeatingACriterion_PairsThemInOrderOfAppearance"
+  - "Pairing_AnAnswerThatSatisfiesTheGateToday_StillSatisfiesIt"
+
+done:
+  - "a disposition list in another order satisfies the gate when every criterion is met"
+  - "a disposition naming nothing that matches is paired by its position as before"
+  - "an answer that satisfies the gate before this phase still satisfies it after"
+  - "build green, full suite green"
