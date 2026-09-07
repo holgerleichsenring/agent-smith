@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Json;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 
@@ -38,7 +39,7 @@ public sealed class SpecDerivationParser(
         if (string.IsNullOrWhiteSpace(reply))
             return new Parsed(null, "the reply was empty");
 
-        foreach (var json in SpecJsonReader.BalancedObjects(reply))
+        foreach (var json in JsonObjectSpans.Balanced(reply))
         {
             JsonDocument doc;
             try { doc = JsonDocument.Parse(json); }

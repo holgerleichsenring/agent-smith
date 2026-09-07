@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-24ed
+goal: "A brace inside a JSON string literal no longer hides the object that carries it: one string-aware span scanner in Contracts replaces the five brace counters that read model output."
+
+applies_to: "backend (worker reply parsing, master verdict parsing, expectation draft parsing, spec derivation parsing, tolerant JSON recovery)"
+
+scope:
+  in: "JsonObjectSpans.Balanced in AgentSmith.Contracts: every balanced top-level {...} span, outermost first, string-literal aware with escapes honoured, quotes tracked only while inside an object. JsonObjectScanner (worker), MasterVerificationParser, ExpectationDraftParser, SpecJsonReader and TolerantJsonObjectScanner migrate onto it and their private copies are deleted. The live payload from run 0c88 pinned as a test; the same shape pinned for the verdict and the draft; the stray-quote-before-the-object case pinned for the tolerant parser."
+  out: "Unfence and HasEnvelopeField, which stay on the worker scanner — they are about the envelope, not about where an object ends. The worker's re-prompt wording ('changed code but emitted no verdict'), which was right about what it saw. Fenced-block extraction in MasterVerificationParser, which is a regex over fences and not a brace count."
+
+decisions:
+  - key: |
+      THE DEFECT IS PROVEN LIVE. Run 2026-09-07T14-04-31-0c88: the coding master, answering through
+      the external worker, emitted a valid envelope whose edit carried old_string "{\n  \"extends\": ..."
+      — a brace opened inside a string. JsonObjectScanner.BalancedObjects counted braces with no notion
+      of string literals, depth never returned to zero, no object was yielded, the reply was read as
+      narration, the master was told it "changed code but emitted no verdict", re-prompted, emitted the
+      same envelope and stopped "idle with work still open". The model itself wrote that "the prior pass
+      that attempted to edit tsconfig.build.json was emitted as raw text and never executed". Any edit of
+      code with braces — JSON, TS, C# — kills worker mode this way.
+  - key: |
+      ONE SCANNER, IN CONTRACTS. Five brace counters existed and none was shared: the worker's (fixed
+      by the patch), MasterVerificationParser's, ExpectationDraftParser's and SpecJsonReader's (all
+      naive — a verdict whose evidence string contains "{" breaks the same way) and
+      TolerantJsonObjectScanner (string-aware, but tracking quotes outside objects too, so a stray
+      quote in prose before the JSON swallowed it). Infrastructure references Contracts, Domain and
+      Infrastructure.Core, not Application, so the one implementation both layers can reach lives in
+      AgentSmith.Contracts. The private copies are deleted and every call site migrates; no shim.
+  - key: |
+      QUOTES ARE TRACKED ONLY INSIDE AN OBJECT. Prose is not JSON: a model writes 'Continuing
+      "adapt-source": fixing tsconfig' and an apostrophe or an unpaired quote before the envelope is
+      normal. Starting string-tracking at the opening brace means the prose may quote freely and the
+      object is still found; inside the object the JSON grammar holds, so a quote there is a string
+      boundary and a backslash escapes the next character.
+  - key: |
+      AN UNCLOSED OBJECT IS SKIPPED, NOT TERMINAL. When the span opened at a brace never closes, the
+      scan resumes at the next brace — as all four naive scanners did. A stray "{" in prose before the
+      envelope therefore does not hide the envelope, which is the class of loss this phase exists to
+      end. TolerantJsonObjectScanner's contract that a half-finished trailing object is dropped
+      survives: the unclosed object itself is never yielded.
+  - key: |
+      SpecJsonReader IS THE FIFTH COPY AND MIGRATES TOO. The brief named four; the derivation parser
+      read its reply through the same naive count, and a phase description quoting a brace would have
+      lost the whole set. It joins the migration rather than staying as the one copy left behind.
+
+steps:
+  - id: the-span-scanner-lives-in-contracts
+    action: "Add JsonObjectSpans.Balanced(string) to AgentSmith.Contracts: outermost balanced spans, string-literal aware, escapes honoured, quotes tracked only inside an object, an unclosed span skipped."
+  - id: the-worker-scanner-reads-through-it
+    action: "JsonObjectScanner.BalancedObjects and its private FindObjectEnd go; WorkerReplyParser and the braces test call JsonObjectSpans.Balanced. Unfence and HasEnvelopeField stay."
+  - id: the-application-parsers-read-through-it
+    action: "Delete the private BalancedObjects in MasterVerificationParser, ExpectationDraftParser and SpecJsonReader, and TolerantJsonObjectScanner entirely; TolerantJsonParser, ProjectMapJsonReader, BootstrapDiscoverHandler and SpecDerivationParser call JsonObjectSpans.Balanced."
+  - id: each-consumer-pins-the-brace-in-a-string
+    action: "The live 0c88 payload for the worker; a verdict whose evidence contains braces and one with an unbalanced brace; the same for a draft; a stray quote before the object for the tolerant parser; the existing truncation tests stay green."
+
+tests:
+  - "Envelope_AnEditWhoseStringOpensABrace_StillCarriesItsToolCalls"
+  - "Envelope_FramedByNarrationThatQuotes_IsStillFound"
+  - "Envelope_AnEscapedQuoteInsideAString_DoesNotEndTheString"
+  - "Balanced_ABraceInsideAString_DoesNotCloseOrOpenAnObject"
+  - "Balanced_ProseQuotesBeforeTheObject_AreNotStringBoundaries"
+  - "Balanced_AnUnclosedObject_IsSkippedAndTheNextOneFound"
+  - "TryParse_EvidenceContainsBraces_StillParses"
+  - "TryParse_EvidenceContainsAnUnbalancedBrace_StillParses"
+  - "TryParse_ExpectedLineContainsBraces_StillParses"
+  - "TryParse_ExpectedLineContainsAnUnbalancedBrace_StillParses"
+  - "ExtractArrayObjects_AStrayQuoteInProseBeforeTheObjects_DoesNotSwallowThem"
+  - "ExtractArrayObjects_TruncatedMidArray_RecoversCompleteObjects"
+
+done:
+  - "the 0c88 envelope parses with both tool calls; a verdict, a draft and a derivation whose strings contain braces parse"
+  - "one balanced-span scanner exists in the backend; the five private copies are gone"
+  - "the tolerant parser still drops a half-finished trailing object and no longer loses objects to a stray quote in prose"
+  - "build green, full suite green, no file over 120 lines joins the ratchet baseline"
