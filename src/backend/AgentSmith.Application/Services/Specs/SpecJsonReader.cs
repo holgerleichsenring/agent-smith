@@ -10,25 +10,6 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 internal static class SpecJsonReader
 {
-    public static IEnumerable<string> BalancedObjects(string text)
-    {
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] != '{') continue;
-            var depth = 0;
-            for (var j = i; j < text.Length; j++)
-            {
-                if (text[j] == '{') depth++;
-                else if (text[j] == '}' && --depth == 0)
-                {
-                    yield return text[i..(j + 1)];
-                    i = j;
-                    break;
-                }
-            }
-        }
-    }
-
     public static bool TryGet(JsonElement obj, string name, out JsonElement value)
     {
         if (obj.ValueKind == JsonValueKind.Object)

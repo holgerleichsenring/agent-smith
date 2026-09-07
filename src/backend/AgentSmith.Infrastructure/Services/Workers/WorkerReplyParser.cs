@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Json;
 using AgentSmith.Contracts.Models.Workers;
 using static AgentSmith.Infrastructure.Services.Workers.JsonObjectScanner;
 
@@ -71,7 +72,7 @@ public sealed class WorkerReplyParser(WorkerJsonFormat json)
     {
         var text = unfenced.Trim();
         if (!text.StartsWith('{') || !text.EndsWith('}')) return false;
-        if (BalancedObjects(text).FirstOrDefault()?.Length != text.Length) return false;
+        if (JsonObjectSpans.Balanced(text).FirstOrDefault()?.Length != text.Length) return false;
         return HasEnvelopeField(text);
     }
 
@@ -79,7 +80,7 @@ public sealed class WorkerReplyParser(WorkerJsonFormat json)
         string raw, out WorkerReply envelope, Func<WorkerReply, bool> accept)
     {
         envelope = new WorkerReply();
-        foreach (var candidate in BalancedObjects(Unfence(raw)))
+        foreach (var candidate in JsonObjectSpans.Balanced(Unfence(raw)))
         {
             try
             {
