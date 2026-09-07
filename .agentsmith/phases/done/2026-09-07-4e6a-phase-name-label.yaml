@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-4e6a
+
+goal: "A phase name is a topic label of two to five words; the claim it used to carry stays in the goal, which already states it."
+
+applies_to: "backend (the phase-name rule, its test, the repository guidance, and the names on disk)"
+
+requires:
+  - p0521
+
+scope:
+  in: >
+    The rule states a label of two to five words, area-first, keeps the fifty-character bound,
+    and drops the four-word floor; the test enforces the ceiling and stops asserting the floor
+    and the uniqueness; every phase from p0400 upward and every date-minted phase is renamed to
+    a label; the context pointers move with them and a permanent test proves every pointer
+    resolves; CLAUDE.md states the new form, why the claim lives in the goal, and that ids are
+    frozen while file names are pointers.
+  out: >
+    PHASES BELOW p0400, which are already labels — measured, not assumed: mean slug words run
+    4.0 over p0350–p0399, 5.8 over p0400–p0449, 8.2 over p05xx and 7.6 over the dated phases.
+    THE PHASE IDS, which do not change, so nothing that cites an id is touched.
+    THE PRODUCT'S OWN SLUGS — PhaseIdFactory.Slug truncates a goal to fifty characters with no
+    word bound, and WritePhaseRecordHandler.Slug mints a second slug at sixty — follow-up
+    2026-09-07-e9a2 (phase-slug-product-bound).
+    THE PLUGIN RESTATEMENT at specification-first-agentic-development/skills/create-phase/SKILL.md
+    lines 33–35, in its own repository, diffed by hand as the id rule already is.
+
+decisions:
+  - key: |
+      THE CLAIM IS ALREADY WRITTEN DOWN, IN THE GOAL. Every spec carries a one-sentence goal of at
+      most two hundred characters, with room, punctuation and grammar. Repeating it in a fifty-
+      character filename that allows neither is the duplication, and the filename is the worse of
+      the two places to keep it.
+  - key: |
+      A FILENAME SHOULD DO WHAT A FILENAME DOES: identify and group. A reader scanning a directory
+      wants to know which area a phase belongs to. "a-copilot-session-answers-a-model-call" answers
+      a different question than the one being asked, and answers it worse than the goal does.
+  - key: |
+      THIS REVERSES p0521's WORD FLOOR. p0521's goal is "a phase is named in a short sentence that
+      states something", and its fourth decision argues the four-word floor as the proxy for a
+      claim. It took no riders: the sentence form WAS the decision. It is reversed here because
+      the goal already carries the claim, and a fifty-character slug with no room, punctuation or
+      grammar is the worse of the two places to keep it. The fifty-character bound stays.
+  - key: |
+      THE COLLISION THE OLD RULE GUARDED MOVES TO THE ID. Two phases about one topic can now share
+      a name, which is what the old rule refused after one name was minted twice. The id has always
+      been the identity, the goal states which of the two a file is, and a label that repeats is
+      cheaper than a sentence nobody can scan. Uniqueness is no longer enforced.
+  - key: |
+      GROUPING IS A CONVENTION, NOT FREE: AREA-FIRST. The leading word names the subject area —
+      checkpoint-, design-source-, record-, account-, scan- — and the rest narrows it, so kinship
+      is greppable without a shared id prefix. A label for a counter id must not begin with "pre",
+      which PhaseSpecFile's id regex would swallow as the -pre tail.
+  - key: |
+      THE p0400 CUT IS A ONE-OFF MIGRATION BOUNDARY, NOT THE RULE. p0521 rejected an ordering for
+      the RULE because a date-minted id sorts below every counter id as text; the rule here is
+      still scoped by namespace and by shape. The cut only decides which finished files are
+      renamed once, and it is where the measurement turns: mean slug words 4.0 over p0350–p0399,
+      5.8 over p0400–p0449. A counter id is frozen forever; its FILE NAME is a pointer and may move,
+      because every requires: edge, record line and commit message cites the id, not the file.
+  - key: |
+      THE POINTER IS THE ONLY REFERENCE A RENAME CAN BREAK, SO IT GETS A PERMANENT TEST. requires:
+      edges are id-keyed — a no-op; what moves is the done:/planned: pointer in context.yaml and
+      the example filename in CLAUDE.md. PhaseRecord_EveryPointer_ResolvesToAFile is what makes
+      the first done criterion checkable at all.
+  - key: |
+      IT LANDS LAST AMONG THE IN-FLIGHT PHASES. A sentence-named file arriving afterwards fails the
+      ceiling on rebase and is renamed then, by whoever rebases — the same ruling p0521 recorded
+      for its own landing.
+
+steps:
+  - id: the-rule-states-a-label
+    action: "CLAUDE.md states an area-first topic label of two to five words, keeps the fifty-character bound, says the claim belongs in the goal, and says ids are frozen while file names are pointers."
+  - id: the-test-enforces-the-new-shape
+    action: "The name test drops the four-word floor and the uniqueness rule, enforces the word ceiling, and its witnesses for the closed namespace come from below p0400."
+  - id: the-names-on-disk-are-migrated
+    action: "Every phase from p0400 upward and every date-minted phase is renamed to a label, by a mapping reviewed file by file."
+  - id: the-references-move-with-them
+    action: "The done:/planned: pointers in context.yaml and the example filename in CLAUDE.md are rewritten; a permanent test proves every pointer in every context resolves."
+
+tests:
+  - "PhaseSlug_ADateMintedPhase_FitsTheLengthBound"
+  - "PhaseSlug_ADateMintedPhase_FitsTheWordCeiling"
+  - "PhaseSlug_ACounterNamespacePhase_IsNotJudged"
+  - "Guidance_AndTheRule_StateTheSameNumber"
+  - "PhaseRecord_EveryPointer_ResolvesToAFile"
+
+done:
+  - "every context pointer resolves to a file, proven by PhaseRecord_EveryPointer_ResolvesToAFile; requires edges are id-keyed and untouched"
+  - "the name test refuses a name longer than five words or fifty characters and accepts a three-word label; relabelling is judgement applied in the migration, not something the test proves"
+  - "no phase id changes"
+  - "build green, full suite green"

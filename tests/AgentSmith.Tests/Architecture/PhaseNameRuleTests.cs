@@ -4,18 +4,21 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
-/// p0521: a phase is named in a few words and stated in one sentence.
+/// p0521 / 2026-09-07-4e6a: a phase is named by a topic label and stated in one sentence.
 /// <para>
 /// The drift was measured, not felt: mean slug length ran 31 characters at p00xx and 54
-/// at p05xx, and the median goal reached 251 characters with a longest of 3631. The rule
-/// already existed as guidance and was followed less every quarter. A number that fails a
-/// build survives.
+/// at p05xx, and the median goal reached 251 characters with a longest of 3631. p0521
+/// capped the slug at fifty characters and put a four-word floor under it, so a name was
+/// a short sentence. 4e6a reversed the floor: the claim is already in the goal, and a
+/// fifty-character slug is the worse place to keep it. A label of two to five words,
+/// area-first, identifies and groups; the goal states.
 /// </para>
 /// <para>
 /// Scope is a NAMESPACE, not an ordering. The counter namespace closed, so the two id
 /// shapes are alternatives and a date-minted id sorts BELOW every counter id as text — a
 /// cutoff phrased "at or above this id" would exempt every phase minted from now on,
-/// permanently, while its own exemption test passed.
+/// permanently, while its own exemption test passed. The one-off relabelling of p0400
+/// upward was a migration boundary, not this rule's scope.
 /// </para>
 /// </summary>
 public sealed class PhaseNameRuleTests
@@ -28,11 +31,13 @@ public sealed class PhaseNameRuleTests
     private const int MaxSlugChars = 50;
 
     /// <summary>
-    /// Length alone does not separate a claim from a label: "mcp-tools-call" is short and
-    /// says nothing. Four words is a crude test of a real distinction — it cannot judge
-    /// whether a sentence is true, but it refuses a bare noun.
+    /// A label of at most five words. The ceiling is what separates a label from a
+    /// sentence: "the-account-sees-what-the-agent-ran" is seven words and a claim;
+    /// "account-sees-agent-commands" is four and a place to look. The floor is two —
+    /// a bare noun names an area and nothing in it — and is not enforced: relabelling
+    /// is judgement applied in the migration, not something a count proves.
     /// </summary>
-    private const int MinSlugWords = 4;
+    private const int MaxSlugWords = 5;
 
     /// <summary>
     /// One sentence. Stated HERE and not in the embedded schema, which the deployed
@@ -51,55 +56,19 @@ public sealed class PhaseNameRuleTests
 
     /// <summary>
     /// No exemption exists for this one, and none is needed: every phase in the open
-    /// namespace already states something. The floor pins a convention that holds.
+    /// namespace was relabelled in 4e6a, so the ceiling pins a convention that holds.
     /// </summary>
     [Fact]
-    public void PhaseSlug_ADateMintedPhase_UsesEnoughWordsToStateSomething() =>
-        Offenders(rule: null, file => file.SlugWords < MinSlugWords, file => file.SlugWords)
+    public void PhaseSlug_ADateMintedPhase_FitsTheWordCeiling() =>
+        Offenders(rule: null, file => file.SlugWords > MaxSlugWords, file => file.SlugWords)
             .Should().BeEmpty(
-                $"a phase name states something — at least {MinSlugWords} words. A topic "
-                + "label names the area and leaves the claim unwritten.");
+                $"a phase name is a topic label — at most {MaxSlugWords} words, area-first. "
+                + "The claim belongs in goal:, which already states it.");
 
     /// <summary>
-    /// A name that can be minted twice is not a name. The reachable failure is the
-    /// INSIGHT-style name: a principle can be arrived at again by changing something else,
-    /// which is how <c>the-account-sees-what-the-agent-ran</c> came to name both p0452 and
-    /// p0469. CLAUDE.md states the subject-and-predicate rule that prevents it; this is the
-    /// number that fails a build.
-    /// </summary>
-    /// <remarks>
-    /// A new name is judged against BOTH namespaces. The closed one is never renamed, but it
-    /// is exactly what a new name collides with — scoping the comparison to the open
-    /// namespace would leave the only collision that has actually happened unreachable.
-    /// </remarks>
-    [Fact]
-    public void PhaseSlug_ADateMintedPhase_IsNotAlreadyTaken()
-    {
-        var bySlug = PhaseSpecFile.All()
-            .Where(file => file.Slug.Length > 0)
-            .GroupBy(file => file.Slug, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
-
-        var taken = PhaseSpecFile.All()
-            .Where(file => file.IsDateMinted)
-            .Where(file => bySlug[file.Slug]
-                .Any(other => !string.Equals(other.PhaseId, file.PhaseId, StringComparison.Ordinal)))
-            .Select(file => $"{file.PhaseId}: {file.Slug} — also names "
-                + string.Join(", ", bySlug[file.Slug]
-                    .Where(other => !string.Equals(other.PhaseId, file.PhaseId, StringComparison.Ordinal))
-                    .Select(other => other.PhaseId)))
-            .OrderBy(text => text, StringComparer.Ordinal)
-            .ToList();
-
-        taken.Should().BeEmpty(
-            "a phase name is a subject and what changed it, so no two phases can carry the "
-            + "same one. A name that fits twice states an insight and names nothing.\n  "
-            + string.Join("\n  ", taken));
-    }
-
-    /// <summary>
-    /// The exemption is real, not vacuous: the closed namespace holds duplicate slugs and
-    /// keeps every one of them, and the rule above is green anyway.
+    /// A label may repeat: the id is the identity and the goal says which of two phases
+    /// on one topic a file is. The closed namespace holds names minted twice and keeps
+    /// them; so may the open one.
     /// </summary>
     [Fact]
     public void PhaseSlug_ACounterNamespaceDuplicate_IsKept() =>
@@ -109,8 +78,7 @@ public sealed class PhaseNameRuleTests
             .Where(group => group.Select(file => file.PhaseId)
                 .Distinct(StringComparer.Ordinal).Count() > 1)
             .Should().NotBeEmpty(
-                "the closed namespace holds names minted twice — the-account-sees-what-the-"
-                + "agent-ran among them — and none is ever rewritten");
+                "the closed namespace holds names minted twice and none is rewritten");
 
     [Fact]
     public void PhaseGoal_ADateMintedPhase_FitsOneSentence() =>
@@ -121,21 +89,20 @@ public sealed class PhaseNameRuleTests
                 + "belongs in decisions: — do not add a baseline row.");
 
     /// <summary>
-    /// The exemption is real, not vacuous: the closed namespace holds phases that break
-    /// every one of the three bounds, and the rules above are green anyway. Asserting the
-    /// violations EXIST is what stops the scoping being silently correct for the wrong
-    /// reason — an ordering cutoff would also leave these green, while exempting the open
-    /// namespace too.
+    /// The exemption is real, not vacuous: the closed namespace holds names past the word
+    /// ceiling — below p0400, where the one-off relabelling did not reach — and the rule
+    /// above is green anyway. Asserting the violations EXIST is what stops the scoping
+    /// being silently correct for the wrong reason: an ordering cutoff would also leave
+    /// these green, while exempting the open namespace too.
     /// </summary>
     [Fact]
     public void PhaseSlug_ACounterNamespacePhase_IsNotJudged()
     {
         var closed = PhaseSpecFile.All().Where(file => !file.IsDateMinted).ToList();
 
-        closed.Should().Contain(file => file.Slug.Length > MaxSlugChars,
-            "the closed namespace holds names longer than the bound and keeps them");
-        closed.Should().Contain(file => file.SlugWords < MinSlugWords,
-            "the closed namespace holds topic labels and keeps them");
+        closed.Should().Contain(file => file.SlugWords > MaxSlugWords,
+            "the closed namespace holds sentence names below p0400 — "
+            + "p0189-context-yaml-parse-errors-and-stream-in-tree among them — and keeps them");
     }
 
     [Fact]
@@ -149,6 +116,8 @@ public sealed class PhaseNameRuleTests
     /// <summary>
     /// One number in two places. A rule tighter than the generator would refuse names the
     /// product itself mints; a rule looser would let the generator define the convention.
+    /// The word ceiling has no such pin yet — the generator still mints a sentence from the
+    /// goal, and bounding it is 2026-09-07-e9a2.
     /// </summary>
     [Fact]
     public void SlugGenerator_AndTheRule_AgreeOnOneNumber()
@@ -171,7 +140,7 @@ public sealed class PhaseNameRuleTests
             Path.Combine(ArchitectureSources.RepositoryRoot, "CLAUDE.md"));
 
         guidance.Should().Contain($"{MaxSlugChars} characters");
-        guidance.Should().Contain($"{MinSlugWords} words");
+        guidance.Should().Contain($"{MaxSlugWords} words");
         guidance.Should().Contain($"{MaxGoalChars} characters");
     }
 
@@ -213,8 +182,8 @@ public sealed class PhaseNameRuleTests
 
     /// <summary>
     /// What every rule measures on every phase TODAY, so the ratchet can compare a
-    /// baselined row against the current file. The word floor takes no rows and so needs
-    /// no measurement here.
+    /// baselined row against the current file. The word ceiling takes no rows and so
+    /// needs no measurement here.
     /// </summary>
     private static IReadOnlyDictionary<(string Rule, string PhaseId), int> Measured() =>
         PhaseSpecFile.All()

@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-4e6a
+
+decisions:
+  - category: Architecture
+    chose: "A phase name is an area-first topic label of two to five words; the four-word floor and the sentence form are reversed"
+    over: "Keeping p0521's rule — a short sentence that states something, at least four words"
+    reason: |
+      p0521 took no riders: its goal is "a phase is named in a short sentence that states
+      something" and its fourth decision argues the word floor as the only honest proxy
+      for a claim. That decision is reversed here, on one ground: the claim is already
+      written down, in goal:, as one sentence of at most 200 characters with room,
+      punctuation and grammar. A fifty-character slug with none of those is the worse of
+      the two places to keep it, and keeping it in both is the duplication. A label of two
+      to five words identifies and groups — what a file name is for. The fifty-character
+      bound stays; it is what PhaseIdFactory.Slug mints against.
+
+  - category: Implementation
+    chose: "Area-first is stated as a convention: the leading word names the subject area, the rest narrows it"
+    over: "Treating the grouping as a free consequence of shorter names"
+    reason: |
+      Grouping is not free. "gate-removed" and "acceptance-gate-after-commit" only sit
+      together in a listing if someone chose the leading word for it. So the guidance
+      names the convention and the migration applied it: all delivery-account phases lead
+      with account-, the citation-resolver family with citation-, the sign-in phases with
+      auth-, the scan families with scan-/api-scan-/security-scan-. A label for a counter
+      id must not begin with "pre", which PhaseSpecFile's id regex would swallow as the
+      -pre tail of the id.
+
+  - category: Architecture
+    chose: "Uniqueness is no longer enforced; PhaseSlug_ADateMintedPhase_IsNotAlreadyTaken is deleted"
+    over: "Keeping the uniqueness rule over the date-minted namespace"
+    reason: |
+      The rule existed because a sentence that states an insight can be minted twice —
+      the-account-sees-what-the-agent-ran named both p0452 and p0469. A label is not a
+      claim, so two phases on one topic sharing a label is not the failure it was; the id
+      is the identity and the goal says which is which. The migration still preferred a
+      distinguishing word where one was cheap (p0452 account-sees-agent-commands, p0469
+      account-sees-completed-phase-commands), and the mapping ended with no duplicate.
+
+  - category: Scope
+    chose: "Every phase from p0400 upward and every date-minted phase is relabelled once; ids never change"
+    over: "Relabelling the date-minted namespace only, leaving the closed counter namespace as p0521 left it"
+    reason: |
+      p0521 rejected an ORDERING for the rule, because a date-minted id sorts below every
+      counter id as text and a cutoff would exempt every new phase. That ruling stands:
+      the rule is scoped by namespace and by shape. The p0400 cut decides something else —
+      which finished files are renamed once — and for a one-off migration an ordering is
+      legitimate, because it is applied by hand, today, to a list. The cut is where the
+      measurement turns: mean slug words 4.0 over p0350–p0399, 5.8 over p0400–p0449, 8.2
+      over p05xx, 7.6 over the dated phases. Below p0400 the names are already labels.
+      What makes the rename safe is that an id is frozen while a file name is a pointer:
+      every requires: edge, record line and commit message cites the id, so a move breaks
+      nothing but the -> pointer in context.yaml, which moves with the file. CLAUDE.md's
+      "none is ever renamed" sentence was about ids and now says so.
+
+  - category: Tooling
+    chose: "PhaseRecord_EveryPointer_ResolvesToAFile is added as a permanent rule, written red-first"
+    over: "Trusting the rename script's pointer rewrite"
+    reason: |
+      requires: edges are id-keyed, so the rename touches none. The context pointer is the
+      one reference that carries a file name, so it is the one reference a rename can
+      break — and nothing checked it. The test scans every contexts/*/context.yaml for
+      "-> .agentsmith/phases/…" and demands a file; it was run once against a deliberately
+      broken pointer to see it fail, then against the rewritten record. Without it the
+      first done criterion is not checkable.
+
+  - category: Implementation
+    chose: "Where a relabel would lengthen a record entry already over the 400-character cap, the label is chosen no longer than the old slug"
+    over: "Raising the entry's row in phase-record-length-baseline.tsv"
+    reason: |
+      The length ratchet measures the whole entry, pointer included, so eleven baselined
+      p04xx entries grew by one to eleven characters on the first pass. The ratchet's
+      whole point is that a baselined entry only shrinks; raising a row to admit a longer
+      pointer would be the first upward edit and would teach the next one. Sixteen labels
+      were shortened instead (where-the-time-goes -> step-time-breakdown, one-gate-not-two
+      -> gate-removed, the-two-views -> ui-two-views, built-by-the-method kept, because it
+      names the document). Both id-keyed baselines are byte-identical to main.
+
+  - category: Scope
+    chose: "The product's own slug is a named follow-up, 2026-09-07-e9a2 (phase-slug-product-bound)"
+    over: "Bounding PhaseIdFactory.Slug by words in this phase"
+    reason: |
+      Two product functions mint a slug from the goal: PhaseIdFactory.Slug (fifty
+      characters, no word bound; called by DerivedPhaseBuilder, SpecFallback,
+      SpecSourceResolver) and WritePhaseRecordHandler.Slug (sixty characters, ignores
+      SpecPhase.Slug). Both still mint sentences, so a customer repository gets sentence
+      names until the generator is bounded and the record writer uses the derived slug.
+      That is a product change with its own tests and its own prompt wording; the
+      follow-up spec names both sites. The plugin's restatement of the rule
+      (specification-first-agentic-development/skills/create-phase/SKILL.md:33-35) lives
+      in another repository and is diffed by hand, as p0521 ruled for the id rule.
+
+  - category: TradeOff
+    chose: "This phase lands last among the in-flight phases"
+    over: "Landing first and asking each open branch to rename its spec"
+    reason: |
+      The same ruling p0521 recorded for itself. A sentence-named file arriving after this
+      merge fails the word ceiling on rebase and is relabelled then, by whoever rebases;
+      its context pointer moves with it and the pointer test says so if it does not. The
+      untracked planned specs in the operator's checkout are not in this tree and are
+      theirs to relabel when they land.
