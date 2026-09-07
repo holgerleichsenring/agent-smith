@@ -85,7 +85,7 @@ public sealed class BootstrapDiscoverHandler(
         if (!discoveries.Values.Any(IsRealDiscovery))
             return false;
 
-        var perRepo = ProjectExistingDiscoveriesPerRepo(pipeline, repos, discoveries);
+        var perRepo = ReInitComponentProjection.PerRepo(pipeline, repos, discoveries, sandboxTargets);
         pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
             ContextKeys.DiscoveredComponents, perRepo);
         var summary = string.Join(", ", perRepo.Select(kv => $"{kv.Key}:{kv.Value.Count}"));
@@ -99,36 +99,6 @@ public sealed class BootstrapDiscoverHandler(
 
     private static bool IsRealDiscovery(RemoteContextDiscovery d) =>
         !(d.ContextName == SyntheticDefaultName && d.Workdir == "." && d.Language is null);
-
-    private IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>
-        ProjectExistingDiscoveriesPerRepo(
-            PipelineContext pipeline,
-            IReadOnlyList<RepoConnection> repos,
-            IReadOnlyDictionary<string, RemoteContextDiscovery> discoveries)
-    {
-        // p0322b: resolve key→repo through the coordinator's authoritative
-        // SandboxRepos map. The old string matcher only knew 'repo' and
-        // 'repo/...' — the p0268 multi-group keys fell through, projecting an
-        // EMPTY component list, so BootstrapDispatchHandler fanned out ZERO
-        // rounds for a multi-context repo on re-init.
-        pipeline.TryGet<IReadOnlyDictionary<string, string>>(
-            ContextKeys.SandboxRepos, out var owners);
-        var perRepo = new Dictionary<string, IReadOnlyList<DiscoveredComponent>>(
-            repos.Count, StringComparer.Ordinal);
-        var multiRepo = repos.Count > 1;
-        foreach (var repo in repos)
-        {
-            var matching = discoveries
-                .Where(kv => sandboxTargets.KeyBelongsToRepo(kv.Key, repo.Name, multiRepo, owners))
-                .Select(kv => ToComponent(kv.Value))
-                .ToList();
-            perRepo[repo.Name] = matching;
-        }
-        return perRepo;
-    }
-
-    private static DiscoveredComponent ToComponent(RemoteContextDiscovery d) =>
-        new(d.ContextName, d.Workdir, d.Language ?? string.Empty, $".agentsmith/contexts/{d.ContextName}/context.yaml");
 
     private static bool TryResolveDiscoverySkill(
         PipelineContext pipeline, out RoleSkillDefinition skill, out string error)

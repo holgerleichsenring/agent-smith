@@ -1,6 +1,4 @@
 using System.Text.Json;
-using AgentSmith.Application.Services.SpecDialog;
-using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 
@@ -14,9 +12,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// markdown companions.
 /// </summary>
 public sealed class SpecDerivationParser(
-    ISpecDraftValidator validator,
-    PhaseDraftReader draftReader,
-    DerivedPhaseYamlRenderer yamlRenderer,
+    DerivedPhaseBuilder phaseBuilder,
     SpecDerivationEnvelope envelope)
 {
     public sealed record Parsed(SpecDerivation? Derivation, string? Error);
@@ -28,9 +24,16 @@ public sealed class SpecDerivationParser(
     /// that already sits in the branch history. Phase ids stay stable because they are
     /// assigned by position, so the head keeps its identity by construction.
     /// </param>
+    /// <param name="evidence">
+    /// 2026-09-07-b7e2: the evidence lines the framework minted for the looks this
+    /// derivation took. A fact line citing one of their ids is a fact; any other is an
+    /// assumption. Null or empty — a reply from a catalog that never looked — resolves
+    /// every fact line to an assumption and nothing else changes.
+    /// </param>
     public Parsed Parse(
         string? reply, string key, string ticketId, IReadOnlyList<TicketSegment> segments,
-        SpecSource source, IReadOnlyList<SpecPhase>? executedHead = null)
+        SpecSource source, IReadOnlyList<SpecPhase>? executedHead = null,
+        IReadOnlyList<string>? evidence = null)
     {
         if (string.IsNullOrWhiteSpace(reply))
             return new Parsed(null, "the reply was empty");
@@ -47,7 +50,7 @@ public sealed class SpecDerivationParser(
                 if (!SpecJsonReader.TryGet(root, "phases", out _)
                     && !SpecJsonReader.TryGet(root, "handback", out _))
                     continue;
-                return Build(root, key, ticketId, segments, source, executedHead ?? []);
+                return Build(root, key, ticketId, segments, source, executedHead ?? [], evidence);
             }
         }
         return new Parsed(null, "the reply contained no JSON object with a 'phases' array");
@@ -56,7 +59,7 @@ public sealed class SpecDerivationParser(
     private Parsed Build(
         JsonElement root, string key, string ticketId,
         IReadOnlyList<TicketSegment> segments, SpecSource source,
-        IReadOnlyList<SpecPhase> executedHead)
+        IReadOnlyList<SpecPhase> executedHead, IReadOnlyList<string>? evidence)
     {
         var handback = envelope.Handback(root);
         if (handback is not null)
@@ -78,7 +81,8 @@ public sealed class SpecDerivationParser(
         var built = new List<SpecPhase>(executedHead);
         for (var i = executedHead.Count; i < phaseElements.Count; i++)
         {
-            var (phase, error) = BuildPhase(phaseElements[i], i, ticketId, segments, built);
+            var (phase, error) = phaseBuilder.Build(
+                phaseElements[i], i, ticketId, segments, built, evidence);
             if (phase is null) return new Parsed(null, error);
             built.Add(phase);
         }
@@ -92,60 +96,6 @@ public sealed class SpecDerivationParser(
                 envelope.IgnoredInstructions(root)),
             null);
     }
-
-    private (SpecPhase? Phase, string? Error) BuildPhase(
-        JsonElement element, int index, string ticketId,
-        IReadOnlyList<TicketSegment> segments, IReadOnlyList<SpecPhase> previous)
-    {
-        var goal = SpecJsonReader.ReadString(element, "goal");
-        if (goal.Length == 0) return (null, $"phase {index + 1} has no goal");
-        // p0400c's obligation, pointed at what the gate now measures (p0421). The
-        // deliverable used to be declared because the gate asked whether the run had
-        // committed code; the gate asks what the BRANCH satisfies, so the thing that may
-        // not be missing is the criteria themselves — a phase whose completion cannot be
-        // stated is a phase nobody can account for. The deriver's retry loop hands the
-        // rejection back to the model, so it answers instead of the parser guessing.
-        var done = SpecJsonReader.ReadStrings(element, "done");
-        if (done.Count == 0)
-            return (null,
-                $"phase {index + 1} states no done-criteria. Every phase must state what is "
-                + "true when it is finished, in terms someone can check against the "
-                + "repository — a phase that cannot end is not a phase.");
-
-        var phaseId = PhaseIdFactory.For(ticketId, index);
-        var slug = SpecJsonReader.ReadString(element, "slug") is { Length: > 0 } s
-            ? PhaseIdFactory.Slug(s) : PhaseIdFactory.Slug(goal);
-        var carried = SpecJsonReader.ReadInts(element, "carries")
-            .Where(id => segments.Any(seg => seg.Id == id))
-            .Distinct()
-            .OrderBy(id => id)
-            .ToList();
-        var fileStem = $"{phaseId}-{slug}";
-
-        var yaml = yamlRenderer.Render(
-            phaseId, goal,
-            // The sequence IS the requires-chain: each phase depends on the one before
-            // it, because the repository it edits is the previous phase's output.
-            previous.Count > 0 ? [previous[^1].PhaseId] : [],
-            ReadSteps(element),
-            done,
-            $"{fileStem}.md",
-            carried,
-            ticketId);
-
-        if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
-            return (null, $"phase {index + 1} ({phaseId}) is not a valid phase spec: {invalid.Error}");
-
-        var markdown = SegmentExtractor.BuildMarkdown(phaseId, goal, carried, segments);
-        return (new SpecPhase(draftReader.Read(yaml), slug, markdown, carried), null);
-    }
-
-    private static IReadOnlyList<(string Id, string Action)> ReadSteps(JsonElement element) =>
-        [.. SpecJsonReader.ReadObjects(element, "steps")
-            .Select(e => (
-                Id: SpecJsonReader.ReadString(e, "id"),
-                Action: SpecJsonReader.ReadString(e, "action")))
-            .Where(s => s.Id.Length > 0 && s.Action.Length > 0)];
 
     private static SpecRevision Initial() =>
         new(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow);
