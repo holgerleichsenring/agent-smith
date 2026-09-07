@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -23,7 +24,7 @@ public sealed class TolerantJsonParser(
     {
         if (string.IsNullOrWhiteSpace(raw)) return Array.Empty<string>();
         var stripped = StripFences(raw, null);
-        var literals = TolerantJsonObjectScanner.ExtractObjects(stripped).ToList();
+        var literals = JsonObjectSpans.Balanced(stripped).ToList();
         if (literals.Count > 0)
         {
             var detail = $"recovered {literals.Count} object literal(s)";
