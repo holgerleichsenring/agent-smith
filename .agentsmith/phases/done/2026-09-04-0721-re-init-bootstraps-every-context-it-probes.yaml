@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-04-0721
+
+goal: "A re-init runs a bootstrap round for every context in a sandbox, each one carrying its own subtree's facts, instead of one round for the context that represents the group."
+
+applies_to: "backend (the init-project discovery short-circuit, the per-context analysis it feeds, and the sandbox-context lookup they share)"
+
+requires:
+  - 2026-09-01-72c5
+
+scope:
+  in: >
+    The re-init short-circuit projects the per-sandbox CONTEXT LIST — the same map the bootstrap
+    probe reads — so every context in a sandbox gets its round: its context.yaml refreshed and its
+    retired principles file renamed. Each round carries the ProjectMap of ITS OWN workdir, and the
+    lookup "which contexts are in this sandbox" becomes one accessor the four consumers share.
+  out: >
+    THE COLD-INIT PATH. The LLM discovery pass enumerates components itself; only the
+    short-circuit that replaces it on a re-init is touched.
+    THE CODING PATH'S OWN INSTANCES. LoadContext and LoadCodingPrinciples read the representative
+    too, so a coding run on a two-context sandbox loads one context.yaml and one principles.md —
+    a live defect on a different path, specced as 2026-09-04-cf3d.
+    THE REFUSAL'S WORDING. What the gate SAYS when a context is missing its file is
+    2026-09-04-ae3a; this phase changes what init WRITES.
+    GROUPING. Which contexts share a sandbox is decided by the toolchain image and is correct;
+    the defect is consumers reading a representative as if it were the whole list.
+
+decisions:
+  - key: |
+      THE PRODUCER AND THE GATE MUST READ THE SAME MAP. SandboxDiscoveries holds ONE
+      RemoteContextDiscovery per sandbox — the group's representative, discoveriesInGroup[0];
+      SandboxContexts holds every context in it. BootstrapCheck reads the list, the re-init
+      short-circuit reads the representative, so a sandbox with two contexts is probed for two
+      and bootstrapped for one. The run reports success, the next coding run on that repository
+      is refused, and neither message mentions the other. Observed live on a two-context Node
+      repository whose second context kept the retired principles file and gained no verify block.
+  - key: |
+      MORE ROUNDS IS ONLY SAFE IF EACH ROUND'S FACTS ARE ITS OWN. AnalyzeCode analyses one subtree
+      per sandbox — the representative's workdir — and the round embeds that ProjectMap verbatim
+      beside its own "Workdir:" line. Fanning out without fixing that trades a context.yaml that
+      is merely STALE for one actively rewritten from a sibling's analysis, and every done
+      criterion would still be green. The analyser IS a model call, so this costs one analysis per
+      additional context on an init — cached per (sandbox key, workdir), so a re-init of an
+      unchanged context pays nothing, and a run that bootstraps a context already spends a
+      bootstrap round on it.
+  - key: |
+      THE PER-SANDBOX MAP STAYS. RepoProjectMaps is keyed by sandbox key and read by the plan, the
+      ledger and the masters (p0384). Re-keying it would ripple through every one of them for a
+      benefit only the bootstrap round needs, so the per-context maps are published ALONGSIDE it
+      and the round prefers its own.
+  - key: |
+      A PROJECTED CONTEXT WITH NO LANGUAGE TAKES ITS SANDBOX'S. BootstrapDispatch fails the whole
+      run on an empty language slug, and a context that declares an image but no stack.lang is
+      legal today — invisible while it was not projected. A sandbox is ONE toolchain image, so the
+      group's language is the honest fallback and the alternative is a re-init that starts failing
+      on repositories it used to half-serve.
+  - key: |
+      ONE ACCESSOR, NOT A FIFTH COPY. ContextTargetProbeResolver and ContextVerifyStagesResolver
+      already carry the same six lines with a comment explaining that the list is not the
+      representative; BootstrapCheck has them a third time. The projection would be the fourth,
+      and BootstrapDiscoverHandler sits exactly on its 343-line ratchet entry while
+      BootstrapCheckHandler sits two lines under the 120-line cap — so the extraction is what
+      makes this phase buildable at all, not a tidy-up beside it.
+
+steps:
+  - id: one-accessor-answers-which-contexts-a-sandbox-holds
+    action: "The per-sandbox context list, with its representative fallback, becomes one accessor the projection, the bootstrap probe and both context resolvers call."
+  - id: the-short-circuit-projects-every-context
+    action: "The re-init path fans out one component per context in each sandbox, taking the sandbox's language where a context declares none."
+  - id: each-round-carries-its-own-subtrees-map
+    action: "AnalyzeCode publishes a ProjectMap per context beside the per-sandbox map, and the bootstrap round prefers the one for the context it is bootstrapping."
+
+done:
+  - "a sandbox holding two contexts yields two bootstrap components on re-init"
+  - "a sandbox with no context list still yields its representative"
+  - "a projected context with no declared language does not fail the run"
+  - "the round for a context is prompted with the ProjectMap of that context's workdir, not its sibling's"
+  - "backend build green, full suite green"

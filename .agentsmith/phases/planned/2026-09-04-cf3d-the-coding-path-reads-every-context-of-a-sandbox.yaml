@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-04-cf3d
+
+goal: "A coding run loads the context.yaml and principles.md of every context in a sandbox, not only the one whose name the sandbox key was composed from."
+
+applies_to: "backend (the context and principles loaders on the coding path)"
+
+requires:
+  - 2026-09-04-0721
+
+scope:
+  in: >
+    LoadContext and LoadCodingPrinciples read the per-sandbox context LIST, so a sandbox holding
+    two contexts contributes both context.yaml files and both principles.md files to what the
+    master is given. What the master does with two of each — how they are labelled, ordered and
+    bounded — is part of this phase, because two documents arriving unlabelled would be worse
+    than one.
+  out: >
+    THE INIT PATH. 2026-09-04-0721 fixes what init WRITES; this fixes what a coding run READS.
+    ONE SANDBOX PER CONTEXT. Grouping by toolchain image is correct and stays.
+
+decisions:
+  - key: |
+      THE SAME REPRESENTATIVE READ, ON THE PATH WHERE IT DECIDES BEHAVIOUR. Both loaders take
+      ContextKeys.SandboxDiscoveries and read one context per sandbox. Two contexts sharing a
+      toolchain image therefore give the master ONE architecture document and ONE set of rules,
+      silently — and principles are the file the whole rename story exists to deliver. A gate that
+      demands the file in every context while the loader reads one of them is a rule enforced
+      where it is not used.
+  - key: |
+      DEFERRED FROM 2026-09-04-0721 ON PURPOSE. That phase changes the init writer and is proven
+      by init tests; this one changes what a coding master is prompted with, which is a different
+      blast radius and wants its own evidence. Named here rather than left implied.
+
+steps:
+  - id: both-loaders-read-the-context-list
+    action: "LoadContext and LoadCodingPrinciples enumerate every context in a sandbox through the shared accessor."
+  - id: two-documents-arrive-labelled
+    action: "Each loaded document is attributed to its context so the master can tell which rules govern which subtree."
+
+done:
+  - "a two-context sandbox contributes both context.yaml files and both principles.md files"
+  - "each document names the context it came from"
+  - "a single-context sandbox is unchanged"
+  - "backend build green, full suite green"
