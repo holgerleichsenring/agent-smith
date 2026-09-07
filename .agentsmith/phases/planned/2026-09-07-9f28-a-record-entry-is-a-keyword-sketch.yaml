@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-9f28
+
+goal: "A phase record in a context is a keyword sketch of about a hundred and fifty characters, not a paragraph restating the spec it points at."
+
+applies_to: "backend (the record-length rule, its ratchet test, and the records on disk)"
+
+requires:
+  - 2026-09-07-4e6a
+
+scope:
+  in: >
+    The record bound drops from four hundred characters to about a hundred and fifty, stated as a
+    keyword sketch rather than a sentence; the existing ratchet enforces it and its baseline is
+    rebuilt; the entries above the new bound are compacted to what shipped, in what area, and the
+    pointer to the spec.
+  out: >
+    LOSING ANYTHING. Nothing is deleted that is not already written in the spec the pointer names
+    or in the decision file beside it; where a record is the only copy of a fact, the fact moves to
+    the spec rather than the record shrinking around it.
+    THE OTHER CONTEXT SECTIONS, which together are under two kilobytes and are not the problem.
+
+decisions:
+  - key: |
+      THE RULE EXISTS AND WORKS, AND IS SIMPLY TOO LOOSE. Measured: entries run a mean of a hundred
+      characters through p0099, climb to fifteen hundred by p0400, and every date-minted entry sits
+      at a mean of three hundred and seventy-seven with a maximum of exactly four hundred. The
+      ratchet stopped the growth; it stopped it at four times the original shape.
+  - key: |
+      TWO HUNDRED AND SEVENTY-TWO ENTRIES CARRY FOUR HUNDRED AND FORTY OF THE FOUR HUNDRED AND
+      SIXTY-FIVE KILOBYTES. Compaction is not spread evenly across seven hundred records; it is a
+      tail, and the tail is where the paragraphs are.
+  - key: |
+      A RECORD THAT REPEATS ITS SPEC IS A SECOND COPY THAT WILL DISAGREE WITH THE FIRST. The
+      guidance already says so. What the bound decides is whether the rule is followable, and four
+      hundred characters is enough room to restate a spec badly.
+  - key: |
+      THE FILE IS READ WHOLE INTO EVERY RUN AND RIDES EVERY CHECKPOINT. The project brief drops the
+      record section before it reaches a prompt, so this is not a prompt-cost problem — it is a
+      checkpoint payload, a file a person has to read, and the example every initialised repository
+      is shaped after.
+
+steps:
+  - id: the-bound-drops-to-a-sketch
+    action: "The record bound becomes about a hundred and fifty characters, stated in CLAUDE.md as a keyword sketch."
+  - id: the-ratchet-enforces-the-new-bound
+    action: "The record-length ratchet test enforces the new bound and its baseline is rebuilt from the compacted state."
+  - id: the-long-records-are-compacted
+    action: "Entries above the bound are reduced to what shipped, in what area, and the pointer to the spec."
+  - id: a-fact-only-the-record-holds-moves-to-the-spec
+    action: "Where a record is the only place a fact is written, the fact is added to the spec it points at before the record is compacted."
+
+done:
+  - "no record entry exceeds the new bound and the ratchet baseline is empty of new rows"
+  - "every record still names what shipped, its area, and a pointer that resolves"
+  - "the context file is materially smaller and still parses"
+  - "build green, full suite green"

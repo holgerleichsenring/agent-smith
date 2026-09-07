@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-4e6a
+
+goal: "A phase name is a topic label of two to five words; the claim it used to carry stays in the goal, which already states it."
+
+applies_to: "backend (the phase-name rule, its test, the repository guidance, and the names on disk)"
+
+scope:
+  in: >
+    The rule states a label of two to five words, keeps the fifty-character bound, and drops the
+    four-word floor that forbids one; the test enforces the new shape and stops asserting the old;
+    every phase from p0400 upward and every date-minted phase is renamed to a label; the path
+    pointers in the contexts and the requires edges move with them; the guidance in CLAUDE.md
+    states the new form and why the claim lives in the goal.
+  out: >
+    PHASES BELOW p0400, which are already labels — measured, not assumed: mean slug length runs two
+    to four words up to p0399 and climbs from p0400.
+    THE PHASE IDS, which do not change, so nothing that cites an id is touched.
+    THE PLUGIN TEMPLATES in their own repository, diffed by hand as the id rule already is.
+
+decisions:
+  - key: |
+      THE CLAIM IS ALREADY WRITTEN DOWN, IN THE GOAL. Every spec carries a one-sentence goal of at
+      most two hundred characters, with room, punctuation and grammar. Repeating it in a fifty-
+      character filename that allows neither is the duplication, and the filename is the worse of
+      the two places to keep it.
+  - key: |
+      A FILENAME SHOULD DO WHAT A FILENAME DOES: identify and group. A reader scanning a directory
+      wants to know which area a phase belongs to. "a-copilot-session-answers-a-model-call" answers
+      a different question than the one being asked, and answers it worse than the goal does.
+  - key: |
+      THE STYLE WAS NEVER DECIDED, IT DRIFTED, AND THEN A LENGTH RULE FROZE IT. Slugs ran two to
+      four words through p0399 and reached eight by p0500. p0521 was written to cap the growth at
+      fifty characters and took two riders with it — a four-word floor and prose forbidding topic
+      labels — which turned a drift into a rule. The floor was aimed at a bare noun; it cannot tell
+      a bare noun from a three-word label.
+  - key: |
+      THE COLLISION THE OLD RULE GUARDED MOVES TO THE ID. Two phases about one topic can now share
+      a name, which is what the old rule refused after one name was minted twice. The id has always
+      been the identity, the goal states which of the two a file is, and a label that repeats is
+      cheaper than a sentence nobody can scan.
+  - key: |
+      GROUPING COMES FOR FREE. Labels share a leading word — design-source, principles, checkpoint —
+      so kinship becomes greppable without a shared id prefix, which is most of what a batch letter
+      was wanted for.
+
+steps:
+  - id: the-rule-states-a-label
+    action: "CLAUDE.md states a two-to-five-word topic label, keeps the fifty-character bound, and says the claim belongs in the goal."
+  - id: the-test-enforces-the-new-shape
+    action: "The name test drops the four-word floor, enforces the word ceiling, and its assertions about the old form are removed."
+  - id: the-names-on-disk-are-migrated
+    action: "Every phase from p0400 upward and every date-minted phase is renamed to a label."
+  - id: the-references-move-with-them
+    action: "Path pointers in the contexts and requires edges are updated in the same change."
+
+done:
+  - "every renamed file is still found by its context pointer and its requires edges resolve"
+  - "the name test refuses a sentence and accepts a three-word label"
+  - "no phase id changes"
+  - "build green, full suite green"
