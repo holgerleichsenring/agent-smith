@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-6e9c
+
+goal: "The protection a project's repositories actually carry is read from their hosts and shown unchanged, so what is portable across them is learned rather than asserted."
+
+applies_to: "backend and dashboard (a repository-policy read port, host adapters, a read-only surface)"
+
+scope:
+  in: >
+    A read-only port returning a repository's current protection state; adapters for the three
+    hosts this product integrates; the result rendered per repository in its host's own vocabulary,
+    with what the token was not permitted to read shown as such; the read requires no permission
+    beyond what a project's connection already holds, and a host that refuses is reported, not
+    inferred.
+  out: >
+    DECLARING A TARGET STATE, and therefore any reconciliation. A declared policy written before a
+    real estate has been read would be a claim about foreign systems, which this repository has
+    already retired three times.
+    WRITING ANYTHING. No protection is set, no permission granted, no repository created.
+    A FOURTH HOST. The product integrates three; the local repository type has no server, and
+    Bitbucket is not integrated at all.
+
+decisions:
+  - key: |
+      THE PORTABLE SET IS SMALLER THAN IT LOOKS, AND ONLY DATA WILL SETTLE IT. Minimum reviewers is
+      an access level on one host, two distinct policy objects on another, and a field on an object
+      a third is migrating away from; on one of them it sits behind a paid tier. Required checks,
+      comment resolution and work-item linking diverge the same way, and tag and push restrictions
+      are not a policy at all on one host but a separate permission system. A table written from
+      documentation would be wrong on its first day and licence-dependent on its second.
+  - key: |
+      A SHARED ARTIFACT MAY READ AN ESTATE AND PROVE THINGS ABOUT IT, NEVER CLAIM THINGS ABOUT IT.
+      The ratified rule, and the reason a capability matrix is the wrong shape.
+  - key: |
+      READING ALSO PROVES THE TOKEN. Writing protection needs administrative scopes the product does
+      not ask for today; reading needs much less. Finding out which of the two a real connection can
+      do is a precondition for any write phase, and it costs nothing to learn it here.
+  - key: |
+      HOST VOCABULARY, NOT A NORMALISED ONE. Normalising at the read would bake in the very
+      equivalences this phase exists to test.
+
+steps:
+  - id: a-repository-policy-read-port
+    action: "A read-only port returns a repository's current protection state as its host expresses it."
+  - id: adapters-for-the-three-integrated-hosts
+    action: "Each integrated host implements the port, reporting separately what the token was not permitted to read."
+  - id: the-state-is-rendered-per-repository
+    action: "A dashboard view shows each repository's protection as returned, with unreadable parts marked."
+
+done:
+  - "a project's repositories show their current protection, per host, unmodified"
+  - "a token without permission to read a policy shows that, rather than an empty result"
+  - "no host call in this phase writes anything"
+  - "dashboard tests and build green, backend build green, full suite green"

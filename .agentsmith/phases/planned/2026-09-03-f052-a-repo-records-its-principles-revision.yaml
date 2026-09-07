@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-f052
+
+goal: "A repository's context records which revision of the rules its principles were composed from, so a later run can say what moved."
+
+applies_to: "backend (bootstrap principles transfer, context document)"
+
+requires:
+  - 2026-09-03-8d13
+
+scope:
+  in: >
+    A typed field on the context document naming the source revision the principles were composed
+    from, written by the framework at transfer time next to the file it describes; a
+    re-initialisation whose resolved revision equals the recorded one leaves both files untouched;
+    the field is read and reported, never authored by a model.
+  out: >
+    A SCHEDULED SWEEP over projects. Whether a cadence should re-initialise an estate is a separate
+    question with its own answers to fan-out, admission, auto-acceptance and leader election, and
+    none of them is settled by recording a version.
+    OVERWRITING A PRESERVED FILE. A repository whose principles were preserved keeps them; the
+    field records what it is on, and does not license replacing it.
+
+decisions:
+  - key: |
+      THE VERSION IS WHAT MAKES "UNCHANGED" PROVABLE. Without it, every re-initialisation either
+      rewrites and re-asks for ratification, or compares prose. With it, the comparison is an
+      identifier.
+  - key: |
+      THE FRAMEWORK WRITES IT, BECAUSE THE FRAMEWORK COMPOSES THE FILE. The principles path was
+      deliberately taken away from the model; a stamp authored by a model would be a claim about
+      what the framework did.
+  - key: |
+      RECORDING IS NOT ROLLING OUT. This phase makes a moved source visible. Deciding what happens
+      to an estate when it moves is the harder question and is left standing.
+
+steps:
+  - id: the-context-carries-a-principles-revision
+    action: "A typed field naming the composed-from revision is added to the context document and its schema."
+  - id: the-transfer-writes-the-revision
+    action: "The principles transfer writes the resolved revision when it composes the file."
+  - id: an-unchanged-revision-changes-nothing
+    action: "A re-initialisation whose resolved revision equals the recorded one leaves principles and context untouched."
+
+done:
+  - "an initialised repository's context names the revision its principles came from"
+  - "re-initialising at the same revision produces no file change and no pull request"
+  - "a repository whose principles were preserved is not rewritten"
+  - "build green, full suite green"
