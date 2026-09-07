@@ -76,6 +76,20 @@ internal static class RepoScopeReplyFields
 
     public static string? ReadRationale(JsonElement obj) => RepoScopeJson.ReadString(obj, "rationale");
 
+    // Optional {"refusal": null | {"quote": "...", "reason": "..."}} — the security
+    // judgement over the ticket. Absent, null or malformed reads as null: no objection,
+    // and the run proceeds exactly as it did before the field existed. An object that
+    // states neither a quote nor a reason is not a refusal either — a parked run must
+    // be able to say WHAT was refused.
+    public static ScopeRefusal? ReadRefusal(JsonElement obj)
+    {
+        if (!RepoScopeJson.TryGet(obj, "refusal", out var el) || el.ValueKind != JsonValueKind.Object)
+            return null;
+        var quote = RepoScopeJson.ReadString(el, "quote")?.Trim() ?? string.Empty;
+        var reason = RepoScopeJson.ReadString(el, "reason")?.Trim() ?? string.Empty;
+        return quote.Length == 0 && reason.Length == 0 ? null : new ScopeRefusal(quote, reason);
+    }
+
     private static List<string> Strings(JsonElement array) =>
         [.. array.EnumerateArray()
             .Where(e => e.ValueKind == JsonValueKind.String)

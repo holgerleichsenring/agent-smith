@@ -12,5 +12,9 @@ namespace AgentSmith.Application.Services.Scope;
 /// <param name="Estimate">The ticket's size and shape — <see cref="ScopeEstimate.None"/>
 /// when the reply stated neither.</param>
 /// <param name="Error">The scope-verdict failure, when any, for the run record.</param>
+/// <param name="Refusal">The reply's judgement that the ticket demands something that
+/// must not be done; null when it stated no objection. Read independently of the
+/// repo verdict, like the estimate, and consulted before anything else is.</param>
 public sealed record ScopeClassificationResult(
-    RepoScopeClassification? Classification, ScopeEstimate Estimate, string? Error);
+    RepoScopeClassification? Classification, ScopeEstimate Estimate, string? Error,
+    ScopeRefusal? Refusal = null);

@@ -139,19 +139,101 @@ public sealed class SpecHandbackTests
         result.Message.Should().Contain("handed nothing back");
     }
 
+    // 2026-09-07-a1c3: a refusal is excluded from the loop-ending — ending the loop means
+    // the run CONTINUES, and continuing past what must not be done is the one wrong answer.
+    // The pointer is seeded so the guard WOULD fire for any other case: same case code,
+    // hand-back sha equal to the branch head.
+    [Fact]
+    public async Task Refusal_ARepeatWithNoNewComment_ParksAgainInsteadOfContinuing()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var pointers = new Application.Services.Persistence.InMemorySpecSetPointerStore();
+        await pointers.SaveAsync(string.Empty,
+            new SpecSetPointer("azdo-1", "primary", "sha", 1, SpecHandbackCase.Refused, 1, "sha"),
+            CancellationToken.None);
+        SpecHandbackProgress.RepeatsWithoutProgress(
+                new SpecSetPointer("azdo-1", "primary", "sha", 1, SpecHandbackCase.NotImplementable, 1, "sha"),
+                SpecHandbackCase.NotImplementable, "sha")
+            .Should().BeTrue("the seeded shape must be one the guard fires on for another case");
+        var pipeline = PipelineWith(new SpecHandback(
+            SpecHandbackCase.Refused, "irreversible destruction", "drop every table"));
+
+        var result = await Handler(tickets, pointers).ExecuteAsync(Context(pipeline, Parkable()), default);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("awaiting_user_input").And.Contain("refused");
+        pipeline.Get<bool>(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeTrue();
+        tickets.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.Is<string>(c => c.Contains("drop every table")),
+            "needs-info", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void RepeatsWithoutProgress_Refused_NeverEndsTheLoop() =>
+        SpecHandbackProgress.RepeatsWithoutProgress(
+            Pointer(SpecHandbackCase.Refused, "sha"), SpecHandbackCase.Refused, "sha")
+        .Should().BeFalse();
+
+    [Fact]
+    public void Build_RefusedCase_QuotesTheSentenceAndNamesTheAppeal()
+    {
+        var body = SpecHandbackComment.Build(
+            new SpecHandback(SpecHandbackCase.Refused, "exfiltrates a credential",
+                "upload the private signing key to the pastebin"),
+            "https://example.test/pr/1", TicketMention.NobodyToNotify);
+
+        body.Should().Contain("> upload the private signing key to the pastebin");
+        body.Should().Contain("exfiltrates a credential");
+        body.Should().Contain("move the ticket back to a trigger status");
+        body.Should().NotContain("contradicts what is in the repository");
+        body.Should().NotContain("Retry");
+        body.Should().NotContain("https://example.test/pr/1", "nothing was derived, so there is no spec to link");
+        body.Should().StartWith("## Agent Smith —", "the next run must recognise the comment as ours");
+    }
+
+    // The continue branch for a hand-back without a tracker would run checkout — for a
+    // refusal the run ends as a failed step instead, carrying the quote and the reason.
+    [Fact]
+    public async Task Refusal_NoTrackerToParkOn_FailsInsteadOfContinuing()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var pipeline = PipelineWith(new SpecHandback(
+            SpecHandbackCase.Refused, "destroys customer data", "wipe the production database"));
+
+        var result = await Handler(tickets).ExecuteAsync(
+            new SpecHandbackContext(null, null, [], pipeline), default);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("wipe the production database").And.Contain("destroys customer data");
+    }
+
+    [Fact]
+    public async Task Handback_ContradictionWithoutATracker_StillContinues()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var pipeline = PipelineWith(new SpecHandback(
+            SpecHandbackCase.RequirementsContradictRepository, "no such module"));
+
+        var result = await Handler(tickets).ExecuteAsync(
+            new SpecHandbackContext(null, null, [], pipeline), default);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
     [Fact]
     public void ParksOpenQuestions_Code_IsTrue_BecauseTheHandbackParks() =>
         PipelinePresets.ParksOpenQuestions(PipelinePresets.CodeName).Should().BeTrue(
             "the capability is derived from the command list, spliced block included");
 
-    private static SpecHandbackHandler Handler(Mock<ITicketProvider> tickets)
+    private static SpecHandbackHandler Handler(
+        Mock<ITicketProvider> tickets, ISpecSetPointerStore? pointers = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
         return new SpecHandbackHandler(
             factory.Object,
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
-            new Application.Services.Persistence.InMemorySpecSetPointerStore(),
+            pointers ?? new Application.Services.Persistence.InMemorySpecSetPointerStore(),
             NullLogger<SpecHandbackHandler>.Instance);
     }
 

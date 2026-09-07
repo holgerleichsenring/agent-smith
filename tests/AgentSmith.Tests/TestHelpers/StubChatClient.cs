@@ -15,11 +15,19 @@ internal sealed class StubChatClient(Queue<string> responses) : IChatClient
     /// <summary>How many model calls the code under test actually spent.</summary>
     public int InvocationCount { get; private set; }
 
+    /// <summary>The messages of the most recent call — what the model was shown.</summary>
+    public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = [];
+
+    /// <summary>The options of the most recent call — which tools, if any, it carried.</summary>
+    public ChatOptions? LastOptions { get; private set; }
+
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         InvocationCount++;
+        LastMessages = messages.ToList();
+        LastOptions = options;
         var text = responses.Count > 0 ? responses.Dequeue() : "[]";
         return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
     }
