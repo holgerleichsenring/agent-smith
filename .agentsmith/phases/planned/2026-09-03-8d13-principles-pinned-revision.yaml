@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-8d13
+
+goal: "An installation's own engineering rules come from a git source pinned by revision, layered over the shipped catalog the way a local overlay directory already is."
+
+applies_to: "backend (skills overlay materialisation, configuration)"
+
+scope:
+  in: >
+    An overlay may be declared as a git location plus a revision instead of a directory; the
+    revision is fetched, cached by revision, and layered over the base catalog by the existing
+    overlay mechanism; an unreachable or unknown revision fails the run with the revision named;
+    the resolved revision is reported on the run.
+  out: >
+    A PER-COMPONENT MODEL EXTRACTION from a documentation source. The composed principles are
+    deterministic by construction today — two repositories of one stack compose byte-identically —
+    and an extraction step would replace that with a judgement that differs between two runs of an
+    unchanged source, unbounded, unfenced and uncached. If it is ever wanted it needs its own phase,
+    with an input cap, a budget fence and an answer to non-determinism.
+    A NEW CONFIGURATION ENTITY KIND. The overlay setting exists; this widens what it accepts.
+
+decisions:
+  - key: |
+      THE MECHANISM ALREADY EXISTS AND IS DETERMINISTIC. An operator overlay directory is copied
+      over the catalog root, principles included, so an installation's own core and per-language
+      deltas already reach every initialised repository at no token cost and byte-reproducibly.
+      What is missing is only that the overlay must be a mounted directory.
+  - key: |
+      A REVISION IS THE VERSION EVERY OTHER ANSWER NEEDED. Pinning by revision makes "which rules is
+      this repository on" answerable, makes an unchanged source provably unchanged, and makes a
+      change reviewable as a diff rather than as regenerated prose.
+  - key: |
+      FAIL, DO NOT FALL BACK. An overlay that cannot be fetched must not silently leave the
+      installation on the shipped defaults: the repository would be initialised against rules its
+      operator did not choose, and nothing would say so.
+
+steps:
+  - id: an-overlay-may-name-a-git-revision
+    action: "The overlay setting accepts a git location and a revision alongside a directory path."
+  - id: the-revision-is-fetched-and-cached
+    action: "The named revision is fetched and cached by revision, then layered over the base catalog by the existing overlay materialiser."
+  - id: an-unreachable-overlay-fails-the-run
+    action: "A location that cannot be reached or a revision that does not exist fails the run naming it, with no fallback to the shipped catalog."
+  - id: the-run-reports-the-resolved-revision
+    action: "The resolved revision is recorded on the run."
+
+done:
+  - "an initialisation with a git-pinned overlay writes principles composed from that revision"
+  - "two runs at one revision compose byte-identical principles"
+  - "an unknown revision fails the run with the revision named"
+  - "a directory overlay keeps working unchanged"
+  - "build green, full suite green"

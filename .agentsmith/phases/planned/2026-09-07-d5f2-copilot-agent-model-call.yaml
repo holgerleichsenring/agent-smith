@@ -1,0 +1,172 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-d5f2
+goal: "An agent configured as type copilot answers a model call through the GitHub Copilot SDK, using the operator's Copilot entitlement instead of a per-provider API key."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE SDK EXISTS, IS GA, AND IS THE RIGHT DOOR. GitHub.Copilot.SDK went generally
+      available on 2026-06-02 and ships a .NET package that bundles the Copilot CLI as a
+      dependency. This replaces the route this repository would otherwise have taken —
+      pointing ExternalWorkerChatClientBuilder at a `copilot` binary — because the arg shape
+      in ExternalWorkerCliOptionsFactory (`-p --model X --output-format json`) is Claude-Code
+      specific, and matching a second CLI's flags and envelope by hand is the work the SDK
+      already did. No binary to install, no stdout to parse.
+  - key: |
+      THERE IS NO IChatClient AND THERE WILL NOT BE ONE SOON. github/copilot-sdk issue #99
+      asks for Microsoft.Extensions.AI implementations for the .NET SDK. It is OPEN, labelled
+      enhancement / sdk-dotnet / WISHLIST, with no assignee, no linked PR and no maintainer
+      answer. The adapter is ours to write and ours to keep. This was checked rather than
+      assumed, because if it shipped, most of this phase would be deleted.
+  - key: |
+      THE SESSION CANNOT BE REDUCED TO A COMPLETION, SO COPILOT IS NOT A PROVIDER LIKE THE
+      OTHERS. SessionConfig offers AvailableTools (whitelist) and ExcludedTools (blacklist),
+      but the documentation states plainly that built-in tools cannot be fully disabled, and
+      there is NO option to limit turns, disable planning, or take a single shot. Sessions are
+      agentic by design. So the four existing builders' shape — hand back a bare client and
+      let the factory's decorators run the loop — is not available here. Copilot is a WORKER
+      behind an IChatClient, the same role ExternalWorkerChatClientBuilder plays, and it is
+      registered next to that one rather than next to claude and openai.
+  - key: |
+      TWO LOOPS MUST NOT BOTH RUN, AND THE FACTORY IS WHERE THAT IS DECIDED. A Copilot session
+      executes tools itself and says so (ToolExecutionStartEvent, ToolExecutionCompleteEvent),
+      and compacts its own context when InfiniteSessions is set (SessionCompactionStartEvent).
+      Wrapping it in UseFunctionInvocation would have both sides invoke every tool, and
+      CompactingChatClient would compact a history the session already compacted. The builder
+      therefore declares that it drives its own loop, and ChatClientFactory skips exactly
+      those two decorators for it. Rate limiting, retry, cost publication, recording and
+      secret scrubbing still apply — they are about the call, not about who loops.
+  - key: |
+      TOOLS NEED NO TRANSLATION, WHICH IS THE ONE PLACE THIS IS CHEAPER THAN EXPECTED.
+      SessionConfig.Tools is List<AIFunction> and CopilotTool.DefineTool wraps
+      AIFunctionFactory.Create — the same Microsoft.Extensions.AI types this repository
+      already builds its tools from. The worker bridge had to translate a JSON envelope back
+      into tool calls; here the AIFunction is passed through as-is.
+  - key: |
+      A SESSION IS CONVERSATION STATE AND AN IChatClient CALL IS NOT, AND THAT MISMATCH IS THE
+      REAL WORK. GetResponseAsync receives the full message history every call, while a
+      CopilotSession accumulates its own. Replaying the whole history into a live session
+      would double every turn. The adapter therefore holds ONE session per client instance and
+      sends only the messages it has not already sent, tracked by count; a history that does
+      not extend what was sent — an edit, a compaction, a retry from an earlier point — is
+      answered by disposing the session and opening a fresh one with the full history. Correct
+      before clever: a rebuilt session costs latency, a desynchronised one costs a wrong answer.
+  - key: |
+      COST IS RECORDED AS UNKNOWN RATHER THAN INVENTED. Copilot bills premium requests, not
+      input and output tokens, so ModelPricingResolver has nothing true to say about
+      gpt-5-via-copilot. ConfigStudioCapabilities.ValidateAgent nevertheless refuses to save
+      an agent whose routed model has no pricing entry. Zero-cost entries are registered so
+      the agent can be saved, and the spend a run reports through EventPublishingChatClient
+      will read zero for a Copilot agent. That is a visible, explainable gap; a fabricated
+      per-token price would be an invisible, unexplainable one.
+  - key: |
+      A DESIGN QUESTION THIS PHASE DOES NOT ANSWER, STATED RATHER THAN BURIED: premium-request
+      accounting is a second spend unit the domain does not have. Giving it one touches the
+      pricing model, the cost budgets and every run's spend display, and it is worth doing
+      only once a Copilot agent has actually run enough to make the gap hurt. p0303 is where
+      it belongs, not here.
+  - key: |
+      THE TOKEN IS READ FROM THE ENVIRONMENT THE SDK ALREADY READS. The SDK resolves
+      COPILOT_GITHUB_TOKEN, then GH_TOKEN, then GITHUB_TOKEN, which is the convention
+      SecretsProvider already follows — the name in the config, the value only in the
+      environment. Nothing new is invented; the name is registered in AgentEnvKeys and carried
+      through the two spawners so a sandboxed run has it. DockerJobSpawner's forwarded list is
+      hardcoded and already omits AZURE_OPENAI_API_KEY and GROQ_API_KEY; this phase adds the
+      Copilot name and leaves that pre-existing drift alone.
+  - key: |
+      SERVER DEPLOYMENTS ARE WHY GitHubToken IS CONFIGURABLE AT ALL. UseLoggedInUser defaults
+      to true and reads a developer's keychain, which is right on a laptop and wrong in a
+      cluster. When a token is present it is passed explicitly and UseLoggedInUser is set
+      false, so a k8s run can never silently answer as whoever last logged in on the build host.
+  - key: |
+      THE ADAPTER IS TESTED WITHOUT A COPILOT ENTITLEMENT. The wire seam the other builders
+      use — an injected HttpMessageHandler — does not exist here, because the SDK talks to a
+      bundled runtime rather than to HTTPS. The session is therefore reached through an
+      interface the adapter owns, and the tests drive scripted SessionEvent sequences through
+      it: a plain answer, a streamed answer, a tool round-trip, an error, an idle that never
+      arrives. Only the preflight probe requires real credentials, and it is skipped when the
+      token is absent.
+
+packages:
+  - "GitHub.Copilot.SDK (AgentSmith.Infrastructure)"
+
+steps:
+  - id: the-session-is-reachable-behind-an-interface
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
+    action: "Define the narrow session abstraction the adapter talks to, so scripted events can stand in for a live runtime."
+    new:
+      - "ICopilotSessionHandle: SendAsync, event subscription, model switch, disposal"
+      - "CopilotSessionHandle: the GitHub.Copilot.SDK CopilotClient/CopilotSession implementation"
+
+  - id: the-events-are-folded-into-a-response
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
+    action:
+      - "Fold AssistantMessageEvent and the tool-execution events into a ChatResponse, completing on SessionIdleEvent and faulting on SessionErrorEvent."
+      - "Surface AssistantMessageDeltaEvent as the streaming path when the caller asks for one."
+      - "Send only the messages not already sent; rebuild the session when the incoming history does not extend what was sent."
+    new:
+      - "CopilotSessionChatClient: IChatClient over one session, holding the sent-message watermark"
+
+  - id: the-builder-declares-that-it-loops
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders"
+    action:
+      - "Build the client from AgentConfig and ModelAssignment, mapping model, working directory and reasoning effort, approving tool permissions since the run's own approval policy governs."
+      - "Mark the builder as self-looping and skip UseFunctionInvocation and CompactingChatClient for it in the factory, leaving every other decorator in place."
+    new:
+      - "CopilotChatClientBuilder: IChatClientBuilder, SupportedTypes = [copilot, github_copilot]"
+    modify:
+      - "IChatClientBuilder: gains the self-looping declaration, defaulted false so the four existing builders are untouched"
+      - "ChatClientFactory: honours the declaration when composing the decorator chain"
+      - "AgentProviderExtensions: registers the builder, as the reflection tripwire requires"
+
+  - id: the-token-reaches-the-run
+    action:
+      - "Register the Copilot token name and resolve it per agent, falling back to the SDK's own precedence."
+      - "Pass the token explicitly and disable logged-in-user fallback whenever a token is present."
+      - "Carry the name through the k8s binding, the Docker forward list, the secrets maps and the env example."
+    modify:
+      - "AgentEnvKeys: COPILOT_GITHUB_TOKEN"
+      - "AgentSecretBinding: the kebab-case k8s secret key"
+      - "DockerJobSpawner: the forwarded env list"
+      - "config/agentsmith.yml, .env.example, deploy/apply-k8s-secret.sh"
+
+  - id: the-config-admits-the-provider
+    action:
+      - "Add the type to the schema enum and a commented agent block to the example config."
+      - "Give the provider its own rate-limit defaults instead of the 600/600k catch-all."
+      - "Register zero-cost pricing for the Copilot-routed models so the config studio can save the agent."
+    modify:
+      - "config/agentsmith.schema.json: the agent type enum"
+      - "config/agentsmith.example.yml: a copilot agent, commented"
+      - "LlmRateBudget: a copilot case in DefaultFor"
+      - "ModelPricingResolver: zero-cost entries, commented as premium-request billing"
+
+  - id: the-adapter-is-pinned-by-scripted-events
+    path: "tests/AgentSmith.Tests"
+    action: "Drive the adapter through scripted session-event sequences, and assert the decorator chain omits exactly the two loop-owning decorators."
+
+tests:
+  - "CopilotSessionChatClient_AssistantMessageThenIdle_ReturnsTheContent"
+  - "CopilotSessionChatClient_StreamingRequested_YieldsDeltasThenTheFinalMessage"
+  - "CopilotSessionChatClient_ToolExecutedBySession_IsReportedNotReinvoked"
+  - "CopilotSessionChatClient_SessionError_FaultsTheCall"
+  - "CopilotSessionChatClient_SecondCallExtendingTheHistory_SendsOnlyTheNewMessages"
+  - "CopilotSessionChatClient_HistoryThatDivergesFromWhatWasSent_RebuildsTheSession"
+  - "CopilotChatClientBuilder_TokenConfigured_DisablesLoggedInUserFallback"
+  - "CopilotChatClientBuilder_NoTokenAnywhere_RefusesWithTheEnvVarName"
+  - "ChatClientFactory_SelfLoopingBuilder_OmitsFunctionInvocationAndCompaction"
+  - "ChatClientFactory_ExistingBuilders_KeepTheFullDecoratorChain"
+  - "Capabilities_AgentProviders_IncludeCopilot"
+  - "ValidateAgent_CopilotAgentWithZeroCostPricing_Saves"
+
+done:
+  - "an agent with type copilot answers a model call through the SDK, with no API key for any other provider set"
+  - "the copilot session executes a tool once, and the response reports it rather than invoking it again"
+  - "a second call that extends the history sends only the new messages"
+  - "a history that diverges from what was sent is answered from a rebuilt session"
+  - "the decorator chain for a copilot agent omits function invocation and compaction, and keeps rate limiting, retry, cost publication, recording and scrubbing"
+  - "the four existing providers' decorator chains are byte-for-byte what they were"
+  - "the capabilities endpoint lists copilot, and the dashboard dropdown offers it with no dashboard change"
+  - "an agent-smith doctor run reports the copilot agent reachable when the token is set, and skipped when it is not"
+  - "the config studio saves a copilot agent, and a run reports its spend as zero"

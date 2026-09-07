@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-5e28
+
+goal: "Ticket attachment bytes are kept out of the checkpoint and re-fetched on resume, instead of riding it twice over as base64."
+
+applies_to: "backend (attachment model, checkpoint serialisation, the resume path)"
+
+scope:
+  in: >
+    The derived base64 view of an attachment is not serialised; image and document attachment keys
+    join the serialiser's excluded keys; the resume re-provisions them by running the ticket fetch
+    ahead of the remaining commands, so the master still receives them; a tracker that cannot be
+    reached leaves the run without attachments the way a failed fetch already does.
+  out: >
+    A DURABLE BYTE STORE. There is none: the artifact store is slot-shaped and its durable half
+    mirrors markdown only, so moving the bytes there is the same base64 in the same database.
+    CHANGING WHAT CONSUMERS RECEIVE — they keep getting bytes.
+
+decisions:
+  - key: |
+      THE SAME BYTES ARE WRITTEN TWICE PER IMAGE. The attachment record exposes a base64 view as a
+      public property, so the serialiser emits both it and the byte array. One annotation halves
+      the payload before anything else is considered.
+  - key: |
+      RE-FETCHING BEATS STORING. The tracker still has the attachment; the ticket fetch step
+      already downloads images, documents and references and is already fail-soft on each. Running
+      it ahead of the remaining commands re-provisions all of it and gives the trail a visible
+      step, instead of a second fetching path outside the handler.
+  - key: |
+      NO SIZE FAILURE HAS BEEN OBSERVED. The checkpoint column is unbounded and no incident
+      records a size-driven failure, so this is hygiene on the largest avoidable payload, not a
+      fix for a known crash. Stating that keeps the phase honest about what it buys.
+  - key: |
+      RE-FETCHED IS NOT IDENTICAL. An attachment edited or removed while the run waited comes back
+      changed, and a later phase that records which attachments formed a requirement has to
+      reckon with that. It is named here and not solved here.
+
+steps:
+  - id: the-derived-base64-view-is-not-serialised
+    action: "The attachment record's base64 property is excluded from serialisation."
+  - id: attachment-keys-leave-the-checkpoint
+    action: "The image-attachment and document-attachment context keys join the serialiser's excluded keys."
+  - id: the-resume-refetches-the-ticket
+    action: "The ticket fetch runs ahead of the remaining commands on resume, re-provisioning attachments and references."
+  - id: a-test-covers-a-resume-with-attachments
+    action: "A test parks a run carrying attachments, resumes it, and asserts the master receives them and the checkpoint carries no attachment bytes."
+
+done:
+  - "a checkpoint written for a run with image attachments contains no attachment bytes"
+  - "a resumed run's master receives the ticket's images"
+  - "an unreachable tracker on resume leaves the run without attachments and says so"
+  - "build green, full suite green"

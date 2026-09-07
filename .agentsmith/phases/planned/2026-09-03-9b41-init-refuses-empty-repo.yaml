@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-9b41
+
+goal: "Initialising a repository that holds no source refuses with that stated as the reason, instead of reporting the project already bootstrapped."
+
+applies_to: "backend (bootstrap dispatch, init result)"
+
+scope:
+  in: >
+    Bootstrap dispatch counts the components it will run rounds for, not the repositories it was
+    given; a repository that yielded no component fails initialisation naming the repository and
+    the reason; a run that produced no rounds never reports success.
+  out: >
+    INITIALISING FROM A DECLARED KNOWLEDGE SOURCE — writing a context for a repository with no code
+    is separate work with its own evidence problem, and it is not made possible by this refusal.
+    CREATING THE REPOSITORY OR ITS FIRST COMMIT.
+
+decisions:
+  - key: |
+      A GREENFIELD INIT IS GREEN TODAY AND SAYS THE OPPOSITE OF THE TRUTH. Cloning an empty
+      repository succeeds, creating the work branch on an unborn head succeeds, the analyzer
+      returns a near-empty map, discovery accepts an empty component list, dispatch guards on the
+      count of REPOSITORIES rather than components and queues zero rounds, and the commit step
+      finds only the run record and reports "already bootstrapped". Every step behaved; the run
+      still lied.
+  - key: |
+      THE GUARD IS ONE COUNT IN THE WRONG PLACE. Repositories are what the run was given;
+      components are what it can act on. Counting the input instead of the work is what makes zero
+      work look like nothing to do.
+  - key: |
+      REFUSING IS THE WHOLE FIX AND IT IS WORTH SHIPPING ALONE. Making an empty repository
+      initialisable is a larger question — a context written with no code to read is an invented
+      architecture every later phase would be verified against. Refusing is correct under both
+      answers to that question.
+
+steps:
+  - id: dispatch-counts-components-not-repositories
+    action: "The dispatch guard is computed from the components discovered, not from the number of repositories."
+  - id: no-component-fails-with-the-reason
+    action: "A repository that yielded no component fails initialisation, naming the repository and stating that it holds no source to read."
+  - id: a-test-covers-the-empty-repository
+    action: "A test initialises a repository with no source and asserts the run fails with that reason rather than reporting success."
+
+done:
+  - "an init-project run against a repository with no source fails, naming the repository"
+  - "the failure reason says the repository holds no source to read"
+  - "no run that queued zero bootstrap rounds reports success"
+  - "build green, full suite green"
