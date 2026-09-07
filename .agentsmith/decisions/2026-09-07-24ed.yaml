@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-24ed
+
+decisions:
+  - category: Architecture
+    chose: "One balanced-span scanner, JsonObjectSpans.Balanced, in AgentSmith.Contracts"
+    over: "Fixing JsonObjectScanner alone (the patch as applied) or a shared copy in Application"
+    reason: |
+      Run 2026-09-07T14-04-31-0c88 proved the defect on the worker path: a valid envelope whose
+      edit carried old_string "{\n  \"extends\": ..." never closed under a brace count that did
+      not know it was inside a string, the reply was read as narration, the master was told it
+      "changed code but emitted no verdict", re-emitted the same envelope and stopped idle with
+      the work open. Four more brace counters read model output the same way — the verdict
+      (MasterVerificationParser), the draft (ExpectationDraftParser), the derivation
+      (SpecJsonReader) and the tolerant recovery (TolerantJsonObjectScanner) — and none was
+      shared. Infrastructure references Contracts, Domain and Infrastructure.Core, not
+      Application, so the one implementation both layers reach lives in Contracts, next to the
+      other pure text-shape helpers there. Every call site migrates; the private copies and the
+      TolerantJsonObjectScanner file are deleted, with no shim left behind.
+
+  - category: Implementation
+    chose: "Quotes are tracked only while inside an object; a backslash escapes the next character"
+    over: "Tracking string state from the first character, as TolerantJsonObjectScanner did"
+    reason: |
+      Prose is not JSON. A model writes 'Continuing "adapt-source": fixing tsconfig' or leaves a
+      quote unpaired before the envelope, and tracking from the first character inverts every
+      string in the object that follows — the old tolerant scanner lost the whole array to one
+      stray quote (pinned by ExtractArrayObjects_AStrayQuoteInProseBeforeTheObjects). From the
+      opening brace onward the JSON grammar holds, so a quote is a string boundary there and a
+      brace inside it is text.
+
+  - category: Implementation
+    chose: "An unclosed span is skipped and the scan resumes at the next brace"
+    over: "Ending the scan at the first unclosed brace"
+    reason: |
+      A stray "{" in prose before the envelope would otherwise hide the envelope, which is the
+      class of loss this phase ends; all four naive scanners already resumed this way. The
+      tolerant parser's contract that a half-finished trailing object is dropped survives — the
+      unclosed span itself is never yielded (ExtractArrayObjects_TruncatedMidArray stays green).
+      The cost is that a completed object nested inside a truncated trailing one is yielded as a
+      candidate; every consumer of ExtractArrayObjects already deserialises each candidate
+      inside a try and discards what does not fit.
+
+  - category: Scope
+    chose: "SpecJsonReader.BalancedObjects migrates too"
+    over: "Leaving the fifth copy, which the brief did not name"
+    reason: |
+      SpecDerivationParser read the derivation reply through the same naive count; a phase
+      description quoting a brace would have lost the whole set to the retry path. Leaving one
+      copy behind would have made "one scanner" false on the day it shipped.

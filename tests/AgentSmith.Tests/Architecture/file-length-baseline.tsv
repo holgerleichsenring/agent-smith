@@ -46,7 +46,7 @@
 210	AgentSmith.Application/Services/Polling/TrackerPoller.cs
 206	AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs
 203	AgentSmith.Application/Services/SwaggerSpecCompressor.cs
-202	AgentSmith.Application/Services/MasterVerificationParser.cs
+182	AgentSmith.Application/Services/MasterVerificationParser.cs
 200	AgentSmith.Infrastructure/Services/Containers/DockerContainerRunner.cs
 200	AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs
 199	AgentSmith.Infrastructure/Services/Bus/RedisMessageBus.cs
