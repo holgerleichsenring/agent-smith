@@ -220,6 +220,77 @@ public sealed class SpecHandbackTests
         result.IsSuccess.Should().BeTrue();
     }
 
+    // 2026-09-07-c9d4: a question parks where a person can answer, with both readings and
+    // the one the run takes if nobody does — the ticket says which door the run goes through.
+    [Fact]
+    public async Task Question_ATicketWithTwoReadings_ParksWithBothAndTheOneTaken()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var pipeline = PipelineWith(Question());
+
+        var result = await Handler(tickets).ExecuteAsync(Context(pipeline, Parkable()), default);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("awaiting_user_input").And.Contain("reads two ways");
+        pipeline.Get<bool>(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeTrue();
+        tickets.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(),
+            It.Is<string>(c => c.Contains("(a) only where an advisory forces it")
+                && c.Contains("(b) the newest major everywhere")
+                && c.Contains("proceeds on (a)")),
+            "needs-info", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void Build_QuestionCase_CarriesTheAwaitingAnswerMarker()
+    {
+        var body = SpecHandbackComment.Build(Question(), null, TicketMention.NobodyToNotify);
+
+        body.Should().StartWith("## Agent Smith —", "the next run must recognise the comment as ours");
+        Application.Services.Prompts.OwnTicketComment.AwaitsAnswer(
+                new TicketComment("agent-smith", DateTimeOffset.UtcNow, body))
+            .Should().BeTrue("an unanswered question must survive into the next run's conversation");
+        body.Should().Contain("move the ticket back to a trigger status");
+        body.Should().NotContain("Retry");
+    }
+
+    // The sha guard cannot end a question loop: every derivation commits a fresh revision, so
+    // the shas never match — and even where they would, the question's progress signal is the
+    // conversation. The pointer is seeded so the guard WOULD fire for the contradiction case.
+    [Fact]
+    public async Task Question_ThePointerRepeatGuard_DoesNotEndAQuestionLoopByItself()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var pointers = new Application.Services.Persistence.InMemorySpecSetPointerStore();
+        await pointers.SaveAsync(string.Empty,
+            new SpecSetPointer("azdo-1", "primary", "sha", 1, SpecHandbackCase.Question, 1, "sha"),
+            CancellationToken.None);
+        SpecHandbackProgress.RepeatsWithoutProgress(
+                Pointer(SpecHandbackCase.RequirementsContradictRepository, "sha"),
+                SpecHandbackCase.RequirementsContradictRepository, "sha")
+            .Should().BeTrue("the seeded shape must be one the guard fires on for another case");
+        var pipeline = PipelineWith(Question());
+
+        var result = await Handler(tickets, pointers).ExecuteAsync(Context(pipeline, Parkable()), default);
+
+        result.Message.Should().Contain("awaiting_user_input");
+        tickets.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), "needs-info", It.IsAny<CancellationToken>()),
+            Times.Once);
+        (await pointers.GetAsync(string.Empty, "azdo-1", CancellationToken.None))!
+            .RepeatedHandbackCount.Should().Be(2, "the repeat is still counted");
+    }
+
+    [Fact]
+    public void RepeatsWithoutProgress_Question_NeverEndsTheLoop() =>
+        SpecHandbackProgress.RepeatsWithoutProgress(
+            Pointer(SpecHandbackCase.Question, "sha"), SpecHandbackCase.Question, "sha")
+        .Should().BeFalse();
+
+    private static SpecHandback Question() => new(
+        SpecHandbackCase.Question, "'newest versions, even breaking' reads two ways",
+        Readings: ["only where an advisory forces it", "the newest major everywhere"], Taken: 0);
+
     [Fact]
     public void ParksOpenQuestions_Code_IsTrue_BecauseTheHandbackParks() =>
         PipelinePresets.ParksOpenQuestions(PipelinePresets.CodeName).Should().BeTrue(
