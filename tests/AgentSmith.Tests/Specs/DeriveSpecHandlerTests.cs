@@ -122,6 +122,9 @@ public sealed class DeriveSpecHandlerTests
             new SpecSetTicketCommenter(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<SpecSetTicketCommenter>.Instance),
             new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
+            new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
+            new UnansweredQuestionNotice(
+                Mock.Of<ITicketProviderFactory>(), NullLogger<UnansweredQuestionNotice>.Instance),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 

@@ -25,6 +25,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// what must not be done is the one wrong answer. With no tracker to park on it ends
 /// the run as a failed step — the continue branch would run checkout.
 /// </para>
+/// <para>
+/// A QUESTION parks like the contradiction case every time it is raised; its loop is
+/// ended by the conversation, not here: an unanswered question is pinned into the next
+/// derivation as the answer, so a second park is the model asking again.
+/// </para>
 /// </summary>
 public sealed class SpecHandbackHandler(
     ITicketProviderFactory ticketFactory,
@@ -96,6 +101,8 @@ public sealed class SpecHandbackHandler(
             $"awaiting_user_input: not implementable as specified — {handback.Reason}"),
         SpecHandbackCase.Refused => CommandResult.Ok(
             $"awaiting_user_input: refused — {handback.Reason}"),
+        SpecHandbackCase.Question => CommandResult.Ok(
+            $"awaiting_user_input: the ticket reads two ways — {handback.Reason}"),
         _ => CommandResult.Ok($"awaiting_user_input: handed back ({handback.Case})"),
     };
 
