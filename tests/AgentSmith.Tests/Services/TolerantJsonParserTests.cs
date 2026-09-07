@@ -97,6 +97,19 @@ public sealed class TolerantJsonParserTests
     }
 
     [Fact]
+    public void ExtractArrayObjects_AStrayQuoteInProseBeforeTheObjects_DoesNotSwallowThem()
+    {
+        // 2026-09-07-24ed: quotes are string boundaries only inside an object. The old
+        // scanner tracked them from the first character, so one unpaired quote in the
+        // preamble inverted every string in the array and nothing was recovered.
+        const string raw = """Here are the "findings: [{"a":1},{"b":2}]""";
+
+        var literals = _parser.ExtractArrayObjects(raw);
+
+        literals.Should().Equal("""{"a":1}""", """{"b":2}""");
+    }
+
+    [Fact]
     public void ParseObject_Empty_ReportsFailedDiagnostic()
     {
         var result = _parser.ParseObject("");

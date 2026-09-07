@@ -3,35 +3,13 @@ using System.Text.Json;
 namespace AgentSmith.Infrastructure.Services.Workers;
 
 /// <summary>
-/// p0419: finds JSON objects inside free-form agent output. Text-shape work only —
-/// what an object MEANS is the reply parser's business, and keeping the two apart is
-/// what lets the parser read as the rule it encodes.
+/// p0419: the envelope-shaped questions about free-form worker output. Where an object
+/// ENDS is <see cref="Contracts.Json.JsonObjectSpans"/>'s business, shared with every
+/// other parser of model output; what an object MEANS is the reply parser's. This
+/// class holds the two questions in between.
 /// </summary>
 internal static class JsonObjectScanner
 {
-    /// <summary>
-    /// Every balanced {...} span, outermost first, so a nested payload never masks
-    /// the envelope that contains it.
-    /// </summary>
-    public static IEnumerable<string> BalancedObjects(string text)
-    {
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] != '{') continue;
-            var depth = 0;
-            for (var j = i; j < text.Length; j++)
-            {
-                if (text[j] == '{') depth++;
-                else if (text[j] == '}' && --depth == 0)
-                {
-                    yield return text[i..(j + 1)];
-                    i = j;
-                    break;
-                }
-            }
-        }
-    }
-
     /// <summary>Strips one surrounding markdown fence, if the output wears one.</summary>
     public static string Unfence(string raw)
     {

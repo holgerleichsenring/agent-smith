@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using AgentSmith.Contracts.Json;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services;
@@ -31,29 +32,8 @@ public static partial class MasterVerificationParser
         for (var i = fenced.Count - 1; i >= 0; i--)
             yield return fenced[i].Groups["body"].Value;
 
-        foreach (var obj in BalancedObjects(text))
+        foreach (var obj in JsonObjectSpans.Balanced(text).Reverse())
             yield return obj;
-    }
-
-    private static IEnumerable<string> BalancedObjects(string text)
-    {
-        var results = new List<string>();
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] != '{') continue;
-            var depth = 0;
-            for (var j = i; j < text.Length; j++)
-            {
-                if (text[j] == '{') depth++;
-                else if (text[j] == '}')
-                {
-                    depth--;
-                    if (depth == 0) { results.Add(text[i..(j + 1)]); i = j; break; }
-                }
-            }
-        }
-        results.Reverse();
-        return results;
     }
 
     private static bool TryReadObject(string json, out MasterVerification verification)

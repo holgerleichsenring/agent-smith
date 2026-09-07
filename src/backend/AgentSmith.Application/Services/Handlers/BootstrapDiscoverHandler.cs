@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Json;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -263,7 +264,7 @@ public sealed class DiscoveryOutputParser
         // scanning for the first balanced {...} that deserializes (Sonnet 4.6 preamble).
         if (TryDeserialize(json, out output, out error))
             return true;
-        foreach (var candidate in TolerantJsonObjectScanner.ExtractObjects(raw))
+        foreach (var candidate in JsonObjectSpans.Balanced(raw))
             if (TryDeserialize(candidate, out output, out _))
                 return true;
         return false;   // error holds the strict-parse failure

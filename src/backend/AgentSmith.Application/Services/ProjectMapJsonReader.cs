@@ -32,7 +32,7 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
         // scanning for the first balanced {...} that builds (e.g. a Sonnet 4.6 preamble).
         if (TryBuild(Json.FencedJson.Strip(finalText.Trim()), out map, out error))
             return true;
-        foreach (var candidate in TolerantJsonObjectScanner.ExtractObjects(finalText))
+        foreach (var candidate in Contracts.Json.JsonObjectSpans.Balanced(finalText))
             if (TryBuild(candidate, out map, out _))
                 return true;
         return false;   // error holds the strict-parse failure
