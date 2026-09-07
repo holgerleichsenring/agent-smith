@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-b7e2
+goal: "The derivation can look into the repository through named read-only tools before it writes the work order, and every fact it states cites the look it came from — or is rendered as an assumption."
+
+applies_to: "backend (spec derivation's model call and tools, the work order's facts, the derivation-time ticket comment) + skills catalog (telling the derivation master it may look, a coordinated release)"
+
+# Written beside 2026-09-07-a1c3 (the scope call + hand-back cases), built in parallel
+# with no code dependency. A requires: may name only a phase that exists on the branch
+# it lands on — PhaseRecordRuleTests refuses a dangling one — so the sibling is named
+# here in prose, not as an edge.
+
+scope:
+  in: "A small set of named, read-only tools offered to the derivation call under a per-derivation budget; framework-minted evidence for every tool call; a facts section in the work order whose lines cite that evidence and are downgraded to assumptions in code when they do not; and criteria, facts and assumptions rendered into the ticket comment the author already receives."
+  out: "A shell probe of any kind — refused below. Building or testing before the master. Parking on a question the code cannot settle: that is the successor phase. Classifying criteria, counting passes, correcting criteria after they bind. Efficiency and sense."
+
+decisions:
+  - key: |
+      THE FACT WAS ONE LOOK AWAY AND NOBODY LOOKED. A dependency ticket derived the criterion that
+      the package manifest must carry upgraded versions. For days that was taken for unsatisfiable
+      on the belief that every finding was transitive. The ecosystem's own audit says one direct
+      package is affected in one project and eight in the other — with that in hand the right
+      criterion writes itself, and a master that later raised those floors was doing the work.
+      The derivation could not write it: it had ticket prose and a code map, and neither carries
+      an advisory. It guessed the shape of the fix and the guess became binding. The fix is not to
+      check the guess afterwards — five ways of doing that were tried and are recorded at the end —
+      it is to let the derivation look first.
+  - key: |
+      NAMED TOOLS, NOT A SHELL — AND THAT IS A CAPABILITY SURFACE, NOT A HARM CLASSIFIER. An
+      earlier draft offered "a probe command" bounded by a budget of calls and seconds. The review
+      showed why that is a shell: the sandbox holds real registry tokens staged by
+      SetupRegistryAuth, its network is open, and one call under a second reads a credential file
+      and posts it. A cost budget does not distinguish a probe from a build or from exfiltration —
+      it truncates them. So the derivation is offered a fixed, named set: the branch search the
+      delivery account already has (an argv grep, read-only by construction), a file read, and one
+      audit tool per ecosystem that runs the ecosystem's own advisory command with fixed arguments
+      and returns its structured output. Which of these to call, on what, is the model's choice —
+      that is the semantic part and it stays free. What can be called at all is the framework's,
+      the way the scout's tool surface already is. Read-only is a property of the tools, never a
+      promise the budget has to keep.
+      DependencyAuditor already detects npm, python and dotnet and runs their audit commands for
+      the security scan — through /bin/sh -c, installing pip-audit on a miss, parsed into findings
+      that drop the project. The derivation's audit tool is the argv form of those commands
+      (`dotnet list package --vulnerable --format json`, `npm audit --json`,
+      `pip-audit --format=json`), never installs anything, and returns the command's own JSON
+      bounded in size; an exit that is not the tool's 'nothing found' code mints a line that says
+      it proves nothing. Moving the security scan onto the same implementation is the recorded
+      follow-up, and it now names three consumers.
+      Read-only is not enough at derivation: SetupRegistryAuth has written /root/.npmrc and
+      /root/.nuget/NuGet/NuGet.Config, and a file read or a grep with a free path reads them into
+      the model's context and the trace. Every tool resolves its path under /work and refuses an
+      absolute path or one that escapes it.
+  - key: |
+      A FACT CITES EVIDENCE THE FRAMEWORK MINTED, OR IT IS AN ASSUMPTION — DECIDED IN CODE. The
+      earlier draft said "every line names the probe it came from", which is the model labelling
+      its own lines: self-certification, the exact failure the delivery account was built to end.
+      The mechanical form already exists there. SearchEvidence.Remember mints an evidence line per
+      tool call in a fixed grammar and CitationResolver resolves a citation by command prefix. The
+      derivation's lines keep that grammar and ADD an id — `[L3] repo: the derivation ran '…'
+      exited 0` — and a facts line is resolved by id alone, in a reader of its own;
+      CitationResolver is not reused because it resolves an account row, not a fact. A line citing
+      nothing or an id nobody minted is rendered as an assumption by the reader — not by the model.
+      No mechanism judges whether the model asked the RIGHT question of the code; the person who
+      wrote this phase asked the wrong one for days. A reader who sees "7 high, 1 direct" can ask
+      "which?"; a reader who sees nothing cannot.
+  - key: |
+      THE FACTS LIVE IN THEIR OWN SECTION, NOT IN THE TICKET'S VERBATIM COMPANION. The phase's
+      markdown companion is cut byte for byte out of the ticket — "the model never reproduces a
+      template" is its contract. Model-written facts inside it would break that contract. Facts and
+      assumptions render as their own section of the phase record, and the reader that builds the
+      ticket comment reads them from there. They are two YAML keys on the phase record, admitted by
+      the schema's open top level, read by PhaseDraftReader; nothing in the database changes.
+  - key: |
+      THE AUTHOR CANNOT OBJECT TO WHAT THEY NEVER SEE. The derivation already comments the cut on
+      the ticket: phase ids, goals, and the discarded segments with reasons. The criteria, the facts
+      and the assumptions — the parts a human checks in seconds and the parts that cost money when
+      wrong — do not reach it. This phase renders them into that existing comment. Information
+      offered, not confirmation demanded: the run proceeds on the comment exactly as it does today.
+  - key: |
+      THE TOOLS ARE VISIBLE TO AN OLD CATALOG, AND THAT IS STATED INSTEAD OF DENIED. Tool schemas
+      travel in the request whatever the prompt says, and the Planning task type is already wrapped
+      in the function-invoking client, so an old derivation master MAY call a tool it was never told
+      about. That is not harmful — the tools are read-only — but it is not "inert" either, and the
+      earlier draft's claim that it was, and its test, are withdrawn. What is true and tested: the
+      real reader over a reply that carries no facts, no citations and no new fields yields today's
+      set. Telling the derivation master that it may look and that facts must cite is the pinned
+      skill and a coordinated release; the existing prompt tests stay green, and the substring
+      test for the new wording ships with the pin bump.
+  - key: |
+      WHY NOT PUT THE AUDIT INTO ANALYZECODE INSTEAD. AnalyzeCode already drives a tool-bearing
+      model over the sandbox and hands the derivation a code map. Running the ecosystem audit there
+      and summarising it into the map would give the derivation THIS ticket's fact with no new tool
+      surface at derivation. It was not chosen as the mechanism because it fixes in advance which
+      facts exist: the next ticket needs a different look, and a map that carries every possible
+      fact is the code map the analyzer already refuses to be. But the audit tool built here should
+      be one implementation used by both, and the analyzer may well call it for a dependency-shaped
+      ticket. That is a follow-up, recorded so it is weighed rather than rediscovered.
+  - key: |
+      WHAT WAS TRIED AGAINST THIS AND FAILED, SO IT IS NOT RE-PROPOSED. A review after derivation
+      that corrects criteria — waved the manifest criteria through for want of a fact and made a
+      sound criterion worse. Classifying criteria by the kind of check that settles them — the
+      manifest criterion lands in the binding bucket. Sorting ticket sentences into fact and
+      instruction — segments are blank-line blocks and the rule already existed; that draft is
+      superseded by this one. A counter over passes — the operator's veto. Telling the master a
+      disposition is available — a fourth instruction to a model that ignored the third. Each acted
+      on the criterion after it was written, without the fact it was missing. This phase supplies
+      the look.
+
+steps:
+  - id: the-derivation-is-offered-named-read-only-tools
+    action: "Offer the derivation call a fixed set of read-only tools — the account's branch search, a file read, and one audit tool per ecosystem with fixed arguments — under a per-derivation call budget that spans the retry attempts: one allowance held across the three attempts by the tool host the deriver owns for the call; the function-invoking iteration cap is set to allowance + 2 per attempt, as AccountTools.MaxIterations already does, so an exhausted budget is answered in text and never trips the cap into an empty reply; the deriver re-appends response.Messages, not response.Text, so a retry sees the looks it already took. Resolved over every sandbox of the run, read from ContextKeys.Sandboxes through SandboxTargets.TryResolve — the map PhaseAccounting already hands BranchSearch; SpecSetWriter resolves only the carrying repo's one sandbox and is the wrong seam."
+  - id: every-tool-call-mints-evidence
+    action: "Record each derivation tool call as a framework-minted evidence line with an id, in the shape SearchEvidence.Remember already produces."
+  - id: a-facts-line-cites-evidence-or-becomes-an-assumption
+    action: "Read a facts section out of the derivation reply into its own section of the phase record, resolve each line's citation against the minted evidence, and render an uncited or unresolvable line as an assumption — and the minted evidence lines render beside the facts, so an id a human reads resolves to the look it names."
+  - id: the-comment-shows-criteria-facts-and-assumptions
+    action: "Render each phase's done-list, facts and assumptions into the derivation-time ticket comment beside the goals and discarded segments it already shows."
+  - id: the-catalog-tells-the-derivation-it-may-look
+    action: "Extend the derivation master in the skills catalog: it may use the offered tools before writing, and every fact must cite the evidence id it came from; release and bump the pin."
+
+tests:
+  - "Look_ADerivationCall_IsOfferedOnlyTheNamedReadOnlyTools"
+  - "Look_APathOutsideTheRepository_IsRefusedWithoutRunningAnything"
+  - "Look_ACallOverTheBudget_IsRefusedAndTheDerivationCompletesWithoutIt"
+  - "Look_EveryToolCall_MintsAnEvidenceLineWithAnId"
+  - "Facts_ALineCitingAMintedId_RendersAsAFact"
+  - "Facts_ALineCitingNothingOrAnUnknownId_RendersAsAnAssumption"
+  - "Facts_TheVerbatimCompanion_IsUntouchedByFacts"
+  - "Comment_TheDerivationTimeComment_CarriesEveryDoneCriterionFactAndAssumption"
+  - "Reader_AReplyWithoutFactsOrCitations_YieldsTodaysSet"
+
+done:
+  - "the derivation call carries exactly the named read-only tools and no shell"
+  - "a facts line citing a framework-minted evidence id renders as a fact; one citing nothing or an unknown id renders as an assumption, decided by the reader"
+  - "the verbatim ticket companion carries no model-written text"
+  - "the derivation-time ticket comment shows every done criterion, the facts and the assumptions"
+  - "a budget exceeded ends tool use and the derivation completes without it"
+  - "a reply with no facts and no citations yields the same set as before this phase"
+  - "build green, full suite green"

@@ -32,9 +32,7 @@ public sealed class SpecDerivationTests
         Thanks in advance, and ping me if anything is unclear.
         """;
 
-    private readonly SpecDerivationParser _parser = new(
-        new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(),
-        new DerivedPhaseYamlRenderer(), new SpecDerivationEnvelope());
+    private readonly SpecDerivationParser _parser = DerivationTestParsers.Real();
 
     [Fact]
     public void DeriveSpec_MigrationTicketFixture_EmitsAnOrderedPhaseSet()
