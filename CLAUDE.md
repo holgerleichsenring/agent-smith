@@ -50,51 +50,56 @@ safely — the four hex digits give a 16-bit keyspace against a same-day collisi
 "What is the highest number so far?" is a question none of them can answer, and
 answering it wrongly is how two phases end up sharing one id.
 
-The suffix's **fixed width** marks where the id ends and the slug begins:
-`.agentsmith/phases/planned/2026-08-24-8a3f-a-phase-id-can-be-minted-offline.yaml`.
+The suffix's **fixed width** marks where the id ends and the label begins:
+`.agentsmith/phases/planned/2026-08-24-8a3f-phase-id-offline-minting.yaml`.
 
 **Counter ids (`p0042`, `p0057a`, `p0131c-pre`) are a closed namespace.** Every one of
-them stays valid forever and none is ever renamed — every `requires:` naming one, every
-record entry and every commit message citing one keeps working exactly as it did. The
-namespace is closed to NEW ids only. Counter ids run four to six digits, six because
-ids minted from a ticket number (`p19106a`) live in the same namespace.
+them stays valid forever and an id is never renamed. The namespace is closed to NEW ids
+only. Counter ids run four to six digits, six because ids minted from a ticket number
+(`p19106a`) live in the same namespace.
+
+**An id is frozen; a file name is a pointer.** Every `requires:` edge, every record line
+and every commit message cites the ID, which is why moving a phase file breaks nothing but
+the `-> .agentsmith/phases/…` pointer in `context.yaml` — and that pointer moves with the
+file (`PhaseRecord_EveryPointer_ResolvesToAFile` proves every one resolves). Phases from
+p0400 upward and every date-minted phase were relabelled once, in 2026-09-07-4e6a; the
+cut is where the measurement turned (mean slug words 4.0 over p0350–p0399, 5.8 over
+p0400–p0449, 8.2 over p05xx, 7.6 over the dated phases). That was a one-off migration
+boundary, not a rule: the RULE is scoped by namespace and shape, never by an ordering,
+because a date-minted id sorts below every counter id as text.
 
 A deferred successor is named in prose by what it does — a random suffix cannot be
 reserved in advance, so `requires:` names only phases that already exist.
 
 ## Naming a Phase
 
-The slug is at most **50 characters** and at least **4 words**, and the `goal:` is one
-sentence of at most **200 characters**. The reasoning goes in `decisions:`, and 50 is the
-same number `PhaseIdFactory.Slug` mints against, so the product cannot generate a name the
-rule refuses.
+A phase file is `{id}-{label}.yaml`. The label is a **topic label of 2 to 5 words**, at
+most **50 characters**, and the `goal:` is one sentence of at most **200 characters**. The
+CLAIM lives in the goal — it already states it, with room, punctuation and grammar that a
+fifty-character slug has none of. The reasoning goes in `decisions:`.
 
-A name is built from a **subject you can find and a predicate that changed it**. The
-subject is a nameable thing in this system — a type, a file, a step, a surface, an
-artifact: `every-window-sees-the-whole-file-list`, `the-account-searches-the-base-ref`,
-`a-phase-id-can-be-minted-offline`. It is not the area the work touches (`mcp-tools-call`
-names a place and leaves the claim unwritten), and it is not the INSIGHT behind the work.
+The label is **area-first**: the leading word names the subject area, the rest narrows it —
+`checkpoint-partial-restore`, `account-base-ref-search`, `scope-refusal`,
+`handback-question-case`, `derivation-read-only-tools`. Kin share the leading word, so a
+directory listing groups them and `ls phases/done/account-*` finds them without a shared id
+prefix. A label for a counter id must not begin with `pre`, which the id regex would swallow
+as a `-pre` tail.
 
-An insight-name is the failure this rule was rewritten against.
-`a-criterion-is-settled-by-looking-not-slicing` reads well and cannot be looked up: it
-states a principle, so the next phase that reaches the same principle by changing something
-else gets the same name. That is not hypothetical — `the-account-sees-what-the-agent-ran`
-was minted twice, for p0452 and for p0469, because both were about that idea while changing
-different things. A name that can be minted twice is not a name.
+**Labels may repeat; the id is the identity.** Two phases on one topic may carry one label
+— the goal says which is which — so uniqueness is not enforced. A label is not a sentence:
+`the-diagram-cannot-lie` and `one-gate-not-two` were relabelled to
+`flow-diagram-evidence` and `gate-removed`. A relabel of a phase whose record entry is
+already over the 400-character cap may not lengthen the entry — the pointer is part of it.
 
-Two working tests. If the name would still fit after the phase ships something else, the
-subject is missing. If you cannot write it concretely, the phase is doing more than one
-thing and wants splitting — which is information, not an obstacle.
-
-`PhaseNameRuleTests` enforces the bounds and the uniqueness of a slug over the DATE-MINTED
-namespace. The closed counter namespace is out of scope by construction — those phases are
-finished and are not renamed, and four of their slugs are duplicates that stay — and the
-scoping is a namespace rather than an ordering, because a date-minted id sorts below every
-counter id as text.
+`PhaseNameRuleTests` enforces the word ceiling and the character bound over the DATE-MINTED
+namespace; the closed counter namespace is out of scope by construction, and the scoping is
+a namespace rather than an ordering. The product still mints a sentence slug from the goal
+(`PhaseIdFactory.Slug`, and a second one in `WritePhaseRecordHandler`) — bounding it is
+`2026-09-07-e9a2` (phase-slug-product-bound).
 
 ## Implementation Workflow (follow this order for every phase)
 
-1. **Write phase spec first** — create `.agentsmith/phases/planned/{id}-slug.yaml` with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a phase id** below.
+1. **Write phase spec first** — create `.agentsmith/phases/planned/{id}-label.yaml` with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a phase id** below.
 2. **Move to active** — move the phase file from `planned/` to `active/` when starting work.
 3. **Plan first** — explore codebase, design approach, get user approval before coding.
 4. **Implement step by step** — contracts/models first, then implementation, then wiring, then tests.

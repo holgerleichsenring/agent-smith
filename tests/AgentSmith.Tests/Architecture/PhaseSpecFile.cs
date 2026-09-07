@@ -17,6 +17,11 @@ namespace AgentSmith.Tests.Architecture;
 /// A stem the reader cannot split is kept, not dropped — an unreadable name is the one
 /// case where dropping it would make every rule below silently stop judging it.
 /// </para>
+/// <para>
+/// 2026-09-07-4e6a: the tail is a LABEL, not a claim, and it may move — the id is the
+/// identity. The optional <c>-pre</c> in the counter branch is why a counter id's label
+/// must not begin with <c>pre</c>: the regex would read it as the id's tail.
+/// </para>
 /// </summary>
 internal sealed partial class PhaseSpecFile
 {
