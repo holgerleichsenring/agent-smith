@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-09-07-b7e2: "THE DERIVATION READS THE REPO BEFORE IT WRITES (spec derivation + skills PR #179). Three named read-only tools under one budget, paths held under /work; each call mints an [Ln] line, a fact cites one or is an assumption in code; the ticket comment shows criteria, facts, assumptions. Pin bump pending. -> .agentsmith/phases/done/2026-09-07-b7e2-the-derivation-reads-the-repo-before-it-writes.yaml"
     2026-09-03-7bac: "THE CONTEXT WORKDIR STOPS PLACING COMMANDS (backend + skills). Run 5a18: at a sub-tree workdir the bare build passed while the test command naming a sibling project could not find it. meta.workdir says where SOURCE lives; every command runs at the repo root and carries its own cd. -> .agentsmith/phases/done/2026-09-03-7bac-the-context-workdir-stops-placing-commands.yaml"
     2026-09-03-b028: "A PUBLISHED EVENT REACHES ITS READER (backend). Two EventType values had no EventTypeResolver row, so the envelope dropped them to null silently: PR outcomes never reached the run snapshot, TicketInstructionIgnored never arrived. Rows added; an enum-driven test guards both hierarchies; a dropped code is logged. -> .agentsmith/phases/done/2026-09-03-b028-a-published-event-reaches-its-reader.yaml"
     2026-09-01-6686: "THE API SCAN IS SCORED AGAINST A SERVED TARGET (harness). The stub target grew seven endpoints and the behaviour they describe; the preset runs on an agent CLI against loopback through the PRODUCTION swagger provider, scored by method and path template, silent steps named. First run 0/4 and 0/3. -> .agentsmith/phases/done/2026-09-01-6686-the-api-scan-is-scored-against-a-served-target.yaml"
@@ -774,10 +775,6 @@ state:
     p0179a: "Master prompts as role:master skills loaded from _masters dir, catalog adapter routes prompt names -> .agentsmith/phases/done/p0179a-master-prompt-as-skill.yaml"
     2026-09-03-ee12: "A VERIFY COMMAND RUNS WHERE THE PROJECT SAYS (verify stage resolution). The inferred rung pinned every command to /work, so a repo whose manifests live a directory down built nothing (a06c). It reads meta.workdir now, p0224's one location source; IsDotnet and the .NET search go. -> .agentsmith/phases/done/2026-09-03-ee12-a-verify-command-runs-where-the-project-says.yaml"
     2026-09-04-102b: "THE DATABASE CONNECTION ARRIVES BY ENVIRONMENT (config bootstrap + file loader + k8s manifests). AGENTSMITH_PERSISTENCE_PROVIDER + _CONNECTION replace the file's block at BOTH readers, together or not at all — half a pair is a blocking finding. The ${db_password} promise nothing expanded is withdrawn. -> .agentsmith/phases/done/2026-09-04-102b-the-database-connection-arrives-by-environment.yaml"
-  active:
-    2026-09-03-7bac:
-      goal: "Commands run at the repo root; meta.workdir places none"
-      blocked-by: "agent-smith-skills release + embedded pin bump"
   active: {}
   planned:
     p0429b: "A SCAN REPORTS BACK TO THE TICKET IT CAME FROM (backend). Sliced out of p0429a: the coverage account the gate has judged since p0421 renders on three surfaces, but a scan preset reaches NEITHER the ticket comment nor the PR body — both end at DeliverFindings + WriteRunResult, and only the failure path ever comments on a scan's ticket. Giving a scan its own reporting surface is a delivery feature with its own questions. -> .agentsmith/phases/planned/p0429b-a-scan-reports-back-to-the-ticket-it-came-from.yaml"

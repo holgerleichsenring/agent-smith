@@ -21,7 +21,7 @@ public sealed class DerivedPhaseYamlRenderer
         string markdownFileName,
         IReadOnlyList<int> carriedSegments,
         string ticketId,
-        bool shipsCode = true)
+        PhaseFacts? facts = null)
     {
         var document = new Dictionary<string, object?>
         {
@@ -53,10 +53,16 @@ public sealed class DerivedPhaseYamlRenderer
                 .Select(s => new Dictionary<string, object?> { ["id"] = s.Id, ["action"] = s.Action })
                 .ToList();
         document["done"] = done;
-        // p0400b: ALWAYS emitted, in both directions. While the default stayed implicit,
-        // a spec without the field could mean "the model declared true" or "the model
-        // never spoke" — and the second is the failure the obligation exists to catch.
-        // An unwritten declaration is one nobody can audit.
+        // 2026-09-07-b7e2: two keys of the phase's own, admitted by the schema's open top
+        // level. Each fact carries the minted evidence line it cites, so the id a human
+        // reads resolves to the look it names. Absent when there is nothing to write, so
+        // a cut with no facts renders exactly as it did before this phase.
+        if (facts is { Facts.Count: > 0 })
+            document["facts"] = facts.Facts
+                .Select(f => new Dictionary<string, object?> { ["claim"] = f.Claim, ["evidence"] = f.Evidence })
+                .ToList();
+        if (facts is { Assumptions.Count: > 0 })
+            document["assumptions"] = facts.Assumptions;
 
         return _serializer.Serialize(document).TrimEnd() + "\n";
     }

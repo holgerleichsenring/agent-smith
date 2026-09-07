@@ -68,6 +68,7 @@ public sealed class BranchSearch(
         string? path = null,
         CancellationToken ct = default)
     {
+        if (!ContainedPath.TryRelative(path, out var under)) return ContainedPath.Refusal;
         if (!Budget.TryTake()) return AccountSearchBudget.Exhausted;
         if (!sandboxes.TryGetValue(repository, out var sandbox))
             return $"No repository named '{repository}'. The branch carries: {string.Join(", ", sandboxes.Keys)}.";
@@ -75,7 +76,7 @@ public sealed class BranchSearch(
             return "A search needs a pattern.";
 
         var result = await sandbox.RunStepAsync(
-            SearchCommands.OverTree(pattern, path), progress: null, ct);
+            SearchCommands.OverTree(pattern, under), progress: null, ct);
         _evidence.Remember(repository, pattern, result.ExitCode);
         logger.LogInformation(
             "The delivery account searched {Repo} for {Pattern} under {Path} — exit {Exit}",
@@ -97,6 +98,7 @@ public sealed class BranchSearch(
         string? path = null,
         CancellationToken ct = default)
     {
+        if (!ContainedPath.TryRelative(path, out var under)) return ContainedPath.Refusal;
         if (!Budget.TryTake()) return AccountSearchBudget.Exhausted;
         if (!sandboxes.TryGetValue(repository, out var sandbox))
             return $"No repository named '{repository}'. The branch carries: {string.Join(", ", sandboxes.Keys)}.";
@@ -107,7 +109,7 @@ public sealed class BranchSearch(
                    + "branch itself, so nothing here can say what was there before. This proves nothing.";
 
         var result = await sandbox.RunStepAsync(
-            SearchCommands.OverRef(baseRef, pattern, path), progress: null, ct);
+            SearchCommands.OverRef(baseRef, pattern, under), progress: null, ct);
         _evidence.Remember(repository, pattern, result.ExitCode, baseRef);
         logger.LogInformation(
             "The delivery account searched {Repo}@{Ref} for {Pattern} under {Path} — exit {Exit}",
