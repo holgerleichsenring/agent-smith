@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-c4f9
+
+goal: "A design source is a configuration entity an operator declares and validates in the config studio, and a project references one."
+
+applies_to: "backend and dashboard (configuration entity, project reference, studio surface)"
+
+scope:
+  in: >
+    A design-source entity carrying provider type, location and a secret NAME, with its document
+    type, taxonomy, patch, catalog mapping, store accessors on both stores, entity route and
+    permissions; a project field referencing one entry, its reference edge and referential
+    validation, and its resolution onto the resolved project so a run can read it; a capabilities
+    descriptor and write-side validation so the studio form is typed rather than free text; the
+    dashboard section, its entity maps and navigation entry; the secret name resolved to a value
+    at use, and the deployment templates that carry it.
+  out: >
+    FETCHING ANYTHING. No provider port, no adapter, no pipeline step — those are the next phase,
+    and a step with no input would ship as a permanent no-op.
+    THE EXTRACT. What a fetched design is turned into is a later phase and is not promised here.
+
+decisions:
+  - key: |
+      DECLARING AND FETCHING ARE DIFFERENT RISKS. The entity is plumbing with a known shape; the
+      adapter is a third-party API with auth, rate limits and version semantics nobody here has
+      called yet. Shipped together, the plumbing's cost hides the adapter's unknowns.
+  - key: |
+      THE ENTITY IS ONLY DONE WHEN AN OPERATOR CAN USE IT. A type in the store that no form edits
+      and no project can reference is not a slice. That is why the project reference, the
+      validation and the dashboard section are in scope rather than implied.
+  - key: |
+      THE SECRET NAME MUST ACTUALLY RESOLVE. Existing connections store a secret name that nothing
+      reads — their tokens come from hardcoded environment variables. Repeating that would make the
+      studio field decorative and the failure a 401 at fetch time. The name is resolved here, and
+      the deployment templates that must carry the value are part of done.
+  - key: |
+      THE VENDOR IS NAMED IN THE ADAPTER PHASE, NOT HERE. The entity is provider-typed, so the
+      first adapter's vendor is a value, not a structure.
+
+steps:
+  - id: the-store-holds-a-design-source-entity
+    action: "Document type, taxonomy, patch, catalog mapping and store accessors on both stores are added for a design-source entity."
+  - id: a-project-references-a-design-source
+    action: "A project field, its reference edge, referential validation and its resolution onto the resolved project are added."
+  - id: the-studio-edits-and-validates-it
+    action: "The entity route, capabilities descriptor, write-side validation, dashboard section, entity maps and navigation entry are added."
+  - id: the-secret-name-resolves-to-a-value
+    action: "The declared secret name is resolved at use, and the deployment templates carry the variable."
+
+done:
+  - "an operator creates, edits and deletes a design source in the config studio"
+  - "an invalid provider type or a missing location is refused with a message"
+  - "a project referencing a design source resolves it, and deleting a referenced source is refused"
+  - "a configuration export and re-import round-trips the entity unchanged"
+  - "dashboard tests and build green, backend build green, full suite green"

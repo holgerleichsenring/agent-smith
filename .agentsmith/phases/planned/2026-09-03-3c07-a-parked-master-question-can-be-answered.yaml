@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-3c07
+
+goal: "A run parked on a master's mid-run question resumes and continues, with the operator's answer reaching the model that asked."
+
+applies_to: "backend (master open-questions parking, checkpoint serialisation, the resume path)"
+
+scope:
+  in: >
+    The awaiting-answer flag is not carried into the checkpoint, so a restored run is not
+    immediately parked again by its own park marker; the answer delivered on resume reaches the
+    master that asked; a test covers a parked master question answered and resumed end to end.
+  out: >
+    THE DIALOGUE GATE'S OWN PATH, which orders its flag correctly and is not changed here.
+    WHAT THE MASTER DOES with the answer beyond receiving it.
+
+decisions:
+  - key: |
+      THE TWO PARK PATHS ORDER THEIR FLAG DIFFERENTLY, AND ONE OF THEM IS WRONG. The dialogue gate
+      writes its checkpoint and only then sets WaitingForInput, and that key is excluded from
+      serialisation. The master path sets OpenQuestionsAwaitingAnswer BEFORE writing the
+      checkpoint, and that key is not excluded. So the master's park marker is captured by its own
+      checkpoint, restored on resume, and read by the executor as "still parked" — the run ends at
+      the first command instead of continuing.
+  - key: |
+      THE ANSWER REACHES NO MODEL TODAY. The resumed answer's only reader is the dialogue gate, and
+      the master path never goes through the gate. Even with the flag fixed, the master would
+      re-ask rather than continue, so both halves are one defect.
+  - key: |
+      THE EXISTING TEST STOPS AT THE CHECKPOINT WRITE. Nothing covers the resume, which is how a
+      path that never worked stayed green.
+  - key: |
+      EXCLUDE, DO NOT REORDER. Moving the flag after the checkpoint write would work for a fresh
+      park and still capture it on any later re-park. The key is a live park marker, in the same
+      class as the keys already excluded.
+
+steps:
+  - id: the-awaiting-answer-flag-is-not-checkpointed
+    action: "The master's awaiting-answer key joins the serialiser's excluded keys, alongside the dialogue gate's equivalent."
+  - id: the-answer-reaches-the-master
+    action: "The answer delivered on resume is made available to the master that asked, instead of only to the dialogue gate."
+  - id: a-test-covers-park-answer-resume
+    action: "A test parks on a master question, delivers an answer, resumes, and asserts the run continues past the first remaining command."
+
+done:
+  - "a run parked on a master mid-run question resumes and executes its remaining commands"
+  - "the operator's answer is present in the resumed master's input"
+  - "the run does not re-post the same question on resume"
+  - "build green, full suite green"

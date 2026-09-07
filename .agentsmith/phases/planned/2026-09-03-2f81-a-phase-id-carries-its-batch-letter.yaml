@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-2f81
+
+goal: "A date-minted phase id may carry a trailing letter, so phases cut from one piece of work are recognisable as a series in a file listing."
+
+applies_to: "backend and dashboard (phase id grammar, its schemas, every reader that parses one, the commit gate and the repository rule)"
+
+scope:
+  in: >
+    The id grammar admits one optional lowercase letter directly after the four hex digits, stated
+    identically in twelve code places and two prose places: both repository schemas, the requires-edge
+    checker, the run-steps reader, the decision-file label, the dashboard's step-rail mirror and its
+    test, the file-stem reader AND its date-minted test, the id reader's fixed-width prefix read, the
+    canonical-literal test, the skills placeholder test, the commit gate's message marker, and the
+    rule in CLAUDE.md; a series shares one minted number and differs only by letter; the base number
+    of a series is not itself a phase; a series is minted in one go and a later addition mints anew.
+  out: >
+    THE COUNTER NAMESPACE, which already had letters and is not touched.
+    SUBDIRECTORIES PER SERIES.
+    THE PLUGIN TEMPLATES, which live in another repository on its own release cycle and are diffed
+    by hand against the literal this repository pins.
+
+decisions:
+  - key: |
+      THE LETTER IS APPENDED, NOT SEPARATED. A dashed form cannot be parsed: slugs legitimately begin
+      with a one-letter word, and a-phase-id-can-be-minted-offline is this repository's own example,
+      so in a dashed form nothing can tell a series letter from the first slug word. Appended,
+      position decides: four hex digits, then either a dash or the letter.
+  - key: |
+      LOSING KINSHIP IS A REAL COST OF THE DATE-MINTED SHAPE. Series exist and are readable in the
+      counter namespace — p0169a through p0169m is thirteen files of one piece of work, p0300a
+      through p0300c another. Date-minted ids cut on one day share only the date, which separates
+      nothing.
+  - key: |
+      AN UNPARSEABLE NAME IS NOT REFUSED, IT IS UNJUDGED — WHICH IS WORSE. A letter-suffixed file
+      falls out of the date-minted match, lands in the closed-namespace bucket the naming rules
+      deliberately do not judge, and every rule silently stops applying while the suite stays green.
+      Measured, not predicted: sixteen such files were written and the naming rules went quiet on all
+      of them while only the schema test failed.
+  - key: |
+      THE COMMIT GATE IS THE DANGEROUS READER, AND IT IS NOT A TEST. Its message marker requires a
+      closing parenthesis straight after four hex digits, and a message it does not recognise exits
+      zero with no stderr line and no ledger row. A series commit would skip the dashboard build, the
+      backend build, the suite and the harness presets, and leave no trace that it did.
+  - key: |
+      THE ID READER IS A PREFIX READ, SO WITHOUT IT THE LETTERS COLLAPSE. It takes a fixed four-hex
+      prefix, so every member of a series resolves to the same id: requires-edges become self-edges
+      and decision labels and context keys fall together. Widening a pattern is not enough; the
+      readers that slice by width have to move with it.
+  - key: |
+      SERIES LETTERS AND SUCCESSOR LETTERS ARE THE SAME MECHANISM AND STAY UNDISTINGUISHED. The
+      counter namespace carried both meanings and nothing ever depended on telling them apart.
+  - key: |
+      A SERIES IS MINTED IN ONE GO. Appending a fifth member requires knowing that a to d are taken,
+      which is exactly the coordination the date-minted shape removed, and two agents extending one
+      series would both reach for the same letter. The rule is therefore that a later addition mints
+      its own number rather than extending someone else's.
+  - key: |
+      ONE PATTERN IN FOURTEEN PLACES, AND THE EXISTING TEST PINS TWO OF THEM. The canonical-literal
+      test compares the two schemas only; nothing pins the readers, and three spellings are already
+      in force. Widening the schemas alone stays green and leaves the readers behind.
+
+steps:
+  - id: the-grammar-admits-a-trailing-letter
+    action: "Both repository schemas widen the date-minted alternative to allow one optional lowercase letter after the four hex digits."
+  - id: every-reader-parses-the-widened-id
+    action: "The requires-edge checker, run-steps reader, decision-file label, file-stem reader, date-minted test regex and the fixed-width id reader accept the widened shape."
+  - id: the-dashboard-mirror-moves-with-the-backend
+    action: "The dashboard's step-rail pattern and its test case carry the widened shape."
+  - id: the-commit-gate-recognises-a-series-id
+    action: "The gate's message marker matches a series id, so such a commit is gated and leaves a ledger row."
+  - id: the-canonical-literal-covers-the-readers
+    action: "The test that pins one identical pattern is extended to the source readers, or its claim to pin them is dropped."
+  - id: the-skills-placeholder-test-accepts-the-shape
+    action: "The skills placeholder test's id extraction matches a series id."
+  - id: the-repository-rule-states-the-series-form
+    action: "CLAUDE.md describes minting one number per series, the appended letter, that a series' base number is not a phase, and that a later addition mints anew."
+
+done:
+  - "a series-id phase file validates against both schemas and is judged by every naming rule"
+  - "a commit naming a series id is gated and leaves a ledger row"
+  - "requires-edges between series members resolve to distinct ids"
+  - "the dashboard renders a series-id step label without its raw prefix"
+  - "dashboard tests and build green, backend build green, full suite green"
