@@ -7,6 +7,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// hand-backs with the same CASE CODE and no source commit on the ticket branch
 /// between them end the loop. Comparing LLM-written reasons would never match: the
 /// same fact is written differently twice.
+/// <para>
+/// A REFUSAL is excluded: ending the loop means the run CONTINUES, and continuing past
+/// what must not be done is the one wrong answer. Refused again with nothing new said
+/// parks again.
+/// </para>
 /// </summary>
 public static class SpecHandbackProgress
 {
@@ -14,6 +19,7 @@ public static class SpecHandbackProgress
     public static bool RepeatsWithoutProgress(
         SpecSetPointer? pointer, SpecHandbackCase current, string branchHeadSha)
     {
+        if (current == SpecHandbackCase.Refused) return false;
         if (pointer is null || pointer.LastHandbackCase != current) return false;
         if (string.IsNullOrEmpty(pointer.HandbackSourceSha)) return false;
         return string.Equals(pointer.HandbackSourceSha, branchHeadSha, StringComparison.Ordinal);

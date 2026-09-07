@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-a1c3
+
+decisions:
+  - category: Architecture
+    chose: "The security judgement is a field of the existing ScopeRepos reply, read off the raw text independently of the repos-array contract"
+    over: "A separate refusal call inside DeriveSpec, or a refusal object inside RepoScopeClassification"
+    reason: |
+      ScopeRepos is the first model call of the run and the only one before CheckoutSource,
+      so "before any sandbox, credential or tool" is true by construction there and cannot
+      be true at derivation, where the sandbox exists and SetupRegistryAuth and AnalyzeCode
+      have already run. Its prompt is a constant in this repository, so nothing has to be
+      released from the catalog.
+
+      RepoScopeParser.TryReadObject refuses any object without a repos array, and a
+      refusing reply for a single-repository run has no reason to carry one. The refusal is
+      therefore read the way ScopeEstimateParser reads the estimate — its own parser over
+      the same reply — and returned on ScopeClassificationResult beside the estimate. The
+      check runs before the estimate and before the single-repo early return: nothing is
+      sized and nothing is scoped for a run that will not proceed.
+
+  - category: Architecture
+    chose: "ScopeRepos returns OkAndContinueWith(SpecHandback), splicing the hand-back step directly behind itself"
+    over: "OkAndDropAhead over CheckoutSource..DeriveSpec, or parking from ScopeRepos itself"
+    reason: |
+      DropAhead is phase-scoped: PipelineCommandList.DropAhead returns when the current step
+      has no PhaseId, and ScopeRepos is a pipeline-level step, so it cannot retire the steps
+      ahead of it. The splice puts the existing parker where the run needs it — the park sets
+      OpenQuestionsAwaitingAnswer and the executor returns after the step, so CheckoutSource,
+      SetupRegistryAuth, AnalyzeCode and DeriveSpec never execute. One parker, no second.
+      The consequence lives in ScopeRefusalRecorder, a DI-registered service the handler
+      calls, because the handler file is at the 120-line limit and a refusal's effect on the
+      run is a responsibility of its own.
+
+  - category: Implementation
+    chose: "SpecHandbackCase.Refused = 3, appended; SpecHandback gains an optional Quote slot"
+    over: "Renumbering the enum, or carrying the quote inside the reason prose"
+    reason: |
+      The case is persisted as an int in TicketSpecSet.LastHandbackCase, so the existing
+      values cannot move. The comment must render the objected sentence AS a quote, and
+      parsing it back out of prose would be the kind of text comparison p0393a's case codes
+      were introduced to avoid. IsVerdict stays computed (Case == NotImplementable), so
+      SpecParkStatusResolver routes Refused through its existing non-verdict branch to the
+      clarification status — no routing change.
+
+      Side effect, accepted: SpecDerivationEnvelope parses the hand-back case by enum name,
+      so a derivation master that answers "refused" now parks in the clarification status
+      instead of being dropped as an unknown case. That is the safer of the two behaviours.
+
+  - category: Implementation
+    chose: "Refused is EXCLUDED from the repeats-without-progress guard, not inverted"
+    over: "The spec's original wording: invert the guard for this case"
+    reason: |
+      The guard reads the spec-set pointer, which a refusal at ScopeRepos never writes; it
+      can only fire for a refusal when the ticket was derived in an earlier run. Ending the
+      loop means the run CONTINUES, and continuing past what must not be done is the one
+      wrong answer, so RepeatsWithoutProgress returns false for Refused regardless of the
+      pointer. The test seeds a pointer on which the guard WOULD fire for any other case
+      (same case, HandbackSourceSha == RevisionSha), so it passes for the right reason.
+
+  - category: Implementation
+    chose: "A Refused hand-back with no tracker ends the run as a failed step carrying the quote and the reason"
+    over: "The existing 'no tracker' branch, which continues"
+    reason: |
+      The continue branch is right for a derivation hand-back — the specs were produced and
+      the run has somewhere to go. For a refusal, continuing means running checkout. A
+      failed step with the quote and the reason is the only outcome that both stops the run
+      and says why.
+
+  - category: Process
+    chose: "The appeal is a comment PLUS the status move that already re-triggers a clarification park"
+    over: "The spec's original claim that a comment alone re-triggers"
+    reason: |
+      The comment webhooks and the poller both skip a parked status, so a comment on a
+      ticket in needs_clarification_status re-triggers nothing on its own. The operator
+      answers and moves the ticket back to a trigger status; the re-run's FetchTicket loads
+      the thread, and the scope call renders it beside the ticket text — our refusal
+      comment starts with the "Agent Smith —" marker, so the conversation section keeps it
+      when an operator reply follows. The comment template says so.
+
+  - category: Process
+    chose: "The duplicate 'active:' key origin/main carries in the default context is removed in this commit"
+    over: "Leaving it for the session that produced it"
+    reason: |
+      The merge that landed 102b left the 7bac active block beside an 'active: {}' key;
+      7bac is already in done. YamlDotNet rejects the duplicate, which fails eight schema
+      and ratchet tests and therefore the phase gate of every commit that follows. The fix
+      is four lines and this phase edits the same file for its own index line.

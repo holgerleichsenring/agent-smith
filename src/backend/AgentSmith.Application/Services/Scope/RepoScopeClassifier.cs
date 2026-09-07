@@ -65,16 +65,21 @@ public sealed class RepoScopeClassifier(
                 null, ScopeEstimate.None, $"classifier call failed ({ex.GetType().Name}: {ex.Message})");
         }
 
+        return Read(text);
+    }
+
+    // p0413a: the estimate is read from the verdict when the reply is one, and on its own
+    // when it is not — the repos-array contract gates SCOPING and must not take the size,
+    // the shape, or the refusal down with it. The refusal is read on its own for the same
+    // reason: a refusing reply need not be a usable repo verdict.
+    private static ScopeClassificationResult Read(string? text)
+    {
         var classification = RepoScopeParser.TryParse(text);
-        // p0413a: the estimate is read from the verdict when the reply is one, and
-        // read on its own when it is not — the repos-array contract gates SCOPING,
-        // and must not take the size and shape down with it.
+        var refusal = ScopeRefusalParser.Parse(text);
         return classification is null
-            ? new ScopeClassificationResult(
-                null, ScopeEstimateParser.Parse(text),
-                "classifier reply had no parseable {\"repos\": …} object")
-            : new ScopeClassificationResult(
-                classification, new ScopeEstimate(classification.Tier, classification.Shape), null);
+            ? new(null, ScopeEstimateParser.Parse(text),
+                "classifier reply had no parseable {\"repos\": …} object", refusal)
+            : new(classification, new ScopeEstimate(classification.Tier, classification.Shape), null, refusal);
     }
 
     private static string BuildUserPrompt(

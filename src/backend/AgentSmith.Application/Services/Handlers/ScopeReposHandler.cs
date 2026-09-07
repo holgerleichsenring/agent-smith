@@ -30,11 +30,18 @@ namespace AgentSmith.Application.Services.Handlers;
 /// therefore estimates and stops there: no narrowing, no context scoping, no
 /// expected-changes gate — none of those is the estimate.
 /// </para>
+/// <para>
+/// The same reply carries the run's only pre-sandbox SECURITY judgement: a ticket
+/// that demands what must not be done is refused here, before the estimate and the
+/// single-repo return, and ScopeRefusalRecorder ends the run at the hand-back step —
+/// no sandbox, no staged credential, no model call with tools.
+/// </para>
 /// </summary>
 public sealed class ScopeReposHandler(
     RemoteContextInventoryBuilder inventoryBuilder,
     RepoScopeClassifier classifier,
     ScopeEstimateRecorder estimates,
+    ScopeRefusalRecorder refusals,
     ILogger<ScopeReposHandler> logger)
     : ICommandHandler<ScopeReposContext>
 {
@@ -52,6 +59,8 @@ public sealed class ScopeReposHandler(
             ContextKeys.TicketComments, out var c) ? c : null;
         var reply = await classifier.ClassifyAsync(
             context.Ticket, comments, repos, inventory, context.AgentConfig, pipeline, cancellationToken);
+        if (reply.Refusal is not null)
+            return refusals.Apply(pipeline, reply.Refusal);
         // p0341c/p0413: the SAME call estimates the ticket's size and its shape. Both are
         // independent of the repo-scope confidence fallback: a low-confidence scope still
         // yields a usable effort estimate and a usable shape.

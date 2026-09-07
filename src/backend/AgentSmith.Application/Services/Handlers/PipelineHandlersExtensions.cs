@@ -40,8 +40,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
         services.AddTransient<Scope.RepoScopeClassifier>();
         services.AddTransient<Scope.RemoteContextInventoryBuilder>();
-        // p0413: the classifier's size + shape estimates become run state here.
-        services.AddTransient<Scope.ScopeEstimateRecorder>();
+        // p0413: size + shape become run state here; a refusal ends the run before any sandbox.
+        services.AddTransient<Scope.ScopeEstimateRecorder>().AddTransient<Scope.ScopeRefusalRecorder>();
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)
         // and the per-run factory for the master's escalation tool host.
