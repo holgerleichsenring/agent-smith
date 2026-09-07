@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-06-3d81
+goal: "A criterion this repository cannot make true is answered with its evaluated reason and reported to the ticket author, instead of being fought pass after pass or accepted in silence."
+
+applies_to: "backend (the acceptance contract section of the master prompt, and the run's rendered outcome — pull request body and result.md)"
+
+requires:
+  - 2026-09-06-4a2c
+
+scope:
+  in: "Telling the master, in the contract it is given, that a criterion the repository makes impossible is disposed of as not-applicable with the evaluated meaning of not doing it; and rendering every such declined criterion where the run's outcome is already read, so the person who wrote the ticket sees which of their sentences no work could satisfy."
+  out: "Any mechanical judgement of whether a criterion is reachable — refused on the evidence below. Parking the run on a declined criterion: that would be the same gate with a friendlier name. And the derivation itself, which still writes these criteria; this phase makes them cost an answer instead of a budget."
+
+decisions:
+  - key: |
+      THE ANSWER ALREADY EXISTED AND WAS UNREACHABLE. AcceptanceStatus has three values, and the
+      third is exactly this case: not_applicable, whose evidence must carry "the EVALUATED MEANING
+      of not doing it", with a bare N/A rejected. MasterAcceptanceGate accepts it — a disposition
+      that is NotApplicable with non-empty evidence passes the same as Met. So a master could
+      always have answered "not applicable: every high finding is transitive, no manifest entry
+      changes, the lockfile carries the fix", and the run would have ended there. It never
+      happened because the contract section never rendered on a spec-derived run, which made the
+      whole disposition vocabulary unreachable. The predecessor phase fixed the rendering; this
+      one makes the third answer explicit, because a vocabulary nobody is told about is a
+      vocabulary nobody uses.
+  - key: |
+      WE DO NOT DECIDE REACHABILITY MECHANICALLY, AND THAT IS A LESSON THIS REPOSITORY ALREADY
+      PAID FOR. The progress ledger was declared memory and not a gate, became a gate, was
+      qualified in p0363, bounded in p0391, and finally taken out of the vote in p0393 with the
+      ruling that a checklist the model writes and reads back as a reason to continue is a loop
+      carrying its own engine. Every one of those was a mechanical stand-in for a semantic
+      question. A counter over passes — "the same criterion unmet and the diff has not moved
+      toward it" — is the same shape once more: "toward" would have to be defined, and any
+      definition is a guess about meaning. The delivery account shows the alternative that works:
+      it never decides mechanically whether a criterion is satisfied, it lets a model claim and
+      then checks that the citation resolves. Free in claiming, mechanical only in the evidence.
+  - key: |
+      SO THE PARTY THAT TRIED IS THE PARTY THAT ANSWERS. The master is the only one that attempted
+      the criterion with the repository in hand and tools in its hands; after an honest attempt it
+      knows that the fix moves a lockfile and not a manifest. That is direct knowledge, not a
+      proxy. It is asked and reminded — the contract states the third answer and what it costs to
+      use it — and it is not constrained: nothing forbids it from trying, and nothing decides on
+      its behalf.
+  - key: |
+      A DECLINED CRITERION IS A TICKET DEFECT, SO IT IS REPORTED RATHER THAN PARKED. Parking would
+      be the mechanical gate again, wearing a friendlier name, and it would stop a run whose work
+      may be entirely finished. Reporting costs the author two sentences and loses nothing: the
+      criterion, and why no work could satisfy it. Today that is invisible — AcceptanceSnapshot
+      prefers the accounts whenever they exist, which on a spec-derived run is always, so the
+      master's dispositions are never rendered for a human at all. A declined criterion has to
+      surface where the outcome is already read: the pull request body and result.md.
+  - key: |
+      THE EVIDENCE FIELD IS THE ONLY THING CHECKED MECHANICALLY, AND THE ABUSE IS ALREADY GUARDED.
+      A declined criterion counts only when its evidence is non-empty — the same hardness the
+      citation check applies, at the same place in the argument. The obvious abuse, declining
+      everything, is refused from the other side and was refused before this phase existed:
+      NothingProven turns down a phase that positively satisfied nothing, "whatever it calls not
+      applicable", and the delivery account judges the branch independently of anything the master
+      said. Two parties, and neither of them rules mechanically on whether a criterion could have
+      been met.
+  - key: |
+      TWO APPROACHES WERE TRIED AGAINST THIS AND ARE RECORDED SO THEY ARE NOT RE-PROPOSED.
+      The first was a review that challenges the derived criteria before they bind and corrects
+      what it finds. Measured on the real ticket: it waved through both criteria requiring the
+      package manifest to carry versions the fix never touches, because without running an audit
+      it had no fact to demonstrate with — and it replaced a healthy coverage criterion with a
+      longer one naming tools this project does not use and mandating configuration the ticket
+      never asked for. Its correction path is a demonstrated hazard, and the phase is kept on
+      record as refuted rather than quietly reverted. The second was the counter described two
+      decisions up. Neither made a bad criterion good; this phase does not either — it makes one
+      answerable.
+
+steps:
+  - id: the-contract-names-the-third-answer
+    action: "State in the acceptance contract the master is given that a criterion this repository cannot make true is disposed of as not-applicable carrying the evaluated meaning of not doing it, and that a bare refusal without that reason does not count."
+  - id: a-declined-criterion-is-rendered-where-the-outcome-is-read
+    action: "Render every criterion the master declined, with its reason, into the pull request body and result.md alongside the delivery account, so the person who wrote the ticket sees which sentence no work could satisfy."
+
+tests:
+  - "Contract_TheSectionGivenToTheMaster_NamesNotApplicableAndItsEvidenceRule"
+  - "Contract_ADeclinedCriterionWithItsReason_SatisfiesTheGate"
+  - "Contract_ADeclinedCriterionWithNoReason_DoesNotSatisfyTheGate"
+  - "Outcome_ADeclinedCriterion_IsRenderedInThePullRequestBody"
+  - "Outcome_ADeclinedCriterion_IsRenderedInTheRunResult"
+  - "Outcome_ARunWithNothingDeclined_RendersNoSuchSection"
+
+done:
+  - "the acceptance contract the master is given states the not-applicable answer and the reason it requires"
+  - "a criterion declined with a reason satisfies the acceptance gate; one declined without a reason does not"
+  - "a declined criterion and its reason appear in the pull request body and in result.md"
+  - "a run that declined nothing renders no declined section"
+  - "build green, full suite green"
