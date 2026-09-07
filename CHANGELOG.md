@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.144.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.2...v0.144.0) (2026-09-07)
+
+
+### Features
+
+* the database connection arrives by environment (2026-09-04-102b) ([c2f5d26](https://github.com/holgerleichsenring/agent-smith/commit/c2f5d262a1aecf138544181ace9de0d131bb73f5))
+* the database connection arrives by environment (2026-09-04-102b) ([3d59774](https://github.com/holgerleichsenring/agent-smith/commit/3d59774f51d0790bdff52468ea81c77dd4ed52f4))
+* the derivation reads the repo before it writes (2026-09-07-b7e2) ([71f7b49](https://github.com/holgerleichsenring/agent-smith/commit/71f7b49967212878ea88df694847522e3fd543dc))
+* the derivation reads the repo before it writes (2026-09-07-b7e2) ([7d99fe0](https://github.com/holgerleichsenring/agent-smith/commit/7d99fe028436e4103d88b32beea91e0341049938))
+* the expectation section renders the done-list (2026-09-06-4a2c) ([5b3cbef](https://github.com/holgerleichsenring/agent-smith/commit/5b3cbefb9358c1799fbf6f7df094ee3cc1c053cc))
+* the expectation section renders the done-list (2026-09-06-4a2c) ([8b74621](https://github.com/holgerleichsenring/agent-smith/commit/8b74621b0230dc1083441a35e96f9f72875f448c))
+* the handback gains a question case (2026-09-07-c9d4) ([9c23171](https://github.com/holgerleichsenring/agent-smith/commit/9c23171b5f23676c4a763930db10ef66673f41c7))
+* the handback gains a question case (2026-09-07-c9d4) ([c279a5f](https://github.com/holgerleichsenring/agent-smith/commit/c279a5fbd68137137f41459d71297d813e43f11f))
+* the scope call refuses what must not be done (2026-09-07-a1c3) ([9a6e621](https://github.com/holgerleichsenring/agent-smith/commit/9a6e62121582092cedb780b7f744ff819ce7fc50))
+* the scope call refuses what must not be done (2026-09-07-a1c3) ([51b8e1b](https://github.com/holgerleichsenring/agent-smith/commit/51b8e1b5a02a62372515995e190fb13ac3005da2))
+
+
+### Bug Fixes
+
+* a bootstrap refusal names the context it means (2026-09-04-ae3a) ([152143f](https://github.com/holgerleichsenring/agent-smith/commit/152143f2617f9b2e0cedc7d79cd66d29e0c61e87))
+* a published event reaches its reader (2026-09-03-b028) ([6cd3d59](https://github.com/holgerleichsenring/agent-smith/commit/6cd3d59910e6f51ffd719aee93a69e2f2bb41a69))
+* a published event reaches its reader (2026-09-03-b028) ([b440adb](https://github.com/holgerleichsenring/agent-smith/commit/b440adb97b165ccf26bb9bdf559073a6cd609662))
+* contexts/default/context.yaml carries one active block ([5fd5a0f](https://github.com/holgerleichsenring/agent-smith/commit/5fd5a0f8933aca2eeff340276ac428927555e959))
+* re-init bootstraps every context it probes (2026-09-04-0721, -ae3a) ([b179f5a](https://github.com/holgerleichsenring/agent-smith/commit/b179f5ab2f8feaed980ccc7f39155190776a0ec2))
+* re-init bootstraps every context it probes (2026-09-04-0721) ([71c901c](https://github.com/holgerleichsenring/agent-smith/commit/71c901cfa0cf6d4c0fe4cf078183c1a6777910db))
+
 ## [0.143.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.1...v0.143.2) (2026-09-03)
 
 
