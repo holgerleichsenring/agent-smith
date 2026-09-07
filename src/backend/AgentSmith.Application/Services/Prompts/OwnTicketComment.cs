@@ -7,8 +7,9 @@ namespace AgentSmith.Application.Services.Prompts;
 /// <para>
 /// p0448: the second question is the one that matters. A cancelled run, a failed run, the
 /// cut we announced, a handback verdict — each reports what happened and asks for nothing.
-/// Only an open question and an expectation to ratify are waiting on a person, and only
-/// those have a reason to survive into the next run's reading of the ticket.
+/// Only an open question, an expectation to ratify and a question hand-back are waiting
+/// on a person, and only those have a reason to survive into the next run's reading of
+/// the ticket.
 /// </para>
 /// </summary>
 public static class OwnTicketComment
@@ -26,6 +27,7 @@ public static class OwnTicketComment
         "agent-smith:open-questions",
         "open questions",
         "expectation to ratify",
+        Specs.SpecHandbackComment.QuestionMarker,
     ];
 
     public static bool IsOurs(TicketComment comment) => Carries(comment, Ours);

@@ -168,6 +168,87 @@ public sealed class SpecDerivationTests
             "a contradiction is a question — an answer re-triggers the run");
     }
 
+    // 2026-09-07-c9d4: a QUESTION carries its readings as a typed list and the taken one
+    // as an index, because the framework names the taken reading twice — in the question
+    // and in the notice that the run proceeded on it — and the second run holds only the
+    // model's second phrasing.
+    [Fact]
+    public void DeriveSpec_QuestionWithTwoReadings_ProducesATypedQuestionHandback()
+    {
+        var segments = TicketSegmenter.Segment(MigrationTicket);
+
+        var parsed = _parser.Parse(QuestionReply(taken: 1), "azdo-19106", "19106", segments, SpecSource.Derived);
+
+        parsed.Error.Should().BeNull();
+        var handback = parsed.Derivation!.Set.Handback!;
+        handback.Case.Should().Be(SpecHandbackCase.Question);
+        handback.IsVerdict.Should().BeFalse("a question parks where a person can answer");
+        handback.Readings.Should().Equal(
+            "a major only where nothing lower clears the advisory",
+            "the newest major everywhere, breaking changes included");
+        handback.TakenReading.Should().Be("the newest major everywhere, breaking changes included");
+        parsed.Derivation.Set.Phases.Should().BeEmpty("a hand-back replaces the spec, it does not accompany it");
+    }
+
+    [Theory]
+    [InlineData(1, 0, "at least 2 readings")]
+    [InlineData(2, 2, "taken index 2 names none of the 2 readings")]
+    public void DeriveSpec_QuestionNobodyCanAnswer_IsRejectedBackToTheModelByName(
+        int readings, int taken, string expectedError)
+    {
+        var segments = TicketSegmenter.Segment(MigrationTicket);
+        var listed = string.Join(", ", Enumerable.Range(0, readings).Select(i => $"\"reading {i}\""));
+        var reply = $$$"""
+            {"phases": [],
+             "handback": {"case": "question", "reason": "the ticket reads two ways",
+                          "readings": [{{{listed}}}], "taken": {{{taken}}}}}
+            """;
+
+        var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+
+        parsed.Derivation.Should().BeNull();
+        parsed.Error.Should().Contain(expectedError);
+    }
+
+    [Fact]
+    public void DeriveSpec_EveryHandbackCase_ReplacesTheSpec()
+    {
+        var segments = TicketSegmenter.Segment(MigrationTicket);
+        foreach (var name in new[] { "not_implementable", "requirements_contradict_repository", "refused", "question" })
+        {
+            var reply = name == "question"
+                ? QuestionReply(taken: 0)
+                : $$$"""{"phases": [], "handback": {"case": "{{{name}}}", "reason": "r"}}""";
+
+            var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+
+            parsed.Derivation!.Set.IsHandedBack.Should().BeTrue(name);
+            parsed.Derivation.Set.Phases.Should().BeEmpty(name);
+        }
+    }
+
+    [Fact]
+    public void DeriveSpec_ReplyNamingNoQuestion_CarriesNoHandback()
+    {
+        var segments = TicketSegmenter.Segment(MigrationTicket);
+
+        var parsed = _parser.Parse(
+            TwoPhaseReply(segments), "azdo-19106", "19106", segments, SpecSource.Derived);
+
+        parsed.Derivation!.Set.IsHandedBack.Should().BeFalse();
+        parsed.Derivation.Set.Handback.Should().BeNull();
+        parsed.Derivation.Set.Phases.Should().HaveCount(2);
+    }
+
+    private static string QuestionReply(int taken) => $$$"""
+        {"phases": [],
+         "handback": {"case": "question",
+                      "reason": "'Adopt the newest versions, even breaking' reads two ways and the work differs.",
+                      "readings": ["a major only where nothing lower clears the advisory",
+                                   "the newest major everywhere, breaking changes included"],
+                      "taken": {{{taken}}}}}
+        """;
+
     [Fact]
     public void DeriveSpec_PhaseWithoutDoneCriteria_IsRejectedBackToTheModel()
     {

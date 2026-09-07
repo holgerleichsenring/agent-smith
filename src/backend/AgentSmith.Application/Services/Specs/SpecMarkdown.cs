@@ -44,6 +44,9 @@ public static class SpecMarkdown
             sb.AppendLine();
             sb.AppendLine($"## Handed back — {handback.Case}");
             sb.AppendLine(handback.Reason);
+            foreach (var (reading, i) in handback.Readings.Select((r, i) => (r, i)))
+                sb.AppendLine($"- {SpecHandbackComment.ReadingLabel(i)} {reading}"
+                    + (i == handback.Taken ? " _(taken if nobody answers)_" : string.Empty));
         }
     }
 
