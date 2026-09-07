@@ -131,13 +131,13 @@ public sealed class QuestionHandbackTests
         new SpecHandback(SpecHandbackCase.Question, "reads two ways", Readings: [ReadingA, ReadingB], Taken: 0));
 
     // The pointer this system would have recorded when it committed the question: same
-    // sha as the branch, so the re-run reads as a re-trigger and calls the model.
+    // sha as the branch, so the re-run reads as a re-trigger of our own revision.
     private static Task SeedPointerAsync(RealCompositionHarness harness) =>
         harness.Services.GetRequiredService<ISpecSetPointerStore>().SaveAsync(
             string.Empty,
             new SpecSetPointer(
                 SpecSetKey.For("recording", "1").Value, "primary", SpecSha, 1,
-                SpecHandbackCase.Question, 1, SpecSha),
+                SpecHandbackCase.Question, 1),
             CancellationToken.None);
 
     private static RealCompositionHarness BuildHarness(RecordingTicketProvider tickets, SpecSet? previous = null) =>

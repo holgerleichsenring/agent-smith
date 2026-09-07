@@ -40,6 +40,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecSetTicketCommenter>();
     services.AddTransient<UnansweredQuestionPin>();
     services.AddTransient<UnansweredQuestionNotice>();
+    services.AddTransient<SpecHandbackRepeat>(); // 2026-09-07-bd7a: the repeat guard reads the thread
     services.AddTransient<SpecParkStatusResolver>();
     services.AddTransient<IPhaseProgressRecorder, PhaseProgressRecorder>(); // p0466
     services.TryAddSingleton<ISpecSetPointerStore, Persistence.InMemorySpecSetPointerStore>();

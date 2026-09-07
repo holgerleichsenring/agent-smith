@@ -25,9 +25,12 @@ public sealed class TicketSpecSet : EntityBase
     /// <summary>Last hand-back case code, as <c>SpecHandbackCase</c>.</summary>
     public int LastHandbackCase { get; set; }
 
-    /// <summary>How many times in a row the same case came back with no source commit between.</summary>
+    /// <summary>How many times in a row the same case came back.</summary>
     public int RepeatedHandbackCount { get; set; }
 
-    /// <summary>Branch HEAD at the last hand-back — the "was there a source commit since" probe.</summary>
+    /// <summary>
+    /// Branch HEAD at the last hand-back. No longer written or read (2026-09-07-bd7a: the
+    /// repeat guard reads the ticket thread); the column stays until a migration drops it.
+    /// </summary>
     public string? HandbackSourceSha { get; set; }
 }
