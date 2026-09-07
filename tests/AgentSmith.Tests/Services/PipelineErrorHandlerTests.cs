@@ -30,6 +30,7 @@ public sealed class PipelineErrorHandlerTests
             _executorMock.Object,
             _factoryMock.Object,
             _ticketFactoryMock.Object,
+            new FailureTicketComment(),
             NullLogger<PipelineErrorHandler>.Instance);
     }
 
@@ -71,6 +72,33 @@ public sealed class PipelineErrorHandlerTests
         ticketProvider.Verify(t => t.UpdateStatusAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _lifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleStepFailureAsync_WorkPersistedByTheTail_NamesTheDraftPrInTheComment()
+    {
+        // 2026-09-07-f420: the finalizer tail's CommitAndPR published the draft PR before
+        // this path runs; the failure comment is the ticket's one comment, so it says
+        // where the partial work went.
+        var ticketProvider = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+        context.Set(ContextKeys.FailedStatus, "Blocked");
+        context.Set<IReadOnlyList<AgentSmith.Application.Models.OpenedPullRequest>>(
+            ContextKeys.OpenedPullRequests,
+            [new AgentSmith.Application.Models.OpenedPullRequest(
+                "primary", "https://stub.test/pulls/7", AgentSmith.Application.Models.OpenStatus.Opened)]);
+
+        await _sut.HandleStepFailureAsync(
+            Array.Empty<string>(), new ResolvedProject(), context, _lifecycleMock.Object,
+            CommandResult.Fail("boom"), CancellationToken.None);
+
+        ticketProvider.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(),
+            It.Is<string>(c => c.Contains("Agent Smith — Failed") && c.Contains("https://stub.test/pulls/7")
+                && !c.Contains("Completed")),
+            "Blocked", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

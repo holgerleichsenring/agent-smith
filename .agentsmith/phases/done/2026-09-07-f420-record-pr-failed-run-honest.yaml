@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-f420
+goal: "A run that failed is never reported as completed: the finalizer tail persists the partial work as a draft PR that says so, and the ticket's one comment is the failure naming what was kept."
+
+applies_to: "backend (CommitAndPRHandler on the finalizer tail, PipelineErrorHandler's failure comment)"
+
+requires:
+  - p0237-robust-finalization-and-plan-runrdir
+  - 2026-09-07-bd7a
+
+scope:
+  in: "CommitAndPR reached after a failed step (ContextKeys.FailureReason set): commit + push stays, the PR opens or refreshes as a DRAFT whose banner names the failure, no account is taken, the ticket is not finalized and the step result never says completed; the failure comment PipelineErrorHandler posts names the draft PR and the branch; a harness repro over a two-phase derivation whose second master fails; unit cases for the handler branch."
+  out: "The success path (untouched). Whether a red run should open a PR at all — the draft-with-banner shape is what p0273/p0300c/p0390 already chose for a keystone-red run, and this phase makes a failed run consistent with it. PersistWorkBranch on the error path (it stays as the fallback WIP push). The keystone-refused message inside a green run."
+
+decisions:
+  - key: |
+      THE DEFECT, LIVE TWICE ON 2026-09-07. Run 20-43-51-b7bc: phase p0010a green and verified, phase
+      p0010b's master failed on the per-pipeline cost budget. The p0237 tail then ran CommitAndPR,
+      which posted "## Agent Smith - Completed across 1 repo(s)" listing p0010a's accounted criteria,
+      moved the ticket to the DONE status, and only afterwards did PipelineErrorHandler post
+      "FailedStep: p0010b" with the failed status. Run 14-04-31-0c88: the keystone refused, the tail
+      still opened a PR and logged "PR opened", then the failure landed. The final status was right
+      both times; the comment a reader sees first and the intermediate done-move were not. bd7a named
+      this as its follow-up while probing the continue branch.
+  - key: |
+      p0237's PURPOSE STAYS, ITS SUMMARY DOES NOT. p0237 made the tail run CommitAndPR so a failed run
+      keeps its partial work and its record; that is right and is kept — the commit, the push and the
+      PR all still happen. What p0237 never intended is the handler's success epilogue running on a
+      red run: the account, the keystone verdict, the "Completed" summary and the done status are
+      statements about a delivered run. On a failed run the verdict is already known from the failed
+      step, so none of them is consulted: the PR is a draft with a banner naming the failure — the
+      same shape a keystone-red run has carried since p0273 — the ticket is left to the error path,
+      and the step's own result says partial work was persisted, never "Completed".
+  - key: |
+      ONE COMMENT ON THE TICKET FOR A FAILED RUN. The failure comment PipelineErrorHandler posts is the
+      one the ticket author reads, so it carries what was kept and where: the draft PR URL(s) and the
+      branch, read from ContextKeys.OpenedPullRequests which the tail's CommitAndPR published before
+      the error path runs. A failed run with nothing to persist says only the failure.
+  - key: |
+      NO ACCOUNT IS TAKEN ON A FAILED RUN. PhaseAccounting.TakeOrReuseAsync runs an LLM account when
+      no phase accounted — on a run that just died on its cost budget that is one more model call in
+      service of a verdict nobody needs. FailureReason decides before the account is asked.
+  - key: |
+      A RUN SPEAKS WITH ONE OF THREE VOICES, EACH ITS OWN TYPE. CompletedRunTicketSummary (the
+      "Completed across N repo(s)" comment, extracted from CommitAndPRHandler), FailedRunPersistence
+      (the draft banner and step result of a failed run's persisted work, read by CommitAndPR) and
+      FailureTicketComment (the failure comment with what was kept, read by the error path). The file
+      length ratchet forbids growing either handler; extracting the wording is the extraction it asks
+      for, and a failed run can no longer borrow the completed voice by accident. Registered together
+      in RunOutcomeWordingExtensions.
+
+steps:
+  - id: the-harness-repro-shows-the-completed-comment
+    action: "FailedRunFinalizationTests: a two-phase derivation, phase 1 green, phase 2's master throws; RecordingTicketProvider with done and failed statuses seeded through PipelineRunner. Assert no finalize carried the done status or a 'Completed' comment, the failed comment with the failed status is the last word, and the sandbox still ran git commit. Red on main."
+  - id: the-three-voices
+    action: "FailedRunPersistence: Reason, PullRequestBanner, StepResult. FailureTicketComment: ForStep (with PersistedWork), ForFatal, ForMessage. CompletedRunTicketSummary: Build, moved out of CommitAndPRHandler. Registered in RunOutcomeWordingExtensions."
+  - id: commit-and-pr-branches-on-the-failure
+    action: "CommitAndPRHandler reads the reason first: draft PR with the failure banner, no account, no keystone, no FinalizeTicketAsync, the partial-work step result."
+  - id: the-failure-comment-names-what-was-kept
+    action: "PipelineErrorHandler composes its three comments through FailureTicketComment; the step-failure one carries PersistedWork."
+  - id: unit-cases
+    action: "FailedRunPersistenceTests, FailureTicketCommentTests, CompletedRunTicketSummaryTests over each public method; CommitAndPRHandlerTests: a failed run opens a draft, never finalizes, and its result does not say Completed; PipelineErrorHandlerTests: the comment names the draft PR."
+
+tests:
+  - "TwoPhaseDerivation_SecondMasterFails_TheTicketNeverReadsCompleted"
+  - "Reason_NoFailureOnTheContext_IsNull"
+  - "PullRequestBanner_NamesTheFailure"
+  - "StepResult_WithADraftPr_NamesItAndNeverSaysCompleted"
+  - "ForStep_WorkPersistedByTheTail_NamesTheDraftPrAndBranch"
+  - "PersistedWork_NothingOpened_IsEmpty"
+  - "Build_ListsEveryRepoOutcomeAndEveryChange"
+  - "ExecuteAsync_FailedRun_OpensADraftAndNeverFinalizesTheTicket"
+  - "HandleStepFailureAsync_WorkPersistedByTheTail_NamesTheDraftPrInTheComment"
+
+done:
+  - "on a failed run the ticket receives exactly one finalize: the failure, with the failed status, naming the draft PR and branch when work was persisted"
+  - "no comment, PR body, step result or run record of a failed run says completed"
+  - "the work branch is still committed and pushed, and the PR is a draft carrying the failure banner"
+  - "the harness repro was red on main and is green"
+  - "build green, full suite green"
