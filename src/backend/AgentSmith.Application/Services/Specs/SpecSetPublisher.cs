@@ -62,8 +62,7 @@ public sealed class SpecSetPublisher(
         await pointers.SaveAsync(project, new SpecSetPointer(
             set.Key, carryingRepo.Name ?? string.Empty, sha, set.Current.Number,
             existing?.LastHandbackCase ?? SpecHandbackCase.None,
-            existing?.RepeatedHandbackCount ?? 0,
-            existing?.HandbackSourceSha), ct);
+            existing?.RepeatedHandbackCount ?? 0), ct);
     }
 
     // The run detail reads this slot exactly as it reads plan.md. Best-effort: a

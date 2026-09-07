@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-bd7a
+
+decisions:
+  - category: Architecture
+    chose: "The ticket thread is the repeat signal: same case as last time AND nobody but us commented after our hand-back comment"
+    over: "The pointer's sha comparison (HandbackSourceSha == RevisionSha)"
+    reason: |
+      The sha comparison was unreachable in production. DeriveSpecHandler.Finalize appends a
+      revision stamped DateTimeOffset.UtcNow; SpecSetIndex.Serialize writes the stamp into
+      set.yaml; SpecSetWriter therefore always stages a change and always commits; the
+      publisher stores the new sha. The sha recorded at the last park was the previous
+      run's commit and the head at the next park was this run's, so they never matched and
+      a contradiction parked again on every re-trigger. c9d4 already read the thread for the
+      question case; a park that waits on a person is answered by a person, never by a
+      branch. The producer test (SpecHandbackRepeatTests) runs the real publisher, writer,
+      git operations and index over a git-modelling sandbox twice and was red on main.
+
+  - category: Implementation
+    chose: "One predicate, OwnTicketComment.IsAnswered(comments, marker), read by the pin and the repeat guard"
+    over: "A private copy in each, as UnansweredQuestionPin had"
+    reason: |
+      OwnTicketComment's responsibility is already which comments are ours and which wait
+      on a person; whether a person took the turn is the same responsibility. The
+      contradiction comment gets ContradictionMarker (its heading phrase), listed in
+      AwaitingAnswer so TicketConversationPromptSection keeps it in view while unanswered.
+      SpecHandbackRepeat is shaped like UnansweredQuestionPin — logger in, one public method
+      over pointer, case and pipeline, transient in SpecDerivationRegistrations — and only
+      RequirementsContradictRepository can end its loop: Refused parks every time (a1c3),
+      Question is ended by the pin (c9d4), and the NotImplementable verdict restarts only on
+      a Retry that resets the pointer's case, so it is never a repeat. A positive check makes
+      a future case opt in to loop-ending rather than fall into it.
+
+  - category: Implementation
+    chose: "The loop ends as CommandResult.Fail naming the case, the reason and what to do"
+    over: "The old branch's CommandResult.Ok — 'the loop ends here and the run continues'"
+    reason: |
+      Probed end to end in the fast tier once the branch was reachable: a hand-back set has
+      no phases, PhaseSpecGate and PhaseSequence pass it through, and CommitAndPR finds the
+      spec draft already pushed with its PR on the branch — so the ticket was finalized
+      "Completed across 1 repo(s)" with the done status and the run reported green, with
+      nothing built. That is the faked-green outcome the product is built against and
+      worse than the park-forever it replaced. p0391a (cannot park -> fail) and a1c3 (refusal
+      with no tracker -> fail) are the precedent: the step fails, the error path posts the
+      failure and terminalizes the ticket status so the poller does not re-claim it, and the
+      message tells the operator to reply and move the ticket back to a trigger status.
+      This deviates from the brief's literal design ("the run continues"); the finding is
+      what changed it.
+
+  - category: Implementation
+    chose: "HandbackSourceSha leaves the SpecSetPointer record; the persistence column stays, unwritten"
+    over: "A migration dropping the column on SQLite and SQL Server"
+    reason: |
+      Nothing read the value besides the guard and the row round-trip. The record slot, the
+      publisher's carry-forward, the retry service's reset and the repository's mapping are
+      gone; the entity property stays mapped so the EF model matches its snapshot, and the
+      column stays for a migration that has a reason of its own. RepeatedHandbackCount is
+      kept: it is still counted at every park and still stored.
+
+  - category: Scope
+    chose: "The p0237 finalizer-tail defect is named as a follow-up, not fixed here"
+    over: "Fixing CommitAndPR's ticket summary in this phase"
+    reason: |
+      While probing the continue branch: on EVERY failed coding run the finalizer tail lets
+      CommitAndPR open a record PR and post "Completed across N repo(s)" with the done
+      status, and only afterwards does PipelineErrorHandler post "Failed" with the failed
+      status. The final status is right; the comment and the intermediate status move are
+      not. It is a different subject ("the record PR summary says completed on a failed
+      run"), it predates this phase, and it is not a hand-back concern. The harness test
+      pins the failure as the ticket's last word and names the defect in its comment.

@@ -54,7 +54,6 @@ public sealed class NotImplementableRetryService(
         {
             LastHandbackCase = SpecHandbackCase.None,
             RepeatedHandbackCount = 0,
-            HandbackSourceSha = null,
         }, ct);
     }
 }
