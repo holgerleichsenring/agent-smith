@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-04-ae3a
+
+decisions:
+  - category: Architecture
+    chose: "The probe returns one result per context"
+    over: "Folding three booleans over the contexts of a sandbox, as it had"
+    reason: |
+      The fold is what made the refusal unable to name anything: by the time the handler saw
+      the answer, which context contributed which false was gone. The probe already iterates
+      per context and already logs per context — it returned the aggregate only because nothing
+      had asked for more. Everything the message needs was being computed and discarded.
+
+  - category: Architecture
+    chose: "The rename sentence is attached to the context it is true of"
+    over: "One repository-wide RetiredPrinciplesFound flag"
+    reason: |
+      A repository whose backend context had been migrated and whose frontend context had not
+      was told it "carries the retired coding-principles.md and no principles.md" — false of
+      backend, and the remedy it named (re-run init-project) was the run that had skipped
+      frontend. A sentence folded over a sandbox is a sentence about no particular thing.
+
+  - category: Architecture
+    chose: "MissingBootstrapRepos keeps its sandbox-key CSV shape"
+    over: "Carrying the per-context detail in the same key"
+    reason: |
+      MultiRepoBootstrapTests pins that shape, and the detail belongs in the probe report,
+      which exists to carry what the probe did. Two producers for one message is how the two
+      halves start disagreeing.

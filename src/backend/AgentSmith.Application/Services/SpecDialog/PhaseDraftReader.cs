@@ -25,9 +25,21 @@ public sealed class PhaseDraftReader
             // p0394a: the spec's steps are the run's plan of record — they seed the
             // progress ledger and render as the master's plan section.
             Steps = ReadSteps(map),
-            // p0400: a phase may declare it ships knowledge instead of code; absent
-            // or unparseable means the default — a phase ships code.
+            // 2026-09-07-b7e2: what the derivation looked up and what it assumed —
+            // absent on every spec written before the derivation could look.
+            Facts = ReadFacts(map),
+            Assumptions = ReadStrings(map, "assumptions"),
         };
+    }
+
+    private static IReadOnlyList<PhaseFact> ReadFacts(IReadOnlyDictionary<string, object?> map)
+    {
+        if (!map.TryGetValue("facts", out var value) || value is not List<object?> list) return [];
+        return [.. list
+            .OfType<Dictionary<object, object?>>()
+            .Select(f => new PhaseFact(
+                GetStepString(f, "claim") ?? string.Empty, GetStepString(f, "evidence") ?? string.Empty))
+            .Where(f => f.Claim.Length > 0)];
     }
 
     // The schema requires an id per step and allows action as a single line or an
