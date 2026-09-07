@@ -22,7 +22,9 @@ internal static class RepoScopeSystemPrompt
         + "\"complexity\": \"trivial|small|medium|large\", "
         + "\"shape\": \"deterministic|judgement|mixed\", "
         + "\"shape_reason\": \"<one line>\", "
-        + "\"rationale\": \"<1-2 sentences>\"}\n\n"
+        + "\"rationale\": \"<1-2 sentences>\", "
+        + "\"refusal\": null | {\"quote\": \"<the ticket sentence you object to, verbatim>\", "
+        + "\"reason\": \"<one line>\"}}\n\n"
         + "Rules:\n"
         + "- repos must contain exactly one verdict entry for EVERY listed repository, "
         + "names spelled exactly.\n"
@@ -53,7 +55,23 @@ internal static class RepoScopeSystemPrompt
         + "sweeping refactor. When unsure, estimate HIGHER — it only sizes the budget ceiling.\n"
         // p0413: SIZE says what the run may spend; SHAPE says how the work is CUT. State
         // it from the work itself — never from the technologies the repositories use.
-        + Shape;
+        + Shape
+        + Refusal;
+
+    /// <summary>
+    /// The security judgement over the ticket text — asked here because this is the
+    /// first model call of the run and nothing has been checked out, staged or run by
+    /// the time it answers. A judgement, not a word list: the bar is what the ticket
+    /// DEMANDS, and the consequence of a yes is the run's, never the model's to soften.
+    /// </summary>
+    private const string Refusal =
+        "\n- refusal is your judgement whether the ticket demands something that must not be "
+        + "done: causing harm, exfiltrating data or secrets, sabotaging a system or its "
+        + "safeguards, or misusing credentials. Judge the intent of the ticket as a whole, not "
+        + "the words it uses. Ordinary destructive engineering work — deleting a legacy module, "
+        + "dropping a retired table, removing a feature flag — is NOT a refusal. When you refuse, "
+        + "quote the sentence you object to VERBATIM and give the reason in one line; still "
+        + "fill the other fields as usual. When there is nothing to object to, refusal is null.";
 
     /// <summary>p0413: the shape rules — the second half of the estimate. Size decides
     /// what the run may spend, shape decides how it is cut into phases.</summary>

@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-c9d4
+goal: "A ticket with two readings that change the work parks as a question naming both and the one the run would take; a second unanswered re-trigger derives on that reading and says so."
+
+applies_to: "backend (the spec hand-back cases, their comment, the set index, and the derivation prompt on a re-trigger)"
+
+requires:
+  - 2026-09-07-a1c3
+
+scope:
+  in: "A third derivation hand-back case for a reading the code cannot settle; typed slots for the readings and the one taken; a comment that carries both and says what happens if nobody answers; and, on the next run, a pin in the derivation prompt that turns an unanswered question into an operator-equivalent answer, plus a ticket comment naming the reading the run proceeds on."
+  out: "Deciding WHEN a reading is contested — that is the derivation's judgement, made better informed by the tools the sibling phase 'the derivation reads the repo before it writes' gives it, and no rule here second-guesses it. Parking on every uncertainty: the hand-back's own doctrine already rejects that, and an assumption that does not change the work stays an assumption in the goal or done-list. Repairing the repeat guard for the other cases — 'the repeat guard reads a sha that always moves' is its own phase."
+
+decisions:
+  - key: |
+      A CONTESTED READING IS NEITHER A CONTRADICTION NOR AN IMPOSSIBILITY. RequirementsContradictRepository
+      is "the ticket says X, the repository shows not-X". NotImplementable is "cannot be built". Refused
+      is "must not be done". "Adopt the newest versions, even breaking" is none of them: it can mean a
+      major only where nothing lower clears an advisory, or modernise regardless; the work differs; only
+      the author knows. Today the derivation picks one silently and the run proceeds on a choice nobody
+      made. Ask only when proceeding would mean deciding for the author — that case needs a name.
+  - key: |
+      ROUTING IS THE CONTRADICTION CASE'S: NO RESOLVER CHANGE, NO STATUS, NO MIGRATION. A Question parks
+      in the clarification status — SpecParkStatusResolver already sends every non-verdict case there.
+      LastHandbackCase is an int column, so Question = 4 is APPENDED after Refused = 3, never renumbered.
+      The ticket comes back when a person moves it to a trigger status; a comment alone re-triggers
+      nothing (the webhooks and the poller skip a parked status). "Unanswered" is mechanical: no comment
+      by anyone but us after our question, read from the ticket comments the run already carries.
+  - key: |
+      THE READINGS ARE TYPED SLOTS, NOT PROSE. The framework names the taken reading twice — in the
+      question and in the proceed notice — and the second run holds only the model's second phrasing.
+      Prose cannot do that without parsing model text. SpecHandback gains Readings and Taken (an index)
+      with defaults, so the existing cases construct unchanged; the envelope reads them the way it reads
+      the discarded list, and refuses a question with fewer than two readings or a taken index outside
+      them so the retry path names it; SpecSetIndex persists them so the earlier question is readable
+      off the branch.
+  - key: |
+      THE REPEAT GUARD IS DEAD FOR DERIVATION HAND-BACKS, SO THE CONVERSATION IS THE SIGNAL. The guard
+      compares HandbackSourceSha with RevisionSha, and every derivation commits a fresh timestamped
+      revision (Finalize writes the timestamp into set.yaml, the writer always commits), so the shas
+      never match and a hand-back parks again on every re-trigger. For a Question the progress signal is
+      whether a person answered, never the branch. The sha guard stays as it is for the other cases;
+      its repair is the separate phase named in scope.
+  - key: |
+      B — RE-DERIVE ON THE STATED READING — OVER A PHASES-BEARING HAND-BACK. A hand-back still replaces
+      the spec (the parser returns no phases beside one; SpecDerivationTests pins it). Instead, on the
+      second run and BEFORE the derivation call, if the previous set's hand-back is a Question and no
+      operator comment followed our question, the run pins the taken reading into the derivation prompt
+      as an operator-equivalent answer, the derivation cuts real phases under it, and a plain ticket
+      comment says on which reading the run proceeds. One model call more than a hand-back that carries
+      its phases; no parser or gate change, no half-spec on the branch. Alternative A — the question
+      reply carries the phases it would cut under (a), and the second park publishes them — was rejected:
+      it makes every hand-back a possible spec, doubles the reply shape, and asks the first run to do
+      work it has just said it cannot settle.
+
+steps:
+  - id: a-question-is-its-own-hand-back-case
+    action: "Add SpecHandbackCase.Question = 4 and the Readings + Taken slots on SpecHandback; read them in the envelope (refusing fewer than two readings or a taken index outside them); persist them in set.yaml; render a comment branch that lists (a) …, (b) …, names the one the run would take, says that a reply plus the status move answers it, and that an unanswered re-trigger proceeds on that reading."
+  - id: an-unanswered-question-is-pinned-before-the-derivation
+    action: "Before the derivation call, when the previous set's hand-back is a Question and no comment by anyone but us follows our question, set a prompt pin naming both readings and the taken one as the answer; the composer renders it; after a cut with phases, post a plain comment naming the reading the run proceeds on. An answered question is derived normally; a second question from the model parks again."
+  - id: the-catalog-names-the-case
+    action: "Tell the derivation master that a reading the code cannot settle AND that changes the work is a question, not a silent choice — name both readings and the one you would take; an assumption that does not change the work stays in the goal or done-list. Reply shape gains the question case. Release and pin bump are operator follow-ups."
+
+tests:
+  - "Question_ATicketWithTwoReadings_ParksWithBothAndTheOneTaken"
+  - "Question_ASecondUnansweredPark_ProceedsAndSaysOnWhichReading"
+  - "Question_AnAnsweredQuestion_ParksAgainOnlyIfTheModelAsksAgain"
+  - "Question_AProceedNotice_NamesTheTakenReadingFromTheFirstQuestion"
+  - "Question_ThePointerRepeatGuard_DoesNotEndAQuestionLoopByItself"
+  - "Question_AReplyWithoutTheCase_ParksNothingNew"
+
+done:
+  - "a question hand-back parks in the clarification status with both readings and the one the run would take on the ticket"
+  - "a second unanswered re-trigger derives on the taken reading, posts which, and the run proceeds with real phases"
+  - "an answered question is derived normally, with the answer in the conversation and no pin"
+  - "a reply that names no question changes nothing"
+  - "build green, full suite green"

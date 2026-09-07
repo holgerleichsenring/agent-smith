@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-b7e2
+
+decisions:
+  - category: Architecture
+    chose: "Three named read-only tools with fixed argument vectors — search_repository, read_file, audit_dependencies — and no shell"
+    over: "A probe command bounded by a budget of calls and seconds"
+    reason: |
+      The sandbox holds registry tokens staged by SetupRegistryAuth and its network is open.
+      A budget truncates a probe, a build and an exfiltration alike; it cannot tell them
+      apart. What CAN be called is the framework's — argv steps with the pattern as one
+      element, a reader under /work, an advisory command with fixed arguments — and which
+      to call is the model's. Read-only is a property of the tools, never a promise.
+
+  - category: Architecture
+    chose: "Every path a look names is contained under /work; an absolute path or one that climbs out is refused before anything runs, in the derivation's tools AND in the account's BranchSearch"
+    over: "Passing the model's path straight to grep and the reader, as the account did"
+    reason: |
+      Read-only was not enough. SetupRegistryAuth writes /root/.npmrc and
+      /root/.nuget/NuGet/NuGet.Config through the same sandbox reader the file read uses,
+      and grep runs from /work with a free path argument — a look at /root/.npmrc would
+      read a token into the model's context and the run trace. BranchSearch had the same
+      hole (the account runs after SetupRegistryAuth too) and takes the same two-line fix
+      from one implementation, ContainedPath, so both surfaces read one rule.
+
+  - category: Architecture
+    chose: "Its own evidence type with an id per line, resolved by id alone in FactResolver"
+    over: "Reusing SearchEvidence and CitationResolver"
+    reason: |
+      SearchEvidence mints a fixed-grammar line with no id and CitationResolver resolves a
+      citation by command prefix against an account ROW. A fact is not a row: it is one
+      claim citing one look. The derivation's lines keep the account's grammar and add
+      '[L3] ' in front, and a claim is a fact when the framework minted the id it cites
+      — never because the model called it one. A line citing nothing or an unknown id is
+      an assumption, decided in code.
+
+  - category: Architecture
+    chose: "One budget of 12 looks per DERIVATION, held by a tool host built once before the retry loop and never re-opened; the iteration cap is allowance + 2; the deriver re-appends response.Messages"
+    over: "AccountSearchBudget with its per-pass OpenNextPass; re-appending response.Text"
+    reason: |
+      The account's allowance re-opens per pass because each pass asks a new question. A
+      derivation is one question asked up to three times; a retry that re-opened the budget
+      would let a cut rejected for its shape spend a fresh twelve on looks already taken.
+      Re-appending only the text would drop the tool-call and tool-result messages, so a
+      retry could not see what it had looked at or cite the ids. The cap of allowance + 2
+      (the turn that asks, the turn that answers) is AccountTools.MaxIterations' rule, so an
+      exhausted budget is answered in text and never trips the cap into an empty reply.
+
+  - category: Architecture
+    chose: "Sandboxes resolved over every sandbox of the run through SandboxTargets.TryResolve"
+    over: "The way SpecSetWriter resolves them, as the spec first said"
+    reason: |
+      SpecSetWriter resolves the ONE sandbox of the carrying repository, because it writes
+      there. A look has to reach every repository the ticket touches — the map
+      PhaseAccounting already hands BranchSearch is the right one, and it is read from
+      ContextKeys.Sandboxes the same way. Null when the run has no sandbox, so a
+      derivation over nothing checked out writes from the ticket alone, as it did.
+
+  - category: Implementation
+    chose: "The audit tool is the argv form of the security scan's three commands, installs nothing, and returns the tool's own JSON bounded to 12k chars; exits 0 and 1 are verdicts, anything else 'proves nothing'"
+    over: "Calling IDependencyAuditor, which parses into findings and installs pip-audit on a miss"
+    reason: |
+      DependencyAuditor runs 'npm audit --json', 'pip-audit --format=json' and
+      'dotnet list package --vulnerable --format json' through /bin/sh -c, installs
+      pip-audit when absent, and parses the output into findings whose shape drops the
+      project a package sits in — the one fact the dependency ticket needed. The derivation
+      wants the structured output whole and must install nothing. All three tools exit 0
+      for nothing-found and 1 for findings; an exit outside that is the tool failing, and
+      its line says so, because a broken audit must not prove that nothing is vulnerable.
+      The .NET form lists DIRECT references only (no --include-transitive) and the tool
+      description says so. Only the marker-file detection is shared: PackageEcosystemDetector
+      behind IPackageEcosystemDetector, in the scan's exact order, injected into
+      DependencyAuditor — the scan's behaviour is unchanged.
+
+  - category: Process
+    chose: "Recorded follow-up: one audit implementation for three consumers — the derivation, the security scan and the analyzer"
+    over: "Moving the security scan onto the argv commands in this phase"
+    reason: |
+      The scan's shell form, its pip-audit install and its finding parsers have tests and
+      live verdicts behind them; changing them here would widen a derivation phase into a
+      scan phase. The spec named two consumers; there are three, since the analyzer may
+      well call the audit for a dependency-shaped ticket. Weighed, not rediscovered.
+
+  - category: Implementation
+    chose: "facts and assumptions are two YAML keys on the phase record, each fact carrying its minted evidence line, read back by PhaseDraftReader; the companion markdown is untouched"
+    over: "A facts section in the verbatim companion, or a database column"
+    reason: |
+      The companion is cut byte for byte out of the ticket and that is its contract. The
+      phase schema's top level has no additionalProperties:false, so the two keys are
+      admitted; SpecSetReader already reads every phase through PhaseDraftReader, so the
+      round trip through git costs nothing new and the database holds only the pointer.
+      A cut with no facts renders exactly the yaml it rendered before, which is the test
+      an old catalog has to pass.
+
+  - category: Implementation
+    chose: "SpecDerivationCall (the call), DerivationLook + three tool classes (the host), DerivedPhaseBuilder (one element into a phase), SpecSetComment (the comment body)"
+    over: "Growing SpecSetDeriver, SpecDerivationParser and SpecSetTicketCommenter in place"
+    reason: |
+      The deriver was at 119 lines and the parser at 151 in the ratchet baseline; both had
+      to shrink or split. What a call is offered is not what its answer is worth; one
+      element's shape is not the set's; a comment's body is not the posting of it. The
+      parser leaves the file-length baseline.
+
+  - category: Process
+    chose: "The catalog change ships as skills PR #179; the embedded pin bump and the prompt substring test for the new wording wait for that release"
+    over: "Bumping the pin in this phase"
+    reason: |
+      A pin names a release that does not exist until release-please cuts it. A substring
+      test for 'LOOK BEFORE YOU WRITE' would be red until then, so it ships with the bump.
+      The backend does not depend on the catalog: an old master that never writes facts
+      yields today's set, and the tools it never asked for are read-only.
+
+  - category: Process
+    chose: "The sibling 2026-09-07-a1c3 is named in prose in the spec, not as a requires: edge"
+    over: "Keeping the requires: as the spec was handed over"
+    reason: |
+      PhaseRecordRuleTests refuses a requires: naming a phase that does not exist on the
+      branch, and a1c3 is built in parallel on another branch with no code dependency on
+      this one. CLAUDE.md states the same rule: requires: names only phases that exist.
+
+  - category: Process
+    chose: "The duplicate 'active:' key that a merge left in contexts/default/context.yaml is removed here"
+    over: "Leaving it for a separate fix"
+    reason: |
+      origin/main at c2f5d262 fails nine architecture tests on 'Duplicate key active' —
+      an 'active:' block naming 2026-09-03-7bac (already in done:) beside 'active: {}'.
+      This phase edits the same file for its own index line and the gate runs the full
+      suite; a tree that cannot parse its own context cannot pass it.

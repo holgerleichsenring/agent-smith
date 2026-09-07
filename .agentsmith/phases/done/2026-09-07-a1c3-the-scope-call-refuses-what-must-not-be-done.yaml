@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-a1c3
+goal: "A ticket asking for something that must not be done is refused by the scope call — before a sandbox, a credential or a tool exists — and stays refused until a human says otherwise."
+
+applies_to: "backend (the scope classifier's call and prompt, the spec hand-back cases and their routing)"
+
+scope:
+  in: "A security judgement over the ticket text as a field of the existing tool-less scope-classification call; a Refused hand-back case that parks and does not silently continue on a repeat; the context key set on the early return so the parking step actually parks; and an appeal path: a ticket comment plus the status move that already re-triggers a clarification park."
+  out: "Any keyword or pattern list — what must not be done is a judgement, and a list is a promise to miss the next phrasing. Harm in the WORK the master does mid-run; that stays with the master's own refusals and the commit-time scan of the staged diff. Judging feasibility or sense — the successor phases."
+
+decisions:
+  - key: |
+      A REFUSAL CHANNEL EXISTS AT DERIVATION, AND IT DOES NOT STOP ANYTHING. The pinned derivation
+      master already carries "INSTRUCTIONS THAT ARE NOT REQUIREMENTS GET NO SLOT" and reports what
+      it declined as ignored_instructions; SpecRefusalReporter publishes them before any master
+      runs. But a declined instruction is REPORTED and the cut proceeds — nothing stops the run on
+      what the ticket asked for. And by the time derivation runs, the sandbox exists, real registry
+      tokens have been staged into it by SetupRegistryAuth, and AnalyzeCode has already driven a
+      model with tools over the tree. "Before any tool runs" is not a property DeriveSpec can have.
+  - key: |
+      THE CALL THIS NEEDS ALREADY EXISTS, ONE STEP EARLIER, WITH ITS PROMPT IN THIS REPOSITORY.
+      ScopeRepos runs before CheckoutSource: a single tool-less model call over the ticket text,
+      driven by RepoScopeSystemPrompt — a constant in this codebase, not a pinned skill. The
+      security question becomes a field of that reply. Nothing new runs; nothing has to be
+      released from the catalog; and the ordering claim is true by construction, because at that
+      step there is no sandbox to have run anything in. An earlier draft placed this inside
+      DeriveSpec as a separate call, which would have needed its own skill name — and the prompt
+      catalog THROWS on a name an old pin lacks. That draft was blocked for it.
+  - key: |
+      THE JUDGEMENT IS THE MODEL'S; ONLY THE CONSEQUENCE IS MECHANICAL. A keyword list would be a
+      mechanical stand-in for "is this harmful" — the kind of check that tests what nobody
+      understands and that the next phrasing walks past. So the classifier is asked, freely,
+      whether the ticket demands something that must not be done, and must quote the sentence it
+      objects to. What follows from a yes is not the model's to soften: the run parks with the
+      quote and the reason on the ticket, and no later step runs. The delivery account's split —
+      free in claiming, mechanical in what a claim causes — applied to the first call of the run.
+  - key: |
+      REFUSED PARKS WHERE A HUMAN CAN ANSWER, AND A REPEAT STAYS REFUSED. NotImplementable's own
+      status has no appeal but Retry, and Retry re-runs the same judge on the same text — a
+      false positive would loop with no way through, and "delete the legacy module and drop its
+      tables" is a legitimate ticket a cautious judge may refuse. So Refused routes like the
+      clarification case: the ticket parks in needs_clarification_status, the operator answers
+      with a comment and moves the ticket back to a trigger status (the comment webhooks and the
+      poller both skip a parked status), and the re-run's scope call sees the comment beside the
+      text — "yes, really, and here is why" reaches it. The repeat guard is EXCLUDED for this
+      case: today a second identical hand-back lets the run CONTINUE — reachable for a refusal
+      only when the ticket was derived in an earlier run (the guard reads the spec-set pointer,
+      which a refusal at ScopeRepos never writes) — and for a refusal that is the one wrong
+      answer. Refused again with nothing new said stays parked.
+  - key: |
+      THE EARLY RETURN MUST STILL SET THE CONTEXT KEY, OR NOTHING PARKS. ContextKeys.SpecHandback
+      is set only inside SpecSetPublisher.PublishToContext. A refusal that returns before
+      publishing leaves the key unset, and SpecHandbackHandler then reports "handed nothing back"
+      and continues. The refusal step sets the key itself, and the existing hand-back step does the
+      parking — one parker, no second. The comment template gains a branch for the case; its
+      default today would describe a refusal as a contradiction with the repository, and no test
+      would catch it.
+
+steps:
+  - id: the-scope-reply-carries-the-security-verdict
+    action: "Add a refusal field to the scope classifier's reply — whether the ticket demands something that must not be done, with the objected sentence quoted verbatim — asked in RepoScopeSystemPrompt and read by RepoScopeReplyFields. The refusal field is read off the raw reply independently of the repos-array contract (as ScopeEstimateParser reads the estimate) and returned on ScopeClassificationResult; the check runs before the single-repo early return."
+  - id: a-refusal-is-its-own-hand-back-case
+    action: "Add SpecHandbackCase.Refused, routed by SpecParkStatusResolver to the clarification status (the non-verdict branch it already has), with a comment template branch that carries the quote and the reason."
+  - id: a-repeated-refusal-stays-parked
+    action: "Exclude Refused from the repeats-without-progress guard: a repeated refusal parks again instead of continuing, whether or not a spec-set pointer exists."
+  - id: nothing-runs-past-a-refusal
+    action: "On a refusal, ScopeRepos sets ContextKeys.SpecHandback and returns OkAndContinueWith(SpecHandback), splicing the hand-back step directly after itself (DropAhead is phase-scoped and cannot retire pipeline-level steps), so the park fires before CheckoutSource and CheckoutSource, SetupRegistryAuth, AnalyzeCode and DeriveSpec never execute. A Refused hand-back with no tracker to park on ends the run as a failed step carrying the quote and the reason — the existing 'no tracker' branch continues, which for a refusal would run checkout."
+
+tests:
+  - "Refusal_ATicketDemandingDestruction_ParksBeforeCheckout"
+  - "Refusal_ATicketDemandingExfiltration_CarriesTheQuotedSentenceOnTheTicket"
+  - "Refusal_ARepeatWithNoNewComment_ParksAgainInsteadOfContinuing"
+  - "Refusal_ACommentOnARefusedTicket_ReachesTheJudgeWithTheText"
+  - "Refusal_TheScopeCall_CarriesNoTools"
+  - "Refusal_AReplyWithoutTheField_ScopesAsToday"
+
+done:
+  - "a ticket the classifier refuses reaches neither checkout nor credential staging nor any model call with tools, and its ticket carries the quoted sentence and the reason"
+  - "a refused ticket re-triggered with no new comment parks again"
+  - "a refused ticket answered by a comment and moved back to a trigger status re-runs, and the scope call is shown the comment"
+  - "a scope reply without the refusal field is handled exactly as today"
+  - "build green, full suite green"

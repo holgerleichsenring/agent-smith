@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -25,11 +26,20 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecSetIndex>();
     services.AddTransient<SpecDerivationEnvelope>();
     services.AddTransient<SpecDerivationParser>();
+    // 2026-09-07-b7e2: the derivation may look before it writes — its call, its tool
+    // host over the run's sandboxes, and the resolver that decides a fact in code.
+    services.AddTransient<DerivedPhaseBuilder>();
+    services.AddTransient<FactResolver>();
+    services.AddTransient<SpecDerivationCall>();
+    services.AddTransient<DerivationLookFactory>();
+    services.TryAddSingleton<IPackageEcosystemDetector, Sandbox.PackageEcosystemDetector>();
     services.AddTransient<SpecSourceResolver>();
     services.AddTransient<SpecFallback>();
     services.AddTransient<SpecCutGate>();
     services.AddTransient<SpecRefusalReporter>();
     services.AddTransient<SpecSetTicketCommenter>();
+    services.AddTransient<UnansweredQuestionPin>();
+    services.AddTransient<UnansweredQuestionNotice>();
     services.AddTransient<SpecParkStatusResolver>();
     services.AddTransient<IPhaseProgressRecorder, PhaseProgressRecorder>(); // p0466
     services.TryAddSingleton<ISpecSetPointerStore, Persistence.InMemorySpecSetPointerStore>();

@@ -44,6 +44,26 @@ public sealed class SpecMarkdownTests
         markdown.Should().Contain(".agentsmith/specs/azdo-19106/p19106a-rename.md");
     }
 
+    // 2026-09-07-c9d4: the run detail shows a question the way the ticket does — both
+    // readings, and which one the run takes if nobody answers.
+    [Fact]
+    public void Render_QuestionHandback_ListsTheReadingsAndMarksTheTakenOne()
+    {
+        var set = Set(Phase()) with
+        {
+            Phases = [],
+            Handback = new SpecHandback(
+                SpecHandbackCase.Question, "reads two ways",
+                Readings: ["only where an advisory forces it", "everywhere"], Taken: 1),
+        };
+
+        var markdown = SpecMarkdown.Render(set);
+
+        markdown.Should().Contain("## Handed back — Question");
+        markdown.Should().Contain("- (a) only where an advisory forces it");
+        markdown.Should().Contain("- (b) everywhere _(taken if nobody answers)_");
+    }
+
     private static SpecPhase Phase(IReadOnlyList<string>? done = null, string document = "")
         => new(
             new PhaseDraft("p19106a", "Rename the call sites", "phase: p19106a", [])

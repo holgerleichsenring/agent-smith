@@ -12,11 +12,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// p0393a: turns any ticket into an ordered set of phase specs on the ticket branch,
 /// so the `code` pipeline runs on ordinary tickets and not only on ones an operator
 /// hand-wrote.
-/// <para>
-/// It runs after AnalyzeCode because one of its two hand-backs — "the requirement
-/// contradicts what is in the repository" — is only findable once the repositories
-/// have been read.
-/// </para>
+/// It runs after AnalyzeCode: the contradiction hand-back is only findable once the
+/// repositories have been read. An unanswered question from the last run is pinned as
+/// the answer before the model runs, and the ticket is told which reading was taken.
 /// <para>
 /// The accounting is the safeguard: every ticket segment is carried by a named phase
 /// or discarded with a reason. If it cannot be produced, the run does NOT split at
@@ -34,6 +32,8 @@ public sealed class DeriveSpecHandler(
     SpecFallback fallback,
     SpecSetTicketCommenter commenter,
     SpecCutGate gate,
+    UnansweredQuestionPin questionPin,
+    UnansweredQuestionNotice questionNotice,
     ILogger<DeriveSpecHandler> logger)
     : ICommandHandler<DeriveSpecContext>
 {
@@ -61,6 +61,7 @@ public sealed class DeriveSpecHandler(
             return CommandResult.Fail(
                 $"Ticket {context.Ticket.Id.Value} carries a malformed phase spec: {decision.Error}");
 
+        var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);
         var (set, ignored) = decision.NeedsModel
             ? await DeriveAsync(context, decision, key.Value, segments, cause, cancellationToken)
             : (decision.Set!, (IReadOnlyList<IgnoredInstruction>)[]);
@@ -68,11 +69,8 @@ public sealed class DeriveSpecHandler(
         var finalized = Finalize(set, previous?.Set, cause);
         var result = await publisher.PublishAsync(
             context.Pipeline, project, repo, finalized, ignored, cancellationToken);
-        // Non-blocking ratification: the cut is posted as "this is how I understood it" and
-        // the run proceeds. Blocking would reintroduce exactly the wait Approval was deleted
-        // for, and a correcting comment is the re-run path anyway.
         if (!finalized.IsHandedBack)
-            await commenter.PostAsync(context.Pipeline, context.Tracker, finalized, cancellationToken);
+            await AnnounceAsync(context, finalized, unanswered, cancellationToken);
         return result;
     }
 
@@ -115,6 +113,16 @@ public sealed class DeriveSpecHandler(
                 [.. derivation.Set.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],
                 decision.Source),
             derivation.IgnoredInstructions);
+    }
+
+    // Non-blocking ratification: the cut is posted as "this is how I understood it" and
+    // the run proceeds — blocking would reintroduce the wait Approval was deleted for.
+    private async Task AnnounceAsync(
+        DeriveSpecContext context, SpecSet finalized, UnansweredQuestion? unanswered, CancellationToken ct)
+    {
+        if (unanswered is not null)
+            await questionNotice.PostAsync(context.Pipeline, context.Tracker, unanswered, ct);
+        await commenter.PostAsync(context.Pipeline, context.Tracker, finalized, ct);
     }
 
     // The revision header is OURS, never the model's: numbering and cause are how a
