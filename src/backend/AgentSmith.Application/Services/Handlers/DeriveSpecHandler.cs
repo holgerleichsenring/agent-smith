@@ -3,15 +3,15 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0393a: turns any ticket into an ordered set of phase specs on the ticket branch,
-/// so the `code` pipeline runs on ordinary tickets and not only on ones an operator
-/// hand-wrote.
+/// p0393a: turns any ticket into an ordered set of phase specs on the ticket branch, so
+/// the `code` pipeline runs on ordinary tickets and not only on hand-written ones.
 /// It runs after AnalyzeCode: the contradiction hand-back is only findable once the
 /// repositories have been read. An unanswered question from the last run is pinned as
 /// the answer before the model runs, and the ticket is told which reading was taken.
@@ -55,7 +55,7 @@ public sealed class DeriveSpecHandler(
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
         var previous = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
-        var cause = SpecRevisionCause.For(previous, pointer, context.Pipeline);
+        var cause = SpecRevisionCause.For(previous, pointer, context.Ticket, context.Pipeline);
         var decision = sourceResolver.Decide(previous, context.Ticket, cause, key.Value);
         if (decision.Error is not null)
             return CommandResult.Fail(
@@ -66,7 +66,7 @@ public sealed class DeriveSpecHandler(
             ? await DeriveAsync(context, decision, key.Value, segments, cause, cancellationToken)
             : (decision.Set!, (IReadOnlyList<IgnoredInstruction>)[]);
 
-        var finalized = Finalize(set, previous?.Set, cause);
+        var finalized = Finalize(set, previous, cause, context.Ticket, decision.NeedsModel);
         var result = await publisher.PublishAsync(
             context.Pipeline, project, repo, finalized, ignored, cancellationToken);
         if (!finalized.IsHandedBack)
@@ -126,13 +126,15 @@ public sealed class DeriveSpecHandler(
     }
 
     // The revision header is OURS, never the model's: numbering and cause are how a
-    // reviewer follows the artifact, and a model free to rewrite them could erase the
-    // very edit this mechanism exists to collect.
-    private static SpecSet Finalize(SpecSet set, SpecSet? previous, string cause)
+    // reviewer follows the artifact. The fingerprint names the ticket text the model last
+    // saw — carried forward, not refreshed, on a revision written without it.
+    private static SpecSet Finalize(
+        SpecSet set, SpecSetReadResult? previous, string cause, Ticket ticket, bool modelRan)
     {
-        var history = previous?.Revisions ?? [];
+        var history = previous?.Set.Revisions ?? [];
         var next = new SpecRevision(history.Count + 1, cause, DateTimeOffset.UtcNow);
-        return set with { Revisions = [.. history, next] };
+        var fingerprint = modelRan || previous is null ? TicketTextFingerprint.Of(ticket) : previous.Set.TicketFingerprint;
+        return set with { Revisions = [.. history, next], TicketFingerprint = fingerprint };
     }
 
     private static string ProjectOf(PipelineContext pipeline) =>

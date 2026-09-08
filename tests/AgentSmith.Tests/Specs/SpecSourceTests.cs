@@ -65,6 +65,18 @@ public sealed class SpecSourceTests
     }
 
     [Fact]
+    public void SpecSource_ATicketEdit_AmendsTheSetWithTheModel()
+    {
+        var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
+
+        var decision = _sut.Decide(branch, Ticket("The endpoint returns 500."), SpecRevisionCause.TicketEdit, "azdo-1");
+
+        decision.Source.Should().Be(SpecSource.BranchArtifact);
+        decision.Set.Should().BeSameAs(branch.Set, "the branch set is what the model amends");
+        decision.NeedsModel.Should().BeTrue("an edited ticket is input the model has not seen");
+    }
+
+    [Fact]
     public void SpecSource_TicketDescriptionCarriesASpec_SkipsDerivation()
     {
         var decision = _sut.Decide(

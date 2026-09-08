@@ -36,10 +36,12 @@ public sealed class SpecSourceResolver(
 
         if (branchArtifact is not null)
         {
-            // A re-trigger or a comment brings new input for the SAME set: amend it rather
-            // than produce a fresh reading of the prose. A reviewer's edit is already the
-            // correction — it needs no model at all.
-            var amend = cause is SpecRevisionCause.Retrigger or SpecRevisionCause.Comment;
+            // A re-trigger, a comment or an edited ticket brings new input for the SAME set:
+            // amend it rather than produce a fresh reading of the prose. A reviewer's edit
+            // is already the correction — it needs no model at all.
+            var amend = cause is SpecRevisionCause.Retrigger
+                or SpecRevisionCause.Comment
+                or SpecRevisionCause.TicketEdit;
             logger.LogInformation(
                 "Spec set {Key} came off the ticket branch ({Phases} phase(s)); {Mode}",
                 key, branchArtifact.Set.Phases.Count,
