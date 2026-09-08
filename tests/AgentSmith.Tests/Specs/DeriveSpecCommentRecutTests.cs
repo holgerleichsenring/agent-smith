@@ -24,87 +24,60 @@ using Moq;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-09-08-5cd2, run a109's shape through the real reader: the branch carries a set
-/// whose first phase executed (the marker's commit is the last one on the spec path, so
-/// the pointer's sha no longer matches), and the ticket comes back re-triggered. When
-/// the ticket text changed since the set was cut, the deriver is called with the branch
-/// set and the ticket-edit cause; when it did not — or the set predates the fingerprint —
-/// nothing is derived, exactly as before.
+/// 2026-09-08-4aa9, run a109's other half through the real reader: the branch carries a
+/// set whose first phase executed and the ticket text is unchanged. An operator comment
+/// after our derivation-time comment calls the deriver with the branch set and the
+/// comment cause; no comment continues the tail with no deriver call — and, the pointer
+/// at the marker's own commit, the cause is a re-trigger, not a reviewer edit.
 /// </summary>
-public sealed class DeriveSpecTicketEditTests
+public sealed class DeriveSpecCommentRecutTests
 {
     private const string Key = "azdo-19106";
-    private const string PointerSha = "spec-sha-1";
+    private const string DerivationSha = "spec-sha-1";
     private const string MarkerSha = "marker-sha-2";
-    private const string EditedTicket = """
+    private const string TicketText = """
         Migrate the client.
 
         Ping me if unclear.
         """;
 
     [Fact]
-    public async Task DeriveSpec_AnEditedTicketWithAnExecutedPhase_CallsTheDeriverWithTheSetAndTheCause()
+    public async Task DeriveSpec_ACommentAfterAnExecutedPhase_CallsTheDeriverWithTheSetAndTheCause()
     {
-        var files = SeededFiles(fingerprint: "a-fingerprint-of-the-text-before-the-edit");
         var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
+        var thread = new[] { OurCut(), Operator("phase b is wrong: the callers stay where they are") };
 
-        var result = await Handler(files, deriver, published).ExecuteAsync(Context(), default);
+        // a109's live shape: the pointer still names the derivation commit, not the marker's.
+        var result = await Handler(deriver, published, pointerSha: DerivationSha).ExecuteAsync(Context(thread), default);
 
         result.IsSuccess.Should().BeTrue();
-        deriver.Calls.Should().Be(1, "the edited text is new input the model has not seen");
+        deriver.Calls.Should().Be(1, "the comment is new input the model has not seen");
+        deriver.CauseSeen.Should().Be(SpecRevisionCause.Comment);
         deriver.PreviousSeen!.Executed.Should().Equal("p19106a");
-        deriver.CauseSeen.Should().Be(SpecRevisionCause.TicketEdit);
         published.Set!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b");
         published.Set.Executed.Should().Equal(["p19106a"], "the executed phase is carried, never edited");
-        published.Set.Current.Cause.Should().Be(SpecRevisionCause.TicketEdit);
+        published.Set.Current.Cause.Should().Be(SpecRevisionCause.Comment);
     }
 
     [Fact]
-    public async Task DeriveSpec_ASetWithoutAFingerprint_IsNotRederived()
+    public async Task DeriveSpec_NoCommentAfterAnExecutedPhase_ContinuesTheTailWithoutTheDeriver()
     {
-        var files = SeededFiles(fingerprint: null);
         var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
 
-        await Handler(files, deriver, published).ExecuteAsync(Context(), default);
+        await Handler(deriver, published, pointerSha: MarkerSha).ExecuteAsync(Context([OurCut()]), default);
 
-        deriver.Calls.Should().Be(0, "a set cut before the fingerprint existed compares as unchanged");
-        published.Set!.Phases.Select(p => p.Draft.Goal).Should().Equal("Goal p19106a", "Goal p19106b");
-    }
-
-    [Fact]
-    public async Task DeriveSpec_AnUnchangedTicketWithAnExecutedPhase_IsNotRederived()
-    {
-        var files = SeededFiles(fingerprint: TicketTextFingerprint.Of(Ticket()));
-        var deriver = new CapturingDeriver(RecutTail());
-        var published = new CapturingPublisher();
-
-        await Handler(files, deriver, published).ExecuteAsync(Context(), default);
-
-        deriver.Calls.Should().Be(0, "the text the set was cut from is the text on the ticket");
-        published.Set!.Current.Cause.Should().Be(SpecRevisionCause.ReviewerEdit,
-            "the pointer here still names the derivation commit, so the last commit on the spec path "
-            + "is a foreign one — a reviewer's edit after the phase ran; the marker itself moves the "
-            + "pointer since 2026-09-08-4aa9");
-        published.Set.TicketFingerprint.Should().Be(TicketTextFingerprint.Of(Ticket()));
-    }
-
-    [Fact]
-    public async Task DeriveSpec_ARevisionTheModelWrote_CarriesTheCurrentFingerprint()
-    {
-        var files = SeededFiles(fingerprint: "a-fingerprint-of-the-text-before-the-edit");
-        var published = new CapturingPublisher();
-
-        await Handler(files, new CapturingDeriver(RecutTail()), published).ExecuteAsync(Context(), default);
-
-        published.Set!.TicketFingerprint.Should().Be(TicketTextFingerprint.Of(Ticket()),
-            "the next run compares against the text this cut actually saw");
+        deriver.Calls.Should().Be(0, "nothing new: the ticket is unchanged and nobody commented");
+        published.Set!.Current.Cause.Should().Be(SpecRevisionCause.Retrigger,
+            "the marker's commit is this system's own — the pointer names it");
+        published.Set.Phases.Select(p => p.Draft.Goal).Should().Equal("Goal p19106a", "Goal p19106b");
     }
 
     private static DeriveSpecHandler Handler(
-        SeededFileReader files, ISpecSetDeriver deriver, ISpecSetPublisher publisher)
+        ISpecSetDeriver deriver, ISpecSetPublisher publisher, string pointerSha)
     {
+        var files = SeededFiles();
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files);
         var gitOps = new SandboxGitOperations(
@@ -114,8 +87,9 @@ public sealed class DeriveSpecTicketEditTests
         var reader = new SpecSetReader(
             factory.Object, gitOps, draftReader, new SpecSetIndex(), new SandboxTargets(),
             NullLogger<SpecSetReader>.Instance);
+        // The last commit on the spec path is the marker's; the pointer names what the caller says.
         var pointers = new InMemorySpecSetPointerStore();
-        pointers.SaveAsync(string.Empty, new SpecSetPointer(Key, "primary", PointerSha, 1), default)
+        pointers.SaveAsync(string.Empty, new SpecSetPointer(Key, "primary", pointerSha, 1), default)
             .GetAwaiter().GetResult();
         var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
         var tickets = new Mock<ITicketProviderFactory>();
@@ -130,8 +104,7 @@ public sealed class DeriveSpecTicketEditTests
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
-    // The marker's commit is the last one on the spec path: every git call answers it.
-    private static DeriveSpecContext Context()
+    private static DeriveSpecContext Context(IReadOnlyList<TicketComment> thread)
     {
         var sandbox = new Mock<ISandbox>();
         sandbox.Setup(s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
@@ -141,23 +114,31 @@ public sealed class DeriveSpecTicketEditTests
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["primary"] = sandbox.Object });
         pipeline.Set(ContextKeys.Ticket, Ticket());
+        pipeline.Set(ContextKeys.TicketComments, thread);
         return new DeriveSpecContext(
             Ticket(), null, [new RepoConnection { Name = "primary" }], new AgentConfig(), pipeline);
     }
 
     private static Ticket Ticket() =>
-        new(new TicketId("19106"), "Migrate the client", EditedTicket, null, "open", "azdo", []);
+        new(new TicketId("19106"), "Migrate the client", TicketText, null, "open", "azdo", []);
 
-    private static SeededFileReader SeededFiles(string? fingerprint)
+    private static TicketComment OurCut() => new(
+        "agent-smith", DateTimeOffset.UtcNow.AddHours(-2),
+        SpecSetComment.Render(RecutTail().Set, null));
+
+    private static TicketComment Operator(string body) =>
+        new("operator", DateTimeOffset.UtcNow.AddHours(-1), body);
+
+    private static SeededFileReader SeededFiles()
     {
         var files = new SeededFileReader();
-        files.Seed($".agentsmith/specs/{Key}/set.yaml", SetYaml(fingerprint));
+        files.Seed($".agentsmith/specs/{Key}/set.yaml", SetYaml(TicketTextFingerprint.Of(Ticket())));
         files.Seed($".agentsmith/specs/{Key}/p19106a-first.yaml", PhaseYaml("p19106a"));
         files.Seed($".agentsmith/specs/{Key}/p19106b-second.yaml", PhaseYaml("p19106b"));
         return files;
     }
 
-    private static string SetYaml(string? fingerprint) => $"""
+    private static string SetYaml(string fingerprint) => $"""
         key: {Key}
         source: Derived
         phases:
@@ -174,7 +155,7 @@ public sealed class DeriveSpecTicketEditTests
           phase: p19106a
         - segment: 2
           phase: p19106b
-        {(fingerprint is null ? string.Empty : "ticket_fingerprint: " + fingerprint)}
+        ticket_fingerprint: {fingerprint}
         """;
 
     private static string PhaseYaml(string id) => $"""
@@ -184,15 +165,15 @@ public sealed class DeriveSpecTicketEditTests
           - "Done {id}."
         """;
 
-    // The model's reply: the executed head repeated, the tail cut from the current text.
+    // The model's reply: the executed head repeated, the tail cut again with the comment in view.
     private static SpecDerivation RecutTail()
     {
-        var segments = TicketSegmenter.Segment(EditedTicket);
+        var segments = TicketSegmenter.Segment(TicketText);
         var carries = segments.Select(s => s.Id).ToList();
         SpecPhase Phase(string id, string goal) => new(
             new PhaseDraft(id, goal, $"phase: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
-        var phases = new[] { Phase("p19106a", "Goal p19106a"), Phase("p19106b", "Cut again from the edited text") };
+        var phases = new[] { Phase("p19106a", "Goal p19106a"), Phase("p19106b", "Cut again with the comment in view") };
         return new SpecDerivation(
             new SpecSet(
                 Key, phases, SpecAccountingBuilder.Build(phases, [], segments),

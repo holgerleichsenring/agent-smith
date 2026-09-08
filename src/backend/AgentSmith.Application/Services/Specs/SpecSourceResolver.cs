@@ -36,12 +36,7 @@ public sealed class SpecSourceResolver(
 
         if (branchArtifact is not null)
         {
-            // A re-trigger, a comment or an edited ticket brings new input for the SAME set:
-            // amend it rather than produce a fresh reading of the prose. A reviewer's edit
-            // is already the correction — it needs no model at all.
-            var amend = cause is SpecRevisionCause.Retrigger
-                or SpecRevisionCause.Comment
-                or SpecRevisionCause.TicketEdit;
+            var amend = NeedsAmendment(cause, branchArtifact.Set);
             logger.LogInformation(
                 "Spec set {Key} came off the ticket branch ({Phases} phase(s)); {Mode}",
                 key, branchArtifact.Set.Phases.Count,
@@ -74,4 +69,18 @@ public sealed class SpecSourceResolver(
 
         return new Decision(SpecSource.Derived, null, NeedsModel: true);
     }
+
+    // A comment or an edited ticket is input the model has not seen, whatever the branch
+    // carries — amend the SAME set rather than produce a fresh reading of the prose. A
+    // reviewer's edit is already the correction and needs no model at all. A bare
+    // re-trigger re-cuts a set nothing has run yet (the previous run ended before the cut
+    // was worked, and a fallback cut is not meant to be permanent) but continues a set in
+    // flight: an executed head is work on the branch, and the inputs that re-cut its tail
+    // are read as their own causes (2026-09-08-4aa9).
+    private static bool NeedsAmendment(string cause, SpecSet set) => cause switch
+    {
+        SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit => true,
+        SpecRevisionCause.Retrigger => set.Executed.Count == 0,
+        _ => false,
+    };
 }

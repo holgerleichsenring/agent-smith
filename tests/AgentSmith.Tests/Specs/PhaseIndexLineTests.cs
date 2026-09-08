@@ -257,7 +257,7 @@ public sealed class PhaseIndexLineTests : IDisposable
         var targets = new SandboxTargets();
         return new WritePhaseRecordHandler(
             factory,
-            new ExecutedPhaseMarker(null!, NullLogger<ExecutedPhaseMarker>.Instance),
+            new ExecutedPhaseMarker(null!, null!, NullLogger<ExecutedPhaseMarker>.Instance),
             new PhaseRecordPublisher(EventTestStubs.Recording()),
             new PhaseRecordIndexLine(),
             new PhaseIndexWriter(
