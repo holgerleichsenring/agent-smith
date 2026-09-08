@@ -63,7 +63,7 @@ public sealed class PhaseRecordPublishedTests
         var targets = new SandboxTargets();
         return new WritePhaseRecordHandler(
             factory.Object,
-            new ExecutedPhaseMarker(null!, NullLogger<ExecutedPhaseMarker>.Instance),
+            new ExecutedPhaseMarker(null!, null!, NullLogger<ExecutedPhaseMarker>.Instance),
             new PhaseRecordPublisher(publisher),
             new PhaseRecordIndexLine(),
             new PhaseIndexWriter(

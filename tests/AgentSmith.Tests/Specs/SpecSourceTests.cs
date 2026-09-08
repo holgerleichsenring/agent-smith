@@ -77,6 +77,31 @@ public sealed class SpecSourceTests
     }
 
     [Fact]
+    public void SpecSource_AComment_AmendsTheSetWithTheModel()
+    {
+        var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
+
+        var decision = _sut.Decide(branch, Ticket("The endpoint returns 500."), SpecRevisionCause.Comment, "azdo-1");
+
+        decision.Source.Should().Be(SpecSource.BranchArtifact);
+        decision.Set.Should().BeSameAs(branch.Set, "the branch set is what the model amends");
+        decision.NeedsModel.Should().BeTrue("a comment is input the model has not seen");
+    }
+
+    [Fact]
+    public void SpecSource_ARetriggerOfASetInFlight_ContinuesWithoutTheModel()
+    {
+        var cut = SetOnBranch();
+        var inFlight = new SpecSetReadResult(cut with { Executed = [cut.Phases[0].PhaseId] }, "sha-1");
+
+        var decision = _sut.Decide(inFlight, Ticket("The endpoint returns 500."), SpecRevisionCause.Retrigger, "azdo-1");
+
+        decision.Set.Should().BeSameAs(inFlight.Set);
+        decision.NeedsModel.Should().BeFalse(
+            "an executed head is work on the branch, and a bare re-trigger brings nothing the model has not seen");
+    }
+
+    [Fact]
     public void SpecSource_TicketDescriptionCarriesASpec_SkipsDerivation()
     {
         var decision = _sut.Decide(
