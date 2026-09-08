@@ -132,6 +132,16 @@ def Resolve_DashFFileRelativeToALeadingCd_ReadsIt():
             assert result.message is not None and "(p0508)" in result.message, result
 
 
+def Resolve_DashFFileAfterASemicolonCd_ReadsIt():
+    # A `;` glued to the cd argument by shlex hid the commit segment and the gate
+    # passed the commit through ungated (seen on 2026-09-04-cf3d's first commit).
+    with tempfile.TemporaryDirectory() as path:
+        (pathlib.Path(path) / "message.txt").write_text("feat: after a semicolon (p0508)\n")
+        with tempfile.TemporaryDirectory() as elsewhere:
+            result = _resolve(f"cd {path}; git commit -F message.txt", elsewhere)
+            assert result.message is not None and "(p0508)" in result.message, result
+
+
 def Resolve_AmendNoEdit_ReturnsThePreviousMessage():
     with _repository("feat: the previous message (p0508)") as repo:
         result = _resolve("git commit --amend --no-edit", repo)
