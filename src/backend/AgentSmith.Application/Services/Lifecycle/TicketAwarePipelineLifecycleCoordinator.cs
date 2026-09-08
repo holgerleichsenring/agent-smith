@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -81,12 +82,14 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
         // board made a ticket waiting for an answer indistinguishable from a delivered
         // one, so two parked runs sat unnoticed for hours. RunPark is the one predicate
         // for "waiting", so a third way to park cannot miss this branch.
+        // p0439: a delivered shortfall is a done that says so — its own label, never Failed.
         private TicketLifecycleStatus TerminalStatus()
         {
             if (_failed) return TicketLifecycleStatus.Failed;
-            return RunPark.IsWaitingForOperator(context)
-                ? TicketLifecycleStatus.Waiting
-                : TicketLifecycleStatus.Done;
+            if (RunPark.IsWaitingForOperator(context)) return TicketLifecycleStatus.Waiting;
+            return RunShortfall.DeliveredOn(context) is null
+                ? TicketLifecycleStatus.Done
+                : TicketLifecycleStatus.Shortfall;
         }
     }
 }

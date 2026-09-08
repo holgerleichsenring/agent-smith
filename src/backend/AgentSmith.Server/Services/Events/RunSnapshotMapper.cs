@@ -35,7 +35,7 @@ public static class RunSnapshotMapper
         // first opened PR for back-compat with the single-link surfaces.
         var openedPrs = run.Repos
             .Where(r => PullRequestStatuses.HasPullRequest(r.PrStatus) && !string.IsNullOrEmpty(r.PrUrl))
-            .Select(r => new RunPullRequestView(r.RepoName, r.PrUrl!, r.PrStatus!, IsDraft: run.Status != "success"))
+            .Select(r => new RunPullRequestView(r.RepoName, r.PrUrl!, r.PrStatus!, IsDraft: !RunStatuses.IsDelivered(run.Status)))
             .ToList();
         var openedPr = run.Repos.FirstOrDefault(r => PullRequestStatuses.HasPullRequest(r.PrStatus));
         // p0404: the run's time split, rolled up from what its steps carry. Read

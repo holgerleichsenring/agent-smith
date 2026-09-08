@@ -151,6 +151,46 @@ public class PipelineExecutorTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_StepFailsButTheTailDeliversAShortfall_EndsAsADoneRunWithoutAFailureComment()
+    {
+        // p0439: the finalizer tail (here CommitAndPR) delivered the verified phases and left
+        // the delivery on the context. The run then ends with success — no failure comment,
+        // no failed status, no WIP persist — and its result is the shortfall's summary.
+        var h = new PipelineExecutorTestBuilder();
+        var ticketProviderMock = new Mock<ITicketProvider>();
+        h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+            .Returns(ticketProviderMock.Object);
+        var commands = new[] { "BadCommand", CommandNames.CommitAndPR };
+        var project = new ResolvedProject();
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple("BadCommand"), project, pipeline))
+            .Throws(new Exception("per-pipeline cost budget exhausted"));
+        var tail = new Mock<ICommandContext>();
+        h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple(CommandNames.CommitAndPR), project, pipeline))
+            .Returns(tail.Object);
+        h.ExecutorMock.Setup(e => e.ExecuteAsync(tail.Object, It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                new Contracts.Specs.RunShortfall(
+                    [new Contracts.Specs.PhaseProgress("p0001a", "a", Contracts.Specs.PhaseRunState.Done)],
+                    [new Contracts.Specs.PhaseProgress("p0001b", "b", Contracts.Specs.PhaseRunState.NotStarted)],
+                    "per-pipeline cost budget exhausted").MarkDelivered(pipeline);
+                return Task.FromResult(CommandResult.Ok("delivered"));
+            });
+
+        var result = await h.Sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("p0001b");
+        ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never, "the delivery finalized the ticket in the tail; the error path never runs");
+        h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Never);
+        pipeline.Has(ContextKeys.FailedStepName).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task ExecuteAsync_PipelineFails_PostsHtmlFormattedFailureComment()
     {
         // Regression: failure comments were posted as raw markdown (## Agent Smith - Failed),

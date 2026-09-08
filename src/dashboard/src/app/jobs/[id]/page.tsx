@@ -493,12 +493,13 @@ function StepDetail({
 
 // p0259: a cancelled run is not a failure — it gets its own neutral banner.
 function isFailureStatus(s: string | null | undefined): boolean {
-  return !!s && s !== "running" && s !== "success" && s !== "cancelled"
+  return !!s && s !== "running" && s !== "success" && s !== "shortfall" && s !== "cancelled"
     && s !== "queued" && s !== "waiting_for_input";
 }
 
 function mapResultStatus(status: string | null | undefined): NodeStatus {
   if (status === "success") return "ok";
+  if (status === "shortfall") return "shortfall";
   if (status === "running") return "run";
   if (status === "cancelled") return "cancel";
   return status ? "fail" : "wait";

@@ -21,6 +21,7 @@ interface Props {
 const STATUS_LABEL: Record<string, string> = {
   running: "running",
   success: "success",
+  shortfall: "done, with a shortfall",
   failed: "failed",
   error: "error",
   cancelled: "cancelled",
@@ -32,7 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 function statusTone(status: string | null | undefined): BadgeTone {
   const s = (status ?? "").toLowerCase();
-  if (s === "success") return "green";
+  if (s === "success" || s === "shortfall") return "green";
   if (s === "failed" || s === "error") return "rose";
   // p0269a: queued is a calm waiting state (amber), not a failure.
   if (s === "queued") return "amber";

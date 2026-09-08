@@ -49,7 +49,7 @@ public static class RunBeatsComputer
         var currentBeat = mapped[^1].Beat;
         var plannedBeats = PlannedBeats(run.Pipeline)
             ?? mapped.Select(m => m.Beat).ToHashSet();
-        var success = string.Equals(run.Status, "success", StringComparison.OrdinalIgnoreCase);
+        var success = RunStatuses.IsDelivered(run.Status?.ToLowerInvariant()); // p0439: a shortfall delivered too
         // p0376: coding pipelines fold verification into the coding-master + keystone —
         // there is no dedicated verify-phase COMMAND, so the Verify beat renders "skipped"
         // even when the keystone proved every acceptance criterion (the panel shows

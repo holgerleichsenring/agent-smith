@@ -68,6 +68,9 @@ describe("RunDetailHeader", () => {
     expect(screen.getByTestId("run-status-spill")).toHaveTextContent("Done");
     rerender(<RunDetailHeader {...base} status="failed" />);
     expect(screen.getByTestId("run-status-spill")).toHaveTextContent("Failed");
+    // p0439: delivered with a shortfall reads as a done that says so, never as Failed.
+    rerender(<RunDetailHeader {...base} status="shortfall" />);
+    expect(screen.getByTestId("run-status-spill")).toHaveTextContent("Done, with a shortfall");
   });
 
   it("RunDetail_CancelButton_ShownForRunningQueuedWaiting_NotTerminal", () => {

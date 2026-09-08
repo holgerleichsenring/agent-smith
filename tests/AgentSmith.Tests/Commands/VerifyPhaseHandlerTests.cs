@@ -44,6 +44,7 @@ public sealed class VerifyPhaseHandlerTests
             new SandboxTargets(),
             NullLogger<PhaseAccounting>.Instance),
         new PhaseProgressRecorder(new NoOpEventPublisher()),
+        new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
         NullLogger<VerifyPhaseHandler>.Instance);
 
     private static ProjectMap Map(string language, CiConfig ci) => new(
