@@ -172,6 +172,25 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task ADeliveredShortfall_LeavesTheTicketShortfall_NotDoneAndNotFailed()
+    {
+        // p0439: a run that delivered part of its contract is a done that says so.
+        var (factory, transitioner) = MockServerSide();
+        var context = TicketContext("PROJ-1");
+        var scope = await Sut(factory).BeginAsync(new ResolvedProject(), context, CancellationToken.None);
+
+        new Contracts.Specs.RunShortfall(
+            [new Contracts.Specs.PhaseProgress("p0001a", "a", Contracts.Specs.PhaseRunState.Done)],
+            [new Contracts.Specs.PhaseProgress("p0001b", "b", Contracts.Specs.PhaseRunState.NotStarted)],
+            "budget").MarkDelivered(context);
+        await scope.DisposeAsync();
+
+        transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(), TicketLifecycleStatus.InProgress, TicketLifecycleStatus.Shortfall,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static (Mock<ITicketStatusTransitionerFactory>, Mock<ITicketStatusTransitioner>)
         MockServerSide()
     {

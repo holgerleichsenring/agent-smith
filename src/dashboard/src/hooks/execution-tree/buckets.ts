@@ -73,6 +73,7 @@ export interface SubAgentBucket {
 export function statusFromString(s: string): NodeStatus {
   const v = s.toLowerCase();
   if (v === "success" || v === "succeeded" || v === "ok") return "ok";
+  if (v === "shortfall") return "shortfall";
   if (v === "failed" || v === "fail" || v === "error") return "fail";
   if (v === "running" || v === "started") return "run";
   return "wait";

@@ -54,4 +54,23 @@ public sealed class CompletedRunTicketSummaryTests
             .And.Contain("**`npm run lint` exits 0** — the lint config is a shared package this repository cannot change")
             .And.EndWith("This ticket was automatically processed by Agent Smith.");
     }
+
+    [Fact]
+    public void Build_AShortfall_LeadsWithItAndNamesWhatIsMissing()
+    {
+        // p0439: a delivered shortfall is a completed run that says so.
+        var shortfall = new Contracts.Specs.RunShortfall(
+            [new Contracts.Specs.PhaseProgress("p0001a", "Introduce the guard", Contracts.Specs.PhaseRunState.Done)],
+            [new Contracts.Specs.PhaseProgress("p0001b", "Move the callers", Contracts.Specs.PhaseRunState.NotStarted)],
+            "per-pipeline cost budget exhausted");
+        var opened = new List<OpenedPullRequest> { new("api", "https://stub.test/pulls/1", OpenStatus.Opened) };
+
+        var summary = _sut.Build(new PipelineContext(), 1, opened, [], shortfall);
+
+        summary.Should().StartWith("## Agent Smith - Delivered with a shortfall (1 of 2 phases) across 1 repo(s)")
+            .And.Contain("## Not delivered")
+            .And.Contain("- **p0001b** — Move the callers (not started)")
+            .And.Contain("per-pipeline cost budget exhausted")
+            .And.NotContain("Completed across");
+    }
 }

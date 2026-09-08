@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-08-a049
+goal: "A shortfall run's own record says shortfall, and a phase found already satisfied on entry names the state it verified, so a later shortfall can deliver it too."
+
+applies_to: "backend (WriteRunResult, SelectPhase)"
+
+requires:
+  - p0439
+
+scope:
+  in: "result.md of a delivered shortfall: the frontmatter `result:` line and the outcome section read as a delivery with a shortfall, not as a run that did not complete. SelectPhase's already-satisfied path records the verified head of each sandbox the way VerifyPhase does, so a run that stops after such a phase can deliver it."
+  out: "The shortfall mechanism itself (p0439). Modelling commits in the fast-tier stub sandbox."
+
+decisions:
+  - key: |
+      TWO GAPS p0439 NAMED RATHER THAN PAPERED OVER. WriteRunResult runs BEFORE CommitAndPR in
+      the finalizer tail, so result.md is written while the run still carries only its failure
+      reason and before the delivery is decided; its `result: failed` line disagrees with the
+      ticket, the pull request and the run status of a delivered shortfall. And SelectPhase
+      records a phase DONE on entry (p0460) without a sandbox in hand, so no verified head is
+      named for it and a run that stops afterwards cannot deliver a shortfall for that
+      sandbox — conservative, and a phase the branch already satisfied is the easiest one to
+      deliver.
+  - key: |
+      THE RECORD MUST NOT PREDICT THE DELIVERY. A shortfall that opens no pull request stays a
+      failed run, so result.md cannot state "shortfall" from the failure reason alone. Either
+      the record is refreshed after CommitAndPR, or it states the two facts it can — the
+      reason the run stopped and the phases verified so far — and lets the delivery surfaces
+      say the rest.
+
+steps:
+  - id: the-record-of-a-shortfall
+    action: "result.md of a delivered shortfall names the delivery and what is missing without predicting a delivery that has not happened."
+  - id: entry-satisfied-phases-name-their-head
+    action: "SelectPhase's already-satisfied path records the verified heads over a clean source tree, the way VerifyPhase does."
+
+tests:
+  - "AShortfallRun_ItsRecordSaysShortfall_NotDidNotComplete"
+  - "AnAlreadySatisfiedPhase_NamesItsVerifiedHead"
+
+done:
+  - "result.md of a delivered shortfall reads as a delivery with a shortfall."
+  - "A run that stops after a phase found already satisfied on entry can deliver a shortfall for it."

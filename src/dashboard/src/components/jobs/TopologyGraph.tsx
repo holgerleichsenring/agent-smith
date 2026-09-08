@@ -238,7 +238,7 @@ function runRootStatus(events: readonly RunEvent[]): SandboxStatus {
     if (e.type === EventType.StepFinished && e.status === "failed") stepFailed = true;
     if (e.type === EventType.RunFinished) {
       finished = true;
-      if (e.status === "success") succeeded = true;
+      if (e.status === "success" || e.status === "shortfall") succeeded = true;
     }
   }
   if (stepFailed) return "failed";

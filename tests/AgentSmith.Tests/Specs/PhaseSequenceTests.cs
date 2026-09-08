@@ -102,6 +102,22 @@ public sealed class PhaseSequenceTests
     }
 
     [Fact]
+    public void PhaseSequence_StoppedMidwayButDelivered_TableIsADeliveryNote_NotAWarning()
+    {
+        // p0439: the branch carries exactly the done phases, so the reader is pointed at
+        // "Not delivered" instead of told not to merge.
+        var progress = SpecSequenceProgress.ForSet(ThreePhaseSet())
+            .With("p0001a", PhaseRunState.Done)
+            .With("p0001b", PhaseRunState.Failed, "dotnet build exited 1");
+
+        var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress, delivered: true);
+
+        table.Should().NotContain("DO NOT MERGE");
+        table.Should().Contain("## Phase status").And.Contain("Not delivered");
+        table.Should().Contain("✅ done").And.Contain("dotnet build exited 1");
+    }
+
+    [Fact]
     public void PhaseSequence_EveryPhaseDone_IsNotPartial()
     {
         var progress = SpecSequenceProgress.ForSet(TwoPhaseSet())

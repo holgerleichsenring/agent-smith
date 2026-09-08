@@ -11,7 +11,9 @@
 // p0320d: "queued" is the capacity-waiting identity — amber like "run" but static.
 // p0327: "input" is the waiting-for-operator identity — the run parked on a
 // question (violet, static) and resumes as the SAME run once answered.
-export type NodeStatus = "ok" | "fail" | "run" | "wait" | "cancel" | "queued" | "input";
+// p0439: "shortfall" = the run delivered what it verified and fell short of the rest —
+// a done with its own identity, never a success with a footnote and never a failure.
+export type NodeStatus = "ok" | "fail" | "run" | "wait" | "cancel" | "queued" | "input" | "shortfall";
 
 interface TimingGutterProps {
   startSeconds: number;
@@ -59,5 +61,7 @@ function barClassFor(status: NodeStatus): string {
       return "bg-amber-200";
     case "input":
       return "bg-violet-200";
+    case "shortfall":
+      return "bg-teal-200";
   }
 }

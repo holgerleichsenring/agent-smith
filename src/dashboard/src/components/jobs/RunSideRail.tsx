@@ -85,7 +85,7 @@ function openedPullRequests(snapshot: RunSnapshot): RunPullRequest[] {
         repo: snapshot.repos?.[0] ?? "repository",
         url: snapshot.prUrl,
         status: "opened",
-        isDraft: snapshot.status !== "success",
+        isDraft: snapshot.status !== "success" && snapshot.status !== "shortfall",
       },
     ];
   }
@@ -131,7 +131,7 @@ export function RunSideRail({
   // used to be asserted non-null three times over. Read the pods once, honestly.
   const livePods = compute?.pods ?? [];
   const hasLivePods = livePods.length > 0;
-  const terminal = ["success", "failed", "error", "cancelled"].includes(rawStatus.toLowerCase());
+  const terminal = ["success", "shortfall", "failed", "error", "cancelled"].includes(rawStatus.toLowerCase());
   const calculating = !hasLivePods && !terminal && !!footprint;
   const showCompute = hasLivePods || calculating;
   const computeText = hasLivePods

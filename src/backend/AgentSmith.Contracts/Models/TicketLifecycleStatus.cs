@@ -17,5 +17,11 @@ public enum TicketLifecycleStatus
     /// p0454: the run parked on a person and is waiting for them. Distinct from Done:
     /// on the board a run waiting for a human and a run that finished were the same row.
     /// </summary>
-    Waiting
+    Waiting,
+
+    /// <summary>
+    /// p0439: the run delivered the phases it verified and fell short of the rest. A done
+    /// that says so — never Failed, which has to keep meaning "this did not deliver".
+    /// </summary>
+    Shortfall
 }
