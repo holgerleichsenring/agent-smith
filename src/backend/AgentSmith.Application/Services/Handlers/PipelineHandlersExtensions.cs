@@ -196,7 +196,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Specs.PhaseAccounting>();
         services.AddTransient<Specs.PhaseEntryAccount>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
-        services.AddTransient<Triage.MasterQuestionCheckpoint>();
+        services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddPhaseExecution(); // 2026-08-26-31e5
         services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
