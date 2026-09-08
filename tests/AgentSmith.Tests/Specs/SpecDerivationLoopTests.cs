@@ -76,6 +76,7 @@ public sealed class SpecDerivationLoopTests
             Factory(),
             new FixedPrompt(),
             DerivationTestParsers.Real(),
+            new ScopedContextCoverage(),
             NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandboxes,

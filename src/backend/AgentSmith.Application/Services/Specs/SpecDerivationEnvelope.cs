@@ -43,6 +43,19 @@ public sealed class SpecDerivationEnvelope
                 SpecJsonReader.ReadString(e, "cites")))
             .Where(f => f.Claim.Length > 0)];
 
+    /// <summary>2026-09-08-1830: the contexts a phase declares it changes, as written.</summary>
+    public IReadOnlyList<string> Contexts(JsonElement phase) =>
+        SpecJsonReader.ReadStrings(phase, "contexts");
+
+    /// <summary>2026-09-08-1830: the named contexts the model deliberately leaves out, each
+    /// with its reason; one without a reason is not accounted for.</summary>
+    public IReadOnlyList<DiscardedContext> DiscardedContexts(JsonElement root) =>
+        [.. SpecJsonReader.ReadObjects(root, "discardedcontexts")
+            .Select(e => new DiscardedContext(
+                SpecJsonReader.ReadString(e, "context"),
+                SpecJsonReader.ReadString(e, "reason")))
+            .Where(d => d.Context.Length > 0 && d.Reason.Length > 0)];
+
     public SpecHandback? Handback(JsonElement root)
     {
         if (!TryReadCase(root, out var el, out var parsed)) return null;

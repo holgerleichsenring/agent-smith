@@ -14,9 +14,14 @@ namespace AgentSmith.Contracts.Specs;
 public sealed record SpecAccounting(
     IReadOnlyList<CarriedSegment> Carried,
     IReadOnlyList<DiscardedSegment> Discarded,
-    IReadOnlyList<int> Unaccounted)
+    IReadOnlyList<int> Unaccounted,
+    IReadOnlyList<DiscardedContext>? DiscardedContexts = null)
 {
     public static SpecAccounting Empty { get; } = new([], [], []);
+
+    /// <summary>2026-09-08-1830: the contexts the scope call named that the derivation
+    /// left out, each with its reason. Empty on a cut from a catalog that names none.</summary>
+    public IReadOnlyList<DiscardedContext> DiscardedContexts { get; init; } = DiscardedContexts ?? [];
 
     /// <summary>
     /// True when every segment of the ticket is spoken for. A false here does NOT

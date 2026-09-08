@@ -23,6 +23,13 @@ public static partial class ContextKeys
     /// it (a mid-run escalation to a dropped context is an explicit operator/agent decision).</summary>
     public const string ScopedContexts = "ScopedContexts";
 
+    /// <summary>2026-09-08-1830: the <see cref="Models.ScopeNamedContexts"/> the scope call
+    /// NAMED for this ticket — its claim, not a narrowing. Set on every ticketed run whose
+    /// classification names contexts, a single-repo run included, so the derivation's cut
+    /// can be held against it; absent when the scope call named none, or every repository
+    /// in scope has a single context. Never read by the sandbox coordinator.</summary>
+    public const string ScopeNamedContexts = "ScopeNamedContexts";
+
     /// <summary>p0331: human-readable record of the ScopeRepos decision — which repos the
     /// run was narrowed to (or why it kept all of them: low confidence, parse failure, LLM
     /// error, unknown repo name), with the classifier's rationale. Also appended to

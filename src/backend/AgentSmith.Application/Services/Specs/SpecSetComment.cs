@@ -31,6 +31,7 @@ public static class SpecSetComment
         sb.Append(RenderPhases(set));
         sb.AppendLine();
         sb.Append(SpecPrBody.RenderDiscarded(set));
+        sb.Append(RenderContextsLeftOut(set));
         if (!string.IsNullOrWhiteSpace(pullRequestUrl))
         {
             sb.AppendLine();
@@ -55,10 +56,31 @@ public static class SpecSetComment
         return sb.ToString();
     }
 
+    // 2026-09-08-1830: the contexts the cut left out, with reasons — shown whenever the
+    // cut declared contexts at all, so an author sees a context missing from every phase.
+    private static string RenderContextsLeftOut(SpecSet set)
+    {
+        var declared = set.Phases.Any(p => p.Draft.Contexts.Count > 0);
+        if (!declared && set.Accounting.DiscardedContexts.Count == 0) return string.Empty;
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("## Contexts left out");
+        sb.AppendLine();
+        sb.AppendLine(set.Accounting.DiscardedContexts.Count == 0
+            ? "_Every named context is carried by a phase._"
+            : SpecAccountingBuilder.RenderDiscardedContexts(set.Accounting));
+        return sb.ToString();
+    }
+
     private static void RenderPhase(StringBuilder sb, SpecPhase phase)
     {
         sb.AppendLine($"### {phase.PhaseId} — {phase.Draft.Goal}");
         sb.AppendLine();
+        if (phase.Draft.Contexts.Count > 0)
+        {
+            sb.AppendLine($"**Contexts:** {string.Join(", ", phase.Draft.Contexts)}");
+            sb.AppendLine();
+        }
         sb.AppendLine("**Done when:**");
         foreach (var criterion in phase.Draft.Done) sb.AppendLine($"- {criterion}");
         if (phase.Draft.Facts.Count > 0)

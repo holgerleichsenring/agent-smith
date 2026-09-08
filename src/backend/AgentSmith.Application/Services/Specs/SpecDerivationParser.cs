@@ -88,7 +88,8 @@ public sealed class SpecDerivationParser(
             built.Add(phase);
         }
 
-        var accounting = SpecAccountingBuilder.Build(built, envelope.Discarded(root), segments);
+        var accounting = SpecAccountingBuilder.Build(
+            built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root));
         return new Parsed(
             new SpecDerivation(
                 new SpecSet(
