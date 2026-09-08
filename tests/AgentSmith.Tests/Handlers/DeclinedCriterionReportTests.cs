@@ -39,14 +39,14 @@ public sealed class DeclinedCriterionReportTests
     public void Contract_ADeclinedCriterionWithItsReason_SatisfiesTheGate() =>
         MasterAcceptanceGate.ObjectivelySatisfied(
             Verdict(new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, Reason)),
-            criteriaCount: 1, producedSourceChanges: true)
+            [Lint], producedSourceChanges: true)
             .Should().BeTrue("the third answer has always counted when it carries its evaluated meaning");
 
     [Fact]
     public void Contract_ADeclinedCriterionWithNoReason_DoesNotSatisfyTheGate() =>
         MasterAcceptanceGate.ObjectivelySatisfied(
             Verdict(new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, "  ")),
-            criteriaCount: 1, producedSourceChanges: true)
+            [Lint], producedSourceChanges: true)
             .Should().BeFalse("a bare N/A is a refusal, not an answer");
 
     [Fact]
