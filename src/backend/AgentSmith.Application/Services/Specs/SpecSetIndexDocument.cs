@@ -34,6 +34,10 @@ public sealed class SpecSetIndexDocument
     public string? HandbackReason { get; set; }
     public List<string> HandbackReadings { get; set; } = [];
     public int HandbackTaken { get; set; }
+
+    /// <summary>2026-09-08-5cd2: the ticket text this revision was cut from; absent on
+    /// sets cut before it existed.</summary>
+    public string? TicketFingerprint { get; set; }
 }
 
 public sealed class SpecSetRevisionEntry
