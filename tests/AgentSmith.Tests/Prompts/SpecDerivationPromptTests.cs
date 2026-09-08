@@ -90,6 +90,33 @@ public sealed class SpecDerivationPromptTests
             "a question that changes nothing is a silent choice the master should make itself");
     }
 
+    /// <summary>
+    /// 2026-09-08-1830: a dependency ticket naming two contexts was cut for one, every
+    /// criterion was met, the run went green, and the other context was never touched. The
+    /// master now states per phase which of the named contexts it changes ("contexts") and
+    /// accounts for every one it does not carry ("discarded_contexts" with a reason), so the
+    /// system can compare the two lists and refuse a cut that leaves a context unspoken for.
+    /// The "question" hand-back gains its worked example. Ships with the v5.2.0 pin (skills
+    /// PR #182).
+    /// </summary>
+    [Fact]
+    public void SpecDerivationMaster_NamesTheContextsEachPhaseCarries()
+    {
+        var prompt = DerivationPrompt();
+
+        prompt.Should().Contain("\"contexts\"");
+        prompt.Should().Contain("\"discarded_contexts\"");
+        prompt.Should().Contain("EVERY NAMED CONTEXT IS SPOKEN FOR");
+        prompt.Should().Contain(
+            "either carried by at least one phase or listed in \"discarded_contexts\" with the reason it is outside the work",
+            "a context the ticket names must land in one list or the other, never in neither");
+        prompt.Should().Contain("refuses a cut that leaves a named context unaccounted for",
+            "the master must know the comparison is enforced, not advisory");
+        prompt.Should().Contain("adopt the newest versions, even for breaking changes",
+            "the question case carries a worked example of a reading the code cannot settle");
+        prompt.Should().Contain("That is a question, not a silent choice");
+    }
+
     // The prompt as the pinned catalog ships it, with WHITESPACE COLLAPSED: these
     // assertions are about the master's wording, and an authored markdown file wraps its
     // lines where the author felt like it. "the branch diff" straddles a line break in
