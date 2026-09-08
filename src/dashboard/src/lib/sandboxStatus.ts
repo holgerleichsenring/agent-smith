@@ -35,7 +35,7 @@ export function sandboxStatusColor(
         break;
       case EventType.RunFinished:
         runFinished = true;
-        if (e.status === "success") runSucceeded = true;
+        if (e.status === "success" || e.status === "shortfall") runSucceeded = true;
         break;
     }
   }

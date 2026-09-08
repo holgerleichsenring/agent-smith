@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0439
+
+decisions:
+  - category: Architecture
+    chose: "A shortfall is read off the phase table: at least one phase DONE, at least one not, and a failure reason left by a later step (RunShortfall.Of)"
+    over: "Letting an outstanding criterion over a green, accounted tree carry that phase to delivery, as the spec's earlier step asked"
+    reason: |
+      VerifyPhase records DONE only after the mechanical gates were green and every criterion
+      accounted for — p0438's repair pass included — so the phase table already IS the
+      keystone's answer per phase. Delivering a phase with a criterion still outstanding
+      would make SHORTFALL a synonym for failed, which is how a new state stops meaning
+      anything. Live run 2026-09-08T11-28-15-989e on 0.145.0 is the shape: phase 1 verified
+      and recorded, phase 2's first master call on the cost cap, the ticket failed for a
+      deliverable that was complete on the branch.
+  - category: Architecture
+    chose: "What is delivered is exactly the verified state: VerifyPhase names each sandbox's commit over a clean source tree (VerifiedHeads), CommitAndPR brings every sandbox back to it before delivering (UnverifiedWorkReverter), and a sandbox that cannot be brought back keeps the run failed"
+    over: "Delivering the branch as it stands, with the stopped phase's edits, checkpoint pushes or pre-gate commit on it"
+    reason: |
+      A ready pull request must not carry unverified work; a later phase's verification
+      being red is one of the stops this phase delivers from, and that phase's work was
+      committed before its gate (p0437). Restore-or-remove per path from the verified head
+      keeps the run record, keeps the git history of the attempt, and needs no force push;
+      the result is proven by asking git the same question again. A dirty source tree at
+      verification time (a checkpoint the secret scan refused) names no head, so no sandbox
+      can be delivered from work that is on no commit.
+  - category: Implementation
+    chose: "The executor returns success when the tail marked a delivery on the context; ExecutePipelineUseCase publishes the status through RunTerminalStatus, the lifecycle scope reads the same fact for the ticket label"
+    over: "A third result kind on CommandResult, or the error handler deciding"
+    reason: |
+      The delivery happened, so the executor's word is success; the STATUS is what tells a
+      shortfall from a full success, and one predicate (RunShortfall.DeliveredOn) serves the
+      use case, the lifecycle and the executor so the three cannot disagree — the p0440
+      lesson with RunPark. The error path (failure comment, failed status, WIP persist)
+      never runs for a delivered shortfall; a shortfall whose delivery did not happen (no PR
+      opened, no verified head) leaves no mark and goes down f420's path unchanged.
+  - category: Implementation
+    chose: "The ticket finalizes to the DONE status with the completed summary under a shortfall heading and a Not-delivered section; the lifecycle label is agent-smith:shortfall, a member of the closed set"
+    over: "A dedicated shortfall_status configuration field threaded through trackers, triggers, the studio and the dashboard forms"
+    reason: |
+      Second operator ruling: a delivered run with open questions is a DONE. The Jira native
+      lifecycle map is keyed by the closed label set, so `lifecycle_status_names: shortfall`
+      already names a native column where one exists; a separate finalize status would be a
+      field with one reading and eighteen files to carry it.
+  - category: Implementation
+    chose: "`shortfall` is a new run status word, appended; the dashboard gives it its own NodeStatus and counts it as a done in every bucket, chip and metric"
+    reason: |
+      Run.Status is a string column — no migration, no renumbering. Reusing `success` with a
+      footnote would hide the state the operator asked to see, and mapping it to `fail`
+      would re-create the tag that protects nothing. TypeScript's Record maps over NodeStatus
+      made every rendering site name the new value explicitly.
+  - category: Scope
+    chose: "The fast-tier stub sandbox names a constant head and reports nothing beyond it; the reverter's restore-and-remove logic is proven by unit tests over a scripted sandbox"
+    over: "Modelling commits, staging and checkout in StubSandbox so the harness could stage unverified work"
+    reason: |
+      The stub never modelled commits, and teaching it to would change what every other
+      harness run sees on `git status` and `git diff --cached --quiet` (checkpoints would
+      start committing in the fast tier). The harness proves the live shape end to end —
+      delivery, banner, table, ticket, status, no error path — and the git arithmetic is
+      pinned where a mock can state each name-status line.
+  - category: Scope
+    chose: "result.md's own `result:` line and the verified head of a phase found already satisfied on entry go to 2026-09-08-a049"
+    reason: |
+      WriteRunResult runs BEFORE CommitAndPR in the finalizer tail, so the record is written
+      before the delivery is decided; and SelectPhase's already-satisfied path records DONE
+      without a sandbox in hand. Both are real gaps of this phase's mechanism and neither
+      changes what a run delivers today; naming them keeps the deferral visible.
