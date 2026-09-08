@@ -41,7 +41,17 @@ public sealed record MasterLoopHooks(
     // state), never a pass-start snapshot. Null accessors => that pin part is omitted.
     Func<string?>? RenderLedgerForPin = null,
     Func<string?>? RenderWorkingStateForPin = null,
-    CompactionConfig? Compaction = null);
+    CompactionConfig? Compaction = null,
+    // 2026-09-08-805f: the ledger-complete brake. When <see cref="IsLedgerComplete"/> answers
+    // true for <see cref="VerdictOwedAfterIterations"/> further tool iterations, the governor
+    // appends <see cref="RenderVerdictDemand"/> once as a user turn; when the same allowance
+    // passes again without the pass ending, it ends the pass itself and reports the turns
+    // counted since the checklist completed through <see cref="OnVerdictBrake"/>. Null
+    // <see cref="IsLedgerComplete"/> (or an allowance of zero) keeps the brake off.
+    Func<bool>? IsLedgerComplete = null,
+    Func<string?>? RenderVerdictDemand = null,
+    Action<int>? OnVerdictBrake = null,
+    int VerdictOwedAfterIterations = 3);
 
 /// <summary>
 /// p0341c: raised by the within-pass budget middleware when the running cost crosses the

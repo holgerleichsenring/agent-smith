@@ -75,17 +75,24 @@ public sealed class MasterAcceptanceGateTests
     [InlineData(2, true)]
     [InlineData(7, true)]
     public void VerdictlessAfterOneRedrive_NullVerdict_BitesFromTheSecondPass(int pass, bool expected) =>
-        MasterAcceptanceGate.VerdictlessAfterOneRedrive(null, pass, criteriaCount: 4)
+        MasterAcceptanceGate.VerdictlessAfterOneRedrive(null, pass, criteriaCount: 4, verdictDemandedInPass: false)
             .Should().Be(expected);
 
     [Fact]
     public void VerdictlessAfterOneRedrive_AVerdictExists_NeverBites() =>
         MasterAcceptanceGate.VerdictlessAfterOneRedrive(
-            Verdict(VerificationStatus.Green, AcceptanceStatus.Unmet), reengagePass: 9, criteriaCount: 1)
+            Verdict(VerificationStatus.Green, AcceptanceStatus.Unmet), reengagePass: 9, criteriaCount: 1,
+            verdictDemandedInPass: false)
             .Should().BeFalse("an unmet contract with a real verdict is still worth re-driving");
+
+    // 2026-09-08-805f: the ledger-complete brake's in-pass demand IS the one salvage re-drive.
+    [Fact]
+    public void VerdictlessAfterOneRedrive_DemandedInPass_BitesOnTheFirstPass() =>
+        MasterAcceptanceGate.VerdictlessAfterOneRedrive(null, reengagePass: 1, criteriaCount: 2, verdictDemandedInPass: true)
+            .Should().BeTrue("the demand already went unanswered inside the pass");
 
     [Fact]
     public void VerdictlessAfterOneRedrive_NoContract_NeverBites() =>
-        MasterAcceptanceGate.VerdictlessAfterOneRedrive(null, reengagePass: 9, criteriaCount: 0)
+        MasterAcceptanceGate.VerdictlessAfterOneRedrive(null, reengagePass: 9, criteriaCount: 0, verdictDemandedInPass: false)
             .Should().BeFalse("with no criteria the acceptance branch never drives the loop");
 }

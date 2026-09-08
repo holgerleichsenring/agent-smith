@@ -21,6 +21,12 @@ namespace AgentSmith.PipelineHarness.Llm;
 /// run records itself exactly as a production run does. Without it the harness could never
 /// prove that what a run records is what a replay can re-drive.
 /// </para>
+/// <para>
+/// 2026-09-08-805f: and with the master loop governor below the tool loop whenever hooks
+/// are present, as ChatClientFactory inserts it. Without it no fast-tier run had ever
+/// exercised the money fence, the ledger reminder, the per-iteration cost recording — or
+/// the ledger-complete brake this phase proves through this adapter.
+/// </para>
 /// </summary>
 internal sealed class ScriptedChatClientFactoryAdapter(
     ScriptedChatClient client, IRunTraceWriter trace, IRunContextAccessor runContext)
@@ -40,8 +46,11 @@ internal sealed class ScriptedChatClientFactoryAdapter(
             ? new RecordingChatClient(client, trace, runContext)
             : (IChatClient)client;
         if (!ToolBearingTasks.Contains(task)) return inner;
+        var loopInner = masterLoopHooks is null
+            ? inner
+            : new MasterLoopGovernorChatClient(inner, masterLoopHooks);
         var iterations = maxIterations ?? 25;
-        return new ChatClientBuilder(inner)
+        return new ChatClientBuilder(loopInner)
             .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
             .Build();
     }
