@@ -606,6 +606,17 @@ export interface RunAcceptance {
    *  own report of its own work. Absent on every run written before the distinction
    *  existed. */
   source?: "delivery_account" | "master_verification" | null;
+  /** 2026-09-06-3d81: the criteria the agent declined — ones no work in this repository
+   *  could make true — with the evaluated meaning of not doing each. Beside the rows, not
+   *  among them: the rows are what the gate decided on. Absent on earlier runs. */
+  declined?: DeclinedCriterion[] | null;
+}
+
+/** 2026-09-06-3d81: one declined criterion and the agent's evaluated reason. */
+export interface DeclinedCriterion {
+  text: string;
+  reason: string;
+  phase?: string | null;
 }
 
 /**

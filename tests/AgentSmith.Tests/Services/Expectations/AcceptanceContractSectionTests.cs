@@ -97,6 +97,32 @@ public sealed class AcceptanceContractSectionTests
         section.Should().NotContain(First, "a negotiated expectation still wins its own slot");
     }
 
+    /// <summary>
+    /// 2026-09-06-3d81: the third answer is stated in the contract. AcceptanceStatus has had
+    /// not_applicable since p0340 and the gate has accepted it with a reason all along; the
+    /// master was never told, so a criterion the repository makes impossible was fought pass
+    /// after pass (run 989e bisected plugin versions for sixteen minutes) or, when a master
+    /// did decline it, the answer reached nobody. Both bodies carry the rule — a spec-derived
+    /// run and one judged by a negotiated expectation are given the same vocabulary.
+    /// </summary>
+    [Fact]
+    public void Contract_TheSectionGivenToTheMaster_NamesNotApplicableAndItsEvidenceRule()
+    {
+        var derived = ExpectationPromptSection.Build(WithPhaseSpec());
+        var negotiated = ExpectationPromptSection.Build(new RatifiedExpectation(
+            new ExpectationDraft("observed", ["expected"], [], null),
+            ExpectationOutcomes.Verbatim, "@operator", DateTimeOffset.UtcNow, 0));
+
+        foreach (var section in new[] { derived, negotiated })
+        {
+            section.Should().Contain("`not_applicable`", "the answer is named in the vocabulary the skill parses");
+            section.Should().Contain("EVALUATED MEANING", "and what it costs to use it — the skill's own words");
+            section.Should().Contain("does not count", "a bare N/A is refused, and the master is told so");
+        }
+        // The rule is prose; the criteria list the gate reads back is untouched.
+        Bullets(derived).Should().Equal(First, Second);
+    }
+
     [Fact]
     public void Acceptance_ARunWithNeitherSpecNorExpectation_RendersNoContractSection()
     {
