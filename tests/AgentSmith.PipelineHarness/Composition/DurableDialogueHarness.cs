@@ -47,38 +47,55 @@ public static class DurableDialogueHarness
             FixturePaths.For(fixtureName), SandboxBackend.Stub, session: null,
             SkillsBackend.Fixture, services =>
             {
-                // p0393b: the fixture-supplied park point (see the type remarks).
-                // CommandContextFactory indexes the keyed builders by name, so the
-                // original registration is removed rather than shadowed.
-                services.Remove(services.Single(d =>
-                    d.ImplementationInstance is KeyedContextBuilder k && k.CommandName == ParkStep));
-                services.AddSingleton(new KeyedContextBuilder(ParkStep, new AskContextBuilder()));
-                // Shared SQLite FILE: the durable state that survives the "restart".
-                services.RemoveAll<DbContextOptions<AgentSmithDbContext>>();
-                services.RemoveAll<DbContextOptions>();
-                services.RemoveAll<AgentSmithDbContext>();
-                services.AddDbContext<AgentSmithDbContext>(b => b.UseSqlite($"Data Source={dbPath}"));
-                // Fast tier has no Redis: project events synchronously into the DB
-                // (production: RedisEventPublisher → RunDbProjector, same applier).
-                services.RemoveAll<AgentSmith.Contracts.Events.IEventPublisher>();
-                services.AddSingleton<AgentSmith.Contracts.Events.IEventPublisher>(sp =>
-                    new ProjectingEventPublisher(sp.GetRequiredService<IServiceScopeFactory>()));
-                // The use case resolves the skills catalog — network boundary, stubbed.
-                services.RemoveAll<ISkillsCatalogResolver>();
-                services.AddSingleton<ISkillsCatalogResolver>(new StubCatalogResolver());
-                // The production server registration: durable inbox first, hot
-                // stream second. The hot stream is irrelevant here (no live wait
-                // across the restart), so the inner transport is a mock.
-                services.RemoveAll<IDialogueTransport>();
-                services.AddSingleton<IDialogueTransport>(sp =>
-                    new Server.Services.Dialogue.DurableDialogueTransport(
-                        Mock.Of<IDialogueTransport>(),
-                        sp.GetRequiredService<IDialogueAnswerInbox>()));
-                // The Redis job queue is the launch channel — recorded + JSON
-                // round-tripped so the resume payload takes the production shape.
-                services.RemoveAll<IRedisJobQueue>();
-                services.AddSingleton<IRedisJobQueue>(jobQueue);
+                BindAskStep(services);
+                RegisterDurableSpine(services, dbPath, jobQueue);
             });
+
+    // p0393b: the fixture-supplied park point (see the type remarks).
+    // CommandContextFactory indexes the keyed builders by name, so the
+    // original registration is removed rather than shadowed.
+    private static void BindAskStep(IServiceCollection services)
+    {
+        services.Remove(services.Single(d =>
+            d.ImplementationInstance is KeyedContextBuilder k && k.CommandName == ParkStep));
+        services.AddSingleton(new KeyedContextBuilder(ParkStep, new AskContextBuilder()));
+    }
+
+    /// <summary>
+    /// 2026-09-03-3c07: the durable state and the production launch channel WITHOUT the
+    /// fixture-supplied ask step — for a preset that carries its own park point (the
+    /// master's MasterOpenQuestions step), where a second ask bound into LoadContext would
+    /// park the run somewhere the case under test never reaches.
+    /// </summary>
+    public static void RegisterDurableSpine(
+        IServiceCollection services, string dbPath, RecordingJobQueue jobQueue)
+    {
+        // Shared SQLite FILE: the durable state that survives the "restart".
+        services.RemoveAll<DbContextOptions<AgentSmithDbContext>>();
+        services.RemoveAll<DbContextOptions>();
+        services.RemoveAll<AgentSmithDbContext>();
+        services.AddDbContext<AgentSmithDbContext>(b => b.UseSqlite($"Data Source={dbPath}"));
+        // Fast tier has no Redis: project events synchronously into the DB
+        // (production: RedisEventPublisher → RunDbProjector, same applier).
+        services.RemoveAll<AgentSmith.Contracts.Events.IEventPublisher>();
+        services.AddSingleton<AgentSmith.Contracts.Events.IEventPublisher>(sp =>
+            new ProjectingEventPublisher(sp.GetRequiredService<IServiceScopeFactory>()));
+        // The use case resolves the skills catalog — network boundary, stubbed.
+        services.RemoveAll<ISkillsCatalogResolver>();
+        services.AddSingleton<ISkillsCatalogResolver>(new StubCatalogResolver());
+        // The production server registration: durable inbox first, hot
+        // stream second. The hot stream is irrelevant here (no live wait
+        // across the restart), so the inner transport is a mock.
+        services.RemoveAll<IDialogueTransport>();
+        services.AddSingleton<IDialogueTransport>(sp =>
+            new Server.Services.Dialogue.DurableDialogueTransport(
+                Mock.Of<IDialogueTransport>(),
+                sp.GetRequiredService<IDialogueAnswerInbox>()));
+        // The Redis job queue is the launch channel — recorded + JSON
+        // round-tripped so the resume payload takes the production shape.
+        services.RemoveAll<IRedisJobQueue>();
+        services.AddSingleton<IRedisJobQueue>(jobQueue);
+    }
 
     public static async Task MigrateAsync(RealCompositionHarness harness)
     {

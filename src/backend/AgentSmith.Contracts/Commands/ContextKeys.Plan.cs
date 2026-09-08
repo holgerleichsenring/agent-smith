@@ -69,7 +69,10 @@ public static partial class ContextKeys
 
     // p0128b: Plan open_questions round-trip. OpenQuestionsAwaitingAnswer halts the
     // pipeline cleanly when the Plan emits questions; PlanAnswers carries operator
-    // answers from the webhook re-trigger into the next Plan-skill run.
+    // answers from the webhook re-trigger into the next Plan-skill run — and, since
+    // 2026-09-03-3c07, the answer a resume delivers to the master that asked.
+    // OpenQuestionsAwaitingAnswer is a LIVE park marker like WaitingForInput: it is
+    // never checkpointed, or the resumed run would be parked by its own marker.
     public const string OpenQuestionsAwaitingAnswer = "OpenQuestionsAwaitingAnswer";
     public const string PlanAnswers = "PlanAnswers";
 

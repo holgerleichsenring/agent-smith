@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-03-3c07
+
+goal: "A run parked on a master's mid-run question resumes and continues, with the operator's answer reaching the model that asked."
+
+applies_to: "backend (master open-questions parking, checkpoint serialisation, the resume path)"
+
+requires:
+  - p0453
+  - 2026-08-24-ca23
+  - 2026-08-25-a508
+
+scope:
+  in: >
+    The awaiting-answer flag is not carried into the checkpoint, so a restored run is not
+    immediately parked again by its own park marker; the answer delivered on resume reaches the
+    master that asked; a test covers a parked master question answered and resumed end to end.
+  out: >
+    THE DIALOGUE GATE'S OWN PATH, which orders its flag correctly and is not changed here.
+    WHAT THE MASTER DOES with the answer beyond receiving it. WHETHER THE PARTIAL WORK of the
+    leg that parked is on the branch — that is p0360's checkpoint push, not this resume.
+
+decisions:
+  - key: |
+      LIVE EVIDENCE, 2026-09-08, server 0.145.0, run 2026-09-08T13-28-32-a109. The coding master
+      asked a Choice question during re-engagement (MasterOpenQuestions -> waiting_for_input,
+      "checkpointed; compute released"). The operator answered in the dashboard. The run relaunched,
+      CheckoutSource ran ("Checked out 1 repo(s)"), and the run went straight back to
+      waiting_for_input with NO pending question, the sandbox pod failed, cost reset to 0, nothing
+      progressed. The harness reproduction (MasterQuestionResumeTests) fails on main with exactly
+      that shape: after the relaunch the run row reads waiting_for_input again.
+  - key: |
+      THE TWO PARK PATHS ORDER THEIR FLAG DIFFERENTLY, AND ONE OF THEM IS WRONG. The dialogue gate
+      writes its checkpoint and only then sets WaitingForInput, and that key is excluded from
+      serialisation. The master path sets OpenQuestionsAwaitingAnswer BEFORE writing the
+      checkpoint, and that key is not excluded. So the master's park marker is captured by its own
+      checkpoint, restored on resume, and read by the executor as "still parked" — the run ends at
+      the first command instead of continuing. Confirmed in code: MasterOpenQuestionsHandler sets
+      the flag at line 50 and checkpoints at line 54; PipelineContextSerializer.ExcludedKeys names
+      WaitingForInput and not OpenQuestionsAwaitingAnswer.
+  - key: |
+      THE ANSWER REACHES NO MODEL TODAY. The resumed answer's only reader is the dialogue gate, and
+      the master path never goes through the gate. Even with the flag fixed, the master would
+      re-ask rather than continue, so both halves are one defect. Confirmed: ResumedDialogueAnswer
+      is read by ResumedAnswerPolicy alone, called by DialogueAskGate alone.
+  - key: |
+      THE EXISTING TEST STOPS AT THE CHECKPOINT WRITE. Nothing covers the resume, which is how a
+      path that never worked stayed green.
+  - key: |
+      EXCLUDE, DO NOT REORDER — AND EXCLUDE ON THE WAY BACK IN TOO. The key is a live park marker,
+      in the same class as WaitingForInput; the one rule for both is that a park marker is never
+      checkpointed. Reordering the master path would leave the rule split across two handlers and
+      would not help the checkpoints already written: every master park before this phase (a109
+      among them) carries the marker in its ContextJson. So the serialiser drops an excluded key
+      on Restore as well — a checkpoint written before a key joined the list is read as if it had
+      been. The handler's order is left as it is; the exclusion makes it irrelevant.
+  - key: |
+      THE CURSOR RE-ENTERS THE ASKING STEP, SO THAT STEP HANDS THE ANSWER BACK. A master park's
+      remaining commands are [CheckoutSource, SetupRegistryAuth, MasterOpenQuestions, Commit,
+      Verify, Record, ...] — the executor publishes the cursor starting with the step that
+      checkpoints. The resumed MasterOpenQuestions therefore does what the gate does when it meets
+      its own ask again: consume the delivered answer by ResumedAnswerPolicy (the ask the run parked
+      on, matched by text under a freshly minted id, never any other ask), record it on the dialogue
+      trail, and publish it under ContextKeys.PlanAnswers — the key the phase prompt ALREADY renders
+      as the operator's answers. Then it splices [AgenticMaster, MasterOpenQuestions] in front of
+      the block, the same re-entry shape PhaseVerdict.RepairSteps uses. No second inbox, no second
+      prompt section, and a second question of the re-engaged master parks exactly as the first.
+  - key: |
+      A CHECKPOINTED STEP LOST ITS PHASE. CheckpointCommand carried Name/Skill/Round/Repo/Context/
+      Workdir and not PhaseId, so every command of a resumed phase block came back belonging to no
+      phase, and so would the master the resumed step splices. PhaseId rides the checkpoint now.
+  - key: |
+      THE HARNESS PROOF RUNS THE PRODUCTION SPINE ON THE MASTER'S PARK. DurableDialogueHarness
+      bound a fixture ask into LoadContext for the gate's proof; the master's park needs the same
+      durable spine (shared SQLite, projecting publisher, durable inbox transport, recorded job
+      queue) WITHOUT that binding, or the run would park at LoadContext before the master ever
+      asked. The spine is now a registration of its own, the ask binding stays with the gate test.
+
+steps:
+  - id: the-awaiting-answer-flag-is-not-checkpointed
+    action: "The master's awaiting-answer key joins the serialiser's excluded keys, alongside the dialogue gate's equivalent, and an excluded key is dropped on restore as well."
+  - id: the-answer-reaches-the-master
+    action: "The resumed MasterOpenQuestions step consumes the delivered answer for its own ask, publishes it as the operator's answers the phase prompt renders, and re-engages the master in the same phase."
+  - id: a-checkpointed-step-keeps-its-phase
+    action: "CheckpointCommand carries PhaseId, so a resumed block and what it splices belong to their phase."
+  - id: a-test-covers-park-answer-resume
+    action: "A harness test parks on a master question, delivers the answer through the endpoint's seam, resumes through sweeper and pump, and asserts the run is not parked again, the master's input carries the answer, the run continues past the question step and finishes."
+
+tests:
+  - "MasterQuestionResumeTests.MasterAsks_OperatorAnswers_TheRunResumesIntoTheMasterAndFinishes (harness; red on main: run.Status is waiting_for_input after the relaunch)"
+  - "MasterQuestionResumeTests.ResumedAnswer_ReengagesTheMasterInsteadOfParkingAgain"
+  - "MasterQuestionResumeTests.ResumedAnswer_IsInTheMastersInputAndTheParkIsCleared"
+  - "MasterQuestionResumeTests.ResumedAnswer_IsRecordedOnTheDialogueTrailLikeTheGateDoes"
+  - "MasterQuestionResumeTests.AnAnswerToAnotherAsk_IsNotTakenForThisOne_TheQuestionParks"
+  - "PipelineContextSerializerTests.Serialize_ParkMarkers_AreNeverCheckpointed"
+  - "PipelineContextSerializerTests.Restore_ParkMarkerInAnOlderCheckpoint_IsDropped"
+  - "PipelineContextSerializerTests.CheckpointCommand_RoundTrip_PreservesSplicedParameters (PhaseId)"
+
+done:
+  - "a run parked on a master mid-run question resumes and executes its remaining commands"
+  - "the operator's answer is present in the resumed master's input"
+  - "the run does not re-post the same question on resume"
+  - "build green, full suite green"
