@@ -118,6 +118,7 @@ public sealed class ScopeReposRefusalTests
             new ScopeEstimateRecorder(
                 AgentSmithConfig.Empty(), events.Object, NullLogger<ScopeEstimateRecorder>.Instance),
             new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
+            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance),
             NullLogger<ScopeReposHandler>.Instance);
     }
 

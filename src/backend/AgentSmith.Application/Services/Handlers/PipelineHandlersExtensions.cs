@@ -38,10 +38,10 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
-        services.AddTransient<Scope.RepoScopeClassifier>();
-        services.AddTransient<Scope.RemoteContextInventoryBuilder>();
+        services.AddTransient<Scope.RepoScopeClassifier>().AddTransient<Scope.RemoteContextInventoryBuilder>();
         // p0413: size + shape become run state here; a refusal ends the run before any sandbox.
-        services.AddTransient<Scope.ScopeEstimateRecorder>().AddTransient<Scope.ScopeRefusalRecorder>();
+        services.AddTransient<Scope.ScopeEstimateRecorder>().AddTransient<Scope.ScopeRefusalRecorder>()
+            .AddTransient<Scope.ScopeNamedContextsRecorder>(); // 2026-09-08-1830: what the call NAMED
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)
         // and the per-run factory for the master's escalation tool host.

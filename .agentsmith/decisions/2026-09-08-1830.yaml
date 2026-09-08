@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-08-1830
+
+decisions:
+  - category: Architecture
+    chose: "A new run key, ContextKeys.ScopeNamedContexts, carrying what the scope call NAMED — recorded on every ticketed run, single-repo included"
+    over: "Reading ContextKeys.ScopedContexts, as the design named"
+    reason: |
+      The design's claim was verified in code and found false. ApplyContextScope sets
+      ScopedContexts only when ContextScopeEvaluator DROPPED a context — a confident strict
+      subset of a multi-context repository on a multi-repo run — and ScopeReposHandler
+      returns before it on a single-repo run (p0413a: "no context scoping"). Run 8688 was
+      one repository with both contexts named and nothing dropped, so the key was absent
+      exactly in the live case and a check reading it would have been off. The claim is
+      recorded under its own key by ScopeNamedContextsRecorder before the single-repo
+      return and after narrowing otherwise; it narrows nothing, the coordinator never reads
+      it, and p0413a's exclusion stands. Names are filtered to the inventory and taken only
+      from repositories with more than one context — a single-context repository has no cut
+      to miss. One repository in scope renders bare names, more render repo/context, and
+      ScopeNamedContexts.Matches lets a bare declared name cover its qualified form.
+
+  - category: Architecture
+    chose: "Phases DECLARE their contexts; the envelope declares the discarded ones"
+    over: "Inferring a phase's contexts from its criteria or step paths"
+    reason: |
+      Inference is a parser over model prose, and every criterion in run 8688 was honest
+      about frontend/ — the defect was what was ABSENT, which no text can be parsed for. A
+      declared list plus a declared discarded list is the accounting shape the segments
+      already use: every named context is spoken for, or the reader can say which one is
+      not. The check is ARMED BY THE REPLY — only when at least one phase declares contexts
+      — so a catalog that never emits the field (5.1.0 and earlier) derives exactly as
+      before, and the binary ships safely ahead of the release. A version gate would have to
+      know which pin is deployed, which the reader does not.
+
+  - category: Implementation
+    chose: "The coverage turn lives inside SpecSetDeriver's attempt loop as one extra allowed attempt"
+    over: "A decorator around ISpecSetDeriver that derives twice"
+    reason: |
+      Inside the loop the model answers the pin with its own first cut and the looks it
+      took in view — one more message in the same conversation, one extra call. A wrapper
+      would start a fresh derivation with a fresh look budget and the reviewer run again,
+      and the pin would have to describe the first cut in prose. The pin does not consume
+      one of the three shape/deliverability attempts: the bound becomes MaxAttempts + 1
+      once pinned. To hold the deriver under the 120-line ratchet, ExecutedHeadOf moved
+      onto SpecSet as ExecutedHead, the two rejection messages share one builder, and the
+      pin text (ScopedContextGapPromptSection), the gap (ScopedContextCoverage) and the
+      question (ScopedContextQuestion) are their own types.
+
+  - category: Architecture
+    chose: "A gap that survives the pin becomes a Question hand-back — readings 'carry <gap> as well' / '<gap> is out of scope for this ticket', taken 0"
+    over: "A hard stop, or a third pinned attempt"
+    reason: |
+      Only the author knows whether the scope call over-read the ticket. A Question parks
+      in the clarification status through the routing c9d4 built, the ticket shows both
+      readings and the rationale, and an unanswered re-trigger proceeds on carrying the gap
+      through c9d4's pin — the safe direction, since the cost of carrying a context nobody
+      needed is one phase, and the cost of dropping one was run 8688. A hard stop would fail
+      a run the author settles in one comment. No new hand-back case: the readings are
+      typed slots the comment and the notice already render.
+
+  - category: Implementation
+    chose: "DiscardedContexts on SpecAccounting, persisted in set.yaml; contexts: on the phase record, read by PhaseDraftReader"
+    over: "A separate artifact, or contexts inferred at read time"
+    reason: |
+      The accounting is where every left-out thing already lives, and SpecSetIndex is the
+      one YamlDotNet configuration shared by emit and consume. The schema's top level is
+      open, so contexts: joins facts: and assumptions: on the record without a schema
+      change; a spec written before this phase reads back with an empty list. The verbatim
+      companion is untouched: SpecDerivationTests pins that the contexts never reach it.
+
+  - category: Scope
+    chose: "The ticket comment renders each phase's contexts and a Contexts-left-out block; accounting.md carries the same block"
+    over: "Rendering into the pull-request body as well"
+    reason: |
+      The comment is where the author reads (b7e2); accounting.md is where run 8688 said
+      "Nothing was discarded" and would say it again. The pull-request body renders the
+      discarded segments through the same SpecPrBody section the comment reuses, and the
+      contexts block is shown only when the cut declared contexts at all, so an old
+      catalog's comment is byte-identical to before.
+
+  - category: Scope
+    chose: "The reading of the ticket is not mechanised here"
+    over: "A rule that turns 'even for breaking changes' into a question in code"
+    reason: |
+      Whether the ticket means "only what an advisory forces" or "modernise every direct
+      dependency" is a reading, and c9d4's Question is where it belongs. The master is told
+      so with that example. This phase makes sure the cut covers the contexts the run was
+      told about; it cannot make the scope call right, and a wrong scope call costs one
+      extra derivation call and at most one park.
+
+  - category: Scope
+    chose: "Skills PR #182 without a pin bump; no prompt-substring test for the new wording"
+    over: "Bumping the embedded pin in this phase"
+    reason: |
+      The release does not exist until #182 merges and release-please cuts it. An old
+      master never emits contexts, so the binary ships safely ahead of the catalog; the
+      harness proves the new catalog's shape end to end with scripted replies. Both the
+      pin bump and the substring test are operator follow-ups, recorded in the PR body.

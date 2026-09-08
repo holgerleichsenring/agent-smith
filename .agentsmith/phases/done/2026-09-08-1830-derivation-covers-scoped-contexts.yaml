@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-08-1830
+goal: "Every context the scope call named for a ticket is carried by a phase or listed as left out with a reason; a cut that covers fewer is re-derived once under a pin and then parked as a question."
+
+applies_to: "backend (the scope call's named contexts, the derivation reply and its parser, the deriver's attempt loop, the set index, the ticket comment) + skills catalog (the derivation master's reply shape and rules)"
+
+requires:
+  - 2026-09-07-c9d4
+  - 2026-09-07-b7e2
+
+scope:
+  in: "A run key carrying the contexts the scope call named, recorded on every ticketed run including a single-repo one; a per-phase contexts list and a top-level discarded-contexts list in the derivation reply, round-tripped through the phase record and the set index; a coverage check in code that names the gap; one pinned re-derivation on a gap, then a Question hand-back; the named contexts, the per-phase contexts and the contexts left out rendered into the derivation-time ticket comment and the accounting."
+  out: "Inferring a phase's contexts from its criteria or its steps — the phase declares them. Narrowing sandboxes on a single-repo run — p0413a excluded that and this phase reads the scope call's claim without acting on it. Settling which READING of the ticket is right — that is c9d4's question and no rule here mechanises it. A pin bump and a prompt-substring test for the new master wording — the release does not exist until the skills PR merges."
+
+decisions:
+  - key: |
+      THE CONTRACT WAS MADE SATISFIABLE, NOT TRUE. Run 2026-09-07T21-11-16-8688: the scope call
+      answered contexts {frontend, backend} with the rationale "both the frontend and backend
+      contexts need dependency auditing"; the derivation cut two phases, both frontend-only,
+      every done criterion "in frontend/"; accounting.md said "Nothing was discarded"; the master
+      satisfied all ten criteria, the account and the keystone approved, the run went green and
+      the ticket was closed with backend/ untouched. The same ticket text in run 0c88 was cut
+      as backend + frontend. Nothing mechanical compared what the scope call named with what
+      the cut carried — the p0393 disease one level up.
+  - key: |
+      DECLARED CONTEXTS, NOT INFERENCE. A phase names the contexts it changes in its own record;
+      the reader never guesses them from a criterion's "in frontend/" or a step's path. Inference
+      is a parser over model prose, and every done criterion in run 8688 was honest about
+      frontend/ — the failure was what was ABSENT, which no text can be parsed for. A declared
+      list plus a declared discarded list is the accounting shape the segments already use:
+      every named context is spoken for, or the reader can say which one is not.
+  - key: |
+      THE NAMED CONTEXTS ARE A NEW KEY, BECAUSE ScopedContexts IS NOT THE CLAIM. The design
+      named ContextKeys.ScopedContexts as the input. In code that key is set only when narrowing
+      DROPPED a context — a strict subset of a multi-context repo on a multi-repo run — and the
+      single-repo path returns before it. In run 8688 (one repo, both contexts named) it was
+      absent, so a check reading it would have been off exactly in the live case. The scope
+      call's claim is recorded under its own key on every ticketed run, filtered to context
+      names the inventory holds, from repos with more than one context — a single-context repo
+      has no cut to miss — and it narrows nothing.
+  - key: |
+      PIN, THEN QUESTION, NOT A HARD STOP. A gap after a deliverable cut is rendered into the
+      conversation once ("the scope call named backend; the cut carries frontend only — carry
+      it or list it as discarded with a reason") and the model answers again inside the same
+      attempt loop with its looks and its first cut in view: one extra call. A gap that survives
+      the pin becomes a Question hand-back — readings "carry <gap> as well" and "<gap> is out of
+      scope for this ticket", taken = 0, the reason naming the scope call's rationale — because
+      only the author knows whether the scope call over-read the ticket. The existing routing
+      parks it in the clarification status and c9d4's pin proceeds on (a) if nobody answers. A
+      hard stop would fail a run the author could settle in one comment.
+  - key: |
+      ARMED BY THE REPLY, NOT BY A CATALOG VERSION. The check runs only when at least one phase
+      declares contexts. A catalog that never emits the field (5.1.0 and earlier) yields today's
+      behaviour unchanged, and a binary shipped ahead of the release stays safe; a version gate
+      would have to know which pin is deployed, which the reader does not.
+  - key: |
+      WHAT THIS DOES NOT SOLVE. Whether "adopt the newest versions, even for breaking changes"
+      means "only what an advisory forces" or "modernise every direct dependency" is a reading
+      of the ticket, and c9d4's question case is where it belongs; the master is told so with
+      that example. This phase makes sure the cut covers the contexts the run was told about;
+      it cannot make the scope call right, and a wrong scope call costs one extra derivation
+      call and at most one park.
+
+steps:
+  - id: the-scope-call-names-its-contexts-on-the-run
+    action: "Record the contexts the scope call named — filtered to the inventory, from repos with more than one context, rendered as bare names for one repo and repo/context otherwise — with the rationale, under a new context key, on every ticketed run before the single-repo return."
+  - id: every-phase-names-its-contexts
+    action: "Read a per-phase contexts list and a top-level discarded_contexts list out of the reply; render contexts: onto the phase record and read it back; carry the discarded contexts in the accounting and persist them in set.yaml."
+  - id: the-reader-decides-coverage
+    action: "A small service computes the gap — named minus carried minus discarded — armed only when a phase declares contexts; the deriver renders a pin on a gap and derives once more, then hands back a Question with the two readings if the gap persists."
+  - id: the-author-sees-it
+    action: "The derivation prompt lists the named contexts; the ticket comment renders each phase's contexts beside its goal and a Contexts-left-out block with reasons; accounting.md carries the same block."
+  - id: the-catalog-names-the-field
+    action: "The derivation master's reply shape gains contexts per phase and discarded_contexts; a rule that every listed context is carried or discarded with a reason; the hand-back rules gain the dependency-ticket example as a question. Release and pin bump are operator follow-ups."
+
+tests:
+  - "Coverage_ANamedContextNoPhaseCarries_IsTheGap"
+  - "Coverage_ADiscardedContext_ClosesTheGap"
+  - "Coverage_NoPhaseDeclaresContexts_IsOff"
+  - "Coverage_NothingNamed_IsOff"
+  - "Deriver_AGap_IsPinnedAndTheSecondCutCarriesIt"
+  - "Deriver_AGapThatPersists_HandsBackAQuestion"
+  - "Deriver_NoGap_CostsOneCall"
+  - "DeriveSpec_PhaseContextsAndDiscardedContexts_RoundTripThroughRecordAndIndex"
+  - "Comment_TheDerivationTimeComment_CarriesContextsAndTheOnesLeftOut"
+  - "ScopeRepos_SingleRepoRun_RecordsTheNamedContexts"
+  - "Harness_ScopeNamesTwoContextsAndTheCutCarriesOne_IsRederivedToBoth"
+  - "Harness_ScopeNamesTwoContextsAndTheGapPersists_ParksWithTheQuestion"
+
+done:
+  - "a cut covering fewer contexts than the scope call named is re-derived once under a pin, then parked as a question naming the gap"
+  - "a reply from a catalog that declares no contexts derives exactly as before this phase"
+  - "phase contexts and discarded contexts survive the phase record and set.yaml"
+  - "the ticket comment shows each phase's contexts and the contexts left out with reasons"
+  - "the harness reproduces run 8688 and proves it now ends in two phases or a park"
+  - "build green, full suite green"

@@ -5,7 +5,7 @@
 - model: `sonnet`
 - api scan master: `e34e578a`
 - target: `reference-target`
-- generated: 2026-09-02T05:20:26.8230470+00:00
+- generated: 2026-09-08T06:49:36.2139450+00:00
 
 **Misses:** 0/4 (0 %) — declared weaknesses no delivered finding named.
 
@@ -20,13 +20,13 @@ A score is not a complete measurement of a scan whose steps stayed silent.
 
 ## Endpoints
 - [x] `GET /members/{id}` (missing-authorization, weak)
-  - found [High]: GET /members/{id}: no security scheme declared — endpoint is unauthenticated and returns Member PII including contactEmail and role
+  - found [High]: GET /members/{id}: no security scheme declared — the endpoint is fully unauthenticated despite returning a Member record containing role and contactEmail
 - [x] `GET /orders` (unscoped-identifier, weak)
-  - found [Medium]: GET /orders: caller-supplied memberId query parameter — if not verified against the token subject, any member can enumerate another member's orders (BOLA)
+  - found [High]: GET /orders: BOLA — memberId is a freely-supplied query parameter with no spec-stated binding to the bearer identity, allowing any authenticated member to enumerate another member's orders
 - [x] `POST /invoices` (verbose-error, weak)
-  - found [Medium]: POST /invoices: caller-supplied orderId with no visible ownership check — authenticated member may create invoices against orders they do not own
+  - found [Medium]: POST /invoices: BOLA — orderId is freely supplied in the request body with no stated ownership check, allowing an authenticated member to create invoices against another member's orders
 - [x] `PUT /members/{id}/role` (privilege-escalation, weak)
-  - found [High]: PUT /members/{id}/role: no privilege tier declared — any authenticated member bearer can set any member's role, including privilege escalation
+  - found [High]: PUT /members/{id}/role: BFLA + BOLA — any authenticated member (not just admins) can set the role of any arbitrary member by supplying an arbitrary {id}
 - [x] `GET /health` (missing-authorization, sound)
 - [x] `GET /orders/{id}` (unscoped-identifier, sound)
 - [x] `POST /tokens/introspect` (credential-exposure, sound)
