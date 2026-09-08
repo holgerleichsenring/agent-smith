@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 //   - ended success/failed/error  → muted "cancel was requested" hint (the
 //     enforced-late case: the run outran the cancel; honest, not alarming)
 //   - status cancelled            → nothing (the status badge already says it)
-const ENDED_UNCANCELLED = new Set(["success", "failed", "error"]);
+const ENDED_UNCANCELLED = new Set(["success", "shortfall", "failed", "error"]);
 
 interface Props {
   /** 2026-08-25-39ab: absent when the server answered the snapshot without one. */

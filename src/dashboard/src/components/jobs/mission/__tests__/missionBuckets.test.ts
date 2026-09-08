@@ -37,11 +37,12 @@ describe("missionBuckets", () => {
       snap("d", "success"),
       snap("e", "failed"),
       snap("f", "cancelled"),
+      snap("g", "shortfall"),
     ]);
     expect(buckets.needsYou.map((r) => r.runId)).toEqual(["a"]);
     expect(buckets.running.map((r) => r.runId)).toEqual(["b"]);
     expect(buckets.queued.map((r) => r.runId)).toEqual(["c"]);
-    expect(buckets.finished.map((r) => r.runId)).toEqual(["d", "e", "f"]);
+    expect(buckets.finished.map((r) => r.runId)).toEqual(["d", "e", "f", "g"]);
   });
 
   it("DeriveMetrics_FinishedToday_SplitsOkFailAndSumsCost", () => {
@@ -52,6 +53,8 @@ describe("missionBuckets", () => {
       [
         snap("ok1", "success", { finishedAt: "2026-07-17T12:00:00Z", costUsd: 1.5 }),
         snap("fail1", "failed", { finishedAt: "2026-07-17T12:00:00Z", costUsd: 2.0 }),
+        // p0439: a shortfall is a done wherever runs are counted, never a failure.
+        snap("short1", "shortfall", { finishedAt: "2026-07-17T12:00:00Z", costUsd: 0.5 }),
         snap("yesterday", "success", { finishedAt: "2026-07-16T12:00:00Z", costUsd: 9.0 }),
         snap("running", "running"),
         snap("needs", "waiting_for_input"),
@@ -62,10 +65,10 @@ describe("missionBuckets", () => {
     expect(metrics.needsYou).toBe(1);
     expect(metrics.running).toBe(1);
     expect(metrics.queued).toBe(1);
-    expect(metrics.finishedToday).toBe(2);
-    expect(metrics.okToday).toBe(1);
+    expect(metrics.finishedToday).toBe(3);
+    expect(metrics.okToday).toBe(2);
     expect(metrics.failToday).toBe(1);
-    expect(metrics.costTodayUsd).toBeCloseTo(3.5);
+    expect(metrics.costTodayUsd).toBeCloseTo(4.0);
   });
 
   // p0458: a run that took its answer resumes as an ordinary running run — it

@@ -35,6 +35,7 @@ public sealed class CommitAndPRHandler(
     SandboxTargets sandboxTargets,
     Specs.PhaseAccounting accounting,
     FailedRunPersistence failedRun,
+    ShortfallDelivery shortfallDelivery,
     CompletedRunTicketSummary completedSummary,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
@@ -60,7 +61,7 @@ public sealed class CommitAndPRHandler(
         // a PR for each changed repo; if NONE changed, open exactly ONE record
         // PR (the first repo) carrying result.md — never empty per-repo PRs. The
         // operator's rule: at least one PR (≥ result.md), no obscure splitting.
-        var stagedRepos = new List<(RepoConnection Repo, ISandbox Sandbox, bool HasCode)>();
+        var stagedRepos = new List<(RepoConnection Repo, string Key, ISandbox Sandbox, bool HasCode)>();
         var opened = new List<OpenedPullRequest>(context.Configs.Count);
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
@@ -93,7 +94,7 @@ public sealed class CommitAndPRHandler(
             logger.LogInformation(
                 "{Repo}: commit-sandbox key={Key} (of {N}) hasCode={HasCode} staged=[{Staged}]",
                 repo.Name, matches[0].Key, matches.Count, hasCode, string.Join(", ", staged));
-            stagedRepos.Add((repo, sandbox, hasCode));
+            stagedRepos.Add((repo, matches[0].Key, sandbox, hasCode));
         }
 
         var anyCode = stagedRepos.Any(s => s.HasCode);
@@ -103,20 +104,23 @@ public sealed class CommitAndPRHandler(
         // keystone is not asked; the PR is a draft that names the failure, and the ticket
         // is left to the error path — the tail used to finalize it "Completed" with the
         // done status before the failure comment landed (runs b7bc and 0c88).
+        // p0439: unless the run stopped AFTER a verified phase — then that phase is
+        // delivered (its verification was the keystone) and the rest is named as missing.
         var failureReason = failedRun.Reason(context.Pipeline);
-        var keystone = failureReason is null
-            ? await EvaluateKeystoneAsync(context, cancellationToken)
-            : DeliveryVerdict.Fail(failureReason);
+        var shortfall = failureReason is null ? null : await shortfallDelivery.PrepareAsync(
+            context.Pipeline, [.. stagedRepos.Select(s => (s.Key, s.Sandbox))], cancellationToken);
+        var keystone = failureReason is null ? await EvaluateKeystoneAsync(context, cancellationToken)
+            : shortfall is not null ? DeliveryVerdict.Ok() : DeliveryVerdict.Fail(failureReason);
 
         // p0393a: a sequence that stopped mid-way leaves a HALF-MIGRATED repository — some
         // phases applied, others not. That state must be unmergeable BY CONSTRUCTION, not
         // merely accompanied by a red check somebody can override, because it is the one
-        // failure that looks finished.
+        // failure that looks finished. A delivered shortfall carries only verified phases.
         var progress = context.Pipeline.TryGet<SpecSequenceProgress>(
             ContextKeys.SpecSequenceProgress, out var seq) ? seq : null;
-        var halfMigrated = progress?.IsPartial == true;
+        var halfMigrated = progress?.IsPartial == true && shortfall is null;
 
-        foreach (var (repo, sandbox, hasCode) in stagedRepos)
+        foreach (var (repo, _, sandbox, hasCode) in stagedRepos)
         {
             // Open a PR when this repo changed code, or — if nothing changed
             // anywhere — for the first repo as the run-record carrier.
@@ -130,8 +134,8 @@ public sealed class CommitAndPRHandler(
             else
             {
                 var (result, body) = await OpenOneAsync(
-                    context, sandbox, repo,
-                    isDraft: !keystone.Satisfied || halfMigrated, failureReason, progress, cancellationToken);
+                    context, sandbox, repo, isDraft: !keystone.Satisfied || halfMigrated,
+                    failureReason, shortfall, progress, cancellationToken);
                 outcome = result;
                 if (body is not null) bodies[repo.Name] = body;
             }
@@ -151,6 +155,15 @@ public sealed class CommitAndPRHandler(
         if (primaryUrl is not null)
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
 
+        // p0439: a shortfall that reached a pull request is delivered — the ticket gets the
+        // done status and the delivery summary, and the run reads the delivery off the
+        // context. One that opened no PR is a failed run like any other.
+        if (shortfall is not null && primaryUrl is not null)
+        {
+            await FinalizeTicketAsync(context, opened, shortfall, cancellationToken);
+            shortfall.MarkDelivered(context.Pipeline);
+            return shortfallDelivery.StepResult(shortfall, opened);
+        }
         // 2026-09-07-f420: a failed run's work is persisted above; nothing below — the
         // keystone's wording, the summary, the done status — describes it. The failed
         // step is the run's report; the error path posts it with what was kept.
@@ -164,11 +177,8 @@ public sealed class CommitAndPRHandler(
         // either way. Keystone was evaluated before the PR loop — reused here.
         if (!keystone.Satisfied)
         {
-            // p0273: the work is NOT lost — OpenOneAsync already pushed the branch
-            // and opened the PR(s) above, BEFORE this gate. Surface them so the
-            // operator can review/take over a verification-red change, instead of a
-            // "failed" step that reads as if nothing happened. The ticket stays
-            // unfinalized (FinalizeTicketAsync is skipped) — correct for a red run.
+            // p0273: the work is NOT lost — the PR(s) are open above, before this gate.
+            // Surface them; the ticket stays unfinalized, correct for a red run.
             var openedUrls = opened
                 .Where(o => o.Status == OpenStatus.Opened && o.Url is not null)
                 .Select(o => o.Url!)
@@ -183,7 +193,7 @@ public sealed class CommitAndPRHandler(
             return CommandResult.Fail($"{keystone.FailureReason}{prNote}");
         }
 
-        await FinalizeTicketAsync(context, opened, cancellationToken);
+        await FinalizeTicketAsync(context, opened, shortfall: null, cancellationToken);
         return BuildResult(opened, anyCode, context.Changes.Count);
     }
 
@@ -235,7 +245,7 @@ public sealed class CommitAndPRHandler(
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
         CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, bool isDraft,
-        string? failureReason, SpecSequenceProgress? progress, CancellationToken ct)
+        string? failureReason, RunShortfall? shortfall, SpecSequenceProgress? progress, CancellationToken ct)
     {
         var branch = context.Repository.CurrentBranch.Value;
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
@@ -304,9 +314,10 @@ public sealed class CommitAndPRHandler(
 
         // A red run's PR is a draft and says so at the top of the body, so a reviewer
         // sees "verification red" before the ticket text — not a change that looks ready.
-        // 2026-09-07-f420: a FAILED run's draft names the failure instead.
-        var redBanner = failureReason is not null
-            ? failedRun.PullRequestBanner(failureReason)
+        // 2026-09-07-f420: a FAILED run's draft names the failure instead; p0439: a
+        // delivered shortfall leads with what it delivers and what it lacks.
+        var redBanner = shortfall is not null ? shortfallDelivery.PullRequestBanner(shortfall)
+            : failureReason is not null ? failedRun.PullRequestBanner(failureReason)
             : isDraft
                 ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
                 : string.Empty;
@@ -319,7 +330,7 @@ public sealed class CommitAndPRHandler(
         // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
         var body = $"{redBanner}{context.Ticket.Description}"
             + $"{ExpectationPrBodySection.Build(context.Pipeline)}"
-            + $"{SpecPrBodySection.Build(context.Pipeline, progress)}"
+            + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
             + $"{RunAccountSection.Build(context.Pipeline)}"
             + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{SiblingMarker}";
         try
@@ -383,7 +394,8 @@ public sealed class CommitAndPRHandler(
     }
 
     private Task FinalizeTicketAsync(
-        CommitAndPRContext context, IReadOnlyList<OpenedPullRequest> opened, CancellationToken ct)
+        CommitAndPRContext context, IReadOnlyList<OpenedPullRequest> opened, RunShortfall? shortfall,
+        CancellationToken ct)
     {
         if (!opened.Any(o => o.Status == OpenStatus.Opened)) return Task.CompletedTask;
 
@@ -392,7 +404,7 @@ public sealed class CommitAndPRHandler(
         if (context.Pipeline.Has(ContextKeys.InlineTicket)) return Task.CompletedTask;
 
         var summary = completedSummary.Build(
-            context.Pipeline, context.Configs.Count, opened, context.Changes);
+            context.Pipeline, context.Configs.Count, opened, context.Changes, shortfall);
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
         return ticketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, context.Ticket.Id,

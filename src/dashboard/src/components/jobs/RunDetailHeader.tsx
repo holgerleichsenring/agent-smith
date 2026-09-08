@@ -28,6 +28,8 @@ export function statusSpill(status: string | null): { cls: string; label: string
       return { cls: "is-prov", label: "Queued" };
     case "success":
       return { cls: "is-done", label: "Done" };
+    case "shortfall":
+      return { cls: "is-done", label: "Done, with a shortfall" };
     case "cancelled":
       return { cls: "", label: "Cancelled" };
     case "":
