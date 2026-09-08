@@ -192,6 +192,50 @@ public sealed class PipelineContextSerializerTests
         target.Has(ContextKeys.ConfigDir).Should().BeFalse("the config dir is pod-local and re-seeded per launch");
     }
 
+    /// <summary>
+    /// 2026-09-03-3c07: both park markers are live state of the leg that parked. The master's
+    /// is set BEFORE its checkpoint is written, so it was captured and restored — and the
+    /// executor read the resumed run as still parked at its first command (live run a109:
+    /// checked out, then waiting_for_input again with no question pending).
+    /// </summary>
+    [Fact]
+    public void Serialize_ParkMarkers_AreNeverCheckpointed()
+    {
+        var source = new PipelineContext();
+        source.Set(ContextKeys.RunId, "run-1");
+        source.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
+        source.Set(ContextKeys.WaitingForInput, true);
+
+        var target = new PipelineContext();
+        _sut.Restore(_sut.Serialize(source), target);
+
+        target.Has(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeFalse(
+            "the master's park marker would park the resumed run at its first command");
+        target.Has(ContextKeys.WaitingForInput).Should().BeFalse();
+        target.Get<string>(ContextKeys.RunId).Should().Be("run-1");
+    }
+
+    /// <summary>
+    /// A checkpoint written before the key joined the excluded list (every master park before
+    /// 3c07, run a109 among them) must still resume: an excluded key is excluded on the way
+    /// back in as well.
+    /// </summary>
+    [Fact]
+    public void Restore_ParkMarkerInAnOlderCheckpoint_IsDropped()
+    {
+        var older = JsonSerializer.Serialize(new[]
+        {
+            new { K = ContextKeys.OpenQuestionsAwaitingAnswer, T = typeof(bool).AssemblyQualifiedName, V = "true" },
+            new { K = ContextKeys.RunId, T = typeof(string).AssemblyQualifiedName, V = "\"run-1\"" },
+        });
+        var target = new PipelineContext();
+
+        _sut.Restore(older, target);
+
+        target.Has(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeFalse();
+        target.Get<string>(ContextKeys.RunId).Should().Be("run-1");
+    }
+
     [Fact]
     public void Serialize_UnserializableEntry_IsSkippedNotFatal()
     {
@@ -211,7 +255,7 @@ public sealed class PipelineContextSerializerTests
     {
         var spliced = PipelineCommand.SkillRound(
             "BootstrapRoundCommand", "bootstrap-csharp", 1,
-            repoName: "api", contextName: "server", workdir: "server/");
+            repoName: "api", contextName: "server", workdir: "server/") with { PhaseId = "p0001" };
 
         var restored = AgentSmith.Application.Models.CheckpointCommand.From(spliced).ToPipelineCommand();
 
@@ -221,6 +265,8 @@ public sealed class PipelineContextSerializerTests
         restored.RepoName.Should().Be("api");
         restored.ContextName.Should().Be("server");
         restored.Workdir.Should().Be("server/");
+        restored.PhaseId.Should().Be("p0001",
+            "2026-09-03-3c07: a resumed phase block came back belonging to no phase");
     }
 
     /// <summary>p0478: several parameterised constructors and no parameterless one — what
