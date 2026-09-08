@@ -55,9 +55,10 @@ internal static class MasterAcceptanceGate
     /// alone spins until the budget dies (run fa8c: zero Green, zero Failed, zero
     /// dispositions across the whole trail). One pass is the salvage — the nudge may
     /// land; a second is the same prompt against the same silence, so the pass ends on
-    /// a named unknown verdict instead.
+    /// a named unknown verdict instead. 2026-09-08-805f: a demand the ledger-complete brake
+    /// appended inside a pass IS that salvage — it bites from the first pass then.
     /// </summary>
     internal static bool VerdictlessAfterOneRedrive(
-        MasterVerification? verification, int reengagePass, int criteriaCount) =>
-        verification is null && criteriaCount > 0 && reengagePass > 1;
+        MasterVerification? verification, int reengagePass, int criteriaCount, bool verdictDemandedInPass) =>
+        verification is null && criteriaCount > 0 && (reengagePass > 1 || verdictDemandedInPass);
 }

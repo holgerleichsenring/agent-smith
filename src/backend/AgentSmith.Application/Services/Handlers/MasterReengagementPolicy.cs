@@ -33,8 +33,12 @@ internal static class MasterReengagementPolicy
     // emitted no parseable Phase 4 verdict and a verdict is expected. Model-fitness
     // salvage — the skill instructs Phase 4; some models skip the closing artifact.
     // Pure + testable. Mirrors ShouldDriveApply.
-    internal static bool ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) =>
+    // 2026-09-08-805f: a demand the ledger-complete brake already appended INSIDE the pass is
+    // this re-drive; a second one would be the same prompt against the same silence.
+    internal static bool ShouldNudgeForVerdict(
+        string? pipelineName, MasterVerification? verification, bool verdictDemandedInPass) =>
         verification is null
+        && !verdictDemandedInPass
         && !string.IsNullOrEmpty(pipelineName)
         && PipelinePresets.ExpectsCodeChanges(pipelineName);
 
@@ -55,11 +59,12 @@ internal static class MasterReengagementPolicy
     // always stops. Bounded by the caller's forward-progress gate + the hard safety cap —
     // a red re-drive that moves nothing ends the loop after one pass.
     // p0406: reengagePass is REQUIRED, never defaulted — a pass index the caller may omit
-    // is a null verdict nobody bounds.
+    // is a null verdict nobody bounds. 2026-09-08-805f: so is verdictDemandedInPass — the
+    // brake's demand counts as the one salvage re-drive a silent master gets.
     internal static bool ShouldReengage(
         string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
         bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes,
-        int reengagePass)
+        int reengagePass, bool verdictDemandedInPass)
     {
         if (string.IsNullOrEmpty(pipelineName) || !PipelinePresets.ExpectsCodeChanges(pipelineName))
             return false;
@@ -100,7 +105,7 @@ internal static class MasterReengagementPolicy
             && !MasterAcceptanceGate.ObjectivelySatisfied(
                 verification, ratifiedCriteria.Count, producedSourceChanges: changes.Count > 0))
             return !MasterAcceptanceGate.VerdictlessAfterOneRedrive(
-                verification, reengagePass, ratifiedCriteria.Count);
+                verification, reengagePass, ratifiedCriteria.Count, verdictDemandedInPass);
         return false;
     }
 

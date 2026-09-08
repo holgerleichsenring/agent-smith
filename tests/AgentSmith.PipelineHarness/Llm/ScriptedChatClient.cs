@@ -23,6 +23,10 @@ public sealed class ScriptedChatClient : IChatClient
 
     public int InvocationCount { get; private set; }
     public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = Array.Empty<ChatMessage>();
+    /// <summary>2026-09-08-805f: the message list of EVERY call, in order — what the
+    /// governor injected into a running pass is visible only here.</summary>
+    public IReadOnlyList<IReadOnlyList<ChatMessage>> CallMessages => _callMessages;
+    private readonly List<IReadOnlyList<ChatMessage>> _callMessages = new();
     /// <summary>The options of the most recent call — which tools, if any, it carried.</summary>
     public ChatOptions? LastOptions { get; private set; }
     public IReadOnlyList<ScriptedToolCall> ToolCalls => _toolCalls;
@@ -83,6 +87,7 @@ public sealed class ScriptedChatClient : IChatClient
     {
         InvocationCount++;
         LastMessages = messages.ToList();
+        _callMessages.Add(LastMessages);
         LastOptions = options;
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());

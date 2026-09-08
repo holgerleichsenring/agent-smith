@@ -316,9 +316,12 @@ public sealed class AgenticMasterHandler(
         // start-of-master spend + that estimate against the effective cap. Only the coding
         // master (read/write, not scan/spec-dialog) gets the hooks + the large ceiling.
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
+        // A complete checklist makes the master owe its verdict — the brake's handler-side state.
+        var verdictOwed = new VerdictOwed(context.MasterSkillName, () => progress.GetLedger(),
+            costTracker.EstimateCostUsd, context.AgentConfig.VerdictOwedAfterIterations, logger);
         var masterHooks = isScanMaster || isSpecDialog
             ? null
-            : MasterLoopHooksFactory.Build(context, costTracker, () => progress.GetLedger(), log);
+            : MasterLoopHooksFactory.Build(context, costTracker, () => progress.GetLedger(), log, verdictOwed);
         var iterationCeiling = isScanMaster || isSpecDialog
             ? (int?)null
             : context.AgentConfig.MaxMasterLoopIterations;
@@ -500,7 +503,7 @@ public sealed class AgenticMasterHandler(
         // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,
         // re-prompt the master ONCE to verify (no further edits) and emit ONLY the
         // verdict, then re-parse. Bounded; the git + verdict keystone still gates.
-        if (MasterReengagementPolicy.ShouldNudgeForVerdict(pipelineName, verification))
+        if (MasterReengagementPolicy.ShouldNudgeForVerdict(pipelineName, verification, verdictOwed.Demanded))
         {
             logger.LogWarning(
                 "Master '{Skill}' changed code but emitted no verdict — re-prompting once for it",
@@ -528,7 +531,7 @@ public sealed class AgenticMasterHandler(
         // continuity). Stop on: drained ledger, honest RED, budget exhausted, a zero-forward-
         // progress pass, or a parked operator question (which short-circuits the whole run).
         (loopResult, changes, verification) = await ReengageWhileProductiveAsync(
-            context, request, userPrompt, pipelineName, progress, fs, log,
+            context, request, userPrompt, pipelineName, progress, fs, log, verdictOwed,
             costTracker, TrackMasterResponse, ticketClarifications, loopResult, changes, verification,
             conversation, setPass: p => masterPass = p, cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
@@ -706,21 +709,19 @@ public sealed class AgenticMasterHandler(
         return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
     }
 
-    // p0341c: an absolute anti-hang net on re-engagement passes for the fail-open case
-    // (no cost cap configured). It is NOT the control — money + forward progress are; this
-    // only prevents a pathological spin when the budget is disabled.
+    // An absolute anti-hang net on re-engagement passes for the fail-open case (no cost
+    // cap configured). It is NOT the control — money + forward progress are.
     private const int ReengageHardSafetyCap = 50;
 
-    // p0341c: the open-loop re-engagement driver. Loops WHILE ShouldReengage holds AND the
-    // previous pass made MEANINGFUL forward progress (a newly-done step or a now-passing
-    // verdict — never a bare edit), re-running the loop with a warm nudge (current ledger +
-    // working-state block). Stops on drained ledger, honest RED, budget exhausted, a
-    // zero-forward-progress pass, a parked operator question, or the hard safety net.
+    // The open-loop re-engagement driver. Loops WHILE ShouldReengage holds AND the previous
+    // pass called a tool, re-running the loop with a warm nudge (current ledger + working-
+    // state block). Stops on drained ledger, honest RED, budget exhausted, an idle pass, a
+    // parked operator question, or the hard safety net.
     private async Task<(AgenticLoopResult LoopResult, IReadOnlyList<CodeChange> Changes, MasterVerification? Verification)>
         ReengageWhileProductiveAsync(
             AgenticMasterContext context, AgenticLoopRequest request, string userPrompt,
             string? pipelineName, ProgressLedgerToolHost progress, FilesystemToolHost fs,
-            LogDecisionToolHost log, PipelineCostTracker costTracker,
+            LogDecisionToolHost log, VerdictOwed verdictOwed, PipelineCostTracker costTracker,
             Action<ChatResponse> trackMasterResponse,
             TicketClarificationToolHost? ticketClarifications,
             AgenticLoopResult loopResult, IReadOnlyList<CodeChange> changes,
@@ -737,9 +738,10 @@ public sealed class AgenticMasterHandler(
             setPass(pass + 1);
             if (!MasterReengagementPolicy.ShouldReengage(
                     pipelineName, progress.GetLedger(), verification,
-                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1))
+                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1, verdictOwed.Demanded))
             {
-                LogVerdictlessStop(context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count);
+                LogVerdictlessStop(
+                    context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count, verdictOwed.Demanded);
                 break;
             }
             if (ticketClarifications?.Captured is not null)
@@ -824,9 +826,10 @@ public sealed class AgenticMasterHandler(
     // had never emitted a verdict. That is a NAMED outcome — an unknown verdict the keystone
     // will record honestly — not the silent break it used to be.
     private void LogVerdictlessStop(
-        string skill, MasterVerification? verification, int reengagePass, int criteriaCount)
+        string skill, MasterVerification? verification, int reengagePass, int criteriaCount, bool demanded)
     {
-        if (!MasterAcceptanceGate.VerdictlessAfterOneRedrive(verification, reengagePass, criteriaCount)) return;
+        if (!MasterAcceptanceGate.VerdictlessAfterOneRedrive(verification, reengagePass, criteriaCount, demanded))
+            return;
         logger.LogWarning(
             "Master '{Skill}' emitted no verification verdict across {Passes} pass(es) — ending the "
             + "open loop on an unknown verdict rather than re-driving a null", skill, reengagePass);
@@ -860,9 +863,6 @@ public sealed class AgenticMasterHandler(
                 "Master '{Skill}' re-engagement pass called no tool — the model is idle with work still open; "
                 + "stopping and surfacing for review", skill);
     }
-
-    // p0365: the re-engagement stop is now in ReengageProgressPolicy — an empty pass (no tool
-    // call) or an honest concrete blocker, never a per-pass state-delta classification.
 
     // p0317: gathers what FetchTicket published — the conversation section, the
     // attachments section (documents materialized into the run-record dir first),
