@@ -316,10 +316,12 @@ public sealed class CommitAndPRHandler(
         // by phase instead of implied by a red check.
         // p0429a: and the account the gate judged the run by, itemised — a reviewer who
         // reads only the PR still reads what went unanswered instead of inferring it.
+        // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
         var body = $"{redBanner}{context.Ticket.Description}"
             + $"{ExpectationPrBodySection.Build(context.Pipeline)}"
             + $"{SpecPrBodySection.Build(context.Pipeline, progress)}"
-            + $"{RunAccountSection.Build(context.Pipeline)}\n\n{SiblingMarker}";
+            + $"{RunAccountSection.Build(context.Pipeline)}"
+            + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);

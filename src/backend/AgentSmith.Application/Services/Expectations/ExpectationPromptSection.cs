@@ -23,6 +23,19 @@ namespace AgentSmith.Application.Services.Expectations;
 /// </summary>
 public static class ExpectationPromptSection
 {
+    /// <summary>
+    /// 2026-09-06-3d81: the third answer, stated. AcceptanceStatus has always had it and the
+    /// gate has always accepted it with a reason — a vocabulary nobody is told about is a
+    /// vocabulary nobody uses, and a criterion the repository makes impossible was fought pass
+    /// after pass or accepted in silence instead. Wording matches the master skill's own.
+    /// </summary>
+    private const string DeclineRule =
+        "A criterion this repository makes impossible — one no edit within this run's scope can make\n"
+        + "true — is neither fought pass after pass nor accepted in silence: dispose of it as\n"
+        + "`not_applicable`, and let its evidence carry the EVALUATED MEANING of not doing it — what is\n"
+        + "lost, and what would have to change elsewhere for it to hold. A bare \"N/A\" with no such\n"
+        + "reason does not count. Every declined criterion is reported to the ticket author.";
+
     public static string Build(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -44,6 +57,7 @@ public static class ExpectationPromptSection
             The ratified expectation below is the binding acceptance contract for this run.
             Implement exactly what it asserts — no more, no less. Every "Expected" assertion
             must hold after your change; every constraint must be respected.
+            {DeclineRule}
 
             {ExpectationMarkdown.Render(expectation.Draft)}
 
@@ -62,6 +76,7 @@ public static class ExpectationPromptSection
         ## Acceptance contract
         The criteria below are the binding acceptance contract for this run — the same list the
         framework judges it by. Implement exactly what they assert, no more and no less.
+        {DeclineRule}
 
         ## Expected
         {string.Join("\n", criteria.Select(c => $"- {c}"))}

@@ -46,7 +46,8 @@ public static class RunResultFormatter
         string? failureReason = null,
         IReadOnlyList<IgnoredInstruction>? ignoredInstructions = null,
         Contracts.Expectations.RatifiedExpectation? expectation = null,
-        string? account = null)
+        string? account = null,
+        string? declined = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -90,6 +91,7 @@ public static class RunResultFormatter
 
         RunContractSections.AppendExpectation(sb, expectation);
         RunContractSections.AppendAccount(sb, account);
+        RunContractSections.AppendDeclined(sb, declined);
         RunResultSectionWriter.AppendDecisions(sb, decisions);
         RunContractSections.AppendIgnoredInstructions(sb, ignoredInstructions);
         RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);

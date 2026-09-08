@@ -191,6 +191,32 @@ function AcceptanceVerify({
             })}
           </div>
         )}
+        {acceptance.declined && acceptance.declined.length > 0 && (
+          <div data-testid="verify-declined">
+            <p className="hint" style={{ marginTop: 12 }}>
+              <b>Declined by the agent</b> — criteria it judged no work in this repository
+              could make true, each with the evaluated meaning of not doing it:
+            </p>
+            {acceptance.declined.map((declined, i) => (
+              <div
+                key={i}
+                className="crit wait"
+                data-testid="verify-declined-criterion"
+              >
+                <div className="c-mark">~</div>
+                <div>
+                  <div className="c-txt">{declined.text}</div>
+                  <div className="c-proof" data-testid="verify-declined-reason">
+                    {declined.reason}
+                  </div>
+                </div>
+                <div className="c-stat">
+                  {declined.phase ? `declined · ${declined.phase}` : "declined"}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {acceptance.ratifiedBy && (
           <p className="hint" style={{ marginTop: 12 }} data-testid="verify-ratified-by">
             ratified by {acceptance.ratifiedBy}

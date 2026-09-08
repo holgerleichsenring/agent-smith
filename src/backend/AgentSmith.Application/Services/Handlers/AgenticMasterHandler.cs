@@ -552,6 +552,7 @@ public sealed class AgenticMasterHandler(
         if (verification is not null)
         {
             context.Pipeline.Set(ContextKeys.MasterVerification, verification);
+            DeclinedCriteriaLedger.Record(context.Pipeline, verification);
             logger.LogInformation(
                 "Master '{Skill}' verdict: {Status} (build {BuildRan}/{BuildPassed}, tests {TestsRan}/{TestsPassed})",
                 context.MasterSkillName, verification.Status,
