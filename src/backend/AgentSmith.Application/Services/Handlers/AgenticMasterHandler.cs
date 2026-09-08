@@ -728,8 +728,6 @@ public sealed class AgenticMasterHandler(
             CancellationToken cancellationToken)
     {
         var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
-        // p0406: the phase's own declaration of what it delivers. A knowledge phase
-        // (ships_code: false) reaches the acceptance gate on its dispositions alone.
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
@@ -756,8 +754,9 @@ public sealed class AgenticMasterHandler(
             var changesAtPassStart = changes;
 
             logger.LogInformation(
-                "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK",
-                context.MasterSkillName, progress.GetLedger().ActionablePending.Count);
+                "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK; acceptance: {Acceptance}",
+                context.MasterSkillName, progress.GetLedger().ActionablePending.Count,
+                MasterAcceptanceGate.Judge(verification, ratifiedCriteria, changes.Count > 0).Describe());
             try
             {
                 // p0411: read the working tree HERE, once per pass, so the nudge opens with
