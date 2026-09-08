@@ -9,9 +9,11 @@ namespace AgentSmith.Application.Services.Resume;
 /// p0327: serializes the DATA entries of a PipelineContext as
 /// <c>[{k, t, v}]</c> (key, assembly-qualified runtime type, payload JSON).
 /// Live objects are excluded by key (<see cref="ExcludedKeys"/>) — sandbox
-/// handles, the borrowed coordinator, pricing/catalog bindings — and anything
-/// else that fails to serialize is skipped with a warning: those entries are
-/// re-established on resume by the normal pipeline seeding + re-provisioning.
+/// handles, the borrowed coordinator, pricing/catalog bindings, the park markers —
+/// and anything else that fails to serialize is skipped with a warning: those entries
+/// are re-established on resume by the normal pipeline seeding + re-provisioning.
+/// 2026-09-03-3c07: an excluded key is excluded in BOTH directions — a checkpoint
+/// written before a key joined the list is read as if it had been.
 /// </summary>
 public sealed class PipelineContextSerializer(
     ILogger<PipelineContextSerializer> logger) : IPipelineContextSerializer
@@ -19,6 +21,9 @@ public sealed class PipelineContextSerializer(
     // Live handles + values ExecutePipelineUseCase re-derives on every launch.
     // ContextKeys.Repos is deliberately NOT here: a ScopeRepos-narrowed list is
     // run state and must win over the standard all-repos seed on resume.
+    // 2026-09-03-3c07: BOTH park markers are live state of the leg that parked. The
+    // master's was captured (it is set before the checkpoint is written) and restored,
+    // so the executor read the resumed run as still parked at its first command.
     private static readonly HashSet<string> ExcludedKeys = new(StringComparer.Ordinal)
     {
         ContextKeys.Sandbox, ContextKeys.Sandboxes, ContextKeys.SandboxCoordinator,
@@ -27,7 +32,8 @@ public sealed class PipelineContextSerializer(
         ContextKeys.CatalogResolution, ContextKeys.ConceptVocabulary, ContextKeys.ConfigDir,
         ContextKeys.SpecDialogReplySlot, ContextKeys.ActivePhaseStep,
         ContextKeys.RemainingCommands, ContextKeys.PipelineExecutionCount,
-        ContextKeys.WaitingForInput, ContextKeys.ResumedDialogueAnswer, ContextKeys.ResumeCheckpoint,
+        ContextKeys.WaitingForInput, ContextKeys.OpenQuestionsAwaitingAnswer,
+        ContextKeys.ResumedDialogueAnswer, ContextKeys.ResumeCheckpoint,
         ContextKeys.DialogueHotWaitSeconds, ContextKeys.DialogueApprovalTimeoutSeconds,
         "ProjectPricing", "PipelineCostCap", "ModelPricingResolver", "PipelineCostTracker",
     };
@@ -75,6 +81,11 @@ public sealed class PipelineContextSerializer(
 
     private bool TryRestoreEntry(SerializedEntry entry, PipelineContext into)
     {
+        if (ExcludedKeys.Contains(entry.K))
+        {
+            logger.LogInformation("Checkpointed entry '{Key}' is live state of the leg that parked — dropped", entry.K);
+            return false;
+        }
         var type = Type.GetType(entry.T, throwOnError: false);
         if (type is null)
         {
