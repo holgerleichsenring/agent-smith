@@ -3,11 +3,11 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0341e / p0406: the objective acceptance gate the open loop re-engages against —
-/// mirrored from RunOutcomeKeystone.EvaluateAcceptance, the single definition of done.
-/// Lifted out of MasterReengagementPolicy in p0406 so the gate that decides delivery
-/// is its own named thing, and so the phase kind it now needs has somewhere to live.
-/// Pure predicates over the master's verdict; no state, no collaborators.
+/// p0341e / p0406: the objective acceptance gate the open loop re-engages against. Lifted
+/// out of MasterReengagementPolicy in p0406 so the gate that decides delivery is its own
+/// named thing. Pure predicates over the master's verdict; no state, no collaborators.
+/// 2026-09-06-9f14: judges against the criteria themselves, paired by the text each
+/// disposition names (<see cref="AcceptancePairing"/>), and says which pairing it used.
 /// </summary>
 internal static class MasterAcceptanceGate
 {
@@ -18,21 +18,28 @@ internal static class MasterAcceptanceGate
     /// unmet / missing disposition means not satisfied.
     /// </summary>
     internal static bool ObjectivelySatisfied(
-        MasterVerification? verification, int criteriaCount, bool producedSourceChanges)
+        MasterVerification? verification, IReadOnlyList<string> criteria, bool producedSourceChanges) =>
+        Judge(verification, criteria, producedSourceChanges).Satisfied;
+
+    /// <summary>
+    /// The full judgement. The verdict-level refusals come first and stop before any
+    /// pairing — an answer SHORTER than the contract still fails closed, because a master
+    /// that did not address every criterion is not done whatever the ones it addressed say.
+    /// </summary>
+    internal static AcceptanceJudgement Judge(
+        MasterVerification? verification, IReadOnlyList<string> criteria, bool producedSourceChanges)
     {
-        if (criteriaCount == 0) return true;
-        if (verification is null) return false;
-        if (!StatusAllowsDelivery(verification.Status, producedSourceChanges)) return false;
+        if (criteria.Count == 0) return AcceptanceJudgement.Of([]);
+        if (verification is null) return AcceptanceJudgement.Refused("no verdict");
+        if (!StatusAllowsDelivery(verification.Status, producedSourceChanges))
+            return AcceptanceJudgement.Refused($"a {verification.Status} verdict cannot stand for this run");
         var dispositions = verification.AcceptanceDispositions;
-        if (dispositions is null || dispositions.Count < criteriaCount) return false;
-        for (var i = 0; i < criteriaCount; i++)
-        {
-            var d = dispositions[i];
-            if (d.Status == AcceptanceStatus.Met) continue;
-            if (d.Status == AcceptanceStatus.NotApplicable && !string.IsNullOrWhiteSpace(d.Evidence)) continue;
-            return false;
-        }
-        return true;
+        if (dispositions is null)
+            return AcceptanceJudgement.Refused("the verdict carries no acceptance dispositions");
+        if (dispositions.Count < criteria.Count)
+            return AcceptanceJudgement.Refused(
+                $"{dispositions.Count} disposition(s) for {criteria.Count} criteria — the answer is short");
+        return AcceptanceJudgement.Of(AcceptancePairing.Pair(criteria, dispositions));
     }
 
     // p0406: a phase that produced no source change has nothing for a build to be green

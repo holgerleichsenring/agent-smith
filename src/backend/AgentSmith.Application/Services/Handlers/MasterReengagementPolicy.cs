@@ -98,7 +98,7 @@ internal static class MasterReengagementPolicy
         // becomes "satisfied", so it would otherwise re-drive forever.
         if (ratifiedCriteria.Count > 0
             && !MasterAcceptanceGate.ObjectivelySatisfied(
-                verification, ratifiedCriteria.Count, producedSourceChanges: changes.Count > 0))
+                verification, ratifiedCriteria, producedSourceChanges: changes.Count > 0))
             return !MasterAcceptanceGate.VerdictlessAfterOneRedrive(
                 verification, reengagePass, ratifiedCriteria.Count);
         return false;
