@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.145.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.144.0...v0.145.0) (2026-09-08)
+
+
+### Features
+
+* the cut carries every context the scope call named (2026-09-08-1830) ([b4008ae](https://github.com/holgerleichsenring/agent-smith/commit/b4008ae43284d0f53a9195d4636855d083289eac))
+* the cut carries every context the scope call named (2026-09-08-1830) ([b112504](https://github.com/holgerleichsenring/agent-smith/commit/b112504d7fba4f24b58c441de52749b0f093b54a))
+
+
+### Bug Fixes
+
+* a brace inside a string no longer hides the worker's envelope (2026-09-07-24ed) ([157dc67](https://github.com/holgerleichsenring/agent-smith/commit/157dc6781040abf8ce9c50d7c3713e00f9fd2e43))
+* a brace inside a string no longer hides the worker's envelope (2026-09-07-24ed) ([1691920](https://github.com/holgerleichsenring/agent-smith/commit/1691920bb6727382c6a44455577c129f20bdb0e0))
+* a failed run is never reported as completed (2026-09-07-f420) ([3408a59](https://github.com/holgerleichsenring/agent-smith/commit/3408a594dd052728795672686d8cd2f8d0b6e8a6))
+* a failed run is never reported as completed (2026-09-07-f420) ([ccad085](https://github.com/holgerleichsenring/agent-smith/commit/ccad08579dad15d6bb475a8e6ca9b742ea68f935))
+* the repeat guard reads the conversation (2026-09-07-bd7a) ([98d97f9](https://github.com/holgerleichsenring/agent-smith/commit/98d97f9224b53e5d34d6b92c355e1856660f5e6e))
+* the repeat guard reads the conversation (2026-09-07-bd7a) ([0740a81](https://github.com/holgerleichsenring/agent-smith/commit/0740a8171c103f15b7748dbe1df17b27c5b0d4d6))
+
 ## [0.144.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.143.2...v0.144.0) (2026-09-07)
 
 
