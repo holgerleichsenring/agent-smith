@@ -63,7 +63,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Registry.RegistryAuthTemplateStore>();
         services.AddTransient<Registry.GenericRegistryAuthApplier>();
         services.AddTransient<ICommandHandler<EnsurePrerequisitesContext>, EnsurePrerequisitesHandler>();
-        services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
+        services.AddContextLoading(); // 2026-09-04-cf3d: both loaders + the per-context reader
         // p0380: plan-time experiential-memory index + green-run narrative twin.
         services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();
         services.AddTransient<Memory.RunNarrativeMemoryWriter>();
@@ -117,7 +117,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<RunWorkCheckpointer>(); // p0360: mid-run work durability
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
-        services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddInitProjectHandlers(); // p0490: init commit + cross-link + complete
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();
