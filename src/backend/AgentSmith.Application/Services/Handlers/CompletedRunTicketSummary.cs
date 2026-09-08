@@ -29,7 +29,7 @@ public sealed class CompletedRunTicketSummary
 
             ### Changes
             {changeLines}
-            {RunAccountSection.Build(pipeline)}
+            {RunAccountSection.Build(pipeline)}{DeclinedCriteriaSection.Build(pipeline)}
 
             This ticket was automatically processed by Agent Smith.
             """;

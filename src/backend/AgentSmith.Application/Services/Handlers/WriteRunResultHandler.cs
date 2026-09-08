@@ -104,7 +104,8 @@ public sealed class WriteRunResultHandler(
         var acceptanceJson = RunStorySnapshotBuilder.BuildAcceptanceJson(
             TryGet<RatifiedExpectation>(context.Pipeline, ContextKeys.RunExpectation),
             TryGet<MasterVerification>(context.Pipeline, ContextKeys.MasterVerification),
-            Specs.RunAccountLedger.Current(context.Pipeline));
+            Specs.RunAccountLedger.Current(context.Pipeline),
+            DeclinedCriteriaLedger.Current(context.Pipeline).All);
         if (ledgerJson is null && acceptanceJson is null) return;
         try
         {
@@ -289,7 +290,9 @@ public sealed class WriteRunResultHandler(
             ignoredInstructions, expectation,
             // p0429a: what the run — or the scan — accounted for, itemised beside the
             // findings instead of only inside the gate that read it.
-            RunAccountSection.Build(context.Pipeline));
+            RunAccountSection.Build(context.Pipeline),
+            // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
+            DeclinedCriteriaSection.Build(context.Pipeline));
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
         if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
 
