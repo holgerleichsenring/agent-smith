@@ -28,6 +28,7 @@ public static class SpecSetComment
             + "unstarted phase or re-cuts the unstarted tail. A phase that already ran is never "
             + "edited — a correction to it becomes a new phase.");
         sb.AppendLine();
+        sb.Append(RenderTicketEdit(set));
         sb.Append(RenderPhases(set));
         sb.AppendLine();
         sb.Append(SpecPrBody.RenderDiscarded(set));
@@ -54,6 +55,18 @@ public static class SpecSetComment
         }
         foreach (var phase in set.Phases) RenderPhase(sb, phase);
         return sb.ToString();
+    }
+
+    // 2026-09-08-5cd2: the author who edited the ticket learns from the ticket that the
+    // edit took — which revision it postdates, which phases stayed because they already ran.
+    private static string RenderTicketEdit(SpecSet set)
+    {
+        if (set.Current.Cause != SpecRevisionCause.TicketEdit) return string.Empty;
+        var kept = set.Executed.Count == 0
+            ? "no phase had run yet, so the whole set was cut again"
+            : $"{string.Join(", ", set.Executed)} already ran and stayed as it was; the rest was cut again";
+        return $"The ticket text changed since revision {set.Current.Number - 1} was cut: {kept} "
+            + "from the current text.\n\n";
     }
 
     // 2026-09-08-1830: the contexts the cut left out, with reasons — shown whenever the
