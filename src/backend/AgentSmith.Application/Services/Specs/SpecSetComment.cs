@@ -15,12 +15,20 @@ public static class SpecSetComment
     /// <summary>Marks the comment as this system's reading, so a human can tell it from an answer.</summary>
     public const string Marker = "<!-- agentsmith:derived-spec -->";
 
+    /// <summary>
+    /// 2026-09-08-4aa9: the heading phrase, which is how the next run finds our last cut
+    /// comment in the thread — a comment by anyone else after it is the objection the
+    /// comment invites, and re-cuts the unstarted tail. A phrase, as the hand-back
+    /// comments carry theirs: a tracker may strip an HTML comment, never a heading.
+    /// </summary>
+    public const string CutMarker = "this is how I understood the ticket";
+
     public static string Render(SpecSet set, string? pullRequestUrl)
     {
         ArgumentNullException.ThrowIfNull(set);
         var sb = new StringBuilder();
         sb.AppendLine(Marker);
-        sb.AppendLine("## Agent Smith — this is how I understood the ticket");
+        sb.AppendLine($"## Agent Smith — {CutMarker}");
         sb.AppendLine();
         sb.AppendLine(
             "I split it into the phases below and started working. This is NOT a question and "
@@ -28,7 +36,7 @@ public static class SpecSetComment
             + "unstarted phase or re-cuts the unstarted tail. A phase that already ran is never "
             + "edited — a correction to it becomes a new phase.");
         sb.AppendLine();
-        sb.Append(RenderTicketEdit(set));
+        sb.Append(SpecRecutNotice.Render(set));
         sb.Append(RenderPhases(set));
         sb.AppendLine();
         sb.Append(SpecPrBody.RenderDiscarded(set));
@@ -55,18 +63,6 @@ public static class SpecSetComment
         }
         foreach (var phase in set.Phases) RenderPhase(sb, phase);
         return sb.ToString();
-    }
-
-    // 2026-09-08-5cd2: the author who edited the ticket learns from the ticket that the
-    // edit took — which revision it postdates, which phases stayed because they already ran.
-    private static string RenderTicketEdit(SpecSet set)
-    {
-        if (set.Current.Cause != SpecRevisionCause.TicketEdit) return string.Empty;
-        var kept = set.Executed.Count == 0
-            ? "no phase had run yet, so the whole set was cut again"
-            : $"{string.Join(", ", set.Executed)} already ran and stayed as it was; the rest was cut again";
-        return $"The ticket text changed since revision {set.Current.Number - 1} was cut: {kept} "
-            + "from the current text.\n\n";
     }
 
     // 2026-09-08-1830: the contexts the cut left out, with reasons — shown whenever the

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
@@ -15,6 +16,13 @@ namespace AgentSmith.Application.Services.Specs;
 /// sha, because the branch set — reviewer edit included — is what the model amends,
 /// and yields to a resume, which continues what the run was doing.
 /// </para>
+/// <para>
+/// 2026-09-08-4aa9: so does a COMMENT — the objection the derivation-time comment invites.
+/// It is read from the thread the run carries, the way the question pin and the repeat
+/// guard read theirs: a comment by anyone but us after our last cut comment. It sits
+/// where the edit sits, for the same reason. The executed-phase record moves the pointer
+/// now, so the sha comparison below reads a marker's commit as this system's own.
+/// </para>
 /// </summary>
 public static class SpecRevisionCause
 {
@@ -23,7 +31,6 @@ public static class SpecRevisionCause
     public const string Resume = "resume";
     public const string Retrigger = "re-trigger on the ticket";
     public const string Comment = "comment on the ticket";
-    public const string Recut = "re-cut of the unexecuted tail";
     public const string TicketEdit = "ticket text edited since the previous revision";
 
     /// <summary>
@@ -38,6 +45,7 @@ public static class SpecRevisionCause
         if (previous is null) return Initial;
         var resuming = pipeline.Has(ContextKeys.ResumeCheckpoint);
         if (!resuming && IsEdited(previous.Set, ticket)) return TicketEdit;
+        if (!resuming && IsCommented(pipeline)) return Comment;
         if (pointer is null
             || !string.Equals(pointer.RevisionSha, previous.LastCommitSha, StringComparison.Ordinal))
             return ReviewerEdit;
@@ -48,4 +56,9 @@ public static class SpecRevisionCause
     private static bool IsEdited(SpecSet previous, Ticket ticket) =>
         previous.TicketFingerprint is { } cutFrom
         && !string.Equals(cutFrom, TicketTextFingerprint.Of(ticket), StringComparison.Ordinal);
+
+    private static bool IsCommented(PipelineContext pipeline) =>
+        OwnTicketComment.IsAnswered(
+            pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var c) ? c : null,
+            SpecSetComment.CutMarker);
 }
