@@ -18,6 +18,9 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 ///     on drift (K consecutive iterations with reads but no edit), it appends the current
 ///     ledger + a discipline reminder as a synthetic user message, re-surfacing the
 ///     checklist into the running conversation.</item>
+///   <item>Ledger-complete brake (2026-09-08-805f) — once every checklist item is done and
+///     the model keeps calling tools, <see cref="LedgerCompleteBrake"/> demands the verdict
+///     once after the allowance and ends the pass after the allowance again.</item>
 /// </list>
 /// Stateless config, per-pass counters — one instance is built per <c>Create</c> call, so
 /// its counters are naturally scoped to the single pass it governs.
@@ -27,6 +30,7 @@ public sealed class MasterLoopGovernorChatClient(IChatClient inner, MasterLoopHo
 {
     private const string LedgerToolName = "update_progress";
 
+    private readonly LedgerCompleteBrake _brake = new(hooks.VerdictOwedAfterIterations);
     private int _sinceLedgerUpdate;
     private int _editlessStreak;
 
@@ -46,15 +50,23 @@ public sealed class MasterLoopGovernorChatClient(IChatClient inner, MasterLoopHo
         UpdateStreaks(list);
         _sinceLedgerUpdate++;
 
-        if (ShouldInjectReminder())
+        var brake = hooks.IsLedgerComplete is null
+            ? LedgerBrakeAction.None
+            : _brake.Observe(hooks.IsLedgerComplete());
+        if (brake == LedgerBrakeAction.Stop)
         {
-            var reminder = hooks.RenderReminder?.Invoke();
-            if (!string.IsNullOrWhiteSpace(reminder))
-            {
-                list = new List<ChatMessage>(list) { new(ChatRole.User, reminder) };
-                _editlessStreak = 0; // the nag resets both windows
-                _sinceLedgerUpdate = 0;
-            }
+            hooks.OnVerdictBrake?.Invoke(_brake.TurnsSinceComplete);
+            return LedgerCompleteBrake.EndOfPass();
+        }
+        // The demand supersedes the reminder on the iteration it lands.
+        var injected = brake == LedgerBrakeAction.Demand
+            ? hooks.RenderVerdictDemand?.Invoke()
+            : ShouldInjectReminder() ? hooks.RenderReminder?.Invoke() : null;
+        if (!string.IsNullOrWhiteSpace(injected))
+        {
+            list = new List<ChatMessage>(list) { new(ChatRole.User, injected) };
+            _editlessStreak = 0; // the nag resets both windows
+            _sinceLedgerUpdate = 0;
         }
 
         var response = await base.GetResponseAsync(list, options, cancellationToken);
