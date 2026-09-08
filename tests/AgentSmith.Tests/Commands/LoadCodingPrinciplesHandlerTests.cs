@@ -59,8 +59,7 @@ public class LoadCodingPrinciplesHandlerTests
 
         var reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ExistsAsync(defaultPath, It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        reader.Setup(r => r.ExistsAsync(nestedFile, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        reader.Setup(r => r.ReadRequiredAsync(nestedFile, It.IsAny<CancellationToken>())).ReturnsAsync("# Sub Rules");
+        reader.Setup(r => r.TryReadAsync(nestedFile, It.IsAny<CancellationToken>())).ReturnsAsync("# Sub Rules");
 
         var handler = MakeHandler(reader.Object);
         var repo = new Repository(new BranchName("main"), "https://example.com");
@@ -93,12 +92,77 @@ public class LoadCodingPrinciplesHandlerTests
         pipeline.Get<string>(ContextKeys.CodingPrinciples).Should().Be("# Rules");
     }
 
+    // 2026-09-04-cf3d: two contexts sharing one sandbox both contribute their principles,
+    // each under the context it governs — run a109's master never saw the frontend's.
+    [Fact]
+    public async Task ExecuteAsync_TwoContextsInOneSandbox_LoadsBothLabelledByContext()
+    {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ExistsAsync("/work/.agentsmith/principles.md", It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        ServeNested(reader, "backend", "# Backend rules");
+        ServeNested(reader, "frontend", "# Frontend rules");
+        var handler = MakeHandler(reader.Object);
+        var pipeline = MakePipeline();
+        WithTwoContexts(pipeline);
+        var context = new LoadCodingPrinciplesContext(".agentsmith/principles.md", new Repository(new BranchName("main"), "https://example.com"), pipeline);
+
+        var result = await handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var rules = pipeline.Get<string>(ContextKeys.DomainRules);
+        rules.Should().Contain("## Context: backend (workdir: backend)")
+            .And.Contain("# Backend rules")
+            .And.Contain("## Context: frontend (workdir: frontend)")
+            .And.Contain("# Frontend rules");
+        rules.IndexOf("# Backend rules", StringComparison.Ordinal).Should()
+            .BeLessThan(rules.IndexOf("# Frontend rules", StringComparison.Ordinal), "sandbox context order is kept");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_TwoContextsButAFlatFile_LoadsTheFlatFileForTheSandbox()
+    {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.ExistsAsync("/work/.agentsmith/principles.md", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        reader.Setup(r => r.ReadRequiredAsync("/work/.agentsmith/principles.md", It.IsAny<CancellationToken>())).ReturnsAsync("# Repo rules");
+        var handler = MakeHandler(reader.Object);
+        var pipeline = MakePipeline();
+        WithTwoContexts(pipeline);
+        var context = new LoadCodingPrinciplesContext(".agentsmith/principles.md", new Repository(new BranchName("main"), "https://example.com"), pipeline);
+
+        await handler.ExecuteAsync(context, CancellationToken.None);
+
+        pipeline.Get<string>(ContextKeys.DomainRules).Should().Be("# Repo rules",
+            "the pre-contexts flat file speaks for the whole sandbox, unlabelled");
+    }
+
+    private static void ServeNested(Mock<ISandboxFileReader> reader, string contextName, string content)
+    {
+        var path = $"/work/.agentsmith/contexts/{contextName}/principles.md";
+        reader.Setup(r => r.TryReadAsync(path, It.IsAny<CancellationToken>())).ReturnsAsync(content);
+    }
+
+    private static void WithTwoContexts(PipelineContext pipeline)
+    {
+        var backend = new RemoteContextDiscovery("backend", "backend", "typescript");
+        var frontend = new RemoteContextDiscovery("frontend", "frontend", "typescript");
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries,
+            new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal) { ["default"] = backend });
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+            ContextKeys.SandboxContexts,
+            new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal)
+            {
+                ["default"] = [backend, frontend],
+            });
+    }
+
     private static LoadCodingPrinciplesHandler MakeHandler(ISandboxFileReader reader)
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
         return new LoadCodingPrinciplesHandler(
             factory.Object,
+            new ContextDocumentReader(factory.Object),
             new NoOpSystemEventPublisher(),
             new AsyncLocalRunContextAccessor(),
             new SandboxTargets(), NullLogger<LoadCodingPrinciplesHandler>.Instance);
