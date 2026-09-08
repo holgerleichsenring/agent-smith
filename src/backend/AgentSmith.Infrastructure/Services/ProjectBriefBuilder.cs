@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using YamlDotNet.Serialization;
@@ -7,10 +8,10 @@ using YamlDotNet.Serialization;
 namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
-/// Renders a compact, LLM-friendly project brief from the loaded
-/// .agentsmith/ artifacts. Drops state.done / behavior / integrations
-/// from context.yaml — those describe phase history and runtime
-/// triggers, not the code under review.
+/// Renders a compact, LLM-friendly project brief from the loaded .agentsmith/ artifacts.
+/// Drops state.done / behavior / integrations from context.yaml — phase history and runtime
+/// triggers, not the code under review. 2026-09-04-cf3d: reads the typed context.yaml list,
+/// one parsed block per context — a labelled concatenation is not a YAML document.
 /// </summary>
 public sealed class ProjectBriefBuilder : IProjectBriefBuilder
 {
@@ -23,18 +24,24 @@ public sealed class ProjectBriefBuilder : IProjectBriefBuilder
 
     public string Build(PipelineContext pipeline)
     {
-        var contextYaml = pipeline.TryGet<string>(ContextKeys.ProjectContext, out var c) ? c : null;
+        var documents = pipeline.TryGet<IReadOnlyList<ContextDocument>>(
+            ContextKeys.RepoContextYamls, out var c) ? c : null;
         // p0384: the per-repo dictionary is the only code-map surface.
         var repoCodeMaps = pipeline.TryGet<IReadOnlyDictionary<string, string>>(
             ContextKeys.RepoCodeMaps, out var m) ? m : null;
         var codingPrinciples = pipeline.TryGet<string>(ContextKeys.DomainRules, out var d) ? d : null;
 
-        if (contextYaml is null && (repoCodeMaps is null || repoCodeMaps.Count == 0) && codingPrinciples is null)
+        if ((documents is null || documents.Count == 0)
+            && (repoCodeMaps is null || repoCodeMaps.Count == 0) && codingPrinciples is null)
             return "## Project Brief\nStack: unknown — review on source-snippets only.";
 
         var sb = new StringBuilder();
         sb.AppendLine("## Project Brief");
-        AppendContext(sb, contextYaml);
+        foreach (var document in documents ?? [])
+        {
+            if (documents!.Count > 1) sb.AppendLine().Append("### context — ").AppendLine(document.ContextName ?? document.SandboxKey);
+            AppendContext(sb, document.Content);
+        }
         AppendCodeMaps(sb, repoCodeMaps);
         AppendCodingPrinciples(sb, codingPrinciples);
         return sb.ToString().TrimEnd();
@@ -91,15 +98,9 @@ public sealed class ProjectBriefBuilder : IProjectBriefBuilder
             case Dictionary<object, object?> dict:
                 foreach (var (k, v) in dict)
                 {
-                    if (IsScalar(v))
-                    {
-                        sb.AppendLine($"{pad}- {k}: {v}");
-                    }
-                    else
-                    {
-                        sb.AppendLine($"{pad}- {k}:");
-                        RenderNode(sb, v, indent + 1);
-                    }
+                    if (IsScalar(v)) { sb.AppendLine($"{pad}- {k}: {v}"); continue; }
+                    sb.AppendLine($"{pad}- {k}:");
+                    RenderNode(sb, v, indent + 1);
                 }
                 break;
             case List<object?> list:
