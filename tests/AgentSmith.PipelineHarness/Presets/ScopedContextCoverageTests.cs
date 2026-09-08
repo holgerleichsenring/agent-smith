@@ -1,12 +1,10 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.PipelineHarness.Composition;
-using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -129,50 +127,6 @@ public sealed class ScopedContextCoverageTests
             services.RemoveAll<ITicketProviderFactory>();
             services.AddSingleton<ITicketProviderFactory>(new RecordingTicketProviderFactory(tickets));
             services.RemoveAll<ISourceProviderFactory>();
-            services.AddSingleton<ISourceProviderFactory>(new TwoContextSourceProviderFactory());
+            services.AddSingleton<ISourceProviderFactory>(new MultiContextSourceProviderFactory(["frontend", "backend"]));
         });
-
-    /// <summary>The stub repository with two contexts instead of one — run 8688's shape.</summary>
-    private sealed class TwoContextSourceProviderFactory : ISourceProviderFactory
-    {
-        public ISourceProvider Create(RepoConnection config) => new TwoContextSourceProvider();
-    }
-
-    private sealed class TwoContextSourceProvider : ISourceProvider
-    {
-        private readonly ISourceProvider _inner = new StubSourceProviderFactory().Create(new RepoConnection());
-
-        public string ProviderType => _inner.ProviderType;
-
-        public Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
-            path == ".agentsmith/contexts"
-                ? Task.FromResult<IReadOnlyList<string>>(["frontend", "backend"])
-                : _inner.ListDirectoryAsync(path, cancellationToken);
-
-        public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) => _inner.ProbeAsync(cancellationToken);
-
-        public Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken) =>
-            _inner.CheckoutAsync(branch, cancellationToken);
-
-        public Task<string> CreatePullRequestAsync(
-            Repository repository, string title, string description,
-            CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
-            _inner.CreatePullRequestAsync(repository, title, description, cancellationToken, linkedTicketId, isDraft);
-
-        public Task<string?> FindOpenPullRequestAsync(Repository repository, CancellationToken cancellationToken) =>
-            _inner.FindOpenPullRequestAsync(repository, cancellationToken);
-
-        public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
-            _inner.TryReadFileAsync(path, cancellationToken);
-
-        public Task<bool> UpdatePullRequestBodyAsync(string prUrl, string newBody, CancellationToken cancellationToken) =>
-            _inner.UpdatePullRequestBodyAsync(prUrl, newBody, cancellationToken);
-
-        public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
-            _inner.MarkPullRequestReadyAsync(prUrl, cancellationToken);
-
-        public Task<PullRequestCompletion> CompletePullRequestAsync(
-            string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
-            _inner.CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
-    }
 }

@@ -84,15 +84,15 @@ public static partial class ContextKeys
     /// analysis block per entry so a multi-repo plan sees every scoped repo.</summary>
     public const string RepoCodeMaps = "RepoCodeMaps";
 
-    /// <summary>p0158f: dictionary keyed by repo name with each repo's loaded
-    /// `.agentsmith/context.yaml` content. Legacy ContextKeys.ProjectContext stays
-    /// as the primary repo's YAML for back-compat.</summary>
+    /// <summary>p0158f; 2026-09-04-cf3d: the list of ContextDocument — one context.yaml per
+    /// context of every sandbox, in sandbox context order. Legacy ContextKeys.ProjectContext
+    /// stays as the primary sandbox's documents rendered and labelled (verbatim for one).</summary>
     public const string RepoContextYamls = "RepoContextYamls";
 
-    /// <summary>p0158f: dictionary keyed by repo name with each repo's loaded
-    /// `.agentsmith/principles.md` content. Legacy ContextKeys.CodingPrinciples
-    /// stays as a single aggregated string (per-repo headers concatenated) for
-    /// AgenticExecute back-compat.</summary>
+    /// <summary>p0158f; 2026-09-04-cf3d: the list of ContextDocument — one principles.md per
+    /// context of every sandbox (or the sandbox's flat file). Legacy ContextKeys.CodingPrinciples
+    /// stays as the single rendered string the prompts bind, labelled per context and sandbox
+    /// when there is more than one document.</summary>
     public const string RepoCodingPrinciples = "RepoCodingPrinciples";
 
     /// <summary>p0158f: comma-separated list of repo names whose bootstrap files are
