@@ -36,12 +36,18 @@ namespace AgentSmith.Application.Services.Handlers;
 /// single-repo return, and ScopeRefusalRecorder ends the run at the hand-back step —
 /// no sandbox, no staged credential, no model call with tools.
 /// </para>
+/// <para>
+/// 2026-09-08-1830: the contexts the reply NAMES are recorded on every ticketed run,
+/// single-repo included, as the claim the derivation's cut is held against. Naming is
+/// not narrowing: a single-repo run still scopes nothing.
+/// </para>
 /// </summary>
 public sealed class ScopeReposHandler(
     RemoteContextInventoryBuilder inventoryBuilder,
     RepoScopeClassifier classifier,
     ScopeEstimateRecorder estimates,
     ScopeRefusalRecorder refusals,
+    ScopeNamedContextsRecorder namedContexts,
     ILogger<ScopeReposHandler> logger)
     : ICommandHandler<ScopeReposContext>
 {
@@ -68,8 +74,11 @@ public sealed class ScopeReposHandler(
         // p0413a: an operator's --repo override (or a one-repo project) already decided
         // WHICH repositories — the estimate is what was missing, and it is now recorded.
         if (repos.Count <= 1)
+        {
+            namedContexts.Record(pipeline, reply.Classification, repos, inventory);
             return CommandResult.Ok(
                 "Repo scoping skipped: single-repo run (one configured repo or --repo override)");
+        }
         var (scoped, record, expectedChanges) =
             RepoScopeEvaluator.Evaluate(reply.Classification, reply.Error, repos);
 
@@ -89,6 +98,7 @@ public sealed class ScopeReposHandler(
         // p0336b: narrow CONTEXTS within the kept repos (a whole sandbox each),
         // one level below repo-scoping — same conservative keep-all fallback.
         ApplyContextScope(pipeline, reply.Classification, reply.Error, scoped ?? repos, inventory);
+        namedContexts.Record(pipeline, reply.Classification, scoped ?? repos, inventory);
         return CommandResult.Ok(record);
     }
 

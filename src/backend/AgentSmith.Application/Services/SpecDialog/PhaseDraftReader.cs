@@ -29,6 +29,8 @@ public sealed class PhaseDraftReader
             // absent on every spec written before the derivation could look.
             Facts = ReadFacts(map),
             Assumptions = ReadStrings(map, "assumptions"),
+            // 2026-09-08-1830: the contexts the phase declares it changes.
+            Contexts = ReadStrings(map, "contexts"),
         };
     }
 

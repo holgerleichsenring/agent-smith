@@ -263,6 +263,36 @@ public sealed class ScopeReposHandlerTests
     }
 
     [Fact]
+    public async Task ScopeRepos_SingleRepoRun_RecordsTheNamedContexts()
+    {
+        // 2026-09-08-1830: run 8688's shape — one repository, two contexts, both named,
+        // nothing narrowed. The claim is recorded before the single-repo return, and
+        // scoping still stays out of it.
+        _resolverMock
+            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                new RemoteContextDiscovery("frontend", "frontend", "node"),
+                new RemoteContextDiscovery("backend", "backend", "node"),
+            });
+        var pipeline = NewPipeline("app");
+        var handler = Handler(
+            """
+            {"repos": [{"name": "app", "affected": true, "confidence": 0.95}],
+             "contexts": {"app": ["frontend", "backend"]},
+             "rationale": "both the frontend and backend contexts need dependency auditing"}
+            """);
+
+        var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        result.Message.Should().Contain("skipped");
+        var named = pipeline.Get<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts);
+        named.Contexts.Should().Equal("frontend", "backend");
+        named.Rationale.Should().Contain("dependency auditing");
+        pipeline.Has(ContextKeys.ScopedContexts).Should().BeFalse("naming is not narrowing");
+    }
+
+    [Fact]
     public async Task Estimate_MultiRepoRun_StillSpendsOneCall()
     {
         // p0413a: scoping and estimating are one question asked once. A run that does
@@ -325,6 +355,7 @@ public sealed class ScopeReposHandlerTests
                 AgentSmithConfig.Empty(), events.Object,
                 NullLogger<ScopeEstimateRecorder>.Instance),
             new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
+            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance),
             NullLogger<ScopeReposHandler>.Instance);
     }
 

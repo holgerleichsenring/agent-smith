@@ -17,7 +17,8 @@ public static class SpecAccountingBuilder
     public static SpecAccounting Build(
         IReadOnlyList<SpecPhase> phases,
         IReadOnlyList<DiscardedSegment> discarded,
-        IReadOnlyList<TicketSegment> segments)
+        IReadOnlyList<TicketSegment> segments,
+        IReadOnlyList<DiscardedContext>? discardedContexts = null)
     {
         var carried = phases
             .SelectMany(p => p.CarriedSegments.Select(id => new CarriedSegment(id, p.PhaseId)))
@@ -36,7 +37,8 @@ public static class SpecAccountingBuilder
             carried,
             [.. discarded.Where(d => d.Reason.Length > 0 && segments.Any(s => s.Id == d.SegmentId))
                 .OrderBy(d => d.SegmentId)],
-            unaccounted);
+            unaccounted,
+            discardedContexts);
     }
 
     /// <summary>
@@ -62,6 +64,8 @@ public static class SpecAccountingBuilder
         foreach (var group in accounting.Carried.GroupBy(c => c.PhaseId))
             sb.Append("- **").Append(group.Key).Append("**: segment(s) ")
                 .Append(string.Join(", ", group.Select(c => c.SegmentId))).Append('\n');
+        if (accounting.DiscardedContexts.Count > 0)
+            sb.Append("\n## Contexts left out\n\n").Append(RenderDiscardedContexts(accounting)).Append('\n');
 
         if (!accounting.IsComplete)
             sb.Append("\n## Unaccounted\n\nsegment(s) ")
@@ -80,6 +84,10 @@ public static class SpecAccountingBuilder
         return string.Join("\n", accounting.Discarded
             .Select(d => $"- segment {d.SegmentId}: {d.Reason}"));
     }
+
+    /// <summary>2026-09-08-1830: the named contexts the cut left out, with their reasons.</summary>
+    public static string RenderDiscardedContexts(SpecAccounting accounting) =>
+        string.Join("\n", accounting.DiscardedContexts.Select(d => $"- {d.Context}: {d.Reason}"));
 
     private static string FirstLine(IReadOnlyList<TicketSegment> segments, int id)
     {

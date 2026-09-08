@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-02T05:20:26.823047+00:00",
+  "generated_at": "2026-09-08T06:49:36.213945+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,7 +9,7 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: no security scheme declared \u2014 endpoint is unauthenticated and returns Member PII including contactEmail and role",
+      "finding_headline": "GET /members/{id}: no security scheme declared \u2014 the endpoint is fully unauthenticated despite returning a Member record containing role and contactEmail",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
@@ -20,8 +20,8 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders: caller-supplied memberId query parameter \u2014 if not verified against the token subject, any member can enumerate another member\u0027s orders (BOLA)",
-      "highest_severity": "Medium",
+      "finding_headline": "GET /orders: BOLA \u2014 memberId is a freely-supplied query parameter with no spec-stated binding to the bearer identity, allowing any authenticated member to enumerate another member\u0027s orders",
+      "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: caller-supplied orderId with no visible ownership check \u2014 authenticated member may create invoices against orders they do not own",
+      "finding_headline": "POST /invoices: BOLA \u2014 orderId is freely supplied in the request body with no stated ownership check, allowing an authenticated member to create invoices against another member\u0027s orders",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,7 +42,7 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: no privilege tier declared \u2014 any authenticated member bearer can set any member\u0027s role, including privilege escalation",
+      "finding_headline": "PUT /members/{id}/role: BFLA \u002B BOLA \u2014 any authenticated member (not just admins) can set the role of any arbitrary member by supplying an arbitrary {id}",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,

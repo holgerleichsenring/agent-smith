@@ -46,6 +46,29 @@ public sealed class SpecSetTicketCommenterTests
         body.Should().Contain("https://example.test/pr/1");
     }
 
+    // 2026-09-08-1830: the author sees which contexts each phase changes and which named
+    // context the cut left out, with the reason — the part run 8688's author never saw.
+    [Fact]
+    public void Comment_TheDerivationTimeComment_CarriesContextsAndTheOnesLeftOut()
+    {
+        var set = Set(contexts: "\"contexts\": [\"frontend\"],",
+            discardedContexts: """[{"context": "backend", "reason": "the audit flags nothing there"}]""");
+
+        var body = SpecSetComment.Render(set, null);
+
+        body.Should().Contain("**Contexts:** frontend");
+        body.Should().Contain("## Contexts left out").And.Contain("- backend: the audit flags nothing there");
+        body.Should().Contain("## Discarded from the ticket", "the segment block stays");
+    }
+
+    [Fact]
+    public void Comment_ACutDeclaringNoContexts_RendersNoContextsBlock()
+    {
+        var body = SpecSetComment.Render(Set(), null);
+
+        body.Should().NotContain("Contexts left out").And.NotContain("**Contexts:**");
+    }
+
     [Fact]
     public async Task Comment_IsPostedToTheTicket_WithTheRenderedBody()
     {
@@ -66,18 +89,20 @@ public sealed class SpecSetTicketCommenterTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    private static SpecSet Set()
+    private static SpecSet Set(string contexts = "", string discardedContexts = "[]")
     {
         var segments = TicketSegmenter.Segment(Ticket);
         var reply = $$$"""
             {"phases": [
                {"slug": "raise-the-floors", "goal": "Raise the direct package floors the audit names",
+                {{{contexts}}}
                 "steps": [{"id": "raise", "action": "Raise the versions"}],
                 "done": ["The manifests carry versions the audit no longer flags.", "The build exits 0."],
                 "carries": [{{{segments[0].Id}}}],
                 "facts": [{"claim": "one direct package is affected", "cites": "L1"},
                           {"claim": "every other finding is transitive", "cites": ""}] }],
              "discarded": [{"segment": {{{segments[^1].Id}}}, "reason": "a sign-off"}],
+             "discarded_contexts": {{{discardedContexts}}},
              "ignored_instructions": [],
              "handback": {"case": "none", "reason": ""}}
             """;

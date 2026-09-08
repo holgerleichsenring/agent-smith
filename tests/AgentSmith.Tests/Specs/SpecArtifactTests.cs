@@ -124,6 +124,25 @@ public sealed class SpecArtifactTests
         read.TakenReading.Should().Be("everywhere");
     }
 
+    // 2026-09-08-1830: the contexts the cut left out survive the branch, so the ticket
+    // comment and the next run read the reason instead of re-asking.
+    [Fact]
+    public void SpecSetIndex_RoundTripsTheDiscardedContexts()
+    {
+        var accounting = TwoPhaseSet().Accounting with
+        {
+            DiscardedContexts = [new DiscardedContext("backend", "the audit flags nothing there")],
+        };
+        var set = TwoPhaseSet() with { Accounting = accounting };
+
+        var index = new SpecSetIndex();
+        var read = index.AccountingOf(index.Parse(index.Serialize(set))!);
+
+        read.DiscardedContexts.Should().ContainSingle()
+            .Which.Should().Be(new DiscardedContext("backend", "the audit flags nothing there"));
+        read.Discarded.Should().ContainSingle("the segment accounting is untouched");
+    }
+
     [Fact]
     public void SpecSetKey_IsProviderAndTicketId_SoMergedSpecsCoexistInTheTrunk()
     {
