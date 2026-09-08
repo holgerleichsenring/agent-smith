@@ -127,6 +127,31 @@ public sealed class SpecDerivationTests
         parsed.Derivation.Set.Accounting.Unaccounted.Should().Contain(segments[^1].Id);
     }
 
+    // 2026-09-08-1830: a phase names the contexts it changes and the cut names the ones it
+    // leaves out; both are read out of the reply, rendered into the record, and read back
+    // through the same reader — while the verbatim companion stays the ticket's own bytes.
+    [Fact]
+    public void DeriveSpec_PhaseContextsAndDiscardedContexts_RoundTripThroughRecordAndIndex()
+    {
+        var segments = TicketSegmenter.Segment(MigrationTicket);
+        var reply = TwoPhaseReply(segments)
+            .Replace("\"slug\": \"rename-the-clients\",", "\"slug\": \"rename-the-clients\", \"contexts\": [\"backend\", \"frontend\"],")
+            .Replace("\"discarded\": [", "\"discarded_contexts\": [{\"context\": \"worker\", \"reason\": \"no client there\"}], \"discarded\": [");
+
+        var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+
+        parsed.Error.Should().BeNull();
+        var set = parsed.Derivation!.Set;
+        set.Phases[0].Draft.Contexts.Should().Equal("backend", "frontend");
+        set.Phases[0].Draft.Yaml.Should().Contain("contexts:").And.Contain("- backend");
+        set.Phases[1].Draft.Contexts.Should().BeEmpty("a phase that declares none has none");
+        set.Phases[1].Draft.Yaml.Should().NotContain("contexts:");
+        set.Accounting.DiscardedContexts.Should().ContainSingle()
+            .Which.Should().Be(new DiscardedContext("worker", "no client there"));
+        set.Phases[0].Markdown.Should().NotContain("backend", "the companion carries the ticket's bytes only");
+        new PhaseDraftReader().Read(set.Phases[0].Draft.Yaml).Contexts.Should().Equal("backend", "frontend");
+    }
+
     [Fact]
     public void DeriveSpec_NotImplementable_ProducesAHandbackAndNoPhases()
     {

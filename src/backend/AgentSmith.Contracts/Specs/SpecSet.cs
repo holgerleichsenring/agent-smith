@@ -33,6 +33,14 @@ public sealed record SpecSet(
         [.. Phases.Where(p => !Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
 
     /// <summary>
+    /// The executed phases in their original order. Only a CONTIGUOUS head can be
+    /// preserved by position, which is what the append-only rule already implies: the
+    /// sequence executes in order, so anything executed is a prefix of it.
+    /// </summary>
+    public IReadOnlyList<SpecPhase> ExecutedHead =>
+        [.. Phases.TakeWhile(p => Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
+
+    /// <summary>
     /// Cap on the phases one ticket may split into. The pipeline executor allows a
     /// bounded number of command executions per run and each phase splices its own
     /// plan/master/verify block; beyond this cap a ticket is a programme and belongs

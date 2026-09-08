@@ -1,5 +1,7 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -19,12 +21,13 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// A cut that fails validation is rejected BACK to the model with the reason —
 /// bounded retries, then the step reports the failure and the caller falls back to
-/// the shape that is known to work.
+/// the shape that is known to work. 2026-09-07-b7e2: before it writes, the derivation
+/// may LOOK through the named read-only tools one host offers across every attempt.
 /// </para>
 /// <para>
-/// 2026-09-07-b7e2: before it writes, the derivation may LOOK — through the named
-/// read-only tools one host offers across every attempt, so a retry sees the looks
-/// already taken and the evidence ids it may cite.
+/// 2026-09-08-1830: a deliverable cut that covers fewer contexts than the scope call
+/// named is pinned back once — one extra attempt with the first cut and the looks in
+/// view — and a gap that survives the pin becomes a question for the author.
 /// </para>
 /// </summary>
 public sealed class SpecSetDeriver(
@@ -33,6 +36,7 @@ public sealed class SpecSetDeriver(
     DerivationLookFactory looks,
     IPromptCatalog prompts,
     SpecDerivationParser parser,
+    ScopedContextCoverage coverage,
     ILogger<SpecSetDeriver> logger) : ISpecSetDeriver
 {
     /// <summary>Name of the pinned master skill carrying the judgement prompt.</summary>
@@ -47,6 +51,7 @@ public sealed class SpecSetDeriver(
         ArgumentNullException.ThrowIfNull(ticket);
         var key = previous?.Key ?? SpecSetKeyFactory.For(ticket, pipeline).Value;
         var look = looks.Create(pipeline);
+        var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, RenderSystemPrompt()),
@@ -57,7 +62,8 @@ public sealed class SpecSetDeriver(
 
         string? lastError = null;
         var kept = new LeastObjectedCut();
-        for (var attempt = 1; attempt <= MaxAttempts; attempt++)
+        var pinned = false;
+        for (var attempt = 1; attempt <= MaxAttempts + (pinned ? 1 : 0); attempt++)
         {
             var response = await call.AskAsync(
                 agentConfig, pipeline, messages, DerivationTools.For(look), cancellationToken);
@@ -66,45 +72,40 @@ public sealed class SpecSetDeriver(
             var parsed = parser.Parse(
                 response.Text, key, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
-                ExecutedHeadOf(previous), look?.Evidence.Lines);
-            if (parsed.Derivation is not null)
+                previous?.ExecutedHead, look?.Evidence.Lines);
+            if (parsed.Derivation is null)
             {
-                // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut
-                // can be DELIVERED. Ticket 19106 passed every shape rule and still carried a
-                // phase demanding both "no production source is modified" and "the old
-                // library appears nowhere" — the master spent two hours before noticing.
-                // Rejected here, the deriver answers instead of a run finding out.
-                var review = await reviewer.ReviewAsync(
-                    parsed.Derivation.Set, ticket.Description ?? string.Empty,
-                    agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
-                if (review.Deliverable) return (parsed.Derivation, null);
-                kept.Offer(parsed.Derivation, review);
-                lastError = SpecCutRejection.For(review);
-                logger.LogWarning(
-                    "Spec cut attempt {Attempt}/{Max} is not deliverable: {Error}",
-                    attempt, MaxAttempts, lastError);
-                messages.Add(new ChatMessage(ChatRole.User,
-                    $"Your cut cannot be delivered:\n{lastError}\nRespond again with ONLY the corrected JSON object."));
+                lastError = parsed.Error;
+                logger.LogWarning("Spec derivation attempt {Attempt} rejected: {Error}", attempt, parsed.Error);
+                messages.Add(Again("Your cut was rejected", parsed.Error));
                 continue;
             }
-            lastError = parsed.Error;
-            logger.LogWarning(
-                "Spec derivation attempt {Attempt}/{Max} rejected: {Error}",
-                attempt, MaxAttempts, parsed.Error);
+            // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut can
+            // be DELIVERED. Rejected here, the deriver answers instead of a run finding out.
+            var review = await reviewer.ReviewAsync(
+                parsed.Derivation.Set, ticket.Description ?? string.Empty,
+                agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
+            if (!review.Deliverable)
+            {
+                kept.Offer(parsed.Derivation, review);
+                lastError = SpecCutRejection.For(review);
+                logger.LogWarning("Spec cut attempt {Attempt} is not deliverable: {Error}", attempt, lastError);
+                messages.Add(Again("Your cut cannot be delivered", lastError));
+                continue;
+            }
+            var gap = coverage.Gap(named, parsed.Derivation.Set);
+            if (gap.Count == 0) return (parsed.Derivation, null);
+            if (pinned) return (ScopedContextQuestion.For(parsed.Derivation, gap, named!), null);
+            pinned = true;
+            logger.LogWarning("Spec cut leaves named context(s) {Gap} uncovered — pinned once", string.Join(", ", gap));
             messages.Add(new ChatMessage(ChatRole.User,
-                $"Your cut was rejected:\n{parsed.Error}\nRespond again with ONLY the corrected JSON object."));
+                ScopedContextGapPromptSection.Render(gap, ScopedContextCoverage.Carried(parsed.Derivation.Set))));
         }
         return (kept.Best, lastError);
     }
 
-    // The executed phases in their original order. Only a CONTIGUOUS head can be
-    // preserved by position, which is what the append-only rule already implies: the
-    // sequence executes in order, so anything executed is a prefix of it.
-    private static IReadOnlyList<SpecPhase> ExecutedHeadOf(SpecSet? previous) =>
-        previous is null
-            ? []
-            : [.. previous.Phases.TakeWhile(
-                p => previous.Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
+    private static ChatMessage Again(string verdict, string? error) =>
+        new(ChatRole.User, $"{verdict}:\n{error}\nRespond again with ONLY the corrected JSON object.");
 
     private string RenderSystemPrompt() => prompts.Render(SkillName, new Dictionary<string, string>
     {

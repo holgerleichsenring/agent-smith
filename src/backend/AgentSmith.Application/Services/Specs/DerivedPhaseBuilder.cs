@@ -59,7 +59,7 @@ public sealed class DerivedPhaseBuilder(
             // it, because the repository it edits is the previous phase's output.
             previous.Count > 0 ? [previous[^1].PhaseId] : [],
             ReadSteps(element), done, $"{phaseId}-{slug}.md", carried, ticketId,
-            factResolver.Resolve(envelope.Facts(element), evidence));
+            factResolver.Resolve(envelope.Facts(element), evidence), envelope.Contexts(element));
 
     private static List<int> CarriedBy(JsonElement element, IReadOnlyList<TicketSegment> segments) =>
         SpecJsonReader.ReadInts(element, "carries")

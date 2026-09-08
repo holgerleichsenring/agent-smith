@@ -46,6 +46,8 @@ public sealed class SpecSetIndex
             Discarded = [.. set.Accounting.Discarded.Select(
                 d => new SpecSetDiscardedEntry { Segment = d.SegmentId, Reason = d.Reason })],
             Unaccounted = [.. set.Accounting.Unaccounted],
+            DiscardedContexts = [.. set.Accounting.DiscardedContexts.Select(
+                d => new SpecSetDiscardedContextEntry { Context = d.Context, Reason = d.Reason })],
             HandbackCase = set.Handback?.Case.ToString(),
             HandbackReason = set.Handback?.Reason,
             HandbackReadings = [.. set.Handback?.Readings ?? []],
@@ -64,7 +66,8 @@ public sealed class SpecSetIndex
     public SpecAccounting AccountingOf(SpecSetIndexDocument doc) => new(
         [.. doc.Carried.Select(c => new CarriedSegment(c.Segment, c.Phase))],
         [.. doc.Discarded.Select(d => new DiscardedSegment(d.Segment, d.Reason))],
-        [.. doc.Unaccounted]);
+        [.. doc.Unaccounted],
+        [.. doc.DiscardedContexts.Select(d => new DiscardedContext(d.Context, d.Reason))]);
 
     public IReadOnlyList<SpecRevision> RevisionsOf(SpecSetIndexDocument doc) =>
         doc.Revisions.Count == 0

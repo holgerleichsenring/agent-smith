@@ -41,6 +41,14 @@ public sealed record PhaseDraft(
     /// spec's <c>assumptions</c> key.
     /// </summary>
     public IReadOnlyList<string> Assumptions { get; init; } = [];
+
+    /// <summary>
+    /// 2026-09-08-1830: the contexts this phase CHANGES, as the derivation declared them
+    /// from the list the scope call named. Read from the spec's <c>contexts</c> key; empty
+    /// on a spec written before phases named their contexts, which leaves the coverage
+    /// check off.
+    /// </summary>
+    public IReadOnlyList<string> Contexts { get; init; } = [];
 }
 
 /// <summary>

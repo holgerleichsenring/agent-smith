@@ -82,6 +82,7 @@ public sealed class SpecCutSurvivesReviewTests
             DerivationTestLooks.Factory(),
             new FixedPrompt(),
             DerivationTestParsers.Real(),
+            new ScopedContextCoverage(),
             NullLogger<SpecSetDeriver>.Instance);
 
         var ticket = new Ticket(

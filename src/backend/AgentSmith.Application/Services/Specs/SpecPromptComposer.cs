@@ -35,6 +35,7 @@ internal static class SpecPromptComposer
         AppendAttachments(sb, pipeline);
         AppendCodeMaps(sb, pipeline);
         AppendWorkShape(sb, pipeline);
+        AppendNamedContexts(sb, pipeline);
         AppendQuestionPin(sb, pipeline);
         sb.Append(PreviousCutPromptSection.Render(previous, cause));
         return sb.ToString();
@@ -47,6 +48,15 @@ internal static class SpecPromptComposer
     {
         var shape = pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var s) ? s : null;
         var rendered = WorkShapePromptSection.Render(shape);
+        if (rendered.Length > 0) sb.AppendLine(rendered);
+    }
+
+    // 2026-09-08-1830: the contexts the scope call named — the list every phase declares
+    // its own against. Absent renders nothing.
+    private static void AppendNamedContexts(StringBuilder sb, PipelineContext pipeline)
+    {
+        var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
+        var rendered = ScopeNamedContextsPromptSection.Render(named);
         if (rendered.Length > 0) sb.AppendLine(rendered);
     }
 

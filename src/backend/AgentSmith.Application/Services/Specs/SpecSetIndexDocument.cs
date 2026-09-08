@@ -29,6 +29,7 @@ public sealed class SpecSetIndexDocument
     public List<SpecSetCarriedEntry> Carried { get; set; } = [];
     public List<SpecSetDiscardedEntry> Discarded { get; set; } = [];
     public List<int> Unaccounted { get; set; } = [];
+    public List<SpecSetDiscardedContextEntry> DiscardedContexts { get; set; } = [];
     public string? HandbackCase { get; set; }
     public string? HandbackReason { get; set; }
     public List<string> HandbackReadings { get; set; } = [];
@@ -51,5 +52,13 @@ public sealed class SpecSetCarriedEntry
 public sealed class SpecSetDiscardedEntry
 {
     public int Segment { get; set; }
+    public string Reason { get; set; } = string.Empty;
+}
+
+/// <summary>2026-09-08-1830: a named context the cut left out, so the next run and the
+/// ticket comment read the reason off the branch.</summary>
+public sealed class SpecSetDiscardedContextEntry
+{
+    public string Context { get; set; } = string.Empty;
     public string Reason { get; set; } = string.Empty;
 }

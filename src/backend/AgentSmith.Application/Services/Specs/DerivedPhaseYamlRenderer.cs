@@ -21,7 +21,8 @@ public sealed class DerivedPhaseYamlRenderer
         string markdownFileName,
         IReadOnlyList<int> carriedSegments,
         string ticketId,
-        PhaseFacts? facts = null)
+        PhaseFacts? facts = null,
+        IReadOnlyList<string>? contexts = null)
     {
         var document = new Dictionary<string, object?>
         {
@@ -63,6 +64,11 @@ public sealed class DerivedPhaseYamlRenderer
                 .ToList();
         if (facts is { Assumptions.Count: > 0 })
             document["assumptions"] = facts.Assumptions;
+        // 2026-09-08-1830: the contexts this phase changes, declared from the list the
+        // scope call named. Absent when the model named none, so an old catalog's cut
+        // renders as it did.
+        if (contexts is { Count: > 0 })
+            document["contexts"] = contexts;
 
         return _serializer.Serialize(document).TrimEnd() + "\n";
     }
