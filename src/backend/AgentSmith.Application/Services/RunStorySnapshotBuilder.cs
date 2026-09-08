@@ -61,8 +61,8 @@ public static class RunStorySnapshotBuilder
     /// </summary>
     public static string? BuildAcceptanceJson(
         RatifiedExpectation? expectation, MasterVerification? verification,
-        RunAccounts? accounts = null) =>
-        AcceptanceSnapshot.Build(expectation, verification, accounts);
+        RunAccounts? accounts = null, IReadOnlyList<DeclinedCriterion>? declined = null) =>
+        AcceptanceSnapshot.Build(expectation, verification, accounts, declined);
 
     private static string StatusOf(ProgressStatus status) => status switch
     {

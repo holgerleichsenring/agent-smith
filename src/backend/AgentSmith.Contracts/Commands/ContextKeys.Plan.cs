@@ -29,6 +29,11 @@ public static partial class ContextKeys
     /// keystone in CommitAndPRHandler to refuse success on an unverified/red run.</summary>
     public const string MasterVerification = "MasterVerification";
 
+    /// <summary>2026-09-06-3d81: every criterion the run's masters declined (a
+    /// <c>DeclinedCriteria</c>), kept per phase because the verdict above is overwritten by
+    /// each pass. Recorded by AgenticMasterHandler, rendered wherever the outcome is read.</summary>
+    public const string DeclinedCriteria = "DeclinedCriteria";
+
     /// <summary>p0267: the master loop's final answer text. Set by AgenticMasterHandler,
     /// read by CollectMasterFindingsHandler on the api-security path to scrape the
     /// master's triaged observation-array into SkillObservations.</summary>
