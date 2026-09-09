@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-6a77
+goal: "A fast-tier harness run reads only the ProjectMaps it produced: the map cache is per harness, so no test decides another test's verify commands and no run touches the operator's cache."
+
+applies_to: "backend (the PipelineHarness composition; DiskProjectMapStore is unchanged)"
+
+requires:
+  - p0182
+  - p0199
+
+scope:
+  in: "RealCompositionHarness registers a per-harness in-memory IProjectMapStore for EVERY tier, not only the docker tier — the fast tier has been running the production DiskProjectMapStore against the machine's cache root since p0182. The docker tier's NoOpProjectMapStore is deleted and replaced by the same store, so it now hits within one harness instead of always missing. One test proves the isolation: two harnesses over the same fixture, the first analysing with a map-less analyzer, the second with the stub, and the second sees its own stub's map."
+  out: "DiskProjectMapStore and its cache-key computation: the sharing is correct for a real run — a repository is one cache entry — and the harness has no business in that cache at all. The cacheKeyId being a bare context name ('default', 'primary'), which collides across REPOSITORIES in the operator's cache and is its own phase if the content hash ever stops separating them."
+
+decisions:
+  - key: |
+      THE FAST TIER WROTE INTO THE MACHINE'S CACHE, AND READ WHAT IT FOUND THERE.
+      DockerHarnessRegistrations.ReplaceProjectMapStore swaps in NoOpProjectMapStore; nothing
+      does so for the fast tier, so AnalyzeProjectHandler resolved the production
+      DiskProjectMapStore and wrote $XDG_CACHE_HOME/agentsmith/projects/<sha8(key)>/. The keys
+      are the fixture context names: sha8("default")=37a8eec1ce19687d, sha8("primary")=
+      986a1b7135f49861, sha8("secondary")=c0f69e19ba252767 — all three were written into the
+      operator's own ~/.cache/agentsmith by a plain `dotnet test` on this machine.
+  - key: |
+      ONE FIXTURE, ONE CONTENT HASH, SO THE FIRST MISS DECIDES FOR EVERY LATER TEST. Every
+      fast-tier preset builds over FixturePaths.Default with the same StubSandbox HEAD, so
+      ProjectMapCacheKey computes one hash for all of them and the store hits across tests. The
+      presets do NOT agree on an analyzer: HarnessProjectAnalyzerStub answers a csharp map with
+      'dotnet build'/'dotnet test', while the tests that leave the production ProjectAnalyzer in
+      place script it a bare "{}" — which parses into a ProjectMap with a null language and a
+      null ci. Whichever missed first won, and the stub is only ever consulted on a miss.
+  - key: |
+      THAT IS THE CI FAILURE, REPRODUCED. Run 34345964136 (release-please PR #612) failed eight
+      keystone assertions with "UNVERIFIED … nothing named a command for this 'unknown'
+      repository" — 'unknown' is VerifyResolutionNotes' rendering of a null PrimaryLanguage, and
+      the missing ci pair is VerifyStageResolver falling through to nothing. The same tree passed
+      on main (df18eaf4) minutes later, because the order went the other way. Against a cold
+      XDG_CACHE_HOME, FixBug_MasterReturnsZeroChanges_FailsKeystone followed by
+      FixBug_RealChangeAndGreenVerdict_PipelineGreen fails the second every time; the written
+      cache entry reads primary_language=unknown, build_command=null.
+  - key: |
+      THE HARNESS GETS ITS OWN STORE, NOT A NO-OP EVERYWHERE. The docker tier's NoOpProjectMapStore
+      answers every read with a miss, which is correct there and would be correct here — but a
+      per-harness in-memory store keeps the cache PATH exercised (one analyze per key per harness,
+      a hit on the second context of the same sandbox) while confining it to the run under test.
+      Cheaper to reason about than a temp-directory DiskProjectMapStore, and it cannot leave a
+      directory behind.
+
+steps:
+  - id: the-test-that-shows-the-crossing
+    action: "A harness test that builds two harnesses over the same fixture in sequence: the first with the production analyzer scripted to answer '{}', the second with HarnessProjectAnalyzerStub, and asserts the second run's verify stage ran the stub's build command. Red on main."
+  - id: the-store-moves-to-the-common-composition
+    action: "Move ReplaceProjectMapStore out of DockerHarnessRegistrations into RealCompositionHarness.Build so every tier gets it; back it with a per-harness in-memory store instead of the no-op."
+  - id: the-suite-proves-the-cache-is-untouched
+    action: "Run the full suite under a cold XDG_CACHE_HOME and assert the cache root holds no projects/ directory afterwards."
+
+tests:
+  - "MapCache_ASecondHarnessOverTheSameFixture_ReadsItsOwnAnalyzersMap"
+  - "MapStore_TwoHarnesses_ShareNothing"
+
+done:
+  - "every tier resolves a per-harness IProjectMapStore; the docker tier keeps its isolation and gains the within-harness hit"
+  - "the crossing test is red on main and green here"
+  - "a full `dotnet test` under a cold XDG_CACHE_HOME writes no agentsmith/projects entry"
+  - "build green, full suite green"
