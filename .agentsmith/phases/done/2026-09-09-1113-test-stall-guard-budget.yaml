@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-1113
+goal: "The stalled-client hang detector outlasts a saturated CI runner again: its budget is a deadlock bound, and 30s is inside the range the runner's own scheduling produces."
+
+applies_to: "backend (RunEventRouterTests)"
+
+requires:
+  - p0432
+
+scope:
+  in: "Broadcaster_OneStalledClient_DoesNotBlockOthers' WaitAsync budget goes back to 120s, with the measurement that forced it written next to the number. MasterAskHumanParkTests' bare BeTrue() gains the run message: it failed once under full-suite load and printed no reason, which is the same diagnosability gap one level down."
+  out: "The send bound under test (FanoutBackpressureOptions.SendTimeout, 50ms) and BackpressureSafeFanout itself — both are correct and neither is timing-flaky. The suite's saturation on a 4-core runner, which is what widens the tail: real, worth its own phase, and not fixable by one assertion."
+
+decisions:
+  - key: |
+      THE NUMBER WAS NARROWED ON A PREMISE THE RUNNER HAS SINCE FALSIFIED. p0423b widened this
+      wait to 120s; p0432 took it to 30s because "the burst that justified the widening is gone —
+      the suite migrates ONCE and copies". Two runs on 2026-09-09 tripped it: 34338495135 at 48s
+      and 34345964136 at 36s. Both exceed 30s, neither is a deadlock — the same logs show tests
+      that assert on strings taking 42s and a console-transport timeout test taking 41s, so the
+      scheduler, not the code under test, is what the wait measured.
+  - key: |
+      A HANG DETECTOR'S BUDGET IS BOUNDED BY DEADLOCK, NOT BY IMPATIENCE. The comment already
+      says it: "a hang-detector, not a timing claim … this only has to outlast a busy scheduler."
+      The cost of a budget too wide is that a genuine deadlock takes 120s to report, once. The
+      cost of one too narrow is a red suite on a green tree, repeatedly, on the release PR — and
+      it has now been paid twice in one day. 120s is restored rather than a new number invented,
+      because it is the value that was measured to work.
+
+steps:
+  - id: the-budget-is-restored-with-its-evidence
+    action: "Set the WaitAsync budget back to TimeSpan.FromSeconds(120) and replace the p0432 note with the two run timings that falsified it."
+
+tests:
+  - "Broadcaster_OneStalledClient_DoesNotBlockOthers"
+
+done:
+  - "the wait is 120s and the comment names the runs and durations that decided it"
+  - "build green, full suite green"
