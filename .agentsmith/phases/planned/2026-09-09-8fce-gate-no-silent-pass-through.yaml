@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-8fce
+goal: "A commit that names a phase is gated or says it was not: the marker reads several ids in one parenthesis, and a phase id in the subject with no marker is recorded and reported, not passed in silence."
+
+applies_to: "repo tooling (.claude/hooks/phase-gate.sh, its marker definition and its pass-through branches) plus a test file driving the gate over both"
+
+scope:
+  in: "The marker accepts a parenthesis carrying one id or several separated by commas or spaces, in either namespace; the ledger line names the first id of the marker, or the first id in the subject when no marker matched; a resolved message whose SUBJECT carries a phase id in the counter or date namespace but no marker the gate can read is recorded as not-gated and reported on stderr, instead of exiting zero in silence; tests drive the gate over the widened marker, over the subject-without-marker case, and over the messages that must stay silent."
+  out: "Blocking such a commit. The gate's contract is that a skip is never indistinguishable from a pass, not that every mention of a phase must be gated — a commit legitimately referencing an earlier phase ('revert the change from p0272') would otherwise be refused. Widening the counter-namespace shape used for the marker itself, which stays as it is. The three pass-throughs that already speak: a bare commit, an editor amend and a message built by a shell substitution. The `cd wt; git commit` resolver gap, which is fixed in the operator's own uncommitted work on commit-message.py and is not this phase's to commit."
+
+decisions:
+  - key: |
+      THE GAP WAS FOUND BY FALLING INTO IT. The commit carrying 72fd and 3d2a was written
+      "docs: … (2026-09-09-72fd, 2026-09-09-3d2a)". The marker is \((id)\), which requires the
+      closing parenthesis to follow the id, so two ids and a comma in one parenthesis matched
+      nothing. The gate concluded it was not a phase commit, ran no check, wrote no ledger line and
+      exited zero — a commit naming two phases went through unverified and looked exactly like a
+      clean pass. This is the fourth member of a family the script already documents: --amend
+      --no-edit, -F <file>, a shell-built message, and now a message the marker cannot parse.
+  - key: |
+      A LIST IS A MARKER; A MENTION IS NOT. Widening the marker to accept several ids in one
+      parenthesis costs nothing and matches how a commit that spans two phases is naturally
+      written. Widening it to any occurrence of an id would gate 'revert the change from p0272',
+      which is not a phase commit — so the mention case is not gated, it is REPORTED. Loud and
+      recorded, never silent, never blocked.
+  - key: |
+      THE WARNING USES A STRICTER ID SHAPE THAN THE MARKER, ON PURPOSE. The marker's counter shape
+      is p[0-9]+[a-z]? because forms like (p73a) exist and must keep gating. A warning built on
+      that shape would fire on 'p12' in ordinary prose, and a warning that cries wolf is a warning
+      people learn to scroll past. The detector therefore uses the shape CLAUDE.md actually
+      describes — four to six digits — so it speaks when a real phase id is in the subject and
+      stays quiet otherwise. Two definitions, each doing the job it is right for, with the
+      asymmetry written down where they are defined.
+  - key: |
+      THE SUBJECT, NOT THE WHOLE MESSAGE. A body routinely names other phases — a prerequisite, a
+      phase this one supersedes, the phase whose bug is being fixed. The marker's home is the
+      subject line, so that is where its absence is worth reporting. Scanning the body would make
+      the warning fire on most well-written phase commits.
+  - key: |
+      THE LEDGER LINE STILL NAMES A PHASE. record() reads the id out of the marker; with no marker
+      there was nothing to read and the line would say "unknown", which is the least useful thing
+      a ledger can say about the one case worth investigating. It falls back to the first id in the
+      subject, so the line names the phase whose commit was not gated.
+
+steps:
+  - id: the-marker-reads-a-list
+    action: "Split the id shape out of the marker and let the marker carry one id or several separated by commas or whitespace; record() takes the first id of the matched marker."
+  - id: a-named-phase-without-a-marker-speaks
+    action: "When the message resolves and no marker matches, and the subject carries a phase id in the strict counter or date shape, record not-gated with that id and report on stderr; every other unmarked message keeps exiting silently."
+  - id: both-are-tested
+    action: "A test file drives phase-gate.sh over a two-id marker, a space-separated marker, a subject naming a phase without a marker, and the messages that must stay silent, asserting the ledger line and stderr in each."
+
+tests:
+  - "Gate_MarkerCarryingTwoIdsSeparatedByAComma_IsGated"
+  - "Gate_MarkerCarryingTwoIdsSeparatedByASpace_IsGated"
+  - "Gate_MarkerCarryingTwoIds_RecordsTheFirstInTheLedger"
+  - "Gate_SubjectNamingAPhaseWithoutAMarker_IsRecordedAsNotGated"
+  - "Gate_SubjectNamingAPhaseWithoutAMarker_SaysSoOnStderr"
+  - "Gate_SubjectNamingAPhaseWithoutAMarker_NamesThePhaseInTheLedger"
+  - "Gate_BodyNamingAPhaseWithAMarkerlessSubject_StaysSilent"
+  - "Gate_AShortPLikeTokenInTheSubject_StaysSilent"
+  - "Gate_AMessageWithNoPhaseAnywhere_StaysSilent"
+  - "Gate_AMalformedDateMintedMarker_StaysSilent"
+
+done:
+  - "a commit whose message names two phases in one parenthesis is gated and leaves a passed or blocked ledger line"
+  - "a commit whose subject names a phase without a readable marker leaves a not-gated line naming that phase, and says so on stderr"
+  - "a commit with no phase in its subject still exits silently, including a malformed marker and a short p-like token"
+  - "the existing gate tests in test_commit_message.py still pass unchanged"
+  - "build green, full suite green"
