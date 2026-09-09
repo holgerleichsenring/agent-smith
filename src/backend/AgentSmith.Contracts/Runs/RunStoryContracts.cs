@@ -83,7 +83,9 @@ public sealed record AcceptanceView(
     IReadOnlyList<AcceptanceCriterionView> Criteria,
     string Outcome,
     string RatifiedBy,
-    string? Source = null);
+    string? Source = null,
+    // 2026-09-06-3d81: what the master declined, beside the rows the gate decided on.
+    IReadOnlyList<DeclinedCriterionView>? Declined = null);
 
 /// <param name="Citation">2026-08-25-7f5a: what the disposition was decided on — a path, a
 /// command, or a searched pattern. A verdict nobody can check is a verdict nobody checks.</param>

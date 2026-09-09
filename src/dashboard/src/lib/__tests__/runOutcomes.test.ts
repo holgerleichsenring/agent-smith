@@ -29,6 +29,7 @@ const RUNS = [
   run("f", "failed"),
   run("g", "cancelled"),
   run("h", null),
+  run("i", "shortfall"),
 ];
 
 describe("deriveRunOutcomes", () => {
@@ -45,10 +46,12 @@ describe("deriveRunOutcomes", () => {
   it("RunOutcomes_TheFinishedBucket_IsSplitByHowTheRunsEnded", () => {
     const outcomes = deriveRunOutcomes(RUNS);
     expect(outcomes.succeeded).toBe(2);
+    // p0439: a shortfall is a done of its own kind — counted as itself, never as failed.
+    expect(outcomes.shortfall).toBe(1);
     expect(outcomes.failed).toBe(1);
     expect(outcomes.cancelled).toBe(1);
     // The split accounts for the whole bucket and nothing else.
-    expect(outcomes.succeeded + outcomes.failed + outcomes.cancelled).toBe(outcomes.finished);
+    expect(outcomes.succeeded + outcomes.shortfall + outcomes.failed + outcomes.cancelled).toBe(outcomes.finished);
   });
 
   it("RunOutcomes_ARunWithNoStatus_IsInFlightNotFinished", () => {
@@ -68,6 +71,7 @@ describe("deriveRunOutcomes", () => {
       queued: 0,
       finished: 0,
       succeeded: 0,
+      shortfall: 0,
       failed: 0,
       cancelled: 0,
     });

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-06-9f14
+
+decisions:
+  - category: Architecture
+    chose: "The gate matches a disposition to a criterion by the text it names, and falls back to position PER DISPOSITION"
+    over: "An all-or-nothing rule (match by name only when every entry carries a usable name, else walk by index) or a pure by-name rule with no fallback"
+    reason: |
+      The deployed master writes the criterion verbatim into each disposition, so the name is
+      there to match on — and fifteen harness fixtures plus the gate's own tests answer
+      "criterion 1", "criterion 2" against real done-lists. A pure by-name rule marks every one
+      of those unmet; an all-or-nothing rule flips the whole array to index mode the moment one
+      entry has a name, which is the same burn through a new door. Per-disposition fallback is
+      the only rule under which an answer whose names miss or agree pairs exactly as before and
+      only an answer whose names CONTRADICT its positions is re-measured. Every fixture passed
+      unchanged; 4a2c's prediction that they would flip did not come true because of this rule.
+  - category: Architecture
+    chose: "Exact comparison after normalisation — trimmed, whitespace collapsed, trailing punctuation dropped, case ignored — and nothing fuzzier"
+    over: "Case-sensitive comparison (the spec's first cut), or a similarity score / prefix match"
+    reason: |
+      A model that drops a full stop, re-wraps a line or changes a capital has still named the
+      criterion; a similarity score has no threshold that is not a guess, and a wrong guess
+      pairs a disposition with a criterion it did not name — silently, which is the defect
+      this phase removes. Under exact-after-normalisation a miss costs nothing (the entry keeps
+      its positional slot), so the comparison can afford to be strict. Normalise is a pure
+      function on the class and is tested directly.
+  - category: Architecture
+    chose: "The gate returns an AcceptanceJudgement (satisfied, per-criterion pairings with PairedBy, or a refusal) and the re-engage log line renders it"
+    over: "Keeping the bool and logging nothing about the pairing"
+    reason: |
+      A pure permutation of a complete answer is invisible to the boolean — the set of statuses
+      is order-invariant — so the only place the mis-pairing ever showed was WHICH criterion the
+      loop re-drove on, and the old log said nothing about that either ("0 actionable step(s)
+      remain, budget OK"). The judgement names, per criterion, whether the name or the position
+      decided it, so a trail reader can see a fallback fire. ObjectivelySatisfied stays as the
+      bool over the judgement, which keeps the policy's predicate shape.
+  - category: Implementation
+    chose: "Pairing lives in its own static AcceptancePairing next to the gate; the judgement types in AcceptanceJudgement.cs"
+    over: "Growing MasterAcceptanceGate, or a DI service"
+    reason: |
+      The gate is a pure predicate over values with no collaborator, which is the one shape the
+      NoStaticState rule keeps static; the matcher is the same shape. Putting it in the gate
+      would have carried the file past the 120-line limit; a DI service for a function over two
+      lists would be a constructor with nothing to inject. The judgement's three types are the
+      small related shapes the folder already keeps together (ReengageOutcome beside its policy).
+  - category: Implementation
+    chose: "A name already spent falls back to position; a criterion whose slot a name took gets nothing from position"
+    over: "Letting a second disposition naming the same criterion overwrite the first, or letting a nameless entry take a slot a name claimed"
+    reason: |
+      Both rules follow from stating the fallback per disposition and running the name pass
+      first. The second entry naming a once-listed criterion has no free slot by name, so it is
+      unmatched and keeps its position — which is what it got before. A nameless entry at
+      position i finds slot i taken by an entry that SAID it is about criterion i; the entry
+      that named it wins, and the criterion the nameless entry might have meant is reported as
+      reached by nothing. Both are rendered rather than hidden.
+  - category: Scope
+    chose: "Leave AcceptanceSnapshot.Build's index walk and the skill's 'pairs by position' sentence out"
+    over: "Reusing the matcher in the run-detail renderer and editing the skill in the same phase"
+    reason: |
+      The snapshot walks by index only on the negotiated-expectation path; the phase-spec path
+      reads the delivery account. It is a renderer, not a gate, and reusing the matcher there is
+      a page change with its own screenshot evidence. The skill sentence lives in the skills
+      repository behind a pinned tarball; the change is named in the spec so it is not silently
+      deferred, and the gate is correct whether or not the model reads that sentence.
+  - category: Implementation
+    chose: "Corrected the gate's stale summary (RunOutcomeKeystone.EvaluateAcceptance no longer exists) and dropped the handler's ships_code comment"
+    over: "Leaving them"
+    reason: |
+      Both were rewritten in the course of the change, and a comment pointing at a type p0421
+      removed sends the next reader to grep for nothing. The handler is under the file-length
+      ratchet, so the two comment lines are also what paid for the longer log call.

@@ -56,8 +56,10 @@ public sealed class SpecSetWriter(
         await gitOps.ForceStageAsync(sandbox, key.Directory, ct);
         if (!await gitOps.HasStagedChangesAsync(sandbox, ct))
         {
+            // The sha reported is the one the next run's reader compares the pointer
+            // against: the last commit on the spec path, never a coding commit at HEAD.
             logger.LogInformation("Spec set {Key} is unchanged — no revision commit", key);
-            return SpecSetWriteResult.Ok(await gitOps.GetHeadCommitAsync(sandbox, ct));
+            return SpecSetWriteResult.Ok(await gitOps.GetLastCommitForPathAsync(sandbox, key.Directory, ct));
         }
         await gitOps.CommitAndPushStagedAsync(sandbox, branch, MessageFor(set), repo.Type, ct);
         var sha = await gitOps.GetHeadCommitAsync(sandbox, ct);

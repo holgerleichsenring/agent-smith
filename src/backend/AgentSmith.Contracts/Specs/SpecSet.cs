@@ -10,6 +10,9 @@ namespace AgentSmith.Contracts.Specs;
 /// structural instead of a judgement the model has to reach.
 /// </para>
 /// </summary>
+/// <param name="TicketFingerprint">2026-09-08-5cd2: fingerprint of the ticket text the model
+/// last cut this set from. Null on a set cut before it existed, which compares as unchanged —
+/// a missing fact is not evidence of an edit.</param>
 public sealed record SpecSet(
     string Key,
     IReadOnlyList<SpecPhase> Phases,
@@ -18,7 +21,8 @@ public sealed record SpecSet(
     SpecSource Source,
     SpecHandback? Handback = null,
     bool TicketPinnedWhole = false,
-    IReadOnlyList<string>? ExecutedPhaseIds = null)
+    IReadOnlyList<string>? ExecutedPhaseIds = null,
+    string? TicketFingerprint = null)
 {
     /// <summary>
     /// Phase ids that already ran — on this branch, in this run or an earlier one.

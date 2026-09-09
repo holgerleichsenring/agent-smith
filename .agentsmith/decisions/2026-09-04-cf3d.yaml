@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-04-cf3d
+
+decisions:
+  - category: Architecture
+    chose: "Both loaders walk SandboxContextList.InOr(pipeline, key, representative) and read the file from every context's meta directory through one injected ContextDocumentReader, registered with the loaders in AddContextLoading"
+    over: "Keeping the representative read and adding a second loop for 'the other contexts'"
+    reason: |
+      The representative is the first element of the very list the accessor returns, so a
+      second loop would read it twice or special-case it. 2026-09-04-0721 extracted the
+      accessor for exactly this: a consumer inherits the answer instead of choosing between
+      two maps. The reader is an instance, not a static extension over the file reader:
+      NoStaticStateRuleTests refuses a static that takes a service collaborator, and the
+      registration file the loaders lived in is ratcheted, so their two lines became one
+      AddContextLoading call that also registers the reader. Live run
+      2026-09-08T13-28-32-a109 (0.145.0, contexts backend and frontend in one
+      node:24-bookworm sandbox) showed the master reading backend's principles.md three
+      times and context.yaml twice while the frontend's files never appeared in
+      topReadFiles — the loaders had handed it one context per sandbox. The harness
+      reproduction (EveryContextLoadedTests) showed the same prompt shape on main:
+      `purpose: the backend context` and `# Backend rules`, nothing of the frontend.
+  - category: Implementation
+    chose: "A typed ContextDocument (sandbox key, context, workdir, path, content) published at RepoContextYamls / RepoCodingPrinciples, and a rendered string at ProjectContext / DomainRules — verbatim for one document, labelled sections for several"
+    over: "Rendering the labelled string only, as the per-key dictionaries did"
+    reason: |
+      The two per-key dictionaries had no consumer outside the loaders, so their shape was
+      free. The scan brief (ProjectBriefBuilder) parses ProjectContext as one YAML document
+      and a labelled concatenation of two is not one — it would have parsed nothing and
+      dropped the section silently, the class of defect this phase removes. It now reads
+      the typed list and parses each document on its own. The rendering rule: a section is
+      headed by its sandbox key only when the run has more than one sandbox (the `## key`
+      heading multi-repo runs always had, unchanged) and by `Context: name (workdir: dir)`
+      only when its sandbox contributed more than one document. A single-context repository
+      therefore keeps its prompt byte-identical, and a label appears exactly where two
+      documents would otherwise be indistinguishable.
+  - category: Scope
+    chose: "The flat file at the configured principles path (default `.agentsmith/principles.md`) still speaks for its whole sandbox, and only the default path falls through to the per-context files"
+    over: "Reading the per-context files as well when the flat file exists"
+    reason: |
+      That precedence predates this phase (p0161a) and an operator-configured path is an
+      explicit instruction. A repository laid out before contexts has one file and gets it
+      unlabelled, as before. Nothing in the live evidence touches this case.
+  - category: Scope
+    chose: "A repository with many contexts loads all of them; no size bound in this phase"
+    over: "Capping the number or size of documents the master is given"
+    reason: |
+      Two principles files are a few thousand tokens. A bound is a policy with its own
+      questions (which context is dropped, is the master told) and would need its own
+      evidence; it is a successor named in prose in the spec's scope (context-document
+      prompt bound), not a silent cap here.
+  - category: Testing
+    chose: "The harness case replaces the sandbox factory and the prompt catalog for its run: a sandbox that serves the two contexts' files and declares the flat path absent, and a catalog whose master body binds {ProjectContextSection} and {CodingPrinciples}"
+    over: "Changing the shared StubSandbox or the shared StubPromptCatalog"
+    reason: |
+      The shared stub answers every ReadFile with exit 0, so the flat legacy path always
+      'exists' and shadows the per-context files — changing that would fail every fast-tier
+      case that probes files it never wrote. The shared catalog body declares no tokens, so
+      the principles never reach the scripted client through it (PhaseExecutionTests pins
+      the same limit for {PlanSection}). Both replacements are local to the case, the way
+      ScopedContextCoverageTests replaces the source provider; that provider was extracted
+      to MultiContextSourceProvider so both cases share the two-context repository shape.

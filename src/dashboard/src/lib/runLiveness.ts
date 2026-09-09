@@ -3,11 +3,12 @@
 //
 // "queued" and "waiting_for_input" are LIVE: both resume as the same run, so a
 // view that stopped following them would freeze exactly where the operator is
-// waiting for movement. Only the four terminal statuses end the story — the
+// waiting for movement. Only the five terminal statuses end the story — the
 // same set the run list uses to retire the cancel button (p0330).
 
 export const TERMINAL_RUN_STATUSES: ReadonlySet<string> = new Set([
   "success",
+  "shortfall",
   "failed",
   "error",
   "cancelled",

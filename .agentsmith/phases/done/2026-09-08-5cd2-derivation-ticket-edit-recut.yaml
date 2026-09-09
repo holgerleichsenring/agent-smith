@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-08-5cd2
+goal: "A ticket whose text changed since its set was cut re-cuts the unstarted tail on the next trigger, keeps every executed phase, and says so on the ticket; unchanged text derives nothing."
+
+applies_to: "backend (the spec set index, the revision cause, the source decision, the previous-cut prompt section, the derivation-time ticket comment)"
+
+requires:
+  - 2026-09-07-c9d4
+  - 2026-09-07-bd7a
+
+scope:
+  in: "A fingerprint of the ticket text the model last cut from, stamped into set.yaml by the derivation and read back off the branch; a revision cause for a ticket whose fingerprint no longer matches; the source decision treating that cause as one that needs the model; the previous-cut prompt naming the change and the revision it postdates; the derivation-time comment naming the re-cut and the kept phases; a producer-level test through the real reader that is red on main."
+  out: "The marker commit misread as a reviewer edit: ExecutedPhaseMarker commits set.yaml after every phase through the same writer and never moves the pointer, so on main EVERY re-trigger after an executed phase reads as 'reviewer edit on the ticket branch' and derives nothing — comment or no comment. This phase bypasses that misread for an edited ticket only; repairing the cause for an unchanged ticket is its own phase, 'the executed-phase record is not a reviewer edit'. A pointer column for the fingerprint and its migration — refused below. Reading a ticket COMMENT as a cause: SpecRevisionCause.Comment is a constant nothing produces, and the comment path stays as it is."
+
+decisions:
+  - key: |
+      THE MODEL WAS NEVER ASKED, SO IT COULD NOT SEE THE EDIT. Deployed 0.145.0, run 989e cut a set
+      (revision 1: p1239a executed, p1239b unstarted) from a ticket whose text ended "all other
+      severities only if it's worth it". The operator removed that sentence — the whole reason for
+      p1239b — moved the ticket back to the trigger status, and run 2026-09-08T13-28-32-a109 read the
+      set off the branch and continued with p1239b unchanged. FetchTicketHandler fetches the ticket
+      fresh on every run (GetTicketAsync), so the new text was on the pipeline; it never reached a
+      prompt because DeriveSpecHandler never called the deriver. The design's premise that "only a
+      COMMENT is treated as the author objecting" is false at code level: SpecRevisionCause.Comment
+      and Recut are constants no code produces, and no path reads the thread as a cause. What
+      actually happens: ExecutedPhaseMarker records p1239a by writing set.yaml through
+      ISpecSetWriter, which commits; only SpecSetPublisher and SpecHandbackHandler save the pointer,
+      so the pointer keeps the derivation commit's sha; SpecRevisionCause.For sees a last commit on
+      the spec path that is not the pointer's and answers ReviewerEdit; SpecSourceResolver.Decide
+      amends only on Retrigger or Comment. After any executed phase, no re-trigger re-derives. A
+      re-trigger with no executed phase (pointer sha == last commit) IS a Retrigger and does call
+      the model — the a109 shape needs a done phase, and the tests stage one.
+  - key: |
+      THE FINGERPRINT IS THE TEXT THE MODEL LAST CUT FROM, AND IT LIVES ONLY IN set.yaml. A SHA-256
+      over title, description and acceptance criteria — the three fields SpecPromptComposer renders
+      — each passed through TicketHtmlConverter.ToText (the segmenter's own conversion, so a
+      provider's HTML and its text agree) with whitespace runs collapsed, so a re-save that changes
+      nothing a reader sees is not an edit. DeriveSpecHandler.Finalize stamps the CURRENT ticket's
+      fingerprint when the model ran or there was no previous set, and carries the previous set's
+      fingerprint otherwise: a revision written without the model (a reviewer edit, a resume) must
+      not claim the model saw text it did not. The design asked for a copy on the pointer too, in
+      the dead HandbackSourceSha column or a migrated one. Refused: the comparison reads the set the
+      reader returned, a pointer with no set on the branch is an Initial derivation anyway, and a
+      column named HandbackSourceSha carrying a ticket fingerprint is a lie in the schema. No
+      pointer change, no migration on any provider; the free column stays free.
+  - key: |
+      A TICKET EDIT OUTRANKS A REVIEWER EDIT AND YIELDS TO A RESUME. SpecRevisionCause.For gains the
+      ticket and answers, in order: Initial (no set), Resume (the run continues what it was doing),
+      TicketEdit (a fingerprint on the set that differs from the ticket's), ReviewerEdit (the sha),
+      Retrigger. The edit is newer input the model has not seen, so it wins over the sha; the set
+      the model amends is whatever is on the branch, reviewer edit included, and an executed phase
+      is kept by the parser regardless. A set with no fingerprint (every set cut before this phase,
+      and every set.yaml a reviewer stripped it from) compares as unchanged and takes today's path
+      unchanged — a missing fact is not evidence of an edit. Decide amends on TicketEdit exactly as
+      it amends on Retrigger.
+  - key: |
+      THE TAIL IS RE-CUT BY THE MACHINERY THAT EXISTS. The deriver already takes the previous set and
+      the cause; PreviousCutPromptSection already lists every executed phase as "keep exactly as it
+      is"; SpecDerivationParser already carries the executed head by POSITION and reads the model's
+      phases from there, and accepts a reply that repeats the head alone — so "phase b re-cut, or no
+      phase b" needs no new parser rule. What is new is one paragraph the prompt section renders for
+      a TicketEdit: the ticket text changed since revision N was cut, the segments above are the
+      current text, the unstarted phases are cut from it — dropped when the ticket no longer asks,
+      added when it now does — and the executed phases stay. No skill change: the catalog's rules
+      for an amendment are unchanged, and the cause is part of the user prompt the code composes.
+  - key: |
+      THE COMMENT NAMES THE RE-CUT. SpecSetComment renders, for a revision whose cause is TicketEdit,
+      that the ticket text changed since revision N, which phases were kept because they already
+      ran, and that the rest was cut again from the current text — beside the phases it already
+      lists. The author who edited the ticket learns from the ticket that the edit took, without
+      opening the branch. An unchanged ticket renders the comment it renders today.
+  - key: |
+      RED ON MAIN THROUGH THE REAL READER. The harness stands the branch artifact in at
+      ISpecSetReader with a set built in code (c9d4's seeded reader), and a set with a fingerprint
+      is a type this phase adds — that test cannot compile on main. The red proof is therefore a
+      unit test that feeds set.yaml TEXT carrying ticket_fingerprint through the real SpecSetReader,
+      SpecSetIndex and PhaseDraftReader over a mocked sandbox whose last commit is not the pointer's
+      sha, into the real DeriveSpecHandler with a capturing deriver: on main the index ignores the
+      unknown key, the cause is ReviewerEdit, and the deriver is never called — a109's shape. The
+      harness runs then prove the whole run: the derivation is called again, the set carries the
+      executed phase and a re-cut tail, only the tail executes, and the comment says so.
+
+steps:
+  - id: the-fingerprint-of-the-ticket-text
+    action: "Add TicketTextFingerprint (static, Services/Specs): SHA-256 hex over title, description and acceptance criteria after TicketHtmlConverter.ToText and whitespace collapse. Add SpecSet.TicketFingerprint (nullable, default null); serialize it as ticket_fingerprint in SpecSetIndex, read it back in SpecSetReader; stamp it in DeriveSpecHandler.Finalize when the model ran or no set existed, carry it forward otherwise."
+  - id: an-edited-ticket-is-a-cause-that-needs-the-model
+    action: "Add SpecRevisionCause.TicketEdit; SpecRevisionCause.For takes the ticket and answers TicketEdit after Resume and before the sha comparison, only when the set carries a fingerprint that differs; SpecSourceResolver.Decide amends on it."
+  - id: the-prompt-and-the-comment-say-why
+    action: "PreviousCutPromptSection renders the TicketEdit paragraph naming the revision the change postdates; SpecSetComment renders the re-cut notice with the kept phases for a TicketEdit revision."
+  - id: the-tests-name-each-outcome
+    action: "Fingerprint stable across whitespace and HTML; changed text is a TicketEdit and needs the model; unchanged text and a missing fingerprint read exactly as before; the producer-level handler test through the real reader (red on main); the index round-trip; the prompt paragraph; the comment notice; two harness runs — edited description re-cuts the tail and says so, unchanged description continues the tail unchanged."
+
+tests:
+  - "Fingerprint_WhitespaceAndMarkupDifferences_AreTheSameText"
+  - "Fingerprint_ADifferentDescription_IsADifferentText"
+  - "Cause_ATicketWhoseTextChanged_IsATicketEdit"
+  - "Cause_ATicketWhoseTextIsUnchanged_ReadsTheShaAsBefore"
+  - "Cause_ASetWithoutAFingerprint_ReadsTheShaAsBefore"
+  - "Cause_AResume_OutranksATicketEdit"
+  - "SpecSource_ATicketEdit_AmendsTheSetWithTheModel"
+  - "DeriveSpec_AnEditedTicketWithAnExecutedPhase_CallsTheDeriverWithTheSetAndTheCause"
+  - "DeriveSpec_AnUnchangedTicketWithAnExecutedPhase_IsNotRederived"
+  - "DeriveSpec_ASetWithoutAFingerprint_IsNotRederived"
+  - "DeriveSpec_ARevisionTheModelWrote_CarriesTheCurrentFingerprint"
+  - "SpecSetIndex_RoundTripsTheTicketFingerprint"
+  - "PreviousCut_ATicketEdit_NamesTheRevisionTheChangePostdates"
+  - "Comment_ATicketEditRevision_NamesTheRecutAndTheKeptPhases"
+  - "TicketEdit_ADonePhaseAndAnEditedDescription_RecutsTheTailAndSaysSo"
+  - "TicketEdit_ADonePhaseAndAnUnchangedDescription_ContinuesTheTailUnchanged"
+
+done:
+  - "a re-trigger of a ticket whose text changed since the set was cut calls the derivation again with the branch set and the ticket-edit cause; the new revision keeps every executed phase and re-cuts or drops the unstarted tail"
+  - "the derivation-time comment on that run names the change, the revision it postdates and the kept phases"
+  - "a re-trigger of an unchanged ticket, and of a set with no fingerprint, behaves exactly as before this phase"
+  - "the producer-level test through the real reader was red on main and is green"
+  - "no pointer column, no migration; build green, full suite green"

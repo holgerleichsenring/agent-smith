@@ -14,6 +14,8 @@ export interface RunOutcomes {
   queued: number;
   finished: number;
   succeeded: number;
+  /** p0439: delivered with a shortfall — a done of its own kind. */
+  shortfall: number;
   failed: number;
   cancelled: number;
 }
@@ -21,11 +23,13 @@ export interface RunOutcomes {
 export function deriveRunOutcomes(runs: RunSnapshot[]): RunOutcomes {
   const buckets = bucketRuns(runs);
   let succeeded = 0;
+  let shortfall = 0;
   let failed = 0;
   let cancelled = 0;
   for (const run of buckets.finished) {
     const status = toNodeStatus(run.status);
     if (status === "ok") succeeded += 1;
+    else if (status === "shortfall") shortfall += 1;
     else if (status === "fail") failed += 1;
     else if (status === "cancel") cancelled += 1;
   }
@@ -36,6 +40,7 @@ export function deriveRunOutcomes(runs: RunSnapshot[]): RunOutcomes {
     queued: buckets.queued.length,
     finished: buckets.finished.length,
     succeeded,
+    shortfall,
     failed,
     cancelled,
   };

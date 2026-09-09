@@ -12,6 +12,11 @@ namespace AgentSmith.Application.Services;
 /// judge produced a verdict, and how that verdict is rendered as a row, is a different
 /// question from how a run's story is snapshotted.
 /// </para>
+/// <para>
+/// 2026-09-06-3d81: the criteria the master DECLINED ride beside the rows, whichever judge
+/// the rows came from. The rows are what the gate decided on; a declined criterion is the
+/// master's answer that no work here could make it true — side by side, never merged.
+/// </para>
 /// </summary>
 internal static class AcceptanceSnapshot
 {
@@ -27,20 +32,13 @@ internal static class AcceptanceSnapshot
     /// </summary>
     public static string? Build(
         RatifiedExpectation? expectation, MasterVerification? verification,
-        RunAccounts? accounts)
+        RunAccounts? accounts, IReadOnlyList<DeclinedCriterion>? declined = null)
     {
-        var accounted = FromAccounts(accounts);
-        if (accounted is not null) return accounted;
-        if (expectation is null) return null;
-
-        var dispositions = verification?.AcceptanceDispositions;
-        var criteria = expectation.Draft.Expected
-            .Select((text, i) => CriterionOf(text, i < dispositions?.Count ? dispositions![i] : null))
-            .ToList();
-
-        return RunStoryJson.Serialize(new AcceptanceView(
-            criteria, expectation.Outcome, expectation.RatifiedBy,
-            AcceptanceSources.MasterVerification));
+        var declinedViews = DeclinedViews(declined);
+        var view = FromAccounts(accounts) ?? FromExpectation(expectation, verification);
+        if (view is null)
+            return declinedViews is null ? null : RunStoryJson.Serialize(DeclinedOnly(declinedViews));
+        return RunStoryJson.Serialize(view with { Declined = declinedViews });
     }
 
     /// <summary>
@@ -48,7 +46,7 @@ internal static class AcceptanceSnapshot
     /// account could not take at all — a red build, a diff that would not run — is "unproven"
     /// and says why, because an unmeasured criterion and a failed one are different facts.
     /// </summary>
-    private static string? FromAccounts(RunAccounts? accounts)
+    private static AcceptanceView? FromAccounts(RunAccounts? accounts)
     {
         var all = accounts?.All;
         if (all is not { Count: > 0 }) return null;
@@ -61,10 +59,30 @@ internal static class AcceptanceSnapshot
             .ToList();
         if (criteria.Count == 0) return null;
 
-        return RunStoryJson.Serialize(new AcceptanceView(
-            criteria, ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec,
-            AcceptanceSources.DeliveryAccount));
+        return new AcceptanceView(
+            criteria, ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec, AcceptanceSources.DeliveryAccount);
     }
+
+    private static AcceptanceView? FromExpectation(
+        RatifiedExpectation? expectation, MasterVerification? verification)
+    {
+        if (expectation is null) return null;
+        var dispositions = verification?.AcceptanceDispositions;
+        var criteria = expectation.Draft.Expected
+            .Select((text, i) => CriterionOf(text, i < dispositions?.Count ? dispositions![i] : null))
+            .ToList();
+        return new AcceptanceView(
+            criteria, expectation.Outcome, expectation.RatifiedBy, AcceptanceSources.MasterVerification);
+    }
+
+    /// <summary>A run that declined something and was judged by nothing else — it ended
+    /// between the master's verdict and the account — still shows what it declined.</summary>
+    private static AcceptanceView DeclinedOnly(IReadOnlyList<DeclinedCriterionView> declined) =>
+        new([], ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec, AcceptanceSources.MasterVerification, declined);
+
+    private static IReadOnlyList<DeclinedCriterionView>? DeclinedViews(IReadOnlyList<DeclinedCriterion>? declined) =>
+        declined is not { Count: > 0 } ? null
+            : [.. declined.Select(d => new DeclinedCriterionView(d.Criterion, d.Reason, d.PhaseId))];
 
     /// <summary>The phase spec IS the contract on this path — nobody edited it into one, so
     /// there is no person to name and saying so is more honest than borrowing a name.</summary>

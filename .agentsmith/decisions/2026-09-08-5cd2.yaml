@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-08-5cd2
+
+decisions:
+  - category: Architecture
+    chose: "A fingerprint of the ticket text the model last cut from, stamped into set.yaml by DeriveSpecHandler.Finalize and read back by SpecSetReader; SpecRevisionCause.For compares it against the fetched ticket and answers TicketEdit, which SpecSourceResolver.Decide amends with the model"
+    over: "Reading a ticket comment as the objection signal, as the derivation-time comment promises; or a copy of the fingerprint on the pointer row"
+    reason: |
+      Run a109 (deployed 0.145.0) read a set whose first phase had executed and continued the
+      second phase from a ticket the operator had just edited. The premise that a comment is
+      what re-cuts the tail is false in code: SpecRevisionCause.Comment and Recut are constants
+      nothing produces. What decides is SpecRevisionCause.For, and after any executed phase it
+      answers ReviewerEdit — ExecutedPhaseMarker records the phase by writing set.yaml through
+      ISpecSetWriter, which commits, while only SpecSetPublisher and SpecHandbackHandler save the
+      pointer — so Decide never asks the model. The ticket itself IS fetched fresh each run
+      (FetchTicketHandler.GetTicketAsync); the text was on the pipeline and never reached a
+      prompt. A fingerprint on the set is the smallest fact that lets the cause see the edit
+      without reading the thread, and it lives where the comparison already reads: the set the
+      reader returned. A pointer with no set on the branch is an Initial derivation regardless,
+      so a pointer copy would never be consulted; storing it in the dead HandbackSourceSha
+      column would make the schema lie, and a new column is a migration on every provider for a
+      value nobody reads. No pointer change, no migration.
+  - category: Implementation
+    chose: "SHA-256 over title, description and acceptance criteria, each through TicketHtmlConverter.ToText with whitespace runs collapsed; stamped when the model ran or no set existed, carried forward otherwise"
+    over: "Description and title only, raw bytes; or refreshing the fingerprint on every revision"
+    reason: |
+      The three fields are exactly what SpecPromptComposer renders to the model, so an edit to
+      any of them is input the model has not seen; the acceptance criteria were missing from the
+      design and are part of the read. ToText is the segmenter's own conversion, so a provider's
+      HTML body and its text agree, and a re-save that changes nothing a reader sees is not an
+      edit. A revision written without the model — a reviewer edit, a resume — must not claim
+      the model saw text it did not, or the next re-trigger would compare against a text nobody
+      cut from; carrying the previous value keeps the fingerprint honest.
+  - category: Implementation
+    chose: "Cause order: Initial, then TicketEdit unless resuming, then the sha comparison, then Resume or Retrigger; a set without a fingerprint compares as unchanged"
+    over: "TicketEdit after the sha comparison; or a missing fingerprint read as an edit"
+    reason: |
+      The edit is newer input than any commit on the branch, and the set the model amends is
+      whatever the branch carries, reviewer edit included — so the edit wins over the sha. A
+      resume continues what the run was doing and keeps its precedence. Placing the edit check
+      inside the existing order rather than reordering it keeps every unchanged-ticket cause
+      byte-identical to today, including the marker-commit-as-reviewer-edit misread, which is
+      named as its own phase in scope. Every set cut before this phase has no fingerprint; a
+      missing fact is not evidence of an edit.
+  - category: Implementation
+    chose: "The re-cut uses the machinery that exists: previous set plus cause into the deriver, a TicketEdit paragraph in PreviousCutPromptSection naming the revision the change postdates, the parser's positional executed head; SpecSetComment renders the re-cut notice with the kept phases"
+    over: "A parser rule for a dropped tail; a skill change; a second ticket comment"
+    reason: |
+      SpecDerivationParser already replaces the model's first N phases with the executed head
+      and accepts a reply that repeats the head alone, so "phase b re-cut, or no phase b" needs
+      no new rule. The cause is part of the user prompt the code composes, so the catalog is
+      untouched and no pin bump is needed. The notice rides the comment the author already
+      receives, so the author who edited the ticket sees on the ticket that the edit took.
+  - category: Testing
+    chose: "The red proof is a unit test that feeds set.yaml text carrying ticket_fingerprint through the real SpecSetReader, SpecSetIndex and PhaseDraftReader over a mocked sandbox into the real DeriveSpecHandler; the harness stands the branch artifact in at ISpecSetReader"
+    over: "A harness test as the red proof"
+    reason: |
+      The harness seeds the previous set as a C# object, and SpecSet.TicketFingerprint is a
+      property this phase adds — that test cannot compile on main. The producer-level test
+      compiles on main: the index ignores the unknown key, the cause is ReviewerEdit, and the
+      deriver is never called ("Expected deriver.Calls to be 1 … but found 0"), which is a109's
+      shape; green after. The two harness runs then prove the whole run — the derivation is
+      called again, the head is carried by position (the ids come from PhaseIdFactory, which
+      pads the fixture ticket's id), only the tail executes, the comment says so — and that an
+      unchanged ticket continues the tail as cut with no derivation call.

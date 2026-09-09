@@ -54,6 +54,7 @@ public sealed class VerifyPhaseHandler(
     DeliveryDiff deliveryDiff,
     PhaseAccounting accounting,
     IPhaseProgressRecorder progress,
+    VerifiedHeads verifiedHeads,
     ILogger<VerifyPhaseHandler> logger)
     : ICommandHandler<VerifyPhaseContext>
 {
@@ -148,6 +149,11 @@ public sealed class VerifyPhaseHandler(
         // actionable thing a run produces. The run fails carrying its account.
         var verdict = PhaseVerdict.From(
             mechanical, accounts, delivered.Unverified(ran.Count > 0, notes.Searched));
+        // p0439: a phase that is through names the state it verified — the commit each
+        // sandbox stands at — so a run that stops later can deliver exactly that state. A
+        // repair pass is not through yet; its verdict comes from the verification after it.
+        if (verdict.IsSuccess)
+            await verifiedHeads.RecordAsync(context.Pipeline, sandboxes, cancellationToken);
         return await RecordAsync(
             context, verdict.IsSuccess ? verdict : Repairable(context, accounts, verdict),
             cancellationToken);

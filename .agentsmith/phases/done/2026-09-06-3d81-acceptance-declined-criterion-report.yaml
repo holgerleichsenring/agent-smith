@@ -2,16 +2,48 @@
 phase: 2026-09-06-3d81
 goal: "A criterion this repository cannot make true is answered with its evaluated reason and reported to the ticket author, instead of being fought pass after pass or accepted in silence."
 
-applies_to: "backend (the acceptance contract section of the master prompt, and the run's rendered outcome — pull request body and result.md)"
+applies_to: "backend (the acceptance contract section of the master prompt, and the run's rendered outcome — pull request body, result.md, the completion ticket comment, the run's acceptance view) and the dashboard's acceptance card"
 
 requires:
   - 2026-09-06-4a2c
 
 scope:
-  in: "Telling the master, in the contract it is given, that a criterion the repository makes impossible is disposed of as not-applicable with the evaluated meaning of not doing it; and rendering every such declined criterion where the run's outcome is already read, so the person who wrote the ticket sees which of their sentences no work could satisfy."
-  out: "Any mechanical judgement of whether a criterion is reachable — refused on the evidence below. Parking the run on a declined criterion: that would be the same gate with a friendlier name. And the derivation itself, which still writes these criteria; this phase makes them cost an answer instead of a budget."
+  in: "Telling the master, in the contract it is given, that a criterion the repository makes impossible is disposed of as not-applicable with the evaluated meaning of not doing it; and rendering every such declined criterion where the run's outcome is already read — the pull request body, result.md, the completion ticket comment and the run's acceptance view — so the person who wrote the ticket sees which of their sentences no work could satisfy."
+  out: "Any mechanical judgement of whether a criterion is reachable — refused on the evidence below. Parking the run on a declined criterion: that would be the same gate with a friendlier name. The derivation itself, which still writes these criteria; this phase makes them cost an answer instead of a budget. How the gate PAIRS dispositions with criteria (a sibling phase). The failure comment a red run leaves on its ticket, which is HTML and its own wording: a declined criterion reaches that author through the draft PR body this phase renders; carrying it into the failure comment too is a named follow-up. And the master skill's catalog text, which already states the rule — the pinned skill is a separate repository's change."
 
 decisions:
+  - key: |
+      IT FIRED ON A LIVE RUN, AND THE MASTER DID THE RIGHT THING INTO A VOID. Local replay
+      2026-09-08T07-01-24-5556 (CLI, worker mode): the criterion "`npm run lint` exits 0 in
+      the frontend workspace" was impossible without touching an internal shared eslint-config
+      package that pins eslint ^9 — the repository forbids what the ticket's "newest eslint"
+      asks for. The master said so in its verdict prose ("NOT MET — … rules trigger on
+      existing production code that was not changed by this run") and disposed the criterion
+      as not_applicable with that text. Nothing rendered it where the author reads; the run
+      went red at VerifyPhase on the lint command and the ticket got a failure comment naming
+      the step. In deployed run 989e the master met a similar boundary by bisecting plugin
+      versions for sixteen minutes instead of declining — the contract had never told it that
+      declining was an answer.
+  - key: |
+      ONE VERDICT SURVIVES PER RUN, SO "EVERY DECLINED CRITERION" NEEDS A LEDGER. The master's
+      verdict is published once per pass under ContextKeys.MasterVerification
+      (AgenticMasterHandler) and the next phase's pass overwrites it. The delivery account
+      already solved this for itself — RunAccountLedger keeps every phase's account keyed by
+      phase id — but the verdict has no such keeping, so on a three-phase run the first
+      phase's declined criterion is gone before CommitAndPR runs. The declined dispositions
+      are therefore recorded per phase where the verdict lands (DeclinedCriteriaLedger, keyed
+      like the account ledger so a re-run of a phase replaces rather than duplicates), and
+      every renderer reads that ledger. Only a not_applicable with non-empty evidence is
+      recorded: the ledger carries answers, not refusals.
+  - key: |
+      THE VIEW GETS A DECLINED LIST, NOT DECLINED ROWS. The acceptance card's rows are what the
+      gate decided on (the delivery account), and the account judges the branch on its own —
+      it may well mark the same criterion unmet. Folding the master's declined answer into
+      those rows would either duplicate a criterion under two statuses or require matching the
+      master's echoed text to the account's row, which is the pairing the sibling phase owns.
+      So the view carries the declined criteria as their own list beside the rows, the
+      dashboard renders them as their own block under the criteria, and no status vocabulary
+      changes — the card already knew not_applicable.
   - key: |
       THE ANSWER ALREADY EXISTED AND WAS UNREACHABLE. AcceptanceStatus has three values, and the
       third is exactly this case: not_applicable, whose evidence must carry "the EVALUATED MEANING
@@ -73,20 +105,30 @@ decisions:
 steps:
   - id: the-contract-names-the-third-answer
     action: "State in the acceptance contract the master is given that a criterion this repository cannot make true is disposed of as not-applicable carrying the evaluated meaning of not doing it, and that a bare refusal without that reason does not count."
+  - id: a-declined-criterion-is-kept-per-phase
+    action: "Record every not_applicable disposition that carries a reason into a per-phase ledger where the master's verdict is published, so a multi-phase run keeps each phase's declined criteria to the end."
   - id: a-declined-criterion-is-rendered-where-the-outcome-is-read
-    action: "Render every criterion the master declined, with its reason, into the pull request body and result.md alongside the delivery account, so the person who wrote the ticket sees which sentence no work could satisfy."
+    action: "Render every criterion the master declined, with its reason, into the pull request body, result.md and the completion ticket comment alongside the delivery account, and into the run's acceptance view as its own list, so the person who wrote the ticket sees which sentence no work could satisfy."
 
 tests:
   - "Contract_TheSectionGivenToTheMaster_NamesNotApplicableAndItsEvidenceRule"
   - "Contract_ADeclinedCriterionWithItsReason_SatisfiesTheGate"
   - "Contract_ADeclinedCriterionWithNoReason_DoesNotSatisfyTheGate"
+  - "Ledger_ADeclinedCriterionWithItsReason_IsKeptUnderItsPhase"
+  - "Ledger_ABareNotApplicable_IsNotKept"
+  - "Ledger_ASecondPhase_KeepsTheFirstPhasesDeclinedCriterion"
   - "Outcome_ADeclinedCriterion_IsRenderedInThePullRequestBody"
   - "Outcome_ADeclinedCriterion_IsRenderedInTheRunResult"
+  - "Outcome_ADeclinedCriterion_IsRenderedInTheCompletionTicketComment"
+  - "Outcome_ADeclinedCriterion_IsListedOnTheAcceptanceView"
   - "Outcome_ARunWithNothingDeclined_RendersNoSuchSection"
+  - "Harness_AMasterDeclinesOneCriterion_TheTicketAuthorReadsItOnTheTicketAndThePullRequest"
+  - "VerifySummary_DeclinedCriteria_AreListedWithTheirReason (dashboard)"
 
 done:
   - "the acceptance contract the master is given states the not-applicable answer and the reason it requires"
   - "a criterion declined with a reason satisfies the acceptance gate; one declined without a reason does not"
-  - "a declined criterion and its reason appear in the pull request body and in result.md"
+  - "a declined criterion and its reason appear in the pull request body, in result.md, in the completion ticket comment and on the run's acceptance view"
   - "a run that declined nothing renders no declined section"
+  - "a phase's declined criterion survives the next phase's verdict"
   - "build green, full suite green"

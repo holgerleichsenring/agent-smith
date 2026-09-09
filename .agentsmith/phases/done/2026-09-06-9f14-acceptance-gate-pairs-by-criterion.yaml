@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-06-9f14
+goal: "The acceptance gate pairs each of the master's dispositions with the criterion it names, so an answer in another order stops being measured against the wrong criterion."
+
+applies_to: "backend (the acceptance gate's pairing of dispositions to ratified criteria)"
+
+requires:
+  - 2026-09-06-4a2c
+
+scope:
+  in: "Matching a disposition to its criterion by the text it carries, with today's positional pairing kept as the per-disposition fallback, the normalisation and duplicate-text rules that make it safe, and a rendering of which pairing decided each criterion in the open loop's re-engage log."
+  out: "Making the master emit dispositions at all — that is the phase this one requires. The run-detail page's own index walk over a NEGOTIATED expectation (AcceptanceSnapshot.Build) — a renderer, not a gate, and the phase-spec path it shows today reads the delivery account instead. The skill text that still says the framework pairs by position — a sibling-repository edit, named below."
+
+decisions:
+  - key: |
+      THE GATE WALKS BY INDEX AND THE MODEL IS ONLY ASKED FOR ORDER. MasterAcceptanceGate walks
+      dispositions by position against a criteria COUNT. A SHORT answer fails closed one line
+      earlier and is safe; a LONGER answer in another order is not — criterion i is then measured
+      against the disposition of j, silently. AcceptanceDisposition already carries its Criterion
+      text, so the pairing it needs is available and unused.
+  - key: |
+      LIVE EVIDENCE THAT THE NAME IS THERE TO MATCH ON. The deployed master (run
+      2026-09-08T11-28-15-989e) writes each disposition WITH the criterion text — `"criterion":
+      "No dependency in backend/package.json or frontend/package.json remains …", "status": "met",
+      "reason": …` — exactly as the pinned skill asks ("the ratified assertion, verbatim"). The
+      parser already reads `criterion` and `reason` into AcceptanceDisposition; only the gate
+      ignored them.
+  - key: |
+      ADVERSARIAL READ — WHAT THE BOOLEAN CAN AND CANNOT SEE. A pure permutation of a COMPLETE
+      answer is invisible to the old gate: it asks "is every entry met?", and the set of statuses
+      is the same in any order. What the index walk gets wrong is (1) a LONGER answer in another
+      order — the extra entry lands on a ratified slot and a finished run is re-driven (the red
+      test on main: criteria [A, B], answer [B met, C unmet, A met] → false) — and (2) WHICH
+      criterion is reported unmet, which the boolean never said. So the gate now returns a
+      judgement that names the pairing per criterion, and the re-engage log line carries it.
+  - key: |
+      THE FALLBACK IS PER DISPOSITION, NEVER PER ARRAY, AND THAT DISTINCTION IS THE WHOLE PHASE.
+      An all-or-nothing rule — match by name if every entry carries one, else fall back — looks
+      safe and is not: an array whose entries all carry names that match NOTHING yields zero
+      matches and marks every criterion unmet, which is the same burn through a new door. It is
+      also not hypothetical. Fifteen harness fixtures answer "criterion 1" and "criterion 2"
+      against real done-lists, and every test in the gate's own test file constructs dispositions
+      the same way. So: match by name where a name matches; fall back to position for anything
+      unmatched; and never let a non-matching name REMOVE a pairing that position would have made.
+      Every one of those fixtures passed unchanged after this phase — 4a2c predicted they would
+      flip; the per-disposition fallback is why they did not.
+  - key: |
+      THE INVARIANT "NO ANSWER THAT PASSES TODAY CAN FAIL AFTER" HOLDS FOR NAMES THAT MISS OR
+      AGREE, NOT FOR NAMES THAT CONTRADICT. An answer whose names all miss pairs as before; an
+      answer whose names agree with its positions pairs as before. An answer whose names
+      contradict its positions is re-measured — that is the phase. Two consequences are stated
+      rather than left to the reader: a disposition whose name is already SPENT (two entries
+      naming one criterion that appears once) falls back to its position like any other unmatched
+      entry, because that is what position gave it before; and a criterion whose slot a NAME took
+      gets nothing from position, because the entry that named it has said which criterion it is
+      about. Both are rendered, so a trail reader sees them.
+  - key: |
+      NORMALISATION AND DUPLICATES HAVE TO BE STATED, NOT LEFT TO THE READER. A model that trims a
+      full stop, re-wraps whitespace or changes a capital should still match, so comparison is on
+      trimmed text with collapsed inner whitespace, trailing punctuation dropped and case ignored
+      (invariant culture); ordinal otherwise, and nothing fuzzier — no scoring, no prefix match.
+      An earlier cut of this spec said case-SENSITIVE; the operator's rule is case-insensitive
+      and this spec now says so. A done-list may legally repeat a string — the schema does not
+      enforce uniqueness — so duplicate criterion texts pair in order of appearance: the first
+      free slot carrying that text is the one a disposition takes.
+  - key: |
+      THE SIGNATURE CHANGES, WHICH IS WHY THIS IS ITS OWN PHASE. ObjectivelySatisfied took an int
+      count; matching by name needs the criteria themselves. That reaches its caller in the
+      re-engagement policy and every test in the gate's test file. VerdictlessAfterOneRedrive
+      keeps its count — it never looks at a disposition. The fail-closed order is unchanged: no
+      verdict, a disqualifying status, no dispositions and a SHORT answer are refused BEFORE any
+      pairing, so a master that did not address every criterion is not done whatever the ones it
+      addressed say.
+  - key: |
+      STALE TEXT FOUND ON THE WAY, AND WHAT WAS DONE WITH IT. The gate's own summary said it was
+      "mirrored from RunOutcomeKeystone.EvaluateAcceptance"; no such type exists any more
+      (p0421 moved delivery to RunDeliveryGate over the accounts) — the summary is corrected.
+      The pinned coding master still tells the model "the framework pairs these with the ratified
+      criteria by position"; that sentence is now false and lives in the skills repository, so a
+      skills change that says "by the criterion text you echo, position as the fallback" is the
+      follow-up named here in prose. The handler comment about ships_code above the re-engage loop
+      described a declaration p0421 removed and is gone.
+
+steps:
+  - id: the-gate-takes-the-criteria-not-a-count
+    action: "Give the acceptance gate the ratified criteria rather than their number, threading the change through its caller in the re-engagement policy and the gate's tests."
+  - id: a-disposition-is-paired-with-the-criterion-it-names
+    action: "Pair each disposition with the criterion whose normalised text it names, falling back to that disposition's position when it names nothing that matches, so a pairing position would have made is never removed."
+  - id: the-pairing-is-rendered-for-the-trail
+    action: "Return a judgement naming, per criterion, whether the name or the position decided it, and put that line into the open loop's re-engage log so a trail reader sees which pairing was used."
+
+tests:
+  - "ObjectivelySatisfied_ALongerAnswerInAnotherOrder_EveryCriterionMet_IsSatisfied (red on main)"
+  - "Judge_AnAnswerInAnotherOrder_NamesTheCriterionThatIsUnmet"
+  - "ObjectivelySatisfied_ANamelessAnswerThatSatisfiedTheGateBefore_StillSatisfiesIt"
+  - "Judge_AShortAnswer_RefusesBeforePairing"
+  - "Judge_AFallbackPairing_IsRenderedForTheTrail"
+  - "Pairing_DispositionsInAnotherOrder_AreMatchedByCriterion"
+  - "Pairing_ALongerAnswerWithNames_PairsEveryCriterionAndDropsTheSurplus"
+  - "Pairing_ADispositionNamingNothing_StillPairsByItsPosition"
+  - "Pairing_AnAnswerWhoseEveryNameMisses_PairsAsItDidBefore"
+  - "Pairing_ADispositionWithTrailingPunctuationOrExtraSpace_StillMatches"
+  - "Pairing_ADoneListRepeatingACriterion_PairsThemInOrderOfAppearance"
+  - "Pairing_ANameAlreadySpent_FallsBackToItsPosition"
+  - "Pairing_ACriterionWhoseSlotANameTook_GetsNothingFromPosition"
+
+done:
+  - "a disposition list in another order satisfies the gate when every criterion is met, including a longer one"
+  - "a disposition naming nothing that matches is paired by its position as before"
+  - "an answer whose every name misses satisfies the gate exactly as it did before this phase"
+  - "a short answer is still refused before any pairing"
+  - "the re-engage log line names, per criterion, whether the name or the position decided it"
+  - "build green, full suite green"
