@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-3d2a
+goal: "A decision file is named like its phase spec, so listing decisions/ reads as topics instead of 643 bare ids; the archive is renamed and a filename-only test keeps the directory paired with phases/."
+
+applies_to: "repo methodology only — .agentsmith/decisions/ file names, CLAUDE.md's decision section, decision.schema.json's filename wording, docs/how-it-works/built-by-the-method.md, and the plugin's five statements of the rule (bootstrap-project, create-phase, log-decision, update-project, README.md, templates/prompt.md). No product code changes in this phase."
+
+scope:
+  in: "The 641 decision files whose id is the prefix of exactly one phase stem are renamed with git mv to that stem; p0131c is resolved by hand against its two candidates and p-meta-update keeps its name; the `phase:` key inside every file is left exactly as it is and decision.schema.json's 'Must match the filename' wording is corrected to say the filename BEGINS with the id; CLAUDE.md, the docs page and the plugin's six files state one rule, resolving the plugin's existing self-contradiction; a filename-only test asserts every decision file's id prefix names a phase id that exists."
+  out: "The product side — making FileDecisionLogger write the new name. It cannot be built yet: PhaseDraft carries only PhaseId and no stem, the stem is minted at the END of the run by WritePhaseRecordHandler's own Slug(goal) capped at 60 while PhaseIdFactory.Slug caps at 50, and no production caller passes a sourceLabel at all, so DecisionFileLabel's phase branch is dead code today. A successor phase does it AFTER 2026-09-07-e9a2 bounds the product slug — until then 'the phase's stem' is two different sentences. Also out: the schema cut — the enum, the missing categories, and the 25 files that are not parseable YAML at all — which is its own follow-up phase over decision.schema.json and the archive's content."
+
+decisions:
+  - key: |
+      MY FIRST MEASUREMENT WAS WRONG AND THE CORRECT ONE IS BETTER. The draft claimed 635 of 643
+      files map to one phase, 8 to none, 0 ambiguous. That came from a regex carrying `(?:-pre)?`,
+      which reads p0162-pre-monorepo-restructure as the id "p0162-pre", and from `p\d{4,6}[a-z]?`,
+      which cannot express p0169j-a's second-level suffix. Both are artefacts of the reader, not
+      facts about the archive. Measured by prefix at a '-' boundary: 641 map to exactly ONE phase
+      stem, 1 maps to none (p-meta-update), and 1 is genuinely ambiguous — p0131c, which prefixes
+      both p0131c-legacy-triage-removal and p0131c-pre-discussion-triage-migration. That one is
+      resolved by reading the file, never by longest- or first-match, because a heuristic around a
+      missing fact is how the wrong decisions end up under the wrong phase.
+  - key: |
+      THE WIN IS A READABLE LISTING, NOT A GLOB. The draft's done criterion promised
+      `ls decisions/*-account-*`. That is substring matching, not area-first: it returns three
+      phases whose label merely contains the word, and area-first cannot be globbed at all while
+      the id prefix is variable-width. CLAUDE.md makes the same false claim for phases —
+      `ls phases/done/account-*` returns nothing, verified — and this phase corrects it there too.
+      What actually changes is that `ls decisions/` stops being 643 bare ids and starts reading as
+      topics, which is the complaint. A two-step lookup through the phase file already works today
+      and keeps working; this removes the step, it does not create the capability.
+  - key: |
+      THE FILE NAME MOVES, THE KEY DOES NOT. Only the name changes; `phase:` keeps the bare id
+      it carries, because CLAUDE.md already settles this — the id is the identity, the file name a
+      pointer. decision.schema.json says the key "Must match the filename", which would put 641
+      files in violation the moment they are renamed, so the wording is corrected to say the
+      filename BEGINS with the id. Twenty-six files already carry a stem in the key; they are left
+      alone, since both forms then satisfy the corrected rule.
+  - key: |
+      THE TEST READS NAMES, NEVER CONTENT, AND DOES NOT RATCHET. It asserts that a decision file's
+      id prefix names a phase id that exists — not that the two stems are equal. Stem equality
+      would make every future relabel go red in an architecture test project the relabeller never
+      touched, and 4e6a relabelled 224 files at once. Filename-only also keeps the test off the 25
+      files that are not parseable YAML: a value beginning with a bare backtick, which is a
+      reserved indicator, so neither PyYAML nor YamlDotNet will read them. Those are the schema
+      follow-up's first job, and this phase must not be blocked behind them.
+  - key: |
+      THE PRE-p0400 NAMES COME ALONG AS THEY ARE. Of the 641, about 430 belong to phases whose
+      labels are pre-4e6a sentences — p0189-context-yaml-parse-errors-and-stream-in-tree and the
+      like — so decisions/ inherits sentence-shaped names for two thirds of the archive. That is
+      accepted, not overlooked: 4e6a deliberately left the closed counter namespace alone, and
+      inventing new labels for old phases here would mint a second name for a phase that already
+      has one. The listing is still readable; it is just wordier where the phase name is.
+  - key: |
+      THE PLUGIN ALREADY CONTRADICTS ITSELF AND THAT IS FIXED HERE. bootstrap-project and
+      create-phase already document decisions/<phase-id>-<slug>.yaml — this phase's rule — while
+      log-decision, update-project ("The filename IS the phase ID — no slug"), README.md and
+      templates/prompt.md say the bare id. Six statements, two rules. Leaving that is how a
+      bootstrapped project gets whichever shape the last file read happened to say.
+
+steps:
+  - id: the-archive-is-renamed
+    action: "git mv the 641 unambiguous decision files to their phase's stem; resolve p0131c by reading both candidate phase files and moving it to the one its decisions belong to; leave p-meta-update."
+  - id: the-schema-wording-is-corrected
+    action: "decision.schema.json's phase description says the filename begins with the id, not that it equals it; no property or pattern changes."
+  - id: one-rule-in-six-places
+    action: "CLAUDE.md's decision section, docs/how-it-works/built-by-the-method.md and the plugin's log-decision, update-project, README.md and templates/prompt.md state the same naming rule bootstrap-project and create-phase already state; CLAUDE.md's `ls phases/done/account-*` example is corrected to one that works."
+  - id: the-pairing-is-proven-by-name
+    action: "A test walks decisions/, splits each name at the id boundary and asserts the id names a phase that exists in done/, active/ or planned/, listing p-meta-update as the one historical exception; it never opens a file."
+
+tests:
+  - "DecisionPairing_EveryDecisionFile_NamesAPhaseIdThatExists"
+  - "DecisionPairing_TheHistoricalException_IsListedNotFailed"
+  - "DecisionPairing_ARelabelledPhase_DoesNotFailTheTest"
+  - "DecisionPairing_AFileThatIsNotParseableYaml_IsStillPaired"
+  - "DecisionNaming_TheDirectoryListing_CarriesAPhaseLabelForEveryPairedFile"
+
+done:
+  - "listing .agentsmith/decisions/ shows a phase label on every file except p-meta-update"
+  - "no decision file's `phase:` key changed, and decision.schema.json no longer claims the key equals the filename"
+  - "p0131c's decisions sit under the phase they were written for, chosen by reading the file"
+  - "CLAUDE.md, the docs page and all six plugin statements say one naming rule"
+  - "the pairing test passes without opening a decision file, so the 25 unparseable ones do not block it"
+  - "build green, full suite green"

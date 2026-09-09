@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-72fd
+goal: "The spec set's bookkeeping moves out of set.yaml into the TicketSpecSet row, so the branch carries the reviewable phase files and nothing else, and a resumed run reads its state from the database."
+
+applies_to: "backend (SpecSetIndex/SpecSetIndexDocument, SpecSetWriter, SpecSetReader, SpecSetStaleFiles, ISpecSetPointerStore and both implementations, TicketSpecSet + repository + migrations in two assemblies, SpecRevisionCause)"
+
+requires:
+  - 2026-09-08-c56e
+
+scope:
+  in: "All fourteen fields of the set index — the ordered phase stems, the executed list, revisions, the segment carry map, discarded and unaccounted segments, discarded contexts, the handback case with reason, readings and taken, source and pinned-whole — become state on the existing TicketSpecSet row; set.yaml stops being written; the reader takes the phase files from the branch and everything else from the row, falling back read-only to a legacy set.yaml so a branch in flight at deploy time resumes; the stale sweep takes the previous revision's stem list from the row instead of listing the directory; the force-stage names the files of the current cut instead of the whole directory; SpecRevisionCause keeps detecting a reviewer edit against the phase files only."
+  out: "Relocating the set out of .agentsmith/specs/ and turning the phase record into a move. That successor is BLOCKED on a namespace problem this phase does not touch: PhaseIdFactory.For mints p{digits-of-the-ticket}{a,b,c…}, so tickets 131, PROJ-131 and AB-0131 all mint p0131a/b/c, while phases/done/ accumulates across every ticket a repo ever ran. Executed-ness read from a shared done/ would therefore report phases executed that belong to another ticket — provably: this repo's done/ already holds p0131a through p0131d. The successor must first give a phase a collision-free id, the way CLAUDE.md already mints one for humans (date plus four random hex), and only then can a directory be an execution list. Also out: anything about .agentsmith/runs/, which is c56e, and the decisions naming, which is 3d2a."
+
+decisions:
+  - key: |
+      THE ROW HOLDS BOOKKEEPING; GIT HOLDS WHAT A REVIEWER EDITS. TicketSpecSet says it is
+      "deliberately NOT a copy… duplicating it here would create a second source of truth that
+      drifts the moment a reviewer edits the branch". That objection is about the phase yaml and
+      its companion, which a reviewer does edit. None of the index's other fields is that:
+      revisions, the carry map, discarded and unaccounted segments, discarded contexts, the
+      handback state, source, pinned-whole. Nobody hand-edits them, and the row ALREADY holds four
+      of exactly that kind — RevisionSha, RevisionNumber, LastHandbackCase, RepeatedHandbackCount.
+      The split is "does a human edit it".
+  - key: |
+      THE ORDERED STEM LIST AND THE EXECUTED LIST GO TO THE ROW TOO, AND STAY EXPLICIT. An earlier
+      draft of this work replaced the executed list with "a file in phases/done/". That is false in
+      this product: PhaseIdFactory mints ids positionally from the ticket's digits, so a shared
+      done/ answers for every ticket at once, and PhaseSequenceHandler would report "nothing left
+      to run" on a green run that did nothing. Order is equally load-bearing — the tail is spliced
+      in Phases order, ExecutedHead is a TakeWhile over it, and the derivation master's contract is
+      that phase N may assume 1..N-1 ran. A directory listing gives neither, so both stay explicit
+      list state on the row.
+  - key: |
+      THE SWEEP AND THE STAGE BOTH STOP TRUSTING THE DIRECTORY. SpecSetStaleFiles lists the set
+      directory and git-rms every .yaml/.md not in the current cut; SpecSetWriter force-stages
+      key.Directory wholesale. Both are safe only because specs/<provider>-<ticket>/ is a directory
+      nothing else writes — a property this phase keeps but must not depend on silently. The sweep
+      takes the previous revision's stem list from the row, and the stage names the files of the
+      current cut, so neither can reach a file the set did not write. That is also the precondition
+      the blocked successor needs before any shared directory is thinkable.
+  - key: |
+      A DEV RUN WITHOUT A DATABASE LOSES THE SET ON RESTART, AND SAYS SO. ISpecSetPointerStore
+      defaults to an in-memory dictionary and only relational persistence swaps in the DB one. Its
+      own justification — "the pointer is machine state only; losing it degrades a re-entry to
+      'foreign edit', which is the SAFE reading" — dies once the row carries revisions, accounting
+      and handback. The in-memory store keeps the same fields and the same dev semantics: a CLI or
+      harness run that restarts mid-ticket loses the set and re-derives. The CLI is a dev tool, so
+      that is stated rather than engineered around; a server run has the row.
+  - key: |
+      TWO MIGRATION ASSEMBLIES, FOUR PROVIDERS, AND SIX COLLECTIONS. The fields are not all scalars:
+      revisions, carried, discarded, unaccounted, discarded contexts and handback readings are
+      collections. They are stored as JSON columns on the one row rather than as six child tables,
+      because nothing queries into them — they are read whole, with the set, exactly as set.yaml was
+      — and six tables would buy joins nobody needs. Migrations land in both
+      AgentSmith.Infrastructure.Persistence and .SqlServer.
+  - key: |
+      THE LEGACY BRANCH IS READ, NEVER WRITTEN. A branch whose set.yaml predates this phase is read
+      through the existing index-first path, once, to seed the row; from then on the row is the
+      carrier and set.yaml is not rewritten. Without that a run in flight at deploy time would find
+      no set, re-derive, and re-execute finished phases.
+  - key: |
+      THE REVIEWER-EDIT DETECTOR NARROWS TO THE PHASE FILES. SpecRevisionCause asks for the last
+      commit touching the set directory to decide whether a human changed the spec. With set.yaml
+      gone the only files there are the phase yamls and companions, which is what the question was
+      always about — but the query must name those files rather than the directory, or the run's own
+      writes keep answering it.
+
+steps:
+  - id: the-row-carries-the-set
+    action: "Move the index document's fourteen fields onto TicketSpecSet as scalars plus JSON columns for the six collections, with a migration in both persistence assemblies; extend ISpecSetPointerStore and both implementations to read and write them."
+  - id: the-branch-stops-carrying-it
+    action: "SpecSetWriter stops writing set.yaml and writes the row instead; the reader composes the set from the phase files on the branch plus the row, and seeds the row once from a legacy set.yaml when the row is empty."
+  - id: the-sweep-and-the-stage-name-their-files
+    action: "SpecSetStaleFiles removes the previous revision's stems that the current cut dropped, taken from the row; SpecSetWriter force-stages the cut's files by name instead of the directory."
+  - id: the-edit-detector-asks-about-phase-files
+    action: "SpecRevisionCause queries the last commit touching the cut's phase files rather than the set directory, so the run's own writes do not read as a reviewer edit."
+
+tests:
+  - "SpecSetIndex_AllFourteenFields_RoundTripThroughTheRow"
+  - "SpecSetWriter_ARevision_WritesNoSetYaml"
+  - "SpecSetReader_AsetWrittenByThisPhase_IsComposedFromThePhaseFilesAndTheRow"
+  - "SpecSetReader_ABranchWithALegacySetYaml_SeedsTheRowOnceAndIsRead"
+  - "SpecSetReader_AlegacySetYaml_IsNeverRewritten"
+  - "SpecSet_PhaseOrder_SurvivesTheRoundTripAndDrivesTheTail"
+  - "SpecSet_ExecutedList_SurvivesARestartWithRelationalPersistence"
+  - "StaleSweep_APhaseDroppedByARecut_IsRemoved"
+  - "StaleSweep_AFileThePreviousRevisionNeverWrote_IsNotRemoved"
+  - "SpecSetWriter_TheForceStage_NamesTheCutsFilesNotTheDirectory"
+  - "SpecRevisionCause_TheRunsOwnPhaseFileWrite_IsNotAReviewerEdit"
+  - "SpecRevisionCause_AHumanEditOfAPhaseFile_IsAReviewerEdit"
+  - "Harness_AThreePhaseTicketRun_ExecutesAllThreeInOrder"
+  - "Harness_ARunStoppedAfterOnePhase_ResumesAndExecutesTheRemainingTwo"
+  - "Harness_ARunStoppedAfterOnePhase_DoesNotReExecuteTheFinishedPhase"
+
+done:
+  - "no run writes set.yaml, and a target repo's spec directory holds only phase yamls, companions and accounting.md"
+  - "a three-phase ticket run executes all three in the derived order"
+  - "a run stopped after one phase resumes and executes exactly the remaining two, never the finished one"
+  - "the set's revisions, accounting, handback state and phase order survive a server restart"
+  - "a branch whose set.yaml predates this phase resumes without re-executing a finished phase, and its set.yaml is not rewritten"
+  - "no file the set did not write is staged or removed by a spec commit"
+  - "a resumed multi-phase run is not reported as a reviewer edit"
+  - "build green, dashboard build and tests green, full suite green"
