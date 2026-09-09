@@ -61,6 +61,16 @@ decisions:
       naming a file that will no longer exist, and so does PrReviewCommentRenderer, which today
       tells a reviewer to open `.agentsmith/runs/{runId}/result.md`.
   - key: |
+      A TICKET COMMENT IS NOT MARKDOWN, ON EITHER PROVIDER. result.md is Markdown — headings,
+      backticked paths, tables. Ticket comments in this system are not: they are authored in a
+      small HTML subset (<b>, <br/>, <code>, HTML-encoded text), which FailureTicketComment
+      already writes and JiraAdfRenderer.FromCommentText converts into real ADF, because Jira
+      rejects wiki markup and shows HTML as literal text. Azure DevOps renders the same way —
+      a pasted '##' stays a '##'. So the result reaches the ticket through a renderer into that
+      subset, not by moving the Markdown bytes; the Markdown original stays what the artifact
+      store holds and the dashboard shows. One body, two renderings, and the ticket gets the one
+      its provider can display.
+  - key: |
       ONLY THE PATHS THAT ACTUALLY RENDER A RESULT. PipelineErrorHandler terminalises a ticket
       from three entry points — HandleStepFailureAsync, HandleFatalFailureAsync and
       FinalizeFailedTicketAsync — and only the first is preceded by the finalizer tail that
@@ -86,6 +96,8 @@ steps:
     action: "WriteRunResultHandler stops writing result.md and the dependency-audit json into the repo, keeping every artifact-store write; the plan.md read-back is unchanged."
   - id: the-ticket-carries-the-result
     action: "Post the bounded, secret-scanned result body as the ticket comment from TicketLifecycle.FinalizeAsync and from PipelineErrorHandler's step-failure path, with a dashboard link for the tail; the two red paths that render no result keep their present message."
+  - id: the-comment-speaks-the-comment-dialect
+    action: "Render the result body into the HTML comment subset FailureTicketComment already uses, so Jira converts it to ADF and Azure DevOps displays it; the Markdown original is unchanged in the artifact store."
   - id: a-run-with-no-diff-still-opens-its-pr
     action: "Open the record-carrier PR without requiring a stageable commit, so a run whose only artifact was the run record does not silently end without a pull request."
   - id: no-pointer-at-a-file-that-is-gone
@@ -105,6 +117,7 @@ tests:
   - "Finalize_AGreenRun_PostsTheResultBodyAsTheComment"
   - "PipelineError_AStepFailure_PostsTheResultBodyAsTheComment"
   - "PipelineError_AFatalFailureWithNoRenderedResult_PostsTodaysMessage"
+  - "TicketComment_TheResultBody_IsRenderedInTheCommentSubsetNotMarkdown"
   - "TicketComment_ABodyOverTheProviderLimit_IsBoundedAndLinksTheDashboard"
   - "TicketComment_ABodyCarryingASecretPattern_IsRedactedNotPosted"
   - "PrReviewComment_TheFullReportPointer_NamesTheDashboardRun"
@@ -115,6 +128,7 @@ done:
   - "result.md and the dependency-audit json exist in the artifact store and nowhere in the target repo"
   - "the phase record, the context.yaml index line and the memory narrative are still committed"
   - "a green run and a step-failure run each leave the result body as a ticket comment, secret-scanned and within the provider's limit"
+  - "no ticket comment carries raw Markdown headings or fences on Jira or Azure DevOps"
   - "a run whose only artifact was the run record still opens a pull request"
   - "no artifact, comment or PR body names .agentsmith/runs/<id>/result.md"
   - "compile-wiki no longer exists as a command"
