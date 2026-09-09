@@ -1,0 +1,135 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-08-c56e
+goal: "No run commits a run directory: nothing under .agentsmith/runs/ is staged by any writer, result.md stops being written to the repo, and its body reaches the operator as a bounded ticket comment."
+
+applies_to: "backend (CommitAndPRHandler, RepoWorkPusher, PersistWorkBranchHandler, InitCommitHandler, WriteRunResultHandler, RunRecordPaths, TicketLifecycle, PipelineErrorHandler, PrReviewCommentRenderer, CompileKnowledgeHandler, AzureReposSourceProvider) + skills catalog (the coding master's run-record instruction)"
+
+requires:
+  - 2026-09-07-f420
+
+scope:
+  in: "Every writer that can put .agentsmith/runs/ into a commit stops doing so — CommitAndPRHandler's stage-all plus force-stage, RepoWorkPusher's checkpoints, PersistWorkBranchHandler's parked/failed push, InitCommitHandler; result.md and the dependency-audit json are no longer written into the repo at all, only into the artifact store; the rendered result body is posted as the ticket comment on every path that renders one, passed through the secret scanner first and bounded to the provider's comment limit with a dashboard link for the tail; the record-carrier PR keeps opening for a run with nothing else to commit; PrReviewCommentRenderer and the Azure Repos truncation marker stop naming a file that will not exist; compile-wiki is retired."
+  out: "Relocating the spec set out of .agentsmith/specs/ and turning the phase record from a write into a move. That is the successor phase — 'the derived set is the phase directory' — and it is BLOCKED on one question this phase does not answer: what carries the executed-phase index, the segment-to-phase carry map, the revision list and the handback state on the branch once set.yaml is gone, given SpecSetReader is index-first and TicketSpecSet is deliberately a pointer and not a copy. It must also require 2026-09-07-e9a2, which renames the done file. Also out: removing specs/ directories already merged into target trunks; the decisions/ findability axis, which is a cut on THIS repo. The context.yaml state.done line and the .agentsmith/memory/ narrative are KEPT and untouched — they are records, not run scratch."
+
+decisions:
+  - key: |
+      THE COMMITTED COPY HAS A DURABLE TWIN AND ONE READER, WHICH IS RETIRED. IRunArtifactStore
+      exists because "the on-disk write inside the sandbox / target repo is not reachable from
+      the server", and DbRunArtifactStore (p0246e) mirrors result_md / plan_md / analyze_md /
+      spec_md into the database so they survive a restart AND a Redis flush. The dashboard reads
+      the store. The one thing that reads the committed copies is CompileKnowledgeHandler, which
+      walks <repo>/.agentsmith/runs/*/{plan.md,result.md} to build a wiki; it is reachable only
+      as the compile-wiki CLI verb and sits in no pipeline preset. Leaving it registered would
+      ship a verb that is a permanent no-op, so it goes with the directory it reads — a silent
+      empty result is worse than a removed command.
+  - key: |
+      THE WRITE STAYS, THE COMMIT GOES. plan.md is not dead weight during the run: the master
+      writes it into the sandbox tree via {RunRecordDir} and WriteRunResultHandler reads it back
+      to fill the durable plan slot the Plan beat renders. Cutting the write would cut the beat.
+      Only the staging changes. result.md is different — nothing reads it back, so it stops
+      being written to the repo entirely and only the store write remains.
+  - key: |
+      FOUR WRITERS, NOT ONE, AND THE FORCE-STAGE IS LOAD-BEARING. The run record reaches a commit
+      through CommitAndPRHandler (StageAllAsync then ForceStageAsync of the WHOLE ".agentsmith"
+      path), RepoWorkPusher's mid-run checkpoints (which see the master's freshly written
+      plan.md/decisions.md as working changes), PersistWorkBranchHandler's parked/failed push and
+      InitCommitHandler. A filter on one of them leaves three holes. The force-stage is why a
+      repo that gitignores .agentsmith still gets a PR (p0234) and why the p0228 "nothing staged"
+      guard is rare — so the exclusion is an UNSTAGE after both staging calls, and the force-stage
+      is retargeted at the paths that remain records: phases/done/, contexts/, memory/.
+  - key: |
+      A RUN WITH NOTHING ELSE TO COMMIT MUST STILL OPEN ITS PR. Today the run record is what
+      guarantees a stageable diff; without it CommitAndPRHandler returns SkippedNoChanges and no
+      PR is opened, and the draft spec PR is never marked ready. A ticketed run writes a phase
+      record, so the common case still stages. The case that does not — a run with no phase spec
+      that changed nothing — keeps its record-carrier PR by opening it without requiring a
+      commit, because "at least one PR, no obscure splitting" is the rule this must not repeal.
+  - key: |
+      THE OUTBOUND COMMENT IS SCANNED, BECAUSE TODAY THE COMMIT GATE IS THE SCAN. result.md
+      leaves the sandbox through CommitAndPRHandler's staged-diff scan, which ABORTS the commit
+      on a secret-pattern match — one of only two ISecretPatternScanner call sites. The body
+      carries the dialogue trail, the per-skill breakdown and the execution trail, i.e. command
+      output tails and model text. Moving it to a ticket comment without a scan would replace a
+      gate that blocks with a channel that publishes. The comment is scanned before it is posted
+      and a match redacts rather than blocks, because a failed run must still say why it failed.
+  - key: |
+      THE COMMENT IS BOUNDED, AND THE MARKER THAT NAMES result.md CHANGES WITH IT. Azure Repos
+      caps a PR description at 4000 characters and truncates with "… (truncated — see result.md
+      for the full record)"; Jira caps a comment at 32767. A 39-step run's result exceeds both.
+      The comment carries a bounded head — verdict, what changed, the PR link, the cost line —
+      and a dashboard link for the rest, rather than a truncated wall. The Azure marker stops
+      naming a file that will no longer exist, and so does PrReviewCommentRenderer, which today
+      tells a reviewer to open `.agentsmith/runs/{runId}/result.md`.
+  - key: |
+      A TICKET COMMENT IS NOT MARKDOWN, ON EITHER PROVIDER. result.md is Markdown — headings,
+      backticked paths, tables. Ticket comments in this system are not: they are authored in a
+      small HTML subset (<b>, <br/>, <code>, HTML-encoded text), which FailureTicketComment
+      already writes and JiraAdfRenderer.FromCommentText converts into real ADF, because Jira
+      rejects wiki markup and shows HTML as literal text. Azure DevOps renders the same way —
+      a pasted '##' stays a '##'. So the result reaches the ticket through a renderer into that
+      subset, not by moving the Markdown bytes; the Markdown original stays what the artifact
+      store holds and the dashboard shows. One body, two renderings, and the ticket gets the one
+      its provider can display.
+  - key: |
+      ONLY THE PATHS THAT ACTUALLY RENDER A RESULT. PipelineErrorHandler terminalises a ticket
+      from three entry points — HandleStepFailureAsync, HandleFatalFailureAsync and
+      FinalizeFailedTicketAsync — and only the first is preceded by the finalizer tail that
+      renders a result. A fatal exception before any step fails, and an operator cancel, have no
+      result to post. Those two keep today's message and say so explicitly, rather than a
+      criterion claiming a coverage the code cannot give.
+  - key: |
+      THE SPEC SET IS A SEPARATE CUT AND ONE OF ITS ANSWERS IS MISSING. Moving SpecSetKey.Root
+      to a phases directory is not a rename: SpecSetReader is index-first and returns null with
+      no set.yaml, so dropping the index makes every resumed run re-derive and re-execute
+      already-executed phases; SpecSetStaleFiles git-rms every .yaml/.md in the set directory
+      that is not in the current cut, which against a phases/active/ shared with an operator
+      would delete hand-written specs; the security scanner's exclusion prefix IS SpecSetKey.Root,
+      so moving it re-exposes every merged spec to the pattern scan p0390 hid them from; and the
+      phase record is written to EVERY repo while the set lives in exactly one. Each has an
+      answer; the index one does not yet, and a phase that cannot say what carries the executed
+      list is a phase that loses runs. It is named in scope.out and waits for that answer.
+
+steps:
+  - id: nothing-under-runs-is-staged
+    action: "Add the exclusion to the one place that already defines the path class, RunRecordPaths, and apply it at all four writers: unstage runs/ after CommitAndPRHandler's stage-all and force-stage, and skip it in RepoWorkPusher, PersistWorkBranchHandler and InitCommitHandler; retarget the force-stage at phases/, contexts/ and memory/."
+  - id: result-and-audit-leave-the-repo
+    action: "WriteRunResultHandler stops writing result.md and the dependency-audit json into the repo, keeping every artifact-store write; the plan.md read-back is unchanged."
+  - id: the-ticket-carries-the-result
+    action: "Post the bounded, secret-scanned result body as the ticket comment from TicketLifecycle.FinalizeAsync and from PipelineErrorHandler's step-failure path, with a dashboard link for the tail; the two red paths that render no result keep their present message."
+  - id: the-comment-speaks-the-comment-dialect
+    action: "Render the result body into the HTML comment subset FailureTicketComment already uses, so Jira converts it to ADF and Azure DevOps displays it; the Markdown original is unchanged in the artifact store."
+  - id: a-run-with-no-diff-still-opens-its-pr
+    action: "Open the record-carrier PR without requiring a stageable commit, so a run whose only artifact was the run record does not silently end without a pull request."
+  - id: no-pointer-at-a-file-that-is-gone
+    action: "PrReviewCommentRenderer names the dashboard run instead of result.md; the Azure Repos truncation marker does the same; compile-wiki and its handler, reader and builder are removed."
+  - id: the-catalog-calls-it-scratch
+    action: "The coding master's run-record instruction says the run directory is written for the run and never committed. Release and pin bump are operator follow-ups."
+
+tests:
+  - "RunRecordPaths_APathUnderRunsDir_IsExcludedFromStaging"
+  - "CommitAndPR_ARunRecordUnderRunsDir_IsNotInTheStagedDiff"
+  - "CommitAndPR_APhaseRecordAndContextYaml_AreStillForceStaged"
+  - "CommitAndPR_ARunWithNoStageableDiff_StillOpensTheRecordCarrierPr"
+  - "RepoWorkPusher_ACheckpointWithOnlyRunRecordChanges_CommitsNothing"
+  - "PersistWorkBranch_AParkedRunWithOnlyRunRecordChanges_PushesNothing"
+  - "WriteRunResult_ResultMarkdown_ReachesTheStoreAndNotTheRepo"
+  - "WriteRunResult_TheAgentPlanMarkdown_IsStillReadBackIntoThePlanSlot"
+  - "Finalize_AGreenRun_PostsTheResultBodyAsTheComment"
+  - "PipelineError_AStepFailure_PostsTheResultBodyAsTheComment"
+  - "PipelineError_AFatalFailureWithNoRenderedResult_PostsTodaysMessage"
+  - "TicketComment_TheResultBody_IsRenderedInTheCommentSubsetNotMarkdown"
+  - "TicketComment_ABodyOverTheProviderLimit_IsBoundedAndLinksTheDashboard"
+  - "TicketComment_ABodyCarryingASecretPattern_IsRedactedNotPosted"
+  - "PrReviewComment_TheFullReportPointer_NamesTheDashboardRun"
+  - "Harness_AGreenTicketRun_CommitsNoPathUnderRunsDir"
+
+done:
+  - "no commit produced by any of the four writers carries a path under .agentsmith/runs/"
+  - "result.md and the dependency-audit json exist in the artifact store and nowhere in the target repo"
+  - "the phase record, the context.yaml index line and the memory narrative are still committed"
+  - "a green run and a step-failure run each leave the result body as a ticket comment, secret-scanned and within the provider's limit"
+  - "no ticket comment carries raw Markdown headings or fences on Jira or Azure DevOps"
+  - "a run whose only artifact was the run record still opens a pull request"
+  - "no artifact, comment or PR body names .agentsmith/runs/<id>/result.md"
+  - "compile-wiki no longer exists as a command"
+  - "build green, dashboard build and tests green, full suite green"
