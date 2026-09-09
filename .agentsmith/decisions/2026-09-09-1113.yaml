@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-09-1113
+
+decisions:
+  - category: Process
+    chose: "Restore 120s — the value p0423b measured — rather than invent a new number"
+    over: "A different widening (60s, 90s), or an xUnit [Fact(Timeout=…)] in place of the WaitAsync"
+    reason: |
+      120s is the only budget this test has ever been observed to survive; 30s has now been
+      observed to fail twice in one day at 36s and 48s. Picking a third number would be
+      picking one nobody has measured. A [Fact(Timeout)] would move the same guess into the
+      attribute and, in xUnit, needs the collection's parallelisation disabled to take
+      effect — a bigger change to buy the same wall clock.
+  - category: Process
+    chose: "Leave the runner saturation itself alone and say so in scope.out"
+    over: "Reducing suite parallelism, or splitting the CI test step, in this phase"
+    reason: |
+      The saturation is real and visible in the same logs — assertions over strings taking
+      42s on a 4-core runner — but it is a property of running the whole solution in one
+      `dotnet test` step, not of this test. Fixing it here would be a change to the CI
+      workflow smuggled in under a one-line test edit, and the flake it causes is closed by
+      the budget either way.
