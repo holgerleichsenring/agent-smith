@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -150,19 +151,16 @@ public sealed class PipelineExecutor(
 
             if (!stepResult.Result.IsSuccess)
             {
-                // p0237: a failed step used to short-circuit straight to the
-                // error handler, skipping the finalizer tail (WriteRunResult,
-                // CommitAndPR, …). A run then "failed" with no result.md, no
-                // record PR, and only a bare reason in the ticket. Now run the
-                // remaining finalizers anyway so a failed/cancelled run still
-                // records WHY + opens a record PR. PersistWorkBranch (partial
-                // work) stays with the error handler.
-                // The failure reason is already classified by TYPE at the catch
-                // site (PipelineStepRunner.DescribeStepException / AgenticMaster-
-                // Handler.DescribeMasterFailure check `is OperationCanceledException`
-                // on the exception chain) — no message-text parsing here.
+                // p0237: a failed step still runs the finalizer tail (WriteRunResult,
+                // CommitAndPR, …) so the run records WHY and keeps its work; the reason
+                // is classified by TYPE at the catch site, never parsed from text here.
+                // p0439: the tail may DELIVER the verified phases as a shortfall — then
+                // the run is a done that says what it lacks, and the error path never
+                // runs (no failure comment, no failed status, no WIP persist).
                 context.Set(ContextKeys.FailureReason, stepResult.Result.Message ?? "unknown");
                 await finalizerTail.RunAsync(current, commands, projectConfig, context, executionCount, ct);
+                if (RunShortfall.DeliveredOn(context) is { } shortfall)
+                    return CommandResult.Ok(shortfall.Summary);
                 await errorHandler.HandleStepFailureAsync(
                     commandList.Select(c => c.Name).ToList(), projectConfig, context, lifecycle, stepResult.Result, ct);
                 return stepResult.Result;

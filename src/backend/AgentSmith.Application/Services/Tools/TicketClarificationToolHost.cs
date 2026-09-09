@@ -52,8 +52,8 @@ public sealed class TicketClarificationToolHost : IToolHost
         Captured = new PlanOpenQuestion(
             TicketQuestionLabel, text, choices?.Select(c => c.label).ToList() ?? []);
         return "This run cannot receive a live answer. Your question will be posted to the "
-            + "ticket and the run pauses until the operator answers; the answer re-triggers "
-            + "a fresh run. STOP now: make no further changes, emit no verdict, and end your "
-            + "reply with a one-line note that you are waiting for the answer.";
+            + "ticket and the run pauses until the operator answers; it then continues with "
+            + "the answer in your input. STOP now: make no further changes, emit no verdict, "
+            + "and end your reply with a one-line note that you are waiting for the answer.";
     }
 }

@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Prompts;
@@ -9,6 +10,12 @@ namespace AgentSmith.Application.Services.Prompts;
 /// the set instead of re-deriving it from the prose. A previous set that was a
 /// hand-back holds no cut to amend and renders nothing: the hand-back itself reaches
 /// the prompt through the conversation section, or the unanswered-question pin.
+/// <para>
+/// 2026-09-08-5cd2: an edited ticket says so, naming the revision the change postdates —
+/// the unstarted phases are cut from the current text, the executed ones stay.
+/// 2026-09-08-4aa9: a comment says so the same way, pointing at the conversation section
+/// the comment is in.
+/// </para>
 /// </summary>
 public static class PreviousCutPromptSection
 {
@@ -19,6 +26,8 @@ public static class PreviousCutPromptSection
         sb.AppendLine();
         sb.AppendLine("## The previous cut — AMEND it, do not re-derive from the prose");
         sb.AppendLine($"Cause of the revision you are writing now: {cause}");
+        if (cause == SpecRevisionCause.TicketEdit) sb.AppendLine(TicketEditParagraph(previous));
+        if (cause == SpecRevisionCause.Comment) sb.AppendLine(CommentParagraph(previous));
         foreach (var phase in previous.Phases)
         {
             var executed = previous.Executed.Contains(phase.PhaseId, StringComparer.Ordinal);
@@ -33,4 +42,15 @@ public static class PreviousCutPromptSection
             + "that have not started.");
         return sb.ToString();
     }
+
+    private static string TicketEditParagraph(SpecSet previous) =>
+        $"The ticket text changed since revision {previous.Current.Number} was cut. The segments "
+        + "above are the CURRENT text: cut the phases that have not started from it — drop what "
+        + "the ticket no longer asks for, add what it now asks for, keep what still holds. "
+        + "Executed phases stay exactly as they are.";
+
+    private static string CommentParagraph(SpecSet previous) =>
+        $"The ticket was commented on after revision {previous.Current.Number} was cut — the comment "
+        + "is in the ticket conversation above. Amend the phases that have not started as it asks: "
+        + "re-cut, drop or add them. Executed phases stay exactly as they are.";
 }

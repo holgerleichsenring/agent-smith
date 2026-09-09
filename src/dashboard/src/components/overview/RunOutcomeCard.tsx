@@ -22,6 +22,7 @@ function OutcomeDetail({ outcomes }: { outcomes: RunOutcomes }) {
   return (
     <>
       <span data-testid="kcard-runs-succeeded">{outcomes.succeeded}</span> succeeded ·{" "}
+      <span data-testid="kcard-runs-shortfall">{outcomes.shortfall}</span> with a shortfall ·{" "}
       <span data-testid="kcard-runs-failed">{outcomes.failed}</span> failed ·{" "}
       <span data-testid="kcard-runs-cancelled">{outcomes.cancelled}</span> cancelled
     </>

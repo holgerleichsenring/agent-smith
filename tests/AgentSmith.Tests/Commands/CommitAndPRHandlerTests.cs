@@ -74,6 +74,11 @@ public class CommitAndPRHandlerTests
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
             new FailedRunPersistence(),
+            new ShortfallDelivery(
+                new UnverifiedWorkReverter(
+                    new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                    NullLogger<UnverifiedWorkReverter>.Instance),
+                NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
             NullLogger<CommitAndPRHandler>.Instance);
     }
@@ -356,6 +361,37 @@ public class CommitAndPRHandlerTests
             It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
     }
 
+    /// <summary>
+    /// 2026-09-06-3d81: a criterion the master declined, with its reason, reaches the two
+    /// surfaces the ticket author reads — the completion comment and the pull request body.
+    /// Before this the answer satisfied the gate and was rendered nowhere.
+    /// </summary>
+    [Fact]
+    public async Task Outcome_ADeclinedCriterion_IsRenderedInThePullRequestBody()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        RunAccountLedger.Record(pipeline, [new SpecAccount("repo",
+            [new CriterionAccount("the endpoint rejects an anonymous call", AccountDisposition.Satisfied, "Auth.cs:20")])]);
+        DeclinedCriteriaLedger.Record(pipeline, new MasterVerification(
+            VerificationStatus.Green, true, true, true, true, "done",
+            AcceptanceDispositions: [new AcceptanceDisposition(
+                "`npm run lint` exits 0", AcceptanceStatus.NotApplicable,
+                "the lint config is a shared package this repository cannot change")]));
+
+        await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(),
+            It.Is<string>(body => body.Contains(DeclinedCriteriaSection.Heading)
+                && body.Contains("**`npm run lint` exits 0** — the lint config is a shared package this repository cannot change")),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(),
+            It.Is<string>(s => s.Contains(DeclinedCriteriaSection.Heading)
+                && s.Contains("the lint config is a shared package this repository cannot change")),
+            It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task ExecuteAsync_FixBugPreset_NoCodeChange_FailsAndDoesNotResolveTicket()
     {
@@ -438,6 +474,85 @@ public class CommitAndPRHandlerTests
         _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
             It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShortfallRun_OpensAReadyPrAndFinalizesTheTicketDone()
+    {
+        // p0439: the tail reaches this handler after a LATER phase failed; the first phase
+        // is verified and its head is recorded. That phase is delivered: a ready PR whose
+        // body names what is missing, the ticket finalized with the done status, and the
+        // delivery left on the context for the executor and the use case to read.
+        string? capturedBody = null;
+        var capturedDraft = true;
+        _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
+                It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
+                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+            .ReturnsAsync("https://github.com/test/repo/pull/42");
+        var pipeline = ShortfallPipeline(withVerifiedHead: true);
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("pull/42").And.NotContain("Run failed");
+        capturedDraft.Should().BeFalse("the delivered phase is verified — the PR is ready for review");
+        capturedBody.Should().StartWith("> ✅ **Delivered with a shortfall**")
+            .And.Contain("## Not delivered").And.Contain("p0001b").And.Contain("cost budget exhausted");
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(),
+            It.Is<string>(s => s.Contains("Delivered with a shortfall") && s.Contains("Not delivered")),
+            "done", It.IsAny<CancellationToken>()), Times.Once);
+        Contracts.Specs.RunShortfall.DeliveredOn(pipeline).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShortfallRunWithoutAVerifiedHead_StaysAFailedRun()
+    {
+        // The keystone: a sandbox whose verified state is unknown cannot deliver "exactly
+        // the verified work", so the run keeps the 2026-09-07-f420 shape — draft, no finalize.
+        var capturedDraft = false;
+        _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
+                It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
+                (_, _, _, _, _, draft) => capturedDraft = draft)
+            .ReturnsAsync("https://github.com/test/repo/pull/42");
+        var pipeline = ShortfallPipeline(withVerifiedHead: false);
+
+        var result = await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+
+        result.Message.Should().Contain("Run failed");
+        capturedDraft.Should().BeTrue();
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        Contracts.Specs.RunShortfall.DeliveredOn(pipeline).Should().BeNull();
+    }
+
+    private PipelineContext ShortfallPipeline(bool withVerifiedHead)
+    {
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.PipelineName, "code");
+        pipeline.Set(ContextKeys.DoneStatus, "done");
+        pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
+        pipeline.Set(ContextKeys.SpecSequenceProgress, new Contracts.Specs.SpecSequenceProgress(
+        [
+            new Contracts.Specs.PhaseProgress("p0001a", "Introduce the guard", Contracts.Specs.PhaseRunState.Done),
+            new Contracts.Specs.PhaseProgress("p0001b", "Move the callers", Contracts.Specs.PhaseRunState.InProgress),
+        ]));
+        if (withVerifiedHead)
+            pipeline.Set<IReadOnlyDictionary<string, string>>(
+                ContextKeys.VerifiedHeads, new Dictionary<string, string> { [string.Empty] = "abc123" });
+        // The sandbox answers the reverter's name-status question with nothing beyond the head.
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Command == "git" && st.Args != null && st.Args.Contains("--name-status")),
+                It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) => Task.FromResult(
+                new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, string.Empty)));
+        return pipeline;
     }
 
     [Fact]

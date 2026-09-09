@@ -52,8 +52,13 @@ public sealed class SpecSetIndex
             HandbackReason = set.Handback?.Reason,
             HandbackReadings = [.. set.Handback?.Readings ?? []],
             HandbackTaken = set.Handback?.Taken ?? 0,
+            TicketFingerprint = set.TicketFingerprint,
         });
     }
+
+    /// <summary>The fingerprint the index carries, or null when it predates one.</summary>
+    public string? FingerprintOf(SpecSetIndexDocument doc) =>
+        string.IsNullOrWhiteSpace(doc.TicketFingerprint) ? null : doc.TicketFingerprint.Trim();
 
     public SpecSetIndexDocument? Parse(string? yaml)
     {

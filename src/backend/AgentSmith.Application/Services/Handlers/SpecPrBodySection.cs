@@ -16,17 +16,20 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public static class SpecPrBodySection
 {
-    public static string Build(PipelineContext pipeline, SpecSequenceProgress? progress)
+    /// <param name="shortfall">p0439: the shortfall this run delivers, if any — the phase
+    /// table then reads as a delivery note and the "Not delivered" section follows it.</param>
+    public static string Build(
+        PipelineContext pipeline, SpecSequenceProgress? progress, RunShortfall? shortfall = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null)
-            return string.Empty;
+            return ShortfallSection.Build(shortfall);
 
         var sb = new StringBuilder();
         sb.AppendLine();
         sb.AppendLine();
-        if (progress is not null) sb.AppendLine(SpecPrBody.RenderStatus(progress));
+        if (progress is not null) sb.AppendLine(SpecPrBody.RenderStatus(progress, shortfall is not null));
         sb.AppendLine(SpecPrBody.RenderDiscarded(set));
-        return sb.ToString();
+        return sb.ToString() + ShortfallSection.Build(shortfall);
     }
 }

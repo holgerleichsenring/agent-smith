@@ -5,7 +5,7 @@ namespace AgentSmith.Contracts.Tickets;
 /// <summary>
 /// Closed set of labels that agent-smith owns to represent ticket lifecycle status.
 /// The `agent-smith:` prefix is a hint that the label belongs to this framework, but
-/// `IsLifecycleLabel` only returns true for labels matching one of the six known
+/// `IsLifecycleLabel` only returns true for labels matching one of the seven known
 /// statuses — operator-defined labels that share the prefix (e.g. `agent-smith:init`
 /// in `pipeline_from_label`) are preserved through transitions and pass the
 /// resolution filter unchanged.
@@ -22,6 +22,7 @@ public static class LifecycleLabels
         TicketLifecycleStatus.Done => Prefix + "done",
         TicketLifecycleStatus.Failed => Prefix + "failed",
         TicketLifecycleStatus.Waiting => Prefix + "waiting",
+        TicketLifecycleStatus.Shortfall => Prefix + "shortfall",
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
     };
 
@@ -55,6 +56,7 @@ public static class LifecycleLabels
             case "done": status = TicketLifecycleStatus.Done; return true;
             case "failed": status = TicketLifecycleStatus.Failed; return true;
             case "waiting": status = TicketLifecycleStatus.Waiting; return true;
+            case "shortfall": status = TicketLifecycleStatus.Shortfall; return true;
             default: return false;
         }
     }

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -18,9 +19,16 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 /// branch which phases are through are two things, and the handler that does the first
 /// should not also own the second.
 /// </para>
+/// <para>
+/// 2026-09-08-4aa9: the record is this system's own commit on the spec path, so the
+/// pointer moves with it. Until it did, every re-trigger after an executed phase read
+/// the marker's commit as a reviewer's edit and never asked the model — a comment on
+/// the ticket re-cut nothing.
+/// </para>
 /// </summary>
 public sealed class ExecutedPhaseMarker(
     ISpecSetWriter specSetWriter,
+    SpecSetPointerRecorder pointer,
     ILogger<ExecutedPhaseMarker> logger)
 {
     public async Task MarkAsync(
@@ -37,12 +45,27 @@ public sealed class ExecutedPhaseMarker(
 
         var carrier = CarryingRepo(pipeline, repos);
         if (carrier is null) return;
-        var write = await specSetWriter.WriteAsync(pipeline, carrier, updated, cancellationToken);
+        await RecordOnBranchAsync(pipeline, carrier, updated, draft.PhaseId, cancellationToken);
+    }
+
+    private async Task RecordOnBranchAsync(
+        PipelineContext pipeline, RepoConnection carrier, SpecSet updated, string phaseId,
+        CancellationToken ct)
+    {
+        var write = await specSetWriter.WriteAsync(pipeline, carrier, updated, ct);
         if (!write.Written)
+        {
             logger.LogWarning(
                 "Phase {PhaseId} ran but the branch could not record it as executed: {Error}",
-                draft.PhaseId, write.Error);
+                phaseId, write.Error);
+            return;
+        }
+        await pointer.RecordAsync(ProjectOf(pipeline), carrier, updated, write.CommitSha!, ct);
     }
+
+    private static string ProjectOf(PipelineContext pipeline) =>
+        pipeline.TryGet<string>(ContextKeys.ProjectName, out var name)
+        && !string.IsNullOrWhiteSpace(name) ? name! : string.Empty;
 
     private static RepoConnection? CarryingRepo(
         PipelineContext pipeline, IReadOnlyList<RepoConnection>? repos)

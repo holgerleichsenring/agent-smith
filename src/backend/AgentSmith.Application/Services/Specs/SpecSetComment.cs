@@ -15,12 +15,20 @@ public static class SpecSetComment
     /// <summary>Marks the comment as this system's reading, so a human can tell it from an answer.</summary>
     public const string Marker = "<!-- agentsmith:derived-spec -->";
 
+    /// <summary>
+    /// 2026-09-08-4aa9: the heading phrase, which is how the next run finds our last cut
+    /// comment in the thread — a comment by anyone else after it is the objection the
+    /// comment invites, and re-cuts the unstarted tail. A phrase, as the hand-back
+    /// comments carry theirs: a tracker may strip an HTML comment, never a heading.
+    /// </summary>
+    public const string CutMarker = "this is how I understood the ticket";
+
     public static string Render(SpecSet set, string? pullRequestUrl)
     {
         ArgumentNullException.ThrowIfNull(set);
         var sb = new StringBuilder();
         sb.AppendLine(Marker);
-        sb.AppendLine("## Agent Smith — this is how I understood the ticket");
+        sb.AppendLine($"## Agent Smith — {CutMarker}");
         sb.AppendLine();
         sb.AppendLine(
             "I split it into the phases below and started working. This is NOT a question and "
@@ -28,6 +36,7 @@ public static class SpecSetComment
             + "unstarted phase or re-cuts the unstarted tail. A phase that already ran is never "
             + "edited — a correction to it becomes a new phase.");
         sb.AppendLine();
+        sb.Append(SpecRecutNotice.Render(set));
         sb.Append(RenderPhases(set));
         sb.AppendLine();
         sb.Append(SpecPrBody.RenderDiscarded(set));

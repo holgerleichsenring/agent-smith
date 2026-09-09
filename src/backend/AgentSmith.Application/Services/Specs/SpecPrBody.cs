@@ -72,19 +72,29 @@ public static class SpecPrBody
     /// HALF-MIGRATED repository — worse than not having started — so the pull request
     /// states which phases are through, which failed and on what, and which never ran.
     /// </summary>
-    public static string RenderStatus(SpecSequenceProgress progress)
+    /// <param name="delivered">p0439: true when the done phases are delivered as a shortfall —
+    /// the branch then carries exactly them, so the table is a delivery note, not a warning.</param>
+    public static string RenderStatus(SpecSequenceProgress progress, bool delivered = false)
     {
         ArgumentNullException.ThrowIfNull(progress);
         var sb = new StringBuilder();
-        sb.AppendLine(progress.IsPartial
+        var halfMigrated = progress.IsPartial && !delivered;
+        sb.AppendLine(halfMigrated
             ? "## ⛔ Half-migrated — DO NOT MERGE"
             : "## Phase status");
         sb.AppendLine();
-        if (progress.IsPartial)
+        if (halfMigrated)
         {
             sb.AppendLine(
                 "This sequence did not run to the end. The repository is in a PARTIAL state: "
                 + "some phases are applied and others are not. Merging it ships exactly that.");
+            sb.AppendLine();
+        }
+        else if (progress.IsPartial)
+        {
+            sb.AppendLine(
+                "This sequence did not run to the end. The phases marked done are built, verified "
+                + "and what this pull request delivers; the others are listed under \"Not delivered\".");
             sb.AppendLine();
         }
         sb.AppendLine("| Phase | Goal | Status |");

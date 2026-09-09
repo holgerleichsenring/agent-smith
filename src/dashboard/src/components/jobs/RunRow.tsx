@@ -31,6 +31,7 @@ const ST_CLASS: Record<NodeStatus, string> = {
   ok: "st-ok",
   fail: "st-bad",
   cancel: "st-q",
+  shortfall: "st-ok",
 };
 
 function finishedPill(status: NodeStatus): { cls: string; label: string } | null {
@@ -41,6 +42,8 @@ function finishedPill(status: NodeStatus): { cls: string; label: string } | null
       return { cls: "bad", label: "failed" };
     case "cancel":
       return { cls: "q", label: "cancelled" };
+    case "shortfall":
+      return { cls: "ok", label: "done, with a shortfall" };
     default:
       return null;
   }
@@ -118,7 +121,7 @@ function ActivityLine({ snapshot, status }: { snapshot: RunSnapshot; status: Nod
       </div>
     );
   }
-  if ((status === "ok" || status === "fail" || status === "cancel") && snapshot.summary) {
+  if ((status === "ok" || status === "shortfall" || status === "fail" || status === "cancel") && snapshot.summary) {
     const summary = formatRunSummary(snapshot.summary);
     return <div className="act" title={summary}>{summary}</div>;
   }

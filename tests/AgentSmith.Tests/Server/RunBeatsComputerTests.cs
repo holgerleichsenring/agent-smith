@@ -122,6 +122,21 @@ public sealed class RunBeatsComputerTests
     }
 
     [Fact]
+    public void ShortfallRun_BeatsReadAsADeliveredRun()
+    {
+        // p0439: the run delivered — a planned beat it never emitted was skipped, not
+        // the point where the story ended.
+        var run = TerminalRun("fix-bug", RunStatuses.Shortfall, Steps(
+            ("s", CommandNames.FetchTicket), ("s", CommandNames.AgenticMaster),
+            ("s", CommandNames.CommitAndPR)));
+
+        var beats = RunBeatsComputer.Compute(run)!;
+
+        beats.Outcome.Should().Be(BeatStates.Done);
+        beats.Plan.Should().Be(BeatStates.Skipped, "a delivered run that emitted no plan step skipped it");
+    }
+
+    [Fact]
     public void ActiveRun_CurrentBeatActive_EarlierDone_LaterPending()
     {
         var run = ActiveRun("fix-bug", Steps(
