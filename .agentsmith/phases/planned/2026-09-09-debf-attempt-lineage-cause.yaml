@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-debf
+goal: "A run records what it was seeded from and what caused it, so the continuity PriorRunLedgerSeeder already creates stops being invisible and an attempt can say why it exists."
+
+applies_to: "backend (run start path, persistence, contracts, the ledger seeder's call site) — the lineage half of the ticket view"
+
+requires:
+  - 2026-09-09-fd21
+  - 2026-09-09-b26f
+
+scope:
+  in: "Two new run facts written once at start: SeededFromRunId (the run whose ledger seeded this one, exactly what PriorRunLedgerSeeder resolved) and a start cause — tracker status, webhook, chat, CLI, operator retry, resume — with an optional free-text reason. Both on the Run row, the snapshot and the ticket read model. The seeder's decision is recorded whether it seeded or refused, with the refusal reason (age cap, bootstrap-only ledger, no prior run)."
+  out: "A checkpoint or resume changing run identity — a resumed run keeps its id (RunCheckpoint, ResumeRunLauncher) and is not a new attempt. Deriving cause for historical runs; pre-phase rows read as unknown and are never guessed. Starting a run from a reason (2026-09-09-b51e). Change events outside the system (2026-09-09-9e54)."
+
+decisions:
+  - key: |
+      THE CALL SITE ALREADY KNOWS; NOBODY ASKS IT TO SAY SO. PriorRunLedgerSeeder itself is a pure
+      static over a ledger it is handed; the resolution happens at its call site in the master
+      handler, which reads the latest same-ticket run and applies the 72h cap and the bootstrap
+      guard — then throws the provenance away. Recording the run id it used, and
+      the reason when it used none, costs one column and turns the carried-over half of every
+      attempt from a mystery into a fact. This is the phase that makes "carried, cost nothing"
+      renderable at all.
+  - key: |
+      CAUSE IS AN ENUM PLUS PROSE, NOT PROSE ALONE. The bucket ("operator retry", "tracker status")
+      is what the UI groups and filters on; the reason is what a human wrote and must never be
+      parsed. A single free-text field would force a parser over operator prose, which this repo
+      has ruled out for code semantics and should equally rule out here.
+  - key: |
+      A REFUSAL IS RECORDED AS LOUDLY AS A SEEDING. "No prior run", "prior run older than 72h" and
+      "prior ledger was bootstrap-only" are three different stories about why an attempt started
+      from nothing, and the operator pays for the difference in tokens. Recording only the success
+      case would leave the expensive case blank.
+  - key: |
+      ONE MIGRATION ROUND WITH 2026-09-09-9e54. Both phases add columns written once at run start;
+      whichever lands first carries the other's columns in its migration if they are built together,
+      because three separate rounds across two migration assemblies is bookkeeping nobody needs.
+  - key: |
+      NO parentRunId. The name would suggest a tree the system does not have: a run is seeded from
+      at most one prior ledger, and that is a data flow, not parenthood. SeededFromRunId says
+      exactly what happened and nothing more.
+
+steps:
+  - id: the-facts
+    action: "Run gains SeededFromRunId, SeedRefusalReason, StartCause and StartReason; a migration per provider; contracts follow."
+  - id: the-seeding-reports
+    action: "The seeding decision — which run was used, or which reason refused it — is returned from the seeder and recorded by its call site in the master handler, on the project-scoped reader 2026-09-09-b26f fixes."
+  - id: the-cause-at-the-door
+    action: "Every start path sets the cause: tracker poller, webhook endpoints, chat, CLI, resume launcher, and the retry service. The reason is set only where a human typed one."
+  - id: it-reaches-the-client
+    action: "Snapshot and ticket read model carry lineage and cause; the TS mirror follows."
+
+tests:
+  - "Seeder_SeededFromPriorRun_RecordsThatRunId"
+  - "Seeder_PriorRunOlderThanMaxAge_RecordsTheAgeRefusal"
+  - "Seeder_PriorLedgerAllPending_RecordsTheBootstrapRefusal"
+  - "Seeder_NoPriorRun_RecordsNoPriorRun"
+  - "Start_TrackerStatus_RecordsTheTrackerCause"
+  - "Start_OperatorRetry_RecordsTheOperatorCauseAndReason"
+  - "Resume_AParkedRun_KeepsItsIdAndIsNotANewAttempt"
+  - "TicketDetail_FourAttempts_ShowTheirCausesAndSeeds"
+
+done:
+  - "every new run records what seeded it or why nothing did, and what started it"
+  - "a resumed run is still the same attempt"
+  - "pre-phase runs read as unknown cause and never as a guess"
+  - "the ticket read model exposes lineage and cause per attempt"
+  - "build green, full suite green"

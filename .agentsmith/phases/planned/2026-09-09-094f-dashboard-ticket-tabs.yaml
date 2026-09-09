@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-094f
+goal: "Behind the graph sit the ticket's work plan across attempts, its attempts with what changed between them, its specification and its acceptance."
+
+applies_to: "dashboard (ticket detail tabs) — everything the ticket knows that the entry graph deliberately does not show"
+
+requires:
+  - 2026-09-09-debf
+  - 2026-09-09-9e54
+  - 2026-09-09-b51e
+  - 2026-09-09-3158
+
+scope:
+  in: "Four tabs. Work plan: the plan's steps as rows against attempts as columns, each cell saying done, carried, redone, asked or stopped, plus the start-an-attempt form with its seed choice, what changed since the last attempt, and a mandatory reason. Attempts: the timeline of attempts with the recorded change events between them, each attempt saying what started it, what it did and why it stopped. Specification with its versions and decisions. Acceptance with each criterion and the attempt that proved it."
+  out: "Cost and compute, which is its own tab in 2026-09-09-be83 — it was split out because five tabs plus a start form is more than one phase can ship complete. Editing the specification or the criteria from this page. Re-planning. Any new endpoint: every tab reads what the backend phases already deliver, or the tab says which phase provides it."
+
+decisions:
+  - key: |
+      THE MATRIX IS THE HONEST FORM OF "IT RAN FOUR TIMES". Steps against attempts shows in one
+      glance which work was done once and carried three times, which is the fact the runs list can
+      never show. Where a later attempt re-planned, the columns break; that boundary is drawn rather
+      than smoothed, because a smoothed matrix would claim a continuity that did not exist.
+      A step identity that is not stable across attempts makes the cell unknown, never a guess.
+  - key: |
+      STARTING BELONGS TO THE PLAN, NOT THE HEADER. The decision an operator makes is what the next
+      attempt starts from, and that is only answerable while looking at what is already proven. The
+      form therefore lives under the matrix, with the reason required before the button does anything.
+  - key: |
+      WHAT CANNOT BE FILLED IS NAMED IN THE UI. Where a figure has no source — a fleet total, a step
+      identity that did not survive a re-plan — the tab says so and names the phase that would supply
+      it. The p0343 stylesheet already carries that convention for unmatchable elements.
+
+steps:
+  - id: work-plan
+    action: "The steps-by-attempts matrix from the per-attempt ledgers, with the re-plan boundary drawn, and the start form bound to the attempt endpoint."
+  - id: attempts
+    action: "The attempts timeline with change events interleaved, each attempt expandable to what it did and why it stopped, linking to the run viewer."
+  - id: specification-and-acceptance
+    action: "Specification with its versions and recorded decisions; acceptance with per-criterion state and the attempt that proved it."
+
+tests:
+  - "WorkPlan_AStepCarriedByThreeAttempts_ShowsOneDoneAndThreeCarried"
+  - "WorkPlan_ARePlan_DrawsTheBoundaryAndDoesNotAlignAcrossIt"
+  - "WorkPlan_AnUnstableStepIdentity_RendersUnknown"
+  - "StartForm_WithoutAReason_KeepsTheButtonDisabled"
+  - "StartForm_Submitting_PostsTheSeedChoiceAndReason"
+  - "StartForm_ALiveAttempt_ShowsTheConflictAnswer"
+  - "Attempts_ChangeEvents_AppearBetweenTheAttemptsInTime"
+  - "Acceptance_EachCriterion_NamesTheAttemptThatProvedIt"
+  - "Tabs_AFigureWithNoSource_NamesThePhaseThatWouldSupplyIt"
+
+done:
+  - "the four tabs render from the ticket payload with no new endpoint"
+  - "the matrix shows carried work as carried and marks a re-plan boundary"
+  - "an attempt can be started from the work plan with a reason"
+  - "dashboard tests and build green"

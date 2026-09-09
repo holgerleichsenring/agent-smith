@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-1a80
+goal: "The dashboard opens on tickets, bucketed by who has to act, each row carrying its attempts, its stage strip and what the ticket has cost; questions are answered here and nowhere else."
+
+applies_to: "dashboard (app shell, the new tickets surface, the runs surface's inbox) — the entry point moves from runs to tickets"
+
+requires:
+  - 2026-09-09-fd21
+  - 2026-09-09-9e54
+  - 2026-09-09-5cb7
+
+scope:
+  in: "A tickets list at the app's root: buckets needs-you, working, waiting-on-review, stuck, done, each row with ticket key and title, the current activity line, a five-cell stage strip from the run's beats, an attempt strip with one mark per attempt, cost across attempts, and age. Answering a pending question inline, which resumes the parked attempt. The metric strip above it. The existing mission control becomes the runs list under a machine section and keeps every control it has, minus the answer box, which now links to the ticket. A live path for the ticket aggregate, because the hub pushes run snapshots and a runs-changed nudge and nothing that carries a ticket total."
+  out: "The ticket detail page, its graph and its tabs (2026-09-09-3158 and 2026-09-09-094f). Any new visual language: the mock's markup is ported the way p0343c ported the earlier mockups, into the existing prefix-scoped stylesheet. Deleting the runs list — it stays the machine view and stays reachable."
+
+decisions:
+  - key: |
+      MISSION CONTROL IS TICKET-FRAMED IN ITS COPY AND RUN-KEYED IN ITS DATA. p0343 named the home
+      screen "tickets worked as jobs", but the component fetches runs and buckets runs, so four
+      attempts at one ticket are four rows and the ticket's total cost appears nowhere. This phase
+      is that promise made true in the data, not a second home screen: the route becomes the ticket
+      list and the run-keyed view moves to the machine section, where a run-keyed list belongs.
+  - key: |
+      THE LIVE PATH IS PART OF THE PHASE, NOT AN ASSUMPTION. Nothing broadcasts a ticket aggregate
+      today. A ticket row therefore refetches on the runs-changed nudge the hub already sends, for
+      the tickets currently on screen. Without this the cost and attempt counts would drift silently,
+      which is worse than a page that does not claim to be live.
+  - key: |
+      ONE INBOX. A question belongs to a run in the data and to the work in a person's head; two
+      inboxes that can disagree is the failure mode. Needs-you lives on tickets, the runs list
+      keeps waiting_for_input as a filter that links to the ticket, and the answer box exists once.
+  - key: |
+      THE TICKETLESS RUN IS SETTLED BEFORE BUILDING, NOT AFTER. A run started from the CLI may carry
+      no ticket and would have no row to be its inbox. The first step decides between a ticket-shaped
+      row for it and keeping the answer box in the runs list for that case only. It is not left to
+      the implementation to discover.
+  - key: |
+      BUCKETS COME FROM THE PAYLOAD. Stuck means the last attempt failed and the ticket has not
+      changed since, which only the recorded revision can say. The UI renders the bucket the read
+      model computed; it never re-derives it, or the list and the page disagree.
+  - key: |
+      IDENTITY BY CONSTRUCTION, AGAIN. The look is not re-invented: the ratified mock is vendored
+      beside the existing ones and its CSS ported verbatim under a prefix, which is what made the
+      p0343 redesign land after two rejections.
+
+steps:
+  - id: settle-the-ticketless-run
+    action: "Decide and record where a run with no ticket is answered; implement that one case."
+  - id: vendor-the-mock
+    action: "Write the ratified ticket mock into src/dashboard/design/mockups beside the existing four; port its list styles into the prefix-scoped stylesheet verbatim."
+  - id: the-list
+    action: "The tickets route and its components against the ticket endpoints, with the buckets, strips, cost and age; live updates through the existing hub."
+  - id: the-inbox-moves
+    action: "Inline answering on the ticket row; the runs list keeps its filter and loses its answer box, linking to the ticket instead."
+  - id: the-live-path
+    action: "Ticket rows on screen refetch on the hub's runs-changed nudge; the refetch is bounded to what is visible."
+  - id: the-shell
+    action: "Tickets become the root; the existing run-keyed view becomes the runs list under the machine section, with capacity and configuration."
+
+tests:
+  - "TicketsList_RendersEachBucketFromThePayload"
+  - "TicketsList_StageStrip_FollowsTheRunsBeats"
+  - "TicketsList_AttemptStrip_HasOneMarkPerAttempt"
+  - "TicketsList_CostColumn_IsTheTicketTotalNotTheLastRun"
+  - "TicketsList_AnsweringAQuestion_PostsToTheParkedRunAndUpdatesTheRow"
+  - "TicketsList_StuckBucket_NeedsAFailedLastAttemptAndAnUnchangedTicket"
+  - "RunsList_AWaitingRun_LinksToItsTicketAndHasNoAnswerBox"
+  - "Shell_RootRoute_IsTickets"
+  - "TicketsList_ARunsChangedNudge_RefetchesTheVisibleTickets"
+  - "TicketsList_FourAttemptsAtOneTicket_AreOneRow"
+
+done:
+  - "the dashboard opens on tickets with the five buckets, from the ticket endpoints"
+  - "a question is answered on the ticket and the parked attempt resumes"
+  - "the runs list keeps every control it had except the answer box"
+  - "the ticketless-run case is decided, implemented and written down"
+  - "dashboard tests and build green, backend suite green"
