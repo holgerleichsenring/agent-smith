@@ -62,14 +62,27 @@ ledger="${PHASE_GATE_LOG:-$hooks_dir/../phase-gate.log}"
 # ledger and the gating decision below read this ONE definition — a marker recognised
 # by one and not the other would gate a commit it never records, or record one it
 # never gated.
-phase_marker='\((p[0-9]+[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})\)'
+phase_id='(p[0-9]+[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})'
+phase_marker="\\(${phase_id}([,[:space:]]+${phase_id})*\\)"
+
+# 2026-09-09-8fce: the marker takes a LIST, because a commit spanning two phases names both
+# and "(id, id)" matched nothing — the gate read it as an ordinary commit, ran no check and
+# wrote no line. A stricter id shape than the marker's serves the warning below: the marker
+# keeps p[0-9]+ so forms like (p73a) still gate, while a warning built on that shape would
+# fire on "p12" in prose, and a warning that cries wolf is one people scroll past.
+strict_phase_id='(p[0-9]{4,6}[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})'
 
 # One line per recognised phase commit: when, what the gate decided, the phase id,
 # the tree it gated and the commit the new one will sit on. That last field is what
 # ties a ledger line to a commit afterwards — it is the commit's parent.
 record() {
   local verdict=$1 tree=$2 detail=$3 phase parent
-  phase=$(printf '%s' "${message:-}" | grep -Eo "$phase_marker" | head -1 | tr -d '()')
+  phase=$(printf '%s' "${message:-}" | grep -Eo "$phase_marker" | head -1 \
+    | grep -Eo "$phase_id" | head -1)
+  # No marker: the one line worth investigating should still name its phase rather than
+  # say "unknown", so fall back to the first id in the subject.
+  [ -n "$phase" ] || phase=$(printf '%s' "${message:-}" | head -1 \
+    | grep -Eo "$strict_phase_id" | head -1)
   parent=$(git -C "$tree" rev-parse --short HEAD 2>/dev/null || echo none)
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$verdict" \
     "${phase:-unknown}" "$tree" "$parent" "$detail" >>"$ledger" 2>/dev/null || true
@@ -95,9 +108,20 @@ if message=$(printf '%s' "$cmd" | python3 "$resolver" "${hook_cwd:-${CLAUDE_PROJ
     # command line, supplies the text. Finding no marker in `$(cat message.txt)`
     # proves nothing about the message the commit will carry, so say so instead of
     # passing in silence — silence here is what a clean pass looks like.
-    printf '%s' "$message" | grep -Eq '[$]\(|`' || exit 0
-    record not-gated "${hook_cwd:-.}" "message built by a shell substitution"
-    echo "[phase-gate] the commit message is built by the shell ($(printf '%s' "$message" | head -c 60)) — its text never reached the gate, so it was not gated; run the phase checks by hand if this is a phase commit" >&2
+    if printf '%s' "$message" | grep -Eq '[$]\(|`'; then
+      record not-gated "${hook_cwd:-.}" "message built by a shell substitution"
+      echo "[phase-gate] the commit message is built by the shell ($(printf '%s' "$message" | head -c 60)) — its text never reached the gate, so it was not gated; run the phase checks by hand if this is a phase commit" >&2
+      exit 0
+    fi
+    # 2026-09-09-8fce: a SUBJECT that names a phase but carries no marker the gate can read.
+    # That is a phase commit by intent and an ordinary commit by the gate's reading, and the
+    # silence between the two is what let a two-phase commit through unverified. The body is
+    # not scanned: a good phase commit names its prerequisites there.
+    if printf '%s' "$message" | head -1 | grep -Eq "(^|[^0-9A-Za-z-])${strict_phase_id}([^0-9A-Za-z-]|$)"; then
+      record not-gated "${hook_cwd:-.}" "phase named in the subject without a marker"
+      echo "[phase-gate] the subject names a phase but carries no marker the gate reads — write it as '(<id>)' or '(<id>, <id>)'; NOT gated, run the phase checks by hand" >&2
+      exit 0
+    fi
     exit 0
   fi
 else
