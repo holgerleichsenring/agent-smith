@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.146.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.146.0...v0.146.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* the CI verdict stops depending on test order and runner load ([5a828b8](https://github.com/holgerleichsenring/agent-smith/commit/5a828b846ec1e1653a57d548ed94048a73a87696))
+* the harness stops sharing a ProjectMap cache (2026-09-09-6a77) ([cd11f02](https://github.com/holgerleichsenring/agent-smith/commit/cd11f0252b0ae9e4b510fcde1d04e511796e3afb))
+* the stall guard's budget outlasts a saturated runner (2026-09-09-1113) ([8e500aa](https://github.com/holgerleichsenring/agent-smith/commit/8e500aa42642e9262be3870a0a7f3e356ed7dcb2))
+
 ## [0.146.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.145.0...v0.146.0) (2026-09-09)
 
 
