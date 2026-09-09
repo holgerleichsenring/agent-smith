@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.146.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.145.0...v0.146.0) (2026-09-09)
+
+
+### Features
+
+* a declined criterion reaches the ticket author (2026-09-06-3d81) ([27c5fc0](https://github.com/holgerleichsenring/agent-smith/commit/27c5fc08c4ae362c14934b69fddc2dff847b5a41))
+* a run delivers what it built and says what it left (p0439) ([d1f57a7](https://github.com/holgerleichsenring/agent-smith/commit/d1f57a7ac2eb09bb9ea9982edcbf6e65562ca87d))
+
+
+### Bug Fixes
+
+* a coding run loads every context in a sandbox (2026-09-04-cf3d) ([84e4a93](https://github.com/holgerleichsenring/agent-smith/commit/84e4a93b43e3d28a6560f734d146118d136e02e9))
+* a comment after an executed phase re-cuts the unstarted tail (2026-09-08-4aa9) ([f31b188](https://github.com/holgerleichsenring/agent-smith/commit/f31b1888c903b6857622864fdce88b4f0c6d8bb0))
+* a complete ledger makes the master owe its verdict (2026-09-08-805f) ([a4f352f](https://github.com/holgerleichsenring/agent-smith/commit/a4f352fe879d3a67efa0ec6f1d2ee5da6d64af3a))
+* a parked master question resumes into the run (2026-09-03-3c07) ([500bc10](https://github.com/holgerleichsenring/agent-smith/commit/500bc10b13a25bd5f70e9896d34b26ec33146a7a))
+* a phase commit is gated or says it was not (2026-09-09-8fce) ([1635d40](https://github.com/holgerleichsenring/agent-smith/commit/1635d40e477ab4c885af1fe7fe8e032861141726))
+* a phase commit is gated or says it was not (2026-09-09-8fce) ([1f8cb50](https://github.com/holgerleichsenring/agent-smith/commit/1f8cb50f7d052a0ddc8e4d3774a4eca9cc2d4bc9))
+* an edited ticket re-cuts the unstarted tail (2026-09-08-5cd2) ([b2d322c](https://github.com/holgerleichsenring/agent-smith/commit/b2d322cc441ed66e81bb76a9f478c9d9d98cf4d6))
+* eight defects on the ticket-to-delivery path ([9aa362b](https://github.com/holgerleichsenring/agent-smith/commit/9aa362b1346397ff58a6431a3d546321547be237))
+* the acceptance gate pairs dispositions by criterion (2026-09-06-9f14) ([149e287](https://github.com/holgerleichsenring/agent-smith/commit/149e287ba45c9519b730b30dfb2cac0f1536ae96))
+* the gate finds a commit segment after a semicolon ([0d3b3f8](https://github.com/holgerleichsenring/agent-smith/commit/0d3b3f8ca7c9024f55fddef5c51e3a200d3a30bf))
+
 ## [0.145.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.144.0...v0.145.0) (2026-09-08)
 
 
