@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-5cdf
+
+goal: "One resolved base per repository answers for the work-branch cut, the base merge and the delivery diff, so a run cannot cut from one branch and account against another."
+
+applies_to: "backend (base resolution, work-branch checkout, base merger, delivery diff)"
+
+requires:
+  - 2026-09-13-a72a
+
+scope:
+  in: >
+    A base ladder resolved once per REPOSITORY inside the sandbox — the parent rung, named from the
+    child's parent stamp, then the clone's own base from origin/HEAD — each candidate tried with a
+    ref check, first existing winning, the same ordered-candidate shape DeliveryDiff already uses;
+    the resolved rung is held per repository the way DeliveryEvidence already keys base refs, and
+    is the ONE answer consumed by SandboxWorkBranchCheckout when it cuts the branch, by
+    WorkBranchBaseMerger when it brings a reused branch up to date, and by DeliveryDiff when it
+    computes what this run delivered; a ladder that falls through to the clone's base reports that
+    it did, the way 2026-08-25-0eae requires; DeliveryDiff is extracted under the line rule before
+    it grows.
+  out: >
+    CREATING THE RUNG. Nothing here publishes a branch. Until 2026-09-13-35a4 creates one, the
+    parent rung never exists, every ladder falls through, and this phase is behaviour-preserving by
+    construction — which is exactly what makes it safe to land first.
+    THE PULL REQUEST TARGET. A pull request is opened against the provider's default branch by
+    three separate call sites and cannot be re-based afterwards. That is 2026-09-13-a284 and it is
+    the harder half.
+    A FEATURE SEGMENT IN THE WORK-BRANCH NAME. It buys nothing the ladder needs: the base is
+    resolved, not parsed out of a name. It would rename the branch of every ticket that already has
+    one, and a pull request is found by its head branch — so a re-run after such a rename abandons
+    the open pull request and opens a second one.
+    A THIRD RUNG. A child carries one ancestor stamp, its parent. A user-story rung would need a
+    second ancestor name that exists nowhere in a run, so it would be unreachable code.
+
+decisions:
+  - key: |
+      TWO CONSUMERS ALREADY ASK THE SAME QUESTION SEPARATELY, AND A THIRD IS ABOUT TO DISAGREE WITH
+      BOTH. p0496 extracted SandboxBaseBranch precisely so the work-branch merge and the delivery
+      account would ask one place. The moment a branch is cut from anything but origin/HEAD that
+      extraction stops being enough: the cut would follow a rung while the diff still followed
+      origin/HEAD, and every slice would report its predecessors' work as its own delivery — to the
+      keystone, to the acceptance account, to the pull-request body. Resolving once and handing the
+      same answer to all three is the whole phase.
+  - key: |
+      A LADDER, BECAUSE IT DEGRADES. A rung that does not exist costs a ref check and the next is
+      tried; an estate that has none lands on the clone's base, which is today's behaviour. That
+      makes this backward-compatible by construction rather than by a flag, and it is why it can
+      ship before anything creates a rung.
+  - key: |
+      THE FALL-THROUGH REPORTS ITSELF. 2026-08-25-0eae ruled that a ladder reaching its bottom says
+      so rather than pretending it found something — a repository whose ladder fell through has no
+      base, and searching it would search the branch under another name. The same rule applies to
+      this ladder and is not weakened into a silent success.
+  - key: |
+      THE RUNG IS PER REPOSITORY, BECAUSE THE LADDER IS. A project may hold several repositories and
+      a feature may exist in one and not another. DeliveryEvidence already keys base refs by
+      repository; the rung is held the same way rather than as one value for the run.
+  - key: |
+      THE CHECKOUT NEEDS NO PROVIDER CHANGE. The sandbox clone is full, so every remote branch is
+      already reachable; a rung is found with a ref check and taken with a checkout step. Nothing
+      about resolving a base touches ISourceProvider.
+  - key: |
+      DELIVERYDIFF IS EXTRACTED FIRST, NOT SQUEEZED. It sits at 115 lines against an unbaselined
+      ceiling of 120, and a new baseline row is forbidden for a file that has never had one.
+
+steps:
+  - id: one-ladder-resolves-the-base
+    action: "A rung resolver tries the parent rung then the clone's base per repository, first existing wins, and reports a fall-through."
+  - id: the-cut-follows-the-rung
+    action: "SandboxWorkBranchCheckout checks the resolved rung out before it creates the work branch."
+  - id: the-merge-follows-the-rung
+    action: "WorkBranchBaseMerger brings a reused work branch up to date with the rung instead of origin/HEAD."
+  - id: the-account-follows-the-rung
+    action: "DeliveryDiff computes against the rung; it is extracted to stay under the line rule."
+
+tests:
+  - "BaseLadder_ParentRungExists_IsChosen"
+  - "BaseLadder_ParentRungAbsent_FallsThroughAndReportsIt"
+  - "BaseLadder_NoParentStamp_ResolvesAsToday"
+  - "BaseLadder_TwoRepos_ResolvesEachIndependently"
+  - "WorkBranch_CutFromTheResolvedRung"
+  - "BaseMerger_MergesTheRungNotOriginHead"
+  - "DeliveryDiff_ComputesAgainstTheRung"
+  - "DeliveryDiff_RungEqualsCloneBase_OutputUnchangedFromToday"
+
+done:
+  - "the branch cut, the base merge and the delivery diff all name the same base, per repository"
+  - "a ladder that falls through to the clone's base says so instead of claiming a rung"
+  - "with no rung in existence anywhere, every run produces the same branch, the same merge and the same diff as today"
+  - "a two-repo project resolves a rung per repository, not one for the run"
+  - "build green, full suite green"
