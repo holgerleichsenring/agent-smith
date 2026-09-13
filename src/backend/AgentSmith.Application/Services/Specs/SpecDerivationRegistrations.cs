@@ -31,6 +31,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<DerivedPhaseBuilder>();
     services.AddTransient<FactResolver>();
     services.AddTransient<SpecDerivationCall>();
+    services.AddTransient<DerivationTemplateScopes>();
     services.AddTransient<DerivationLookFactory>();
     services.AddTransient<ScopedContextCoverage>(); // 2026-09-08-1830: the cut covers what the scope call named
     services.TryAddSingleton<IPackageEcosystemDetector, Sandbox.PackageEcosystemDetector>();

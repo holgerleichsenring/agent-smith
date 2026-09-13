@@ -15,9 +15,22 @@ internal static class DerivationTestLooks
     public const string Repo = "Sample.Server";
 
     /// <summary>A factory over the pipeline's sandboxes; with none set, it yields no host.</summary>
-    public static DerivationLookFactory Factory(ISandboxFileReaderFactory? files = null) =>
+    public static DerivationLookFactory Factory(
+        ISandboxFileReaderFactory? files = null, ISourceScopeSandboxFactory? scopes = null) =>
         new(new SandboxTargets(), files ?? new StubSandboxFileReaderFactory(),
-            new PackageEcosystemDetector(), NullLogger<DerivationLook>.Instance);
+            new PackageEcosystemDetector(),
+            new DerivationTemplateScopes(
+                scopes ?? new NoScopes(), NullLogger<DerivationLook>.Instance),
+            NullLogger<DerivationLook>.Instance);
+
+    /// <summary>A source-scope factory that would spawn nothing, for runs with no template.</summary>
+    private sealed class NoScopes : ISourceScopeSandboxFactory
+    {
+        public ISourceScopeSandbox Create(
+            Contracts.Models.Configuration.ResolvedProject project,
+            Contracts.Models.Configuration.RepoConnection repo, string? revision = null) =>
+            throw new InvalidOperationException("no template was declared in this test");
+    }
 
     /// <summary>A host over one recording sandbox, reading the given files.</summary>
     public static DerivationLook Over(CountingSandbox sandbox, InMemorySandboxFileReader? files = null) =>

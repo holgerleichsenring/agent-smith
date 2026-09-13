@@ -51,6 +51,8 @@ public sealed class SpecSetDeriver(
         ArgumentNullException.ThrowIfNull(ticket);
         var key = previous?.Key ?? SpecSetKeyFactory.For(ticket, pipeline).Value;
         var look = looks.Create(pipeline);
+        await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
+
         var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
         var messages = new List<ChatMessage>
         {
@@ -69,6 +71,10 @@ public sealed class SpecSetDeriver(
                 agentConfig, pipeline, messages, DerivationTools.For(look), cancellationToken);
             // The whole exchange is kept, not its text: the looks travel as tool calls.
             messages.AddRange(response.Messages);
+            // 2026-09-13-84c0: a template look refused for budget must not become a cut made
+            // against the target's habits while the declaration says a template governs.
+            if (look?.TemplateRefusal is { } refused)
+                return (null, $"The declared template could not be read: {refused}");
             var parsed = parser.Parse(
                 response.Text, key, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
