@@ -23,6 +23,13 @@ public sealed class ScriptedChatClient : IChatClient
 
     public int InvocationCount { get; private set; }
     public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = Array.Empty<ChatMessage>();
+
+    /// <summary>
+    /// 2026-09-13-84c0: the joined text of EVERY call, in order. A run makes several — the
+    /// derivation, then the master — and an assertion about what one of them was HANDED
+    /// cannot read the last one's messages and hope.
+    /// </summary>
+    public List<string> PromptsSeen { get; } = [];
     /// <summary>The options of the most recent call — which tools, if any, it carried.</summary>
     public ChatOptions? LastOptions { get; private set; }
     public IReadOnlyList<ScriptedToolCall> ToolCalls => _toolCalls;
@@ -83,6 +90,7 @@ public sealed class ScriptedChatClient : IChatClient
     {
         InvocationCount++;
         LastMessages = messages.ToList();
+        PromptsSeen.Add(string.Join("\n", LastMessages.Select(m => m.Text)));
         LastOptions = options;
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
