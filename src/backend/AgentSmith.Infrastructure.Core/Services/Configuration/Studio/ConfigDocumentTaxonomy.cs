@@ -53,6 +53,11 @@ internal static class ConfigDocumentTaxonomy
         if (project is null) yield break;
         if (!string.IsNullOrWhiteSpace(project.Agent)) yield return new(ConfigDocTypes.Agent, project.Agent);
         if (!string.IsNullOrWhiteSpace(project.Tracker)) yield return new(ConfigDocTypes.Tracker, project.Tracker);
+        // 2026-09-13-5fa0: a template makes one project depend on another, and the edge
+        // table is what the delete refusal reads — without this, deleting a project another
+        // one is built after would succeed and leave a dangling declaration.
+        foreach (var target in project.Templates.Select(t => t.Project).Distinct(StringComparer.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(target)) yield return new(ConfigDocTypes.Project, target);
         foreach (var repoRef in project.Repos.Select(r => r.Ref))
         {
             var slash = repoRef.IndexOf('/');

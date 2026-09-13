@@ -18,8 +18,8 @@ scope:
     loader path AND mirrored on the studio write; a project-to-project edge in
     ConfigDocumentTaxonomy so the existing delete refusal covers a referenced template; a
     ProjectTemplateResolver, extracted rather than grown in place, resolving each entry to the
-    target's RepoConnection on ResolvedProject and reading the target context's declared verify
-    stages while it is there; a ProjectTemplateMapping extracted out of ConfigCatalogMapper.
+    target's RepoConnection on ResolvedProject; a ProjectTemplateMapping extracted out of
+    ConfigCatalogMapper.
   out: >
     THE STUDIO PICKER. Contexts are discovered inside a run and no endpoint serves them, so a typed
     picker has no data. This field is a DEAD FORM until 84c0 consumes it, and 84c0 is the named
@@ -59,15 +59,13 @@ decisions:
       against 143; a baselined file may only get shorter, so neither can take a single new line.
       ProjectRepoResolver was carved out of the builder for this same reason.
   - key: |
-      WHAT A TEMPLATE DECLARES AS ITS OWN PROOF IS READ HERE, NOT IN A PHASE OF ITS OWN. Reading
-      one verify block through a mechanism 2026-09-13-9802 already provides, with a parser that
-      already exists, is a resolver's last few lines — not an entity, a port and a migration in two
-      assemblies. It is read and reported so the estate can be COUNTED: how many declared templates
-      prove anything at all. Refusing on a red or absent proof waits until that count says a
-      template can pass, and running a template's stages waits for a phase that gives them their
-      own reserved run under the template owner's configuration, because the read-only scope
-      refuses Run by step kind and a second executing pod per template is what the estate said no
-      to.
+      WHAT A TEMPLATE DECLARES AS ITS OWN PROOF IS NOT READ HERE, BECAUSE HERE HAS NO SANDBOX.
+      Folding the verify-block read into this phase was wrong by one layer: config resolution runs
+      at load time against strings, and reading a foreign repository's context.yaml at a revision
+      needs a materialised scope. It moves to 2026-09-13-84c0, which materialises the template
+      anyway — one clone, and the block read while the scope is open. Refusing on a red or absent
+      proof still waits until the count says a template can pass, and running a template's stages
+      still waits for a phase that gives them their own reserved run.
   - key: |
       THE CONTEXT NAME ON BOTH SIDES IS UNVALIDATABLE HERE, AND THAT IS THE LIKELIEST TYPO. Neither
       ProjectEntity nor ConfigCatalog carries contexts. It is refused where the template is
@@ -84,8 +82,6 @@ steps:
     action: "ConfigDocumentTaxonomy emits a project-to-project edge so the existing delete refusal covers it."
   - id: a-run-can-read-the-declaration
     action: "An extracted ProjectTemplateResolver resolves each entry to the target's RepoConnection on ResolvedProject; ConfigCatalogMapper gives up its share to a ProjectTemplateMapping."
-  - id: what-the-template-declares-as-proof-is-read
-    action: "The target context's verify stages, or their absence, are read at the declared revision and reported on the run."
 
 tests:
   - "LoadConfig_TemplateNamesUnknownProject_ReportsFinding"
@@ -95,7 +91,6 @@ tests:
   - "PatchProject_EntityOmitsTemplates_StoredTemplatesPreserved"
   - "DeleteProject_ReferencedAsATemplate_IsRefused"
   - "ResolvedProject_CarriesTheTargetRepoConnection"
-  - "TemplateVerify_ContextDeclaresNone_ReportedNotRefused"
 
 done:
   - "a project declares a template per context in YAML and the declaration survives export and re-import"
@@ -103,6 +98,5 @@ done:
   - "an unknown project, an absent repo ref, a glob ref and a cycle are each reported by config validate"
   - "a project another project names as a template cannot be deleted"
   - "a resolved project carries the target's clone url and revision, not only its name"
-  - "a run following a template names the stages that template declares, or says it declares none"
   - "no existing project configuration changes meaning"
   - "build green, full suite green"

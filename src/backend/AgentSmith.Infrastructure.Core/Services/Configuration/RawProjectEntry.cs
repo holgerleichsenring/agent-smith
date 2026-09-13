@@ -13,6 +13,13 @@ public sealed class RawProjectEntry
     public string Tracker { get; set; } = string.Empty;
     public List<RawRepoRef> Repos { get; set; } = [];
 
+    /// <summary>
+    /// 2026-09-13-5fa0: what each context of this project is built after. Sibling to
+    /// <see cref="Repos"/> rather than a field on a repo ref — a component has a template
+    /// and a repository does not.
+    /// </summary>
+    public List<RawTemplateEntry> Templates { get; set; } = [];
+
     public string Pipeline { get; set; } = string.Empty;
     public List<RawPipelineEntry> Pipelines { get; set; } = [];
     public string? DefaultPipeline { get; set; }
