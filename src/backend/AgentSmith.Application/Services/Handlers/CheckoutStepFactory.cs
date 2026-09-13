@@ -18,12 +18,17 @@ internal static class CheckoutStepFactory
     private const string CredHelper =
         "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
-    public static Step BuildCloneStep(RepoConnection config)
+    private static IReadOnlyDictionary<string, string>? TokenEnv(RepoConnection config)
     {
         var token = GitTokenResolver.Resolve(config.Type);
-        var env = token is null
+        return token is null
             ? null
-            : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };
+            : new Dictionary<string, string> { ["GIT_TOKEN"] = token };
+    }
+
+    public static Step BuildCloneStep(RepoConnection config)
+    {
+        var env = TokenEnv(config);
 
         return new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
@@ -33,6 +38,28 @@ internal static class CheckoutStepFactory
             Env: env,
             TimeoutSeconds: CloneTimeoutSeconds);
     }
+
+    /// <summary>
+    /// 2026-09-13-9802: asks the host for one revision by name. The clone is full, so this
+    /// only runs when a checkout has already failed — a sha reachable from no branch and no
+    /// tag. It carries the credential the plain checkout does not, because it talks to the
+    /// remote.
+    /// </summary>
+    public static Step BuildFetchRevisionStep(RepoConnection config, string revision) =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git",
+            Args: new[] { "-c", CredHelper, "fetch", "origin", revision },
+            WorkingDirectory: Repository.SandboxWorkPath,
+            Env: TokenEnv(config),
+            TimeoutSeconds: CloneTimeoutSeconds);
+
+    /// <summary>2026-09-13-9802: what the tree is actually on, asked of the clone.</summary>
+    public static Step BuildResolveHeadStep() =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git",
+            Args: new[] { "rev-parse", "HEAD" },
+            WorkingDirectory: Repository.SandboxWorkPath,
+            TimeoutSeconds: CheckoutTimeoutSeconds);
 
     public static Step BuildCheckoutStep(string branch) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
