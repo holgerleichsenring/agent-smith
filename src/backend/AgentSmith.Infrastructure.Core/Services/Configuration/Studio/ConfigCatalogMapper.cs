@@ -18,7 +18,7 @@ internal static class ConfigCatalogMapper
             Agents: raw.Agents.Select(kv => ToAgent(kv.Key, kv.Value)).ToList(),
             Trackers: raw.Trackers.Select(kv => ToTracker(kv.Key, kv.Value)).ToList(),
             Repos: raw.Repos.Select(kv => ToRepo(kv.Key, kv.Value)).ToList(),
-            Projects: raw.Projects.Select(kv => ToProject(kv.Key, kv.Value)).ToList(),
+            Projects: raw.Projects.Select(kv => ProjectEntityMapping.ToProject(kv.Key, kv.Value)).ToList(),
             McpServers: raw.McpServers.Select(kv => ToMcpServer(kv.Key, kv.Value)).ToList(),
             Secrets: raw.Secrets.Keys.Select(k => new SecretEntity(k)).ToList(),
             Connections: raw.Connections.Select(kv => ToConnection(kv.Key, kv.Value)).ToList());
@@ -105,45 +105,6 @@ internal static class ConfigCatalogMapper
 
     private static RepoEntity ToRepo(string id, RawRepoEntry repo) =>
         new(id, repo.Url ?? repo.Path ?? string.Empty, repo.DefaultBranch);
-
-    private static ProjectEntity ToProject(string id, RawProjectEntry project)
-    {
-        var pipelines = project.Pipelines.Count > 0
-            ? project.Pipelines.Select(p => p.Name).ToList()
-            : !string.IsNullOrWhiteSpace(project.Pipeline) ? [project.Pipeline] : new List<string>();
-        return new ProjectEntity(
-            id,
-            project.Agent,
-            project.Tracker,
-            project.Repos.Select(r => r.Ref).ToList(),
-            string.IsNullOrWhiteSpace(project.Pipeline) ? null : project.Pipeline,
-            pipelines,
-            ToResolution(project),
-            project.DefaultPipeline);
-    }
-
-    // p0345c: surface the flat resolution shorthand; when the project instead
-    // declares a full trigger wrapper, surface ITS resolution read-only so the
-    // studio shows how the project actually routes either way.
-    private static ProjectResolution? ToResolution(RawProjectEntry project)
-    {
-        if (project.Resolution is { Count: > 0 } shorthand)
-        {
-            var first = shorthand.First();
-            return new ProjectResolution(first.Key, first.Value);
-        }
-        var wrapperResolution = new WebhookTriggerConfig?[]
-            {
-                project.JiraTrigger, project.GithubTrigger,
-                project.GitlabTrigger, project.AzuredevopsTrigger,
-            }
-            .FirstOrDefault(t => t?.ProjectResolution is not null)?.ProjectResolution;
-        return wrapperResolution is null
-            ? null
-            : new ProjectResolution(
-                Contracts.Services.ConfigStudioCapabilities.WireName(wrapperResolution.Strategy),
-                wrapperResolution.Value);
-    }
 
     private static McpServerEntity ToMcpServer(string id, RawMcpServerEntry mcp) =>
         new(id, mcp.Transport, mcp.Url, mcp.Auth);
