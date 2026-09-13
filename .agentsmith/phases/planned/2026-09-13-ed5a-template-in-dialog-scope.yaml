@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-ed5a
+
+goal: "The spec dialog reads the declared template while it analyses a feature, so the epic it files is cut into tickets that match how this estate builds things."
+
+applies_to: "backend (spec-dialog turn runner, the outcome filer) + skills catalog (the design-partner master)"
+
+requires:
+  - 2026-09-13-5fa0
+  - 2026-09-13-9802
+  - 2026-09-13-ab17
+
+scope:
+  in: >
+    SpecDialogTurnRunner reads the declared templates off the ResolvedProject it already resolves
+    and builds one named read-only sandbox per declaration at the declared revision, beside the
+    repos it already builds and disposed in the same finally; the design-partner master is told
+    what a template entry is and that an epic's slices should follow its shape; the resolved
+    (template, revision) pairs are persisted on the session so the filer can read them after the
+    sandboxes are gone; the filed epic's parent body names each template and the revision it was
+    read at.
+  out: >
+    A FIELD ON ActiveScope. SpecDialogSessionMapper rebuilds ActiveScope from two columns —
+    Project and ReposJson — on every load, so a Templates field there is dropped before the first
+    turn and the test over the resolver would pass while the feature does nothing. The turn runner
+    resolves the project itself; that is where the declarations are read.
+    A NEW PIPELINE. The epic path exists: a turn resolves a typed outcome, a human confirms it
+    in-thread, the filer creates a parent and its ordered children. This phase widens what the
+    analysis may read.
+    TRACKER-NATIVE PARENT LINKS. The filer references a parent in the child's body because no
+    provider has linking vocabulary. That stands.
+
+decisions:
+  - key: |
+      THE ANALYSIS IS WHERE A TEMPLATE DECIDES THE SLICES. A ticket cut without knowing the house
+      shape produces slices that cross layers the template keeps apart, and every later run
+      inherits that cut. One look before the cut is cheaper than correcting twenty runs after it.
+  - key: |
+      BOTH LEVELS EXIST BECAUSE BY THE SECOND TICKET NOTHING IS GREENFIELD. The epic analysis runs
+      once against the estate as it is; each filed ticket derives again against the estate as it
+      has become. Neither replaces the other. That second level only exists once an epic child
+      stops carrying a finished spec — 2026-09-13-b7ba.
+  - key: |
+      THE PROVENANCE MUST BE PERSISTED, BECAUSE THE FILER RUNS LATER AND ELSEWHERE. The sandboxes
+      are disposed at the end of the turn, before the outcome flow runs, and filing is durably
+      retryable from the stored outcome in a later process. A revision read off a live sandbox
+      cannot reach the parent body; one written to the session row can.
+  - key: |
+      THE DIALOG TAKES EVERY DECLARED TEMPLATE, BECAUSE IT HAS NO CONTEXTS TO SELECT BY. The
+      binding is per context and a run selects by the contexts it discovered; a dialog discovers
+      none — it is deciding what to build before anything is checked out. So the analysis sees all
+      of the project's declared templates, and that difference is deliberate rather than an
+      oversight.
+  - key: |
+      THIS PRESET PUTS THEM IN THE RUN'S SANDBOX MAP, AND THAT IS THE ONE PLACE IT IS SAFE. The
+      turn runner already builds its repo sandboxes there, and the spec-dialog preset carries no
+      CommitAndPR, no toolchain probe and no bootstrap handler. The rule that a template stays out
+      of that map holds for the code preset, where those handlers exist; here it would be a second
+      mechanism for no gain. Stated so the two phases do not read as contradicting each other.
+  - key: |
+      THE PARENT TICKET CARRIES THE PROVENANCE. A reader who asks why the slices are shaped this
+      way must find the answer without opening a run.
+  - key: |
+      THE PARENT BODY MAY NOT OPEN A FENCE. The p0315d contract says the body holds exactly one
+      fenced yaml block and the extractor inverts it. The provenance is appended through the
+      renderer's existing extraSections injector as plain lines.
+
+steps:
+  - id: the-turn-reads-the-declarations-and-materialises-them
+    action: "SpecDialogTurnRunner reads templates off the resolved project and builds one named read-only sandbox each at the declared revision, disposed with the rest."
+  - id: the-design-partner-knows-what-a-template-is
+    action: "The design-partner master includes the shared precedence section and shapes an epic's children after the template; the assertion here reads the EMBEDDED tarball via PackagedMaster, pin-guarded until 2026-09-13-4072."
+  - id: the-session-remembers-what-was-read
+    action: "The resolved (template, revision) pairs are written into the session's existing outcome JSON column — no new column, no migration."
+  - id: the-turn-runner-gives-up-the-template-wiring
+    action: "Template resolution and materialisation move to their own type; SpecDialogTurnRunner sits at its ratchet baseline and may not grow."
+  - id: the-filed-epic-names-what-it-read
+    action: "The parent body names each template and its revision, appended as plain lines through the existing injector."
+
+tests:
+  - "SpecDialogTurn_ProjectWithTemplates_MaterialisesThemNamed"
+  - "SpecDialogTurn_ProjectWithoutTemplates_SandboxSetUnchanged"
+  - "SpecDialogTurn_Ends_DisposesTemplateSandboxes"
+  - "SpecDialogSession_TemplateRevisions_SurviveAReload"
+  - "OutcomeTicketFiler_EpicWithTemplates_ParentBodyNamesRevisions"
+  - "OutcomeTicketFiler_EpicParentBody_StillHasOneFencedBlock"
+
+done:
+  - "a spec-dialog session on a project with a declared template can read it during the analysis"
+  - "a filed epic's parent ticket names the templates and the revisions the analysis read"
+  - "the provenance survives a process restart between confirmation and filing"
+  - "a project with no template builds the same sandbox set as before"
+  - "build green, full suite green"

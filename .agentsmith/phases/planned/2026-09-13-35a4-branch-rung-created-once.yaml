@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-35a4
+
+goal: "A feature's branch is published exactly once per repository, by whichever slice reaches it first, and a slice that loses that race adopts the winner's branch instead of overwriting it."
+
+applies_to: "backend (a create-only branch publisher, the work-branch checkout)"
+
+requires:
+  - 2026-09-13-5cdf
+
+scope:
+  in: >
+    A create-only publish primitive — the rung is pushed at the sha of the ladder's next rung down,
+    with no force and no lease, and a non-fast-forward rejection means SOMEONE ELSE CREATED IT: the
+    loser re-fetches and adopts the winner's branch rather than retrying; RepoConnection is threaded
+    into the work-branch checkout so a push has the platform token it needs, which the checkout step
+    carries today for no operation; the rung is published before the work branch is cut from it, so
+    the ladder's answer is real by the time anything depends on it; publishing is idempotent and a
+    repository no slice touches never grows a branch.
+  out: >
+    GitBranchPusher. It force-pushes with a lease and, on "stale info", FETCHES and force-pushes
+    again — which satisfies the lease and overwrites. That is correct for a work branch owned by one
+    run and catastrophic for a rung several runs merge into: the loser of a race would destroy work
+    already merged. The rung gets its own primitive and never touches that one.
+    MERGING A SLICE INTO THE RUNG. Who merges a child's pull request into its feature branch, and
+    whether it is automatic, is the estate's review policy.
+    BRINGING THE RUNG TO THE DEFAULT BRANCH. A human's merge, and it stays one.
+    KEEPING A LONG-LIVED RUNG CURRENT WITH THE DEFAULT BRANCH. A rung drifts; reconciling it has its
+    own conflict handling and is a separate decision.
+    THE PULL REQUEST TARGET. 2026-09-13-a284.
+
+decisions:
+  - key: |
+      THE EXISTING PUSH PRIMITIVE WOULD DESTROY THE THING THIS PHASE CREATES. GitBranchPusher pushes
+      --force-with-lease and, when the remote rejects with "stale info", fetches and pushes again —
+      the fetch makes the lease satisfiable, so the second attempt succeeds by overwriting. Aimed at
+      a work branch that one run owns, that is a recovery. Aimed at a rung that several slices merge
+      into, two siblings starting together would race and the loser would force the rung back to the
+      base, deleting whatever was already merged. The same class of loss this pusher's own history
+      records, pointed at a shared branch.
+  - key: |
+      LOSING THE RACE IS A NORMAL OUTCOME, NOT AN ERROR. Two slices of one feature with no
+      predecessor edge between them start concurrently by design — the ordering gate holds only
+      declared predecessors. Both will find the rung absent in their own clone and both will try to
+      create it. Exactly one can win, and the correct behaviour for the other is to take what is
+      there. Treating the rejection as a failure would fail a run for doing the right thing.
+  - key: |
+      THE RUNG IS PUBLISHED BEFORE THE CUT, BECAUSE THE LADDER MUST NOT LIE. 2026-09-13-5cdf resolves
+      a rung by asking whether it exists. If creation happened after the cut, the first slice would
+      resolve a fall-through, cut from the clone's base, and then publish a rung it is not on.
+  - key: |
+      THE CREDENTIAL HAS TO BE THREADED, BECAUSE THE CHECKOUT PATH HAS NONE. Only the clone step and
+      the pusher stamp GIT_TOKEN, keyed off the repository type; the work-branch checkout is
+      constructed with a merger and a logger and its caller passes no RepoConnection. A push from
+      there without that change fails on authentication, not on logic.
+  - key: |
+      THIS PHASE IS WHERE THE DATA-LOSS RISK LIVES, WHICH IS WHY IT IS ITS OWN. Base resolution is
+      behaviour-preserving and a pull-request target is recoverable. Publishing a branch other runs
+      merge into is neither, and it deserves an adversarial pass that is not sharing a page with two
+      safer changes.
+
+steps:
+  - id: a-create-only-publisher
+    action: "A publish primitive pushes a new ref at a given sha with no force and no lease; a non-fast-forward rejection is reported as already-created, not as a failure."
+  - id: the-loser-adopts-the-winner
+    action: "A slice whose creation is rejected re-fetches and uses the existing rung."
+  - id: the-checkout-can-authenticate
+    action: "RepoConnection is threaded into the work-branch checkout so the publish carries the platform token."
+  - id: the-rung-exists-before-the-cut
+    action: "Publication happens before the work branch is cut, so the ladder's answer is true when it is read."
+
+tests:
+  - "RungPublish_Absent_CreatesItAtTheNextRungSha"
+  - "RungPublish_AlreadyExists_AdoptsItAndDoesNotPush"
+  - "RungPublish_RejectedNonFastForward_AdoptsAndSucceeds"
+  - "RungPublish_NeverUsesForceOrLease"
+  - "RungPublish_TwoConcurrentSlices_OneCreatesTheOtherAdopts"
+  - "RungPublish_NoParentStamp_PublishesNothing"
+  - "WorkBranch_IsCutAfterTheRungExists"
+
+done:
+  - "the first slice of a feature to reach a repository publishes that feature's branch, and later slices find it"
+  - "a slice that loses the creation race adopts the existing branch and never overwrites it"
+  - "no push on this path uses force or a lease"
+  - "a ticket with no parent stamp publishes nothing and behaves as today"
+  - "a repository no slice of the feature touches has no feature branch"
+  - "build green, full suite green"

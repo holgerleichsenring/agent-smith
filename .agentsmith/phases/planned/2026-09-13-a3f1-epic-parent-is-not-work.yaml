@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-a3f1
+
+goal: "An epic parent ticket is recognised as the record of a cut and never starts a run, whatever a project's label routing happens to be configured as."
+
+applies_to: "backend (project resolution, discovery query)"
+
+scope:
+  in: >
+    An epic parent carries an explicit non-work marker; ProjectResolver honours it BEFORE
+    pipeline_from_label and before any default, so no routing path can turn it into a run;
+    TrackerDiscoveryQueryBuilder excludes it the way it already excludes parked tickets; the filer
+    stamps the marker when it creates the parent. Proven at the resolver, on a project with no
+    pipeline_from_label — the configuration where the fallback fires.
+  out: >
+    THE CHILD TICKET'S SHAPE. What a child body contains is 2026-09-13-b7ba.
+    A TRACKER-NATIVE EPIC TYPE. No provider has linking or hierarchy vocabulary here; the marker
+    is a label like every other routing signal.
+    HIDING THE PARENT FROM A HUMAN. It stays a ticket, readable, with its slice list. It simply is
+    not work.
+
+decisions:
+  - key: |
+      REMOVING A LABEL IS NOT A ROUTING DECISION, AND ON THE COMMONEST CONFIGURATION IT MAKES
+      THINGS WORSE. Today the parent carries the phase label, so ProjectResolver hard-binds it to
+      phase execution and it dies at the spec gate — wasteful but contained. Drop the label on a
+      project with no pipeline_from_label and PipelineResolver returns DefaultPipeline, so an epic
+      summary becomes a full coding run. The server-side discovery guard does not save it either:
+      that guard is only injected when trigger labels exist, which is the same configuration where
+      the default does not fire.
+  - key: |
+      THE MARKER IS READ BEFORE EVERY OTHER RULE, BECAUSE EVERY OTHER RULE HAS A FALLBACK. Label
+      routing, area path, repo and to-address each end in something. A ticket that is not work has
+      to be refused ahead of all of them or one of them will claim it.
+  - key: |
+      THE TEST BELONGS AT THE RESOLVER, NOT THE FILER. A filer test proves what was written on the
+      ticket; only a resolver test proves what happens to it, and the failing configuration is one
+      the filer never sees.
+
+steps:
+  - id: the-parent-carries-a-non-work-marker
+    action: "OutcomeTicketFiler stamps an explicit non-work marker on the epic parent."
+  - id: resolution-refuses-it-first
+    action: "ProjectResolver honours the marker before pipeline_from_label and before any default pipeline."
+  - id: discovery-leaves-it-alone
+    action: "TrackerDiscoveryQueryBuilder excludes marked tickets the way it excludes parked ones."
+
+tests:
+  - "ProjectResolver_EpicParent_NoPipelineFromLabel_IsNotRouted"
+  - "ProjectResolver_EpicParent_WithPipelineFromLabel_IsNotRouted"
+  - "ProjectResolver_OrdinaryTicket_RoutingUnchanged"
+  - "DiscoveryQuery_ExcludesEpicParents"
+  - "FileEpic_Parent_CarriesTheMarker"
+
+done:
+  - "an epic parent starts no run on a project with label routing and none on a project without it"
+  - "an ordinary ticket routes exactly as it does today"
+  - "the parent stays a readable ticket carrying its slice list"
+  - "build green, full suite green"

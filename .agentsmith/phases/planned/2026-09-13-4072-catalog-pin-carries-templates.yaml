@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-4072
+
+goal: "The embedded skills pin carries the catalog text that four phases already assume, so a deployed run reads the instruction and not the release before it."
+
+applies_to: "backend (the embedded catalog pin)"
+
+requires:
+  - 2026-09-13-ab17
+  - 2026-09-13-84c0
+  - 2026-09-13-6f35
+  - 2026-09-13-ed5a
+  - 2026-09-13-fcc1
+
+scope:
+  in: >
+    SkillsCatalogVersion and SkillsCatalogSha256 move to the release that carries the shared
+    precedence section, the template wording of the derivation master, the coding master and the
+    design partner, and the delta format's artefacts section; the old tarball is removed and the
+    new one checked in; the pin guards those phases left behind are removed so their assertions
+    run. Every assertion reads the EMBEDDED tarball through PackagedMaster — never TestSkillsRoot,
+    which resolves a working checkout and whose consumers return early when it is absent, so an
+    assertion written that way passes by skipping and proves nothing.
+  out: >
+    CUTTING THE RELEASE. release-please fires on a conventional pull-request title in the catalog
+    repository; that is not this repository's to do, and a phase that claimed it would claim
+    something its own gate cannot see.
+    ANY WORDING CHANGE. The text is authored in the phases that need it. This phase moves a version
+    and a hash.
+
+decisions:
+  - key: |
+      ONE BUMP FOR THREE TEXTS, BECAUSE A PIN IS NOT DIVISIBLE. Three phases each change a master
+      in the same catalog. Three bumps would mean two of them shipping a pin that already carries
+      wording whose backend half is not built, and each would have to state that. One bump after
+      all three is the p0486-to-p0487 shape, and it is the only point at which the assertions can
+      all be true.
+  - key: |
+      A PIN-GATED ASSERTION CANNOT BE GREEN BEFORE THE PIN MOVES, SO IT IS GUARDED, NOT WISHED.
+      An assertion authored in an earlier phase that reads the deployed tarball fails that phase's
+      own gate, because the pin still points at the release before it. Each of those phases lands
+      the assertion behind an explicit guard naming this phase; this phase removes the guards in
+      the same commit that moves the pin, so there is exactly one moment at which they all become
+      true and it is observable.
+  - key: |
+      THE RELEASE IS SOMEONE'S ACTION AND NOBODY HAS IT YET. release-please fires on a conventional
+      pull-request title in the catalog repository, and the build restores the tarball from a
+      PUBLISHED release. This phase cannot start until that release exists; that is a precondition
+      on a person, stated so it is not mistaken for work this phase does.
+  - key: |
+      THE GATE CANNOT PROVE THE OTHER REPOSITORY, SO THE ASSERTION LIVES HERE. A phase commit in
+      this tree runs the dashboard, the build, the suite and the harness; a commit in the catalog
+      runs its own validator. Neither sees the other. A pin-gated assertion in this repository is
+      the one check that fails when the deployed text and the code disagree.
+
+steps:
+  - id: the-pin-moves
+    action: "SkillsCatalogVersion and SkillsCatalogSha256 move to the release carrying the three master texts; the tarball is replaced."
+  - id: the-guards-come-off
+    action: "The pin guards in the earlier phases are removed so their PackagedMaster assertions run against the deployed tarball."
+
+tests:
+  - "EmbeddedCatalog_DerivationMaster_NamesTemplateEntries"
+  - "EmbeddedCatalog_CodingMaster_NamesTemplateEntries"
+  - "EmbeddedCatalog_DesignPartner_NamesTemplateEntries"
+  - "EmbeddedCatalog_PrecedenceSection_IsPresent"
+  - "EmbeddedCatalog_DeltaFormat_HasArtefactsSection"
+  - "EmbeddedCatalog_Sha256_MatchesTheCheckedInTarball"
+
+done:
+  - "the embedded pin names a release whose three masters carry the template wording"
+  - "the three pin-gated assertions pass against the deployed tarball, not a working checkout"
+  - "the tarball on disk matches the declared hash"
+  - "build green, full suite green"

@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-6f35
+
+goal: "The coding master can read the declared template while it implements a phase, so the how a phase cites is reachable at the moment the code is written."
+
+applies_to: "backend (the filesystem tool host, the master handler) + skills catalog (the coding master's instruction)"
+
+requires:
+  - 2026-09-13-5fa0
+  - 2026-09-13-9802
+  - 2026-09-13-ab17
+  - 2026-09-13-84c0
+
+scope:
+  in: >
+    AgenticMasterHandler adds one named read-only entry per template declared for THIS PHASE'S
+    CONTEXT to the FilesystemToolHost through its existing AddSandbox, materialised at the declared
+    revision; the name is also published on a template address key the prompt section reads,
+    because addressNames comes from ContextKeys.SandboxRepos and not from the tool host, so an
+    entry added only to the host is reachable but unnameable; the entry does NOT enter
+    ContextKeys.Sandboxes, so CommitAndPR, the toolchain probe, the preflight checks and the
+    bootstrap handlers never see it; the master handler gives up the template wiring to its own
+    type, because AgenticMasterHandler sits at 921 lines against a baseline of 922; read-only is enforced by the sandbox itself, which refuses Run and
+    WriteFile by kind, and not by the path guard; the master prompt names the template entries and
+    says a template answers how, never what; a template that cannot be materialised fails the
+    phase before the master's first token; the master owns the entries and disposes them.
+  out: >
+    A PER-REPOSITORY WRITE GUARD. PathWriteGuard judges phase and path, not repository, and
+    widening it is a change to every write in the product. The sandbox refusing the step kind is
+    the mechanism that already exists and already holds.
+    ENFORCING THAT THE MASTER FOLLOWED THE TEMPLATE. Reading is what this phase delivers; judging
+    the diff against the template is a verify concern with its own phase.
+    THE TEMPLATE IN THE CODE MAP. LoadCachedCodeMap reads ContextKeys.Repos and the template is
+    deliberately not there, so a template is read on demand and never mapped.
+
+decisions:
+  - key: |
+      WITHOUT THIS PHASE THE TEMPLATE NEVER REACHES THE WRITING. The derivation names how; the
+      master is the one that types it, and today it sees only ContextKeys.Sandboxes — the run's
+      target repositories. A cut that cites a counterpart the writer cannot open is a citation, not
+      a mechanism.
+  - key: |
+      THE CHANNEL EXISTS AND IS ALREADY USED FOR EXACTLY THIS. FilesystemToolHost.AddSandbox was
+      built so a mid-run escalation can grow the addressable set, copy-on-write, without touching
+      the pipeline's map. A template is that same move, decided up front instead of mid-run.
+  - key: |
+      REACHABLE IS NOT NAMEABLE, AND THE PRECEDENT ALREADY KNEW THAT. The prompt lists
+      ContextKeys.SandboxRepos, not the tool host's keys, so AddSandbox alone leaves the master
+      with a template it cannot address. The mid-run escalation this phase copies writes
+      ContextKeys.Repos back for exactly that reason. A template needs its own address key —
+      listed for the prompt, absent from the map every downstream handler iterates.
+  - key: |
+      READ-ONLY IS A PROPERTY OF THE SANDBOX, NOT A PROMISE IN A PROMPT. An earlier attempt at this
+      promised read-only while the coding master ran with an unguarded shell. SourceScopeSandbox
+      refuses Run and WriteFile as step kinds, so the refusal happens below the tool host and holds
+      whatever the master is told.
+  - key: |
+      THE ENTRY STAYS OUT OF THE RUN'S SANDBOX MAP. CommitAndPR iterates that map and would try to
+      commit a foreign read-only checkout; the toolchain probe would resolve an image for it. The
+      tool host is the only place that needs the name.
+  - key: |
+      THE UNREACHABLE-TEMPLATE FAILURE IS A DEFENSIVE ASSERT HERE, NOT A SECOND USER-FACING PATH.
+      DeriveSpec precedes PhaseSequence in the code preset and 2026-09-13-84c0 already fails the
+      derivation on an unreachable template, so by the time a master runs the question is settled.
+      Two user-facing failures for one condition would be two messages an operator has to
+      reconcile.
+  - key: |
+      A ONE-REPO PROJECT CHANGES PROMPT SHAPE THE MOMENT A TEMPLATE IS ADDED. The repository
+      section renders empty at one name or fewer, so a single-repo project with a template flips
+      it on and the master must start prefixing paths — including the target's own. That is a real
+      behaviour change for the commonest project shape and it is tested, not discovered.
+
+steps:
+  - id: the-tool-host-carries-the-template
+    action: "AgenticMasterHandler adds one named read-only entry per declared template through FilesystemToolHost.AddSandbox at the declared revision."
+  - id: the-name-reaches-the-prompt
+    action: "The template name is published on its own address key that the repository section reads; ContextKeys.Sandboxes stays untouched."
+  - id: the-wiring-moves-out-of-the-master-handler
+    action: "Template resolution, materialisation and disposal move to their own type; AgenticMasterHandler only calls it."
+  - id: the-master-is-told-what-a-template-is
+    action: "The coding master's instruction says a template answers how and never what; catalog text authored, pin-gated assertion added here."
+  - id: an-unreachable-template-fails-the-phase
+    action: "A template that cannot be materialised fails the phase as a defensive assert, naming template and revision; the derivation is where an operator already saw it."
+  - id: the-master-disposes-what-it-added
+    action: "The entries are disposed when the master's phase ends."
+
+tests:
+  - "CodingMaster_DeclaredTemplate_IsAddressableByName"
+  - "CodingMaster_TemplateEntry_NotInPipelineSandboxes"
+  - "CodingMaster_WriteIntoTemplate_IsRefusedBySandbox"
+  - "CodingMaster_RunCommandInTemplate_IsRefusedBySandbox"
+  - "CodingMaster_NoTemplateDeclared_AddressMapUnchanged"
+  - "CodingMaster_SingleRepoPlusTemplate_RepositorySectionAppears"
+  - "CodingMaster_RefusedTemplateWrite_IsNotRecordedAsAChange"
+  - "CodingMaster_TemplateUnreachable_FailsBeforeFirstToken"
+  - "CommitAndPR_ProjectWithTemplate_CommitsOnlyTargetRepos"
+
+done:
+  - "a coding master on a project with a declared template can read that template's files by name"
+  - "a write or a command into the template comes back refused, from the sandbox"
+  - "a project with no template addresses exactly the repositories it does today"
+  - "an unreachable template fails the phase, having already failed the derivation that precedes it"
+  - "a single-repo project that gains a template gets the repository section and prefixed paths, provably"
+  - "commit and PR touch only the run's own repositories"
+  - "build green, full suite green"
