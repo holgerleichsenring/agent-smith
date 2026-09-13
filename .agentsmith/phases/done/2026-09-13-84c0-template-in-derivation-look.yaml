@@ -21,10 +21,7 @@ scope:
     template that cannot be materialised fails the derivation naming template and revision, and a
     template look refused for budget fails it too; the look owns the sandboxes it created and
     disposes them; the derivation prompt distinguishes a template entry from a target repository;
-    the resolved sha is recorded as a derivation evidence line; while the scope is open its
-    context.yaml verify block is read at that revision and what it declares — the ordered stages,
-    or nothing — is reported, so how many templates prove anything at all becomes countable
-    before anything is refused on it.
+    the resolved sha is recorded as a derivation evidence line.
   out: >
     A SHARED BUDGET, AND THE ARGUMENT THAT ONE IS ENOUGH. AccountSearchBudget records the measured
     case: twelve searches on one instance, the first repository spent them all, every later
@@ -64,11 +61,10 @@ decisions:
       such set — SpecDialogTurnRunner's finally is the one working precedent and this phase copies
       it.
   - key: |
-      THE VERIFY BLOCK IS READ HERE BECAUSE HERE IS WHERE THE SCOPE IS OPEN. 2026-09-13-5fa0 tried
-      to own this and could not: config resolution runs at load time against strings and has no
-      sandbox. This phase materialises the template anyway, so the block costs one file read on a
-      clone that already exists. It is REPORTED, never refused on — a gate whose measured pass rate
-      is zero on day one teaches an operator to write one trivial stage, so the count comes first.
+      WHAT THE TEMPLATE DECLARES AS PROOF IS NOT READ HERE, AND THAT IS THE THIRD TIME IT MOVED.
+      The gate claimed it, the config resolver could not have it (no sandbox), and here the parser
+      turns out to be internal to another assembly. Three moves is the signal that the reach IS the
+      work, so it is 2026-09-13-9f84 and not a clause in this one.
   - key: |
       NAMING THE COUNTERPART IS AN EVIDENCE LINE, NOT A STEP FIELD. DerivedPhaseBuilder reads only
       (id, action); there is no slot for a cited path and nothing validates one. The derivation
@@ -88,8 +84,6 @@ steps:
     action: "The derivation prompt distinguishes template entries from target repositories; catalog text includes the shared precedence section; the assertion here reads the EMBEDDED tarball via PackagedMaster and is skipped by an explicit pin guard until 2026-09-13-4072 moves the pin."
   - id: an-unreachable-template-fails-the-derivation
     action: "A template that cannot be resolved or materialised fails the derivation, naming the template and the revision."
-  - id: what-the-template-declares-as-proof-is-reported
-    action: "The template's context.yaml verify block is read at the resolved revision; the stages it declares, or their absence, are reported on the run."
   - id: the-look-disposes-what-it-created
     action: "DerivationLook disposes its own sandboxes in a finally; the pipeline's map is unchanged."
 
@@ -103,7 +97,6 @@ tests:
   - "DerivationLook_TemplateEntry_NotInPipelineSandboxes"
   - "DerivationLook_Disposed_TearsDownTemplateSandboxes"
   - "Derivation_TemplateUnreachable_FailsNamingTemplateAndRevision"
-  - "TemplateVerify_ContextDeclaresNone_ReportedNotRefused"
 
 done:
   - "a derivation on a project with a declared template reads that template and cites the look as evidence"

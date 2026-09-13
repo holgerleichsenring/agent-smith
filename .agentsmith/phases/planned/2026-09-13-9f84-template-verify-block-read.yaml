@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-9f84
+
+goal: "What a template declares as its own proof is read while its scope is open and reported, so how many templates prove anything at all becomes a number before anything is refused on it."
+
+applies_to: "backend (the verify-block reader's reach, the derivation look)"
+
+requires:
+  - 2026-09-13-84c0
+
+scope:
+  in: >
+    ContextYamlVerifyReader becomes reachable from the assembly the derivation lives in — it is
+    internal to Infrastructure today and the derivation is in Application, which is the whole
+    reason this is its own phase; while a template scope is materialised, its context.yaml is read
+    at the resolved revision and the ordered stages it declares, or their absence, are minted as a
+    framework evidence line on the derivation, the channel that already carries what a look saw
+    and already reaches the persisted spec set.
+  out: >
+    REFUSING A TEMPLATE THAT PROVES NOTHING. The count comes first: none of the estate's
+    boilerplates carries a verify block today, so a gate would refuse everything on day one and its
+    cheapest exit would be one trivial stage. A successor promotes the report to a refusal once the
+    count says a template can pass.
+    RUNNING THE STAGES. That needs an EXECUTING sandbox with the template's toolchain — the
+    read-only scope refuses Run by step kind — and it is a second pod per template. Its own phase,
+    under the template owner's configuration.
+    A PROOF STORE KEYED BY REVISION. An entity, a port and migrations in two assemblies, worth
+    paying for only once there is an outcome worth caching.
+
+decisions:
+  - key: |
+      IT MOVED THREE TIMES BEFORE IT GOT ITS OWN PHASE, AND THAT WAS THE SIGNAL. It was written
+      into the template gate, folded into the config resolver — which has no sandbox — then into
+      the derivation look, where the parser turns out to be internal to another assembly. Each move
+      was a scope call dressed as an edit. The reach is the actual work, so it is the phase.
+  - key: |
+      AN EVIDENCE LINE IS THE CHANNEL THAT ALREADY EXISTS AND IS ALREADY PERSISTED. The
+      alternatives were a Run column with migrations in two assemblies, or a log line nobody reads
+      — and a report nobody reads is the failure this whole set is about. The derivation's evidence
+      lines are framework-minted, carry ids, and reach the spec set on the branch.
+
+steps:
+  - id: the-reader-reaches-the-derivation
+    action: "ContextYamlVerifyReader is reachable from the assembly the derivation lives in, without duplicating the parse."
+  - id: the-block-is-read-while-the-scope-is-open
+    action: "A materialised template's context.yaml is read at the resolved revision and its verify stages parsed."
+  - id: what-it-declares-is-minted-as-evidence
+    action: "The stages, or their absence, become a framework evidence line on the derivation."
+
+tests:
+  - "TemplateVerify_ContextDeclaresStages_MintedAsEvidence"
+  - "TemplateVerify_ContextDeclaresNone_ReportedNotRefused"
+  - "TemplateVerify_NoTemplateInTheLook_NoEvidenceLine"
+
+done:
+  - "a derivation that looked into a template says what that template declares as its own proof"
+  - "a template declaring no verify block is named as declaring none, and the run proceeds"
+  - "how many declared templates prove anything is readable off the runs"
+  - "build green, full suite green"
