@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-9802
+
+decisions:
+  - category: Architecture
+    chose: "A revision is a parameter plus a git step on the SANDBOX path"
+    over: "A ref-resolving capability on ISourceProvider, or declaring the revision unbuildable"
+    reason: |
+      The stated blocker for three earlier specs was "no source provider can resolve a ref —
+      CheckoutAsync takes a BranchName and HostSourceCloner clones --no-tags". Both facts are
+      true and neither is on this path. SourceScopeSandbox clones through
+      CheckoutStepFactory.BuildCloneStep, which is a FULL clone — no --depth, no
+      --single-branch, no --no-tags — so every branch and every tag is already in the object
+      database, and BuildCheckoutStep has existed all along and resolves a sha, a tag and a
+      branch identically. What was sized as a subsystem across four providers is an optional
+      parameter and one step. ISourceProvider is untouched.
+
+  - category: Architecture
+    chose: "The git ladder lives in its own type, SourceScopeMaterialiser"
+    over: "Growing SourceScopeSandbox, which already held the clone"
+    reason: |
+      SourceScopeSandbox sat at 117 lines against the unbaselined ceiling of 120, and
+      FileLengthRatchetTests forbids a new baseline row for a file that has never had one, so
+      there was no room. The split is also the right seam independently: the sandbox owns the
+      read-only guard and the lazy lifetime, while the ladder owns every new failure mode git
+      can produce. Both stay legible by not sharing a page.
+
+  - category: Architecture
+    chose: "Five typed failure kinds, with RevisionNotFetched distinct from NoSuchRevision"
+    over: "One 'could not be prepared' sentence carrying git's stderr"
+    reason: |
+      A full clone carries every branch and every tag but NOT a sha that lives only in a
+      pull-request ref or on a deleted branch, and git answers both that case and a typo with
+      "reference is not a tree". The two call for different actions — one is a wrong revision,
+      the other is a revision the host will not hand over — so the ladder asks the host for the
+      ref by name after a failed checkout and separates the answers by whether that fetch
+      succeeded. NoCloneUrl, Unauthorised and Unreachable complete the set; a caller that must
+      refuse a run now reads an action instead of reading git.
+
+  - category: Architecture
+    chose: "Auth is matched before transport, and an unrecognised clone failure reads as Unreachable"
+    over: "A sixth Unknown kind"
+    reason: |
+      git wraps every remote problem in "unable to access", so only the markers separate them.
+      A host answering 'repository not found' for a private repository it will not admit to is
+      indistinguishable from a missing one, and the action is the same either way: look at the
+      token — so that marker counts as auth. Anything neither list knows is still a clone that
+      did not reach its remote, and the raw git text rides along in the message, so a sixth kind
+      would add a branch nobody can act on differently.
+
+  - category: Architecture
+    chose: "The sandbox spec still comes from the RUN'S project"
+    over: "Building a foreign repository's sandbox from the project that owns it"
+    reason: |
+      SandboxSpecBuilder resolves image, resource envelope, timeouts and secrets from the
+      project it is handed. The sandbox is the run's cost and the run's isolation boundary; a
+      foreign repository contributes a clone url and a revision and nothing else. Taking the
+      other project's envelope would let a template decide how much compute a run may spend.
+
+  - category: Architecture
+    chose: "MaterializeAsync exposes the typed failure; RunStepAsync keeps returning a refusal string"
+    over: "Only surfacing failures as step refusals"
+    reason: |
+      The spec dialog wants a refused READ to read as a sentence to the model, which is what the
+      existing path does. A consumer that must refuse a whole run — a derivation told to follow a
+      template it cannot reach — needs the kind, not a sentence, and needs it before it spends
+      anything. Both exist: the read path catches and phrases, the explicit path throws.

@@ -9,5 +9,12 @@ namespace AgentSmith.Contracts.Sandbox;
 /// </summary>
 public interface ISourceScopeSandboxFactory
 {
-    ISourceScopeSandbox Create(ResolvedProject project, RepoConnection repo);
+    /// <param name="revision">
+    /// 2026-09-13-9802: an optional branch, tag or sha to materialise at. Null means the
+    /// clone's own default, which is what every caller before templates wanted. The clone
+    /// is full — no depth, no --no-tags — so a named revision is a checkout and not a
+    /// second protocol.
+    /// </param>
+    ISourceScopeSandbox Create(
+        ResolvedProject project, RepoConnection repo, string? revision = null);
 }

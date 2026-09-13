@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
@@ -64,7 +65,8 @@ public sealed class SourceScopeSandboxTests
         factory.Spawned[0].Spec.ToolchainImage.Should().Be("buildpack-deps:bookworm-scm");
         factory.Spawned[0].Spec.RunId.Should().Be("run-1", "the reaper must see the active run's label");
         var kinds = factory.Spawned[0].Sandbox.RanSteps.Select(s => s.Kind).ToList();
-        kinds.Should().Equal(StepKind.Run, StepKind.ReadFile, StepKind.Grep);
+        // 2026-09-13-9802: the clone is followed by a rev-parse that reports the sha.
+        kinds.Should().Equal(StepKind.Run, StepKind.Run, StepKind.ReadFile, StepKind.Grep);
         factory.Spawned[0].Sandbox.RanSteps[0].Command.Should().Be("git");
         sut.IsMaterialized.Should().BeTrue();
     }
@@ -80,7 +82,8 @@ public sealed class SourceScopeSandboxTests
         factory.Spawned.Should().BeEmpty();
     }
 
-    private static SourceScopeSandbox Build(StubSandboxFactory factory, RepoConnection repo)
+    private static SourceScopeSandbox Build(
+        StubSandboxFactory factory, RepoConnection repo, string? revision = null)
     {
         var specBuilder = new SandboxSpecBuilder(
             new StubSandboxResourceResolver(),
@@ -89,8 +92,49 @@ public sealed class SourceScopeSandboxTests
         var runContext = new Mock<IRunContextAccessor>();
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         return new SourceScopeSandbox(
-            Project, repo, factory, specBuilder, runContext.Object,
-            NullLogger<SourceScopeSandbox>.Instance);
+            Project, repo, revision, new SourceScopeMaterialiser(), factory, specBuilder,
+            runContext.Object, NullLogger<SourceScopeSandbox>.Instance);
+    }
+
+    [Fact]
+    public async Task RunStepAsync_RevisionGiven_ChecksItOutBeforeServingTheRead()
+    {
+        var factory = new StubSandboxFactory();
+        var sut = Build(factory, RepoWithUrl(), revision: "v2.1.0");
+
+        await sut.RunStepAsync(Step(StepKind.ReadFile), null, CancellationToken.None);
+
+        var git = factory.Spawned[0].Sandbox.RanSteps
+            .Where(s => s.Kind == StepKind.Run)
+            .Select(s => string.Join(' ', s.Args ?? []))
+            .ToList();
+        git.Should().Contain(a => a.Contains("checkout") && a.Contains("v2.1.0"));
+    }
+
+    [Fact]
+    public async Task RunStepAsync_NoRevisionGiven_NeverChecksOut()
+    {
+        var factory = new StubSandboxFactory();
+        var sut = Build(factory, RepoWithUrl());
+
+        await sut.RunStepAsync(Step(StepKind.ReadFile), null, CancellationToken.None);
+
+        factory.Spawned[0].Sandbox.RanSteps
+            .Where(s => s.Kind == StepKind.Run)
+            .Select(s => string.Join(' ', s.Args ?? []))
+            .Should().NotContain(a => a.Contains("checkout"));
+    }
+
+    [Fact]
+    public async Task MaterializeAsync_RepoWithoutUrl_ThrowsTypedSoACallerCanRefuse()
+    {
+        var sut = Build(new StubSandboxFactory(),
+            new RepoConnection { Name = "local-only", Type = RepoType.Local });
+
+        var act = () => sut.MaterializeAsync(CancellationToken.None);
+
+        (await act.Should().ThrowAsync<SourceScopeUnavailableException>())
+            .Which.Kind.Should().Be(SourceScopeFailureKind.NoCloneUrl);
     }
 
     private static RepoConnection RepoWithUrl() => new()

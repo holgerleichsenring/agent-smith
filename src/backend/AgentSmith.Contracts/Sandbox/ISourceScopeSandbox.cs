@@ -16,4 +16,11 @@ public interface ISourceScopeSandbox : ISandbox
 
     /// <summary>True once the underlying sandbox has been spawned + cloned.</summary>
     bool IsMaterialized { get; }
+
+    /// <summary>
+    /// 2026-09-13-9802: the commit this scope is actually on, once it has materialised —
+    /// read from the clone, never echoed back from what was asked for. Null before the
+    /// first read, and on a scope that asked for no revision and never looked.
+    /// </summary>
+    string? ResolvedSha { get; }
 }

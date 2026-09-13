@@ -193,13 +193,13 @@ public static class PipelineHandlersExtensions
         services.AddTransient<DeliveryDiff>();
         services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
-        services.AddTransient<Specs.PhaseAccounting>();
-        services.AddTransient<Specs.PhaseEntryAccount>();
+        services.AddTransient<Specs.PhaseAccounting>().AddTransient<Specs.PhaseEntryAccount>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<Triage.MasterQuestionCheckpoint>();
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddPhaseExecution(); // 2026-08-26-31e5
-        services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
+        services.AddTransient<AgentSmith.Application.Services.Sandbox.SourceScopeMaterialiser>()
+            .AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddSingleton<HttpProbeRunner>();
         return services.AddScanPipelines(); // p0429
     }
