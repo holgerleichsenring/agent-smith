@@ -10,12 +10,13 @@ requires:
 
 scope:
   in: >
-    ContextYamlVerifyReader becomes reachable from the assembly the derivation lives in — it is
-    internal to Infrastructure today and the derivation is in Application, which is the whole
-    reason this is its own phase; while a template scope is materialised, its context.yaml is read
-    at the resolved revision and the ordered stages it declares, or their absence, are minted as a
-    framework evidence line on the derivation, the channel that already carries what a look saw
-    and already reaches the persisted spec set.
+    The parse reaches the assembly the derivation lives in WITHOUT being duplicated: the reader is
+    internal to Infrastructure, but IContextYamlSerializer is the Contracts port that owns the
+    parse, is registered, and already hands Application the very stages that reader produces — so
+    nothing moves and nothing widens (see decisions). While a template scope stands OPEN, its
+    context.yaml is read at the revision the scope landed on and the ordered stages it declares,
+    or their absence, are minted as a framework evidence line on the derivation, the channel that
+    already carries what a look saw and already reaches the persisted spec set.
   out: >
     REFUSING A TEMPLATE THAT PROVES NOTHING. The count comes first: none of the estate's
     boilerplates carries a verify block today, so a gate would refuse everything on day one and its
@@ -26,8 +27,17 @@ scope:
     under the template owner's configuration.
     A PROOF STORE KEYED BY REVISION. An entity, a port and migrations in two assemblies, worth
     paying for only once there is an outcome worth caching.
+    MATERIALISING A TEMPLATE IN ORDER TO READ IT. 2026-09-13-84c0 kept the derivation's scopes
+    lazy because an eager clone spends a pod on every derivation that declares a template. A
+    scope nobody opened is not read; the count is of the templates a derivation actually opened.
 
 decisions:
+  - key: |
+      THE REACH TURNED OUT TO BE A PORT THAT ALREADY EXISTED. The reader is internal, its output
+      is not: IContextYamlSerializer.Parse already returns the stages it reads, in Contracts, in
+      DI, injected in Application twice. Moving the reader, widening it, or minting a new port
+      would each have been a second way to parse one file. The spec said otherwise and was
+      corrected here.
   - key: |
       IT MOVED THREE TIMES BEFORE IT GOT ITS OWN PHASE, AND THAT WAS THE SIGNAL. It was written
       into the template gate, folded into the config resolver — which has no sandbox — then into
@@ -41,9 +51,9 @@ decisions:
 
 steps:
   - id: the-reader-reaches-the-derivation
-    action: "ContextYamlVerifyReader is reachable from the assembly the derivation lives in, without duplicating the parse."
+    action: "The verify parse is reached from the derivation's assembly without duplicating it — through IContextYamlSerializer, the Contracts port that owns it."
   - id: the-block-is-read-while-the-scope-is-open
-    action: "A materialised template's context.yaml is read at the resolved revision and its verify stages parsed."
+    action: "An OPEN template's context.yaml is read at the revision the scope landed on and its verify stages parsed; a scope nobody opened is not materialised for it."
   - id: what-it-declares-is-minted-as-evidence
     action: "The stages, or their absence, become a framework evidence line on the derivation."
 
@@ -51,9 +61,12 @@ tests:
   - "TemplateVerify_ContextDeclaresStages_MintedAsEvidence"
   - "TemplateVerify_ContextDeclaresNone_ReportedNotRefused"
   - "TemplateVerify_NoTemplateInTheLook_NoEvidenceLine"
+  - "TemplateVerify_ScopeNeverOpened_IsNotMaterialisedToReadIt"
+  - "TemplateVerify_NoContextUnderThatName_SaysSoInsteadOfDeclaringNone"
+  - "TemplateVerify_EveryAttemptOfTheRetryLoop_MintsOneLine"
 
 done:
   - "a derivation that looked into a template says what that template declares as its own proof"
   - "a template declaring no verify block is named as declaring none, and the run proceeds"
-  - "how many declared templates prove anything is readable off the runs"
+  - "how many opened templates prove anything is readable off the runs"
   - "build green, full suite green"

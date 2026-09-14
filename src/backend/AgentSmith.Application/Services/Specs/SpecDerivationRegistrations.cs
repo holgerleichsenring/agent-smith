@@ -31,6 +31,8 @@ public static class SpecDerivationRegistrations
     services.AddTransient<DerivedPhaseBuilder>();
     services.AddTransient<FactResolver>();
     services.AddTransient<SpecDerivationCall>();
+    // 2026-09-13-9f84: what an opened template declares as its own proof, read and reported.
+    services.AddTransient<TemplateProofReport>();
     services.AddTransient<ProjectTemplateScopes>();
     // 2026-09-13-6f35: the coding master opens the same declarations the derivation cites.
     services.AddTransient<Handlers.MasterTemplateScopes>();

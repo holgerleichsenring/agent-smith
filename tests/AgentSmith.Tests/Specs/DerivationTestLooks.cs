@@ -23,6 +23,14 @@ internal static class DerivationTestLooks
                 scopes ?? new NoScopes(), NullLogger<ProjectTemplateScopes>.Instance),
             NullLogger<DerivationLook>.Instance);
 
+    /// <summary>2026-09-13-9f84: the template-proof read as the product composes it — the
+    /// real context.yaml parse over whatever reader the caller hands in.</summary>
+    public static TemplateProofReport Proof(ISandboxFileReaderFactory? files = null) =>
+        new(new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
+                new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+            files ?? new StubSandboxFileReaderFactory(),
+            NullLogger<TemplateProofReport>.Instance);
+
     /// <summary>A source-scope factory that would spawn nothing, for runs with no template.</summary>
     private sealed class NoScopes : ISourceScopeSandboxFactory
     {

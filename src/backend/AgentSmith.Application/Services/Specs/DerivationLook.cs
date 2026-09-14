@@ -48,8 +48,10 @@ public sealed class DerivationLook : IAsyncDisposable
     /// <summary>The repositories a look may name, for the prompt to list.</summary>
     public IReadOnlyList<string> Repositories => [.. _sandboxes.Keys.Except(_templates.Keys)];
 
-    /// <summary>The template entries a look may name, listed apart from the targets.</summary>
-    public IReadOnlyList<string> Templates => [.. _templates.Keys];
+    /// <summary>The template entries a look may name, listed apart from the targets.
+    /// 2026-09-13-9f84: the scopes themselves, because the framework reads what each one
+    /// declares as its own proof and a name cannot be read from.</summary>
+    public IReadOnlyDictionary<string, ISourceScopeSandbox> Templates => _templates;
 
     /// <summary>One allowance for the whole derivation — never re-opened.</summary>
     public DerivationLookBudget Budget { get; } = new();

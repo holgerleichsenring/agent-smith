@@ -68,7 +68,7 @@ public sealed class SpecSetDeriver(
         for (var attempt = 1; attempt <= MaxAttempts + (pinned ? 1 : 0); attempt++)
         {
             var response = await call.AskAsync(
-                agentConfig, pipeline, messages, DerivationTools.For(look), cancellationToken);
+                agentConfig, pipeline, messages, look, cancellationToken);
             // The whole exchange is kept, not its text: the looks travel as tool calls.
             messages.AddRange(response.Messages);
             // 2026-09-13-84c0: a template look refused for budget must not become a cut made

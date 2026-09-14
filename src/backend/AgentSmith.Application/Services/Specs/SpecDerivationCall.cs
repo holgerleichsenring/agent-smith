@@ -24,7 +24,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecDerivationCall(
     IChatClientFactory chatClientFactory,
-    IRunContextAccessor runContext)
+    IRunContextAccessor runContext,
+    TemplateProofReport templateProof)
 {
     public const string RoleName = "spec-derivation";
 
@@ -32,17 +33,27 @@ public sealed class SpecDerivationCall(
     /// the tools draw on is one allowance for all of them.</summary>
     public const int MaxIterations = DerivationLookBudget.Allowance + 2;
 
+    /// <summary>
+    /// 2026-09-13-9f84: the LOOK, not its tool list — the call takes the tools off it, and
+    /// once the turn is over reads what any template the turn OPENED declares as its own
+    /// proof. Here because the read has to land before the answer is parsed, which is what
+    /// carries the evidence onto the persisted spec set, and because the deriver is on the
+    /// file-length ceiling this class was split off to relieve.
+    /// </summary>
     public async Task<ChatResponse> AskAsync(
         AgentConfig agentConfig, PipelineContext pipeline, IReadOnlyList<ChatMessage> messages,
-        IList<AITool>? tools, CancellationToken cancellationToken)
+        DerivationLook? look, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var chat = chatClientFactory.Create(agentConfig, TaskType.Planning, MaxIterations);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(agentConfig, TaskType.Planning);
         using var _scope = runContext.BeginCallScope(RoleName, SkillExecutionPhase.Plan.ToString());
         var response = await chat.GetResponseAsync(
-            messages, new ChatOptions { MaxOutputTokens = maxTokens, Tools = tools }, cancellationToken);
+            messages,
+            new ChatOptions { MaxOutputTokens = maxTokens, Tools = DerivationTools.For(look) },
+            cancellationToken);
         PipelineCostTracker.GetOrCreate(pipeline).Track(response);
+        await templateProof.RecordAsync(look, pipeline, cancellationToken);
         return response;
     }
 }
