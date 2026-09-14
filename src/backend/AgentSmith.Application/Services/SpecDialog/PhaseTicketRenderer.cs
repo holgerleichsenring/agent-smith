@@ -16,6 +16,15 @@ public sealed class PhaseTicketRenderer
 {
     public const string PhaseLabel = "phase";
 
+    /// <summary>
+    /// 2026-09-13-a3f1: what an epic PARENT carries instead. The parent is the record of a
+    /// cut, not a unit of work — it was filed with the phase label, which hard-binds routing,
+    /// so a run started on the summary of a cut and died at the spec gate. Framework-owned
+    /// and deliberately not "epic": an operator's own epic label must keep meaning what it
+    /// means to them.
+    /// </summary>
+    public const string EpicLabel = "phase-epic";
+
     /// <summary>Renders one phase ticket; epic children pass their parent's reference.</summary>
     public PhaseTicketContent RenderPhase(PhaseDraft draft, string? parentReference = null) =>
         new(Title(draft), BuildBody(draft, sb =>
