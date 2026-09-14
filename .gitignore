@@ -45,11 +45,11 @@ config/agentsmith.*.yml
 !config/agentsmith.example.yml
 hooks/customer-fingerprints.txt
 config/jira/
-config/service1.jira/
+config/*.jira/
 # A deployment compose file describes ONE estate — its services, its addresses,
-# its volumes. Ignored as a CLASS, not by name: the two rules that used to sit
-# here listed the files that had already leaked, and deploy/docker-compose.
-# service1.yml walked straight past them into a public repository.
+# its volumes. Ignored as a CLASS, not by name: the rules that used to sit here
+# named the files that had already leaked, so the next one walked past them into
+# a public repository. The same shape as the config rule above.
 deploy/docker-compose*.yml
 !deploy/docker-compose.example.yml
 

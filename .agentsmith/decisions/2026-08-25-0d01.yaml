@@ -83,7 +83,7 @@ decisions:
       The adversarial review named sandbox.agent_version as the only skew route. It is not
       the one the repo's own deployments use: p0281c's DeploymentDefaultsApplier fills
       sandbox.agent_version from the one-knob deployment.version whenever it is unset, and
-      that is what config/agentsmith.service1.k8s.yml sets. So most real pins arrive through
+      that is what config/agentsmith.<estate>.k8s.yml sets. So most real pins arrive through
       deployment.version — and that same knob pins the ORCHESTRATOR image, which has no
       derived default and still throws without one. "Delete the pin" would therefore have
       been wrong advice, and the finding names the way out precisely instead. The
