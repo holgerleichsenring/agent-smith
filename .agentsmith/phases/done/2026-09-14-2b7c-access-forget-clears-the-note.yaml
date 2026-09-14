@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-14-2b7c
+
+goal: "Forgetting a person clears the in-memory note that decides their return, and a flush already in flight cannot write them back, so their next request is observed rather than dropped."
+
+applies_to: "default (server access surface, caller observation buffer)"
+
+requires:
+  - 2026-08-26-7a51
+
+scope:
+  in: "Forgetting a subject in the observation buffer, the removal calling it, and one gate that serialises drain-and-write against forget-and-delete so neither half of a removal can be undone by the other side."
+  out: "The coalescing window and the flush interval, which are what keep a per-request upsert off the authorization path on SQLite and are correct as they stand — shortening either would raise the write rate the buffer exists to lower, and neither closes the suppression. The retention sweep answers a different question."
+
+decisions:
+  - key: |
+      REMOVAL CLEARS TWO PERSISTENT HALVES AND LEAVES THE ONE THAT DECIDES THE RETURN. PersonRemover
+      deletes the observed row and withdraws the grant — the two things 2026-08-26-7a51 promised to
+      remove together — while the buffer's _noted entry, which suppresses the next observation, is
+      untouched. The person disappears from the surface and does not come back on their next
+      request, because the server still holds them as already noted, process-wide and keyed by the
+      sub claim. Signing in again yields the same sub and does not help.
+  - key: |
+      THE WINDOW IS NOT THE DEFECT AND MUST NOT BE SHORTENED. Five minutes of coalescing plus a
+      thirty-second drain is what keeps a row-per-request-per-caller off the authorization path,
+      which on the default SQLite means the write lock taken there, multiplied by the dashboard's
+      polling and the hub handshake. The suppression path deliberately does not refresh the
+      timestamp, which is what BOUNDS the wait at five minutes from the last real note rather than
+      extending it for as long as somebody keeps calling. The bound is about five and a half
+      minutes, and only absent a failed write — a batch that fails is reinstated and waits another
+      interval. Both settings stay.
+  - key: |
+      THE SECOND WAY BACK IS A PENDING ENTRY, AND IT IS NOT A NARROW RACE. A caller observed inside
+      the current interval sits in _pending, and the repository's upsert ADDS a row that is not
+      there — so a flush landing after the delete re-inserts the person as an observation from
+      before they were forgotten. It fires on every removal of anybody noted inside the interval,
+      which is precisely the person an administrator is most likely to be removing.
+  - key: |
+      ORDERING ALONE CLOSES NOTHING, WHICH IS WHY THERE IS A GATE. Drain moves entries out of
+      _pending into a LOCAL list inside the flush service before the write, and no forget can reach
+      that list: the removal can clear both maps, delete the row, and still have the in-flight batch
+      write it back afterwards — with the caller having made no request at all. The two composite
+      operations are therefore serialised against each other by one gate held by the buffer: drain
+      and write on one side, forget and delete on the other. A removal is a rare administrative act
+      and a flush is thirty seconds wide, so there is nothing to contend for.
+  - key: |
+      THE GATE IS NEVER TAKEN ON THE AUTHORIZATION PATH. Observe does not touch it and must not:
+      the whole point of this buffer is that noting a caller costs a dictionary write and returns.
+      The maps are concurrent, so an Observe racing a removal is safe and its outcome is the
+      correct one — a caller still making requests is re-noted and comes back, which is what should
+      happen to somebody still using the installation.
+  - key: |
+      FORGET BELONGS ON THE BUFFER, NOT ON ICallerObservations. The interface is the one-method
+      notation seam the authorization path holds, and every lifecycle operation on this buffer is
+      already on the class: Drain and Reinstate are, and the only consumer that needs one — the
+      flush service — takes the concrete buffer. The interface is also public where the buffer is
+      internal, so putting a removal concern on it would widen a public surface for something the
+      authorization path never calls.
+
+steps:
+  - id: the-buffer-can-forget-a-subject
+    action: "Add a forget to the buffer beside its reinstatement that drops the subject from both the suppression note and the pending batch."
+  - id: the-two-composites-are-serialised
+    action: "Give the buffer a gate that drain-and-write takes on one side and forget-and-delete on the other, leaving the notation path free of it."
+  - id: the-removal-forgets-under-the-gate
+    action: "Have the person removal take the buffer, forget the subject and delete the stored row inside the gate, so neither an in-flight batch nor a later drain can write the row back."
+  - id: the-harness-composes-what-the-tests-need
+    action: "Let the access test harness build the buffer it hands to both the removal and the resolver, and flush on demand, so a removal and an observation in one test speak to one buffer."
+
+tests:
+  - "Buffer_ForgottenSubject_IsObservedAgainOnTheVeryNextRequest"
+  - "Buffer_ForgottenSubject_IsNotFlushedBackFromThePendingBatch"
+  - "Buffer_ForgettingOnePerson_LeavesTheOthersSuppressed"
+  - "Buffer_Observing_NeverWaitsOnTheGate"
+  - "Remove_WhileAFlushHoldsTheGate_WaitsForTheWriteToLandAndThenRemovesIt"
+  - "Remove_APersonWhoKeepsCalling_IsObservedOnTheNextRequest"
+  - "Remove_APersonNotedMomentsEarlier_DoesNotReturnOnTheNextFlush"
+
+done:
+  - "A person removed while they are still using the installation is observed again on their next request and is back on the surface at the next drain, rather than after five and a half minutes."
+  - "A removal is not undone by a pending entry, nor by a batch already in flight when it ran."
+  - "The coalescing window and the flush interval are unchanged, and noting a caller still takes no lock."
+  - "Backend build and the full suite are green."
