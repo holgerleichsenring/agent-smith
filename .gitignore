@@ -46,8 +46,12 @@ config/agentsmith.*.yml
 hooks/customer-fingerprints.txt
 config/jira/
 config/service1.jira/
-deploy/docker-compose.yml
-deploy/docker-compose.override.yml
+# A deployment compose file describes ONE estate — its services, its addresses,
+# its volumes. Ignored as a CLASS, not by name: the two rules that used to sit
+# here listed the files that had already leaked, and deploy/docker-compose.
+# service1.yml walked straight past them into a public repository.
+deploy/docker-compose*.yml
+!deploy/docker-compose.example.yml
 
 ## Claude Code
 .claude/
