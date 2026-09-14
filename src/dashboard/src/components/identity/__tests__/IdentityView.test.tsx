@@ -27,6 +27,10 @@ vi.mock("@/lib/auth/session", () => ({
   signIn: server.signIn,
   signOut: vi.fn(),
 }));
+// 2026-09-14-d4e8: whether this tab HOLDS a token is what decides between an inference and
+// the proof that outranks it, so it is stated per test rather than left to a real store.
+const tab = vi.hoisted(() => ({ token: vi.fn<() => string | null>(() => null) }));
+vi.mock("@/hooks/useAccessToken", () => ({ useAccessToken: () => tab.token() }));
 
 const requirements = (over: Partial<AuthRequirements> = {}): AuthRequirements => ({
   enforced: true,
@@ -53,9 +57,14 @@ const identity = (over: Partial<CallerIdentity> = {}): CallerIdentity => ({
   ...over,
 });
 
-function renderView(authority = "https://login.example/realm") {
+function renderView(
+  authority = "https://login.example/realm",
+  over: Partial<typeof DEFAULT_RUNTIME_SETTINGS.auth> = {},
+) {
   return render(
-    <RuntimeSettingsProvider settings={{ auth: { ...DEFAULT_RUNTIME_SETTINGS.auth, authority } }}>
+    <RuntimeSettingsProvider
+      settings={{ auth: { ...DEFAULT_RUNTIME_SETTINGS.auth, authority, ...over } }}
+    >
       <IdentityView />
     </RuntimeSettingsProvider>,
   );
@@ -68,6 +77,9 @@ describe("IdentityView", () => {
     server.identity.mockReset();
     server.signIn.mockReset();
     server.requirements.mockReset();
+    // Signed out is the state every case before 2026-09-14-d4e8 was written in.
+    tab.token.mockReset();
+    tab.token.mockReturnValue(null);
     server.requirements.mockResolvedValue(requirements());
   });
 
@@ -186,6 +198,47 @@ describe("IdentityView", () => {
     await screen.findByTestId("identity-token-refused");
     expect(screen.getByTestId("presented-audience")).toHaveTextContent("not readable");
     expect(screen.queryByTestId("presented-version")).toBeNull();
+  });
+
+  // 2026-09-14-d4e8: the one thing a refusal cannot say, because it only says it afterwards.
+  const MISMATCHED = { scopes: "openid api://some-other-api/WebApp" };
+
+  it("Identity_ScopeMismatchAndNoTokenHeld_NamesBothResources", async () => {
+    server.requirements.mockResolvedValue(requirements({ audience: "agent-smith" }));
+    server.identity.mockResolvedValue(identity({ authenticated: false }));
+
+    renderView("https://login.example/realm", MISMATCHED);
+
+    const remark = await screen.findByTestId("identity-scope-remark");
+    expect(remark).toHaveTextContent("api://some-other-api");
+    expect(remark).toHaveTextContent("agent-smith");
+  });
+
+  it("Identity_ScopeMismatchButATokenWasAccepted_SaysNothing", async () => {
+    // A token in hand that was not refused has proven the scopes produce something this
+    // server takes, whatever the strings look like. Proof outranks the inference.
+    tab.token.mockReturnValue("a-token-this-server-took");
+    server.requirements.mockResolvedValue(requirements({ audience: "agent-smith" }));
+    server.identity.mockResolvedValue(identity());
+
+    renderView("https://login.example/realm", MISMATCHED);
+
+    expect(await screen.findByTestId("identity-facts")).toBeInTheDocument();
+    expect(screen.queryByTestId("identity-scope-remark")).toBeNull();
+  });
+
+  it("Identity_TokenWasRefused_TheComparisonSpeaksAlone", async () => {
+    // The refusal already shows both sides and names the shape; a second surface arguing
+    // beside it on the same page is noise.
+    server.requirements.mockResolvedValue(
+      requirements({ audience: "agent-smith", tokenRefusal: "audience" }),
+    );
+    server.identity.mockResolvedValue(identity({ authenticated: false }));
+
+    renderView("https://login.example/realm", MISMATCHED);
+
+    expect(await screen.findByTestId("identity-token-refused")).toBeInTheDocument();
+    expect(screen.queryByTestId("identity-scope-remark")).toBeNull();
   });
 
   it("Identity_NoAuthorityConfigured_SaysNothingSignsIn", async () => {
