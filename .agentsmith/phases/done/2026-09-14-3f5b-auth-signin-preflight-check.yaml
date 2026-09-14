@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-14-3f5b
+
+goal: "The server's startup report says whether sign-in can work here — an authority, a token accepted inside the observation window, an administrator it can see — before enforcement goes on."
+
+applies_to: "default (server preflight checks)"
+
+requires:
+  - 2026-08-25-1806
+  - 2026-08-26-7a51
+  - 2026-09-14-c72e
+
+scope:
+  in: "One server-registered preflight check that answers the questions an operator does not know to ask, from facts this server already holds: is an authority configured, has a token been accepted inside the observation window, is enforcement on, and does anybody reach admin by a route that can be seen from here."
+  out: "Whether the DASHBOARD asks for the openid scope — 2026-09-14-c72e's second deferral, which does not land here. The scopes are written by the dashboard container's own entrypoint into its runtime-settings document and read only in the browser; the server's single piece of dashboard knowledge is AGENTSMITH_DASHBOARD_ORIGIN. That successor is a dashboard-side check over the runtime settings it already loads, asserting that the configured scopes carry openid and an API scope. Also out: the authority's reachability, which AuthorityReachabilityProbe owns."
+
+decisions:
+  - key: |
+      THE CHECK IS SERVER-ONLY, AND THAT PUTS IT OUT OF THE CLI DOCTOR'S REACH. AddPreflight
+      registers the nine shared checks and the CLI composes only those; AdminGrant and
+      RoleMappingSource are internal to AgentSmith.Server and would not even compile into a shared
+      check, and IObservedCallerStore resolves to nothing in that graph. ServerMemoryFloorCheck is
+      the precedent for registering server-only in AddServerPreflight, and this joins it there —
+      so what this phase delivers is the SERVER's startup report and its health surface, never
+      `agentsmith doctor`.
+  - key: |
+      THE STORE ANSWERS "WITHIN THE WINDOW", NOT "EVER", AND THE CHECK MUST SAY THE WINDOW.
+      Observations are swept by ObservedCallerRetentionHostedService at observation_retention_days
+      (90 by default), so an installation nobody signed into for three months loses its own
+      evidence. A check claiming "no token has ever been accepted" there would send an operator to
+      fix a sign-in that works — the same defect as a since-boot flag, arriving more slowly. So the
+      question is "a token was accepted inside the observation window", the window is named in the
+      message, and an operator can tell "never" from "not lately" because the check said which it
+      means.
+  - key: |
+      EMPTY AND UNREADABLE ARE DIFFERENT ANSWERS AND THE CHECK ASKS THE STORE DIRECTLY.
+      AccessSurfaceReader catches a store failure and returns an empty list, which is right for a
+      pane that still has a mapping to render and wrong for a check whose whole output is what the
+      store said: it would report "nobody has signed in" for a database that could not be reached.
+      So the check holds IObservedCallerStore itself, and a throw is "could not be read" — never a
+      failure of the sign-in it was asked about.
+  - key: |
+      ADMIN REACHABILITY CANNOT BE ASKED OF AdminRoute, BECAUSE IT IS DELIBERATELY PERMISSIVE.
+      AdminRoute.ExistsIn returns true whenever a role CLAIM name is configured — which it is by
+      default, and on every installation that has not deliberately cleared it — because a directory
+      can put admin in that claim and no server can see it from here. That is correct for the
+      invariant it guards and useless as a check: it would pass everywhere. So this check asks the
+      narrower, observable question — a person grant, a group mapping, an environment grant, or a
+      caller actually SEEN carrying admin — and reports "no administrator can be seen from here",
+      never "nobody is an administrator", because the role-claim route is real and invisible.
+  - key: |
+      ENFORCEMENT IS THE AXIS THAT TURNS A REMARK INTO A FAILURE. With enforce off nothing is
+      refused and an installation preparing its authority is in a correct intermediate state. With
+      enforce ON and no accepted token in the window, or enforce ON and no visible administrator,
+      the next restart can leave nobody able to reach the surface that fixes it. Pass, Fail and
+      Skip are the runner's vocabulary and the fix hint is mandatory on a failure, so the two
+      enforcing cases fail with the concrete next step and everything else passes with what it
+      found. No authority configured is a Skip: it refuses nobody and is the state every
+      installation starts in.
+  - key: |
+      THE CHECK IS HANDED THE AUTH BLOCK THE PIPELINE WAS REGISTERED WITH, NOT ONE IT RESOLVES.
+      p0503e already paid for this distinction: the DI-registered TokenAuthorityConfig is read
+      lazily from the environment, so a component built later can measure a different authority
+      than the handler validates against. Enforcement is the axis this check turns on, so it takes
+      the composed block the same way the authority probe does — AddServerPreflight is called where
+      that block is in scope.
+
+steps:
+  - id: the-check-answers-from-what-the-server-holds
+    action: "Add a sign-in preflight check that reads the composed auth block, the stored role mapping, the environment admin grant and the observed callers, reports what it found in one message, and skips when no authority is configured."
+  - id: the-enforcing-cases-fail-with-their-remedy
+    action: "Fail when enforcement is on and the reachable observation store holds no accepted caller inside the retention window, and when enforcement is on and no admin route can be seen from here, each naming the next step; a store that cannot be read is reported as unread rather than as either answer."
+  - id: the-check-is-registered-where-its-facts-live
+    action: "Register it in the server's preflight composition beside the memory-floor check, handed the composed auth block, and keep the shared registration carrying only the checks every graph can answer."
+
+tests:
+  - "SignIn_NoAuthorityConfigured_SkipsWithTheReason"
+  - "SignIn_EnforcementOffAndNothingSeen_PassesAndSaysWhatIsStillUnproven"
+  - "SignIn_EnforcementOnAndTheStoreIsEmptyButReachable_FailsAndNamesTheRetentionWindow"
+  - "SignIn_EnforcementOnAndTheStoreCannotBeRead_SaysSoRatherThanReportingNobodySignedIn"
+  - "SignIn_EnforcementOnAndACallerWasSeenInTheWindow_PassesNamingWhenItWasSeen"
+  - "SignIn_EnforcementOnAndNoVisibleAdmin_FailsNamingTheFourRoutes"
+  - "SignIn_AdminOnlyReachableThroughAnObservedRoleClaim_IsNotReportedAsALockout"
+  - "SignIn_EnvironmentGrantNamesSomebody_CountsAsAnAdminRoute"
+  - "Preflight_TheSharedRegistration_DoesNotCarryTheSignInCheck"
+
+done:
+  - "The server's startup report and health surface answer whether sign-in has worked here inside the observation window."
+  - "Turning enforcement on without a proven token or a visible administrator is reported before the restart that would prove it the hard way."
+  - "A database the check could not read is never reported as an installation nobody has signed into."
+  - "Backend build and the full suite are green."
