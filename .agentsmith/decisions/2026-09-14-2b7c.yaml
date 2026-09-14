@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-14-2b7c
+
+decisions:
+  - category: Correctness
+    chose: "Forgetting a person clears both the suppression note and the pending entry"
+    over: "Clearing the note alone"
+    reason: |
+      PersonRemover removed the two PERSISTENT halves — the observed row and the grant — and left
+      the in-memory note that decides the person's return. The note is keyed by the sub claim and
+      lives in the server process, so the person was absent from the surface and silently dropped
+      on every request for up to five minutes, and signing in again did not help because the sub
+      is the same.
+      Clearing only the note would have left the other way back: a caller observed inside the
+      current interval is still in _pending, and the repository's upsert ADDS a row that is not
+      there — so the next drain re-inserts the person as an observation from before they were
+      forgotten. That fires on every removal of anybody noted inside the interval, which is
+      exactly who an administrator is most likely to be removing.
+
+  - category: Correctness
+    chose: "One gate, held around drain-and-write on one side and forget-and-delete on the other"
+    over: "Ordering the forget before the delete"
+    reason: |
+      The ordering argument was mine and it closes nothing. Drain moves entries out of _pending
+      into a LOCAL list inside the flush service before the write, where no forget can reach them:
+      the removal can clear both maps, delete the row, and the in-flight batch still writes it back
+      afterwards — with the caller having made no request at all. The two run on different threads
+      in separate database scopes, so nothing serialises them.
+      Excluding the two composite operations from each other does what the ordering only claimed.
+      A removal is a rare administrative act and a flush is thirty seconds wide, so there is
+      nothing to contend for, and the gate is testable: a test holding it observes the removal
+      waiting, which the ordering had no falsifier for.
+
+  - category: Performance
+    chose: "Observe never takes the gate"
+    over: "Guarding every buffer operation with it"
+    reason: |
+      Noting a caller costs a dictionary write and returns — that is the whole reason this buffer
+      exists, and the reason the window and the flush interval are what they are: a row per
+      validated token would put the SQLite write lock on the authorization path, multiplied by the
+      dashboard's polling and the hub handshake. A gate taken there would stall that path behind a
+      batch write.
+      The maps are concurrent, so an observation racing a removal is safe, and the outcome is the
+      right one: a caller still making requests is re-noted and comes back. Somebody still using
+      the installation belongs on the surface.
+
+  - category: Architecture
+    chose: "Forget lives on CallerObservationBuffer, and the removal takes the buffer"
+    over: "A member on ICallerObservations"
+    reason: |
+      The interface is the one-method notation seam the authorization path holds, and every
+      lifecycle operation on this buffer is already on the class — Drain and Reinstate are, and the
+      only consumer needing one, the flush service, takes the concrete buffer. The interface is
+      also public where the buffer is internal, so putting a removal concern on it would widen a
+      public surface for something the authorization path never calls.
+      Reinstate is the precedent in both directions: it removes a _noted entry so a caller whose
+      write failed is not suppressed until they stop calling, and it does so as a method on the
+      class.
+
+  - category: Testing
+    chose: "The harness composes one buffer and flushes on demand"
+    over: "Leaving the removal and the resolver to hold different buffers"
+    reason: |
+      The defect is in-memory, so a test whose remover and resolver held separate buffers could not
+      see it: the suppression that decides the return would be in an object the removal never
+      touched. The harness now builds the buffer, hands it to the removal, and exposes the flush
+      the service performs — the drain and the write together, because a test draining without the
+      gate would be testing a shape that does not ship.

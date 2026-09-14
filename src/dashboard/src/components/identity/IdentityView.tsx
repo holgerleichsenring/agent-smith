@@ -7,6 +7,7 @@ import { FailedSurface } from "@/components/shell/FailedSurface";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { PageHead } from "@/components/system/PageHead";
 import { ClaimFacts } from "./ClaimFacts";
+import { ScopeRemark } from "./ScopeRemark";
 import { TokenRefused } from "./TokenRefused";
 
 // 2026-08-25-4530: the surface p0503d built its endpoint for. The case it exists
@@ -36,6 +37,10 @@ export function IdentityView() {
           title="Your identity"
           sub="What your token carried, and what this installation made of it."
         />
+        {/* 2026-09-14-d4e8: before the chain, because it is the one thing that speaks when
+            nothing else has anything to say yet. It renders nothing at all unless an
+            authority is configured, no token was refused, and none is held. */}
+        {auth.authority && <ScopeRemark requirements={requirements} />}
         {!auth.authority ? (
           <Unconfigured />
         ) : requirements?.tokenRefusal ? (

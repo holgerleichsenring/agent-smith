@@ -33,6 +33,10 @@ internal sealed class CallerObservationFlushHostedService(
 
     internal async Task FlushAsync(CancellationToken cancellationToken)
     {
+        // 2026-09-14-2b7c: the drain and the write are ONE operation as far as a removal is
+        // concerned. Draining outside the gate would hand the batch to a local list a forget
+        // cannot reach, and the write would then re-insert a row the removal had deleted.
+        using var held = await buffer.HoldAsync(cancellationToken);
         var pending = buffer.Drain();
         if (pending.Count == 0) return;
         try
