@@ -71,8 +71,45 @@ arrays say what was **found there**. Those values are what a mapping is written 
 
 If the page instead says **"This server did not accept your token"**, no mapping will
 help: the token was refused before any claim in it was read. The page names which check
-refused it — audience, issuer, signature, expiry — and shows the authority and audience
-this server expects, which is what the fix is written from.
+refused it — audience, issuer, signature, expiry — and shows **both sides**: the authority
+and audience this server expects, beside the audience, issuer and version the token you
+just presented carried. The fix is written from the difference between them.
+
+### One issuer, one audience, matched exactly
+
+The audience is compared as a single string, and the issuer is the one this server's
+authority publishes in its discovery document. There is no second accepted form of either:
+no list, no prefix rule, no per-token adjustment.
+
+That is what lets any one OIDC authority work here — a realm that has no `api://` form and
+no token versions is a first-class case rather than an exception — but it also means a
+directory that mints more than one shape needs the matching one named.
+
+**Microsoft Entra mints two, and the API decides which.** Not the endpoint the sign-in used:
+the resource's own app registration carries `requestedAccessTokenVersion`, and while it is
+unset (the default of a portal-created registration) that resource gets **version 1** access
+tokens even when every client talks to the `/v2.0` endpoint. The two shapes are:
+
+| | version 1 | version 2 |
+|---|---|---|
+| `aud` | `api://<api-client-id>` | `<api-client-id>` |
+| `iss` | `https://sts.windows.net/<tenant>/` | `https://login.microsoftonline.com/<tenant>/v2.0` |
+| authority to configure | `https://login.microsoftonline.com/<tenant>/` | `https://login.microsoftonline.com/<tenant>/v2.0` |
+| name claim to configure | `upn` | `preferred_username` |
+
+Either column works, as long as **all of it** comes from one column. Correcting only the
+audience leaves the issuer refusing, because the issuer follows the authority rather than
+being configured beside it.
+
+The dashboard's own authority is a separate setting and may legitimately sit in the other
+column: it governs the sign-in and the `id_token`, while the server's governs the access
+token. The banner that warns about two halves of a sign-in does not fire on that difference
+alone — it asks whether a token actually survived.
+
+If you have another API in the same directory that accepts both shapes, it is most likely
+built on `Microsoft.Identity.Web`, which picks the expected audience per request from the
+token's `ver` claim. This server does not, and does not intend to: the value it validates is
+the value an operator configured.
 
 **3. Grant the role** in the Config Studio, under **Access**. Four panes over one
 document:
@@ -83,8 +120,9 @@ document:
   than a timestamp.
 * **Groups** — every group value that has arrived or been mapped, and the roles it grants.
 * **Roles** — the three built-in roles, what each holds, and how many people and groups
-  carry it, above the full permission matrix. Custom roles are rendered read-only; a new
-  one is refused.
+  carry it, above the full permission matrix. Below it, the roles this installation
+  composed for itself: pick permissions out of the catalog, and the role stands beside the
+  built-in three. The built-in bundles themselves are fixed.
 * **Claim names** — which claims roles and groups are read out of, and the claim callers
   are named by.
 
@@ -159,10 +197,21 @@ is how an issuer gets proven before anybody can be locked out.
   `/platform-admins` — which is normalised away.
 * **A caller in two mapped groups holds the union** of both bundles, and the admin grant
   unions with whatever the token already carried.
-* **Custom roles are additive, and read-only.** One an installation already has keeps
-  working, is round-tripped verbatim and is reported; a NEW one is refused on save. A name
-  that collides with a built-in role does not replace it, and a permission name outside the
-  catalog is dropped from the bundle rather than granted. Both are reported in `findings`.
+* **Custom roles are additive, and composed here.** A role you write stands beside the
+  built-in three and never replaces one: a name that collides with a built-in is refused at
+  the save, as is a permission name the catalog does not contain — compared exactly, so
+  `Runs.Read` is refused the way an invented name is. Both used to be accepted and then
+  quietly dropped from the resolved bundle, which is why they are now refused while the
+  person who typed them is still looking at them.
+* **A role already configured is left alone unless you touch it.** The validation is over
+  what a save ADDS OR CHANGES: a legacy bundle naming a permission this version no longer
+  has keeps working, keeps its `findings` entry, and does not refuse an unrelated save.
+* **Removing a role is refused while a holder can be seen.** Losing a role means losing
+  every permission with it, so the refusal names who still holds it — granted here, through
+  a mapped group, or seen arriving with it in the directory's claim. That list is a floor:
+  somebody who holds it only through the directory and has not signed in inside the
+  observation window is not in it. Withdrawing a permission FROM a role is not refused —
+  narrowing a role is how a role is corrected.
 * **A person grant unions with the directory's roles.** Somebody can hold `reader` from
   their directory and `admin` from a grant at the same time.
 

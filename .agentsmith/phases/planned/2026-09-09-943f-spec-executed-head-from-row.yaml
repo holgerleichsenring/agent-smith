@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-943f
+goal: "An executed phase's content lives on the set's row and a pointer move stops erasing it, so a branch file that is gone no longer costs the set and re-mints an id over work that already ran."
+
+applies_to: "backend (TicketSpecSet + TicketSpecSetRepository + migrations in both persistence assemblies, SpecSetPointer, SpecSetPointerRecorder, ISpecSetPointerStore and both implementations, SpecSetWriter's row write, SpecSetReader and a new type that composes a phase from the row)"
+
+requires:
+  - 2026-09-09-72fd
+
+scope:
+  in: "The set's row carries each executed phase's content — its yaml, its markdown companion, its slug and its carried segments — written where the set itself is written, not as a fourth job on the marker; SpecSetPointerRecorder stops replacing the row from a freshly built pointer and reads-modifies-writes instead, so moving the revision sha no longer blanks the columns; the reader takes a phase's content from the row for any phase the executed list names and reads the branch only for the rest; a branch phase that is not in the executed list and does not read back still returns no set, as today, but names the stem it failed on."
+  out: "Moving the set out of .agentsmith/specs/ and removing a recorded phase's files — the successors, and the first still owes the answer 72fd blocked on, because phases/active/ is one path for every ticket while SpecSetKey carries the ticket precisely so merged sets can coexist in a trunk. Also out, and named because they lose the head by other routes this phase does not close: a question hand-back publishes a set with no phases and the sweep git-rms the head with it; SpecFallback mints index 0 with no executed ids when the accounting cannot be produced; and the single-sandbox path returns before the marker runs at all. A successor phase closes those three."
+
+decisions:
+  - key: |
+      THE BRANCH IS THE ONLY COPY, AND THAT IS A BUG TODAY. SpecSetReader returns null for the WHOLE
+      set when any listed stem does not read back, and the chain from there is mechanical: cause
+      Initial, a null previous, SpecDerivationParser building from index 0, PhaseIdFactory minting
+      p{digits}a for a brand-new phase while phases/done/ already holds one. A reviewer deleting a
+      file, a merge conflict or a failed spec push is enough. The executed head is content the run
+      cannot lose and today keeps in exactly one place.
+  - key: |
+      THE HEAD IS CONTENT, NOT A LIST OF IDS. SpecDerivationParser seeds a re-cut with
+      new List<SpecPhase>(executedHead) and assigns ids to the model's entries BY POSITION after it.
+      Ids alone give an empty head, so the model's new first entry takes the id of a phase that
+      already ran. What must survive is what SpecPhase carries: the yaml (from which PhaseDraftReader
+      rebuilds the draft at every construction site), the markdown companion, the slug — FileStem is
+      {PhaseId}-{Slug} and the slug is not a function of the goal, since the model may supply it —
+      and the carried segments, which are NOT the row's carry map: the map is filtered against the
+      CURRENT segmentation, so a ticket edit that renumbers segments empties it while the phase's own
+      list still holds what it carried.
+  - key: |
+      THE JOIN IS THE PHASE ID, NOT A POSITION. An earlier draft said head and tail are TakeWhile and
+      Skip over one list. They are not complements: UnexecutedTail is Where(not in Executed) while
+      ExecutedHead is TakeWhile(in Executed), and the doc comment says why — only a CONTIGUOUS head
+      can be preserved by position. So the rule is membership: the row's content wins for any phase
+      the executed list names, and the branch is read for every phase it does not. A non-contiguous
+      executed list — which a legacy set.yaml can seed, since phases and executed_phases are two
+      independent reviewer-editable lists — then still resolves, where a positional rule would read
+      the branch for a phase whose content the row already holds.
+  - key: |
+      A POINTER MOVE MUST STOP ERASING THE ROW, OR NEITHER THIS PHASE NOR 72fd WORKS.
+      TicketSpecSetRepository.Apply writes exactly five fields from the record, and
+      SpecSetPointerRecorder is the ONE place that builds a fresh SpecSetPointer — every other writer
+      does `pointer with { … }` on a row it read back. So the marker would write the content, then
+      move the pointer, and the move would blank it, on every revision. The same hole swallows 72fd's
+      fourteen fields, and 72fd is merged and unbuilt, so the fix lands here rather than by editing a
+      spec that is already recorded. The recorder reads, modifies and writes; the content is
+      persisted where the set is persisted, so the marker gains no fourth job.
+  - key: |
+      THE MARKER KEEPS EVERY JOB IT HAS AND GAINS NONE. It already sets the updated executed list on
+      the pipeline, writes the set and moves the pointer to its own commit. An earlier draft deleted
+      it and reassigned nothing; this one leaves it alone. The set it hands the writer already carries
+      every phase's yaml, markdown and slug, so persisting the content is the writer's business.
+  - key: |
+      A COMPOSED PHASE IS ITS OWN TYPE, BECAUSE THE RATCHET IS REAL. principles.md caps a class at 120
+      lines and FileLengthRatchetTests enforces it with no new baseline rows; SpecSetReader is 101
+      lines and would gain a store dependency, a project lookup, the membership split and a
+      row-to-SpecPhase reconstruction. That reconstruction is one sentence without an "and", so it is
+      a type: the reader asks it for a phase the executed list names, and reads the branch otherwise.
+  - key: |
+      THE HARNESS HAS A REAL ROW; ONLY THE CLI IS WITHOUT ONE. ServerCompositionBuilder calls
+      AddRelationalPersistence unconditionally and that swaps in DbSpecSetPointerStore, so a fast-tier
+      harness run round-trips through a migrated sqlite database. An earlier draft claimed the
+      opposite and would have sent the implementer to test the wrong store. The consequence is
+      practical: the round-trip is provable where the gate can see it. The CLI keeps the in-memory
+      store and its dev semantics, unchanged and stated.
+  - key: |
+      THE READER'S FAILURE STAYS WHAT IT IS. An unreadable phase that the executed list does not name
+      keeps today's answer — no set, so the run derives — because turning it into a throw would fail
+      a run whose branch is legitimately empty after a merge, and DeriveSpecHandler has no catch. What
+      changes is that the log names the stem that did not read, which today it does not.
+
+steps:
+  - id: the-row-carries-the-head
+    action: "Add the executed-phase content — yaml, markdown, slug and carried segments per executed phase — to TicketSpecSet as an uncapped JSON column, with a migration in both persistence assemblies whose head names stay in step, and round-trip it through ISpecSetPointerStore and both implementations."
+  - id: a-pointer-move-keeps-the-row
+    action: "SpecSetPointerRecorder reads the existing pointer and writes it back modified instead of constructing a fresh one, so moving the revision sha leaves every other column standing."
+  - id: the-set-write-persists-the-content
+    action: "The writer that persists the set also persists the executed phases' content, so no component gains a second responsibility and the content cannot be written without the set that names it."
+  - id: the-reader-composes-by-membership
+    action: "A new type builds a SpecPhase from the row; SpecSetReader uses it for every phase the executed list names and reads the branch for the rest, naming the stem when a branch phase does not read back."
+
+tests:
+  - "SpecSetPointerStore_ExecutedPhaseContent_RoundTripsThroughTheRow"
+  - "SpecSetPointerStore_TheInMemoryStore_RoundTripsTheSameContent"
+  - "SpecSetPointerRecorder_APointerMove_KeepsTheExecutedContent"
+  - "SpecSetPointerRecorder_APointerMove_KeepsTheOtherRowColumns"
+  - "SpecSetWriter_ARevisionAfterAPhaseRan_PersistsThatPhasesContent"
+  - "SpecSetWriter_AMarkedPhaseThenAnotherRevision_StillHasItsContent"
+  - "ComposedPhase_ARowEntry_YieldsYamlMarkdownSlugAndSegments"
+  - "SpecSetReader_APhaseNamedByTheExecutedList_IsTakenFromTheRow"
+  - "SpecSetReader_APhaseNotInTheExecutedList_IsReadFromTheBranch"
+  - "SpecSetReader_AnExecutedPhaseMissingFromTheBranch_StillReadsBack"
+  - "SpecSetReader_ANonContiguousExecutedList_StillResolvesEveryPhase"
+  - "SpecSetReader_AnUnreadableUnexecutedPhase_YieldsNoSetAndNamesTheStem"
+  - "SpecSetReader_ARowWithNoBranchFilesAtAll_YieldsNoSet"
+  - "SpecSet_TheComposedHead_CarriesTheSlugTheBranchUsed"
+  - "ExecutedPhaseMarker_AWrittenRecord_MovesThePointerToItsSha"
+  - "ExecutedPhaseMarker_AFailedWrite_LeavesThePointer"
+
+done:
+  - "an executed phase's yaml, markdown, slug and carried segments survive a pointer move and a process restart with relational persistence"
+  - "a set whose executed phase file is gone from the branch reads back complete, with that phase's slug unchanged"
+  - "a re-cut after one phase ran keeps that phase's id and content"
+  - "an unexecuted phase that does not read back still yields no set, and the log names the stem"
+  - "the marker still updates the pipeline's executed list and still moves the pointer, and a failed write still leaves the pointer"
+  - "no file is deleted, no path changes, and no class crosses the length ratchet"
+  - "build green, dashboard build and tests green, full suite green"

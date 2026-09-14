@@ -105,7 +105,15 @@ export function AccessStudio() {
         {pane === "groups" && (
           <GroupsPane view={view} draft={draft} roles={roles} onChange={setDraft} />
         )}
-        {pane === "roles" && <RolesPane view={view} people={people} groups={groups} />}
+        {pane === "roles" && (
+          <RolesPane
+            view={view}
+            draft={draft}
+            people={people}
+            groups={groups}
+            onChange={setDraft}
+          />
+        )}
         {pane === "claims" && (
           <ClaimsPane draft={draft} nameClaim={view.nameClaim} onChange={setDraft} />
         )}

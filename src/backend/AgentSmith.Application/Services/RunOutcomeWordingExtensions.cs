@@ -6,8 +6,10 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// 2026-09-07-f420: what a run's outcome says about itself to the ticket author and the
 /// reviewer — the completed summary, the failure comment, and the wording of a failed
-/// run's persisted work. Registered together because they are the three voices one
-/// run can speak with, and a failed run must never borrow the completed one.
+/// run's persisted work. Registered together because they are the voices one run can
+/// speak with, and a failed run must never borrow the completed one. p0439 adds the
+/// fourth: a shortfall, delivered and saying what it lacks, with the reverter that
+/// makes the branch carry exactly the verified work.
 /// </summary>
 public static class RunOutcomeWordingExtensions
 {
@@ -16,6 +18,9 @@ public static class RunOutcomeWordingExtensions
         services.AddTransient<CompletedRunTicketSummary>();
         services.AddTransient<FailedRunPersistence>();
         services.AddTransient<FailureTicketComment>();
+        services.AddTransient<ShortfallDelivery>();
+        services.AddTransient<UnverifiedWorkReverter>();
+        services.AddTransient<Specs.VerifiedHeads>();
         return services;
     }
 }

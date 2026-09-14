@@ -13,6 +13,7 @@ public sealed class LifecycleLabelsTests
     [InlineData(TicketLifecycleStatus.Done, "agent-smith:done")]
     [InlineData(TicketLifecycleStatus.Failed, "agent-smith:failed")]
     [InlineData(TicketLifecycleStatus.Waiting, "agent-smith:waiting")]
+    [InlineData(TicketLifecycleStatus.Shortfall, "agent-smith:shortfall")]
     public void For_AllStatuses_ReturnsExpectedLabel(TicketLifecycleStatus status, string expected)
     {
         LifecycleLabels.For(status).Should().Be(expected);
@@ -64,6 +65,7 @@ public sealed class LifecycleLabelsTests
     [InlineData("agent-smith:done", true)]
     [InlineData("agent-smith:failed", true)]
     [InlineData("agent-smith:waiting", true)]
+    [InlineData("agent-smith:shortfall", true)]
     [InlineData("agent-smith:init", false)]               // operator trigger label (p0133)
     [InlineData("agent-smith:bug", false)]                // operator trigger label
     [InlineData("agent-smith:no-test-adaption", false)]   // existing triage-override convention
@@ -73,5 +75,18 @@ public sealed class LifecycleLabelsTests
     public void IsLifecycleLabel_OnlyClosedSetMatches_OperatorPrefixedLabelsPassThrough(string label, bool expected)
     {
         LifecycleLabels.IsLifecycleLabel(label).Should().Be(expected);
+    }
+
+    [Fact]
+    public void TheTicketLabel_ForShortfall_RoundTripsThroughTheClosedSet()
+    {
+        // p0439: the label is a member of the closed set, so the parser and the
+        // lifecycle_status_names key both know it — never an operator-defined tag.
+        var label = LifecycleLabels.For(TicketLifecycleStatus.Shortfall);
+
+        LifecycleLabels.TryParse(label, out var parsed).Should().BeTrue();
+        parsed.Should().Be(TicketLifecycleStatus.Shortfall);
+        LifecycleLabels.TryParseName("Shortfall", out var named).Should().BeTrue();
+        named.Should().Be(TicketLifecycleStatus.Shortfall);
     }
 }

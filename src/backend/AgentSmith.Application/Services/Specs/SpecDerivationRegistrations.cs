@@ -21,6 +21,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<ISpecSetReader, SpecSetReader>();
     services.AddTransient<ISpecSetWriter, SpecSetWriter>();
     services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
+    services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
     services.AddTransient<DerivedPhaseYamlRenderer>();
     services.AddTransient<SpecSetIndex>();

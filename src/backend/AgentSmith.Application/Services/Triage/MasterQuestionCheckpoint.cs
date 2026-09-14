@@ -66,7 +66,7 @@ public sealed class MasterQuestionCheckpoint(
     /// every run — as the inbox key it gave a run exactly one answerable question for ever,
     /// so a second ask's answer lost to the first ask's row.
     /// </summary>
-    private static string MintAskId() => Guid.NewGuid().ToString("N");
+    internal static string MintAskId() => Guid.NewGuid().ToString("N");
 
     /// <summary>
     /// One question carries the master's ask. Several are rendered as one text because the

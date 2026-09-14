@@ -27,19 +27,12 @@ internal static class DockerHarnessRegistrations
         ReplaceSourceProvider(services, session);
         ReplaceSandboxFactory(services, session);
         ReplaceProjectAnalyzer(services);
-        ReplaceProjectMapStore(services);
     }
 
     private static void ReplaceProjectAnalyzer(IServiceCollection services)
     {
         services.RemoveAll<IProjectAnalyzer>();
         services.AddSingleton<IProjectAnalyzer, StubProjectAnalyzer>();
-    }
-
-    private static void ReplaceProjectMapStore(IServiceCollection services)
-    {
-        services.RemoveAll<IProjectMapStore>();
-        services.AddSingleton<IProjectMapStore, NoOpProjectMapStore>();
     }
 
     private static void ReplaceSourceProvider(IServiceCollection services, DockerHarnessSession session)

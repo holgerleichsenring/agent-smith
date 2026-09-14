@@ -90,6 +90,14 @@ public sealed partial class AgentConfig
     public int ReminderDriftEditlessIterations { get; set; } = 8;
 
     /// <summary>
+    /// The ledger-complete brake's allowance: once every checklist item is done, the master
+    /// may make this many further tool iterations before the run demands its verdict, and
+    /// this many more before the pass is ended for it. The ledger decides nothing about the
+    /// outcome, only when the verdict is owed. Default 3; &lt;= 0 disables. Set via <c>agent.verdict_owed_after_iterations</c>.
+    /// </summary>
+    public int VerdictOwedAfterIterations { get; set; } = 3;
+
+    /// <summary>
     /// p0360: minimum seconds between mid-run checkpoint pushes. On every accepted
     /// update_progress replace the framework commits + pushes each dirty repo sandbox's
     /// working tree to the run branch (secret-scanned, same gate as the final commit), so

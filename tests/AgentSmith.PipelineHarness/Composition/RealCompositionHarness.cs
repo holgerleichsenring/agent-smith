@@ -230,6 +230,14 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.RemoveAll<IDialogueTransport>();
         services.AddSingleton<IDialogueTransport>(Mock.Of<IDialogueTransport>());
 
+        // 2026-09-09-6a77: the ProjectMap cache is per HARNESS, on every tier. Only the
+        // docker tier used to replace it (p0199b, against Redis), so a fast-tier run
+        // resolved the production DiskProjectMapStore and wrote the fixture's context
+        // names into the machine's cache root — one entry, one content hash, shared by
+        // every preset and by the operator's own runs.
+        services.RemoveAll<IProjectMapStore>();
+        services.AddSingleton<IProjectMapStore, HarnessProjectMapStore>();
+
         ReplaceRedisBackedServices(services);
     }
 
@@ -239,10 +247,12 @@ public sealed class RealCompositionHarness : IAsyncDisposable
     // swap the three handler-visible services (event publishers + run
     // artifact store) to their existing no-op / in-memory variants. The
     // remaining Redis-backed singletons (queue, claim-lock, leader-lease,
-    // heartbeat, conversation lookup, project-map store) stay registered
-    // — they aren't resolved by any handler the harness exercises today,
-    // and resolving them lazily would only fail if the test starts using
-    // them, which is the right place to extend this swap.
+    // heartbeat, conversation lookup) stay registered — they aren't resolved
+    // by any handler the harness exercises today, and resolving them lazily
+    // would only fail if the test starts using them, which is the right place
+    // to extend this swap. 2026-09-09-6a77: the project-map store was on that
+    // list and was NOT unresolved — AnalyzeProjectHandler resolves it on every
+    // run, and got the production disk store. It is replaced above.
     private static void ReplaceRedisBackedServices(IServiceCollection services)
     {
         services.RemoveAll<StackExchange.Redis.IConnectionMultiplexer>();

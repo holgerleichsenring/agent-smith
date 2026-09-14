@@ -1,7 +1,8 @@
-using System.Text;
+using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -11,15 +12,16 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Loads each discovered context's principles.md (p0158f + p0161a).
-/// Iterates ContextKeys.Sandboxes keys; per key derives the per-context
-/// MetaDir from ContextKeys.SandboxDiscoveries and reads
-/// principles.md. Populates ContextKeys.RepoCodingPrinciples (now
-/// keyed by sandbox key) and legacy ContextKeys.DomainRules (concatenated
-/// with per-key headers; verbatim for single-key).
+/// Loads the principles.md of EVERY context in every sandbox (p0158f + p0161a;
+/// 2026-09-04-cf3d fans out over the per-sandbox context list). A flat file at the
+/// configured path (default `.agentsmith/principles.md`, the pre-contexts layout) speaks for
+/// its whole sandbox; only the default path falls through to the per-context files.
+/// Publishes the typed list at ContextKeys.RepoCodingPrinciples and the rendered, labelled
+/// aggregate at ContextKeys.DomainRules (verbatim for one document).
 /// </summary>
 public sealed class LoadCodingPrinciplesHandler(
     ISandboxFileReaderFactory readerFactory,
+    ContextDocumentReader documentReader,
     ISystemEventPublisher systemEvents,
     IRunContextAccessor runContext,
     SandboxTargets sandboxTargets,
@@ -34,26 +36,24 @@ public sealed class LoadCodingPrinciplesHandler(
         if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No Sandboxes/SandboxDiscoveries in pipeline context, skipping");
 
-        var loaded = new Dictionary<string, string>(StringComparer.Ordinal);
+        var loaded = new List<ContextDocument>();
         foreach (var (key, sandbox) in sandboxes)
         {
-            if (!discoveries.TryGetValue(key, out var discovery)) continue;
-            var content = await TryReadOneAsync(context, sandbox, key, discovery, cancellationToken);
-            if (content is not null)
+            if (!discoveries.TryGetValue(key, out var representative)) continue;
+            var documents = await ReadSandboxAsync(context, key, sandbox, representative, cancellationToken);
+            foreach (var document in documents)
             {
-                loaded[key] = content;
-                await EmitConfigReadAsync(
-                    path: $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.PrinciplesFile}",
-                    sizeBytes: content.Length,
-                    cancellationToken);
+                logger.LogInformation("{Key}: loaded principles from {Path} ({Chars} chars)", key, document.Path, document.Content.Length);
+                await EmitConfigReadAsync(document.Path, document.Content.Length, cancellationToken);
             }
+            loaded.AddRange(documents);
         }
 
-        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodingPrinciples, loaded);
+        context.Pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.RepoCodingPrinciples, loaded);
         if (loaded.Count > 0)
-            context.Pipeline.Set(ContextKeys.DomainRules, Aggregate(loaded));
+            context.Pipeline.Set(ContextKeys.DomainRules, loaded.RenderLabelled());
 
-        return CommandResult.Ok($"Loaded {loaded.Count} of {sandboxes.Count} context principles");
+        return CommandResult.Ok($"Loaded {loaded.Count} principles file(s) across {sandboxes.Count} sandbox(es)");
     }
 
     // p0173c: emit a system event per principles.md successfully read.
@@ -76,37 +76,19 @@ public sealed class LoadCodingPrinciplesHandler(
         }
     }
 
-    private async Task<string?> TryReadOneAsync(
-        LoadCodingPrinciplesContext context, ISandbox sandbox, string key,
-        RemoteContextDiscovery discovery, CancellationToken ct)
+    private async Task<IReadOnlyList<ContextDocument>> ReadSandboxAsync(
+        LoadCodingPrinciplesContext context, string key, ISandbox sandbox,
+        RemoteContextDiscovery representative, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
         var direct = Path.Combine(Repository.SandboxWorkPath, context.RelativePath);
         if (await reader.ExistsAsync(direct, ct))
-            return await reader.ReadRequiredAsync(direct, ct);
+            return [new ContextDocument(key, null, null, direct, await reader.ReadRequiredAsync(direct, ct))];
 
         if (!string.Equals(context.RelativePath, DefaultRelativePath, StringComparison.OrdinalIgnoreCase))
-            return null;
+            return [];
 
-        var nested = $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.PrinciplesFile}";
-        if (!await reader.ExistsAsync(nested, ct)) return null;
-        var content = await reader.ReadRequiredAsync(nested, ct);
-        logger.LogInformation("{Key}: loaded principles from {Path} ({Chars} chars)", key, nested, content.Length);
-        return content;
-    }
-
-    private static string Aggregate(IReadOnlyDictionary<string, string> perKey)
-    {
-        if (perKey.Count == 1) return perKey.Values.First();
-        var sb = new StringBuilder();
-        var first = true;
-        foreach (var (key, content) in perKey)
-        {
-            if (!first) sb.Append("\n\n---\n\n");
-            sb.Append($"## {key}\n\n");
-            sb.Append(content.TrimEnd());
-            first = false;
-        }
-        return sb.ToString();
+        var contexts = SandboxContextList.InOr(context.Pipeline, key, representative);
+        return await documentReader.ReadAsync(sandbox, key, contexts, ProjectMetaPaths.PrinciplesFile, ct);
     }
 }

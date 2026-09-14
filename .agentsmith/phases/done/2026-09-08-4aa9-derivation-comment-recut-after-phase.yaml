@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-08-4aa9
+goal: "An operator comment after an executed phase re-cuts the unstarted tail with the comment in view and says so; the executed-phase record is this system's own commit, never a reviewer edit."
+
+applies_to: "backend (the spec-set pointer, the executed-phase marker, the revision cause, the source decision, the previous-cut prompt section, the derivation-time ticket comment)"
+
+requires:
+  - 2026-09-08-5cd2
+  - 2026-09-07-bd7a
+  - 2026-09-07-c9d4
+
+scope:
+  in: "The pointer moved by the marker that commits the executed-phase record, through one recorder the publisher uses too; a revision cause read off the ticket thread — a comment by anyone but us after our last derivation-time comment — that needs the model and outranks the sha; the source decision continuing a set in flight on a bare re-trigger; the previous-cut prompt naming the comment; the derivation-time comment naming the re-cut and the kept phases; the writer's no-op sha read from the spec path; producer-level tests through the real reader that are red on the 5cd2 branch; a harness run of the live shape."
+  out: "Whether a bare re-trigger of a set NOTHING has run yet should still call the model: it does today, the ratchet here keeps it byte-identical, and the question is named as its own phase, 'a bare re-trigger of an unstarted set'. A second inbox for comments: the thread the run carries (ContextKeys.TicketComments) and OwnTicketComment.IsAnswered are the readers, as bd7a and c9d4 decided. A pointer column, a migration, a skill change. Recut as a cause: a constant nothing produced and nothing will — deleted, not implemented."
+
+decisions:
+  - key: |
+      THE MARKER'S COMMIT IS OURS, AND THE POINTER SAYS SO. SpecSetPointer.RevisionSha is documented as
+      "the sha of the last revision this system wrote" (SpecSetPointer.cs:7). ExecutedPhaseMarker writes
+      set.yaml through ISpecSetWriter after every executed phase (ExecutedPhaseMarker.cs:40), which commits
+      and pushes (SpecSetWriter.cs:62), and moves nothing: the pointer is saved by SpecSetPublisher
+      (SpecSetPublisher.cs:62), by SpecHandbackHandler carrying the hand-back count (SpecHandbackHandler.cs:80)
+      and by NotImplementableRetryService resetting the case — never by the marker. So after any executed
+      phase the last commit on the spec path is not the pointer's, SpecRevisionCause.For answers ReviewerEdit
+      (SpecRevisionCause.cs:41-43), and SpecSourceResolver.Decide never asks the model — comment or no comment.
+      Live: deployed 0.145.0, run 2026-09-08T13-28-32-a109 continued the old cut after phase 1; 5cd2 bypassed
+      the misread for an edited ticket and named this half. The one honest rule: the pointer moves with every
+      commit this system makes on the spec path. A SpecSetPointerRecorder owns the pointer shape the publisher
+      already writes (key, carrying repo, sha, current revision number, hand-back state carried) and the marker
+      records through it. A reviewer's edit AFTER an executed phase then reads as what it is — today it reads
+      as ReviewerEdit only because everything does. The alternative, telling a marker commit from a reviewer's
+      by what set.yaml records, cannot see a reviewer who edits after the marker; refused.
+  - key: |
+      A COMMENT IS A CAUSE, READ FROM THE THREAD THE RUN CARRIES. SpecRevisionCause.Comment was a constant
+      nothing produced. The derivation-time comment promises "comment if the cut is wrong and the next run
+      amends an unstarted phase or re-cuts the unstarted tail" (SpecSetComment.cs:26-28). The reader is
+      OwnTicketComment.IsAnswered over ContextKeys.TicketComments — the predicate the question pin and the
+      contradiction repeat guard read since bd7a — with the derivation-time comment's heading phrase as the
+      marker, as the hand-back comments carry theirs: a comment by anyone but us after our last cut comment
+      is a Comment. Order: Initial; unless resuming, TicketEdit then Comment; the sha; Resume or Retrigger.
+      The comment outranks the sha for 5cd2's reason — the set the model amends is whatever the branch carries,
+      reviewer edit included — and yields to a resume. Decide amends on Comment as it amends on TicketEdit;
+      the prompt names the comment and the revision it postdates; the derivation-time comment names the re-cut
+      and the kept phases. A thread with comments by others and no cut comment of ours reads as a Comment —
+      bd7a's safe direction: one derivation with the thread in view, the executed head untouched.
+  - key: |
+      A SET IN FLIGHT CONTINUES ON A BARE RE-TRIGGER. With the pointer honest, a re-trigger after an executed
+      phase with nothing new reads Retrigger, and Decide amends on Retrigger — so the model would be called
+      where today it is not, and 5cd2's harness run (TicketEdit_ADonePhaseAndAnUnchangedDescription_
+      ContinuesTheTailUnchanged) would flip. Decide therefore amends a Retrigger only when nothing has executed:
+      an executed head is work on the branch, the inputs that re-cut its tail — an edit, a comment — are read
+      as their own causes now, and the derivation-time comment promises exactly that. A set nothing ran yet
+      keeps today's re-cut on a bare re-trigger: byte-identical, and a fallback cut (SpecFallback after a
+      refused derivation) is published like any other and must not become permanent. Whether that re-cut
+      should survive now that edits and comments are read is the out-of-scope phase named above.
+  - key: |
+      THE WRITER'S NO-OP SHA IS THE SPEC PATH'S. SpecSetWriter returns HEAD when nothing was staged
+      (SpecSetWriter.cs:60), while the reader compares the last commit ON THE SPEC PATH (SpecSetReader.cs:57).
+      The publisher never hits the no-op (Finalize stamps a timestamp) but the marker can — a set already
+      recorded on the branch — and a pointer at a coding commit would read as a reviewer edit on the next run.
+      The no-op returns the spec path's last commit: the value the reader compares against.
+  - key: |
+      RED ON THE 5cd2 BRANCH THROUGH THE REAL READER, BOTH WAYS. The producer test feeds set.yaml text with the
+      current ticket's fingerprint through SpecSetReader, SpecSetIndex and PhaseDraftReader into the real
+      DeriveSpecHandler with a capturing deriver and a thread on the pipeline: on 5cd2 the comment case calls
+      the deriver 0 times ("Expected deriver.Calls to be 1 … but found 0"). The mirror test seeds the pointer
+      AT the marker's sha — the honest post-fix shape — with no comment: on 5cd2 that is a Retrigger, Decide
+      amends, and the deriver is called once where the run must continue the tail — the misread was the only
+      thing protecting the executed case. Green after: 1 call with cause Comment, 0 calls with cause Retrigger.
+      The harness proves the run: the head carried, the tail re-cut, only the tail executed, the ticket told.
+
+steps:
+  - id: the-pointer-moves-with-the-marker
+    action: "Add SpecSetPointerRecorder (transient, Services/Specs) over ISpecSetPointerStore: key, carrying repo, sha, current revision number, hand-back state carried from the existing pointer. SpecSetPublisher records through it; ExecutedPhaseMarker records the sha its write returned. SpecSetWriter's no-op returns the spec path's last commit."
+  - id: a-comment-is-a-cause-that-needs-the-model
+    action: "SpecSetComment.CutMarker is the heading phrase; SpecRevisionCause.For reads ContextKeys.TicketComments through OwnTicketComment.IsAnswered and answers Comment after TicketEdit and before the sha; delete Recut; SpecSourceResolver.Decide amends on Comment and on a Retrigger of a set nothing has executed."
+  - id: the-prompt-and-the-comment-say-why
+    action: "PreviousCutPromptSection renders the Comment paragraph naming the revision the comment postdates; SpecRecutNotice (extracted from SpecSetComment's ticket-edit notice) renders the re-cut notice for TicketEdit and Comment revisions with the kept phases."
+  - id: the-tests-name-each-outcome
+    action: "Cause: marker sha equals pointer → Retrigger; a comment after our cut comment → Comment, over a matching and a foreign sha; no reply → not Comment; TicketEdit and Resume outrank Comment. Decide: Comment amends; a Retrigger with an executed head does not; without one still does. Marker: records the write's sha and carries the hand-back state; a failed write records nothing. Writer: the no-op reads the spec path. Producer-level handler tests through the real reader (red on 5cd2 both ways). Prompt paragraph and comment notice. Two harness runs — a comment re-cuts the tail and says so; no comment continues the tail without the model."
+
+tests:
+  - "Cause_AnExecutedPhaseRecordedByThisSystem_IsARetriggerNotAReviewerEdit"
+  - "Cause_AnOperatorCommentAfterOurCutComment_IsAComment"
+  - "Cause_OurCutCommentWithNoReply_IsNotAComment"
+  - "Cause_ATicketEdit_OutranksAComment"
+  - "Cause_AResume_OutranksAComment"
+  - "SpecSource_AComment_AmendsTheSetWithTheModel"
+  - "SpecSource_ARetriggerOfASetInFlight_ContinuesWithoutTheModel"
+  - "Mark_AWrittenRecord_MovesThePointerToItsSha"
+  - "Mark_AFailedWrite_LeavesThePointer"
+  - "Write_NothingStaged_ReturnsTheSpecPathsLastCommit"
+  - "DeriveSpec_ACommentAfterAnExecutedPhase_CallsTheDeriverWithTheSetAndTheCause"
+  - "DeriveSpec_NoCommentAfterAnExecutedPhase_ContinuesTheTailWithoutTheDeriver"
+  - "PreviousCut_AComment_NamesTheRevisionTheCommentPostdates"
+  - "Comment_ACommentRevision_NamesTheRecutAndTheKeptPhases"
+  - "CommentRecut_ADonePhaseAndAnOperatorComment_RecutsTheTailAndSaysSo"
+  - "CommentRecut_ADonePhaseAndNoComment_ContinuesTheTailWithoutTheModel"
+
+done:
+  - "a re-trigger after an executed phase with an operator comment after our cut comment calls the derivation again with the branch set and the comment cause; the new revision keeps every executed phase and re-cuts the unstarted tail"
+  - "the derivation-time comment on that run names the comment, the revision it postdates and the kept phases"
+  - "the executed-phase record moves the pointer; a re-trigger with no comment and an unchanged ticket continues the tail without the model, and a set nothing ran yet behaves exactly as before"
+  - "the producer-level tests through the real reader were red on the 5cd2 branch and are green"
+  - "no pointer column, no migration, no skill change; build green, full suite green"

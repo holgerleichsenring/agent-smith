@@ -267,6 +267,40 @@ describe("VerifySummary (event fallback, pre-p0344b runs)", () => {
     expect(badge.className).not.toContain("ok");
   });
 
+  // 2026-09-06-3d81: a criterion the agent declined is shown beside the rows with its
+  // evaluated reason — the rows are what the gate decided on, and stay what they were.
+  it("VerifySummary_DeclinedCriteria_AreListedWithTheirReason", () => {
+    render(
+      <VerifySummary
+        acceptance={{
+          ...ACCEPTANCE,
+          source: "delivery_account",
+          declined: [
+            {
+              text: "`npm run lint` exits 0",
+              reason: "the lint config is a shared package this repository cannot change",
+              phase: "p1",
+            },
+          ],
+        }}
+        fallback={fallback({})}
+      />,
+    );
+    expect(screen.getAllByTestId("verify-criterion")).toHaveLength(ACCEPTANCE.criteria.length);
+    const declined = screen.getAllByTestId("verify-declined-criterion");
+    expect(declined).toHaveLength(1);
+    expect(declined[0].querySelector(".c-txt")).toHaveTextContent("`npm run lint` exits 0");
+    expect(screen.getByTestId("verify-declined-reason")).toHaveTextContent(
+      "the lint config is a shared package this repository cannot change",
+    );
+    expect(declined[0].querySelector(".c-stat")).toHaveTextContent("declined · p1");
+  });
+
+  it("VerifySummary_NothingDeclined_ShowsNoDeclinedBlock", () => {
+    render(<VerifySummary acceptance={ACCEPTANCE} fallback={fallback({})} />);
+    expect(screen.queryByTestId("verify-declined")).toBeNull();
+  });
+
   it("VerifySummary_Fallback_Unratified_CriteriaNotShownAsProven", () => {
     render(
       <VerifySummary

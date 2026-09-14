@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -20,11 +21,18 @@ namespace AgentSmith.Application.Services.Triage;
 /// ticket comment remains how a human who is not watching the dashboard learns of the
 /// question; the checkpoint is what makes answering it not require a status move.
 /// </para>
+/// <para>
+/// 2026-09-03-3c07: the resumed run re-enters HERE (the cursor starts with the asking
+/// step). An answer the resume delivered for this ask is handed to the master by
+/// splicing the master and this step back in front of the remaining block — the master
+/// continues from the answer instead of the run re-asking, or parking, on it.
+/// </para>
 /// </summary>
 public sealed class MasterOpenQuestionsHandler(
     IPlanOpenQuestionsPoster poster,
     IClarificationParkStatusResolver parkStatus,
     MasterQuestionCheckpoint checkpoint,
+    IMasterAnswerIntake answerIntake,
     ILogger<MasterOpenQuestionsHandler> logger)
     : ICommandHandler<MasterOpenQuestionsContext>
 {
@@ -35,6 +43,9 @@ public sealed class MasterOpenQuestionsHandler(
                 ContextKeys.MasterOpenQuestions, out var questions)
             || questions is not { Count: > 0 })
             return CommandResult.Ok("Master asked no mid-run question");
+
+        if (await answerIntake.TryDeliverAsync(context.Pipeline, questions) is { } answer)
+            return Reengage(context.Step, answer);
 
         var status = parkStatus.TryResolve(context.Pipeline, context.TrackerConnection);
         if (status is null)
@@ -58,4 +69,12 @@ public sealed class MasterOpenQuestionsHandler(
         return CommandResult.Ok(
             $"awaiting_user_input: {questions.Count} master question(s) posted (parked -> {status})");
     }
+
+    // The master, then this step again so a second question parks the same way — the rest
+    // of the block (commit, verify, record) is already ahead of the cursor.
+    private static CommandResult Reengage(PipelineCommand step, DialogAnswer answer) =>
+        CommandResult.OkAndContinueWith(
+            $"operator answered: {answer.Answer} — re-engaging the master",
+            new PipelineCommand(CommandNames.AgenticMaster) { PhaseId = step.PhaseId },
+            new PipelineCommand(CommandNames.MasterOpenQuestions) { PhaseId = step.PhaseId });
 }

@@ -96,6 +96,7 @@ public sealed class MidRunQuestionIsAnswerableTests
             new MasterQuestionCheckpoint(
                 writer, identity ?? new DialogueJobIdentity(new Mock<IProgressReporter>().Object),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
+            new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
             NullLogger<MasterOpenQuestionsHandler>.Instance);
 
     private static MasterOpenQuestionsContext Context(bool asked)
@@ -109,7 +110,8 @@ public sealed class MidRunQuestionIsAnswerableTests
         return new MasterOpenQuestionsContext(
             new Ticket(new TicketId("19213"), "migrate", "do it", null, "Active", "test"),
             new TrackerConnection { Name = "tracker" },
-            pipeline);
+            pipeline,
+            new PipelineCommand(CommandNames.MasterOpenQuestions));
     }
 
     private sealed class RecordingWriter : IDialogueCheckpointWriter

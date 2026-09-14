@@ -80,13 +80,28 @@ def _commit_arguments(tokens: list[str]) -> list[str] | None:
 
 
 def _segments(tokens: list[str]) -> list[list[str]]:
+    """Command segments between separators. shlex keeps a `;` glued to its neighbour
+    (`cd wt; git commit` tokenises as `wt;`), so a token is split on `;` before the
+    separator test — otherwise the commit segment is never found and the gate lets
+    the commit through as an unresolvable message."""
     segments: list[list[str]] = [[]]
     for token in tokens:
-        if token in SEPARATORS:
-            segments.append([])
-        else:
-            segments[-1].append(token)
+        for part in _split_on_semicolon(token):
+            if part in SEPARATORS:
+                segments.append([])
+            elif part:
+                segments[-1].append(part)
     return segments
+
+
+def _split_on_semicolon(token: str) -> list[str]:
+    if token in SEPARATORS or ";" not in token:
+        return [token]
+    parts: list[str] = []
+    for piece in token.split(";"):
+        parts.append(piece)
+        parts.append(";")
+    return parts[:-1]
 
 
 def _effective_directory(tokens: list[str], cwd: str) -> str:

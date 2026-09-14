@@ -103,7 +103,8 @@ public sealed class SpecHandbackRepeatTests
                 readers.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SpecSetIndex(), new SandboxTargets(), NullLogger<SpecSetWriter>.Instance);
         return new SpecSetPublisher(
-            writer, pointers, Mock.Of<ISpecPullRequestOpener>(),
+            writer, new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
+            Mock.Of<ISpecPullRequestOpener>(),
             new SpecRefusalReporter(Mock.Of<IEventPublisher>(), NullLogger<SpecRefusalReporter>.Instance),
             Mock.Of<IRunArtifactStore>(), NullLogger<SpecSetPublisher>.Instance);
     }

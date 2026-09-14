@@ -41,7 +41,7 @@ function wallClock(startedAt: string, finishedAt: string | null): string {
 
 export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: RunSnapshot | null }) {
   const status = snapshot ? toNodeStatus(snapshot.status) : "wait";
-  const terminal = status === "ok" || status === "fail" || status === "cancel";
+  const terminal = status === "ok" || status === "shortfall" || status === "fail" || status === "cancel";
 
   if (!snapshot || !terminal) {
     return (
@@ -59,7 +59,8 @@ export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: Run
     );
   }
 
-  const ok = status === "ok";
+  // p0439: a shortfall delivered — its PRs are ready — and it says so on the badge.
+  const ok = status === "ok" || status === "shortfall";
   // p0350: show EVERY opened PR, not just the first. Prefer the per-repo list;
   // fall back to the single prUrl for older/live snapshots that predate it.
   const basePrs =
@@ -92,7 +93,7 @@ export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: Run
       <div className="card-h">
         <h3>Outcome</h3>
         <span className={cn("badge", ok ? "ok" : status === "fail" ? "bad" : "neu")} data-testid="outcome-badge">
-          {ok ? "✓ done" : status === "fail" ? "✗ failed" : "cancelled"}
+          {status === "shortfall" ? "✓ done, with a shortfall" : ok ? "✓ done" : status === "fail" ? "✗ failed" : "cancelled"}
         </span>
       </div>
       <div className="card-b">

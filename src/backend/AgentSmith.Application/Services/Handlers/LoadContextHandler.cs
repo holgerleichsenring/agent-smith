@@ -1,7 +1,8 @@
+using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -9,15 +10,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Loads each discovered context's context.yaml (p0158f + p0161a). Iterates
-/// ContextKeys.Sandboxes keys; per key derives the per-context MetaDir
-/// (.agentsmith/contexts/&lt;contextName&gt;) from ContextKeys.SandboxDiscoveries
-/// and reads context.yaml. Populates ContextKeys.RepoContextYamls (now keyed
-/// by sandbox key) and legacy ContextKeys.ProjectContext (= first sandbox
-/// key's YAML).
+/// Loads the context.yaml of EVERY context in every sandbox (p0158f + p0161a; 2026-09-04-cf3d
+/// fans out over the per-sandbox context list — two contexts sharing a toolchain image share
+/// a sandbox, and the master used to see only the first). Publishes the typed list at
+/// ContextKeys.RepoContextYamls and the primary sandbox's documents, rendered and labelled,
+/// at ContextKeys.ProjectContext.
 /// </summary>
 public sealed class LoadContextHandler(
-    ISandboxFileReaderFactory readerFactory,
+    ContextDocumentReader documentReader,
     ISystemEventPublisher systemEvents,
     IRunContextAccessor runContext,
     SandboxTargets sandboxTargets,
@@ -30,31 +30,30 @@ public sealed class LoadContextHandler(
         if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No Sandboxes/SandboxDiscoveries in pipeline context, skipping");
 
-        var loaded = new Dictionary<string, string>(StringComparer.Ordinal);
+        var loaded = new List<ContextDocument>();
         foreach (var (key, sandbox) in sandboxes)
         {
-            if (!discoveries.TryGetValue(key, out var discovery)) continue;
-            var content = await TryReadOneAsync(sandbox, key, discovery, cancellationToken);
-            if (content is not null)
-            {
-                loaded[key] = content;
-                await EmitConfigReadAsync(
-                    path: $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.ContextYamlFile}",
-                    sizeBytes: content.Length,
-                    cancellationToken);
-            }
+            if (!discoveries.TryGetValue(key, out var representative)) continue;
+            var contexts = SandboxContextList.InOr(context.Pipeline, key, representative);
+            var documents = await documentReader.ReadAsync(
+                sandbox, key, contexts, ProjectMetaPaths.ContextYamlFile, cancellationToken);
+            logger.LogInformation("{Key}: loaded {Loaded} of {Contexts} context.yaml", key, documents.Count, contexts.Count);
+            foreach (var document in documents)
+                await EmitConfigReadAsync(document.Path, document.Content.Length, cancellationToken);
+            loaded.AddRange(documents);
         }
 
-        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.RepoContextYamls, loaded);
+        context.Pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.RepoContextYamls, loaded);
         var primaryKey = sandboxes.Keys.First();
-        if (loaded.TryGetValue(primaryKey, out var primary))
-            context.Pipeline.Set(ContextKeys.ProjectContext, primary);
+        var primary = loaded.Where(d => d.SandboxKey == primaryKey).ToList();
+        if (primary.Count > 0)
+            context.Pipeline.Set(ContextKeys.ProjectContext, primary.RenderLabelled());
 
         if (loaded.Count == 0)
             return CommandResult.Ok("No project context loaded");
         if (loaded.Count == 1)
-            return CommandResult.Ok($"Loaded project context ({loaded.Values.First().Length} chars)");
-        return CommandResult.Ok($"Loaded {loaded.Count} of {sandboxes.Count} context(s)");
+            return CommandResult.Ok($"Loaded project context ({loaded[0].Content.Length} chars)");
+        return CommandResult.Ok($"Loaded {loaded.Count} context.yaml file(s) across {sandboxes.Count} sandbox(es)");
     }
 
     // p0173c: emit a system event for each context.yaml successfully read,
@@ -76,20 +75,5 @@ public sealed class LoadContextHandler(
         {
             logger.LogDebug(ex, "Failed to publish ConfigFileReadEvent for {Path}", path);
         }
-    }
-
-    private async Task<string?> TryReadOneAsync(
-        ISandbox sandbox, string key, RemoteContextDiscovery discovery, CancellationToken ct)
-    {
-        var path = $"{ProjectMetaPaths.MetaDirFor(discovery.ContextName)}/{ProjectMetaPaths.ContextYamlFile}";
-        var reader = readerFactory.Create(sandbox);
-        var content = await reader.TryReadAsync(path, ct);
-        if (content is null)
-        {
-            logger.LogInformation("{Key}: no {Path}, skipping", key, path);
-            return null;
-        }
-        logger.LogInformation("{Key}: loaded {Path} ({Chars} chars)", key, path, content.Length);
-        return content;
     }
 }

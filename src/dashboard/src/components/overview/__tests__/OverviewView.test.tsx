@@ -258,7 +258,7 @@ describe("Overview", () => {
     renderOverview();
     const card = screen.getByTestId("overview-runs-card");
     expect(card.querySelector(".v")).toContainElement(screen.getByTestId("kcard-runs-total"));
-    expect(card).toHaveTextContent("1 succeeded · 1 failed · 1 cancelled");
+    expect(card).toHaveTextContent("1 succeeded · 0 with a shortfall · 1 failed · 1 cancelled");
     // The seven equal cells are gone: the rail already counts the in-flight
     // buckets on every page, and repeating them read as a rail count restated.
     expect(screen.queryByTestId("overview-runs-strip")).not.toBeInTheDocument();

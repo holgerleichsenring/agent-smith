@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-08-805f
+
+decisions:
+  - category: Architecture
+    chose: "The brake lives in the in-pass governor (MasterLoopGovernorChatClient, below UseFunctionInvocation) and counts the governor's iterations, not the handler's passes"
+    over: "A pass-level check in ReengageWhileProductiveAsync next to the idle stop"
+    reason: |
+      Both live runs (989e, a109 on 0.145.0) completed their ledger and kept calling
+      tools INSIDE one pass; the idle stop runs only when a pass ends, and a pass ends
+      only on a turn without a tool call. With a complete ledger no re-engagement is ever
+      started (p0393: no vote on green), so nothing at pass level could have seen them.
+      The governor is re-entered on every tool iteration — the seam p0341c chose for the
+      money fence and the reminder — and it is the only place where "N tool turns after
+      the checklist completed" is observable. The task text said "passes"; the spec
+      amends it to iterations and says why.
+  - category: Architecture
+    chose: "The ledger decides that a verdict is OWED, never what it is: the brake only ends a pass, and the pass it ends carries no verdict"
+    over: "Reading the ledger's completeness as a delivery signal, or forcing a verdict from the ledger's recorded verify"
+    reason: |
+      p0393 took the ledger's vote away because a checklist the model writes and reads
+      back as a reason to CONTINUE is a loop carrying its own engine. This is the other
+      direction: a complete checklist is the model's own statement that the work is done,
+      read as the moment its closing artifact is due. The keystone and the acceptance gate
+      are untouched. Whether the run delivered stays the p0421 account's judgement of the
+      branch — which reads no master verdict — so the harness proof asserts the ABSENT
+      master verdict, not the delivery outcome (on the fixture the account answers "{}"
+      and passes a branch with a real change, before and after this phase).
+  - category: Implementation
+    chose: "The pass ends from below on a synthetic, labelled, tool-less assistant turn (LedgerCompleteBrake.EndOfPass) with no provider call"
+    over: "Throwing, as the money fence does; or stripping the model's function calls from its next response"
+    reason: |
+      Throwing is MasterBudgetExhaustedException's shape and fails the run
+      (CommandResult.Fail); this stop is the end of a pass, not a failure of the run. A
+      response without function calls is the one thing that ends the
+      FunctionInvokingChatClient loop cleanly, and the synthetic turn costs nothing: the
+      tools of the previous turn have already run, no model call is made, no usage is
+      recorded. An empty assistant text would be rejected by a provider on the next pass,
+      so the turn carries a sentence naming what happened. Stripping calls from a real
+      response would leave a turn whose text the model wrote for a different continuation.
+  - category: Implementation
+    chose: "The demand buys the same allowance N as the completion did, then the pass ends"
+    over: "Ending the pass on the very next tool call after the demand"
+    reason: |
+      The demand says "build and test as the repository defines, once, if the checklist
+      does not already record it" — that is a tool call. An allowance of zero after the
+      demand would stop the model on the verification the demand asked for. One constant
+      keeps the rule sayable: three turns, one demand, three turns, the end.
+  - category: Implementation
+    chose: "ShouldNudgeForVerdict and VerdictlessAfterOneRedrive take a required verdictDemandedInPass flag; an in-pass demand is the one verdict re-drive the run allows"
+    over: "Leaving the handler's verdict nudge and the p0406 salvage re-engagement to run after the brake"
+    reason: |
+      Both predicates fire on a null verdict, and a brake-ended pass has one. Without the
+      flag the brake would be followed by the handler's own verdict nudge and then a
+      salvage re-engagement — two more bounded passes of the same silence, each itself
+      ended by the brake. Required, not defaulted, for the reason p0406 gave for
+      reengagePass: a flag the caller may omit is a null verdict nobody bounds.
+  - category: Implementation
+    chose: "VerdictOwed (Application) holds the state and logs; the governor reports only counts; MasterNudges is not touched"
+    over: "Logging from the governor, or adding the demand text to MasterNudges"
+    reason: |
+      The spend since the checklist completed is known only where the cost tracker is
+      (Application, fed per iteration by RecordIterationUsage); the governor knows turns.
+      MasterNudges is at 119 lines of the 120 ratchet and AgenticMasterHandler at 921 of
+      a 922 baseline, so the handler gains one construction (paid for by retiring two
+      stale phase-history comments) and the demand text lives with its state.
+  - category: Implementation
+    chose: "Complete means non-empty with nothing pending or in progress; a reopen resets the count; the demand is once per pass"
+    over: "Treating an empty ledger as complete, or resetting the demand on every ledger change"
+    reason: |
+      An empty ledger is a run that planned nothing — it owes this brake nothing and keeps
+      today's behaviour. The ledger has no skipped status (Pending, InProgress, Done), so
+      the task text's "done/skipped" is amended. A rewrite that leaves every item done
+      buys no time, otherwise a note edit would keep the loop alive; a reopen is the
+      explicit token and does. A second demand in the same pass would be the same prompt
+      against the same silence.
+  - category: Tooling
+    chose: "ScriptedChatClientFactoryAdapter inserts the governor when hooks are present, mirroring ChatClientFactory"
+    over: "Proving the brake at the unit level only"
+    reason: |
+      The harness adapter ignored masterLoopHooks entirely, so no fast-tier run had ever
+      exercised the money fence, the reminder, the per-iteration cost recording — or
+      could exercise this brake. The harness proof (a master that completes its ledger
+      and reads forever) was red on main: 249 of 250 scripted reads reached the sandbox,
+      the first pass ended on the 200-iteration ceiling, then the handler's verdict nudge
+      and the p0406 salvage consumed the rest until the script ran out. After: six reads,
+      one demand, the pass ends, no master verdict recorded. The full harness suite stays
+      green with the governor in the chain.

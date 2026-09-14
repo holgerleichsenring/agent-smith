@@ -45,7 +45,7 @@ export function TopologyCard({ runId, snapshot, events }: Props) {
 // cancelled all light up.
 function isFailureStatus(status: string | null | undefined): boolean {
   if (!status) return false;
-  return status !== "running" && status !== "success";
+  return status !== "running" && status !== "success" && status !== "shortfall";
 }
 
 function buildStepRows(events: RunEvent[]): StepRow[] {

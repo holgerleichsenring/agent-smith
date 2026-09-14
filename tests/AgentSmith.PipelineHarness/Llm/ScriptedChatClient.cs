@@ -23,13 +23,17 @@ public sealed class ScriptedChatClient : IChatClient
 
     public int InvocationCount { get; private set; }
     public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = Array.Empty<ChatMessage>();
+    /// <summary>2026-09-08-805f: the message list of EVERY call, in order — what the
+    /// governor injected into a running pass is visible only here.
+    /// <para>2026-09-13-84c0 wanted the same thing for a different question — which ROUND was
+    /// handed what — and found this already here. <see cref="PromptsSeen"/> is the joined
+    /// text of each call, derived rather than recorded a second time.</para></summary>
+    public IReadOnlyList<IReadOnlyList<ChatMessage>> CallMessages => _callMessages;
+    private readonly List<IReadOnlyList<ChatMessage>> _callMessages = new();
 
-    /// <summary>
-    /// 2026-09-13-84c0: the joined text of EVERY call, in order. A run makes several — the
-    /// derivation, then the master — and an assertion about what one of them was HANDED
-    /// cannot read the last one's messages and hope.
-    /// </summary>
-    public List<string> PromptsSeen { get; } = [];
+    /// <summary>Each call's messages joined to one string, in order.</summary>
+    public IReadOnlyList<string> PromptsSeen =>
+        [.. _callMessages.Select(messages => string.Join("\n", messages.Select(m => m.Text)))];
     /// <summary>The options of the most recent call — which tools, if any, it carried.</summary>
     public ChatOptions? LastOptions { get; private set; }
     public IReadOnlyList<ScriptedToolCall> ToolCalls => _toolCalls;
@@ -90,7 +94,7 @@ public sealed class ScriptedChatClient : IChatClient
     {
         InvocationCount++;
         LastMessages = messages.ToList();
-        PromptsSeen.Add(string.Join("\n", LastMessages.Select(m => m.Text)));
+        _callMessages.Add(LastMessages);
         LastOptions = options;
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());

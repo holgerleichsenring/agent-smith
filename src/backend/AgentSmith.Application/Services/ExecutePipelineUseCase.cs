@@ -169,7 +169,7 @@ public sealed class ExecutePipelineUseCase(
             await errorHandler.FinalizeFailedTicketAsync(
                 projectConfig, pipeline, reason, CancellationToken.None);
             var timeoutCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
-            await PublishRunFinishedAsync(runId, CommandResult.Fail(reason), timeoutCost, CancellationToken.None);
+            await PublishRunFinishedAsync(runId, CommandResult.Fail(reason), pipeline, timeoutCost, CancellationToken.None);
             cancellationRegistry.Unregister(runId);
             return CommandResult.Fail(reason);
         }
@@ -213,7 +213,7 @@ public sealed class ExecutePipelineUseCase(
             // CancellationToken.None on the publish: even if the operator's
             // ct is already cancelled, the terminal event still needs to land.
             var failureCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
-            await PublishRunFinishedAsync(runId, CommandResult.Fail(ex.Message), failureCost, CancellationToken.None);
+            await PublishRunFinishedAsync(runId, CommandResult.Fail(ex.Message), pipeline, failureCost, CancellationToken.None);
             cancellationRegistry.Unregister(runId);
             throw;
         }
@@ -238,7 +238,7 @@ public sealed class ExecutePipelineUseCase(
             result = result with { PrUrl = prUrl };
 
         var costUsd = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
-        await PublishRunFinishedAsync(runId, result, costUsd, cancellationToken);
+        await PublishRunFinishedAsync(runId, result, pipeline, costUsd, cancellationToken);
         LogResult(result, projectConfig.Name, pipeline);
         return result;
         }
@@ -608,11 +608,12 @@ public sealed class ExecutePipelineUseCase(
 
     // p0176b: pipeline-aggregate cost rides on RunFinished so RunSnapshot.Apply
     // can override the per-call accumulation with the tracker's truth.
+    // p0439: a delivered shortfall is a successful result with its own status.
     private Task PublishRunFinishedAsync(
-        string runId, CommandResult result, decimal? costUsd, CancellationToken ct) =>
+        string runId, CommandResult result, PipelineContext pipeline, decimal? costUsd, CancellationToken ct) =>
         PublishRunFinishedWithStatusAsync(
             runId,
-            result.IsSuccess ? "success" : "failed",
+            Contracts.Runs.RunTerminalStatus.Of(result, pipeline),
             result.Message ?? string.Empty,
             result.PrUrl,
             costUsd,

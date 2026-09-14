@@ -297,6 +297,11 @@ public sealed class MultiRepoHandlerTests
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
             new FailedRunPersistence(),
+            new ShortfallDelivery(
+                new UnverifiedWorkReverter(
+                    new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                    NullLogger<UnverifiedWorkReverter>.Instance),
+                NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
             NullLogger<CommitAndPRHandler>.Instance);
             var repository = new Repository(new BranchName("agent-smith/ticket-42"), "primary");

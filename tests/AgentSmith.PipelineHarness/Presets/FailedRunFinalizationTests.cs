@@ -10,42 +10,37 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-09-07-f420 fast-tier end-to-end: the shape of run 2026-09-07T20-43-51-b7bc. A
-/// two-phase derivation, the first phase green and accounted, the second phase's master
-/// dying on the per-pipeline cost budget. The p0237 finalizer tail then reaches
-/// CommitAndPR, which used to finalize the ticket "Completed across 1 repo(s)" with the
-/// done status BEFORE the error path posted the failure. The partial work must still be
-/// committed; the ticket must never read as completed.
+/// 2026-09-07-f420 fast-tier end-to-end: a derivation whose FIRST master dies on the
+/// per-pipeline cost budget. The p0237 finalizer tail then reaches CommitAndPR, which used
+/// to finalize the ticket "Completed across 1 repo(s)" with the done status BEFORE the
+/// error path posted the failure (run 2026-09-07T20-43-51-b7bc). The partial work must
+/// still be committed; the ticket must never read as completed.
+/// <para>
+/// p0439: b7bc's own shape — a VERIFIED first phase, then the budget — is no longer a
+/// failed run but a delivered shortfall; ShortfallDeliveryTests owns it. A failed run is
+/// one with nothing verified to deliver, which is what this case scripts.
+/// </para>
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class FailedRunFinalizationTests
 {
-    private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
-
     private const string BudgetReason =
         "per-pipeline cost budget exhausted: 15.02 USD of 15.00 USD spent";
 
     [Fact]
-    public async Task TwoPhaseDerivation_SecondMasterFails_TheTicketNeverReadsCompleted()
+    public async Task TwoPhaseDerivation_FirstMasterFails_TheTicketNeverReadsCompleted()
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.Services.GetRequiredService<HarnessSpecAccountant>()
-            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
-            // phase 1: green, verified, accounted
-            .EnqueueText("Planning: introduce the guard.")
-            .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueText(GreenVerdict)
-            // phase 2: the master dies on the money fence
+            // phase 1: the master dies on the money fence before anything is verified
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         var result = await runner.RunAsync("code");
 
-        result.IsSuccess.Should().BeFalse("the second phase never happened");
+        result.IsSuccess.Should().BeFalse("nothing was verified, so nothing was delivered");
         tickets.Finalized.Should().NotContain(f => f.Status == "done",
             "a failed run never moves the ticket to the done status, not even for a moment");
         tickets.Finalized.Should().NotContain(f => f.Comment.Contains("Completed", StringComparison.Ordinal),

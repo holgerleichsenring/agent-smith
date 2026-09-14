@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-06-3d81
+
+decisions:
+  - category: Architecture
+    chose: "The declined criteria are kept in their own per-phase ledger (DeclinedCriteriaLedger, ContextKeys.DeclinedCriteria), recorded where AgenticMasterHandler publishes the verdict, and every renderer reads that ledger"
+    over: "Rendering from ContextKeys.MasterVerification at CommitAndPR / WriteRunResult time"
+    reason: |
+      The verdict key is set once per master pass and overwritten by the next phase's
+      pass, so on a multi-phase run only the last phase's dispositions survive to the
+      finalizer tail. RunAccountLedger exists for exactly this reason on the account
+      side; the master's verdict had no such keeping. The ledger stores only a
+      not_applicable that carries non-empty evidence — the gate refuses a bare one, and
+      the ledger carries answers, not refusals — keyed by phase id so a phase that runs
+      again replaces its own entries (a re-run that met the criterion declined nothing).
+      The record line in AgenticMasterHandler is one line; the file is at its ratchet
+      baseline (922) after it.
+  - category: Architecture
+    chose: "The acceptance view carries the declined criteria as its own list (AcceptanceView.Declined, DeclinedCriterionView) and the dashboard renders them as a block under the rows"
+    over: "Adding not_applicable rows to the criteria list, which the dashboard already renders"
+    reason: |
+      The rows are what the gate decided on — the delivery account — and the account
+      judges the branch independently of anything the master said; on the live run it
+      would mark the lint criterion unmet while the master declined it with a reason.
+      Folding the master's answer into the rows either duplicates a criterion under two
+      statuses or matches the master's echoed text to the account's row, which is the
+      pairing the sibling phase (9f14) owns. A separate list keeps both judges visible
+      and touches no pairing. A run judged by nothing else (it ended between the verdict
+      and the account) still serves a view with empty rows and the declined list.
+  - category: Implementation
+    chose: "One renderer, DeclinedCriteriaSection, feeds the PR body, the completed ticket comment and result.md; result.md takes it as a new optional FormatResult parameter appended by RunContractSections.AppendDeclined"
+    over: "Concatenating the declined block onto the account string at the WriteRunResult call site"
+    reason: |
+      RunResultFormatter and WriteRunResultHandler both had ratchet headroom (226/257
+      and 536/541), so the honest shape — a named obligation section beside the account,
+      the expectation and the ignored instructions — cost two lines each instead of
+      passing a declined block under the name "account". The section is static like
+      RunAccountSection beside it, and empty when nothing was declined, so every caller
+      interpolates unconditionally.
+  - category: Implementation
+    chose: "The contract section states the rule in both bodies — the spec-derived criteria list and the negotiated-expectation contract — as one shared paragraph whose vocabulary is the skill's own (`not_applicable`, EVALUATED MEANING, a bare N/A does not count)"
+    over: "Only the spec-derived body, where the live evidence came from"
+    reason: |
+      The master is conditioned on the heading either way, and a fix-bug run judged by a
+      negotiated expectation can meet the same impossible sentence. The paragraph is prose,
+      so the bullet list the gate reads back is unchanged (pinned by the existing
+      prompt-and-gate test). The skill already carries the rule; the catalog is a separate
+      repository's change and the pinned tarball is not edited here.
+  - category: Scope
+    chose: "The failure comment a red run leaves on its ticket (FailureTicketComment, HTML) does not carry the declined block"
+    over: "Rendering it there too, since the live run failed at VerifyPhase and that comment is what its author read first"
+    reason: |
+      That comment is HTML and its own wording; a second rendering format is its own
+      change. On a failed run the draft PR body already carries the block, so the author
+      reaches it from the failure comment's PR link. Named here so it is not a silent
+      omission.
+  - category: Tooling
+    chose: "The reproducing test is a fast-tier harness run (DeclinedCriterionTests) written against existing types only, so it compiles on main and fails there on behaviour"
+    reason: |
+      A run whose master declines one criterion with a reason completed on main with
+      the gate satisfied, the ticket finalized "Completed", and the reason nowhere in the
+      comment, the PR body or result.md. The unit tests for the ledger, the section, the
+      snapshot, the PR body, the ticket comment and result.md reference the new types and
+      cannot compile on main; the harness case is the red-then-green proof.

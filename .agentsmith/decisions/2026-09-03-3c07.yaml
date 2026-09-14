@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-03-3c07
+
+decisions:
+  - category: Architecture
+    chose: "One rule for both park paths: a park marker is never checkpointed — OpenQuestionsAwaitingAnswer joins WaitingForInput in the serialiser's excluded keys, and an excluded key is dropped on Restore as well"
+    over: "Reordering MasterOpenQuestionsHandler to set the flag after the checkpoint write, the way the dialogue gate does"
+    reason: |
+      The gate and the master parked under two conventions — one ordered its flag, the other
+      excluded it — and the master's was the one that captured its own marker: set before the
+      checkpoint is written, not excluded, restored on resume, read by PipelineExecutorPolicy as
+      "still parked" after the first command. Live run a109 (2026-09-08): answered in the
+      dashboard, relaunched, CheckoutSource ran, waiting_for_input again with no question
+      pending. Reordering would have fixed a fresh park and left the rule split across two
+      handlers; it would also have done nothing for the checkpoints already written, every one
+      of which carries the marker in its ContextJson — a109 included. Excluding the key, and
+      dropping it on the way back in too, makes every existing checkpoint resumable and states
+      the rule in the one place that owns what a checkpoint contains. The handler's order is
+      left as it was; the exclusion makes it irrelevant.
+  - category: Architecture
+    chose: "The resumed MasterOpenQuestions step hands the answer to the master: it consumes the delivered answer by ResumedAnswerPolicy, publishes it under ContextKeys.PlanAnswers and splices [AgenticMaster, MasterOpenQuestions] in front of the remaining block"
+    over: "Starting the checkpoint's remaining commands at AgenticMaster and having the master handler read the resumed answer; or a new prompt section fed by a new context key"
+    reason: |
+      The cursor a master park checkpoints begins with the asking step — the executor
+      publishes the remaining work starting with the step that checkpoints — so a resume
+      re-enters MasterOpenQuestions with the question restored and the answer staged. That is
+      the same position the dialogue gate is in when it meets its own ask again, and the gate's
+      rule already exists: ResumedAnswerPolicy decides whether the delivered answer belongs to
+      THIS ask (2026-08-25-a508). Reusing it keeps one reader of the inbox. PlanAnswers is the
+      key PhaseExecutionPromptFactory already renders as the operator's answers, so the master's
+      input carries the answer without a second prompt section; the ticket-comment path writes
+      the same key with the same label ("1"), so both ways an answer arrives look alike to the
+      model. The splice is the shape PhaseVerdict.RepairSteps already uses to re-enter the
+      master, minus the steps that are still ahead of the cursor, and MasterOpenQuestions
+      follows the master again so a second question parks exactly as the first did. Making the
+      master handler read the inbox instead would have put a second consumer on it and
+      re-ordered the checkpoint's cursor for one park path only.
+  - category: Implementation
+    chose: "The intake composes the ask under a freshly minted id and lets the policy match by text against the parked question"
+    over: "Composing it under the parked question's id so the id comparison succeeds"
+    reason: |
+      The first draft minted the parked id, and its own unit test caught what that buys: the
+      id comparison is then true for every question the step meets, whatever it asks, so an
+      answer to a different ask would be taken for this one — the exact defect a508 closed.
+      MasterQuestionCheckpoint mints a fresh id per ask; the intake now mints one the same way
+      (MintAskId, shared) and the policy's text rule does the matching, as it does for every
+      handler that re-mints its question id.
+  - category: Implementation
+    chose: "CheckpointCommand carries PhaseId"
+    over: "Leaving the resumed block phase-less, as it was"
+    reason: |
+      Found while wiring the splice: CheckpointCommand.From dropped PhaseId, so every command of a
+      resumed phase block came back with no phase, and the master this phase splices would have
+      inherited none — the rail would draw phase=None for the whole resumed leg, and p0460's
+      DropAhead (which walks by PhaseId) could retire nothing on it. One field on the DTO, one
+      assertion added to the existing round-trip test.
+  - category: Implementation
+    chose: "MasterAnswerIntake as its own transient behind IMasterAnswerIntake, registered with MasterQuestionCheckpoint by AddMasterQuestionParking"
+    over: "Inlining the consume-and-publish in MasterOpenQuestionsHandler, or registering the new type in PipelineHandlersExtensions"
+    reason: |
+      Consuming an answer, recording it on the trail and rendering it for the master is one
+      responsibility with three collaborators; the handler's job is to decide park, re-engage or
+      no-op. PipelineHandlersExtensions sits at its ratchet baseline (218 lines) and may not
+      grow, so the registration line it held for the checkpoint became one call that registers
+      both halves of a master question — the park and its resume — which is also the pairing
+      this phase exists to complete.
+  - category: Scope
+    chose: "The harness proof reuses the durable spine (shared SQLite, projecting publisher, durable inbox transport, recorded job queue) without the gate test's fixture ask"
+    over: "Extending DurableDialogueTests, or a second copy of its composition"
+    reason: |
+      DurableDialogueHarness binds an ask into LoadContext because no shipped preset carries a
+      step-level ask any more; a master park needs the same durable state and launch channel
+      but must NOT have that binding, or the run parks at LoadContext before the master asks.
+      The spine became a registration of its own (RegisterDurableSpine) and the binding stayed
+      private to the gate's composition. The answer is posted through IDialogueTransport, the
+      seam RunControlEndpoints.AnswerAsync uses, and the resume goes through the real sweeper,
+      pump and launcher — so the test is red on main with the live run's shape (the relaunched
+      row reads waiting_for_input) and green after.

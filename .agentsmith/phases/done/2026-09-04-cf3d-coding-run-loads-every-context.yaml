@@ -18,6 +18,11 @@ scope:
   out: >
     THE INIT PATH. 2026-09-04-0721 fixes what init WRITES; this fixes what a coding run READS.
     ONE SANDBOX PER CONTEXT. Grouping by toolchain image is correct and stays.
+    BOUNDING THE PROMPT. A repository with many contexts loads them all; a size bound is a
+    successor named in prose (context-document prompt bound), not a silent cap here.
+    THE FLAT FILE. A repository carrying `.agentsmith/principles.md` at the root (the layout
+    before contexts) or an operator-configured principles path still contributes that one file
+    for the whole sandbox — that precedence predates this phase and is not reopened.
 
 decisions:
   - key: |
@@ -31,6 +36,21 @@ decisions:
       DEFERRED FROM 2026-09-04-0721 ON PURPOSE. That phase changes the init writer and is proven
       by init tests; this one changes what a coding master is prompted with, which is a different
       blast radius and wants its own evidence. Named here rather than left implied.
+  - key: |
+      LIVE EVIDENCE. Deployed 0.145.0, run 2026-09-08T13-28-32-a109 on a repository with contexts
+      `backend` and `frontend` in ONE sandbox (image node:24-bookworm; the scope call named both).
+      The run metrics' topReadFiles show the master reading
+      /work/.agentsmith/contexts/backend/principles.md three times and
+      /work/.agentsmith/contexts/backend/context.yaml twice; the frontend context's files do not
+      appear at all — the loaders handed the master one representative context per sandbox.
+  - key: |
+      A DOCUMENT IS LABELLED BY THE CONTEXT IT CAME FROM, AND ONLY WHEN THERE IS A SECOND ONE.
+      A single-context repository keeps its prompt byte-identical: one document renders verbatim,
+      as before. Two documents from one sandbox each open with a heading naming the context and
+      its workdir, so the master is told which rules govern which subtree; a multi-sandbox run
+      keeps the sandbox-key heading it already had. The typed per-document list (sandbox key,
+      context, workdir, path, content) is published beside the rendered strings, because the
+      scan brief parses context.yaml and a labelled concatenation is not a YAML document.
 
 steps:
   - id: both-loaders-read-the-context-list
@@ -42,4 +62,5 @@ done:
   - "a two-context sandbox contributes both context.yaml files and both principles.md files"
   - "each document names the context it came from"
   - "a single-context sandbox is unchanged"
+  - "a two-context harness run's master prompt carries both principles files under their context labels"
   - "backend build green, full suite green"

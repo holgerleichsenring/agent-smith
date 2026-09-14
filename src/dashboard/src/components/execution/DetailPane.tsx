@@ -33,6 +33,7 @@ const PILL_TEXT: Record<NodeStatus, string> = {
   queued: "queued",
   // p0327: parked on a question, waiting for the operator.
   input: "waiting for input",
+  shortfall: "done, with a shortfall",
 };
 
 const PILL_CLS: Record<NodeStatus, string> = {
@@ -43,6 +44,7 @@ const PILL_CLS: Record<NodeStatus, string> = {
   cancel: "bg-slate-100 text-slate-600",
   queued: "bg-amber-50 text-amber-700",
   input: "bg-violet-50 text-violet-700",
+  shortfall: "bg-teal-50 text-teal-700",
 };
 
 export function DetailPane({ node, parentLabel, footer, lead }: DetailPaneProps) {

@@ -63,7 +63,8 @@ public sealed class SpecSetReader(
             SpecSource.BranchArtifact,
             index.HandbackOf(doc),
             doc.TicketPinnedWhole,
-            doc.ExecutedPhases);
+            doc.ExecutedPhases,
+            index.FingerprintOf(doc));
         logger.LogInformation(
             "Spec set {Key} read from the ticket branch: {Phases} phase(s), revision {Revision}",
             set.Key, set.Phases.Count, set.Current.Number);

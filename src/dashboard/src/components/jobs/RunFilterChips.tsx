@@ -22,9 +22,15 @@ const FILTERS: { key: RunFilter; label: string }[] = [
   { key: "ok", label: "Done" },
 ];
 
+// p0439: the Done chip counts a shortfall too — it is a done, with its own glyph.
+export function matchesFilter(status: string | null | undefined, filter: RunFilter): boolean {
+  if (filter === "all") return true;
+  const node = toNodeStatus(status);
+  return node === filter || (filter === "ok" && node === "shortfall");
+}
+
 export function countByFilter(runs: RunSnapshot[], filter: RunFilter): number {
-  if (filter === "all") return runs.length;
-  return runs.filter((r) => toNodeStatus(r.status) === filter).length;
+  return runs.filter((r) => matchesFilter(r.status, filter)).length;
 }
 
 interface Props {

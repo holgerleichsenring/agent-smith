@@ -20,7 +20,7 @@ internal static class MasterLoopHooksFactory
     // tracker (which the handler updates between passes for result.md accuracy).
     internal static MasterLoopHooks Build(
         AgenticMasterContext context, PipelineCostTracker costTracker, Func<ProgressLedger> ledger,
-        LogDecisionToolHost log)
+        LogDecisionToolHost log, VerdictOwed verdictOwed)
     {
         context.Pipeline.TryGet<IModelPricingResolver>("ModelPricingResolver", out var resolver);
         context.Pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
@@ -64,6 +64,12 @@ internal static class MasterLoopHooksFactory
                 return l.IsEmpty ? null : ProgressLedgerRenderer.Render(l);
             },
             RenderWorkingStateForPin: () => WorkingStateSection.Build(log.GetDecisions(), null),
-            Compaction: context.AgentConfig.Compaction);
+            Compaction: context.AgentConfig.Compaction,
+            // 2026-09-08-805f: the ledger-complete brake — the handler-side state answers the
+            // predicate, renders the one demand and logs both events with the spend.
+            IsLedgerComplete: verdictOwed.IsLedgerComplete,
+            RenderVerdictDemand: verdictOwed.RenderDemand,
+            OnVerdictBrake: verdictOwed.Stopped,
+            VerdictOwedAfterIterations: context.AgentConfig.VerdictOwedAfterIterations);
     }
 }

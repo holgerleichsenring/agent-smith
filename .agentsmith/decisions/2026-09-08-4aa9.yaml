@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-08-4aa9
+
+decisions:
+  - category: Architecture
+    chose: "The executed-phase marker moves the pointer to the commit it made, through a SpecSetPointerRecorder the publisher records through too"
+    over: "Telling a marker commit from a reviewer's by what set.yaml records, leaving the pointer where the publisher put it"
+    reason: |
+      The pointer's sha is documented as the last revision this system wrote, and the
+      marker's set.yaml commit is one — SpecSetWriter commits and pushes it like a revision.
+      Only the publisher, the hand-back handler and the not-implementable retry saved the
+      pointer, so after any executed phase the last commit on the spec path was not the
+      pointer's, SpecRevisionCause.For answered ReviewerEdit, and Decide never asked the
+      model: run a109 (0.145.0) continued the old cut after phase 1 with the operator's
+      comment on the ticket. Recording the marker's commit is the one honest rule — a
+      reviewer who edits AFTER the phase ran still reads as a reviewer edit, where the
+      alternative cannot see that reviewer at all: set.yaml records what changed, never
+      who committed after it. The recorder is the pointer shape the publisher already
+      wrote (key, carrying repo, sha, current revision number, hand-back state carried),
+      extracted so two callers write one shape. The writer's no-op path now reports the
+      spec path's last commit instead of HEAD: the publisher never reaches it (Finalize
+      stamps a timestamp) but the marker can, and a pointer at a coding commit would read
+      as a reviewer edit on the next run.
+  - category: Implementation
+    chose: "A comment cause read from ContextKeys.TicketComments through OwnTicketComment.IsAnswered with the derivation-time comment's heading phrase as the marker; it outranks the sha, yields to a ticket edit and a resume"
+    over: "A second reader of the thread; the HTML marker the comment already carries; a cause that only fires when the pointer matches"
+    reason: |
+      The thread the run carries is the one inbox — bd7a and c9d4 made the same predicate
+      the signal for the question pin and the contradiction repeat guard, and a second
+      reader would be the third thing to keep in step. The marker is the heading phrase,
+      as the hand-back comments carry theirs: a tracker may strip an HTML comment, never a
+      heading, and the heading already reads as ours. The comment sits where the edit sits
+      for 5cd2's reason — the set the model amends is whatever the branch carries, reviewer
+      edit included, so newer input wins over the sha. A thread with comments by others
+      and no cut comment of ours reads as a comment: bd7a's safe direction, one derivation
+      with the thread in view and the executed head untouched. The previous-cut section
+      points the model at the conversation section the comment is in; SpecRecutNotice —
+      the ticket-edit notice extracted from SpecSetComment, which sat at 114 lines — tells
+      the author which phases stayed and that the rest was cut again with the comment in
+      view. Recut, a constant nothing produced, is deleted rather than given a producer.
+  - category: Scope
+    chose: "Decide amends a Retrigger only when nothing has executed; a set in flight continues on a bare re-trigger"
+    over: "Amending every Retrigger, as before; or never amending a bare re-trigger"
+    reason: |
+      With the pointer honest, a re-trigger after an executed phase with nothing new reads
+      Retrigger, and Decide amended every Retrigger — so the model would have been called
+      where today it is not, and 5cd2's harness run that continues an unchanged tail would
+      flip. The misread was the only thing protecting the executed case. An executed head
+      is work on the branch, the inputs that re-cut its tail — an edit, a comment — are
+      read as their own causes now, and the derivation-time comment promises exactly that,
+      so a set in flight continues. A set nothing ran yet keeps today's re-cut: byte-
+      identical, and a fallback cut after a refused derivation is published like any other
+      and must not become permanent. Whether that re-cut should survive now that edits and
+      comments are read is named in the spec as its own phase, not decided here.
+  - category: Testing
+    chose: "Producer-level tests through the real reader in both directions, a marker test over the real recorder, and two harness runs"
+    over: "A harness run as the only red proof"
+    reason: |
+      The comment test stages a109's live shape — the pointer still at the derivation
+      commit, the marker's commit last on the spec path, the current fingerprint on the
+      set, an operator comment after our cut comment — and on the 5cd2 branch found
+      "Expected deriver.Calls to be 1 … but found 0". Its mirror seeds the pointer AT the
+      marker's sha with no comment and on 5cd2 found "Expected deriver.Calls to be 0 …
+      but found 1": the honest pointer alone would have re-cut every set in flight. Green
+      after: 1 call with cause Comment, 0 calls with cause Retrigger. The marker test
+      proves the pointer carries the write's sha and the hand-back state and that a failed
+      write moves nothing; the writer test proves the no-op reports the spec path's commit.
+      The harness runs prove the whole run: head carried by position, tail re-cut, only
+      the tail executed, the ticket told — and no derivation call without a comment.

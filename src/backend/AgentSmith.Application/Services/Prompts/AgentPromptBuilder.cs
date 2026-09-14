@@ -26,8 +26,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
 
             ## Operator answers to prior open questions
-            The previous Plan asked clarifying questions and was halted. The operator's answers below
-            are authoritative — incorporate them into the new Plan and produce status=complete.
+            An earlier pass of this run asked the operator the questions below and paused. The answers
+            are authoritative — act on them, continue the work, and do not ask them again.
             {lines}
             """;
     }

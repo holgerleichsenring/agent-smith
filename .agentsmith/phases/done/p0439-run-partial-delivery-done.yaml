@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0439
+goal: "A run that did the work and fell short of part of its contract DELIVERS what it built, says what is missing, and counts as DONE — instead of failing and leaving the work where nobody is pointed at."
+
+applies_to: "backend + dashboard"
+
+requires:
+  - p0438
+  - 2026-09-07-f420
+
+scope:
+  in: "A run that stopped AFTER a phase was built, verified and recorded done, with a later phase still open — its master on the cost budget, its verification red, a safety cancel: the verified phases are delivered on a READY pull request whose body names what is missing and why; the ticket is finalized with the done status and its own lifecycle label; the run ends in a status of its own (shortfall), counted among the dones everywhere runs are counted; each sandbox is brought back to its verified commit first, so the branch carries exactly the verified work."
+  out: "A run whose first phase never verified (2026-09-07-f420's shape, untouched). A phase whose own verification is red or whose criteria stay outstanding after the repair pass — it is not delivered, whatever else the run did; the spec's earlier 'outstanding criteria over a green tree carry the run forward' step is retired below. result.md's own `result:` line and the verified head of a phase found already satisfied on entry — the follow-up 2026-09-08-a049."
+
+decisions:
+  - key: |
+      THE OPERATOR'S QUESTION, ASKED TWICE AND ANSWERED TWICE WITH MORE ACCOUNTING.
+      "Die Buchhaltung sagt OUTSTANDING, der Lauf bricht ab. Gefailter Lauf, die
+      Buchhaltung hat recht — was hab ich davon?" Nothing. p0438 gave the outstanding list
+      back to the agent for ONE repair pass, which was the right first half. This is the
+      second: when the repair does not close it either, the run has still built something,
+      and today that something ends as a FAILED run with no pull request.
+  - key: |
+      THE WORK IS NOT LOST TODAY — IT IS UNFINDABLE. p0360's checkpointer pushes as the run
+      goes, so the branch carries the work either way (run a98c: 97 files on
+      agent-smith/19106 before it parked). What a failed run withholds is the POINTER: no
+      pull request, no rendered account, and a ticket tagged failed. The delta this phase
+      buys is discoverability and a reviewable diff, not data recovery.
+  - key: |
+      A NEW STATE GETS A NEW NAME — OPERATOR RULING. "Einen vorhandenen mitzubenutzen ist
+      meist keine gute idee." SHORTFALL is the name: the run completed, it delivered, and
+      it falls short of the ratified contract. It is not `failed` (nothing broke), not
+      `cancelled` (nobody stopped it). The word says which it is without a legend.
+  - key: |
+      AND IT IS A DONE, NOT A THIRD THING — SECOND OPERATOR RULING, 2026-08-20. "Die
+      Einschätzung muss stimmen. Done + double check oder Done + no questions sind beides
+      done und nicht failed." This spec first said SHORTFALL was expressly not success; the
+      operator has now ruled that a delivered run with open questions is a DONE that reads as
+      one. Amended in place rather than superseded, because this spec has only ever lived in
+      planned/ and was never executed [[feedback_phase_versioning]].
+  - key: |
+      MEASURED, AND THE OPERATOR CAUGHT IT BY HAND. Run 2026-08-20T13-38-47-d8d1 migrated two
+      repositories off MediatR and MassTransit, built both, passed Server 226 and worker 2,009
+      tests, and opened its pull requests. The operator then started both hosts: the API comes
+      up and serves, the worker comes up, and the one remaining error is a pre-existing queue.
+      The gate recorded FAILED and tagged the ticket agent-smith:failed. FAILED has to keep
+      meaning "this did not deliver" — an operator who has seen a working branch tagged failed
+      stops reading the tag, and then the tag protects nothing.
+  - key: |
+      MEASURED AGAIN, LIVE ON 0.145.0 — THE SHAPE THIS PHASE BUILDS AGAINST. Run
+      2026-09-08T11-28-15-989e, a ticket about high and critical dependency advisories, cut
+      into two phases. Phase 1 of 2 (the mandatory work, backend and frontend) finished: master
+      verdict, VerifyPhase "install+build+test green" in both contexts, phase record written,
+      the acceptance criterion met with two audit citations. Phase 2 ("the remaining low and
+      medium advisories worth fixing") started and its FIRST master call hit the per-pipeline
+      cost cap ($8, medium). Result: run failed, the merge request carried f420's failed
+      banner as a draft, the ticket read "FailedStep", the tracker status was the failed one —
+      for a ticket whose deliverable was complete and verified on the branch.
+  - key: |
+      THE TRIGGER IS THE PHASE TABLE, NOT A JUDGEMENT ABOUT A CRITERION. An earlier draft
+      split criteria into "about the software" and "about a record"; a review showed the
+      split is a laundering channel. What replaces it is what the run already records:
+      VerifyPhase marks a phase DONE only after the mechanical gates were green and every
+      criterion accounted for (p0420, p0421, p0438's repair pass included). A shortfall is
+      reachable from exactly one shape — at least one phase DONE, at least one not, and a
+      failure reason left by a later step — which no model gets to phrase.
+  - key: |
+      WHAT IS DELIVERED IS EXACTLY WHAT WAS VERIFIED, AND THAT IS PROVEN AGAINST GIT. The
+      phase that stopped the run may have left work on the branch: a checkpoint push, the
+      pre-gate commit before a red verification, an edit the master made before it died. None
+      of it was verified, and a READY pull request must not carry it. So VerifyPhase names
+      the commit each sandbox stands at when a phase goes done — provided the source tree
+      is clean, else it names nothing — and CommitAndPR brings every sandbox back to that
+      head before it delivers: every source path changed since is restored from the head or
+      removed, the run record stays, and git is asked the same question again. A sandbox that
+      cannot be brought back, or has no verified head, keeps the run a failed one. The
+      keystone stays: a phase that is not verified is never delivered as done.
+  - key: |
+      MECHANICAL FAILURE OF THE PHASE BEING JUDGED IS STILL FAILURE — AND A LATER PHASE'S
+      MECHANICAL FAILURE IS THE SHORTFALL'S ONE DOOR. The earlier wording here ("an exhausted
+      budget never becomes SHORTFALL") described the phase under judgement and was read as
+      describing the run. Amended: a red build, an unaccounted phase, a crash or an exhausted
+      budget in the FIRST phase, or in a phase whose predecessors are not done, ends the run
+      exactly as f420 left it. The same stop AFTER a verified phase is what leaves verified
+      work behind, and that work is delivered. The failed phase itself is never delivered.
+  - key: |
+      THE STEP "THE PHASE VERDICT STOPS ENDING THE RUN" IS RETIRED. It asked for an
+      outstanding criterion over a green, accounted tree to carry THAT phase to delivery.
+      That contradicts the keystone: a phase with a criterion outstanding after its repair
+      pass is a phase the branch does not satisfy, and delivering it as done would make
+      SHORTFALL a synonym for failed. Such a phase is recorded FAILED and named under "Not
+      delivered"; the phases before it that did verify are what the shortfall delivers.
+      PhaseVerdict and VerifyPhaseHandler's verdict are untouched.
+  - key: |
+      THE TICKET NEEDS THE SAME WORD, AND ITS OWN LABEL. LifecycleLabels is a CLOSED set,
+      and the parser rejects anything else — so `agent-smith:shortfall` is added there, not
+      smuggled in as an operator-defined tag. Which native tracker status the run FINALIZES
+      to is the done status — a shortfall is a done, second operator ruling — and the Jira
+      native lifecycle map accepts a `shortfall` key in `lifecycle_status_names` because it
+      is keyed by the closed set; a tracker with a "delivered, with gaps" column can name it.
+  - key: |
+      THE PULL REQUEST CARRIES THE SHORTFALL IN THE READER'S FIRST SCREEN. The banner says
+      delivered-with-a-shortfall and why the run stopped; the per-phase table (p0393a) reads
+      as a delivery note instead of "DO NOT MERGE"; the account (p0429a) is the delivered
+      phases' evidence; a "Not delivered" section names every open phase in the derivation's
+      words and the one reason. The ticket comment says the same. A reviewer decides "merge
+      what is here" or "send it back" without opening the run.
+  - key: |
+      THE RUN STATUS IS APPENDED, NEVER RENUMBERED, AND THE DASHBOARD RENDERS IT AS ITSELF.
+      Run.Status is a string column, so `shortfall` is a new word and no migration. The
+      executor returns success for a delivered shortfall — the delivery happened — and the
+      use case reads the delivery off the context to publish the status; the ticket lifecycle
+      reads the same fact for its label. The dashboard gives it a NodeStatus of its own
+      (teal checklist), counts it as a done in every bucket, chip and metric, and lists its
+      pull requests as ready.
+  - key: |
+      NOT A LICENCE TO SHIP LESS. The run still says NO to the contract; it just says it
+      somewhere a human can act on. The keystone and the phase verdict keep their verdicts
+      unchanged — this phase changes what HAPPENS to a verdict, never what the verdict is.
+
+steps:
+  - id: shortfall-is-a-state
+    action: "RunShortfall (Contracts/Specs): the delivered and the open phases and the reason, derivable from the phase table and the failure reason; RunStatuses.Shortfall, RunTerminalStatus; TicketLifecycleStatus.Shortfall with its label."
+  - id: the-verified-state-is-named
+    action: "VerifiedHeads: VerifyPhase records the commit each sandbox stands at when a phase goes done, only over a clean source tree."
+  - id: the-branch-carries-only-verified-work
+    action: "UnverifiedWorkReverter: before delivery, every sandbox is brought back to its verified head — restore or remove each source path beyond it, keep the run record, prove the result by asking git again."
+  - id: the-delivery-still-happens
+    action: "CommitAndPR: a shortfall opens or refreshes the pull request as READY, finalizes the ticket with the done status and the shortfall summary, and marks the delivery on the context; a shortfall that opened no PR stays a failed run."
+  - id: the-pull-request-names-what-is-missing
+    action: "The banner, the phase table as a delivery note, and the Not-delivered section in the pull request body and the ticket comment."
+  - id: the-run-ends-as-a-done-that-says-so
+    action: "PipelineExecutor returns success and skips the error path when the tail delivered; ExecutePipelineUseCase publishes `shortfall`; the lifecycle scope writes the shortfall label."
+  - id: the-run-list-shows-it-as-itself
+    action: "The dashboard renders shortfall as its own NodeStatus, counts it among the dones, and lists its pull requests as ready."
+
+tests:
+  - "TwoPhaseDerivation_SecondMasterFailsOnTheBudget_TheFirstPhaseIsDelivered"
+  - "TwoPhaseDerivation_FirstMasterFails_StaysAFailedRun"
+  - "Of_AVerifiedPhaseAndAnOpenOne_SplitsThemAndCarriesTheReason"
+  - "Of_ARunWhoseFirstPhaseFailed_IsNotAShortfall"
+  - "Of_ARunWhoseEveryPhaseIsDone_IsNotAShortfall"
+  - "Record_UncommittedSource_NamesNoHead"
+  - "Restore_WorkBeyondTheHead_RestoresChangedPathsAndRemovesAddedOnes"
+  - "Restore_WorkStillBeyondTheHeadAfterwards_IsFalse"
+  - "ExecuteAsync_ShortfallRun_OpensAReadyPrAndFinalizesTheTicketDone"
+  - "ExecuteAsync_ShortfallRunWithoutAVerifiedHead_StaysAFailedRun"
+  - "ExecuteAsync_StepFailsButTheTailDeliversAShortfall_EndsAsADoneRunWithoutAFailureComment"
+  - "ADeliveredShortfall_LeavesTheTicketShortfall_NotDoneAndNotFailed"
+  - "TheTicketLabel_ForShortfall_RoundTripsThroughTheClosedSet"
+  - "Of_ASuccessfulResultOfADeliveredShortfall_IsShortfall"
+  - "PhaseSequence_StoppedMidwayButDelivered_TableIsADeliveryNote_NotAWarning"
+  - "toNodeStatus_Shortfall_MapsToItsOwnIdentity"
+
+done:
+  - "A run that stopped after a verified phase, with a phase still open, delivers the verified phases on a ready pull request, finalizes the ticket with the done status and the shortfall label, and ends with the shortfall status."
+  - "The branch of a delivered shortfall carries exactly the verified work: unverified work of the stopped phase is reverted, and a sandbox that cannot be brought back keeps the run failed."
+  - "The pull request body and the ticket comment name every phase not delivered, in the derivation's words, and the reason the run stopped."
+  - "A run whose first phase never verified ends exactly as 2026-09-07-f420 left it."
+  - "The dashboard shows the state as itself in the run list and on the run, counts it among the dones, and never as a failure."
+  - "The harness repro was red on main and is green; build green, full suite green."

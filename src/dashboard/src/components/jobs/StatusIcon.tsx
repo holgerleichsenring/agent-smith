@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, Loader2, Circle, Ban, Clock, MessageCircleQuestion, type LucideIcon } from "lucide-react";
+import { Check, X, Loader2, Circle, Ban, Clock, MessageCircleQuestion, ListChecks, type LucideIcon } from "lucide-react";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 
 // p0259: lighter status glyph — a soft-tint circle with an outline lucide icon,
@@ -19,6 +19,8 @@ const ICON: Record<NodeStatus, LucideIcon> = {
   queued: Clock,
   // p0327: waiting for the operator's answer — violet question bubble.
   input: MessageCircleQuestion,
+  // p0439: delivered with a shortfall — a checklist, teal: done, and not all of it.
+  shortfall: ListChecks,
 };
 
 function toneClass(status: NodeStatus): string {
@@ -37,6 +39,8 @@ function toneClass(status: NodeStatus): string {
       return "bg-amber-50 text-amber-600";
     case "input":
       return "bg-violet-50 text-violet-600";
+    case "shortfall":
+      return "bg-teal-50 text-teal-600";
   }
 }
 

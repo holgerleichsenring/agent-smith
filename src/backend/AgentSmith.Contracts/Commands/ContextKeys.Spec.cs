@@ -53,6 +53,16 @@ public static partial class ContextKeys
     /// <summary>p0421: every phase's accounts, for the run's one delivery gate.</summary>
     public const string RunAccounts = "RunAccounts";
 
+    /// <summary>p0439: the shortfall CommitAndPR delivered (<see cref="Specs.RunShortfall"/>):
+    /// the verified phases are on a ready pull request and the ticket is finalized. Absent
+    /// on every run that is not a delivered shortfall.</summary>
+    public const string RunShortfall = "RunShortfall";
+
+    /// <summary>p0439: sandbox key → the commit the sandbox stood at, with a clean source
+    /// tree, when the last phase was verified (IReadOnlyDictionary&lt;string, string&gt;).
+    /// A shortfall delivers exactly that state and proves it against this.</summary>
+    public const string VerifiedHeads = "VerifiedHeads";
+
     /// <summary>
     /// p0422: what the framework staged for the agent — package-feed credentials and
     /// where. An agent that cannot see its own provisioning invents a reason for skipping

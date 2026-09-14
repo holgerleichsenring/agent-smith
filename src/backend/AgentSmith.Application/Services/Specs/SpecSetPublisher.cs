@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecSetPublisher(
     ISpecSetWriter writer,
-    ISpecSetPointerStore pointers,
+    SpecSetPointerRecorder pointer,
     ISpecPullRequestOpener prOpener,
     SpecRefusalReporter refusals,
     Contracts.Persistence.IRunArtifactStore artifacts,
@@ -39,7 +39,7 @@ public sealed class SpecSetPublisher(
                 $"Spec derived but not committed ({write.Error}) — the run continues from it in-memory");
         }
         pipeline.Set(ContextKeys.SpecRevisionSha, write.CommitSha!);
-        await SavePointerAsync(project, carryingRepo, set, write.CommitSha!, cancellationToken);
+        await pointer.RecordAsync(project, carryingRepo, set, write.CommitSha!, cancellationToken);
         await prOpener.OpenAsync(pipeline, carryingRepo, set, cancellationToken);
         return CommandResult.Ok(Describe(set));
     }
@@ -51,18 +51,6 @@ public sealed class SpecSetPublisher(
         pipeline.Set(ContextKeys.SpecRepo, carryingRepo.Name ?? string.Empty);
         if (set.Handback is { } handback && handback.Case != SpecHandbackCase.None)
             pipeline.Set(ContextKeys.SpecHandback, handback);
-    }
-
-    // The pointer carries the hand-back state forward unchanged here; the hand-back
-    // step owns the counters, because it is the step that knows a park happened.
-    private async Task SavePointerAsync(
-        string project, RepoConnection carryingRepo, SpecSet set, string sha, CancellationToken ct)
-    {
-        var existing = await pointers.GetAsync(project, set.Key, ct);
-        await pointers.SaveAsync(project, new SpecSetPointer(
-            set.Key, carryingRepo.Name ?? string.Empty, sha, set.Current.Number,
-            existing?.LastHandbackCase ?? SpecHandbackCase.None,
-            existing?.RepeatedHandbackCount ?? 0), ct);
     }
 
     // The run detail reads this slot exactly as it reads plan.md. Best-effort: a

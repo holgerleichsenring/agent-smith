@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-14-d4e8
+
+goal: "An API scope naming a different resource than the one this server validates is said before anybody signs in, and every scope shape this rule cannot read is passed over in silence."
+
+applies_to: "default (dashboard identity surface)"
+
+requires:
+  - 2026-08-25-4530
+  - 2026-09-14-c72e
+  - 2026-09-14-3f5b
+
+scope:
+  in: "One browser-side remark on the identity page: when a configured scope is recognisably an API scope and the server's expected audience is recognisably the same resource shape, and they name DIFFERENT resources, say so. Silent otherwise, and silent once a token has been accepted."
+  out: |
+    Whether the scopes carry openid. 2026-09-14-3f5b's scope.out promised a successor asserting
+    "the configured scopes carry openid and an API scope"; the first half is RETIRED here rather
+    than moved, because reading the code retires it: AuthSession keeps only user.access_token,
+    nothing in the dashboard reads an id_token or a profile claim, and the header's name comes
+    from /api/identity. The floor in createAuthorityClient — an empty scopes value is sent as
+    "openid" — stays as it is: a client asking for nothing at all is a different matter from a
+    check asserting somebody else's directory requires a scope.
+    Also out: reporting that NO scope names a resource. That is the shape of every realm with no
+    api:// form, which this product supports as a first-class case.
+
+decisions:
+  - key: |
+      THE RULE MAY ONLY EVER SAY "A NAMES X, B VALIDATES Y" — NEVER "NOTHING NAMES ANYTHING". The
+      first draft of this phase would have reported the configuration this repository SHIPS as its
+      worked example: .env.example pairs the audience 'agent-smith' with the scopes 'openid
+      profile', neither of which carries a slash, so no scope would have named a resource and the
+      remark would have fired on a correct Keycloak realm. The security reference states the
+      opposite contract in as many words — one issuer, one audience, "no list, no prefix rule" —
+      and a browser-side prefix rule accusing the scope side is that rule wearing a hat. So both
+      sides must be RECOGNISED before anything is said, and an unrecognised shape is silence.
+  - key: |
+      THE THIRD VALUE THE DASHBOARD HOLDS IS THE ONE THAT SILENCES THIS. createAuthorityClient
+      sends the configured audience as extraQueryParams for "authorities that partition tokens by
+      audience" — the Auth0 shape, where the resource is named by the request parameter and the
+      scopes are plain permission names. Such an installation is correct and this rule would have
+      accused it, so a configured audience on the dashboard side silences the remark outright:
+      the resource is being named somewhere this rule does not read.
+  - key: |
+      IT IS BLIND TO THE ONE FAILURE THIS REPOSITORY HAS MEASURED, AND THE GOAL SAYS SO. In
+      c72e's live incident the scope was api://{id}/access_as_user while the server expected the
+      bare {id}: the recovered resource matches the audience under either form, so this remark is
+      SILENT and the sign-in still fails on audience. That is correct — the two are the same
+      resource, and the mismatch is a token VERSION, which no configuration comparison can see.
+      It also means this phase must not claim to tell an operator that their scopes will not
+      reach the server; it tells them about one of the two ways that can be true.
+  - key: |
+      EVIDENCE OUTRANKS INFERENCE, AND A REFUSAL IS EVIDENCE THAT OUTRANKS IT TOO. A tab holding a
+      token that was not refused has proven the scopes produce something this server takes,
+      whatever the strings say. And a token that WAS refused is already explained on this page by
+      c72e's comparison, with both sides shown and the shape named — so the remark stands down
+      there as well rather than arguing beside it. What is left for it is exactly the gap: before
+      the first sign-in, with no token in hand either way.
+  - key: |
+      THE COMPARISON IS NORMALISED THE WAY THE BANNER'S IS. 2026-08-25-4530 normalises a trailing
+      slash before comparing two authorities, because one copied out of a discovery document
+      carries one and one typed by hand does not. The same is true of an audience, and a GUID
+      written in two cases is one resource — so the comparison trims, drops a trailing slash and
+      folds case, and a test pins each.
+  - key: |
+      THE CHEAPER COMPARISON WAS CONSIDERED AND IS NOT AVAILABLE HERE. Comparing the dashboard's
+      configured audience against the server's needs no inference at all, and the compose example
+      feeds both from ONE variable on purpose. But an installation against a directory that
+      ignores the audience parameter configures the dashboard's deliberately EMPTY — this one
+      does — so the comparison is silent exactly where the question is live, and where it does
+      speak, the audience is already doing the job through the request parameter. It is the right
+      check for a drift this deployment shape cannot have.
+
+steps:
+  - id: the-rule-recognises-both-sides-before-it-speaks
+    action: "Add a browser-side rule that speaks only when the effective scope string contains a recognisable API scope, the server publishes an audience of the same resource shape, no audience is configured on the dashboard side, and the two name different resources."
+  - id: the-identity-page-carries-it-where-nothing-else-is-speaking
+    action: "Render the remark on the identity page in the branch where no token was refused and no authority is missing, naming the resource each side means, and stay silent when a token is held and was accepted or the requirements have not loaded."
+
+tests:
+  - "Scope_NamesAnotherResource_IsReported"
+  - "Scope_NamesTheServersResourceAsAnAppIdUri_IsSilent"
+  - "Scope_NamesTheServersResourceAsABareId_IsSilent"
+  - "Scope_NoApiScopeConfiguredAtAll_IsSilent"
+  - "Scope_TheServerExpectsNoAudience_IsSilent"
+  - "Scope_AnAudienceIsConfiguredOnTheDashboardSide_IsSilent"
+  - "Scope_TheAudienceCarriesATrailingSlash_IsSilent"
+  - "Scope_TheResourceIsWrittenInAnotherCase_IsSilent"
+  - "Scope_TheRequirementsHaveNotLoaded_IsSilent"
+  - "Identity_ScopeMismatchAndNoTokenHeld_NamesBothResources"
+  - "Identity_ScopeMismatchButATokenWasAccepted_SaysNothing"
+  - "Identity_TokenWasRefused_TheComparisonSpeaksAlone"
+
+done:
+  - "Two app registrations in one tenant, with the dashboard pointed at the wrong API's scope, is named before the first sign-in."
+  - "A realm with no api:// scopes, an authority that partitions by audience, and this repository's own example configuration are all silent."
+  - "Silence is not a promise that sign-in will work: an unconsented scope and a token-version mismatch both pass this rule."
+  - "Dashboard build and tests are green."

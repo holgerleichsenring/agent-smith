@@ -41,6 +41,7 @@ describe("RunRow", () => {
       ["failed", "st-bad"],
       ["cancelled", "st-q"],
       ["waiting_for_input", "st-need"],
+      ["shortfall", "st-ok"],
     ];
     for (const [status, cls] of cases) {
       const { unmount } = render(<RunRow snapshot={{ ...base, status }} />);
