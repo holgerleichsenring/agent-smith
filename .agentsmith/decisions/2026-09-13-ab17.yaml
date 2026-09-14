@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-ab17
+
+decisions:
+  - category: Architecture
+    chose: "One authored section, cited by the three masters through the catalog's existing {{ref:<slug>}} mechanism"
+    over: "The same wording written into each of the three masters"
+    reason: |
+      Three masters authoring one rule separately WILL disagree, and a single pin ships all three
+      at once — the first time two are worded differently the estate has two methods and no way to
+      tell which one ran. The catalog already had an inclusion mechanism (references/, inlined one
+      level deep at render time), so nothing had to be invented: each master cites
+      {{ref:source-precedence}} after a short lead-in and states no order of its own.
+
+  - category: Architecture
+    chose: "The validator names the three template-aware masters outright, and strikes out the other senses of the word"
+    over: "Refusing any master whose text contains 'template'"
+    reason: |
+      The bare word is not the trigger: one master carries a Section Template for its own output
+      and two others mention code templates that arrive with a ticket. Those three senses are
+      struck out by name, so whatever still says "template" is the source sense. A NEW benign
+      phrase trips the check rather than slipping past it — the safe direction for a guard.
+
+  - category: Architecture
+    chose: "New-versus-extension is stated as a TEST, asked per unit of work"
+    over: "Leaving the reader to infer when a template governs"
+    reason: |
+      Every other phase in this set behaves as though a template always governs. It does not:
+      where a counterpart already exists in the target, the target's form wins, and a template
+      that overrode it would rewrite working code the ticket did not ask about. Nothing else in
+      the set decides that, so the hinge is written down as one question — does a counterpart
+      already exist? — asked per unit of work rather than per ticket.
+
+  - category: Scope
+    chose: "The catalog work lives in the other repository; this commit is bookkeeping"
+    over: "Waiting to record the phase until the pin moves"
+    reason: |
+      applies_to names the skills catalog only — no code reads this text, it is prompt content.
+      The work is commit 1dc32f8 on feat/2026-09-13-ab17-source-precedence in agent-smith-skills,
+      gated there by validate-skills. The embedded pin still predates it, which is why phases
+      6f35, ed5a and 7d9f each landed a PIN-GATED assertion that short-circuits until
+      2026-09-13-4072 moves the pin. Recording the phase here is what makes those four assertions
+      point at something.
+
+  - category: Testing
+    chose: "Restored the validator's own exit code as part of this phase"
+    over: "Shipping a guard into a script that could not refuse anything"
+    reason: |
+      Commit 13de328 (1 September) removed the closing `if (( errors > 0 )); then exit 1` from
+      scripts/validate-skills.sh. For two weeks the script printed every failure and exited 0 —
+      and scripts/package.sh calls it as its only guard, so the tarball was built regardless.
+      This phase's third step assumed a working gate; without the restored exit, the enforcement
+      it adds would have had no teeth at all.
