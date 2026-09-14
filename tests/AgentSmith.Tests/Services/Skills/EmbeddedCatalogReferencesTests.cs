@@ -116,6 +116,36 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         body.Should().Contain("template", "a cited order that never names the template orders nothing");
     }
 
+    /// <summary>
+    /// 2026-09-13-7d9f: the derivation reads the EPIC a ticket is one slice of, and the section
+    /// that carries it tells the model to follow the source order its instructions state rather
+    /// than restating that order — so the master must state one, or the section points at
+    /// nothing. Same shared <c>source-precedence</c> section (2026-09-13-ab17), same pin bump
+    /// (2026-09-13-4072), so the assertion is gated the same way its two siblings are.
+    /// </summary>
+    [Fact]
+    public async Task EmbeddedCatalog_SpecDerivationMaster_SaysWhereATemplateSitsAmongItsSources()
+    {
+        var root = await MaterializeAsync();
+        var master = Directory
+            .GetFiles(Path.Combine(root, "skills", "_masters"), "SKILL.md", SearchOption.AllDirectories)
+            .SingleOrDefault(f => Path.GetFileName(Path.GetDirectoryName(f)) == "spec-derivation-master");
+        master.Should().NotBeNull("the derivation is the skill that cuts one ticket into phases");
+
+        var rules = File.ReadAllText(master!);
+        if (!rules.Contains("{{ref:source-precedence}}", StringComparison.Ordinal))
+            return; // this pin predates the shared section; 2026-09-13-4072 bumps it.
+
+        var catalogPath = new Mock<ISkillsCatalogPath>();
+        catalogPath.Setup(p => p.Root).Returns(root);
+        var body = new SkillBodyResolver(new CatalogSkillReferenceSource(catalogPath.Object))
+            .ResolveBody(
+                new RoleSkillDefinition { Name = "spec-derivation-master", Rules = rules },
+                SkillRole.Master);
+
+        body.Should().Contain("template", "a cited order that never names the template orders nothing");
+    }
+
     private async Task<string> MaterializeAsync()
     {
         var handler = new EmbeddedSourceHandler(
