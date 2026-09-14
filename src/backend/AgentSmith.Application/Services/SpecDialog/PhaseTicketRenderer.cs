@@ -25,20 +25,29 @@ public sealed class PhaseTicketRenderer
     /// </summary>
     public const string EpicLabel = "phase-epic";
 
-    /// <summary>Renders one phase ticket; epic children pass their parent's reference.</summary>
-    public PhaseTicketContent RenderPhase(PhaseDraft draft, string? parentReference = null) =>
-        new(Title(draft), BuildBody(draft, sb =>
+    /// <summary>
+    /// A WORK ORDER: one phase, cut against the repository as it is, filed to be worked now.
+    /// Ends in the single fenced yaml block the phase-execution extractor inverts.
+    /// </summary>
+    public PhaseTicketContent RenderPhase(PhaseDraft draft) =>
+        new(Title(draft), PhaseTicketBody.WorkOrder(draft, _ => { }));
+
+    /// <summary>
+    /// 2026-09-13-b7ba: an epic CHILD is a requirement, not a work order. It is filed today
+    /// and worked in three weeks, after its siblings have moved the code — and an embedded
+    /// spec would win over the repository it claims to plan against, because SpecSourceResolver
+    /// takes a spec in the description and never calls the deriver at all.
+    /// </summary>
+    public PhaseTicketContent RenderChildRequirement(PhaseDraft draft, string parentReference) =>
+        new(Title(draft), PhaseTicketBody.Requirement(draft, sb =>
         {
-            if (parentReference is not null)
-            {
-                sb.AppendLine($"Parent: {parentReference}");
-                sb.AppendLine();
-            }
+            sb.AppendLine($"Parent: {parentReference}");
+            sb.AppendLine();
         }));
 
-    /// <summary>Renders the epic parent, listing its slices in order.</summary>
+    /// <summary>The epic parent: the record of a cut, listing its slices in order.</summary>
     public PhaseTicketContent RenderEpicParent(PhaseDraft parent, IReadOnlyList<PhaseDraft> children) =>
-        new(Title(parent), BuildBody(parent, sb =>
+        new(Title(parent), PhaseTicketBody.Requirement(parent, sb =>
         {
             sb.AppendLine("## Slices");
             foreach (var child in children)
@@ -47,48 +56,6 @@ public sealed class PhaseTicketRenderer
         }));
 
     private static string Title(PhaseDraft draft) => $"{draft.PhaseId}: {draft.Goal}";
-
-    private static string BuildBody(PhaseDraft draft, Action<StringBuilder> extraSections)
-    {
-        var map = OutcomeYamlReader.ReadMap(draft.Yaml);
-        var sb = new StringBuilder();
-        sb.AppendLine("## Goal");
-        sb.AppendLine(draft.Goal);
-        sb.AppendLine();
-        AppendLines(sb, "## Why", Decisions(map));
-        AppendLines(sb, "## Scope", StepActions(map));
-        AppendLines(sb, "## Requires", draft.Requires);
-        extraSections(sb);
-        sb.AppendLine("---");
-        sb.AppendLine();
-        sb.AppendLine("```yaml");
-        sb.AppendLine(draft.Yaml.Trim());
-        sb.AppendLine("```");
-        return sb.ToString().TrimEnd() + "\n";
-    }
-
-    private static void AppendLines(StringBuilder sb, string heading, IEnumerable<string> items)
-    {
-        var list = items.Where(i => !string.IsNullOrWhiteSpace(i)).ToList();
-        if (list.Count == 0) return;
-        sb.AppendLine(heading);
-        foreach (var item in list) sb.AppendLine($"- {item}");
-        sb.AppendLine();
-    }
-
-    private static IEnumerable<string> Decisions(IReadOnlyDictionary<string, object?> map) =>
-        (OutcomeYamlReader.GetList(map, "decisions") ?? []).Select(d => d as string ?? string.Empty);
-
-    private static IEnumerable<string> StepActions(IReadOnlyDictionary<string, object?> map) =>
-        (OutcomeYamlReader.GetList(map, "steps") ?? []).Select(StepAction);
-
-    private static string StepAction(object? step)
-    {
-        if (step is not Dictionary<object, object?> map) return step?.ToString() ?? string.Empty;
-        var action = map.TryGetValue("action", out var a) ? a as string : null;
-        var id = map.TryGetValue("id", out var i) ? i as string : null;
-        return action ?? id ?? string.Empty;
-    }
 
     private static string FormatRequires(PhaseDraft draft) =>
         draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";

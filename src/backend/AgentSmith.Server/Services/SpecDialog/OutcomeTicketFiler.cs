@@ -95,7 +95,7 @@ public sealed class OutcomeTicketFiler(
         var childRefs = new List<string>();
         foreach (var child in epic.Children)
         {
-            var content = renderer.RenderPhase(child, parent.Reference);
+            var content = renderer.RenderChildRequirement(child, parent.Reference);
             var created = await provider.CreateAsync(
                 content.Title, content.Body, [PhaseTicketRenderer.PhaseLabel], ct);
             filed.Add(new FiledTicket(created.Reference, content.Title));
