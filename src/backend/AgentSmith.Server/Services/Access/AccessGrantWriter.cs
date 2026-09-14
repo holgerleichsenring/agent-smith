@@ -20,11 +20,23 @@ namespace AgentSmith.Server.Services.Access;
 /// </para>
 /// </summary>
 internal sealed class AccessGrantWriter(
-    IConfigStore store, RoleMappingSource mapping, NewCustomRoleGuard customRoles, ConfigDocJson json)
+    IConfigStore store,
+    RoleMappingSource mapping,
+    CustomRoleRules customRoles,
+    RoleRemovalGuard removals,
+    ConfigDocJson json)
 {
-    public void Save(JsonElement doc, ChangeAttribution by)
+    /// <summary>
+    /// 2026-09-14-91ad: asynchronous because one of its two refusals needs to know who holds
+    /// a role that is about to disappear, and that answer lives in a store. The route this
+    /// serves was already async.
+    /// </summary>
+    public async Task SaveAsync(JsonElement doc, ChangeAttribution by, CancellationToken cancellationToken)
     {
-        customRoles.Against(mapping.Current().Mapping, Bind(doc));
+        var incoming = Bind(doc);
+        var inForce = mapping.Current().Mapping;
+        customRoles.Against(inForce, incoming);
+        await removals.AgainstAsync(inForce, incoming, cancellationToken);
         store.SaveSetting(ConfigDocTypes.RoleMapping, doc, by);
     }
 

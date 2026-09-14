@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-14-91ad
+
+goal: "An administrator composes a role out of the permission catalog in the access surface, instead of being refused at the save and left with a config import as the only way in."
+
+applies_to: "default (server access surface, dashboard Roles pane, security reference)"
+
+requires:
+  - 2026-08-25-1806
+  - 2026-08-26-7a51
+
+scope:
+  in: "Creating, editing and removing a CUSTOM role in the Roles pane over the closed permission catalog: the save-time refusals that replace the read-only guard, the editor over the stored bundle, and the removal that names the holders it can see."
+  out: "The three built-in bundles, which stay fixed — an installation re-bundles beside them rather than editing them. The permission CATALOG itself, closed by construction. Whether a role EDIT that removes a permission should be refused the way a removal is: decided here as deliberately allowed, with the reason recorded."
+
+decisions:
+  - key: |
+      THE READ-ONLY DECISION WAS MADE FOR A CASE THAT HAS SINCE ARRIVED. 2026-08-26-7a51 chose
+      "custom roles are refused on save and rendered read-only, never deleted" over keeping them
+      editable, because "they came out of p0503d's catalog rather than a request and make the
+      surface harder to read for a case nobody has". The case is now had: an installation that
+      will not vary permissions per person through its directory still wants "may start a run, may
+      not delete one". Today NewCustomRoleGuard refuses exactly that, and its refusal names no
+      remedy at all — it says the role "cannot be added here" and lists what is on offer. The
+      remedy is an inference, and it is a config import, because role_mapping is a store singleton
+      reachable from this one surface. A guard whose only way out is the YAML this product took
+      away is the read-only decision outliving its reason.
+  - key: |
+      THE VALIDATION IS OVER WHAT THIS SAVE ADDS OR CHANGES, NEVER OVER THE WHOLE DOCUMENT. The
+      access route takes the WHOLE role-mapping document on every PUT, and today's guard is scoped
+      to additions for that reason. An unscoped catalog check would refuse EVERY save on any
+      installation carrying a legacy role with a misspelled permission — the case RoleCatalog's
+      own finding text exists for, and which a shipped test pins as surviving an unrelated save —
+      so a person grant in the People pane would fail because of a role nobody touched, and the
+      only way out would be the import this phase set out to abolish. A role carried through
+      unchanged keeps its findings-not-refusal treatment.
+  - key: |
+      THE EDITOR WRITES THE STORED BUNDLE, NOT THE RENDERED ONE. The matrix renders what
+      RoleCatalog resolved, which is the bundle MINUS any permission the catalog dropped. 7a51
+      chose "the access view carries the stored document alongside the four panes" over "the
+      dashboard rebuilding the document from what it renders", because a surface reconstructing
+      the document from its own rows would silently rewrite the roles it promises to round-trip
+      verbatim. That decision is not reversed here: the editor reads and writes the document's
+      verbatim bundle, and uses the rendered catalog only as the pick list.
+  - key: |
+      THE HOLDER LIST IS A FLOOR, NOT A CENSUS, AND THE REFUSAL SAYS SO. Removing a custom role
+      drops everyone holding it to zero permissions, so it is refused while holders are visible.
+      But the visible ones are the granted, the group-mapped and those OBSERVED inside the
+      retention window — a holder who arrives only through the directory's role claim and has not
+      signed in lately cannot be seen from here, exactly as AdminRoute says of admin. So the
+      refusal names who it can see and states that it is a floor; an administrator who removes a
+      role anyway is doing it knowing the list may be short, which is a different act from doing
+      it believing the list is complete.
+  - key: |
+      A STORE THE REMOVAL CANNOT READ REFUSES THE REMOVAL. The writer has no observation store
+      today and its save is synchronous; the obvious shortcut, reading through AccessSurfaceReader,
+      FAILS OPEN — it catches a store failure and returns an empty list, which would permit the
+      destructive removal precisely when the holders are invisible. So the writer is given the
+      store directly, its save becomes async (the route is already), and an unreadable store is a
+      refusal rather than a pass.
+  - key: |
+      AN EDIT THAT REMOVES A PERMISSION IS ALLOWED, AND THAT IS A CHOICE RATHER THAN AN OVERSIGHT.
+      Taking runs.delete out of a role five people hold is the same loss as removing the role, one
+      permission at a time, so the asymmetry needs stating: narrowing a role is the ordinary way a
+      role is corrected and refusing it would leave an installation unable to tighten anything,
+      while removing the role leaves its holders with NOTHING and no surface saying why. The
+      surface shows who holds the role while it is being edited, so the loss is visible at the
+      moment it is chosen.
+  - key: |
+      THE ADMIN INVARIANT IS NOT THIS PHASE'S TO RE-EARN, AND IT WOULD NOT CATCH THIS ANYWAY.
+      AdminReachableConfigDocumentStore guards the save, the import and a revert that writes a
+      prior document — though a revert whose prior is null takes the unguarded delete path. It
+      asks only about person grants, group mappings, the role-claim NAME and the environment
+      grant, so no custom-role edit can trip it while the built-ins are out of scope. This phase
+      neither re-implements it nor leans on it.
+  - key: |
+      NAMES FOLD CASE AND PERMISSIONS DO NOT, SO THE SAVE MUST REFUSE THE WRONG CASE. RoleCatalog
+      keys its roles case-insensitively and compares permission names ORDINALLY. A save-time check
+      that folded case on permissions would accept Runs.Read and the catalog would then drop it —
+      the silent drop this phase exists to end. Role names fold, so a custom role named ADMIN
+      collides with the built-in and is refused.
+
+steps:
+  - id: a-new-role-is-accepted-instead-of-refused
+    action: "Replace the new-custom-role refusal with validation over the roles this save adds or changes: accept one whose name is free and whose permissions are all in the catalog compared as the catalog compares them, refuse one colliding with a built-in name or naming a permission the catalog does not contain, and leave a role carried through unchanged alone."
+  - id: the-pane-composes-a-role-from-the-catalog
+    action: "Let the Roles pane create and edit a custom role by picking permissions out of the catalog it renders, reading and writing the document's stored bundle, and leaving the built-in rows without an edit affordance."
+  - id: removing-a-held-role-is-refused-by-name
+    action: "Give the access writer the observation store, refuse removing a custom role while any holder it can see still holds it, name them, say the list is a floor, and refuse when the store cannot be read."
+  - id: the-reference-describes-the-editable-half
+    action: "Update both places in the access-control reference that describe custom roles — the read-only sentence and the additive rule that says an unknown permission is dropped rather than refused — so the document and the surface say the same thing."
+
+tests:
+  - "Access_NewCustomRole_IsSavedWithItsBundle"
+  - "Access_CustomRoleNamed_ADMIN_IsRefusedAtTheSave"
+  - "Access_CustomRoleNamingAnUnknownPermission_IsRefusedRatherThanSilentlyDropped"
+  - "Access_CustomRoleNamingAPermissionInTheWrongCase_IsRefusedLikeAnUnknownOne"
+  - "Access_SaveCarryingAnUntouchedLegacyRole_IsNotRefused"
+  - "Access_CustomRoleEdited_ChangesWhatItsHoldersHoldOnTheNextRequest"
+  - "Access_EditRemovingAPermissionFromAHeldRole_IsAllowedAndTakesEffect"
+  - "Access_RemovingARoleNobodyHolds_Succeeds"
+  - "Access_RemovingARoleSomebodyHolds_IsRefusedAndNamesTheHolders"
+  - "Access_RemovingARoleWhileTheObservationStoreIsUnreadable_IsRefusedRatherThanAllowed"
+  - "Access_BuiltInRole_CannotBeEditedOrRemoved"
+  - "RolesPane_CustomRoleWithAPermissionTheCatalogDropped_EditsTheStoredBundleNotTheRenderedOne"
+  - "RolesPane_BuiltInRole_RendersWithoutAnEditAffordance"
+
+done:
+  - "An administrator can express 'may start a run, may not delete one' without leaving the dashboard."
+  - "Every refusal the read-only guard used to give is still given, at the save, naming what is wrong — and no save is refused for a role it did not touch."
+  - "AccessSurfaceTests.CustomRole_New_IsRefused is replaced by the accept-and-validate cases rather than deleted."
+  - "Dashboard build and tests, backend build and the full suite are green."

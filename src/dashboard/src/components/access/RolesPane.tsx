@@ -1,23 +1,28 @@
 "use client";
 
-import type { AccessGroup, AccessPerson, AccessView } from "@/lib/accessApi";
+import type { AccessDocument, AccessGroup, AccessPerson, AccessView } from "@/lib/accessApi";
 import { groupsGranting, peopleHolding, permissionAreas } from "./derive";
+import { RoleEditor } from "./RoleEditor";
 
 // 2026-08-26-7a51: the Roles pane — the roles this installation offers, what each holds,
 // and who carries it, above the full permission matrix.
 //
-// Read-only by design. Custom roles came out of p0503d's catalog rather than a request;
-// one an installation already has keeps working and is shown here, and a new one is
-// refused at the save.
+// 2026-09-14-91ad: the matrix stays a read-only overview and the editing happens below it,
+// over the stored document. The two are deliberately different things: the matrix shows what
+// each role RESOLVES to, which for a legacy bundle is less than what it says.
 
 export function RolesPane({
   view,
+  draft,
   people,
   groups,
+  onChange,
 }: {
   view: AccessView;
+  draft: AccessDocument;
   people: AccessPerson[];
   groups: AccessGroup[];
+  onChange: (next: AccessDocument) => void;
 }) {
   const areas = permissionAreas(view.permissions);
   return (
@@ -64,6 +69,7 @@ export function RolesPane({
           </tbody>
         </table>
       </div>
+      <RoleEditor draft={draft} permissions={view.permissions} onChange={onChange} />
     </div>
   );
 }
