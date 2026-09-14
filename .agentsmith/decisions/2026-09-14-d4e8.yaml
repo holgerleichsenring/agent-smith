@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-14-d4e8
+
+decisions:
+  - category: Architecture
+    chose: "The rule may only say 'your scope names X, this server validates Y' — never 'no scope names a resource'"
+    over: "Reporting an installation whose scopes name no API resource at all"
+    reason: |
+      The first draft of this phase would have accused the configuration this repository SHIPS as
+      its worked example: .env.example pairs the audience 'agent-smith' with the scopes 'openid
+      profile', neither of which carries a slash — so no scope would have named a resource, the
+      audience is non-null, and a correct Keycloak realm would have been reported broken. The
+      security reference states the opposite contract for the server in as many words: one issuer,
+      one audience, "no list, no prefix rule". A browser-side prefix rule accusing the scope side
+      is that rule wearing a hat.
+      So BOTH sides must be recognised before anything is said. The cost is that the rule is
+      narrow; the alternative was a rule that is confidently wrong on a shape this product
+      supports as a first-class case.
+
+  - category: Correctness
+    chose: "A configured audience on the DASHBOARD side silences the remark outright"
+    over: "Reading only the scopes and the server's audience, as 'the two halves'"
+    reason: |
+      The dashboard holds three values, not two. createAuthorityClient sends the configured
+      audience as extraQueryParams for "authorities that partition tokens by audience" — the
+      shape where the resource is named by the request parameter and the scopes are plain
+      permission names like read:runs. Such an installation is correctly configured and this rule,
+      reading only scopes, would have accused it. When that value is set, the resource is being
+      named somewhere this rule does not read, and the only defensible answer is silence.
+
+  - category: Correctness
+    chose: "The identifier-URI form and the bare form of an audience are one resource"
+    over: "Treating the difference as a mismatch worth reporting"
+    reason: |
+      They ARE the same resource: which of the two a server expects follows the API's own access
+      token version, not a different API. Reporting it would be reporting a token-version
+      mismatch as a scope mismatch, and pointing the operator at the wrong file.
+      The consequence is that this rule is BLIND to the one misconfiguration this repository has
+      actually measured — 2026-09-14-c72e's live incident, where the scope and the audience named
+      one resource and the versions disagreed. That is correct and it is also why this phase does
+      not claim to tell an operator their scopes will not reach the server: it tells them about
+      one of the two ways that can be true, and the other is what c72e's comparison is for.
+
+  - category: Architecture
+    chose: "Silent whenever something with better evidence is speaking"
+    over: "Rendering the remark whenever the strings disagree"
+    reason: |
+      A token this tab HOLDS that was not refused has proven the scopes produce something this
+      server takes, whatever the strings look like — a directory may mint a token for a resource
+      whose identifier this rule cannot recover. And a token that WAS refused is already explained
+      on the same page, with both sides shown and the shape named, so a second surface arguing
+      beside it is noise. What is left for the remark is the gap neither covers: before the first
+      sign-in, with no token in hand either way.
+      This is the rule c72e installed for the misconfiguration banner, applied again rather than
+      re-argued: evidence outranks inference.
+
+  - category: Correctness
+    chose: "The rule reads the EFFECTIVE scope string the client sends"
+    over: "Reading the configured value"
+    reason: |
+      createAuthorityClient sends `auth.scopes.trim() || \"openid\"`, so an installation with
+      nothing configured is asking for openid rather than for nothing. A remark naming what it
+      read must read what is actually sent, or the one thing it says is a value that never went
+      anywhere.
+
+  - category: Architecture
+    chose: "The comparison trims, drops a trailing slash and folds case"
+    over: "Comparing the two strings as they are"
+    reason: |
+      2026-08-25-4530 normalises a trailing slash before comparing two authorities, with the
+      reason written out: one copied from a discovery document carries one and one typed by hand
+      does not, and calling those two different authorities is noise. An audience is the same kind
+      of value, and a resource identifier written in two cases is one resource.
+
+  - category: Architecture
+    chose: "The openid half of 2026-09-14-3f5b's promised successor is RETIRED, not moved"
+    over: "Asserting that the configured scopes carry openid"
+    reason: |
+      3f5b's scope.out promised a successor asserting "the configured scopes carry openid and an
+      API scope". Reading the code retires the first half: AuthSession keeps only
+      user.access_token, nothing in the dashboard reads an id_token or a profile claim, and the
+      header's name comes from /api/identity, which the server resolves from the access token.
+      A check demanding openid would be asserting a rule of somebody else's directory rather than
+      a property of this software.
+      What stays is the floor in the code: an empty scopes value is still sent as "openid",
+      because a client asking for nothing at all is a different matter from a check asserting what
+      an authority requires.
