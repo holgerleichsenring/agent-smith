@@ -36,6 +36,7 @@ public static class PipelineHandlersExtensions
     {
         services.AddTransient<ICommandHandler<LoadCatalogContext>, LoadCatalogHandler>();
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
+        services.AddTransient<TicketExtrasFetcher>().AddTransient<EpicGroundFetcher>();
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
         services.AddTransient<Scope.RepoScopeClassifier>().AddTransient<Scope.RemoteContextInventoryBuilder>();
@@ -45,8 +46,7 @@ public static class PipelineHandlersExtensions
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)
         // and the per-run factory for the master's escalation tool host.
-        services.AddTransient<SandboxRepoCloner>();
-        services.AddTransient<Tools.EnsureRepoSandboxToolFactory>();
+        services.AddTransient<SandboxRepoCloner>().AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
         services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
         // p0375: generic registry-auth staging for ecosystems the deterministic

@@ -33,6 +33,8 @@ public sealed class FetchTicketHandlerTests
             _factoryMock.Object,
             _eventPublisher.Object,
             _runContext.Object,
+            new TicketExtrasFetcher(NullLogger<TicketExtrasFetcher>.Instance),
+            new EpicGroundFetcher(NullLogger<EpicGroundFetcher>.Instance),
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
     }
 

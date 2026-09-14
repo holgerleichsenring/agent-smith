@@ -19,6 +19,8 @@ public sealed class FetchTicketHandler(
     ITicketProviderFactory factory,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
+    TicketExtrasFetcher extras,
+    EpicGroundFetcher epicGround,
     ILogger<FetchTicketHandler> logger)
     : ICommandHandler<FetchTicketContext>
 {
@@ -70,19 +72,19 @@ public sealed class FetchTicketHandler(
                 context.TicketId);
         }
 
-        // p0317: fetch the comment thread — the conversation is part of the
-        // requirement record. Fail-soft: a run without comments beats no run.
-        await FetchCommentsAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
+        // p0317: the conversation, the text-like documents and the full attachment listing
+        // are part of the requirement record. All fail-soft: a run without them beats no run.
+        await extras.FetchAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
 
-        // p0317: fetch text-like documents (materialized into the run-record dir
-        // at AgenticMaster time, once a sandbox exists) + the full ref list so
-        // the prompt can name non-viewable binaries. Both fail-soft.
-        await FetchDocumentsAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
-        await FetchAttachmentRefsAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
+        // 2026-09-13-7d9f: the epic this ticket is one slice of, read ONCE — here, with the
+        // ticket. A parent that cannot be read is named in the step and the run proceeds.
+        var ground = await epicGround.AttachAsync(
+            provider, ticket, context.Pipeline, cancellationToken);
 
         await PublishFetchedEventAsync(ticket, attachmentCount, cancellationToken);
 
-        return CommandResult.Ok($"Ticket {context.TicketId} fetched from {provider.ProviderType}");
+        return CommandResult.Ok(
+            $"Ticket {context.TicketId} fetched from {provider.ProviderType}{ground}");
     }
 
     // p0326: the inline payload becomes the run's Ticket without any provider —
@@ -123,67 +125,6 @@ public sealed class FetchTicketHandler(
         {
             logger.LogDebug(ex,
                 "Failed to publish TicketFetchedEvent for {TicketId}", ticket.Id);
-        }
-    }
-
-    private async Task FetchCommentsAsync(
-        ITicketProvider provider, TicketId ticketId, PipelineContext pipeline,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var comments = await provider.GetCommentsAsync(ticketId, cancellationToken);
-            if (comments.Count == 0) return;
-            pipeline.Set(ContextKeys.TicketComments, comments);
-            logger.LogInformation(
-                "Fetched {Count} comment(s) from ticket {TicketId}",
-                comments.Count, ticketId);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex,
-                "Failed to fetch comments for ticket {TicketId}, continuing without the conversation",
-                ticketId);
-        }
-    }
-
-    private async Task FetchDocumentsAsync(
-        ITicketProvider provider, TicketId ticketId, PipelineContext pipeline,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var documents = await provider.DownloadDocumentAttachmentsAsync(
-                ticketId, cancellationToken);
-            if (documents.Count == 0) return;
-            pipeline.Set(ContextKeys.TicketDocuments, documents);
-            logger.LogInformation(
-                "Downloaded {Count} document attachment(s) from ticket {TicketId}",
-                documents.Count, ticketId);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex,
-                "Failed to download document attachments for ticket {TicketId}, continuing without documents",
-                ticketId);
-        }
-    }
-
-    private async Task FetchAttachmentRefsAsync(
-        ITicketProvider provider, TicketId ticketId, PipelineContext pipeline,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var refs = await provider.GetAttachmentRefsAsync(ticketId, cancellationToken);
-            if (refs.Count == 0) return;
-            pipeline.Set(ContextKeys.TicketAttachmentRefs, refs);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex,
-                "Failed to list attachment refs for ticket {TicketId}, continuing without the listing",
-                ticketId);
         }
     }
 }
