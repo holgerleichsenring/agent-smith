@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-a3f1
+
+decisions:
+  - category: Architecture
+    chose: "An epic parent carries its own label and ProjectResolver refuses it before every other rule"
+    over: "Filing the parent with no label at all"
+    reason: |
+      Removing a label is not a routing decision, and on the commonest configuration it makes
+      things worse. Today the parent carries the phase label, which hard-binds it to phase
+      execution, so it starts a run and dies at the spec gate — wasteful but contained. Unlabelled
+      on a project with no pipeline_from_label, PipelineResolver returns DefaultPipeline and an
+      epic summary becomes a full CODING run. Every other rule — label routing, area path, repo,
+      to-address — ends in something, so a ticket that is not work has to be refused ahead of all
+      of them.
+
+  - category: Architecture
+    chose: "The label is \"phase-epic\", framework-owned"
+    over: "\"epic\", the obvious name"
+    reason: |
+      An operator may already label their own epics "epic", and a framework rule that silently
+      stopped routing them would be a change to their process made by a name collision. The chosen
+      name sits in the same namespace as the "phase" label it replaces on the parent, so the two
+      read as what they are: framework filing artifacts.
+
+  - category: Scope
+    chose: "The discovery query is NOT changed"
+    over: "Teaching DiscoveryQuery an exclusion vocabulary, as the spec first said"
+    reason: |
+      The phase label is force-added to the server-side trigger-label filter precisely so a phase
+      ticket cannot be filtered out. A parent that no longer carries it is therefore not pulled in
+      by a filtered query at all, and where no filter is configured the query fetches everything
+      anyway and the resolver is what refuses. An exclusion vocabulary would mean changing every
+      provider that renders a query, to buy nothing.
+
+  - category: Architecture
+    chose: "The label predicates and the ambiguity metric leave ProjectResolver"
+    over: "Adding the guard in place"
+    reason: |
+      ProjectResolver is baselined over the file-length limit, so it may only get shorter — the
+      ratchet's own message is "extract the responsibility you were about to add". Two came out
+      and both are better placed: what a filing label MEANS belongs with the labels
+      (FiledTicketLabels), and counting a ticket that matched two projects is not a routing
+      decision (AmbiguousResolutionMetric). The resolver ends up shorter than it started.
+
+  - category: Testing
+    chose: "The proof is at the resolver, on a project with NO pipeline_from_label"
+    over: "A filer test asserting which label was written"
+    reason: |
+      A filer test proves what was put on the ticket; only a resolver test proves what happens to
+      it. And the configuration that matters is the one the filer never sees — no label filter,
+      where the default fires. Both configurations are covered, along with the two negatives: a
+      phase ticket still routes to phase execution, and an ordinary ticket routes as before.

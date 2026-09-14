@@ -87,8 +87,9 @@ public sealed class OutcomeTicketFiler(
         List<FiledTicket> filed, CancellationToken ct)
     {
         var parentContent = renderer.RenderEpicParent(epic.Parent, epic.Children);
+        // 2026-09-13-a3f1: the parent is the record of a cut, never work.
         var parent = await provider.CreateAsync(
-            parentContent.Title, parentContent.Body, [PhaseTicketRenderer.PhaseLabel], ct);
+            parentContent.Title, parentContent.Body, [PhaseTicketRenderer.EpicLabel], ct);
         filed.Add(new FiledTicket(parent.Reference, parentContent.Title));
 
         var childRefs = new List<string>();
