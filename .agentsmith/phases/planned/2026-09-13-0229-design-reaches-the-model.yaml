@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-0229
+
+goal: "A design named on a ticket is rendered to an image and reaches the model beside the ticket's own screenshots, so UI work is done with the mock in view."
+
+applies_to: "backend (a design adapter, the attachment path, the run record)"
+
+requires:
+  - "the vendor decision recorded in .agentsmith/decisions/ — its non-interactive credential shape, whether an immutable version reference exists and how one is derived from a link that carries none, its export media types, and its rate-limit response, each read from the live API"
+
+scope:
+  in: >
+    A recogniser matches ONLY absolute
+    https links whose host is that vendor's canonical host, in the ticket body or its comments; an
+    adapter with its OWN HttpClient and only the vendor credential exports the design to an image;
+    five failure kinds — not found, forbidden, rate limited, unreachable, unknown; the image is
+    delivered beside the ticket's attachments under a stated sub-cap, with any truncation named in
+    the prompt; the resolved version is recorded on the run.
+  out: >
+    THE NODE TREE. A design document yields names, text, geometry and variants, and nothing that
+    pairs a label with an input, so generating code from it needs a heuristic layer nobody can size
+    before a real payload has been read.
+    A CONFIG ENTITY FOR DESIGN SOURCES. A design belongs to a ticket, not to a project.
+    VERIFYING THE UI AGAINST THE DESIGN. Comparing a built screen to a mock needs a screenshot path
+    that does not exist.
+    MEASUREMENTS, SPACING AND COLOUR VALUES. An image carries none of them, and a vision model will
+    estimate rather than decline. A successor phase fetches the design's variables — the values
+    themselves — which is what turns seeing the mock into building it.
+
+decisions:
+  - key: |
+      THE EXPENSIVE HALF IS BUILT. Ticket images are downloaded, capped, turned into image content
+      parts and handed to the master when the agent declares vision. A design that arrives as an
+      image inherits the cap, the flag and the prompt assembly, and adds one adapter.
+  - key: |
+      THE VENDOR IS A PRECONDITION, NOT A STEP. A phase whose first step decides whether its other
+      steps are worth doing is a decision wearing a phase's clothes, and its definition of done
+      would include deciding whether it should exist. The four facts are answered in a decision
+      file first; this spec is then rewritten already knowing them — including whether it is
+      "the mock reaches the model reproducibly" or only "nobody has to paste a screenshot", which
+      are different phases with different done-lists.
+  - key: |
+      WITHOUT THE VENDOR NAMED, FOUR STRUCTURAL QUESTIONS ARE UNDECIDABLE. The product holds exactly
+      one credential shape — one environment variable per platform, read process-wide — so a
+      per-person OAuth token would make this an OAuth subsystem and not an adapter. There is no
+      HTTP rate limiter outside the LLM path, so a rate-limited kind without backoff is a label.
+      The image path accepts png, jpeg, gif and webp, so a PDF or SVG export fails at the type gate.
+      And whether a pinned reference exists at all decides the next decision.
+  - key: |
+      IF NO NAMED VERSION EXISTS, THE PHASE IS ARGUED HONESTLY OR NOT AT ALL. A hosted design tool
+      usually exposes an immutable version only when a human saved one; a link pasted into a ticket
+      carries a document id. If that is the case here, "the pinned version" is a document id plus
+      the time the export ran — which a pasted screenshot already carries in its comment timestamp,
+      more reproducibly, because a re-run does not re-export. Then the benefit is that nobody has
+      to paste, and the spec says so instead of claiming repeatability.
+  - key: |
+      THE LINK IS UNTRUSTED TEXT AND THE FETCH IS THE FIRST OF ITS KIND. Every outbound fetch today
+      starts from an id the tracker's own API returned. This would be the first where free text
+      written by anyone with comment access chooses a URL the server dereferences — and the nearest
+      neighbour downloads with a shared client carrying tracker credentials. Host-anchored, own
+      client, own credential, and anything else ignored without a fetch.
+  - key: |
+      THE CAP IS A COLLISION, SO THE POLICY IS STATED. Ten images, a flat take, no priority: a
+      design either displaces real screenshots or is displaced by them, silently. A reserved
+      sub-cap decides it, and the prompt section says what was dropped — which means it takes the
+      labelled sets, not a bare count.
+
+steps:
+  - id: a-design-link-is-recognised-host-anchored
+    action: "Only an absolute https link to that vendor's canonical host, in body or comments, is recognised; anything else is ignored without a fetch."
+  - id: the-adapter-renders-it-to-an-image
+    action: "An adapter with its own HttpClient and credential exports the design, mapping errors to five failure kinds including unknown."
+  - id: it-arrives-under-a-stated-sub-cap
+    action: "The image is delivered beside ticket attachments under a reserved sub-cap; the prompt section takes labelled sets and names any truncation."
+  - id: the-run-records-the-version
+    action: "The resolved design version is recorded on the run."
+
+tests:
+  - "DesignLink_AbsentFromTicket_AttachmentsUnchanged"
+  - "DesignLink_ForeignHostInComment_NotFetched"
+  - "DesignRender_Forbidden_ReportsPermissionKind"
+  - "DesignRender_RateLimited_ReportsRateLimitKind"
+  - "DesignRender_UnmappedStatus_ReportsUnknownKind"
+  - "DesignAndScreenshots_OverTheCap_TruncationIsStated"
+  - "AgentWithoutVision_DesignNotDeliveredAndNotCounted"
+
+done:
+  - "a ticket carrying a design link reaches the model with the design as an image, named as a design"
+  - "a link to any other host is never fetched"
+  - "a missing design, a forbidden token, a rate limit, an unreachable host and an unmapped status each report distinctly"
+  - "a ticket over the cap says what was dropped instead of dropping it silently"
+  - "an agent without vision is unaffected and is not told about images it cannot see"
+  - "build green, full suite green"

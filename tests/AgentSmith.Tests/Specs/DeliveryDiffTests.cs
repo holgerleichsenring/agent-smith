@@ -14,6 +14,11 @@ namespace AgentSmith.Tests.Specs;
 /// base rungs saw nothing and the HEAD rung means uncommitted work only. Every rung compared
 /// the delivery against itself.
 /// </para>
+/// <para>
+/// 2026-09-13-5cdf: and the base it compares against is the one the branch was CUT from.
+/// A slice cut from a feature rung and accounted against origin/HEAD reports its
+/// predecessors' work as its own delivery.
+/// </para>
 /// </summary>
 public sealed class DeliveryDiffTests
 {
@@ -22,12 +27,16 @@ public sealed class DeliveryDiffTests
     private const string LaterRunCommit = "2222222222222222222222222222222222222222";
     private const string Committed = "diff --git a/src/Fix.cs b/src/Fix.cs\n+++ b/src/Fix.cs\n+fixed\n";
     private const string Uncommitted = "diff --git a/src/Draft.cs b/src/Draft.cs\n+++ b/src/Draft.cs\n+draft\n";
+    private const string ParentTicket = "4711";
+    private const string Rung = "agent-smith/4711";
+    private const string SliceOnly = "diff --git a/src/Slice.cs b/src/Slice.cs\n+++ b/src/Slice.cs\n+slice\n";
 
     /// <summary>
     /// Answers like a repository: it says whether it has a remote base, which of the run's
     /// own commits its history carries, and what each comparison yields.
     /// </summary>
-    private sealed class GitSandbox(bool hasRemote, bool runCommitted, string headDiff = "") : ISandbox
+    private sealed class GitSandbox(
+        bool hasRemote, bool runCommitted, string headDiff = "", bool hasRung = false) : ISandbox
     {
         public string JobId => "demo";
         public List<IReadOnlyList<string>> Ran { get; } = [];
@@ -43,6 +52,9 @@ public sealed class DeliveryDiffTests
 
         private (int Exit, string Output) Answer(IReadOnlyList<string> args)
         {
+            if (args[0] == "rev-parse")
+                return hasRung && args[^1] == $"refs/remotes/origin/{Rung}"
+                    ? (0, "deadbeef") : (1, string.Empty);
             if (args.Contains("symbolic-ref"))
                 return hasRemote ? (0, "origin/main") : (128, "fatal: ref refs/remotes/origin/HEAD is not a symbolic ref");
             if (args[0] == "log")
@@ -51,6 +63,7 @@ public sealed class DeliveryDiffTests
             return args[^1] switch
             {
                 "origin/main" => (0, Committed),
+                $"origin/{Rung}" => (0, SliceOnly),
                 $"{FirstRunCommit}^" => (0, Committed),
                 "HEAD" => (0, headDiff),
                 _ => (128, "fatal: bad revision"),
@@ -67,7 +80,7 @@ public sealed class DeliveryDiffTests
     {
         var sandbox = new GitSandbox(hasRemote: false, runCommitted: true);
 
-        var result = await Diff().ForBranchAsync(sandbox, RunId, CancellationToken.None);
+        var result = await Diff().ForBranchAsync(sandbox, DeliveryBasis.OfRun(RunId), CancellationToken.None);
 
         result.Failed.Should().BeFalse();
         result.Text.Should().Be(Committed, "the run committed its work before the gate read the branch");
@@ -80,7 +93,7 @@ public sealed class DeliveryDiffTests
     {
         var sandbox = new GitSandbox(hasRemote: false, runCommitted: false, headDiff: Uncommitted);
 
-        var result = await Diff().ForBranchAsync(sandbox, RunId, CancellationToken.None);
+        var result = await Diff().ForBranchAsync(sandbox, DeliveryBasis.OfRun(RunId), CancellationToken.None);
 
         result.Failed.Should().BeFalse();
         result.Text.Should().Be(Uncommitted);
@@ -93,7 +106,7 @@ public sealed class DeliveryDiffTests
     {
         var sandbox = new GitSandbox(hasRemote: true, runCommitted: true);
 
-        var result = await Diff().ForBranchAsync(sandbox, RunId, CancellationToken.None);
+        var result = await Diff().ForBranchAsync(sandbox, DeliveryBasis.OfRun(RunId), CancellationToken.None);
 
         result.BaseRef.Should().Be("origin/main");
         result.Basis.Should().Be("against origin/main");
@@ -104,11 +117,42 @@ public sealed class DeliveryDiffTests
     }
 
     [Fact]
+    public async Task DeliveryDiff_ComputesAgainstTheRung()
+    {
+        var sandbox = new GitSandbox(hasRemote: true, runCommitted: true, hasRung: true);
+
+        var result = await Diff().ForBranchAsync(
+            sandbox, new DeliveryBasis(RunId, ParentTicket), CancellationToken.None);
+
+        result.BaseRef.Should().Be($"origin/{Rung}");
+        result.Text.Should().Be(SliceOnly, "what this slice delivers is what it added to its rung");
+        sandbox.Ran.Where(a => a[0] == "diff").Should().ContainSingle()
+            .Which.Should().NotContain("origin/main",
+                "accounting a slice against the default branch credits it with its predecessors' work");
+    }
+
+    [Fact]
+    public async Task DeliveryDiff_RungEqualsCloneBase_OutputUnchangedFromToday()
+    {
+        var stamped = new GitSandbox(hasRemote: true, runCommitted: true, hasRung: false);
+        var today = new GitSandbox(hasRemote: true, runCommitted: true);
+
+        var withStamp = await Diff().ForBranchAsync(
+            stamped, new DeliveryBasis(RunId, ParentTicket), CancellationToken.None);
+        var without = await Diff().ForBranchAsync(
+            today, DeliveryBasis.OfRun(RunId), CancellationToken.None);
+
+        withStamp.Should().Be(without,
+            "until a rung exists anywhere, a stamped run is accounted exactly as an unstamped one");
+        withStamp.BaseRef.Should().Be("origin/main");
+    }
+
+    [Fact]
     public async Task DeliveryDiff_ARunWithNoId_LeavesTheRunStartRungOut()
     {
         var sandbox = new GitSandbox(hasRemote: false, runCommitted: true, headDiff: Uncommitted);
 
-        var result = await Diff().ForBranchAsync(sandbox, runId: null, CancellationToken.None);
+        var result = await Diff().ForBranchAsync(sandbox, DeliveryBasis.OfRun(null), CancellationToken.None);
 
         result.Text.Should().Be(Uncommitted);
         sandbox.Ran.Should().NotContain(a => a[0] == "log", "there is no run to look for");

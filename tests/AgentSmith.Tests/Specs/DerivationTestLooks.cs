@@ -15,9 +15,30 @@ internal static class DerivationTestLooks
     public const string Repo = "Sample.Server";
 
     /// <summary>A factory over the pipeline's sandboxes; with none set, it yields no host.</summary>
-    public static DerivationLookFactory Factory(ISandboxFileReaderFactory? files = null) =>
+    public static DerivationLookFactory Factory(
+        ISandboxFileReaderFactory? files = null, ISourceScopeSandboxFactory? scopes = null) =>
         new(new SandboxTargets(), files ?? new StubSandboxFileReaderFactory(),
-            new PackageEcosystemDetector(), NullLogger<DerivationLook>.Instance);
+            new PackageEcosystemDetector(),
+            new ProjectTemplateScopes(
+                scopes ?? new NoScopes(), NullLogger<ProjectTemplateScopes>.Instance),
+            NullLogger<DerivationLook>.Instance);
+
+    /// <summary>2026-09-13-9f84: the template-proof read as the product composes it — the
+    /// real context.yaml parse over whatever reader the caller hands in.</summary>
+    public static TemplateProofReport Proof(ISandboxFileReaderFactory? files = null) =>
+        new(new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
+                new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
+            files ?? new StubSandboxFileReaderFactory(),
+            NullLogger<TemplateProofReport>.Instance);
+
+    /// <summary>A source-scope factory that would spawn nothing, for runs with no template.</summary>
+    private sealed class NoScopes : ISourceScopeSandboxFactory
+    {
+        public ISourceScopeSandbox Create(
+            Contracts.Models.Configuration.ResolvedProject project,
+            Contracts.Models.Configuration.RepoConnection repo, string? revision = null) =>
+            throw new InvalidOperationException("no template was declared in this test");
+    }
 
     /// <summary>A host over one recording sandbox, reading the given files.</summary>
     public static DerivationLook Over(CountingSandbox sandbox, InMemorySandboxFileReader? files = null) =>

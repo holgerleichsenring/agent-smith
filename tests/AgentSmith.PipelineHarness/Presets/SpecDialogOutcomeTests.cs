@@ -281,12 +281,19 @@ public sealed class SpecDialogOutcomeTests
             "p9000: Widget platform end to end",
             "p9000a: Widget storage layer",
             "p9000b: Widget API on top of the storage layer");
-        bed.Tickets.Created.Should().OnlyContain(t => t.Labels.Contains(PhaseTicketRenderer.PhaseLabel));
+        // 2026-09-13-a3f1: the parent is the record of a cut and carries its own label, so no
+        // routing path can turn an epic summary into a run; the slices are the work.
+        bed.Tickets.Created[0].Labels.Should().Equal(PhaseTicketRenderer.EpicLabel);
+        bed.Tickets.Created.Skip(1).Should()
+            .OnlyContain(t => t.Labels.Contains(PhaseTicketRenderer.PhaseLabel));
         bed.Tickets.Created[0].Body.Should().Contain("## Slices").And.Contain("p9000a").And.Contain("p9000b");
         bed.Tickets.Created[1].Body.Should().Contain("Parent: https://tracker.test/1");
         bed.Tickets.Created[2].Body.Should().Contain("Parent: https://tracker.test/1");
-        ExtractYaml(bed.Harness, bed.Tickets.Created[2].Body).Should().Contain("requires: [p9000a]",
-            "the child spec carries its requires: edge for the pipeline");
+        // 2026-09-13-b7ba: a child is a REQUIREMENT — what is wanted and why, with no fenced
+        // block and no step list, so the run that picks it up derives against the repository as
+        // it then is instead of replaying a cut made weeks earlier. The order survives as prose.
+        bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("```"));
+        bed.Tickets.Created[2].Body.Should().Contain("## Requires").And.Contain("p9000a");
         bed.Tickets.Comments.Should().ContainSingle(
             "the parent links its children — a comment, honestly, since no tracker "
             + "provider exposes native links").Which.Comment.Should()

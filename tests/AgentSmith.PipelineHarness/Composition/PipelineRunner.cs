@@ -30,6 +30,13 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// tests. Wins over <see cref="RepoOverride"/> when set.</summary>
     public IReadOnlyList<RepoConnection>? ReposOverride { get; set; }
 
+    /// <summary>
+    /// 2026-09-13-84c0: what this project is built after, per context. The runner composes
+    /// its ResolvedProject in code rather than reading the fixture's projects: block, so a
+    /// template declared in YAML would never reach a run — this is where one is declared.
+    /// </summary>
+    public IReadOnlyList<ProjectTemplate>? TemplatesOverride { get; set; }
+
     /// <summary>The RunId seeded into the last built context — lets a test read
     /// the run's cached result.md/plan.md back out of the artifact store.</summary>
     public string? LastRunId { get; private set; }
@@ -134,6 +141,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         return new ResolvedProject
         {
             Repos = ReposOverride?.ToList() ?? [RepoOverride ?? BuildRepo()],
+            Templates = TemplatesOverride?.ToList() ?? [],
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://stub.test" },
             Agent = agent,
             Pipeline = presetName,

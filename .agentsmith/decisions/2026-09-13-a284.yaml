@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-a284
+
+decisions:
+  - category: Architecture
+    chose: "The retarget is TWO operations — ReadPullRequestBaseAsync and RetargetPullRequestAsync — and the caller compares"
+    over: "One idempotent MoveTo(target) that reads the current base inside each provider and no-ops when it matches"
+    reason: |
+      The comparison is one rule, and the caller is the only place that holds both halves: the rung
+      comes from the run, the base from the platform. Folding it into the providers would write that
+      rule three times, force a read on GitHub where the PATCH needs none, and — decisively — make
+      "this pull request was already on the rung" invisible to the handler, so the phase's own
+      done-criterion could only be asserted three levels down in HTTP stubs. Null from the read means
+      "do not move it": an unknown base is not a wrong one, which is also how the local provider,
+      which has no pull request at all, falls out of the path without a special case.
+
+  - category: Architecture
+    chose: "The target travels on the PipelineContext, keyed by repo name (ContextKeys.PullRequestTargets)"
+    over: "Each opening site composing the rung from the parent ticket id itself"
+    reason: |
+      TicketBranchNamer.Compose is a name, not a fact — 2026-09-13-5cdf resolves a base by asking
+      whether the branch EXISTS in this clone, and 2026-09-13-35a4 may have failed to publish it. A
+      site that re-derived the name would open against a branch that may not be there, and the run
+      would fail at the PR step for a base it never cut from. Recording what was actually resolved
+      keeps the base a run CUT from and the base its pull request OPENS against the same fact, and an
+      absent entry means exactly today's behaviour.
+
+  - category: Architecture
+    chose: "SwitchAsync returns WorkBranchPlacement (problem + rung) and RepoCheckout carries the rung out to CheckoutSourceHandler"
+    over: "Publishing the target from inside the sandbox services"
+    reason: |
+      The checkout is the only step that knows the rung, and the three sites that open a pull request
+      run steps later with no sandbox to ask. The sandbox services take no PipelineContext — they are
+      DI transients over one clone — so the answer is RETURNED along the path that already reports
+      the checkout's problem, and the handler that owns the pipeline records it. The mid-run
+      ensure_repo_sandbox escalation records it the same way, because a repo escalated mid-run gets
+      its pull request from the same loop as every other one.
+
+  - category: Implementation
+    chose: "Only a RUNG is recorded; a ladder that fell through records nothing"
+    over: "Recording the clone's own base as the target"
+    reason: |
+      The fall-through base is not a base anybody chose, and passing it explicitly would freeze a
+      lookup the provider does better: DefaultBranchResolver honours the configured
+      RepoConnection.DefaultBranch and the repository's own default. Stating the rule once — an
+      explicit target WINS, a null target falls through unchanged — is what makes "a run with no
+      rung opens exactly as today" true by construction rather than by a flag.
+
+  - category: Implementation
+    chose: "ISourceProvider became a PARTIAL interface; the two new methods live in ISourceProvider.Targeting.cs"
+    over: "A second interface providers implement, or growing the contract file"
+    reason: |
+      A separate interface would make every caller type-test for a capability every provider has.
+      The contract file was 114 lines and FileLengthRatchetTests caps an unbaselined file at 120, so
+      the two methods plus their WHY did not fit — and where a pull request points is a question of
+      its own: opening needs a repository, a branch and a default-branch lookup; retargeting needs
+      only the identifier recovered from the URL. Same reason the three platform retargets are their
+      own types (GitHubPullRequestTarget and siblings) beside the existing updaters, which are at
+      the same cap; each shares the updater's single URL parser rather than copying it.
+
+  - category: Implementation
+    chose: "EmptyCommit.Explains extracted from both commit handlers"
+    over: "Keeping the duplicated LooksLikeEmptyCommit and finding room elsewhere"
+    reason: |
+      InitCommitHandler sat exactly ON its baseline of 190 lines, so the target could not be passed
+      without giving three back. The two copies of the same two strings were the honest three: what
+      "nothing to commit" means is one fact, and it now lives in one place instead of two that can
+      disagree.
+
+  - category: Scope
+    chose: "The spec's count of breakage was corrected: no mock expression site stops compiling"
+    over: "Leaving the sentence that ~fifteen sites break the build"
+    reason: |
+      An OPTIONAL parameter appended to the signature is filled in at every existing call site, so
+      the compiler says nothing. The breakage is silent and at runtime: a Moq .Callback with the old
+      arity throws when its setup runs, which is how two tests in CommitAndPRHandlerTests failed
+      while the whole solution built. The remaining expressions now assert "opened with no target",
+      which is what they already meant. Recorded because the next interface change on this surface
+      will meet the same trap.
+
+  - category: Scope
+    chose: "The done-criteria say the promise is about the REMOTE providers"
+    over: "Leaving the local path quietly outside it"
+    reason: |
+      LocalSourceProvider.CompletePullRequestAsync fast-forwards the CONFIGURED default branch, not
+      any rung, and it has no pull request to open against a base or to move. On the demo path the
+      sentence "the default branch receives nothing until a human merges" is therefore not true, and
+      a done-list that implied otherwise would be the kind of claim this repository does not make.

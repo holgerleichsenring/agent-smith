@@ -26,59 +26,43 @@ namespace AgentSmith.Application.Services;
 /// remote, which is what the bundled demo produces — the base rungs see nothing and HEAD
 /// means uncommitted work only, so a correct delivery was invisible at every rung.
 /// </para>
+/// <para>
+/// 2026-09-13-5cdf: the base comes from the same ladder the work-branch cut used. A slice
+/// cut from a feature rung and accounted against <c>origin/HEAD</c> would report its
+/// predecessors' work as its own delivery — to the keystone, to the acceptance account and
+/// to the pull-request body.
+/// </para>
 /// </summary>
 public sealed class DeliveryDiff(
-    SandboxBaseBranch baseBranchReader,
+    SandboxBaseLadder baseLadder,
     SandboxRunStartCommit runStartReader,
     ILogger<DeliveryDiff> logger)
 {
     private const int GitTimeoutSeconds = 120;
 
-    /// <param name="runId">
-    /// The run taking the diff, so the ladder can find the commit it started from. Null
-    /// leaves that rung out and the ladder behaves exactly as it did before.
+    /// <param name="basis">
+    /// The run taking the diff, so the ladder can find the commit it started from, and the
+    /// parent stamp that names the rung this branch was cut from.
     /// </param>
     public async Task<DiffResult> ForBranchAsync(
-        ISandbox sandbox, string? runId, CancellationToken cancellationToken)
+        ISandbox sandbox, DeliveryBasis basis, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
-        var baseBranch = await baseBranchReader.ResolveAsync(sandbox, cancellationToken);
-        var runStart = await runStartReader.ResolveAsync(sandbox, runId, cancellationToken);
-        foreach (var (against, description) in Candidates(baseBranch, runStart))
+        ArgumentNullException.ThrowIfNull(basis);
+        var resolved = await baseLadder.ResolveAsync(sandbox, basis.ParentTicketId, cancellationToken);
+        var runStart = await runStartReader.ResolveAsync(sandbox, basis.RunId, cancellationToken);
+        foreach (var (against, description) in DeliveryDiffCandidates.Ordered(resolved.Name, runStart))
         {
             var diff = await TryDiffAsync(sandbox, against, cancellationToken);
             if (diff is null) continue;
             logger.LogInformation(
                 "Delivery diff taken {Description} ({Chars:N0} chars)", description, diff.Length);
-            return new DiffResult(diff, description, BaseRef: BaseRefOf(against));
+            return new DiffResult(
+                diff, description, BaseRef: DeliveryDiffCandidates.BaseRefOf(against));
         }
 
         logger.LogWarning("No delivery diff could be taken — no comparable base ref in the sandbox");
         return new DiffResult(string.Empty, "no comparable base", Failed: true);
-    }
-
-    /// <summary>
-    /// The comparison's ref, or null for the HEAD rung — HEAD is the branch, so a search of
-    /// it would search the delivery under the name of the thing it is compared against.
-    /// </summary>
-    private static string? BaseRefOf(string[] against) =>
-        against is ["HEAD"] ? null : against[0];
-
-    // Ordered by how close each comparison is to "what this branch delivers".
-    private static IEnumerable<(string[] Args, string Description)> Candidates(
-        string? baseBranch, string? runStart)
-    {
-        if (!string.IsNullOrWhiteSpace(baseBranch))
-        {
-            yield return ([$"origin/{baseBranch}"], $"against origin/{baseBranch}");
-            yield return ([baseBranch], $"against {baseBranch}");
-        }
-        // Everything this run put on the branch, committed and uncommitted alike — the
-        // answer when the branch and the base are the same ref.
-        if (!string.IsNullOrWhiteSpace(runStart))
-            yield return ([runStart], $"against {runStart} (where this run started)");
-        // The branch's own first parent: everything committed on it plus the working tree.
-        yield return (["HEAD"], "against HEAD (uncommitted work only)");
     }
 
     private async Task<string?> TryDiffAsync(

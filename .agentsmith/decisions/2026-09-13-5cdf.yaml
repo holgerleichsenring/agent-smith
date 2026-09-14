@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-5cdf
+
+decisions:
+  - category: Architecture
+    chose: "One SandboxBaseLadder resolves the base per repository; the cut, the merge and the diff consume its answer"
+    over: "Leaving each of the three to ask SandboxBaseBranch for itself"
+    reason: |
+      p0496 extracted SandboxBaseBranch so the work-branch merge and the delivery account would ask
+      one place. That stops being enough the moment a branch is cut from anything but origin/HEAD:
+      the cut would follow a rung while the diff still followed origin/HEAD, and every slice would
+      report its predecessors' work as its own delivery — to the keystone, to the acceptance
+      account and to the pull-request body. WorkBranchBaseMerger no longer resolves anything; it is
+      HANDED the ResolvedBase the cut used, so a merger that asked again cannot merge the default
+      branch into a slice cut from a rung.
+
+  - category: Architecture
+    chose: "A ladder of two rungs — the parent's branch, then the clone's own base — with a ref check per candidate"
+    over: "A configuration flag, or asking the provider which branch to use"
+    reason: |
+      A rung that does not exist costs one `git rev-parse --verify` and the next candidate is tried;
+      an estate with no rung anywhere lands on the clone's base, which is what every run did before.
+      That makes the change backward-compatible by construction rather than by a flag, which is why
+      it can ship before 2026-09-13-35a4 creates a rung. No provider API is involved: the sandbox
+      clone is full (CheckoutStepFactory.BuildCloneStep passes no --depth, --single-branch or
+      --no-tags), so every remote branch is already reachable.
+
+  - category: Architecture
+    chose: "ResolvedBase carries FellThrough, and only a rung the ladder FOUND is checked out"
+    over: "Returning a bare branch name, and checking the resolved base out unconditionally"
+    reason: |
+      2026-08-25-0eae ruled that a ladder reaching its bottom says so rather than pretending it
+      found something. A fall-through names the clone's own base, which is where a fresh clone's
+      HEAD already stands — checking it out would be a no-op dressed as a decision, and on a tree
+      some other step positioned it would silently move the cut. So the checkout of a base happens
+      only when a rung exists, which is what makes "with no rung anywhere, the branch is cut
+      exactly as today" a property of the code rather than a hope.
+
+  - category: Architecture
+    chose: "The rung is per REPOSITORY, resolved against each sandbox"
+    over: "One resolved base recorded once for the run"
+    reason: |
+      A project may hold several repositories and a feature may exist in one and not another.
+      DeliveryEvidence already keys base refs by repository; the rung is resolved the same way. One
+      value for the run would send the repository without the feature branch to a base it does not
+      have. The ladder is a pure function of (sandbox, parent stamp), so resolving it per repository
+      at the cut and again at the account yields the same answer without a store to keep in sync.
+
+  - category: Architecture
+    chose: "The rung is named by TicketBranchNamer.Compose(parent ticket id) — agent-smith/<parent>"
+    over: "A separate feature-branch naming scheme, or a feature segment in the work-branch name"
+    reason: |
+      An EPIC record is refused as work (FiledTicketLabels.IsEpicRecord), so no run ever cuts
+      agent-smith/<epic id> as a work branch and the name is free. The framework's own convention
+      also means the name a slice LOOKS for is the name 2026-09-13-35a4 will compose when it
+      publishes. A feature segment inside the work-branch name was rejected outright: the base is
+      resolved against the clone, never parsed out of a name, and renaming would abandon the open
+      pull request of every ticket that already has one, because a pull request is found by its
+      head branch.
+
+  - category: Architecture
+    chose: "The parent stamp travels on RunBranch and on a new DeliveryBasis, both from RunParentTicket.Of"
+    over: "Each consumer reading ContextKeys.Ticket and the label list for itself"
+    reason: |
+      Two readers of the same labels are two chances to disagree about which branch is the parent —
+      and 2026-09-13-a72a already warns that confusing the parent stamp with a predecessor stamp is
+      a silent wrong answer, not an error. RunBranchResolver was already the one answer to "which
+      branch does this run check out"; it now also answers "under which parent", and DeliveryBasis
+      pairs that stamp with the run id so every ForBranchAsync call site reads the pipeline once.
+
+  - category: Implementation
+    chose: "DeliveryDiff's candidate ladder extracted into DeliveryDiffCandidates"
+    over: "Adding the ladder call inside the 115-line file"
+    reason: |
+      DeliveryDiff sat at 115 lines against the unbaselined ceiling of 120, and FileLengthRatchetTests
+      forbids a new baseline row for a file that never had one. Choosing WHAT to compare against and
+      RUNNING the comparison are different jobs anyway, and the choice is a pure function over two
+      names that needs no sandbox.
+
+  - category: Testing
+    chose: "The cut and the merge are proven against a real git remote carrying a rung"
+    over: "Asserting the argument list a mocked sandbox was handed"
+    reason: |
+      GitRemoteFixture already builds a real remote because whether a branch carries its base is a
+      fact about the tree, not about a recorded string. It now optionally carries a rung between the
+      base and the work branch, so "cut from the rung" is asserted as the rung's file appearing in
+      the work tree, and "merged the rung, not origin/HEAD" as the base-only file staying absent.
+
+  - category: Scope
+    chose: "The ladder is re-resolved per repository at each consumer, not cached for the run"
+    over: "Holding the resolved rung in a run-scoped store, as the spec's scope first read"
+    reason: |
+      The spec said the rung is "held" per repository. The cut and the merge do share one
+      ResolvedBase object — one call site owns both — but the delivery diff runs many pipeline
+      steps later, against a sandbox set that the mid-run ensure_repo_sandbox escalation can have
+      replaced. A rung cached at checkout time would then describe a clone it was never checked
+      against, which is the class of bug this phase exists to close. The ladder is a pure function
+      of (sandbox, parent stamp), so re-asking gives the same answer with nothing to keep in sync.
+      The spec's scope and decisions were corrected to say so.

@@ -31,7 +31,7 @@ internal static class DeliveryEvidence
     public static async Task<Gathered> GatherAsync(
         DeliveryDiff deliveryDiff,
         IReadOnlyDictionary<string, ISandbox> sandboxes,
-        string? runId,
+        DeliveryBasis basis,
         CancellationToken cancellationToken)
     {
         var combined = new StringBuilder();
@@ -40,7 +40,7 @@ internal static class DeliveryEvidence
 
         foreach (var (key, sandbox) in sandboxes)
         {
-            var diff = await deliveryDiff.ForBranchAsync(sandbox, runId, cancellationToken);
+            var diff = await deliveryDiff.ForBranchAsync(sandbox, basis, cancellationToken);
             if (diff.Failed)
             {
                 failures.Add($"{key} ({diff.Basis})");

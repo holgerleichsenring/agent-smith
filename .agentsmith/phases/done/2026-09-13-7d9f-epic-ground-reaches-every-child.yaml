@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-7d9f
+
+goal: "The derivation of an epic's child reads the epic itself, so every slice is cut against the same shared ground instead of re-inventing it per ticket."
+
+applies_to: "backend (an epic-ground fetcher, a derivation prompt section)"
+
+requires:
+  - 2026-09-13-b7ba
+  - 2026-09-13-a72a
+  - 2026-09-13-ab17
+  - 2026-09-13-84c0
+
+scope:
+  in: >
+    A run whose ticket carries a parent label fetches that parent once through the provider's
+    existing GetTicketAsync — its own type, because FetchTicketHandler sits at its ratchet
+    baseline — and carries its body as the run's EPIC GROUND; the ground reaches the DERIVATION as
+    one delimited untrusted section through TicketPromptDelimiters.WrapSection, capped and with a
+    stated drop rule the way the conversation section already caps itself, in its own prompt-section
+    type because SpecPromptComposer has two lines of headroom; the section says the ground is the
+    WHAT that binds every slice and never the form; a parent that cannot be fetched is reported and
+    the run proceeds on its own ticket; a ticket with no parent label behaves exactly as today.
+  out: >
+    THE CODING MASTER. Every epic-child run carries a derived phase spec, so the master takes the
+    phase-execution prompt and is deliberately given the SPEC rather than ticket prose. Adding the
+    epic body there is duplicated WHAT at real token cost against a reader that already has the
+    answer. If evidence from the derivation says otherwise it is a phase against that prompt
+    factory, with the evidence in hand.
+    CHANGING WHAT THE PARENT SAYS. 2026-09-13-b7ba already stops the parent ending in a frozen
+    yaml spec, which is what makes it safe to read at all. What a good epic body should
+    ADDITIONALLY state for a greenfield cut, and which master is told to write it, is the successor
+    this phase makes worth doing — it is answerable with evidence only once a run reads one.
+    READING WHAT THE PREDECESSOR ACTUALLY DELIVERED. Its branch, its diff, its phase accounts —
+    the live signal, of which the epic body is a static stand-in. That is the stronger consistency
+    mechanism and 2026-09-13-a72a's ordering is what makes it buildable; it is a named separate
+    phase, not a silence.
+    RE-READING THE PARENT MID-RUN. Fetched once, with the ticket.
+
+decisions:
+  - key: |
+      THE CONSISTENCY GAP IS NOT THE TEMPLATE'S TO CLOSE. A template gives the FORM — how a handler
+      is written here. It cannot give the WHAT specific to one epic: its vocabulary, the contracts
+      between slices, the decisions a workshop settled. In a brownfield repository the existing
+      code carries that; in a greenfield one nothing does, and each child invents its own.
+  - key: |
+      NOTHING NEW HAS TO BE PRODUCED, ONLY READ. GetTicketAsync is a non-default member of
+      ITicketProvider and all four adapters implement it. The cheapest honest version is a fetch
+      and a prompt section — and it turns "what should an epic body say" into a question with
+      evidence instead of one answered in advance.
+  - key: |
+      THE GROUND IS ONLY SAFE ONCE THE PARENT STOPS BEING A FROZEN CUT. RenderEpicParent shares
+      BuildBody with every phase ticket, so an epic summary ends in a full yaml spec of itself.
+      Handed to five children that is the same staleness the child change removes, multiplied.
+      This phase requires the change that fixes it and asserts the ground carries no fenced block.
+  - key: |
+      THE GROUND IS THE WHAT, AND THE SECTION MUST SAY SO. Handed to a model without that sentence,
+      a body full of structure invites its structure to be copied — the failure that makes a
+      prototype dangerous when it is hung up like a template. The shared precedence section states
+      the order; this phase places the ground inside it, which is why it depends on that text
+      existing rather than inventing its own wording.
+  - key: |
+      IT IS CAPPED, BECAUSE A PARENT GROWS WITH ITS SLICES. The comparable section caps itself at
+      twenty thousand characters and drops oldest-first. A parent carries a goal per slice and
+      nothing bounds how many. A cap and a stated drop rule are cheaper than discovering the
+      window is full.
+  - key: |
+      A MISSING PARENT DEGRADES, IT DOES NOT FAIL. The parent may be deleted, moved or invisible to
+      the token, and the child's own ticket is still a complete requirement. A declared template
+      that is unreachable fails, because it was declared as governing; an epic that is gone is
+      reported.
+
+steps:
+  - id: a-run-fetches-its-epic-once
+    action: "An EpicGroundFetcher resolves the parent label to a ticket through GetTicketAsync and carries its body on the run."
+  - id: the-ground-reaches-the-derivation
+    action: "An EpicGroundPromptSection renders it as one delimited untrusted section, capped with a stated drop rule, named as the what that binds every slice."
+  - id: a-missing-parent-is-reported
+    action: "A parent that cannot be fetched is named on the run and the run proceeds on its own ticket."
+
+tests:
+  - "Run_TicketCarriesParentLabel_FetchesItOnce"
+  - "Run_TicketHasNoParentLabel_FetchUnchanged"
+  - "EpicGround_ReachesTheDerivationPrompt"
+  - "EpicGround_IsDelimitedAsUntrustedRequirementText"
+  - "EpicGround_CarriesNoFencedBlock"
+  - "EpicGround_OverTheCap_DropsByTheStatedRule"
+  - "Run_ParentUnfetchable_ReportedAndRunProceeds"
+
+done:
+  - "two children of one epic are cut against the same stated ground instead of two independent readings"
+  - "the epic's text reaches the derivation marked as the what and not the form, and carries no frozen spec"
+  - "a parent longer than the cap drops by a rule the section states, not by truncation nobody sees"
+  - "a ticket with no parent produces the same derivation prompt as today"
+  - "an unreachable parent is named on the run and does not stop it"
+  - "build green, full suite green"

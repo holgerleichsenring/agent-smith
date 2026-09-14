@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-b7ba
+
+decisions:
+  - category: Architecture
+    chose: "An epic's tickets — parent and children — are filed as REQUIREMENTS, with no fenced block"
+    over: "Keeping the work-order shape every filed ticket has had"
+    reason: |
+      An embedded spec is authoritative: SpecSourceResolver finds a spec in the description and
+      returns NeedsModel false, so DeriveSpecHandler never calls the model at all. A child filed
+      today and worked in three weeks would therefore replay a cut made against a repository its
+      siblings have since moved — the most stale artifact in the run winning silently over the
+      repository it claims to plan against. This is also why a template handed to the derivation
+      changed nothing for exactly the tickets the epic path produces.
+
+  - category: Architecture
+    chose: "\"The same markdown minus the fence\" was not enough, and the renderer says why"
+    over: "Dropping the block and leaving the sections alone"
+    reason: |
+      Two measured facts made that plan wrong. The Why section mapped decisions with `d as
+      string`, so every modern {key: '…'} decision rendered as an empty line and was filtered
+      away — the reasoning has been absent from every ticket this product has ever filed. And the
+      section headed Scope rendered steps[].action, never scope: at all. Kept as-is, a child would
+      have carried the cut-time step list under a scope heading with no reasoning: the stale plan
+      this phase removes, minus its justification.
+
+  - category: Architecture
+    chose: "Steps are omitted from a requirement on purpose"
+    over: "Carrying them as prose so nothing is lost"
+    reason: |
+      A requirement states what is wanted; how it is cut is decided later, against the repository
+      as it then is. Carrying the steps in prose would let the deriver anchor on them and
+      reproduce the cut it was supposed to redo — the same failure as the embedded block, one
+      format down.
+
+  - category: Architecture
+    chose: "A single-phase outcome keeps its work order, untouched"
+    over: "One shape for everything"
+    reason: |
+      It was cut against the code as it is, by a dialogue that had just read that code, and it is
+      filed to be worked now. The p0315c/p0315d contract — exactly one fenced block, inverted by
+      the extractor — stands unchanged for that shape, and a test pins both halves.
+
+  - category: Architecture
+    chose: "The two body shapes move into PhaseTicketBody"
+    over: "A second builder inside the renderer"
+    reason: |
+      There are now two shapes and exactly one of them may open a fence. That rule is easier to
+      keep when the two are written side by side, and the renderer drops to the three entry points
+      it is named for.

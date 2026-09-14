@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-9f84
+
+goal: "What a template declares as its own proof is read while its scope is open and reported, so how many templates prove anything at all becomes a number before anything is refused on it."
+
+applies_to: "backend (the verify-block reader's reach, the derivation look)"
+
+requires:
+  - 2026-09-13-84c0
+
+scope:
+  in: >
+    The parse reaches the assembly the derivation lives in WITHOUT being duplicated: the reader is
+    internal to Infrastructure, but IContextYamlSerializer is the Contracts port that owns the
+    parse, is registered, and already hands Application the very stages that reader produces — so
+    nothing moves and nothing widens (see decisions). While a template scope stands OPEN, its
+    context.yaml is read at the revision the scope landed on and the ordered stages it declares,
+    or their absence, are minted as a framework evidence line on the derivation, the channel that
+    already carries what a look saw and already reaches the persisted spec set.
+  out: >
+    REFUSING A TEMPLATE THAT PROVES NOTHING. The count comes first: none of the estate's
+    boilerplates carries a verify block today, so a gate would refuse everything on day one and its
+    cheapest exit would be one trivial stage. A successor promotes the report to a refusal once the
+    count says a template can pass.
+    RUNNING THE STAGES. That needs an EXECUTING sandbox with the template's toolchain — the
+    read-only scope refuses Run by step kind — and it is a second pod per template. Its own phase,
+    under the template owner's configuration.
+    A PROOF STORE KEYED BY REVISION. An entity, a port and migrations in two assemblies, worth
+    paying for only once there is an outcome worth caching.
+    MATERIALISING A TEMPLATE IN ORDER TO READ IT. 2026-09-13-84c0 kept the derivation's scopes
+    lazy because an eager clone spends a pod on every derivation that declares a template. A
+    scope nobody opened is not read; the count is of the templates a derivation actually opened.
+
+decisions:
+  - key: |
+      THE REACH TURNED OUT TO BE A PORT THAT ALREADY EXISTED. The reader is internal, its output
+      is not: IContextYamlSerializer.Parse already returns the stages it reads, in Contracts, in
+      DI, injected in Application twice. Moving the reader, widening it, or minting a new port
+      would each have been a second way to parse one file. The spec said otherwise and was
+      corrected here.
+  - key: |
+      IT MOVED THREE TIMES BEFORE IT GOT ITS OWN PHASE, AND THAT WAS THE SIGNAL. It was written
+      into the template gate, folded into the config resolver — which has no sandbox — then into
+      the derivation look, where the parser turns out to be internal to another assembly. Each move
+      was a scope call dressed as an edit. The reach is the actual work, so it is the phase.
+  - key: |
+      AN EVIDENCE LINE IS THE CHANNEL THAT ALREADY EXISTS AND IS ALREADY PERSISTED. The
+      alternatives were a Run column with migrations in two assemblies, or a log line nobody reads
+      — and a report nobody reads is the failure this whole set is about. The derivation's evidence
+      lines are framework-minted, carry ids, and reach the spec set on the branch.
+
+steps:
+  - id: the-reader-reaches-the-derivation
+    action: "The verify parse is reached from the derivation's assembly without duplicating it — through IContextYamlSerializer, the Contracts port that owns it."
+  - id: the-block-is-read-while-the-scope-is-open
+    action: "An OPEN template's context.yaml is read at the revision the scope landed on and its verify stages parsed; a scope nobody opened is not materialised for it."
+  - id: what-it-declares-is-minted-as-evidence
+    action: "The stages, or their absence, become a framework evidence line on the derivation."
+
+tests:
+  - "TemplateVerify_ContextDeclaresStages_MintedAsEvidence"
+  - "TemplateVerify_ContextDeclaresNone_ReportedNotRefused"
+  - "TemplateVerify_NoTemplateInTheLook_NoEvidenceLine"
+  - "TemplateVerify_ScopeNeverOpened_IsNotMaterialisedToReadIt"
+  - "TemplateVerify_NoContextUnderThatName_SaysSoInsteadOfDeclaringNone"
+  - "TemplateVerify_EveryAttemptOfTheRetryLoop_MintsOneLine"
+
+done:
+  - "a derivation that looked into a template says what that template declares as its own proof"
+  - "a template declaring no verify block is named as declaring none, and the run proceeds"
+  - "how many opened templates prove anything is readable off the runs"
+  - "build green, full suite green"

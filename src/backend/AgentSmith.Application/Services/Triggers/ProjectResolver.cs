@@ -31,6 +31,15 @@ public sealed class ProjectResolver(
 {
     public IReadOnlyList<ProjectMatch> Resolve(AgentSmithConfig config, IncomingTicketEnvelope envelope)
     {
+        // 2026-09-13-a3f1: refused before every other rule — each of those ends in something,
+        // and on a project with no pipeline_from_label that something is DefaultPipeline.
+        if (FiledTicketLabels.IsEpicRecord(envelope))
+        {
+            logger?.LogInformation("ProjectResolver: '{Label}' is a record of a cut, not work",
+                PhaseTicketRenderer.EpicLabel);
+            return [];
+        }
+
         var matches = new List<ProjectMatch>();
         foreach (var (projectName, project) in config.Projects)
         {
@@ -53,7 +62,7 @@ public sealed class ProjectResolver(
                 // hard-bound to the phase-execution preset on every project it matches —
                 // BEFORE pipeline_from_label, which would otherwise drop it (no operator
                 // maps the framework-owned label). Everything else keeps today's routing.
-                var pipeline = HasPhaseLabel(envelope)
+                var pipeline = FiledTicketLabels.IsPhaseTicket(envelope)
                     ? PipelinePresets.PhaseExecutionName
                     : pipelineResolver.Resolve(
                         trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
@@ -74,7 +83,7 @@ public sealed class ProjectResolver(
                 matches.Add(new ProjectMatch(projectName, pipeline, kind));
             }
         }
-        EmitAmbiguousMetric(matches);
+        AmbiguousResolutionMetric.EmitIfAmbiguous(metrics, matches);
         return matches;
     }
 
@@ -91,15 +100,6 @@ public sealed class ProjectResolver(
             "ProjectResolver: project '{Project}' {Kind} is disabled by a startup finding — {Reason}",
             projectName, matchKind, reason);
         return true;
-    }
-
-    private void EmitAmbiguousMetric(IReadOnlyList<ProjectMatch> matches)
-    {
-        if (matches.Count <= 1) return;
-        foreach (var m in matches)
-            metrics.AmbiguousResolution.Add(1,
-                new KeyValuePair<string, object?>("project", m.ProjectName),
-                new KeyValuePair<string, object?>("pipeline", m.PipelineName));
     }
 
     private static IEnumerable<(string Kind, WebhookTriggerConfig Trigger)> EnumerateTriggers(ResolvedProject project)
@@ -124,10 +124,6 @@ public sealed class ProjectResolver(
             _ => false,
         };
     }
-
-    private static bool HasPhaseLabel(IncomingTicketEnvelope envelope)
-        => envelope.Labels.Any(l =>
-            string.Equals(l, PhaseTicketRenderer.PhaseLabel, StringComparison.OrdinalIgnoreCase));
 
     private static bool MatchesTag(IncomingTicketEnvelope envelope, string value)
         => envelope.Labels.Any(l => string.Equals(l, value, StringComparison.OrdinalIgnoreCase));

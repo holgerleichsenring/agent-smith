@@ -15,23 +15,27 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// credentials a fetch would need.
 /// </para>
 /// <para>
+/// 2026-09-13-5cdf: the base is HANDED IN, not resolved here. The work-branch cut resolved
+/// it one step earlier, and a merger that asked again would merge the DEFAULT branch into a
+/// slice cut from a feature rung — quietly dissolving the isolation the rung exists for.
+/// </para>
+/// <para>
 /// A conflict is ABORTED here, before anyone sees the result: the finalizer tail stages
 /// <c>git add -A</c> and force-pushes with a lease, and a tree carrying conflict markers
 /// must never reach it.
 /// </para>
 /// </summary>
-public sealed class WorkBranchBaseMerger(
-    SandboxBaseBranch baseBranch, ILogger<WorkBranchBaseMerger> logger)
+public sealed class WorkBranchBaseMerger(ILogger<WorkBranchBaseMerger> logger)
 {
     private const int TimeoutSeconds = 300;
 
-    /// <summary>Merges the repository's base branch into the sandbox's current HEAD.</summary>
-    public async Task<BaseMergeResult> MergeIntoCurrentAsync(ISandbox sandbox, CancellationToken ct)
+    /// <summary>Merges the resolved base into the sandbox's current HEAD.</summary>
+    public async Task<BaseMergeResult> MergeIntoCurrentAsync(
+        ISandbox sandbox, ResolvedBase resolved, CancellationToken ct)
     {
-        var name = await baseBranch.ResolveAsync(sandbox, ct);
-        if (name is null)
+        ArgumentNullException.ThrowIfNull(resolved);
+        if (resolved.Ref is not { } baseRef)
             return BaseMergeResult.Unavailable("this clone's origin/HEAD names no base branch");
-        var baseRef = $"origin/{name}";
 
         // Exit 0 = the base is already an ancestor of HEAD, 1 = it is not, anything else =
         // the ref cannot be read. Deciding on exit codes keeps the answer independent of

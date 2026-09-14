@@ -5,15 +5,16 @@ goal: "A repository's context records which revision of the rules its principles
 
 applies_to: "backend (bootstrap principles transfer, context document)"
 
-requires:
-  - 2026-09-03-8d13
-
 scope:
   in: >
     A typed field on the context document naming the source revision the principles were composed
-    from, written by the framework at transfer time next to the file it describes; a
-    re-initialisation whose resolved revision equals the recorded one leaves both files untouched;
-    the field is read and reported, never authored by a model.
+    from — written where context.yaml is ACTUALLY written, which is the bootstrap skill's round
+    after the transfer, not the transfer itself; the transfer reports the revision it composed
+    from and the round records it, so neither invents what the other did. It is recorded ONLY
+    when the principles were composed: a preserved file was composed from nothing here, and a
+    field claiming otherwise would be a false provenance on the one case it matters. A
+    re-initialisation whose resolved revision equals the recorded one leaves both files
+    untouched. The field is read and reported, never authored by a model.
   out: >
     A SCHEDULED SWEEP over projects. Whether a cadence should re-initialise an estate is a separate
     question with its own answers to fan-out, admission, auto-acceptance and leader election, and
@@ -31,19 +32,35 @@ decisions:
       deliberately taken away from the model; a stamp authored by a model would be a claim about
       what the framework did.
   - key: |
+      A PRESERVED FILE GETS NO STAMP, BECAUSE THE STAMP IS A CLAIM ABOUT COMPOSITION. The transfer
+      returns PreservedExisting before it writes anything, so on that path nothing was composed
+      from any revision. Recording one anyway would say "these principles came from X" about a
+      file a human wrote — and the whole point of the field is that a later run can say what
+      moved. A stamp that can lie is worse than an absent one, which reads honestly as "this
+      repository's principles are its own".
+  - key: |
+      THE TRANSFER REPORTS, THE ROUND RECORDS. BootstrapRoundHandler calls the transfer BEFORE the
+      skill that writes context.yaml. A field the transfer wrote itself would be a second writer
+      of that document, racing the skill that owns it; a field the skill invents would be a model
+      authoring a claim about what the framework did, which is exactly why the principles path was
+      taken away from the model.
+  - key: |
       RECORDING IS NOT ROLLING OUT. This phase makes a moved source visible. Deciding what happens
       to an estate when it moves is the harder question and is left standing.
 
 steps:
   - id: the-context-carries-a-principles-revision
     action: "A typed field naming the composed-from revision is added to the context document and its schema."
-  - id: the-transfer-writes-the-revision
-    action: "The principles transfer writes the resolved revision when it composes the file."
+  - id: the-transfer-reports-the-revision-it-composed-from
+    action: "The transfer returns the resolved revision alongside its per-path outcome; a preserved file reports none."
+  - id: the-round-records-it-on-the-context
+    action: "The bootstrap round writes the reported revision onto context.yaml, where that document is already written."
   - id: an-unchanged-revision-changes-nothing
     action: "A re-initialisation whose resolved revision equals the recorded one leaves principles and context untouched."
 
 done:
   - "an initialised repository's context names the revision its principles came from"
   - "re-initialising at the same revision produces no file change and no pull request"
-  - "a repository whose principles were preserved is not rewritten"
+  - "a repository whose principles were preserved is not rewritten and carries NO revision field"
+  - "the revision is written by the round that writes context.yaml, never by the transfer"
   - "build green, full suite green"

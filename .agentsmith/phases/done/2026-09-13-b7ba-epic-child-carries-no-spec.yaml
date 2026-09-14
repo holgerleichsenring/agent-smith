@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-b7ba
+
+goal: "An epic is filed as a requirement — parent and children both — instead of a ready-made cut, so the run that picks a child up derives against the code as it has become."
+
+applies_to: "backend (the phase-ticket renderer, the outcome ticket filer)"
+
+scope:
+  in: >
+    A NEW requirement body builder: goal, the reasoning, scope in AND out, requires, the parent
+    reference — and NO steps and no fenced block; OutcomeTicketFiler files an epic's children AND
+    ITS PARENT in that shape, the parent keeping its ordered slice list, while a single-phase
+    outcome keeps the executable phase ticket unchanged; the
+    children keep the phase label; the decision renderer is fixed in the same phase so the
+    reasoning is not silently empty.
+  out: >
+    THE EPIC PARENT'S ROUTING. Filing it without a label would make it worse, not better —
+    2026-09-13-a3f1 owns that and proves it at the resolver.
+    THE DERIVATION'S CONTENT. What the deriver then reads the ticket against is 2026-09-13-84c0.
+    THE p0315c/p0315d CONTRACT. Unchanged for the single-phase shape: one fenced yaml block, and
+    the extractor inverts it.
+
+decisions:
+  - key: |
+      A TICKET FILED TODAY IS WORKED IN THREE WEEKS, AFTER ITS SIBLINGS MOVED THE CODE. An embedded
+      spec is authoritative: SpecSourceResolver finds it in the description and returns NeedsModel
+      false, so DeriveSpecHandler never calls the model. The most stale artifact in the run wins
+      silently, and it wins over the repository it claims to plan against.
+  - key: |
+      THIS IS WHY THE TEMPLATE NEVER REACHED A RUN. The epic path files children with an embedded
+      spec, so the per-ticket derivation does not run, so a template handed to the derivation
+      changes nothing for exactly the tickets the epic path produces. This phase is what makes
+      2026-09-13-84c0 worth building.
+  - key: |
+      "THE SAME MARKDOWN MINUS THE FENCE" WOULD NOT HAVE WORKED, AND THE RENDERER SAYS WHY. Today
+      the "Why" section maps decisions with `d as string`, so every modern {key: '…'} decision
+      renders as an empty line and is filtered out — the reasoning is already absent from every
+      filed ticket. And the section headed "Scope" renders steps[].action, not scope: at all. Kept
+      as is, a child would carry the cut-time step list under a scope heading with no reasoning:
+      the stale plan this phase exists to remove, minus its justification.
+  - key: |
+      THE PARENT ENDS IN A FENCED SPEC TOO, AND THAT IS WORSE THAN ON A CHILD. RenderEpicParent
+      calls the same BuildBody, so the epic summary carries a full yaml phase spec of itself. It
+      is not extracted today because nothing reads a parent — but 2026-09-13-7d9f makes every
+      child run read it, and a frozen cut handed to five children is the same staleness this phase
+      removes, one level up and multiplied. Both bodies change here or neither should.
+  - key: |
+      STEPS ARE OMITTED ON PURPOSE, AND THAT IS THE WHOLE POINT. A requirement states what is
+      wanted; how it is cut is decided later against the repository as it then is. Carrying the
+      steps in prose would let the deriver anchor on them and reproduce the cut it was supposed to
+      redo.
+  - key: |
+      A SINGLE-PHASE OUTCOME KEEPS ITS SPEC. It was cut against the code as it is, by a dialogue
+      that just read that code, and it is filed to be worked now.
+
+steps:
+  - id: the-decision-renderer-stops-dropping-reasoning
+    action: "Map-shaped decisions render into the body instead of collapsing to an empty line."
+  - id: a-requirement-body-builder
+    action: "A new builder renders goal, reasoning, scope in and out, requires and the parent reference — no steps, no fenced block."
+  - id: the-filer-uses-it-for-the-whole-epic
+    action: "OutcomeTicketFiler files an epic's parent and its children as requirements; a single-phase outcome still files an executable phase ticket."
+
+tests:
+  - "RenderRequirement_Body_HasNoFencedBlock"
+  - "RenderRequirement_Body_RendersScopeInAndOut"
+  - "RenderRequirement_Body_OmitsSteps"
+  - "RenderBody_MapShapedDecisions_AppearInTheReasoning"
+  - "FileEpic_Children_AreRequirementsAndKeepThePhaseLabel"
+  - "FileEpic_Parent_IsARequirementAndCarriesNoFencedBlock"
+  - "FileEpic_Parent_KeepsItsOrderedSliceList"
+  - "FilePhase_SinglePhaseOutcome_StillEmbedsTheSpec"
+  - "SpecSource_RequirementTicket_ResolvesToDerived"
+
+done:
+  - "an epic child reads as a requirement — what is wanted and why — with no yaml block and no step list"
+  - "the epic parent reads the same way and still lists its slices in order"
+  - "the reasoning is present in the body, which it is not today for any filed ticket"
+  - "a run on an epic child derives its phases instead of replaying a cut made weeks earlier"
+  - "a single-phase outcome still round-trips through the extractor unchanged"
+  - "build green, full suite green"

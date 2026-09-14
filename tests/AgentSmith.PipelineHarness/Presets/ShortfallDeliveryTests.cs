@@ -135,12 +135,21 @@ public sealed class ShortfallDeliveryTests
 
         public async Task<string> CreatePullRequestAsync(
             Repository repository, string title, string description,
-            CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false)
+            CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+            BranchName? targetBranch = null)
         {
-            var url = await _inner.CreatePullRequestAsync(repository, title, description, cancellationToken, linkedTicketId, isDraft);
+            var url = await _inner.CreatePullRequestAsync(
+                repository, title, description, cancellationToken, linkedTicketId, isDraft, targetBranch);
             lock (_drafts) { if (isDraft) _drafts.Add(url); else _drafts.Remove(url); }
             return url;
         }
+
+        public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+            _inner.ReadPullRequestBaseAsync(prUrl, cancellationToken);
+
+        public Task<bool> RetargetPullRequestAsync(
+            string prUrl, BranchName target, CancellationToken cancellationToken) =>
+            _inner.RetargetPullRequestAsync(prUrl, target, cancellationToken);
 
         public Task<string?> FindOpenPullRequestAsync(Repository repository, CancellationToken cancellationToken) =>
             _inner.FindOpenPullRequestAsync(repository, cancellationToken);

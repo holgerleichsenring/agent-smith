@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-a3f1
+
+goal: "An epic parent ticket is recognised as the record of a cut and never starts a run, whatever a project's label routing happens to be configured as."
+
+applies_to: "backend (project resolution, discovery query)"
+
+scope:
+  in: >
+    An epic parent carries an explicit non-work marker; ProjectResolver honours it BEFORE
+    pipeline_from_label and before any default, so no routing path can turn it into a run; the
+    filer stamps the marker when it creates the parent, in place of the phase label it carries
+    today. Proven at the resolver, on a project with no
+    pipeline_from_label — the configuration where the fallback fires.
+  out: >
+    A CHANGE TO THE DISCOVERY QUERY. None is needed once the parent stops carrying the PHASE
+    label: that label is force-added to the server-side trigger-label filter precisely so a phase
+    ticket cannot be filtered out, and a parent that no longer carries it is simply not pulled in
+    by a filtered query. Where no filter is configured the query fetches everything anyway and the
+    resolver is what refuses. Adding an exclusion vocabulary to DiscoveryQuery would mean changing
+    every provider that renders one, to buy nothing.
+    THE CHILD TICKET'S SHAPE. What a child body contains is 2026-09-13-b7ba.
+    A TRACKER-NATIVE EPIC TYPE. No provider has linking or hierarchy vocabulary here; the marker
+    is a label like every other routing signal.
+    HIDING THE PARENT FROM A HUMAN. It stays a ticket, readable, with its slice list. It simply is
+    not work.
+
+decisions:
+  - key: |
+      REMOVING A LABEL IS NOT A ROUTING DECISION, AND ON THE COMMONEST CONFIGURATION IT MAKES
+      THINGS WORSE. Today the parent carries the phase label, so ProjectResolver hard-binds it to
+      phase execution and it dies at the spec gate — wasteful but contained. Drop the label on a
+      project with no pipeline_from_label and PipelineResolver returns DefaultPipeline, so an epic
+      summary becomes a full coding run. The server-side discovery guard does not save it either:
+      that guard is only injected when trigger labels exist, which is the same configuration where
+      the default does not fire.
+  - key: |
+      THE MARKER IS READ BEFORE EVERY OTHER RULE, BECAUSE EVERY OTHER RULE HAS A FALLBACK. Label
+      routing, area path, repo and to-address each end in something. A ticket that is not work has
+      to be refused ahead of all of them or one of them will claim it.
+  - key: |
+      THE LABEL IS FRAMEWORK-OWNED AND IS NOT "epic". An operator may already label their own
+      epics that way, and a framework rule that silently stops routing them would be a change to
+      their process made by a name collision. "phase-epic" sits in the same namespace as the
+      "phase" label it replaces on the parent.
+  - key: |
+      THE TEST BELONGS AT THE RESOLVER, NOT THE FILER. A filer test proves what was written on the
+      ticket; only a resolver test proves what happens to it, and the failing configuration is one
+      the filer never sees.
+
+steps:
+  - id: the-parent-carries-a-non-work-marker
+    action: "OutcomeTicketFiler stamps an explicit non-work marker on the epic parent."
+  - id: resolution-refuses-it-first
+    action: "ProjectResolver honours the marker before pipeline_from_label and before any default pipeline."
+
+tests:
+  - "ProjectResolver_EpicParent_NoPipelineFromLabel_IsNotRouted"
+  - "ProjectResolver_EpicParent_WithPipelineFromLabel_IsNotRouted"
+  - "ProjectResolver_OrdinaryTicket_RoutingUnchanged"
+  - "FileEpic_Parent_CarriesTheMarker"
+
+done:
+  - "an epic parent starts no run on a project with label routing and none on a project without it"
+  - "an ordinary ticket routes exactly as it does today"
+  - "the parent stays a readable ticket carrying its slice list"
+  - "build green, full suite green"

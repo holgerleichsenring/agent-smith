@@ -36,6 +36,7 @@ public static class PipelineHandlersExtensions
     {
         services.AddTransient<ICommandHandler<LoadCatalogContext>, LoadCatalogHandler>();
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
+        services.AddTransient<TicketExtrasFetcher>().AddTransient<EpicGroundFetcher>();
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
         services.AddTransient<Scope.RepoScopeClassifier>().AddTransient<Scope.RemoteContextInventoryBuilder>();
@@ -45,8 +46,7 @@ public static class PipelineHandlersExtensions
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)
         // and the per-run factory for the master's escalation tool host.
-        services.AddTransient<SandboxRepoCloner>();
-        services.AddTransient<Tools.EnsureRepoSandboxToolFactory>();
+        services.AddTransient<SandboxRepoCloner>().AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
         services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
         // p0375: generic registry-auth staging for ecosystems the deterministic
@@ -192,13 +192,13 @@ public static class PipelineHandlersExtensions
         services.AddTransient<DeliveryDiff>();
         services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
-        services.AddTransient<Specs.PhaseAccounting>();
-        services.AddTransient<Specs.PhaseEntryAccount>();
+        services.AddTransient<Specs.PhaseAccounting>().AddTransient<Specs.PhaseEntryAccount>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddPhaseExecution(); // 2026-08-26-31e5
-        services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
+        services.AddTransient<AgentSmith.Application.Services.Sandbox.SourceScopeMaterialiser>()
+            .AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddSingleton<HttpProbeRunner>();
         return services.AddScanPipelines(); // p0429
     }

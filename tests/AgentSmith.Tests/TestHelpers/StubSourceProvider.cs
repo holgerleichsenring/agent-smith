@@ -24,10 +24,25 @@ internal sealed class StubSourceProvider : ISourceProvider
         Task.FromResult(new Repository(
             branch ?? new BranchName("agent-smith/stub"), "git://stub"));
 
+    // 2026-09-13-a284: the stub remembers the base it was asked to open against, so a
+    // test can assert WHICH rung reached the provider instead of only that a PR was opened.
+    public BranchName? LastTarget { get; private set; }
+
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
-        Task.FromResult($"https://stub.test/pulls/{linkedTicketId?.Value ?? "1"}");
+        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+        BranchName? targetBranch = null)
+    {
+        LastTarget = targetBranch;
+        return Task.FromResult($"https://stub.test/pulls/{linkedTicketId?.Value ?? "1"}");
+    }
+
+    public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
+    public Task<bool> RetargetPullRequestAsync(
+        string prUrl, BranchName target, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
 
     // p0390: no PR exists on the stub, so find-or-create always falls through to create.
     public Task<string?> FindOpenPullRequestAsync(

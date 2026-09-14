@@ -37,6 +37,8 @@ internal static class SpecPromptComposer
         AppendWorkShape(sb, pipeline);
         AppendNamedContexts(sb, pipeline);
         AppendQuestionPin(sb, pipeline);
+        // 2026-09-13-7d9f: the epic this ticket is one slice of — the WHAT that binds them all.
+        sb.Append(EpicGroundPromptSection.Build(pipeline));
         sb.Append(PreviousCutPromptSection.Render(previous, cause));
         return sb.ToString();
     }

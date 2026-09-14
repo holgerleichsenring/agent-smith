@@ -450,9 +450,10 @@ public class CommitAndPRHandlerTests
         var capturedDraft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
-                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<BranchName?>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "fix-bug");
@@ -488,8 +489,8 @@ public class CommitAndPRHandlerTests
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
-                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = ShortfallPipeline(withVerifiedHead: true);
         var context = CreateContext(pipeline);
@@ -517,8 +518,8 @@ public class CommitAndPRHandlerTests
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
-                (_, _, _, _, _, draft) => capturedDraft = draft)
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                (_, _, _, _, _, draft, _) => capturedDraft = draft)
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = ShortfallPipeline(withVerifiedHead: false);
 
@@ -565,9 +566,10 @@ public class CommitAndPRHandlerTests
         var capturedDraft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
-                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<BranchName?>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
 
         var pipeline = NewPipelineWithSandbox();
@@ -636,6 +638,30 @@ public class CommitAndPRHandlerTests
         var outcome = _events.Events.OfType<PullRequestOutcomeEvent>().Single();
         outcome.Status.Should().Be("opened");
         result.IsSuccess.Should().BeTrue(result.Message);
+    }
+
+    // 2026-09-13-6f35: a declared template is addressable by the coding master and ABSENT
+    // from ContextKeys.Sandboxes, which is the map this handler iterates. A foreign
+    // read-only checkout in it would be a commit attempt on somebody else's repository.
+    [Fact]
+    public async Task CommitAndPR_ProjectWithTemplate_CommitsOnlyTargetRepos()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.ProjectConfig,
+            AgentSmith.Tests.Handlers.CodingMasterTemplateTests.ProjectWithTemplate());
+        var template = new AgentSmith.Tests.Handlers.CodingMasterTemplateTests.RecordingScope();
+        await using var attachment = await AgentSmith.Tests.Handlers.CodingMasterTemplateTests
+            .Scopes(template)
+            .OpenAsync(pipeline, draft: null, readOnlySurface: false, CancellationToken.None);
+        attachment.Names.Should().ContainSingle("the template is open to this run");
+
+        var result = await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        template.Ran.Should().BeEmpty("the template checkout is never committed, pushed or diffed");
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
     }
 
     private CommitAndPRContext CreateContext(PipelineContext? pipeline = null)

@@ -31,8 +31,13 @@ public sealed class ConfigCatalogResolver(
     private readonly TrackerCatalogBuilder _trackers = new();
     private readonly ConnectionCatalogBuilder _connections = new();
     private readonly ResolvedConfigComposer _composer = new();
-    private readonly ResolvedProjectBuilder _projects =
-        new(new ProjectRepoResolver(urlBuilder ?? new ConnectionRepoUrlBuilder()));
+    private readonly ResolvedProjectBuilder _projects = BuildProjects(urlBuilder);
+
+    private static ResolvedProjectBuilder BuildProjects(IConnectionRepoUrlBuilder? urlBuilder)
+    {
+        var repos = new ProjectRepoResolver(urlBuilder ?? new ConnectionRepoUrlBuilder());
+        return new ResolvedProjectBuilder(repos, new ProjectTemplateResolver(repos));
+    }
 
     /// <summary>
     /// What the LAST <see cref="Resolve"/> call could not materialize. The server reads
@@ -70,10 +75,26 @@ public sealed class ConfigCatalogResolver(
         foreach (var (name, entry) in raw.Projects)
         {
             if (dropped.Contains(name)) continue;
-            var resolved = TryBuildProject(name, entry, catalogs, findings);
+            var resolved = TryBuildProject(name, entry, catalogs, findings, raw.Projects);
             if (resolved is not null) result[name] = resolved;
         }
+        // 2026-09-13-5fa0: a cycle is only visible across projects, so it is checked over the
+        // graph once rather than per entry. A project in a cycle keeps its other wiring — the
+        // finding names the cycle and the templates of that project resolve to nothing.
+        foreach (var message in ProjectTemplateRules.CheckCycles(TemplateTargets(raw)))
+            findings.Add(ProjectFindings.Blocking(
+                message.Split('\'')[1], "templates", message));
         return result;
+    }
+
+    // Keys that differ only in case are DROPPED by the collision detector, so they must not
+    // collide into a throw here on the way to a cycle check they will never take part in.
+    private static Dictionary<string, IReadOnlyList<string>> TemplateTargets(RawAgentSmithConfig raw)
+    {
+        var targets = new Dictionary<string, IReadOnlyList<string>>(ConfigNames.Comparer);
+        foreach (var (name, entry) in raw.Projects)
+            targets[name] = [.. entry.Templates.Select(t => t.Project).Distinct(ConfigNames.Comparer)];
+        return targets;
     }
 
     // Repo-glob expansion and static connection-URL building still signal by exception —
@@ -81,11 +102,13 @@ public sealed class ConfigCatalogResolver(
     // Catching here keeps the blast radius at one project instead of the whole config,
     // which is what letting it escape used to cost.
     private ResolvedProject? TryBuildProject(
-        string name, RawProjectEntry entry, ConfigCatalogs catalogs, List<StartupFinding> findings)
+        string name, RawProjectEntry entry, ConfigCatalogs catalogs, List<StartupFinding> findings,
+        IReadOnlyDictionary<string, RawProjectEntry> rawProjects)
     {
         try
         {
-            return _projects.TryBuild(name, entry, catalogs, globExpander, findings);
+            return _projects.TryBuild(
+                name, entry, catalogs, globExpander, findings, rawProjects);
         }
         catch (ConfigurationException ex)
         {

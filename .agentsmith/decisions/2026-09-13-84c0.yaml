@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-84c0
+
+decisions:
+  - category: Architecture
+    chose: "A template entry lands in a COPY of the sandbox map, never in ContextKeys.Sandboxes"
+    over: "Adding it to the run's map, which is what 'one more name' sounded like"
+    reason: |
+      Seventeen call sites iterate ContextKeys.Sandboxes — CommitAndPR, LoadContext,
+      LoadCodingPrinciples, AnalyzeProject, SetupRegistryAuth, the master, the bootstrap
+      handlers, three preflight checks. An entry there would be a foreign read-only checkout
+      that CommitAndPR tries to commit and the toolchain probe tries to image. The look gets a
+      merged copy; the pipeline's map is untouched, and a test says so.
+
+  - category: Architecture
+    chose: "The template has its OWN look allowance"
+    over: "The existing twelve, shared, as the first cut of the spec argued"
+    reason: |
+      AccountSearchBudget records the measured case verbatim: twelve searches on one shared
+      instance, the first repository spent them all, and every later question was answered "No
+      search left" — with its own comment stating that a bigger shared pool does not fix it,
+      because it is still one pool. A derivation is worse off than that account: its allowance
+      never re-opens across the retry loop. The scope-out that said a template earns no
+      exception was re-deciding a question the repo had already answered with a measurement.
+
+  - category: Architecture
+    chose: "TryOpen resolves the repository BEFORE it charges an allowance"
+    over: "Keeping the charge-then-resolve order"
+    reason: |
+      Which budget to charge cannot be chosen before the name is known to be a template or a
+      target, so the order had to invert. It changes existing behaviour and the change is an
+      improvement worth naming: a mis-addressed guess used to cost the target a look, and this
+      phase introduces a brand-new naming convention for the model to guess at.
+
+  - category: Architecture
+    chose: "A template look refused for budget FAILS the derivation"
+    over: "Answering the model with the refusal sentence, as an exhausted target look does"
+    reason: |
+      Exhausted is a sentence to the model, not a run failure. A derivation that runs out
+      mid-look cuts against the target's habits while the declaration says a template governs,
+      and the run record then carries a provenance that is false. The look records the refusal
+      and the deriver turns it into an error.
+
+  - category: Architecture
+    chose: "The look is IAsyncDisposable and the deriver awaits it"
+    over: "Leaving the scope to the idle self-exit and the orphan reaper"
+    reason: |
+      The look's map used to come entirely from the pipeline, whose sandboxes the coordinator
+      disposes. A source scope created here is in no such set — DerivationLookFactory is
+      transient and SpecSetDeriver had no finally. "Eventually reaped" is not a lifetime.
+      SpecDialogTurnRunner's finally is the working precedent and this copies it.
+
+  - category: Architecture
+    chose: "Selection by the contexts the run DISCOVERED, with an empty set meaning all"
+    over: "Materialising every declared template of the project"
+    reason: |
+      The binding is per context, so a project may declare a template for a component this
+      ticket never touches — materialising that is a clone nobody asked for. Where a run
+      published no context list at all (a resume, a preset that discovers nothing) an empty set
+      selects everything: refusing to look is the worse of the two failures.
+
+  - category: Scope
+    chose: "Materialisation stays LAZY, so an unreachable template fails on the first look"
+    over: "Materialising eagerly so the failure lands before the model is called"
+    reason: |
+      Eager materialisation spends a pod on every derivation of every project that declares a
+      template, including the many where the model never looks — and the scope's whole design
+      is that creation is free. The failure is still typed and still fails the derivation; it
+      simply arrives when someone actually asks for the template.

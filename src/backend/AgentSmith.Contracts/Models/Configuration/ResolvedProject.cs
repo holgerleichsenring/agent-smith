@@ -15,6 +15,13 @@ public sealed record ResolvedProject
     public TrackerConnection Tracker { get; init; } = new();
     public IReadOnlyList<RepoConnection> Repos { get; init; } = [];
 
+    /// <summary>
+    /// 2026-09-13-5fa0: what each context of this project is built after, resolved to the
+    /// target's RepoConnection so a consumer need not re-read the catalog. Empty for every
+    /// project that declares none, which is every project today.
+    /// </summary>
+    public IReadOnlyList<ProjectTemplate> Templates { get; init; } = [];
+
     public string Pipeline { get; init; } = string.Empty;
     public string? CodingPrinciplesPath { get; init; }
     public string SkillsPath { get; init; } = "skills";

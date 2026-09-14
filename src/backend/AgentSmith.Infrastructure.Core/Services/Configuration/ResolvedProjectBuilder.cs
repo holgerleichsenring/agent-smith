@@ -12,75 +12,36 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// (it cannot be run without its agent, tracker or repos); the rest of the configuration
 /// materializes and keeps working.
 /// </summary>
-public sealed class ResolvedProjectBuilder(ProjectRepoResolver repoResolver)
+public sealed class ResolvedProjectBuilder(
+    ProjectRepoResolver repoResolver, ProjectTemplateResolver templateResolver)
 {
-    public ResolvedProjectBuilder() : this(new ProjectRepoResolver(new ConnectionRepoUrlBuilder())) { }
+    public ResolvedProjectBuilder() : this(Repos(), new ProjectTemplateResolver(Repos())) { }
+
+    private static ProjectRepoResolver Repos() => new(new ConnectionRepoUrlBuilder());
 
     public ResolvedProject? TryBuild(
         string name,
         RawProjectEntry raw,
         ConfigCatalogs catalogs,
         RepoGlobExpander? globExpander,
-        List<StartupFinding> findings)
+        List<StartupFinding> findings,
+        IReadOnlyDictionary<string, RawProjectEntry>? rawProjects = null)
     {
         var agent = ResolveAgent(name, raw.Agent, catalogs.Agents, findings);
         var tracker = ResolveTracker(name, raw.Tracker, catalogs.Trackers, findings);
         var repoList = repoResolver.Resolve(
             name, raw.Repos, catalogs.Repos, catalogs.Connections, globExpander, findings);
-        var pipelines = ResolvePipelines(name, raw.Pipelines, catalogs.Agents, findings);
+        var pipelines = ProjectPipelineResolver.Resolve(name, raw.Pipelines, catalogs.Agents, findings);
+        var templates = templateResolver.Resolve(
+            name, raw.Templates, rawProjects ?? new Dictionary<string, RawProjectEntry>(),
+            catalogs, findings);
 
         if (agent is null || tracker is null || repoList is null || pipelines is null) return null;
 
-        return CreateProject(name, raw, agent, tracker, repoList, pipelines);
-    }
-
-    private static IReadOnlyList<PipelineDefinition>? ResolvePipelines(
-        string project, IReadOnlyList<RawPipelineEntry> raws,
-        IReadOnlyDictionary<string, AgentConfig> agents, List<StartupFinding> findings)
-    {
-        var result = new List<PipelineDefinition>(raws.Count);
-        var anyError = false;
-        foreach (var r in raws)
+        return CreateProject(name, raw, agent, tracker, repoList, pipelines) with
         {
-            if (string.IsNullOrEmpty(r.Name))
-            {
-                findings.Add(ProjectFindings.Blocking(project, "pipelines",
-                    $"Project '{project}': pipelines entry is missing required field 'name'."));
-                anyError = true;
-                continue;
-            }
-
-            AgentConfig? resolvedAgent = null;
-            if (!string.IsNullOrEmpty(r.Agent))
-            {
-                if (!agents.TryGetValue(r.Agent, out resolvedAgent))
-                {
-                    findings.Add(ProjectFindings.Blocking(project, "pipelines",
-                        $"Project '{project}': pipeline '{r.Name}' references agent '{r.Agent}' " +
-                        "which is not defined in agents: catalog."));
-                    anyError = true;
-                }
-            }
-
-            if (r.ConfidenceThreshold is < 0 or > 100)
-            {
-                findings.Add(ProjectFindings.Blocking(project, "pipelines",
-                    $"Project '{project}': pipeline '{r.Name}' has confidence_threshold " +
-                    $"{r.ConfidenceThreshold} — must be between 0 and 100."));
-                anyError = true;
-            }
-
-            result.Add(new PipelineDefinition
-            {
-                Name = r.Name,
-                AgentName = string.IsNullOrEmpty(r.Agent) ? null : r.Agent,
-                Agent = resolvedAgent,
-                SkillsPath = r.SkillsPath,
-                CodingPrinciplesPath = r.CodingPrinciplesPath,
-                ConfidenceThreshold = r.ConfidenceThreshold,
-            });
-        }
-        return anyError ? null : result;
+            Templates = templates,
+        };
     }
 
     private static AgentConfig? ResolveAgent(

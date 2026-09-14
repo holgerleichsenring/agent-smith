@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-a72a
+
+goal: "A child ticket whose predecessor has not left the working set is not claimed yet, so the order a cut decided is the order the runs happen in."
+
+applies_to: "backend (the outcome filer, the spawn funnel)"
+
+requires:
+  - 2026-09-13-b7ba
+  - 2026-09-13-a3f1
+
+scope:
+  in: >
+    The filer orders an epic's children topologically before creating them and refuses an epic it
+    cannot order, so a child is never created before a sibling it follows; each child carries its
+    predecessors as LABELS naming ticket ids, because IncomingTicketEnvelope carries labels and no
+    description and the webhook path never sees a body; each stamp carries a RESERVED PREFIX
+    naming its kind, so a parent label, a predecessor label, an operator's routing label and the
+    non-work marker are told apart by a reader rather than guessed at; the gate is the FIRST statement of
+    SpawnPipelineRunsUseCase.ExecuteAsync, before ValidateForSpawn and before the footprint is
+    calculated, so a blocked child reserves nothing, enqueues nothing and creates no queued run
+    row; a predecessor still INSIDE its project's trigger_statuses blocks, anything outside them
+    does not, and a project declaring NO trigger_statuses cannot say a slice is done, so it
+    orders nothing and the log names it; more than a bounded number of unresolved predecessor
+    hops is reported as unresolvable and the child is not waited on.
+  out: >
+    HOLDING THE BLOCKED TICKET IN THE CAPACITY QUEUE. That queue is strict FIFO — the pump peeks
+    the head and considers nothing behind it, across all projects — so a blocked entry at the head
+    would stall the whole estate. Gating before the enqueue is what keeps the queue about capacity,
+    and it is also what stops the pump's own direct call to the claim service from becoming a
+    second, ungated door.
+    A CYCLE CHECK AT THE FUNNEL. RequiresEdgeChecker already refuses a cyclic epic before the
+    outcome is even proposed, so the state is unreachable by the filer, and the funnel sees one
+    envelope at a time and would need a tracker read per hop to find one. The hop bound catches the
+    only way a cycle gets in, which is a hand-edited ticket.
+    WAITING FOR THE CODE TO EXIST RATHER THAN THE TICKET TO MOVE. This phase orders the RUNS;
+    making slice two's checkout actually CONTAIN slice one is 2026-09-13-5cdf plus
+    2026-09-13-35a4, which cut a child from its feature's branch. The two are complementary and neither subsumes the other: this gate
+    runs at the funnel, where there is no sandbox and no checkout, so a merged-into-the-rung
+    question cannot be answered here at all.
+    PRIORITISING WITHIN THE READY SET. Which of two unblocked tickets runs first stays arrival
+    order.
+
+decisions:
+  - key: |
+      THE EDGE ALREADY EXISTS AND IS ALREADY VALIDATED — IT IS SIMPLY NEVER READ. RequiresEdgeChecker
+      runs in EpicOutcomeParser, at dialogue time, and nothing in polling, triggers or spawning
+      looks at a predecessor. The filer writes the order into prose and a parent comment, and the
+      runs then start concurrently in whatever order discovery returns them.
+  - key: |
+      THE SIGNAL IS "OUTSIDE trigger_statuses", NOT "EQUALS A DONE STATUS". DoneStatus defaults to
+      "In Review", which means a pull request was opened — and an operator who closes a ticket by
+      hand to some other terminal status would block its successor forever, with no timeout by
+      design. Leaving the working set is the predicate TrackerPoller and the queue pump already use
+      to decide a ticket is no longer theirs, and it covers every terminal state the estate uses.
+  - key: |
+      THIS PHASE ORDERS THE RUNS; IT DOES NOT MAKE SLICE ONE VISIBLE TO SLICE TWO. A run today
+      checks out the default branch, so a finished predecessor whose pull request is still open has
+      changed nothing that slice two will clone. Ordering is necessary and not sufficient, and
+      2026-09-13-5cdf and 2026-09-13-35a4 are the other half: a child cuts from its feature's
+      branch. Ordering is what makes that half worth anything — without it slice two would cut from
+      a feature branch that does not yet carry slice one.
+  - key: |
+      THE STAMP IS A LABEL, BECAUSE THE ENVELOPE HAS NO BODY. IncomingTicketEnvelope carries
+      Labels, AreaPath, SourceRepoUrl, ToAddress, TicketId, TicketUrl and Platform — no
+      description. The poller has the whole ticket and drops it building the envelope; the webhook
+      path never had one. A body stamp would cost a tracker read per blocked child per poll. A
+      label is on both paths already, and it is the same mechanism 2026-09-13-a3f1 uses to mark a
+      parent as not work.
+  - key: |
+      THE STAMP IS PREFIXED, BECAUSE A BARE ID SAYS NOTHING ABOUT ITS KIND. A child carrying two
+      bare ticket ids gives a reader no way to tell the parent from the predecessor — and
+      2026-09-13-5cdf cuts a branch from the PARENT's rung, so getting that wrong is a silent wrong
+      answer, not an error. A prefix per kind is the whole fix, and it shares the mechanism with the
+      non-work marker of 2026-09-13-a3f1.
+  - key: |
+      A REFERENCE IS A URL, SO THE LABEL CARRIES THE ID. CreatedTicket.Reference is WebUrl when
+      there is one, and recovering a provider's ticket id from its web url is a parser per
+      provider.
+  - key: |
+      TOPOLOGICAL FILING IS PART OF THE GATE, NOT A SEPARATE COURTESY. RequiresEdgeChecker checks
+      only that an edge points at a SIBLING, not that the sibling comes first, so a forward edge is
+      legal today and the filer creates children in list order. A child filed before its
+      predecessor exists cannot carry that predecessor's id, the gate then reads no predecessor,
+      and the child runs first — an invisible failure. There is also no way to repair it
+      afterwards: ITicketProvider has no member that edits a description or adds a label to an
+      existing ticket.
+  - key: |
+      THE GATE MUST PRECEDE THE ENQUEUE, NOT ONLY THE CLAIM. A ticket arriving behind a non-empty
+      queue is deferred with a queued run row and a budget record before any claim happens, and the
+      pump later claims it directly rather than through the funnel. Placed after that branch, the
+      gate would leave state and be bypassed. Placed first, there is exactly one door.
+
+steps:
+  - id: the-filer-orders-before-it-creates
+    action: "An epic's children are filed in topological order; an epic that cannot be ordered is refused."
+  - id: a-child-carries-its-predecessors-as-labels
+    action: "Each child gets a prefixed label per predecessor naming that ticket's id, and a differently prefixed one naming its parent."
+  - id: the-gate-runs-first
+    action: "A predecessor check is the first statement of SpawnPipelineRunsUseCase.ExecuteAsync, before validation, footprint and any enqueue."
+  - id: the-reason-is-visible-and-bounded
+    action: "A declined claim names the predecessor and its status; beyond a bounded hop count the chain is reported unresolvable and not waited on."
+
+tests:
+  - "FileEpic_ForwardEdge_FilesInDependencyOrder"
+  - "FileEpic_UnorderableEpic_IsRefused"
+  - "FileEpic_Child_CarriesPredecessorAndParentLabels"
+  - "FileEpic_Child_ParentAndPredecessorStampsAreDistinguishable"
+  - "SpawnFunnel_PredecessorInTriggerStatuses_DoesNotClaim"
+  - "SpawnFunnel_PredecessorOutsideTriggerStatuses_Claims"
+  - "SpawnFunnel_PredecessorOpen_EnqueuesNothingAndReservesNothing"
+  - "SpawnFunnel_HopBoundExceeded_ReportedAndNotWaitedOn"
+  - "SpawnFunnel_TicketWithoutPredecessorLabels_ClaimsAsBefore"
+
+done:
+  - "an epic's children run in the order the cut decided, without a human sequencing them"
+  - "a child whose predecessor is still in the working set is left in the tracker, holds no run row and no budget, and is offered again on a later poll"
+  - "a predecessor closed by hand to any terminal status releases its successor"
+  - "an epic whose edges cannot be ordered is refused at filing, not discovered at run time"
+  - "no dependency ever occupies the head of the capacity queue"
+  - "a ticket that names no predecessor is claimed exactly as it is today"
+  - "build green, full suite green"

@@ -57,6 +57,10 @@ public sealed class CheckoutSourceHandler(
             // PersistWorkBranch from staging and force-pushing this tree.
             if (checkout.Repository is null)
                 return CommandResult.Fail($"Checkout failed for repo '{config.Name}': {checkout.Problem}");
+            // 2026-09-13-a284: the base this repository's branch was cut from is recorded
+            // HERE, per repository, because this is the only step that knows it — the
+            // three sites that open a pull request run later and have no sandbox to ask.
+            PullRequestTargets.Record(context.Pipeline, config.Name, checkout.Rung);
             if (i == 0) primary = checkout.Repository;
         }
         context.Pipeline.Set(ContextKeys.Repository, primary!);

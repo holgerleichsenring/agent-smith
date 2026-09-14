@@ -11,13 +11,22 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// over the production <see cref="ISandboxFactory"/> — same spawn path, same
 /// spec builder; the only differences are the deferred spawn, the generic
 /// no-toolchain image, and the read-only step guard.
+/// <para>
+/// 2026-09-13-9802: the sandbox spec still comes from the RUN'S project, not from
+/// whichever project owns the repository. The sandbox is the run's cost and the run's
+/// isolation; a foreign repository contributes a clone url and a revision, nothing else.
+/// </para>
 /// </summary>
 public sealed class SourceScopeSandboxFactory(
+    SourceScopeMaterialiser materialiser,
     ISandboxFactory sandboxFactory,
     SandboxSpecBuilder specBuilder,
     IRunContextAccessor runContext,
     ILogger<SourceScopeSandbox> sandboxLogger) : ISourceScopeSandboxFactory
 {
-    public ISourceScopeSandbox Create(ResolvedProject project, RepoConnection repo) =>
-        new SourceScopeSandbox(project, repo, sandboxFactory, specBuilder, runContext, sandboxLogger);
+    public ISourceScopeSandbox Create(
+        ResolvedProject project, RepoConnection repo, string? revision = null) =>
+        new SourceScopeSandbox(
+            project, repo, revision, materialiser, sandboxFactory, specBuilder,
+            runContext, sandboxLogger);
 }
