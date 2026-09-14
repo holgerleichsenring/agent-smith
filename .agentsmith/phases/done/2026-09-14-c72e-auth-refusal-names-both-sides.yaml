@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-14-c72e
+
+goal: "A refused token shows its bearer what it carried beside what this server expected, names the shape it recognises, and the banner stops inferring a conflict two strings cannot prove."
+
+applies_to: "default (server security + identity route, dashboard identity surface, security reference)"
+
+requires:
+  - 2026-08-25-1806
+  - 2026-08-25-4530
+
+scope:
+  in: "What /api/auth/requirements tells the caller whose token was refused, how the identity page renders it, the closed set of recognised shapes in the browser, the evidence the misconfiguration banner speaks from, and the reference section that states the exact-match contract."
+  out: "The validation itself — one authority, one audience, matched exactly, stays. A preflight check answering 'has any token been accepted SINCE BOOT' and 'does the dashboard ask for openid' belongs to a successor phase over IPreflightRunner: a different question from 'was THIS request's token accepted', on a different surface, for a reader who is not holding a token. The role editor is unrelated."
+
+decisions:
+  - key: |
+      THE INSTALLATION KNEW THE ANSWER AND SAID HALF OF IT. Measured live: an Entra tenant minted
+      a v1 access token (aud api://{id}, iss sts.windows.net/{tid}/, ver 1.0) against a server
+      configured with the v2 pair. RefusedToken classified it 'audience', the page showed what was
+      EXPECTED, and the other half cost a session of decoding tokens and reading a foreign
+      library's source. Nothing had to be discovered; it had to be printed.
+  - key: |
+      THE FAILURE EVENT CANNOT PRODUCE THE OTHER HALF, WHICH IS WHY THE TOKEN IS READ ONCE,
+      UNVERIFIED. SecurityTokenInvalidAudienceException carries InvalidAudience and
+      SecurityTokenInvalidIssuerException carries InvalidIssuer — but RefusedToken unwraps an
+      AggregateException to InnerExceptions[0], so one request yields ONE exception and therefore
+      one presented value, and no exception carries a token version at all. The live incident is
+      exactly that case: classified 'audience', with the issuer half invisible. So the presented
+      aud/iss/ver are decoded from this request's own bearer WITHOUT validating it, only after a
+      refusal has been recorded. An unverified token decides NOTHING — the values are display,
+      labelled as what the caller presented, and no authorization path may read them.
+  - key: |
+      SHOWING THE BEARER THEIR OWN TOKEN IS THE BOUNDARY CASE OF THE RULE, NOT ITS REVERSAL.
+      2026-08-25-1806 rejected echoing the VALIDATION MESSAGE for two reasons: it names the values
+      the check ran against, and it is not a stable contract. Structured fields answer the second
+      — they are a pinned wire shape rather than a library's prose — and the first is answered by
+      who is reading: the caller of this route IS the bearer, and the fields echoed are the ones
+      they sent on this same request. The precedent is already shipped: CallerIdentityResolver
+      returns the token's own 'iss' to its bearer on /api/identity.
+  - key: |
+      A RECOGNITION IS BROWSER-SIDE DATA, NOT A BRANCH IN THE VALIDATION PATH AND NOT PROSE IN AN
+      ANONYMOUS BODY. The server validates ONE authority so a Keycloak realm is a first-class case;
+      an Entra-shaped test inside JwtBearerSetup would break that, and vendor-shaped sentences in
+      the anonymous payload would put one directory's vocabulary on a route every installation
+      serves. The payload carries the two value pairs; the dashboard names the shape. An
+      unrecognised shape still renders both sides — the table adds a sentence, it is never what
+      makes the diagnosis possible.
+  - key: |
+      THE BANNER NEEDS A TOKEN THAT WAS ACTUALLY TRIED, AND tokenRefusal ALONE CANNOT SAY SO. The
+      payload documents null as "no token was presented, OR the one presented was accepted", and
+      the dashboard attaches a bearer only when the tab holds one — so before the first sign-in,
+      null proves nothing, and a banner silenced by it would go quiet exactly while an operator is
+      working out why they cannot sign in. The browser holds the missing half: useAccessToken
+      knows whether this tab HAS a token. Two authorities may legitimately differ — a v2 sign-in
+      minting an id_token beside a v1 resource validating an access token is one directory,
+      correctly configured, on two endpoints — so the 'both' case is silenced only when a token is
+      held and was not refused. This amends 2026-08-25-4530's "disagreement is a banner": the
+      disagreement is now measured on the tokens rather than on the strings, and the test that
+      pinned the old rule is replaced rather than deleted.
+  - key: |
+      ONLY AN ISSUER OR AUDIENCE REFUSAL ACCUSES THE CONFIGURATION. The refusal vocabulary also
+      carries expired, not_yet_valid, signature, malformed and rejected. An expired token says
+      nothing about either authority, and AuthorityAwareChallenge documents a measured case where
+      the server cannot reach its own authority — reporting either as "one of the two is wrong"
+      would introduce a false positive of exactly the class this phase removes.
+  - key: |
+      THE REQUESTED AUDIENCE IS NOT THE MINTED ONE, WHICH IS THE WHOLE v1 CASE. The dashboard
+      already holds the audience it ASKS for, so comparing it against the server's expectation
+      looks like the cheaper diagnosis. It is not one: Entra ignores the requested audience, the
+      scope decides the resource, and the resource's own token version decides the form of aud
+      that arrives. Only the MINTED value settles it, and only the server sees that.
+  - key: |
+      A BODY THAT IS NOW CALLER-SPECIFIC MUST NOT BE CACHED. The route is anonymous and answers
+      with no cache directive today, which was harmless while its body was near-constant. Carrying
+      one caller's presented values makes any shared cache in front of it — ingress, CDN, proxy —
+      a way for one caller's echo to reach the next.
+  - key: |
+      THE REFERENCE SAYS THE MATCH IS EXACT, WHICH IT NOWHERE SAYS TODAY. access-control.md names
+      the three bootstrap values and the restart they cost across all 216 lines and never states
+      that one issuer and one audience are matched verbatim — so an operator whose other API runs
+      on Microsoft.Identity.Web, which picks ValidAudience per token from the ver claim, reasonably
+      expects the same leniency here.
+
+steps:
+  - id: the-presented-token-is-read-once-unverified
+    action: "After a refusal has been recorded for a request, decode that request's own bearer without validating it and keep only its audience, issuer and token version, so a refusal on one check still reports all three; a token that cannot be decoded reports none of them."
+  - id: the-answer-is-never-cached
+    action: "Mark the requirements response uncacheable and varying on the authorization header, so a body carrying one caller's values cannot be served to another from a shared cache."
+  - id: the-payload-carries-both-sides
+    action: "Extend the anonymous requirements body with the presented values beside the expected ones, present only when a token was refused, with the wire names pinned by a server test the way the existing identity body's are."
+  - id: the-page-puts-the-two-side-by-side
+    action: "Render expected and presented as one comparison on the identity page's refusal surface, so the difference is visible without knowing which field decides what."
+  - id: the-known-shape-is-named
+    action: "Add a closed set of recognitions in the dashboard over the expected and presented pair that names a recognised shape and the ways out of it, leaving an unrecognised shape with the comparison alone."
+  - id: the-banner-reads-the-evidence
+    action: "Let the banner's two-authorities case speak unless this tab holds a token that was not refused, and let a refusal accuse the configuration only when the issuer or the audience check refused it."
+  - id: the-reference-states-the-exact-match
+    action: "State the one-issuer, one-audience contract in the security reference together with the case that makes one directory mint two token shapes, and show both matching configurations."
+
+tests:
+  - "Requirements_TokenRefusedOnAudience_ReportsTheAudienceIssuerAndVersionItCarried"
+  - "Requirements_TokenRefused_EchoesNothingBeyondThoseThreeAndNeverTheToken"
+  - "Requirements_TokenRefusedButUndecodable_ReportsTheRefusalWithoutPresentedValues"
+  - "Requirements_TokenAccepted_NothingAboutTheTokenIsEchoed"
+  - "Requirements_NoTokenPresented_NothingAboutATokenIsEchoed"
+  - "Requirements_TwoCallers_OneRefused_TheOtherIsToldNothingAboutIt"
+  - "Requirements_Body_NamesTheFieldsTheDashboardReads"
+  - "Requirements_Response_IsNotCacheableAndVariesOnAuthorization"
+  - "Recognition_V1AudienceAndIssuer_NamesTheResourceTokenVersionAndBothWaysOut"
+  - "Recognition_AudienceIsTheSignInClient_NamesTheMissingApiScope"
+  - "Recognition_UnknownShape_TheComparisonStandsWithoutASentence"
+  - "Identity_TokenRefused_ShowsExpectedBesidePresented"
+  - "Banner_AuthoritiesDifferAndTokenHeldAndAccepted_SaysNothing"
+  - "Banner_AuthoritiesDifferAndNoTokenHeld_StillNamesTheConflict"
+  - "Banner_AuthoritiesDifferAndAudienceRefused_NamesTheConflict"
+  - "Banner_AuthoritiesDifferAndTokenExpired_SaysNothing"
+  - "Banner_OneHalfUnconfigured_IsUnchanged"
+
+done:
+  - "A refused sign-in is diagnosable from the identity page alone, without decoding a token by hand."
+  - "A held token that was accepted silences the banner whatever the two authority strings say; no token held still names the conflict."
+  - "The echo is bounded to the refused request's own token, proven by a two-caller test, and the response cannot be cached."
+  - "Banner_TheTwoAuthoritiesDiffer_NamesBoth is replaced by the token-aware pair rather than deleted."
+  - "Dashboard build and tests, backend build and the full suite are green."

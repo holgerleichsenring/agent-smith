@@ -21,6 +21,14 @@ export interface AuthRequirements {
    *  read here rather than off /api/identity because an enforcing server answers that
    *  route 401 to exactly the caller whose token it rejected. */
   tokenRefusal: TokenRefusal | null;
+  /** 2026-09-14-c72e: the audience the REFUSED token carried, read from this caller's own
+   *  bearer and unverified — what they presented, never a fact about them. Null when nothing
+   *  was refused, or when what arrived could not be decoded. The three below are the other
+   *  half of the comparison: the refusal vocabulary names the check that failed, and these
+   *  name the value that failed it. */
+  presentedAudience: string | null;
+  presentedIssuer: string | null;
+  presentedTokenVersion: string | null;
 }
 
 /** The server's closed refusal vocabulary. An unknown value renders as the generic one. */

@@ -33,6 +33,9 @@ const requirements = (over: Partial<AuthRequirements> = {}): AuthRequirements =>
   authority: "https://login.example/realm",
   audience: "agent-smith",
   tokenRefusal: null,
+  presentedAudience: null,
+  presentedIssuer: null,
+  presentedTokenVersion: null,
   ...over,
 });
 
@@ -147,6 +150,42 @@ describe("IdentityView", () => {
 
     const refused = await screen.findByTestId("identity-token-refused");
     await waitFor(() => expect(refused).toHaveTextContent("has expired"));
+  });
+
+  // 2026-09-14-c72e: naming the check that failed without naming the value that failed it
+  // is half an answer, and the missing half was a session of decoding tokens by hand.
+  it("Identity_TokenRefused_ShowsExpectedBesidePresented", async () => {
+    server.requirements.mockResolvedValue(
+      requirements({
+        tokenRefusal: "audience",
+        audience: "agent-smith",
+        presentedAudience: "api://agent-smith",
+        presentedIssuer: "https://sts.example/tenant/",
+        presentedTokenVersion: "1.0",
+      }),
+    );
+    server.identity.mockResolvedValue(identity({ authenticated: false }));
+
+    renderView();
+
+    const refused = await screen.findByTestId("identity-token-refused");
+    await waitFor(() =>
+      expect(screen.getByTestId("presented-audience")).toHaveTextContent("api://agent-smith"),
+    );
+    expect(refused).toHaveTextContent("agent-smith");
+    expect(screen.getByTestId("presented-issuer")).toHaveTextContent("https://sts.example/tenant/");
+    expect(screen.getByTestId("presented-version")).toHaveTextContent("1.0");
+  });
+
+  it("Identity_TokenRefusedAndNothingCouldBeDecoded_ShowsTheExpectedHalfAlone", async () => {
+    server.requirements.mockResolvedValue(requirements({ tokenRefusal: "malformed" }));
+    server.identity.mockResolvedValue(identity({ authenticated: false }));
+
+    renderView();
+
+    await screen.findByTestId("identity-token-refused");
+    expect(screen.getByTestId("presented-audience")).toHaveTextContent("not readable");
+    expect(screen.queryByTestId("presented-version")).toBeNull();
   });
 
   it("Identity_NoAuthorityConfigured_SaysNothingSignsIn", async () => {

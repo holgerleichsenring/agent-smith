@@ -71,8 +71,45 @@ arrays say what was **found there**. Those values are what a mapping is written 
 
 If the page instead says **"This server did not accept your token"**, no mapping will
 help: the token was refused before any claim in it was read. The page names which check
-refused it — audience, issuer, signature, expiry — and shows the authority and audience
-this server expects, which is what the fix is written from.
+refused it — audience, issuer, signature, expiry — and shows **both sides**: the authority
+and audience this server expects, beside the audience, issuer and version the token you
+just presented carried. The fix is written from the difference between them.
+
+### One issuer, one audience, matched exactly
+
+The audience is compared as a single string, and the issuer is the one this server's
+authority publishes in its discovery document. There is no second accepted form of either:
+no list, no prefix rule, no per-token adjustment.
+
+That is what lets any one OIDC authority work here — a realm that has no `api://` form and
+no token versions is a first-class case rather than an exception — but it also means a
+directory that mints more than one shape needs the matching one named.
+
+**Microsoft Entra mints two, and the API decides which.** Not the endpoint the sign-in used:
+the resource's own app registration carries `requestedAccessTokenVersion`, and while it is
+unset (the default of a portal-created registration) that resource gets **version 1** access
+tokens even when every client talks to the `/v2.0` endpoint. The two shapes are:
+
+| | version 1 | version 2 |
+|---|---|---|
+| `aud` | `api://<api-client-id>` | `<api-client-id>` |
+| `iss` | `https://sts.windows.net/<tenant>/` | `https://login.microsoftonline.com/<tenant>/v2.0` |
+| authority to configure | `https://login.microsoftonline.com/<tenant>/` | `https://login.microsoftonline.com/<tenant>/v2.0` |
+| name claim to configure | `upn` | `preferred_username` |
+
+Either column works, as long as **all of it** comes from one column. Correcting only the
+audience leaves the issuer refusing, because the issuer follows the authority rather than
+being configured beside it.
+
+The dashboard's own authority is a separate setting and may legitimately sit in the other
+column: it governs the sign-in and the `id_token`, while the server's governs the access
+token. The banner that warns about two halves of a sign-in does not fire on that difference
+alone — it asks whether a token actually survived.
+
+If you have another API in the same directory that accepts both shapes, it is most likely
+built on `Microsoft.Identity.Web`, which picks the expected audience per request from the
+token's `ver` claim. This server does not, and does not intend to: the value it validates is
+the value an operator configured.
 
 **3. Grant the role** in the Config Studio, under **Access**. Four panes over one
 document:
