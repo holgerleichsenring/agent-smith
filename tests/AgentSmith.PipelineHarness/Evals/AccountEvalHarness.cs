@@ -28,7 +28,9 @@ public sealed class AccountEvalHarness(
     ISpecAccountant accountant, ILoggerFactory loggerFactory)
 {
     private readonly DeliveryDiff _deliveryDiff = new(
-        new SandboxBaseBranch(loggerFactory.CreateLogger<SandboxBaseBranch>()),
+        new SandboxBaseLadder(
+            new SandboxBaseBranch(loggerFactory.CreateLogger<SandboxBaseBranch>()),
+            loggerFactory.CreateLogger<SandboxBaseLadder>()),
         new SandboxRunStartCommit(loggerFactory.CreateLogger<SandboxRunStartCommit>()),
         loggerFactory.CreateLogger<DeliveryDiff>());
 
@@ -65,7 +67,7 @@ public sealed class AccountEvalHarness(
         ArgumentNullException.ThrowIfNull(repositories);
 
         var evidence = await DeliveryEvidence.GatherAsync(
-            _deliveryDiff, repositories.Sandboxes, runId: null, ct);
+            _deliveryDiff, repositories.Sandboxes, DeliveryBasis.OfRun(null), ct);
         if (evidence.Failures.Count > 0)
             return new AccountEvalReport.FixtureEntry(
                 fixture.Id, fixture.Class, [],

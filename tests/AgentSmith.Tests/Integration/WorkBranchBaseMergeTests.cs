@@ -19,11 +19,18 @@ namespace AgentSmith.Tests.Integration;
 /// p0496 against real git: a re-run that reuses a ticket's work branch brings the base
 /// branch's newer commits with it, a first run's branch creation takes no merge, and a
 /// conflicting merge stops the run without changing the branch.
+/// <para>
+/// 2026-09-13-5cdf: and the base both halves use is the one the LADDER resolved — the
+/// parent's rung when the clone has it. Asked of real git, because whether a branch was
+/// cut from a rung is a fact about the tree, not about the argument list.
+/// </para>
 /// </summary>
 [Collection(ExternalProcessCollection.Name)]
 public sealed class WorkBranchBaseMergeTests
 {
     private const string TicketBranch = "agent-smith/19106";
+    private const string ParentTicket = "4711";
+    private const string Rung = "agent-smith/4711";
 
     [Fact]
     public async Task ReusedWorkBranch_BaseHasNewerCommits_AreMergedIn()
@@ -116,6 +123,58 @@ public sealed class WorkBranchBaseMergeTests
         fixture.WorkFileExists(GitRemoteFixture.BaseOnlyFile).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task WorkBranch_CutFromTheResolvedRung()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(workBranch: null, rung: Rung);
+
+        var (checkout, sandbox) = await CheckOutAsync(
+            fixture, TicketBranch, composedFromTicket: true, parentTicketId: ParentTicket);
+
+        checkout.Repository.Should().NotBeNull();
+        sandbox.Ran("checkout", $"origin/{Rung}").Should()
+            .BeTrue("the rung is checked out BEFORE the work branch is created from it");
+        sandbox.Ran("checkout", "-b", TicketBranch).Should().BeTrue();
+        fixture.WorkFileExists(GitRemoteFixture.RungOnlyFile).Should()
+            .BeTrue("a branch cut from the default branch would not carry the feature's own work");
+    }
+
+    [Fact]
+    public async Task BaseMerger_MergesTheRungNotOriginHead()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(TicketBranch, rung: Rung);
+        fixture.AdvanceBase();
+        fixture.AdvanceRung(Rung);
+
+        var (checkout, sandbox) = await CheckOutAsync(
+            fixture, TicketBranch, composedFromTicket: true, parentTicketId: ParentTicket);
+
+        checkout.Repository.Should().NotBeNull();
+        sandbox.Ran("merge", $"origin/{Rung}").Should().BeTrue();
+        fixture.WorkFileExists(GitRemoteFixture.RungLaterFile).Should()
+            .BeTrue("a reused slice is brought up to date with the rung it was cut from");
+        fixture.WorkFileExists(GitRemoteFixture.BaseOnlyFile).Should()
+            .BeFalse("merging the DEFAULT branch into a slice dissolves the isolation the rung exists for");
+    }
+
+    [Fact]
+    public async Task WorkBranch_NoRungExists_IsCutExactlyAsToday()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(workBranch: null);
+
+        var (checkout, sandbox) = await CheckOutAsync(
+            fixture, TicketBranch, composedFromTicket: true, parentTicketId: ParentTicket);
+
+        checkout.Repository.Should().NotBeNull();
+        sandbox.Ran("checkout", $"origin/{Rung}").Should()
+            .BeFalse("a rung that does not exist is not checked out — the ladder falls through");
+        sandbox.Ran("checkout", "-b", TicketBranch).Should().BeTrue();
+        sandbox.Ran("merge").Should().BeFalse("a branch created from the base is already at the base");
+    }
+
     private static async Task<string> GitAsync(ISandbox sandbox, params string[] args)
     {
         var result = await sandbox.RunStepAsync(
@@ -128,7 +187,8 @@ public sealed class WorkBranchBaseMergeTests
     }
 
     private static async Task<(RepoCheckout Checkout, RecordingSandbox Sandbox)> CheckOutAsync(
-        GitRemoteFixture fixture, string branch, bool composedFromTicket)
+        GitRemoteFixture fixture, string branch, bool composedFromTicket,
+        string? parentTicketId = null)
     {
         var config = new RepoConnection
         {
@@ -148,7 +208,7 @@ public sealed class WorkBranchBaseMergeTests
             NullLogger<SandboxRepoCloner>.Instance);
 
         var checkout = await cloner.CheckoutIntoSandboxesAsync(
-            config, new RunBranch(new BranchName(branch), composedFromTicket),
+            config, new RunBranch(new BranchName(branch), composedFromTicket, parentTicketId),
             [new KeyValuePair<string, ISandbox>("server", sandbox)], CancellationToken.None);
         return (checkout, sandbox);
     }
