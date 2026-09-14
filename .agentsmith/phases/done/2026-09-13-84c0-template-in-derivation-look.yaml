@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-84c0
+
+goal: "The derivation can look into the declared template while it cuts a ticket into phases, so a phase says how the work is done here and not only what it changes."
+
+applies_to: "backend (derivation look, its factory, the derivation prompt) + skills catalog (the derivation's instruction)"
+
+requires:
+  - 2026-09-13-5fa0
+  - 2026-09-13-9802
+  - 2026-09-13-b7ba
+  - 2026-09-13-ab17
+
+scope:
+  in: >
+    DerivationLookFactory adds one named entry per template declared FOR A CONTEXT THIS RUN
+    DISCOVERED — the binding is per context, so the run's discovered contexts select which
+    declarations apply — to a COPY of the sandbox map it hands DerivationLook, materialised
+    through ISourceScopeSandboxFactory at the declared revision; the pipeline's own ContextKeys.Sandboxes is left untouched, so no later handler
+    inherits the entry; a template look draws on its OWN allowance, not the target's twelve; a
+    template that cannot be materialised fails the derivation naming template and revision, and a
+    template look refused for budget fails it too; the look owns the sandboxes it created and
+    disposes them; the derivation prompt distinguishes a template entry from a target repository;
+    the resolved sha is recorded as a derivation evidence line.
+  out: >
+    A SHARED BUDGET, AND THE ARGUMENT THAT ONE IS ENOUGH. AccountSearchBudget records the measured
+    case: twelve searches on one instance, the first repository spent them all, every later
+    question answered "No search left" — and its own comment states that a bigger shared pool does
+    not fix it, because it is still one pool. The fix there was an allowance per consumer and it
+    is the fix here.
+    THE CODING MASTER. A different tool path, and its own phase (2026-09-13-6f35).
+    WRITING TO A TEMPLATE. The scope refuses Run and WriteFile by kind; a change to a template is a
+    ticket on the project that owns it.
+    A REVISION-CAPABLE SANDBOX. 2026-09-13-9802 builds it; this phase consumes it.
+
+decisions:
+  - key: |
+      THE LOOK IS ALREADY A NAMED SET, SO A TEMPLATE IS ONE MORE NAME — BUT NOT IN THE RUN'S MAP.
+      ContextKeys.Sandboxes is iterated by LoadContext, LoadCodingPrinciples, AnalyzeProject,
+      SetupRegistryAuth, CommitAndPR and the master. An entry added there is a template the coding
+      master writes into and CommitAndPR tries to commit. The look gets a copy.
+  - key: |
+      THE BUDGET IS CHARGED BEFORE THE NAME IS RESOLVED. DerivationLook.TryOpen takes from the
+      allowance and only then looks the repository up, so every mis-addressed guess costs a look —
+      and this phase introduces a new naming convention to guess at. A separate allowance keeps a
+      wrong template name from eating the target's reads.
+  - key: |
+      THE SEPARATE ALLOWANCE FORCES THE CHARGE ORDER TO INVERT, AND THAT CHANGES EXISTING
+      BEHAVIOUR. Which budget to charge cannot be chosen before the name is known to be a template
+      or a target, so resolution moves ahead of the charge. A mis-addressed guess then costs the
+      target nothing, where today it costs a look. That is a better rule and it is a change; it is
+      stated here rather than discovered in a diff.
+  - key: |
+      A REFUSED TEMPLATE LOOK MUST FAIL, NOT DEGRADE. Exhausted is a sentence to the model, not a
+      run failure: a derivation that runs out mid-look cuts against the target's habits while the
+      declaration says a template governs, and the run record then carries a provenance that is
+      false. Failing is the only outcome that stays honest.
+  - key: |
+      NOBODY OWNS A SANDBOX THE FACTORY MAKES. The look's map comes from the pipeline today, and
+      those sandboxes are disposed by the coordinator. A source-scope sandbox created here is in no
+      such set — SpecDialogTurnRunner's finally is the one working precedent and this phase copies
+      it.
+  - key: |
+      WHAT THE TEMPLATE DECLARES AS PROOF IS NOT READ HERE, AND THAT IS THE THIRD TIME IT MOVED.
+      The gate claimed it, the config resolver could not have it (no sandbox), and here the parser
+      turns out to be internal to another assembly. Three moves is the signal that the reach IS the
+      work, so it is 2026-09-13-9f84 and not a clause in this one.
+  - key: |
+      NAMING THE COUNTERPART IS AN EVIDENCE LINE, NOT A STEP FIELD. DerivedPhaseBuilder reads only
+      (id, action); there is no slot for a cited path and nothing validates one. The derivation
+      master's own rules say steps state what, not where, and that a done criterion is checked
+      against the branch diff — a path in the template repository is unsatisfiable by
+      construction. DerivationEvidence already mints a cited line per look and downgrades an
+      uncited claim to an assumption; that is the honest home.
+
+steps:
+  - id: the-look-carries-the-template
+    action: "DerivationLookFactory adds one named entry per template declared for a context this run discovered, to a copy of the map, at the declared revision."
+  - id: the-name-is-resolved-before-the-budget-is-charged
+    action: "TryOpen resolves the repository before it takes from an allowance, so the charge lands on the right budget and an unknown name costs none."
+  - id: the-template-has-its-own-allowance
+    action: "A template look draws on its own budget instance; exhaustion fails the derivation rather than answering the model."
+  - id: the-prompt-says-what-it-is
+    action: "The derivation prompt distinguishes template entries from target repositories; catalog text includes the shared precedence section; the assertion here reads the EMBEDDED tarball via PackagedMaster and is skipped by an explicit pin guard until 2026-09-13-4072 moves the pin."
+  - id: an-unreachable-template-fails-the-derivation
+    action: "A template that cannot be resolved or materialised fails the derivation, naming the template and the revision."
+  - id: the-look-disposes-what-it-created
+    action: "DerivationLook disposes its own sandboxes in a finally; the pipeline's map is unchanged."
+
+tests:
+  - "DerivationLook_DeclaredTemplate_IsAmongRepositories"
+  - "DerivationLook_NoTemplateDeclared_RepositoriesUnchanged"
+  - "DerivationLook_TemplateRead_DoesNotSpendTheTargetBudget"
+  - "DerivationLook_UnknownRepository_SpendsNoLook"
+  - "DerivationLook_TemplateForAnUndiscoveredContext_NotCarried"
+  - "DerivationLook_TemplateBudgetExhausted_FailsTheDerivation"
+  - "DerivationLook_TemplateEntry_NotInPipelineSandboxes"
+  - "DerivationLook_Disposed_TearsDownTemplateSandboxes"
+  - "Derivation_TemplateUnreachable_FailsNamingTemplateAndRevision"
+
+done:
+  - "a derivation on a project with a declared template reads that template and cites the look as evidence"
+  - "a project with no declared template produces the same repository list and the same tools as before"
+  - "a template read never reduces the looks available for the target"
+  - "an unreachable template and an exhausted template budget each fail the derivation, naming it"
+  - "no handler after the derivation sees the template sandbox"
+  - "build green, full suite green"

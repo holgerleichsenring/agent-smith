@@ -14,7 +14,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class DerivationLookFactory(
     SandboxTargets targets, ISandboxFileReaderFactory files,
-    IPackageEcosystemDetector ecosystems, ILogger<DerivationLook> logger)
+    IPackageEcosystemDetector ecosystems, ProjectTemplateScopes templates,
+    ILogger<DerivationLook> logger)
 {
     public DerivationLook? Create(PipelineContext pipeline)
     {
@@ -23,6 +24,6 @@ public sealed class DerivationLookFactory(
         logger.LogInformation(
             "The derivation may look into {Count} repositor{Plural}: {Repos}",
             sandboxes.Count, sandboxes.Count == 1 ? "y" : "ies", string.Join(", ", sandboxes.Keys));
-        return new DerivationLook(sandboxes, files, ecosystems, logger);
+        return new DerivationLook(sandboxes, files, ecosystems, logger, templates.For(pipeline));
     }
 }

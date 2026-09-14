@@ -24,6 +24,8 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitLabSourceProvider> _logger;
     private readonly GitLabMergeRequestUpdater _mergeRequests;
+    // 2026-09-13-a284: where an open merge request POINTS, separate from what it says.
+    private readonly GitLabMergeRequestTarget _mrTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
     private readonly DefaultBranchResolver _defaultBranch;
 
@@ -41,6 +43,8 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         _httpClient = httpClient;
         _logger = logger;
         _mergeRequests = new GitLabMergeRequestUpdater(
+            _baseUrl, _projectPath, _privateToken, httpClient, logger);
+        _mrTarget = new GitLabMergeRequestTarget(
             _baseUrl, _projectPath, _privateToken, httpClient, logger);
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, connection.ProjectPath, logger);
@@ -77,9 +81,11 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false)
+        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
     {
-        var targetBranch = await GetDefaultBranchAsync(cancellationToken);
+        // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
+        // to the default-branch resolver, which honours the configured override.
+        var target = targetBranch?.Value ?? await GetDefaultBranchAsync(cancellationToken);
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests";
 
         // GitLab auto-closes referenced issues on MR merge when the description
@@ -97,7 +103,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         request.Content = JsonContent.Create(new
         {
             source_branch = repository.CurrentBranch.Value,
-            target_branch = targetBranch,
+            target_branch = target,
             title = mrTitle,
             description = body
         });
@@ -292,6 +298,13 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
 
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
         _mergeRequests.MarkReadyAsync(prUrl, cancellationToken);
+
+    public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+        _mrTarget.ReadBaseAsync(prUrl, cancellationToken);
+
+    public Task<bool> RetargetPullRequestAsync(
+        string prUrl, BranchName target, CancellationToken cancellationToken) =>
+        _mrTarget.MoveAsync(prUrl, target.Value, cancellationToken);
 
     // p0490: the branch is what a LOCAL repository needs to finish a "pull request";
     // GitLab recovers everything it needs from the URL.

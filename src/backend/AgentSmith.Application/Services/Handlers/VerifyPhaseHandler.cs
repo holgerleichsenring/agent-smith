@@ -80,9 +80,9 @@ public sealed class VerifyPhaseHandler(
         // comparable base ref — the shallow clone, the freshly-onboarded repo — through the
         // branch that passes without checking anything.
         var diffs = new Dictionary<string, DeliveryDiff.DiffResult>(StringComparer.Ordinal);
+        var basis = DeliveryBasis.For(context.Pipeline);
         foreach (var (key, sandbox) in sandboxes)
-            diffs[key] = await deliveryDiff.ForBranchAsync(
-                sandbox, context.Pipeline.RunId(), cancellationToken);
+            diffs[key] = await deliveryDiff.ForBranchAsync(sandbox, basis, cancellationToken);
         var delivered = DeliveredWork.Of(diffs);
 
         var outcomes = new List<VerifyOutcome>();

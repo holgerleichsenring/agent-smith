@@ -75,6 +75,10 @@ internal static class DispatcherExtensions
         // Server-only: the webhook/poller fan-out at enqueue. Depends on
         // ITicketClaimService above, so it lives here, not in the shared
         // AddPipelineExecution (where it could not be constructed for the CLI).
+        // 2026-09-13-a72a: the funnel's first question — has the slice this ticket follows
+        // left the working set? Registered before the use case that resolves it.
+        services.AddTransient<IPredecessorGate,
+            AgentSmith.Application.Services.Spawning.PredecessorGate>();
         services.AddTransient<ISpawnPipelineRunsUseCase,
             AgentSmith.Application.Services.Spawning.SpawnPipelineRunsUseCase>();
         return services;

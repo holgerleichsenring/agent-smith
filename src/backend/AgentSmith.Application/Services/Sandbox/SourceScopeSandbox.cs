@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Builders;
-using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -9,20 +8,19 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// p0315b: lazy READ-ONLY sandbox over one repo of a spec-dialog scope.
-/// Creation is free — the underlying sandbox (generic git-bearing image, no
-/// toolchain resolution, no build) is spawned and the repo cloned only when
-/// the first content-read step arrives, so a design turn that never needs
-/// file content never spawns anything. The read-only contract is expressed
-/// in the existing step vocabulary: ReadFile / ListFiles / Grep /
-/// DirectoryTree are served, Run / WriteFile come back as failed step
-/// results (the clone itself is issued by THIS class against the inner
-/// sandbox, before the guard applies). Owner disposes per turn; the sandbox
-/// agent's idle self-exit and the orphan reaper are the backstops.
+/// p0315b: lazy READ-ONLY sandbox over one repo of a spec-dialog scope. Nothing spawns
+/// until the first content read; ReadFile / ListFiles / Grep / DirectoryTree are served and
+/// Run / WriteFile come back as failed step results. Owner disposes per turn; the agent's
+/// idle self-exit and the orphan reaper are the backstops.
+/// <para>2026-09-13-9802: a scope may name a revision. The git ladder that lands on it, and
+/// the five refusals it tells apart, live in <see cref="SourceScopeMaterialiser"/> — which
+/// also issues the clone, before this guard applies. Here: the guard and the lifetime.</para>
 /// </summary>
 public sealed class SourceScopeSandbox(
     ResolvedProject project,
     RepoConnection repo,
+    string? revision,
+    SourceScopeMaterialiser materialiser,
     ISandboxFactory sandboxFactory,
     SandboxSpecBuilder specBuilder,
     IRunContextAccessor runContext,
@@ -33,6 +31,7 @@ public sealed class SourceScopeSandbox(
 
     public string RepoName => repo.Name;
     public bool IsMaterialized => _inner is not null;
+    public string? ResolvedSha { get; private set; }
     public string JobId => _inner?.JobId ?? $"source-scope-{repo.Name}";
 
     public async Task<StepResult> RunStepAsync(
@@ -44,26 +43,34 @@ public sealed class SourceScopeSandbox(
                 + "for spec-dialog grounding — only file reads (read_file, grep, "
                 + "list_directory, directory_tree) are served.");
 
-        if (string.IsNullOrEmpty(repo.Url))
-            return Refuse(step,
-                $"Repo '{repo.Name}' has no clone URL configured — source grounding is "
-                + "unavailable for it; answer from the code map or say what is missing.");
+        if (string.IsNullOrEmpty(repo.Url)) return Refuse(step, NoCloneUrl().Message);
 
-        ISandbox inner;
         try
         {
-            inner = await EnsureMaterializedAsync(cancellationToken);
+            var inner = await EnsureMaterializedAsync(cancellationToken);
+            return await inner.RunStepAsync(step, progress, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "Read-only source sandbox for '{Repo}' failed to materialise", repo.Name);
-            return Refuse(step,
-                $"The read-only source sandbox for '{repo.Name}' could not be prepared: "
-                + $"{ex.Message}");
+            logger.LogWarning(ex, "Source scope '{Repo}' failed to materialise", repo.Name);
+            return Refuse(step, ex.Message);
         }
-        return await inner.RunStepAsync(step, progress, cancellationToken);
     }
+
+    /// <summary>2026-09-13-9802: the preparation a read triggers, made explicit so a caller
+    /// that must REFUSE learns the KIND before it spends anything — the typed failure escapes
+    /// here instead of becoming a step-refusal sentence.</summary>
+    public async Task<string> MaterializeAsync(CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(repo.Url)) throw NoCloneUrl();
+        await EnsureMaterializedAsync(cancellationToken);
+        return ResolvedSha ?? string.Empty;
+    }
+
+    private SourceScopeUnavailableException NoCloneUrl() => new(
+        SourceScopeFailureKind.NoCloneUrl, repo.Name, revision,
+        $"Repo '{repo.Name}' has no clone URL configured — source grounding is "
+        + "unavailable for it; answer from the code map or say what is missing.");
 
     private static bool IsReadKind(StepKind kind) => kind is
         StepKind.ReadFile or StepKind.ListFiles or StepKind.Grep or StepKind.DirectoryTree;
@@ -76,31 +83,27 @@ public sealed class SourceScopeSandbox(
         {
             if (_inner is not null) return _inner;
             logger.LogInformation(
-                "Materialising read-only source sandbox for '{Repo}' (first content read)", repo.Name);
-            // language: null → the builder's generic git-bearing fallback image;
-            // no toolchain, no build — clone + read is the entire contract.
-            // pipelineName: null → p0320a light profile, which is exactly right
-            // for a read-only sandbox that never compiles.
+                "Materialising source scope '{Repo}' at '{Revision}'",
+                repo.Name, revision ?? "the clone's own default");
+            // language/pipelineName null → generic git-bearing image, p0320a light profile.
             var spec = specBuilder.Build(project, language: null, pipelineName: null)
                 with { RunId = runContext.CurrentRunId };
             var created = await sandboxFactory.CreateAsync(spec, ct);
-            await CloneOrThrowAsync(created, ct);
-            _inner = created;
-            return _inner;
+            try
+            {
+                ResolvedSha = await materialiser.PrepareAsync(created, repo, revision, ct);
+            }
+            catch
+            {
+                await created.DisposeAsync();
+                throw;
+            }
+            return _inner = created;
         }
         finally
         {
             _materializeGate.Release();
         }
-    }
-
-    private async Task CloneOrThrowAsync(ISandbox created, CancellationToken ct)
-    {
-        var clone = await created.RunStepAsync(CheckoutStepFactory.BuildCloneStep(repo), null, ct);
-        if (clone.ExitCode == 0) return;
-        await created.DisposeAsync();
-        throw new InvalidOperationException(
-            $"git clone of '{repo.Name}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}");
     }
 
     private static StepResult Refuse(Step step, string reason) => new(

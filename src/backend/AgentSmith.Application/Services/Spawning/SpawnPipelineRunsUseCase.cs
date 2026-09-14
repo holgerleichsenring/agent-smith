@@ -22,6 +22,11 @@ namespace AgentSmith.Application.Services.Spawning;
 /// queue (strict FIFO, no overtaking) is upserted as ONE queue entry with ONE
 /// visible "queued" Run row and returns Queued without claiming. The reservation
 /// is freed on terminal status (RunEventApplier) or if the claim fails.
+///
+/// 2026-09-13-a72a: an epic child whose predecessor has not left the working set is
+/// declined BEFORE any of that — it stays in the tracker, holds no run row and no
+/// reservation, and is offered again on the next poll. The capacity queue is strict
+/// FIFO across all projects, so a dependency waiting at its head would stall the estate.
 /// </summary>
 public sealed class SpawnPipelineRunsUseCase(
     ITicketClaimService claimService,
@@ -30,6 +35,7 @@ public sealed class SpawnPipelineRunsUseCase(
     ICapacityQueue capacityQueue,
     ISandboxCorpseReaper corpseReaper,
     ISandboxCapacityProbe capacityProbe,
+    IPredecessorGate predecessorGate,
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
     public async Task<SpawnResult> ExecuteAsync(
@@ -41,6 +47,14 @@ public sealed class SpawnPipelineRunsUseCase(
         CancellationToken ct,
         Dictionary<string, string>? planAnswers = null)
     {
+        // 2026-09-13-a72a: FIRST — before validation, before the footprint, before any
+        // enqueue. A ticket arriving behind a non-empty queue is deferred with a queued Run
+        // row and a budget record, and the pump then claims it DIRECTLY; a gate placed after
+        // that branch would leave state behind and be bypassed by a second, ungated door.
+        var predecessors = await predecessorGate.CheckAsync(project, envelope, ct);
+        if (predecessors.Blocked)
+            return new SpawnResult([ClaimResult.Queued(predecessors.Reason!)]);
+
         ValidateForSpawn(project, envelope);
         var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, ct);
 

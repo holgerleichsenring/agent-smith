@@ -18,6 +18,7 @@ public sealed class DerivationEvidence
     private const string IdPrefix = "L";
     private readonly Lock _sync = new();
     private readonly List<string> _lines = [];
+    private readonly HashSet<string> _once = new(StringComparer.Ordinal);
 
     public IReadOnlyList<string> Lines
     {
@@ -36,6 +37,22 @@ public sealed class DerivationEvidence
             _lines.Add($"[{id}] {repository}: the derivation ran '{what}' exited {exitCode}{clause}");
             return id;
         }
+    }
+
+    /// <summary>
+    /// 2026-09-13-9f84: remembers a look the FRAMEWORK takes on its own, at most once per
+    /// derivation. A tool call is minted every time because the model asked every time; the
+    /// template's declared proof is read again on each attempt of the retry loop, and four
+    /// ids for one unchanged file would be four facts where the run only measured one.
+    /// Null when that look is already on the record.
+    /// </summary>
+    public string? RememberOnce(string repository, string what, int exitCode, bool ran)
+    {
+        lock (_sync)
+        {
+            if (!_once.Add($"{repository}|{what}")) return null;
+        }
+        return Remember(repository, what, exitCode, ran);
     }
 
     /// <summary>The id a line carries, or null for a line minted by nobody.</summary>

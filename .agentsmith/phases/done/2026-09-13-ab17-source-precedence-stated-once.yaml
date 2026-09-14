@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-ab17
+
+goal: "One authored text states which source wins when four disagree, and every master that may read a template reads that one text instead of inventing its own wording."
+
+applies_to: "skills catalog (a shared precedence section, the three masters that include it)"
+
+scope:
+  in: >
+    A single section in the catalog stating the order — principles are law and win every
+    collision; the template gives the form for what is NEW, meaning structure with no counterpart
+    in the target; the existing code gives the form for an EXTENSION, meaning wherever a
+    counterpart exists; a prototype or a design gives the WHAT and never the form — plus the test
+    that separates new from extension: does a counterpart already exist in the target. The
+    derivation master, the coding master and the design partner include that section rather than
+    each stating their own; the catalog validator refuses a master that mentions a template
+    without including it.
+  out: >
+    THE BACKEND HALF. No code reads this text; it is prompt content. The phases that put a
+    template in front of a master are 2026-09-13-84c0, 2026-09-13-6f35 and 2026-09-13-ed5a.
+    ENFORCING THE PRECEDENCE ON A DIFF. Judging whether a written change actually followed the
+    order is a verify concern and needs a comparison this product does not have.
+    A PER-PROJECT OVERRIDE. The order is the method, not a setting.
+
+decisions:
+  - key: |
+      THREE MASTERS AUTHORING THE SAME RULE SEPARATELY WILL DISAGREE, AND ONE PIN SHIPS ALL THREE.
+      Three phases each add their own sentence about what a template is, to three different
+      masters, in one catalog, released together. The first time two of them are worded
+      differently the estate has two methods and no way to tell which ran. One section, included.
+  - key: |
+      NEW VERSUS EXTENSION IS THE HINGE, AND NOTHING ELSE IN THE SET DECIDES IT. Every other phase
+      behaves as though a template always governs. It does not: where a counterpart exists in the
+      target, the target's form wins, and a template that overrode it would rewrite working code
+      the ticket did not ask about. The test is cheap to state and impossible to infer.
+  - key: |
+      THE DESIGN GIVES THE WHAT, AND THAT IS WHY IT IS IN THIS TEXT AND NOT ONLY IN THE DESIGN
+      PHASE. A prototype hung in front of a model like a template gets its form copied — a
+      measured failure mode, and the one the design partner is most exposed to.
+  - key: |
+      THIS TEXT COMES BEFORE THE THREE MASTERS ARE EDITED, NOT AFTER. Wording written into three
+      masters and then unified is four edits and a pin bump to undo; written once first, it is
+      three includes.
+
+steps:
+  - id: the-precedence-section-is-authored
+    action: "One catalog section states the four-way order and the new-versus-extension test."
+  - id: the-three-masters-include-it
+    action: "The derivation master, the coding master and the design partner include the section instead of stating their own."
+  - id: the-validator-refuses-a-master-that-skips-it
+    action: "A master mentioning a template without including the section is refused by the catalog validator."
+
+tests:
+  - "PrecedenceSection_IsIncludedByEveryTemplateAwareMaster"
+  - "CatalogValidator_MasterMentionsTemplateWithoutSection_Refused"
+  - "PrecedenceSection_StatesTheNewVersusExtensionTest"
+
+done:
+  - "one section states principles over template over existing code over design, and the new-versus-extension test"
+  - "each of the three masters reads that section and states no competing order of its own"
+  - "a master that mentions a template without it is refused by the catalog's own validator"
+  - "catalog validator green"

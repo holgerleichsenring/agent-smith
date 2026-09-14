@@ -116,6 +116,11 @@ public static class RawConfigPatch
         if (entity.DefaultPipeline is not null) // p0392
             project.DefaultPipeline = string.IsNullOrWhiteSpace(entity.DefaultPipeline)
                 ? null : entity.DefaultPipeline;
+        // 2026-09-13-5fa0: NOT unconditional, unlike Repos one line up — a client that
+        // constructs a ProjectEntity without this field would otherwise wipe the stored
+        // declaration, which is exactly how default_branch and consumes are already lost.
+        if (entity.Templates is { } templates)
+            project.Templates = ProjectEntityMapping.ToRaw(templates);
         if (entity.Resolution is { } resolution)
             project.Resolution = new Dictionary<string, string> { [resolution.Strategy] = resolution.Value };
         if (entity.Pipelines.Count > 0)

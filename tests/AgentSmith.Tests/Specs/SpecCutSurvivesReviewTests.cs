@@ -78,7 +78,8 @@ public sealed class SpecCutSurvivesReviewTests
         var deriver = new SpecSetDeriver(
             new FixedReviewer(verdict),
             new SpecDerivationCall(
-                new SingleClientFactory(new AlwaysAnswers(reply)), new AsyncLocalRunContextAccessor()),
+                new SingleClientFactory(new AlwaysAnswers(reply)), new AsyncLocalRunContextAccessor(),
+                DerivationTestLooks.Proof()),
             DerivationTestLooks.Factory(),
             new FixedPrompt(),
             DerivationTestParsers.Real(),

@@ -11,16 +11,15 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// p0315c: files a confirmed outcome into the ACTIVE SCOPE's tracker via the
 /// existing provider factory. Bug → the fix-bug ticket shape (title + body,
 /// no label — the same shape the create-ticket chat intent files). Phase →
-/// one `phase`-labelled ticket. Epic → parent first, then children in slice
-/// order (each referencing the parent in its body), then a parent comment
-/// listing the filed slices — body references, not tracker-native links,
-/// because ITicketProvider has no linking vocabulary on any tracker today.
-/// Sequential on purpose: a failure reports exactly what was created.
+/// one `phase`-labelled ticket. Epic → EpicTicketFiler, which owns the whole
+/// parent-and-children shape. Sequential on purpose: a failure reports exactly
+/// what was created.
 /// </summary>
 public sealed class OutcomeTicketFiler(
     AgentSmithConfig config,
     ITicketProviderFactory ticketFactory,
     PhaseTicketRenderer renderer,
+    EpicTicketFiler epicFiler,
     ILogger<OutcomeTicketFiler> logger)
 {
     public async Task<FilingReport> FileAsync(
@@ -34,7 +33,7 @@ public sealed class OutcomeTicketFiler(
             {
                 BugOutcome bug => FileBugAsync(provider, bug.Ticket, filed, cancellationToken),
                 PhaseOutcome phase => FilePhaseAsync(provider, phase.Draft, filed, cancellationToken),
-                EpicOutcome epic => FileEpicAsync(provider, epic, filed, cancellationToken),
+                EpicOutcome epic => epicFiler.FileAsync(provider, epic, filed, cancellationToken),
                 _ => throw new InvalidOperationException(
                     $"Outcome kind '{proposal.GetType().Name}' cannot be filed."),
             });
@@ -80,27 +79,5 @@ public sealed class OutcomeTicketFiler(
         var created = await provider.CreateAsync(
             content.Title, content.Body, [PhaseTicketRenderer.PhaseLabel], ct);
         filed.Add(new FiledTicket(created.Reference, content.Title));
-    }
-
-    private async Task FileEpicAsync(
-        ITicketProvider provider, EpicOutcome epic,
-        List<FiledTicket> filed, CancellationToken ct)
-    {
-        var parentContent = renderer.RenderEpicParent(epic.Parent, epic.Children);
-        var parent = await provider.CreateAsync(
-            parentContent.Title, parentContent.Body, [PhaseTicketRenderer.PhaseLabel], ct);
-        filed.Add(new FiledTicket(parent.Reference, parentContent.Title));
-
-        var childRefs = new List<string>();
-        foreach (var child in epic.Children)
-        {
-            var content = renderer.RenderPhase(child, parent.Reference);
-            var created = await provider.CreateAsync(
-                content.Title, content.Body, [PhaseTicketRenderer.PhaseLabel], ct);
-            filed.Add(new FiledTicket(created.Reference, content.Title));
-            childRefs.Add($"{created.Reference} — `{child.PhaseId}` {child.Goal}");
-        }
-        await provider.UpdateStatusAsync(
-            parent.Id, $"Slices filed:\n{string.Join("\n", childRefs.Select(r => $"- {r}"))}", ct);
     }
 }

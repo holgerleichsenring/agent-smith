@@ -38,7 +38,7 @@ public sealed class PhaseEntryAccount(
         var criteria = AcceptanceCriteria.For(pipeline);
         if (criteria.Count == 0) return [];
         if (!sandboxTargets.TryResolve(pipeline, out var sandboxes, out _)) return [];
-        if (!await CarriesDeliveryAsync(sandboxes, pipeline.RunId(), cancellationToken)) return [];
+        if (!await CarriesDeliveryAsync(sandboxes, DeliveryBasis.For(pipeline), cancellationToken)) return [];
 
         // The branch is the ONLY evidence at entry. No command of THIS phase has run, and
         // the previous phase's commands are another phase's evidence — the p0444 leak. A
@@ -57,12 +57,12 @@ public sealed class PhaseEntryAccount(
     /// </para>
     /// </summary>
     private async Task<bool> CarriesDeliveryAsync(
-        IReadOnlyDictionary<string, ISandbox> sandboxes, string? runId,
+        IReadOnlyDictionary<string, ISandbox> sandboxes, DeliveryBasis basis,
         CancellationToken cancellationToken)
     {
         foreach (var (key, sandbox) in sandboxes)
         {
-            var diff = await deliveryDiff.ForBranchAsync(sandbox, runId, cancellationToken);
+            var diff = await deliveryDiff.ForBranchAsync(sandbox, basis, cancellationToken);
             if (diff.Failed)
             {
                 logger.LogInformation(

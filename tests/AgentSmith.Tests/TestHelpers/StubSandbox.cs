@@ -97,5 +97,16 @@ internal sealed class StubSandbox : ISandbox
         return "[\"document.txt\"]";
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    /// <summary>
+    /// 2026-09-13-ed5a: whether the owner tore this sandbox down. A spec-dialog turn owns
+    /// every scope it opened — templates included — and a foreign read-only checkout left
+    /// running is a container nobody owns any more.
+    /// </summary>
+    public bool Disposed { get; private set; }
+
+    public ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        return ValueTask.CompletedTask;
+    }
 }

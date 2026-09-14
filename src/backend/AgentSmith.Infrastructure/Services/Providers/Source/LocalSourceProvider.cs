@@ -37,10 +37,15 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         return Task.FromResult(new Repository(target, basePath));
     }
 
+    // 2026-09-13-a284: a local repository has no pull request server, so there is nothing
+    // to open against a base and nothing to move. Its CompletePullRequestAsync
+    // fast-forwards the CONFIGURED default branch rather than any rung — the promise that
+    // the default branch receives nothing until a human merges is a promise about the
+    // remote providers, and this is where it is not one.
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false)
+        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         // p0326: honest wording — a Local repo without an origin remote is never
         // pushed (SandboxGitOperations skips the push); the local commit is the result.
@@ -80,6 +85,15 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
 
     // p0393a: a local repository has no pull request, so there is no draft to leave.
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
+
+    // 2026-09-13-a284: null is "do not move it" — an unknown base is not a wrong one, and
+    // a local repo has no pull request whose base could be read.
+    public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
+    public Task<bool> RetargetPullRequestAsync(
+        string prUrl, BranchName target, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
     // p0490: with no pull request server, finishing the work IS moving the default

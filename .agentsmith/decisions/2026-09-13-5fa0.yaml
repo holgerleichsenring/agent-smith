@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-5fa0
+
+decisions:
+  - category: Architecture
+    chose: "ProjectEntity.Templates is NULLABLE and RawConfigPatch writes it only when it is not null"
+    over: "An unconditional assignment beside Repos, the shape every other list uses"
+    reason: |
+      RawConfigPatch.Project assigns Repos unconditionally from the entity, which is why every
+      studio save already rebuilds each repo ref from its name and drops default_branch and
+      consumes. Copying that shape would lose a template declaration the same way, and the
+      dashboard's blankEntity mints a project without the field — so any client that constructs
+      rather than spreads would wipe it silently. Null means "I have nothing to say about
+      templates"; an empty list means "there are none". Both are tested, because the difference
+      is the whole protection.
+
+  - category: Architecture
+    chose: "The four rules run in the LOADER, with the referential validator as a mirror"
+    over: "The referential validator alone, as the spec's first draft had it"
+    reason: |
+      ConfigReferentialValidator is reached from FileConfigStore.ExportYaml,
+      DbConfigStore.ExportYaml and DbConfigStore.UpsertProject — and from no import path. With
+      no studio picker, hand-written YAML is the only way to author a template, so rules living
+      only in the validator would accept a cycle at import and refuse it on the next export,
+      leaving an operator with a store they cannot export. ProjectTemplateRules is stated once
+      and read from both sides.
+
+  - category: Architecture
+    chose: "A project-to-project edge in ConfigDocumentTaxonomy"
+    over: "A new delete-protection mechanism, or accepting a dangling declaration"
+    reason: |
+      The delete refusal already exists — ConfigDocumentRepository.Delete refuses anything with
+      inbound edges — and ProjectEdges simply emitted no edge for a template. One yield return
+      closes the gap, so A declaring a template in B now stops B from being deleted. Nothing new
+      was built; something existing was told about a new reference.
+
+  - category: Architecture
+    chose: "Two extractions — ProjectEntityMapping and ProjectPipelineResolver"
+    over: "Adding lines to ConfigCatalogMapper and ResolvedProjectBuilder"
+    reason: |
+      Both files sat EXACTLY at their file-length baselines (181 and 143), and the ratchet lets a
+      baselined file only get shorter. This was known before the code was written and named in
+      the spec, so the extraction is the plan and not a surprise. ProjectRepoResolver was carved
+      out of the builder for the same reason, so the shape is the established one.
+
+  - category: Architecture
+    chose: "A cycle is checked over the whole graph, once, after the project loop"
+    over: "Per entry, as each project resolves"
+    reason: |
+      A cycle is only visible across projects and no single entry can see one. The loader has the
+      whole raw document in hand at that point; the studio write has the whole catalog, because
+      DbConfigStore hands ValidateProject the catalog and not just the entity. Both sides can
+      therefore ask the same question of the same graph.
+
+  - category: Scope
+    chose: "The template's verify block is NOT read here"
+    over: "Folding what a template declares as its own proof into this resolver"
+    reason: |
+      An earlier cut of this phase claimed it. It was wrong by one layer: config resolution runs
+      at load time against strings and has no sandbox, and reading a foreign repository's
+      context.yaml at a revision needs a materialised scope. It moved to 2026-09-13-84c0, which
+      materialises the template anyway — one clone, and the block read while the scope is open.
+
+  - category: Architecture
+    chose: "A context name is not validated, and the phase says so"
+    over: "Inventing a context catalog so it could be"
+    reason: |
+      Neither ProjectEntity nor ConfigCatalog carries contexts — they are discovered inside a run
+      — so both sides of the binding are strings nothing at config time can check. That is also
+      the likeliest typo, which is why it is stated in the rules type rather than left as a
+      silence: it is refused where the template is fetched and its contexts are discovered.

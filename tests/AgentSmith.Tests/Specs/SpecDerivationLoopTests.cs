@@ -72,7 +72,9 @@ public sealed class SpecDerivationLoopTests
     {
         var deriver = new SpecSetDeriver(
             new CleanReviewer(),
-            new SpecDerivationCall(factory ?? new CappingFactory(provider), new AsyncLocalRunContextAccessor()),
+            new SpecDerivationCall(
+                factory ?? new CappingFactory(provider), new AsyncLocalRunContextAccessor(),
+                DerivationTestLooks.Proof()),
             Factory(),
             new FixedPrompt(),
             DerivationTestParsers.Real(),

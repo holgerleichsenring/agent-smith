@@ -110,7 +110,8 @@ public sealed class GitHubPullRequestUpdater(
 
     private IGitHubClient Client() => clientFactory.Create(token);
 
-    private static bool TryParsePullNumber(string prUrl, out int prNumber)
+    // 2026-09-13-a284: internal so the retarget type reads the SAME url shape, once.
+    internal static bool TryParsePullNumber(string prUrl, out int prNumber)
     {
         prNumber = 0;
         var match = System.Text.RegularExpressions.Regex.Match(prUrl, @"/pull/(\d+)");

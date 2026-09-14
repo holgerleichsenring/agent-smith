@@ -120,7 +120,9 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
     {
         var accounting = new PhaseAccounting(
             new DeliveryDiff(
-                new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
+                new AgentSmith.Application.Services.Sandbox.SandboxBaseLadder(
+                    new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
+                    NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseLadder>.Instance),
                 new AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRunStartCommit>.Instance),
                 NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(

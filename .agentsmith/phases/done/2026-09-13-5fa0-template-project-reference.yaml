@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-5fa0
+
+goal: "A project declares, per context, a template it is built after — a context of another project at a revision — and a run can read the declaration."
+
+applies_to: "backend (project document, config mapping, referential validation, resolved project)"
+
+requires:
+  - 2026-09-13-9802
+
+scope:
+  in: >
+    A list on RawProjectEntry, sibling to repos, each entry binding a context name of this project
+    to (project, repo, context, revision) of another; ProjectEntity carries it as a NULLABLE list
+    and RawConfigPatch.Project writes it only when the incoming entity has one; ConfigCatalogMapper
+    and the YAML export carry it; the four rules — unknown target project, repo ref absent from
+    that project, glob repo ref, cycle across the catalog — are stated as StartupFindings in the
+    loader path AND mirrored on the studio write; a project-to-project edge in
+    ConfigDocumentTaxonomy so the existing delete refusal covers a referenced template; a
+    ProjectTemplateResolver, extracted rather than grown in place, resolving each entry to the
+    target's RepoConnection on ResolvedProject; a ProjectTemplateMapping extracted out of
+    ConfigCatalogMapper.
+  out: >
+    THE STUDIO PICKER. Contexts are discovered inside a run and no endpoint serves them, so a typed
+    picker has no data. This field is a DEAD FORM until 84c0 consumes it, and 84c0 is the named
+    phase that does — that is what makes it a slice, not a CLI round-trip: both deserializers
+    already call IgnoreUnmatchedProperties, so an operator can write the key today with identical
+    observable effect.
+    VERIFYING THE REVISION. Stored as an opaque string and verified where it is fetched
+    (2026-09-13-9802), which is also where a ref becomes reachable at all.
+    A LANGUAGE CHECK. stack.lang is free-text authored by a model; equality between two slugs
+    written months apart would refuse legitimate pairs.
+
+decisions:
+  - key: |
+      THE BINDING IS PER CONTEXT, BECAUSE A COMPONENT HAS A TEMPLATE AND A REPOSITORY DOES NOT. One
+      repository may hold a server and a client; they are built after different templates. The
+      context is also what a sandbox is grouped by.
+  - key: |
+      THE PATCH IS THE DEFECT, NOT THE FIELD'S HOME. RawConfigPatch.Project rebuilds every repo ref
+      from its name and so already drops default_branch and consumes on every studio save. Putting
+      the list elsewhere does not escape that: an unconditional assignment one line below would
+      wipe it just as reliably, and the dashboard's blankEntity mints a project without the key.
+      The field is nullable and written only when present — the shape DefaultPipeline and
+      Resolution already use two lines down.
+  - key: |
+      A TEMPLATE IS A CONTEXT OF ANOTHER PROJECT, NOT A NEW ENTITY KIND. The store already carries
+      mcp_server, live since July and read by no runtime consumer, its adapter still in planned. A
+      second kind with the same justification repeats a measured mistake.
+  - key: |
+      THE RULES BELONG WHERE THE FIELD IS AUTHORED. ConfigReferentialValidator is called from
+      FileConfigStore.ExportYaml, DbConfigStore.ExportYaml and DbConfigStore.UpsertProject; no
+      import path calls it. With no studio surface, YAML
+      import is the only way to author a template — so the rules run in the loader, where
+      `config validate` prints them, and the studio write keeps a mirror.
+  - key: |
+      TWO FILES ARE AT THEIR RATCHET CEILING, SO THE EXTRACTIONS ARE STEPS AND NOT STYLE.
+      ConfigCatalogMapper sits at 181 against a baseline of 181 and ResolvedProjectBuilder at 143
+      against 143; a baselined file may only get shorter, so neither can take a single new line.
+      ProjectRepoResolver was carved out of the builder for this same reason.
+  - key: |
+      WHAT A TEMPLATE DECLARES AS ITS OWN PROOF IS NOT READ HERE, BECAUSE HERE HAS NO SANDBOX.
+      Folding the verify-block read into this phase was wrong by one layer: config resolution runs
+      at load time against strings, and reading a foreign repository's context.yaml at a revision
+      needs a materialised scope. It moves to 2026-09-13-84c0, which materialises the template
+      anyway — one clone, and the block read while the scope is open. Refusing on a red or absent
+      proof still waits until the count says a template can pass, and running a template's stages
+      still waits for a phase that gives them their own reserved run.
+  - key: |
+      THE CONTEXT NAME ON BOTH SIDES IS UNVALIDATABLE HERE, AND THAT IS THE LIKELIEST TYPO. Neither
+      ProjectEntity nor ConfigCatalog carries contexts. It is refused where the template is
+      fetched and its contexts are discovered — stated so the gap is a known one, not a silence.
+
+steps:
+  - id: the-project-document-carries-templates
+    action: "RawProjectEntry gains a templates list; ProjectEntity carries it nullable; ConfigCatalogMapper and the YAML export carry it."
+  - id: the-patch-writes-only-what-it-was-given
+    action: "RawConfigPatch.Project writes templates only when the entity has them, so a save that omits the key preserves what is stored."
+  - id: the-rules-run-where-the-field-is-authored
+    action: "The four refusals are StartupFindings in the loader path and mirrored in ConfigReferentialValidator; extract them to their own type."
+  - id: a-referenced-template-cannot-be-deleted
+    action: "ConfigDocumentTaxonomy emits a project-to-project edge so the existing delete refusal covers it."
+  - id: a-run-can-read-the-declaration
+    action: "An extracted ProjectTemplateResolver resolves each entry to the target's RepoConnection on ResolvedProject; ConfigCatalogMapper gives up its share to a ProjectTemplateMapping."
+
+tests:
+  - "LoadConfig_TemplateNamesUnknownProject_ReportsFinding"
+  - "LoadConfig_TemplateRepoRefNotInThatProject_ReportsFinding"
+  - "LoadConfig_TemplateRefIsGlob_ReportsFinding"
+  - "LoadConfig_TemplateCycleAcrossProjects_ReportsFinding"
+  - "PatchProject_EntityOmitsTemplates_StoredTemplatesPreserved"
+  - "DeleteProject_ReferencedAsATemplate_IsRefused"
+  - "ResolvedProject_CarriesTheTargetRepoConnection"
+
+done:
+  - "a project declares a template per context in YAML and the declaration survives export and re-import"
+  - "a studio save that does not know the field leaves a stored declaration untouched"
+  - "an unknown project, an absent repo ref, a glob ref and a cycle are each reported by config validate"
+  - "a project another project names as a template cannot be deleted"
+  - "a resolved project carries the target's clone url and revision, not only its name"
+  - "no existing project configuration changes meaning"
+  - "build green, full suite green"

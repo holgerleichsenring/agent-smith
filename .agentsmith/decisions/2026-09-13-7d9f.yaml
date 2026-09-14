@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-7d9f
+
+decisions:
+  - category: Architecture
+    chose: "The parent is addressed by the phase-parent: LABEL on the child, not by a reference"
+    over: "Parsing the parent id back out of CreatedTicket.Reference, or out of the branch name"
+    reason: |
+      Reference is WebUrl when there is one, and recovering an id from a web url is a parser per
+      provider — a silent wrong answer rather than an error. 2026-09-13-a72a already stamps a
+      reserved-prefix label on every filed child for exactly this reason, and FiledTicketLabels
+      exposes ParentId over a label list. Ticket.Labels is what the provider already returned, so
+      the address costs nothing to obtain.
+
+  - category: Architecture
+    chose: "Nothing new is produced — one GetTicketAsync and one prompt section"
+    over: "A synthesised epic summary, a stored ground record, or a second derivation call"
+    reason: |
+      GetTicketAsync is a non-default member of ITicketProvider that all four adapters implement,
+      and 2026-09-13-b7ba already made the parent a requirement body worth reading. The cheapest
+      honest version is a fetch and a section — and it turns "what should an epic body say for a
+      greenfield cut" into a question with evidence instead of one answered in advance.
+
+  - category: Scope
+    chose: "The DERIVATION only; the coding master is untouched"
+    over: "Binding the epic body into the master prompt as well"
+    reason: |
+      Every epic-child run carries a derived phase spec, so AgenticMasterHandler takes the
+      phase-execution branch and PhaseExecutionPromptFactory deliberately hands the master the
+      SPEC rather than ticket prose. Adding the epic body there is duplicated WHAT at real token
+      cost against a reader that already has the answer. If evidence from a real derivation says
+      otherwise, that is a phase against that prompt factory, with the evidence in hand.
+
+  - category: Architecture
+    chose: "A parent that cannot be read is reported on the run and the run proceeds"
+    over: "Failing the fetch step the way an unreachable declared template fails its phase"
+    reason: |
+      The parent may be deleted, moved, or invisible to this token, and the child's own ticket is
+      still a complete requirement. A declared TEMPLATE that cannot be opened fails because it was
+      declared as governing; an epic that is gone was not. The failure is named in the step result
+      — the surface a person actually reads — so a degraded run is visible rather than silent.
+
+  - category: Architecture
+    chose: "Capped at 20,000 characters, head kept, tail dropped, the drop stated in the section"
+    over: "No cap, or dropping the head, or truncating silently"
+    reason: |
+      The comparable section (TicketConversationPromptSection) caps itself at the same bound and
+      states what it dropped. A parent carries one goal per slice and nothing bounds how many
+      slices a cut has. The HEAD is kept because a requirement body states goal, reasoning and
+      scope first and grows at the ordered slice list at its end — so the opening is the part that
+      binds every slice. A silently shortened section is the kind of missing context nobody can
+      debug.
+
+  - category: Architecture
+    chose: "The section points at the shared source-precedence order instead of restating it"
+    over: "Spelling the four-way order out again in the epic-ground section"
+    reason: |
+      2026-09-13-ab17 shipped that order as the catalog's own {{ref:source-precedence}} section,
+      and the ground is a WHAT within it. A second copy is the copy that goes stale. The catalog
+      assertion for spec-derivation-master is gated on the pin actually citing the section, the way
+      2026-09-13-6f35 and 2026-09-13-ed5a gated theirs: the embedded pin predates ab17, so a hard
+      assertion would fail every build until 2026-09-13-4072 bumps it, and no assertion at all
+      would let that bump land without the section the prompt points at.
+
+  - category: Scope
+    chose: "TicketExtrasFetcher was extracted to pay for the room the new call needs"
+    over: "Adding a baseline entry, or growing FetchTicketHandler past its ratchet"
+    reason: |
+      FetchTicketHandler sat at its ratchet baseline of 189 lines and PipelineHandlersExtensions at
+      218, so both the call and its registration had to be paid for. The family the epic ground
+      joins is the fail-soft companions — comments, documents, attachment refs — which were three
+      near-identical try/catch blocks, one rule written three times. Extracting them is the
+      payment and the cleanup in one move; the handler now sits at 130. The registration line was
+      paid for by chaining two adjacent AddTransient calls that were already siblings.

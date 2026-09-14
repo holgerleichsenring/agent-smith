@@ -39,8 +39,17 @@ internal sealed class MultiContextSourceProvider(
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
-        _inner.CreatePullRequestAsync(repository, title, description, cancellationToken, linkedTicketId, isDraft);
+        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+        BranchName? targetBranch = null) =>
+        _inner.CreatePullRequestAsync(
+            repository, title, description, cancellationToken, linkedTicketId, isDraft, targetBranch);
+
+    public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+        _inner.ReadPullRequestBaseAsync(prUrl, cancellationToken);
+
+    public Task<bool> RetargetPullRequestAsync(
+        string prUrl, BranchName target, CancellationToken cancellationToken) =>
+        _inner.RetargetPullRequestAsync(prUrl, target, cancellationToken);
 
     public Task<string?> FindOpenPullRequestAsync(Repository repository, CancellationToken cancellationToken) =>
         _inner.FindOpenPullRequestAsync(repository, cancellationToken);

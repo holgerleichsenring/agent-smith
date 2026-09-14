@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-9f84
+
+decisions:
+  - category: Scope
+    chose: "The parse was ALREADY reachable, so nothing moved and nothing was made public"
+    over: "Moving ContextYamlVerifyReader to Contracts, widening it to public, or minting a new port"
+    reason: |
+      The spec's first step said the reader is internal to Infrastructure and the derivation is
+      in Application, so the reach is the work. The reader is internal — and its OUTPUT is not.
+      IContextYamlSerializer is the Contracts port that OWNS this parse, it is registered in DI,
+      Application already injects it in two places, and ContextYamlSummary.Verify carries exactly
+      the stages ContextYamlVerifyReader.Read produces. The honest answer to "move it, widen it,
+      or put an interface in Contracts" is that the third option shipped in p0193 and nobody
+      noticed. Any of the other three would have been a second way to parse one file. The spec
+      step was corrected in place rather than satisfied by a change nothing needed.
+
+  - category: Architecture
+    chose: "Only a scope the derivation ALREADY opened is read"
+    over: "Materialising every declared template so the count covers the whole estate"
+    reason: |
+      2026-09-13-84c0 decided one day earlier that the derivation's template scopes stay lazy,
+      because an eager clone spends a pod on every derivation of every project that declares a
+      template, including the many where nobody looks. A framework read that forces
+      materialisation reverses that decision to fetch ONE file. The count is therefore of the
+      templates a derivation actually opened — which is the population whose cut claims to
+      follow a template in the first place. A run that never opened one is silent, and a line
+      about a file nobody fetched would be a measurement nobody took.
+
+  - category: Architecture
+    chose: "The finding lives in the evidence line's own clause"
+    over: "A Run column (an entity plus migrations in two assemblies) or a log line"
+    reason: |
+      DerivationEvidence.Remember already mints a framework-owned, id-carrying line that flows
+      through SpecDerivationParser.Parse onto the persisted spec set — the channel exists and is
+      already read. Its grammar has no field for an outcome, so WHAT was found is written into
+      the clause: "read .agentsmith/contexts/x/context.yaml at <sha>: the template declares NO
+      verify stage". A report nobody reads is the exact failure this phase set is about, and a
+      log line is that failure.
+
+  - category: Architecture
+    chose: "RememberOnce on DerivationEvidence, keyed by repository and clause"
+    over: "Recording once in the deriver, or letting the retry loop mint four ids for one file"
+    reason: |
+      The read runs after every model turn, and the deriver takes up to four. The same unchanged
+      file cited under four ids would be four facts where the run measured one. A tool call stays
+      one line per call — the model asked every time — so the guard belongs to the framework's
+      own looks and not to Remember.
+
+  - category: Architecture
+    chose: "SpecDerivationCall makes the call and then reads what the turn opened"
+    over: "The same two lines in SpecSetDeriver, where the look is created"
+    reason: |
+      SpecSetDeriver sits EXACTLY on the 120-line ratchet, and SpecDerivationCall was split off
+      it for this reason — its own doc says so. The class already owns what surrounds one turn:
+      the trail scope, the cost row. It now takes the LOOK rather than the look's tool list, so
+      the read lands after the turn and before the parse that carries the evidence onward.
+
+  - category: Architecture
+    chose: "A template that cannot be read is reported apart from one that declares nothing"
+    over: "Folding an absent or unparsable context.yaml into 'declares none'"
+    reason: |
+      The count being built is 'how many templates declare any proof at all'. A context.yaml that
+      is missing, unparsable, or missing meta.workdir (the parse THROWS on that one) is a broken
+      template, not a template without proof. Merged, the two would inflate the number that a
+      successor's refusal will be calibrated against.

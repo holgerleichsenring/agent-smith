@@ -27,6 +27,7 @@ public static class ConfigReferentialValidator
         Check(errors, project.Id, "agent", project.Agent, catalog.Agents.Select(a => a.Id));
         Check(errors, project.Id, "tracker", project.Tracker, catalog.Trackers.Select(t => t.Id));
         ValidateRepos(errors, project, catalog);
+        ValidateTemplates(errors, project, catalog);
 
         if (errors.Count > 0)
         {
@@ -55,6 +56,29 @@ public static class ConfigReferentialValidator
             Check(errors, project.Id, "repo", repoRef, repoIds);
         }
     }
+
+    /// <summary>
+    /// 2026-09-13-5fa0: the same four rules the loader states, mirrored on the studio write.
+    /// The loader is where a template can actually be AUTHORED — no import path calls this
+    /// validator — so this side is the mirror, not the original.
+    /// </summary>
+    private static void ValidateTemplates(
+        List<string> errors, ProjectEntity project, ConfigCatalog catalog)
+    {
+        if (project.Templates is not { Count: > 0 } templates) return;
+        var repoRefsByProject = catalog.Projects
+            .ToDictionary(p => p.Id, p => p.Repos, ConfigNames.Comparer);
+        repoRefsByProject[project.Id] = project.Repos;
+        errors.AddRange(ProjectTemplateRules.Check(project.Id, templates, repoRefsByProject));
+
+        var targets = catalog.Projects
+            .ToDictionary(p => p.Id, p => Targets(p.Templates), ConfigNames.Comparer);
+        targets[project.Id] = Targets(templates);
+        errors.AddRange(ProjectTemplateRules.CheckCycles(targets));
+    }
+
+    private static IReadOnlyList<string> Targets(IReadOnlyList<TemplateReference>? templates) =>
+        templates is null ? [] : [.. templates.Select(t => t.Project).Distinct(ConfigNames.Comparer)];
 
     private static void Check(
         List<string> errors, string project, string kind, string reference,

@@ -22,6 +22,19 @@ internal static class DerivationLookPromptSection
             + "Every result starts with an evidence id such as [L3]; a fact you state cites "
             + "that id, and a fact that cites none is recorded as an assumption.");
         foreach (var repository in look.Repositories) sb.AppendLine($"- {repository}");
+        if (look.Templates.Count == 0) return sb.ToString();
+
+        // 2026-09-13-84c0: apart from the targets, and said in the same breath as what they
+        // are FOR — a template answers how work is done here, never what this ticket wants.
+        sb.AppendLine();
+        sb.AppendLine("## Templates this project is built after");
+        sb.AppendLine(
+            "These are read-only reference repositories, on their own separate look allowance "
+            + $"of {DerivationLookBudget.Allowance}. A template answers HOW work is done here — "
+            + "the shape a component takes, where things live, what a change touches. It never "
+            + "says WHAT this ticket wants, and where the target already has a counterpart, the "
+            + "target's own form wins.");
+        foreach (var template in look.Templates.Keys) sb.AppendLine($"- {template}");
         return sb.ToString();
     }
 }

@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -32,8 +33,13 @@ public sealed class SpecPullRequestOpener(
         try
         {
             var provider = sourceFactory.Create(carryingRepo);
+            // 2026-09-13-a284: THIS is the pull request an epic child actually gets — opened
+            // here, at the spec commit, long before CommitAndPR. Until now it was opened
+            // against the provider's default branch and never moved, so a slice's review
+            // showed its predecessors' work as well as its own.
+            var target = Handlers.PullRequestTargets.For(pipeline, carryingRepo.Name);
             var url = await provider.FindOpenPullRequestAsync(branchRepo, cancellationToken)
-                ?? await CreateAsync(provider, branchRepo, pipeline, set, cancellationToken);
+                ?? await CreateAsync(provider, branchRepo, pipeline, set, target, cancellationToken);
             await RecordAsync(pipeline, carryingRepo.Name, url, cancellationToken);
             return url;
         }
@@ -47,12 +53,13 @@ public sealed class SpecPullRequestOpener(
 
     private async Task<string> CreateAsync(
         ISourceProvider provider, Repository branchRepo, PipelineContext pipeline,
-        SpecSet set, CancellationToken ct)
+        SpecSet set, BranchName? target, CancellationToken ct)
     {
         var ticket = pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) ? t : null;
         var url = await provider.CreatePullRequestAsync(
             branchRepo, ticket?.Title ?? set.Key,
-            SpecPrBody.BuildInitial(set), ct, linkedTicketId: ticket?.Id, isDraft: true);
+            SpecPrBody.BuildInitial(set), ct, linkedTicketId: ticket?.Id, isDraft: true,
+            targetBranch: target);
         logger.LogInformation("Draft PR opened at the spec commit: {Url}", url);
         return url;
     }

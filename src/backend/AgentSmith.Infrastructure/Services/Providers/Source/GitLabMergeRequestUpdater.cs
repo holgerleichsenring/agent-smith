@@ -101,7 +101,8 @@ public sealed class GitLabMergeRequestUpdater(
     private string MergeRequestUrl(int iid) =>
         $"{baseUrl}/api/v4/projects/{projectPath}/merge_requests/{iid}";
 
-    private static bool TryParseMergeRequestIid(string mrUrl, out int iid)
+    // 2026-09-13-a284: internal so the retarget type reads the SAME url shape, once.
+    internal static bool TryParseMergeRequestIid(string mrUrl, out int iid)
     {
         iid = 0;
         var match = System.Text.RegularExpressions.Regex.Match(mrUrl, @"/merge_requests/(\d+)");

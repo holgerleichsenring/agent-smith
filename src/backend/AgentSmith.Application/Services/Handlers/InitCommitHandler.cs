@@ -107,7 +107,7 @@ public sealed class InitCommitHandler(
                 sandbox, context.Repository.CurrentBranch.Value,
                 "chore: initialize .agentsmith/ directory", repo.Type, ct);
         }
-        catch (Exception ex) when (LooksLikeEmptyCommit(ex))
+        catch (Exception ex) when (EmptyCommit.Explains(ex))
         {
             logger.LogInformation("{Repo}: no init changes, skipping PR", repo.Name);
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
@@ -122,9 +122,13 @@ public sealed class InitCommitHandler(
         try
         {
             var provider = sourceFactory.Create(repo);
+            // 2026-09-13-a284: an init run normally carries no rung — no parent ticket, so
+            // nothing resolved one — and a null target opens against the default branch
+            // exactly as before. A bootstrap filed under an epic gets the epic's branch.
             var prUrl = await provider.CreatePullRequestAsync(
                 new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty),
-                "Initialize .agentsmith/ directory", body, ct, linkedTicketId: ticketId);
+                "Initialize .agentsmith/ directory", body, ct, linkedTicketId: ticketId,
+                targetBranch: PullRequestTargets.For(context.Pipeline, repo.Name));
             logger.LogInformation("{Repo}: init PR opened {Url}", repo.Name, prUrl);
             return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
         }
@@ -134,10 +138,6 @@ public sealed class InitCommitHandler(
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
         }
     }
-
-    private static bool LooksLikeEmptyCommit(Exception ex) =>
-        ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains("no changes", StringComparison.OrdinalIgnoreCase);
 
     private Task FinalizeTicketAsync(
         InitCommitContext context, IReadOnlyList<OpenedPullRequest> opened,

@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-a284
+
+goal: "A pull request opens against the base its branch was cut from, and one opened earlier against the wrong base is moved, so a slice's review shows the slice."
+
+applies_to: "backend (the source providers, the three pull-request opening sites)"
+
+requires:
+  - 2026-09-13-5cdf
+  - 2026-09-13-35a4
+
+scope:
+  in: >
+    ISourceProvider gains an OPTIONAL target branch on CreatePullRequestAsync and a RETARGET
+    operation for a pull request that is already open; both are implemented on all four providers —
+    GitHub patches base, GitLab target_branch, Azure Repos targetRefName, Local no-ops — and on the
+    three test doubles, with null target meaning exactly today's behaviour; ALL THREE opening sites
+    pass the resolved rung: the draft opened at the spec commit, the find-or-create at commit time,
+    and the init commit; find-or-create retargets a pull request whose base is not the rung; the
+    target is looked up PER REPOSITORY, because the rung is.
+  out: >
+    RESOLVING THE BASE. 2026-09-13-5cdf owns the ladder; this phase only carries its answer to the
+    provider.
+    RECONCILING WITH RepoConnection.DefaultBranch. That setting already steers the provider's own
+    default-branch lookup, so the rule is stated once here — an explicitly passed target wins, a
+    null target falls to the existing resolver unchanged — and nothing about that resolver changes.
+    MERGING ANYTHING. Opening against the right base is not merging into it.
+
+decisions:
+  - key: |
+      THE PULL REQUEST AN EPIC CHILD ACTUALLY GETS IS OPENED LONG BEFORE CommitAndPR, AND THAT IS WHY
+      A TARGET PARAMETER ALONE IS NOT ENOUGH. A draft is opened at the spec commit, before the work
+      is written, against the provider's default branch. CommitAndPR is then find-OR-create, and on
+      find it only updates the body and marks it ready — nothing anywhere changes a base. A phase
+      that added the parameter and stopped would pass its own test on the create path and never
+      touch the path production takes.
+  - key: |
+      WITHOUT THE TARGET THE REVIEW BREAKS, NOT JUST THE TIDINESS. A second slice cut from the
+      feature rung CONTAINS the first, so its pull request against the default branch shows the
+      merge-base diff — slice one plus slice two. By the eighth slice every pull request shows the
+      whole feature, and merging any one of them lands the whole feature. Per-slice review is what a
+      pull request is for.
+  - key: |
+      THE TARGET IS PER REPOSITORY, BECAUSE THE RUNG IS. A two-repository project may have the
+      feature branch in one and not the other, and the opener loops repositories with a single
+      branch value today. One recorded target would send one of the two to the wrong base.
+  - key: |
+      THE COUNT IS SEVEN DECLARATIONS, NOT FOUR. Four providers, plus a stub in the unit tests and
+      two more in the pipeline harness. The mock expression sites do NOT stop compiling — an
+      OPTIONAL parameter appended to the signature is filled in at every existing call site, so the
+      breakage is silent and at RUNTIME: a Moq .Callback with the old arity throws when the setup
+      runs. Two such callbacks existed; the rest of the expressions now assert "opened with no
+      target", which is what they meant.
+  - key: |
+      LOCAL NO-OPS, AND ITS DONE-CRITERIA SAY SO. The local provider ignores the concept and its
+      completion path fast-forwards the configured default branch rather than any rung, so the
+      promise that the default branch receives nothing until a human merges is a promise about the
+      remote providers. Written down rather than quietly untrue on the demo path.
+
+steps:
+  - id: the-provider-can-be-told-a-target
+    action: "CreatePullRequestAsync gains an optional target branch on the interface and all seven implementations; null means today's behaviour."
+  - id: the-provider-can-move-an-open-one
+    action: "A retarget operation changes the base of an already-open pull request on each provider."
+  - id: every-opening-site-passes-the-rung
+    action: "The spec-commit draft, the find-or-create at commit time and the init commit each pass the repository's resolved rung."
+  - id: a-wrongly-based-pull-request-is-moved
+    action: "Find-or-create retargets a pull request whose base is not the rung, instead of leaving it."
+
+tests:
+  - "CreatePullRequest_TargetGiven_OpensAgainstIt"
+  - "CreatePullRequest_TargetNull_OpensAgainstTheDefaultBranch"
+  - "SpecDraftPullRequest_OpensAgainstTheRung"
+  - "CommitAndPR_ExistingPullRequestOnAWrongBase_IsRetargeted"
+  - "CommitAndPR_ExistingPullRequestOnTheRung_IsNotRetargeted"
+  - "PullRequestTarget_TwoRepos_EachGetsItsOwnRung"
+  - "InitCommit_NoRung_OpensAsToday"
+
+done:
+  - "a slice's pull request shows only that slice's diff"
+  - "that promise is a promise about the REMOTE providers: a local repository has no pull request
+     to open or move, and its completion path fast-forwards the configured default branch rather
+     than any rung"
+  - "the draft opened at the spec commit already points at the rung"
+  - "a pull request opened before its rung existed is moved onto it rather than left wrong"
+  - "a run with no rung opens against the default branch exactly as today"
+  - "each repository of a multi-repo run gets its own target"
+  - "build green, full suite green"

@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-9802
+
+goal: "A read-only source scope materialises a foreign repository at a named revision, so a consumer that follows one reads what was declared and not whatever the default branch holds."
+
+applies_to: "backend (the source-scope sandbox, its factory, the spec-dialog caller)"
+
+scope:
+  in: >
+    ISourceScopeSandboxFactory.Create takes an optional revision; SourceScopeSandbox issues a
+    checkout of it after its own clone, and a rev-parse of HEAD, both on the internal path that
+    already bypasses the read-only guard; FIVE typed failures — no such revision, revision not
+    reachable from any fetched ref, unauthorised, unreachable, no clone url — each distinct at the
+    sandbox rather than collapsed into one "could not be prepared" string; the materialisation
+    path moves to its own type, because SourceScopeSandbox sits at 117 lines against an
+    unbaselined ceiling of 120 and the ratchet forbids a new baseline row; ownership is stated and
+    a disposal path exists;
+    SpecDialogTurnRunner migrates to the new signature with no behaviour change when no revision
+    is given.
+  out: >
+    A REF-RESOLVING SOURCE PROVIDER. ISourceProvider.CheckoutAsync takes a BranchName and is not on
+    this path — the sandbox clone is CheckoutStepFactory.BuildCloneStep, a FULL clone with no
+    --depth and no --no-tags, so a sha or a tag is reachable with a checkout step and nothing on
+    the provider has to change.
+    A CREDENTIAL PER CONNECTION. GitTokenResolver reads one env var per platform, process-wide, so
+    a repository of another organisation stays unreachable. This phase reports that as the
+    unauthorised failure kind; earning the credential is its own phase.
+    A WRITABLE TEMPLATE. The scope refuses Run and WriteFile by kind; that is the read-only
+    mechanism and it is not widened here.
+
+decisions:
+  - key: |
+      THE STATED BLOCKER WAS MEASURED ON THE WRONG PATH. "No source provider can resolve a ref" is
+      true of ISourceProvider and irrelevant here: SourceScopeSandbox clones through
+      CheckoutStepFactory.BuildCloneStep, which is a full clone, and BuildCheckoutStep already
+      exists and resolves a sha, a tag and a branch identically. The capability is a parameter and
+      a step, not a subsystem.
+  - key: |
+      ONE PHASE, THREE CONSUMERS. The epic analysis, the derivation and the coding look each need a
+      foreign repository at a declared revision. Built three times it is three chances to clone the
+      default branch and record a revision the run never read.
+  - key: |
+      THE BRANCH-SWITCH HELPER MUST NOT BE REUSED. SandboxWorkBranchCheckout falls back to
+      `git checkout -b` when the checkout fails and only logs. Routed through it, a bad revision
+      becomes "default HEAD under a new branch name" — the read succeeds and the provenance is
+      wrong, which is the one outcome this phase exists to prevent.
+  - key: |
+      A FULL CLONE DOES NOT REACH EVERY SHA, AND THE FIFTH FAILURE KIND IS WHY. A clone with no
+      --depth fetches every branch and every tag, so a sha reachable from any branch is present.
+      A sha that lives only in a pull-request ref or on a deleted branch is NOT, and git answers
+      both with "reference is not a tree" — indistinguishable from a typo. That case gets its own
+      kind and, where the host allows it, a credentialed fetch of the ref before the checkout;
+      BuildCheckoutStep carries no GIT_TOKEN, so the fetch needs its own step.
+  - key: |
+      THE SANDBOX SPEC COMES FROM THE RUN'S PROJECT, NOT THE FOREIGN ONE. SandboxSpecBuilder
+      resolves image, resources, timeouts and secrets from the project it is handed; the sandbox is
+      the run's cost and the run's isolation, so it is specced by the run. The foreign project
+      contributes the clone url and the revision, nothing else.
+
+steps:
+  - id: the-factory-takes-a-revision
+    action: "ISourceScopeSandboxFactory.Create gains an optional revision; SourceScopeSandbox carries it."
+  - id: the-materialisation-path-moves-to-its-own-type
+    action: "Clone, optional fetch, checkout and rev-parse move out of SourceScopeSandbox into their own type, under the ratchet ceiling."
+  - id: materialisation-checks-out-and-reports-the-sha
+    action: "After the clone, a checkout of the revision and a rev-parse of HEAD run on the internal path; the resolved sha is exposed."
+  - id: the-five-failures-are-distinct
+    action: "No such revision, not reachable from any fetched ref, unauthorised, unreachable and no clone url are each their own typed failure."
+  - id: the-owner-disposes
+    action: "The creating caller owns the sandbox and disposes it in a finally; SpecDialogTurnRunner migrates unchanged."
+
+tests:
+  - "SourceScope_NoRevisionGiven_ClonesAsBefore"
+  - "SourceScope_RevisionGiven_ChecksOutAndReportsSha"
+  - "SourceScope_UnknownRevision_ReportsNoSuchRevisionKind"
+  - "SourceScope_ShaOnlyInAPullRequestRef_ReportsNotReachableKind"
+  - "SourceScope_MissingToken_ReportsUnauthorisedKind"
+  - "SourceScope_RevisionCheckoutFails_DoesNotCreateABranch"
+  - "SourceScope_Disposed_TearsDownTheInnerSandbox"
+
+done:
+  - "a source scope asked for a revision serves that revision's files and names the sha it is on"
+  - "a source scope asked for nothing behaves exactly as today"
+  - "an unknown revision, a missing token and an unreachable host each report distinctly"
+  - "a failed revision checkout never leaves a new branch and never serves the default branch"
+  - "a sha no fetched ref reaches is reported as that, not as a typo"
+  - "a template in another organisation is unreadable and says so: one token per platform is all the product has"
+  - "build green, full suite green"

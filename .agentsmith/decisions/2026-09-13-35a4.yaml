@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-35a4
+
+decisions:
+  - category: Architecture
+    chose: "A feature branch is published by CreateOnlyBranchPush — `git push origin <base>:refs/heads/<rung>`, no force, no lease"
+    over: "Reusing GitBranchPusher, the primitive the run already has for its work branch"
+    reason: |
+      GitBranchPusher pushes --force-with-lease and, when the remote answers "stale info", FETCHES
+      and pushes again — the fetch makes the lease satisfiable, so the second attempt succeeds by
+      overwriting. That is a correct recovery for a work branch ONE run owns, and it is how run 16
+      got its spec back. Pointed at a rung several slices merge into, two siblings starting together
+      would race and the loser would force the rung back to the base, deleting whatever had already
+      been merged into it. A plain push is also the only form the remote can REFUSE, and the refusal
+      is the signal this phase needs: the remote, not this clone, decides who created the branch.
+
+  - category: Architecture
+    chose: "A refusal is an outcome (RemoteBranchCreation.AlreadyThere), not an error"
+    over: "Failing the run, or retrying the push"
+    reason: |
+      Two slices of one feature with no predecessor edge between them start concurrently by design —
+      2026-09-13-a72a's ordering gate holds only DECLARED predecessors. Both find the rung absent in
+      their own clone and both try to create it; exactly one can win. Treating the rejection as a
+      failure would fail a run for doing the right thing, and retrying is the one response that
+      cannot be right, because the winner's branch is what this slice must be cut from.
+
+  - category: Implementation
+    chose: "The adopt tail — fetch, then ask the ladder again — runs after a create, a refusal AND a failed push"
+    over: "Trusting the push result: Created means ours, AlreadyThere means theirs, Failed means no rung"
+    reason: |
+      All three end in the same question, which is whether the branch is on the remote NOW. Reading
+      it off the clone rather than off our own exit code makes the answer a fact: it covers a push
+      that git refused for a wording we do not match, a ref-lock collision between two siblings
+      pushing the same sha, and the create whose remote-tracking ref we would otherwise assume git
+      left behind — the checkout that follows does `git checkout origin/<rung>`, so that ref has to
+      exist rather than be presumed. Cost is one fetch on the run that created the rung.
+
+  - category: Implementation
+    chose: "SandboxWorkBranchCheckout takes SandboxRungPublisher in place of SandboxBaseLadder, on BOTH its paths"
+    over: "Publishing only on the create path, where the cut happens"
+    reason: |
+      The publisher IS the ladder plus a push, so asking the ladder directly anywhere on this path
+      would mean that slice fell through to the clone's own base while its siblings were on a rung.
+      The reuse path matters as much as the cut: a slice whose branch already exists still has to
+      merge the RUNG rather than the default branch, and 2026-09-13-a284 will retarget its open pull
+      request at the same name. Publishing is idempotent, so the second slice through costs one ref
+      check and no push.
+
+  - category: Implementation
+    chose: "The create-only push Step is built by CheckoutStepFactory, next to the clone step"
+    over: "Composing the credential helper and GIT_TOKEN inside the new service"
+    reason: |
+      The factory already owns the one credential-helper string and the RepoType→token mapping for
+      every git Step that talks to a remote. A second copy in a second file is how the two drift.
+      RepoConnection is threaded into SwitchAsync rather than the constructor because the checkout
+      is a DI transient and a connection is per repository, not per graph.
+
+  - category: Implementation
+    chose: "WorkBranchBaseMergeReport extracted from SandboxWorkBranchCheckout"
+    over: "Adding the publisher to the 103-line file"
+    reason: |
+      FileLengthRatchetTests caps an unbaselined file at 120 lines and forbids a new baseline row.
+      Turning a merge outcome into "run on, or stop" is its own responsibility anyway: the checkout
+      decides what to merge, the report says what came of it, and only a CONFLICT is a reason not to
+      continue.
+
+  - category: Implementation
+    chose: "Creation, refusal and the race are asked of a real git remote with two clones taken before the rung existed"
+    over: "Asserting the refspec a mocked sandbox was handed"
+    reason: |
+      A recorded argument list cannot tell a create from an overwrite, and overwriting is the exact
+      failure this phase exists to make impossible. GitRemoteFixture grew a second clone and a
+      non-throwing query of the remote, so "the loser adopted" is asserted as the sibling's merged
+      commit still being on the rung afterwards — the data that a force-push would have deleted. The
+      no-force property is asserted separately against the built Step, because an absence is cheaper
+      to prove than to provoke.
+
+  - category: Scope
+    chose: "5cdf's WorkBranch_NoRungExists_IsCutExactlyAsToday was repurposed to the no-parent-stamp case"
+    over: "Leaving it, or deleting it"
+    reason: |
+      It passed a parent stamp, found no rung and asserted the fall-through — which 2026-09-13-5cdf
+      itself documented as true only "until 2026-09-13-35a4 publishes a rung". A stamped ticket now
+      CREATES the rung it did not find, so the premise is gone by design. What survives is this
+      phase's own done-criterion — a ticket with no parent stamp publishes nothing and behaves
+      exactly as before — so the test asserts that instead, including the absence of any push.
+
+  - category: Scope
+    chose: "The spec's scope was corrected: the checkout step carries no environment at all"
+    over: "Building against the spec's sentence that it 'carries the token today for no operation'"
+    reason: |
+      CheckoutStepFactory.BuildCheckoutStep passes no Env; only BuildCloneStep and
+      BuildFetchRevisionStep stamp GIT_TOKEN, and GitBranchPusher stamps its own. The premise would
+      have made threading RepoConnection look like plumbing already half in place rather than the
+      reason a push from this path would otherwise fail on authentication.
+
+  - category: Scope
+    chose: "A rung that cannot be published leaves the run on the clone's own base, with a warning"
+    over: "Failing the checkout when the branch could not be created"
+    reason: |
+      The ladder's contract is that it DEGRADES — an estate with no rung anywhere lands where every
+      run landed before, which is what makes this whole line of phases backward-compatible by
+      construction. A run stopped because a branch could not be published would be a new failure
+      mode for estates that never asked for feature branches. The consequence is bounded and named:
+      that slice's pull request shows more than the slice, which 2026-09-13-a284 opens against
+      whatever base was actually resolved.
