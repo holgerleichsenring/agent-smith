@@ -40,6 +40,10 @@ public sealed class RefusalWireNamesTests(RoleMappingAuthorityFixture fixture)
             "roleClaimValues", "groupClaimValues", "roles", "permissions", "findings");
     }
 
+    // 2026-09-14-c72e: the requirements body's own names are pinned by
+    // AuthRequirementsRouteTests, which owns that route — a second copy here would be two
+    // lists to keep in step, which is the failure this guard exists to prevent.
+
     private static async Task<IEnumerable<string>> FieldsOf(HttpResponseMessage response)
     {
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

@@ -34,6 +34,25 @@ public sealed record AuthRequirements(bool Enforced, string? Authority, string? 
     public string? TokenRefusal { get; init; }
 
     /// <summary>
+    /// 2026-09-14-c72e: the audience the REFUSED token carried, null when none was refused or
+    /// what arrived could not be decoded. Read from this request's own bearer, unverified, and
+    /// published beside <see cref="Audience"/> so the difference is a comparison rather than a
+    /// hunt — which is what the closed refusal vocabulary alone could not give: it names the
+    /// check that failed, never the value that failed it.
+    /// </summary>
+    public string? PresentedAudience { get; init; }
+
+    /// <summary>The issuer the refused token carried, on the same terms as <see cref="PresentedAudience"/>.</summary>
+    public string? PresentedIssuer { get; init; }
+
+    /// <summary>
+    /// The refused token's own version claim, on the same terms. It is the field that turns two
+    /// values that differ into a shape with a name — a directory that mints more than one token
+    /// version for one sign-in is the case an operator cannot otherwise see.
+    /// </summary>
+    public string? PresentedTokenVersion { get; init; }
+
+    /// <summary>
     /// <see cref="TokenAuthorityConfig.Enforce"/> alone is not the answer.
     /// ServerAuthenticationExtensions attaches the fallback policy that refuses anything
     /// only once the authority is usable, so the switch on and no authority configured

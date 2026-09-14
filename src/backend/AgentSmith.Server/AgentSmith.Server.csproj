@@ -17,6 +17,10 @@
     <PackageReference Include="KubernetesClient" Version="17.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.7" />
+    <!-- 2026-09-14-c72e: read directly by PresentedToken, so it is named directly. It
+         resolved transitively through JwtBearer before, which is a dependency that can
+         move under a package bump nobody connected to this file. -->
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.7.0" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.7.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.8.1" />

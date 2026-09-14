@@ -30,8 +30,42 @@ internal static class AuthRequirementsEndpoints
         app.MapGet("/api/auth/requirements",
                 (HttpContext ctx, [FromServices] TokenAuthorityConfig auth,
                     [FromServices] RefusedToken refused) =>
-                    Results.Ok(AuthRequirements.From(auth) with { TokenRefusal = refused.Reason(ctx) }))
+                {
+                    Uncacheable(ctx.Response);
+                    return Results.Ok(Answer(auth, refused, ctx));
+                })
             .Anonymous("a caller with no token is the one who needs to read what a token must be");
         return app;
+    }
+
+    /// <summary>
+    /// 2026-09-14-c72e: what this server expects, plus what THIS caller's refused token
+    /// carried. The presented half is read only where a refusal was recorded, so an accepted
+    /// token and an absent one are both answered with the installation's half alone.
+    /// </summary>
+    private static AuthRequirements Answer(
+        TokenAuthorityConfig auth, RefusedToken refused, HttpContext ctx)
+    {
+        var reason = refused.Reason(ctx);
+        var presented = reason is null ? null : refused.Presented(ctx);
+        return AuthRequirements.From(auth) with
+        {
+            TokenRefusal = reason,
+            PresentedAudience = presented?.Audience,
+            PresentedIssuer = presented?.Issuer,
+            PresentedTokenVersion = presented?.Version,
+        };
+    }
+
+    /// <summary>
+    /// 2026-09-14-c72e: the body was near-constant until it started carrying one caller's
+    /// token fields. An anonymous route with no cache directive in front of an ingress, a CDN
+    /// or a corporate proxy is how one caller's answer becomes the next caller's — so this one
+    /// says both that it must not be stored and that it varies by the header it reads.
+    /// </summary>
+    private static void Uncacheable(HttpResponse response)
+    {
+        response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        response.Headers.Vary = "Authorization";
     }
 }

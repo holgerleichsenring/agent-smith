@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-14-c72e
+
+decisions:
+  - category: Architecture
+    chose: "The refused token is read a SECOND time, unverified, off the request that carried it"
+    over: "Taking the values out of the validation exception, or carrying the token forward from the handler"
+    reason: |
+      The exception carries one value and only for the check that failed:
+      SecurityTokenInvalidAudienceException has InvalidAudience, SecurityTokenInvalidIssuerException
+      has InvalidIssuer, and RefusedToken unwraps an aggregate to InnerExceptions[0] — so one
+      request yields one exception and one field. No exception carries a token version at all.
+      The incident this phase was written for is precisely that shape: an Entra v1 access token
+      refused on its AUDIENCE, with the issuer half of the same mismatch invisible, and an
+      operator decoding the token by hand to find it.
+      Carrying the token forward was the other candidate and is worse: AuthenticationFailedContext
+      exposes no member of any kind, public or private, that holds the raw token (verified by
+      reflection against JwtBearer 10.0.7), so it would have meant stashing the string at
+      OnMessageReceived and keeping a credential alive across the pipeline for a display feature.
+      Re-reading the Authorization header at the moment of failure needs nothing kept.
+
+  - category: Security
+    chose: "Echo the audience, issuer and version of THIS request's token back to the caller who sent it"
+    over: "Keeping the closed refusal vocabulary as the only answer"
+    reason: |
+      2026-08-25-1806 rejected echoing the validation MESSAGE for two reasons: it names the values
+      the check ran against, and it is not a stable contract. The second is answered by structured
+      fields — they are pinned by a wire-name test, which a library's prose never could be. The
+      first is answered by who reads the route: the caller of /api/auth/requirements is the bearer
+      of the token being described, and the fields returned are the ones they just sent. The
+      precedent was already shipped by the same phase: CallerIdentityResolver returns the token's
+      own 'iss' to its bearer on /api/identity.
+      The boundedness is mechanical rather than promised. The refusal and its values are recorded
+      on the HttpContext by the handler that ran on that request, so there is no store for one
+      caller's values to be read out of by another — pinned by a two-caller test.
+      The values are UNVERIFIED by construction: the signature over them failed or was never
+      checked. Nothing decides anything on them. They are display, for the person holding them.
+
+  - category: Security
+    chose: "no-store plus Vary: Authorization on the anonymous requirements route"
+    over: "Leaving the route's cache behaviour as it was"
+    reason: |
+      The body was near-constant for the life of an installation, so no directive was a defensible
+      omission. It stops being one the moment the body carries fields unique to the caller's token:
+      an anonymous route with no cache-control in front of an ingress, a CDN or a corporate proxy
+      is how one caller's answer becomes the next caller's. The route now says both that it must
+      not be stored and which header it varies by.
+
+  - category: Architecture
+    chose: "The recognitions live in the dashboard, over the two value pairs"
+    over: "Naming the shape in the server's payload, or branching on it in JwtBearerSetup"
+    reason: |
+      The validation path stays vendor-neutral on purpose: this server validates ONE authority so
+      that a realm which is not Entra is a first-class case, and a token-version test inside the
+      validator would make one directory's shape a property of the code. Putting vendor-shaped
+      prose in the anonymous payload would be the same mistake one layer out — every installation
+      serves that route, and most of them would read past it.
+      So the wire carries facts (expected pair, presented pair) and the browser names the shape.
+      A shape nobody recognises still renders the comparison: the sentence is the shortcut, never
+      what makes the diagnosis possible.
+
+  - category: Architecture
+    chose: "The banner asks whether a token survived, not whether two strings match"
+    over: "Comparing the two authorities, as 2026-08-25-4530 built it"
+    reason: |
+      Measured: the banner asserted "a token minted by one is refused by the other; one of the two
+      is wrong" on a page that was, three lines below, showing a resolved subject from an accepted
+      token. Two authorities may legitimately differ — a v2 sign-in minting an id_token beside a v1
+      resource validating an access token is ONE directory, correctly configured, on two endpoints.
+      tokenRefusal alone cannot settle it: null means "accepted" and "none presented" both. The
+      browser holds the missing half, so the 'both' case is silenced only when this tab HOLDS a
+      token that was not refused. Before the first sign-in the banner still speaks, which is the
+      case it was built for.
+      And only an issuer or audience refusal may accuse a configuration. Expiry, signature and the
+      measured "server cannot reach its own authority" case say nothing about either half, and
+      reporting them here would be the same false positive arriving from the other side.
+      This amends 2026-08-25-4530's "disagreement is a banner" rather than reversing it: the
+      disagreement is now measured on tokens. Its test was replaced by the token-aware pair, not
+      deleted.
+
+  - category: Dependencies
+    chose: "Microsoft.IdentityModel.JsonWebTokens is named directly in the server csproj"
+    over: "Letting it keep resolving transitively through JwtBearer"
+    reason: |
+      PresentedToken reads it directly. It arrived at 8.7.0 only because the direct
+      OpenIdConnect reference bumped JwtBearer's own 8.0.1 dependency — a version this file
+      never states and a chain a future package bump can move without anyone connecting it to
+      the code that decodes tokens.
