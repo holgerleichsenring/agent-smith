@@ -35,6 +35,10 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogOutcomeComposer>();
         services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddTransient<PhaseTicketRenderer>();
+        // 2026-09-13-a72a: an epic's children are filed in dependency order, so a child's
+        // predecessor stamp can name a ticket that already exists.
+        services.AddTransient<EpicChildOrderer>();
+        services.AddScoped<EpicTicketFiler>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();

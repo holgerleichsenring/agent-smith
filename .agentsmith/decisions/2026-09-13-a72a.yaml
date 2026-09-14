@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-a72a
+
+decisions:
+  - category: Architecture
+    chose: "The gate is the FIRST statement of SpawnPipelineRunsUseCase.ExecuteAsync"
+    over: "Holding a blocked child in the capacity queue, or gating at the claim"
+    reason: |
+      A ticket arriving behind a non-empty queue is deferred with a queued Run row AND a budget
+      record before any claim, and CapacityQueuePump then calls claimService.ClaimAsync directly
+      rather than through the funnel. A gate after that branch would both leave state behind and
+      be bypassed by a second, ungated door. The queue is also strict FIFO across every project —
+      the pump peeks the head and considers nothing behind it — so a dependency waiting at its
+      head would stall the whole estate. Gating first is what keeps the queue about capacity.
+
+  - category: Architecture
+    chose: "The done-signal is \"outside the project's trigger_statuses\""
+    over: "\"equals WebhookTriggerConfig.DoneStatus\""
+    reason: |
+      DoneStatus defaults to "In Review" — a pull request was opened, not merged — and an operator
+      who closes a ticket by hand to some other terminal status would block its successor forever,
+      with no timeout by design. Leaving the working set is the predicate TrackerPoller.IsStatusAllowed
+      and CapacityQueuePump.IsStillTriggeredAsync already use to decide a ticket is no longer
+      theirs, so the gate reuses it instead of inventing a second one.
+
+  - category: Architecture
+    chose: "The stamp is a LABEL carrying the predecessor's ticket ID, under a reserved prefix"
+    over: "A line in the description, or a bare ticket id"
+    reason: |
+      IncomingTicketEnvelope carries Labels, AreaPath, SourceRepoUrl, ToAddress, TicketId,
+      TicketUrl and Platform and NO description: the poller drops the body building the envelope
+      and the webhook path never had one, so a body stamp would cost a tracker read per blocked
+      child per poll. CreatedTicket.Reference is the WebUrl when there is one, so the label must
+      carry Id.Value — recovering an id from a web url is a parser per provider. The prefixes
+      (phase-parent:, phase-requires:) keep a parent, a predecessor, an operator's routing label
+      and the non-work marker apart: 2026-09-13-5cdf cuts a branch from the PARENT's rung, so
+      confusing the two is a silent wrong answer rather than an error.
+
+  - category: Architecture
+    chose: "Topological filing is part of the gate, in a DI-registered EpicChildOrderer"
+    over: "Filing in list order and repairing the labels afterwards"
+    reason: |
+      RequiresEdgeChecker validates only that an edge points at a SIBLING, not that the sibling
+      comes first, so a forward edge is legal today. A child filed before its predecessor cannot
+      carry that predecessor's ticket id, the gate then reads no predecessor, and the child runs
+      first — an invisible failure. There is no repair either: ITicketProvider has no member that
+      edits a description or adds a label to an existing ticket. An epic whose edges cannot be
+      ordered is refused at filing, before the parent record exists.
+
+  - category: Architecture
+    chose: "A bounded hop count, with the walk following a resolved predecessor's own predecessors"
+    over: "A cycle check at the funnel"
+    reason: |
+      RequiresEdgeChecker.CheckNoCycles already refuses a cyclic epic before the outcome is
+      proposed, and the funnel sees one envelope at a time — it would need a tracker read per hop
+      to find a cycle at all. A hand-edited label is the only way one gets in, and a cycle through
+      already-resolved tickets is exactly the shape a bound catches: sixteen reads, then the chain
+      is reported unresolvable and the ticket is NOT waited on, because blocked forever is a worse
+      failure than one run out of order. The bound also caps what a hand-edited fan costs the
+      funnel's hot path.
+
+  - category: Scope
+    chose: "A project that declares NO trigger_statuses does not wait, and says so in the log"
+    over: "Treating the empty list as \"every status is in the working set\""
+    reason: |
+      The spec names the predicate but not its empty case. TrackerPoller reads an empty
+      trigger_statuses as "every status triggers"; applied literally here, every predecessor
+      would be inside the working set forever and every child would be held forever. Such a
+      project simply cannot express "this slice is done", so the gate declines to order it and
+      logs a warning naming the project — the phase's own rule that blocked-forever is the worse
+      failure. The spec's scope: in now states this.
+
+  - category: Architecture
+    chose: "A blocked child returns ClaimResult.Queued with the wait reason"
+    over: "A new ClaimOutcome value"
+    reason: |
+      ClaimOutcome.Queued already means exactly this: not claimed, nothing went wrong, the ticket
+      is left in its trigger status so the next poll retries. TrackerPoller already declines to
+      count it as a spawn and publishes it as the waiting signal. The reason string names the
+      predecessor and its status, so the visible signal says which slice is being waited for
+      rather than "capacity".
+
+  - category: Architecture
+    chose: "Epic filing moved out of OutcomeTicketFiler into EpicTicketFiler"
+    over: "Adding the ordering and the labels to the existing method"
+    reason: |
+      OutcomeTicketFiler stood at 107 lines against the repo's 120-line limit, and the epic shape
+      was the only one of its three outcomes that owned more than a title and a body. The filer
+      now routes; the epic's parent-then-ordered-children-then-comment shape is one type that can
+      be read on its own.
+
+  - category: Testing
+    chose: "The funnel tests drive the REAL PredecessorGate over a stub tracker"
+    over: "Mocking IPredecessorGate at the funnel seam"
+    reason: |
+      The claim under test spans both halves — the label the filer wrote, and the gate reading it
+      before anything is reserved. A mocked gate would prove the funnel calls something, not that
+      an open predecessor holds a child back and a closed one releases it. The hop-bound test
+      counts tracker reads, which only a real walk produces.
