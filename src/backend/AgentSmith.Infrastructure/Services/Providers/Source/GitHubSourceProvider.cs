@@ -23,6 +23,8 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly IGitHubClientFactory _clientFactory;
     private readonly ILogger<GitHubSourceProvider> _logger;
     private readonly GitHubPullRequestUpdater _pullRequests;
+    // 2026-09-13-a284: where an open pull request POINTS, separate from what it says.
+    private readonly GitHubPullRequestTarget _prTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
     private readonly DefaultBranchResolver _defaultBranch;
 
@@ -39,6 +41,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _clientFactory = clientFactory;
         _logger = logger;
         _pullRequests = new GitHubPullRequestUpdater(_owner, _repo, clientFactory, _token, logger);
+        _prTarget = new GitHubPullRequestTarget(_owner, _repo, clientFactory, _token, logger);
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, $"{_owner}/{_repo}", logger);
     }
@@ -70,10 +73,12 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false)
+        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         var client = CreateGitHubClient();
-        var targetBranch = await GetDefaultBranchAsync(client);
+        // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
+        // to the default-branch resolver, which honours the configured override.
+        var target = targetBranch?.Value ?? await GetDefaultBranchAsync(client);
 
         // GitHub auto-links + auto-closes when the PR body references the issue
         // via "Closes #N" / "Fixes #N" syntax. Appended as a footer so the
@@ -86,7 +91,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         {
             var pr = await client.PullRequest.Create(
                 _owner, _repo,
-                new NewPullRequest(title, repository.CurrentBranch.Value, targetBranch)
+                new NewPullRequest(title, repository.CurrentBranch.Value, target)
                 {
                     Body = body,
                     Draft = isDraft
@@ -240,6 +245,13 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
 
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
         _pullRequests.MarkReadyAsync(prUrl, cancellationToken);
+
+    public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+        _prTarget.ReadBaseAsync(prUrl, cancellationToken);
+
+    public Task<bool> RetargetPullRequestAsync(
+        string prUrl, BranchName target, CancellationToken cancellationToken) =>
+        _prTarget.MoveAsync(prUrl, target.Value, cancellationToken);
 
     // p0490: the branch is what a LOCAL repository needs to finish a "pull request";
     // GitHub recovers everything it needs from the URL.

@@ -46,8 +46,11 @@ decisions:
       branch value today. One recorded target would send one of the two to the wrong base.
   - key: |
       THE COUNT IS SEVEN DECLARATIONS, NOT FOUR. Four providers, plus a stub in the unit tests and
-      two more in the pipeline harness, plus roughly fifteen mock expression sites that stop
-      compiling. Stated so the size is not discovered halfway through.
+      two more in the pipeline harness. The mock expression sites do NOT stop compiling — an
+      OPTIONAL parameter appended to the signature is filled in at every existing call site, so the
+      breakage is silent and at RUNTIME: a Moq .Callback with the old arity throws when the setup
+      runs. Two such callbacks existed; the rest of the expressions now assert "opened with no
+      target", which is what they meant.
   - key: |
       LOCAL NO-OPS, AND ITS DONE-CRITERIA SAY SO. The local provider ignores the concept and its
       completion path fast-forwards the configured default branch rather than any rung, so the
@@ -75,6 +78,9 @@ tests:
 
 done:
   - "a slice's pull request shows only that slice's diff"
+  - "that promise is a promise about the REMOTE providers: a local repository has no pull request
+     to open or move, and its completion path fast-forwards the configured default branch rather
+     than any rung"
   - "the draft opened at the spec commit already points at the rung"
   - "a pull request opened before its rung existed is moved onto it rather than left wrong"
   - "a run with no rung opens against the default branch exactly as today"

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -118,6 +119,38 @@ public sealed class RungPublicationTests
             + "the cut would leave the first slice on a branch it is not on");
         created.Should().BeGreaterThan(cutFrom);
         Sha(fixture, Rung).Should().Be(Sha(fixture, GitRemoteFixture.BaseBranch));
+    }
+
+    /// <summary>
+    /// 2026-09-13-a284: the rung the work was cut from reaches the RUN, not just the clone.
+    /// The three sites that open a pull request run steps later and have no sandbox to ask,
+    /// so a base resolved here and dropped here is a base the pull request cannot use.
+    /// </summary>
+    [Fact]
+    public async Task Checkout_RecordsTheRungThePullRequestMustOpenAgainst()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(workBranch: null);
+        var config = Repo(fixture);
+        await using var sandbox = new InProcessSandbox(
+            jobId: "a284", workDir: fixture.WorkPath, ownsWorkDir: false, NullLogger.Instance);
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [config]);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["server"] = sandbox });
+        var handler = new CheckoutSourceHandler(
+            Cloner(), RunStateConceptsTestFactory.Default, new SandboxTargets(),
+            NullLogger<CheckoutSourceHandler>.Instance);
+
+        var result = await handler.ExecuteAsync(
+            new CheckoutSourceContext(
+                [config], new RunBranch(new BranchName(TicketBranch), ComposedFromTicket: true, ParentTicket),
+                pipeline),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        PullRequestTargets.For(pipeline, "server")!.Value.Should().Be(Rung);
     }
 
     private static SandboxRepoCloner Cloner()

@@ -37,13 +37,13 @@ public sealed class SandboxWorkBranchCheckout(
     ILogger<SandboxWorkBranchCheckout> logger)
 {
     /// <summary>
-    /// Null when the sandbox is ready to be worked in; otherwise the reason the run must
-    /// stop before anything reads or writes this tree.
+    /// The reason the run must stop, or the rung this branch was cut from — see
+    /// <see cref="WorkBranchPlacement"/> for why the rung travels back out.
     /// </summary>
-    public async Task<string?> SwitchAsync(
+    public async Task<WorkBranchPlacement> SwitchAsync(
         ISandbox sandbox, RepoConnection config, RunBranch? requested, CancellationToken ct)
     {
-        if (requested is null) return null;
+        if (requested is null) return WorkBranchPlacement.On(null);
         var branch = requested.Name.Value;
 
         // `git checkout` on the branch we are already on is a harmless no-op, so the
@@ -57,13 +57,19 @@ public sealed class SandboxWorkBranchCheckout(
             logger.LogInformation(
                 "{Branch} was handed to this run rather than composed from its ticket — its base is left alone",
                 branch);
-            return null;
+            return WorkBranchPlacement.On(null);
         }
         var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct);
-        return report.Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, resolved, ct));
+        var problem = report.Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, resolved, ct));
+        return problem is null ? Placed(resolved) : WorkBranchPlacement.Stop(problem);
     }
 
-    private async Task<string?> CreateAsync(
+    // A ladder that fell through names the clone's own base — nobody CHOSE it, so it is
+    // not a pull-request target; the provider's own default-branch lookup answers better.
+    private static WorkBranchPlacement Placed(ResolvedBase resolved) =>
+        WorkBranchPlacement.On(resolved.FellThrough ? null : resolved.Name);
+
+    private async Task<WorkBranchPlacement> CreateAsync(
         ISandbox sandbox, RepoConnection config, RunBranch requested, CancellationToken ct)
     {
         var branch = requested.Name.Value;
@@ -76,9 +82,10 @@ public sealed class SandboxWorkBranchCheckout(
         {
             var onto = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(rung), null, ct);
             if (onto.ExitCode != 0)
-                return $"'{rung}' is this branch's base but could not be checked out "
-                       + $"(exit={onto.ExitCode}): {onto.ErrorMessage}. Cutting '{branch}' from "
-                       + "the clone's own base would deliver the whole feature instead of this slice.";
+                return WorkBranchPlacement.Stop(
+                    $"'{rung}' is this branch's base but could not be checked out "
+                    + $"(exit={onto.ExitCode}): {onto.ErrorMessage}. Cutting '{branch}' from "
+                    + "the clone's own base would deliver the whole feature instead of this slice.");
             logger.LogInformation("{Branch} is cut from {Rung}", branch, rung);
         }
 
@@ -87,6 +94,6 @@ public sealed class SandboxWorkBranchCheckout(
             logger.LogWarning(
                 "git checkout -b {Branch} failed (exit={Exit}): {Err}",
                 branch, created.ExitCode, created.ErrorMessage);
-        return null;
+        return Placed(resolved);
     }
 }

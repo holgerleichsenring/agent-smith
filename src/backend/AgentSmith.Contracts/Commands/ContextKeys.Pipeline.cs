@@ -91,6 +91,15 @@ public static partial class ContextKeys
     // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.
     public const string ActivePhaseStep = "ActivePhaseStep";
 
+    /// <summary>2026-09-13-a284: Dictionary&lt;string,string&gt; of repo name → the base
+    /// branch that repository's work branch was actually cut from — 2026-09-13-5cdf's
+    /// resolved rung, recorded at checkout and read by every site that opens a pull
+    /// request. A repository whose ladder fell through to the clone's own base has NO
+    /// entry: the provider's default-branch lookup is then the right answer, which is
+    /// what every run did before rungs existed. Keyed per repository because the rung is
+    /// — a two-repo run may carry the feature branch in one clone and not the other.</summary>
+    public const string PullRequestTargets = "PullRequestTargets";
+
     /// <summary>2026-08-31-7097: dictionary keyed by sandbox key, holding the toolchain
     /// image the backend ACTUALLY pulled for that sandbox. An entry exists only when the
     /// sandbox named one, so the in-process backend — which runs on the host and pulls

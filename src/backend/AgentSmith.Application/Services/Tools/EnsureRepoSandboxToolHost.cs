@@ -123,6 +123,9 @@ public sealed class EnsureRepoSandboxToolHost(
                 if (checkout.Repository is null)
                     return $"Error: a sandbox for '{target.Name}' was created but the source checkout " +
                            $"failed ({checkout.Problem}) — do not use this repo; continue without it.";
+                // 2026-09-13-a284: a repo escalated mid-run gets its pull request from the
+                // same loop as every other one, so it records its rung the same way.
+                PullRequestTargets.Record(pipeline, target.Name, checkout.Rung);
             }
             GrowToolHost(target.Name, mine);
             return $"Sandbox ready for repo '{target.Name}' " +

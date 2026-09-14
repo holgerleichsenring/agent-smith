@@ -6,7 +6,7 @@ namespace AgentSmith.Contracts.Providers;
 /// <summary>
 /// Provides git operations for a source repository.
 /// </summary>
-public interface ISourceProvider : ITypedProvider
+public partial interface ISourceProvider : ITypedProvider
 {
     /// <summary>
     /// Read-only connectivity probe: performs the cheapest authenticated round-trip
@@ -27,6 +27,10 @@ public interface ISourceProvider : ITypedProvider
     /// When <paramref name="isDraft"/> is set, the PR is opened as a draft /
     /// work-in-progress so it is visible for review but not mergeable — used for
     /// a verification-red run. Providers without a draft concept ignore it.
+    /// 2026-09-13-a284: <paramref name="targetBranch"/> is the base to open against — the
+    /// rung this branch was cut from. An explicit target WINS; null falls through to the
+    /// provider's own default-branch resolution, which is what every run did before rungs
+    /// existed. Without it a slice shows its predecessors' diff as well as its own.
     /// </summary>
     Task<string> CreatePullRequestAsync(
         Repository repository,
@@ -34,7 +38,8 @@ public interface ISourceProvider : ITypedProvider
         string description,
         CancellationToken cancellationToken,
         TicketId? linkedTicketId = null,
-        bool isDraft = false);
+        bool isDraft = false,
+        BranchName? targetBranch = null);
 
     /// <summary>
     /// p0390: the URL of the OPEN pull request whose source branch is

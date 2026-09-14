@@ -23,10 +23,27 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
         Task.FromResult(new Repository(
             branch ?? new BranchName("main"), session.InSandboxBareUrl));
 
+    // 2026-09-13-a284: the fake remote records the base each PR was opened against, so a
+    // preset test can assert the rung reached the provider.
+    public BranchName? LastTarget { get; private set; }
+
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
-        Task.FromResult($"https://fake.local/pulls/{linkedTicketId?.Value ?? "1"}");
+        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+        BranchName? targetBranch = null)
+    {
+        LastTarget = targetBranch;
+        return Task.FromResult($"https://fake.local/pulls/{linkedTicketId?.Value ?? "1"}");
+    }
+
+    // There is no pull request server behind the bare repo, so there is no base to read
+    // and nothing to move.
+    public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
+    public Task<bool> RetargetPullRequestAsync(
+        string prUrl, BranchName target, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
 
     // p0390: the fake local remote has no PR surface, so find-or-create always creates.
     public Task<string?> FindOpenPullRequestAsync(

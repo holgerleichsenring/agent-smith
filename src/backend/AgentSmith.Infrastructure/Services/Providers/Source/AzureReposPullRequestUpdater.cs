@@ -89,7 +89,8 @@ public sealed class AzureReposPullRequestUpdater(
     private GitHttpClient CreateGitClient() =>
         clientFactory.CreateGitClient(organizationUrl, personalAccessToken);
 
-    private static bool TryParsePullRequestId(string prUrl, out int prId)
+    // 2026-09-13-a284: internal so the retarget type reads the SAME url shape, once.
+    internal static bool TryParsePullRequestId(string prUrl, out int prId)
     {
         prId = 0;
         var match = System.Text.RegularExpressions.Regex.Match(prUrl, @"/pullrequest/(\d+)");

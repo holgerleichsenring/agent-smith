@@ -28,6 +28,10 @@ public sealed class AzureReposSourceProvider(
     private readonly AzureReposPullRequestUpdater _pullRequests = new(
         connection.Project, connection.RepoName, clientFactory,
         connection.OrganizationUrl.TrimEnd('/'), connection.PersonalAccessToken, logger);
+    // 2026-09-13-a284: where an open pull request POINTS, separate from what it says.
+    private readonly AzureReposPullRequestTarget _prTarget = new(
+        connection.Project, connection.RepoName, clientFactory,
+        connection.OrganizationUrl.TrimEnd('/'), connection.PersonalAccessToken, logger);
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
     private readonly DefaultBranchResolver _defaultBranch = new(
         connection.DefaultBranch, $"{connection.Project}/{connection.RepoName}", logger);
@@ -75,11 +79,13 @@ public sealed class AzureReposSourceProvider(
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false)
+        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         var client = CreateGitClient();
         var src = $"refs/heads/{repository.CurrentBranch.Value}";
-        var tgt = $"refs/heads/{await GetDefaultBranchAsync(cancellationToken)}";
+        // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
+        // to the default-branch resolver, which honours the configured override.
+        var tgt = $"refs/heads/{targetBranch?.Value ?? await GetDefaultBranchAsync(cancellationToken)}";
         var pr = new GitPullRequest
         {
             Title = title, Description = TruncateDescription(description),
@@ -292,6 +298,13 @@ public sealed class AzureReposSourceProvider(
 
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
         _pullRequests.MarkReadyAsync(prUrl, cancellationToken);
+
+    public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
+        _prTarget.ReadBaseAsync(prUrl, cancellationToken);
+
+    public Task<bool> RetargetPullRequestAsync(
+        string prUrl, BranchName target, CancellationToken cancellationToken) =>
+        _prTarget.MoveAsync(prUrl, target.Value, cancellationToken);
 
     // p0490: the branch is what a LOCAL repository needs to finish a "pull request";
     // Azure Repos recovers everything it needs from the URL.
