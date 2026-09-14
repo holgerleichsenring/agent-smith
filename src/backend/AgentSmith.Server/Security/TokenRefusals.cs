@@ -6,6 +6,14 @@ namespace AgentSmith.Server.Security;
 /// the values the check ran against, and the identity page is reachable by anyone who can
 /// present a token this server did not accept. Which check failed is enough to act on and
 /// says nothing the caller did not already supply; the detail stays in the server's log.
+/// <para>
+/// 2026-09-14-c72e amended the second half of that, not the first. "Enough to act on" was
+/// measured and found wanting: a refusal named 'audience' sent an operator through a session
+/// of decoding tokens by hand to learn which audience had arrived. So the three fields that
+/// say WHICH SHAPE arrived travel beside this classification — see <see cref="PresentedToken"/>
+/// for why that is still nothing the caller did not supply. The library's MESSAGE stays out,
+/// which is what this vocabulary exists for: it is a contract, and the message is not.
+/// </para>
 /// </summary>
 internal static class TokenRefusals
 {

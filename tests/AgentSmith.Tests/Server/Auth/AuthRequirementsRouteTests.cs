@@ -50,6 +50,11 @@ public sealed class AuthRequirementsRouteTests(EnforcingAuthorityFixture fixture
         document.RootElement.EnumerateObject().Select(p => p.Name).Should()
             // 2026-08-25-1806: tokenRefusal is the fourth — null here, because this
             // caller presented no token for the server to refuse.
-            .BeEquivalentTo("enforced", "authority", "audience", "tokenRefusal");
+            // 2026-09-14-c72e: and the three that say what a REFUSED token carried, also
+            // null here for the same reason. They are named on every answer rather than
+            // appearing only on a refusal, so the dashboard reads one shape.
+            .BeEquivalentTo(
+                "enforced", "authority", "audience", "tokenRefusal",
+                "presentedAudience", "presentedIssuer", "presentedTokenVersion");
     }
 }
