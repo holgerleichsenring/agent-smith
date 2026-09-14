@@ -13,8 +13,9 @@ scope:
     A base ladder resolved once per REPOSITORY inside the sandbox — the parent rung, named from the
     child's parent stamp, then the clone's own base from origin/HEAD — each candidate tried with a
     ref check, first existing winning, the same ordered-candidate shape DeliveryDiff already uses;
-    the resolved rung is held per repository the way DeliveryEvidence already keys base refs, and
-    is the ONE answer consumed by SandboxWorkBranchCheckout when it cuts the branch, by
+    the ladder is a pure function of (sandbox, parent stamp) and is asked PER REPOSITORY the way
+    DeliveryEvidence already keys base refs — never once for the run — and its answer is the ONE
+    base consumed by SandboxWorkBranchCheckout when it cuts the branch, by
     WorkBranchBaseMerger when it brings a reused branch up to date, and by DeliveryDiff when it
     computes what this run delivered; a ladder that falls through to the clone's base reports that
     it did, the way 2026-08-25-0eae requires; DeliveryDiff is extracted under the line rule before
@@ -63,6 +64,12 @@ decisions:
   - key: |
       DELIVERYDIFF IS EXTRACTED FIRST, NOT SQUEEZED. It sits at 115 lines against an unbaselined
       ceiling of 120, and a new baseline row is forbidden for a file that has never had one.
+  - key: |
+      THE ANSWER IS RE-RESOLVED, NOT CACHED ACROSS THE RUN. The cut and the merge share one
+      resolved base because one call site owns both. The delivery diff runs steps later, against a
+      sandbox set that the mid-run ensure_repo_sandbox escalation can have replaced — a rung cached
+      at checkout time would then describe a clone it was never checked against. A pure function of
+      (sandbox, parent stamp) gives the same answer with nothing to keep in sync.
 
 steps:
   - id: one-ladder-resolves-the-base

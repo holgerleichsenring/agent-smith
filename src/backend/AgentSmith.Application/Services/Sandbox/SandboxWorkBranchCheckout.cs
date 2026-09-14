@@ -7,16 +7,25 @@ namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
 /// Puts the run's branch under a freshly cloned sandbox: check out the branch's EXISTING
-/// content on a re-run, or create it from the clone's default HEAD on a first run.
+/// content on a re-run, or create it from the resolved base on a first run.
 /// <para>
 /// p0496: a re-used branch also takes its base with it. Three runs in a row aborted at
 /// the bootstrap gate on a file that was sitting on the base branch — the work branch had
 /// been cut before it landed, and nothing reconciled the two. A branch created here is
 /// already at the base and takes no merge.
 /// </para>
+/// <para>
+/// 2026-09-13-5cdf: the base is RESOLVED, once, and the same answer serves both halves —
+/// the rung is checked out before <c>git checkout -b</c>, which until now cut from
+/// whatever HEAD the clone happened to be on, and the same resolved base is what a reused
+/// branch merges. Until 2026-09-13-35a4 publishes a rung the ladder always falls through,
+/// so this cuts and merges exactly where it did before.
+/// </para>
 /// </summary>
 public sealed class SandboxWorkBranchCheckout(
-    WorkBranchBaseMerger merger, ILogger<SandboxWorkBranchCheckout> logger)
+    SandboxBaseLadder baseLadder,
+    WorkBranchBaseMerger merger,
+    ILogger<SandboxWorkBranchCheckout> logger)
 {
     /// <summary>
     /// Null when the sandbox is ready to be worked in; otherwise the reason the run must
@@ -30,7 +39,7 @@ public sealed class SandboxWorkBranchCheckout(
         // `git checkout` on the branch we are already on is a harmless no-op, so the
         // switch is unconditional — CheckoutAsync only ECHOES the requested branch back.
         var existing = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(branch), null, ct);
-        if (existing.ExitCode != 0) return await CreateAsync(sandbox, branch, ct);
+        if (existing.ExitCode != 0) return await CreateAsync(sandbox, requested, ct);
 
         logger.LogInformation("git checkout {Branch} (existing)", branch);
         if (!requested.ComposedFromTicket)
@@ -40,11 +49,28 @@ public sealed class SandboxWorkBranchCheckout(
                 branch);
             return null;
         }
-        return Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, ct));
+        var resolved = await baseLadder.ResolveAsync(sandbox, requested.ParentTicketId, ct);
+        return Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, resolved, ct));
     }
 
-    private async Task<string?> CreateAsync(ISandbox sandbox, string branch, CancellationToken ct)
+    private async Task<string?> CreateAsync(ISandbox sandbox, RunBranch requested, CancellationToken ct)
     {
+        var branch = requested.Name.Value;
+        var resolved = await baseLadder.ResolveAsync(sandbox, requested.ParentTicketId, ct);
+        // A ladder that FELL THROUGH names the clone's own base, which is where a fresh
+        // clone's HEAD already stands — checking it out would be a no-op dressed as a
+        // decision, and on a tree some other step positioned it would silently move the
+        // cut. Only a rung the ladder actually found is checked out.
+        if (!resolved.FellThrough && resolved.Ref is { } rung)
+        {
+            var onto = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(rung), null, ct);
+            if (onto.ExitCode != 0)
+                return $"'{rung}' is this branch's base but could not be checked out "
+                       + $"(exit={onto.ExitCode}): {onto.ErrorMessage}. Cutting '{branch}' from "
+                       + "the clone's own base would deliver the whole feature instead of this slice.";
+            logger.LogInformation("{Branch} is cut from {Rung}", branch, rung);
+        }
+
         var created = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCreateBranchStep(branch), null, ct);
         if (created.ExitCode != 0)
             logger.LogWarning(

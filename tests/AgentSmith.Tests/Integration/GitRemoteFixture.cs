@@ -6,6 +6,11 @@ namespace AgentSmith.Tests.Integration;
 /// p0496: a real git remote with a base branch and a work branch that was cut from an
 /// EARLIER state of it — the shape three live runs died on. Mocking ISandbox would only
 /// prove the code issued a string; the whole question here is what git does with it.
+/// <para>
+/// 2026-09-13-5cdf: it can also carry a feature RUNG between the base and the work
+/// branch, so "the branch was cut from the rung, not from the default branch" is asked of
+/// git rather than of a recorded argument list.
+/// </para>
 /// </summary>
 internal sealed class GitRemoteFixture : IAsyncDisposable
 {
@@ -13,6 +18,8 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
     public const string SharedFile = "shared.txt";
     public const string BaseOnlyFile = "arrived-on-the-base.txt";
     public const string WorkOnlyFile = "arrived-on-the-branch.txt";
+    public const string RungOnlyFile = "arrived-on-the-rung.txt";
+    public const string RungLaterFile = "arrived-on-the-rung-later.txt";
 
     private readonly FixtureWorkdir _root;
 
@@ -30,7 +37,12 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
     /// <param name="conflicting">
     /// True: the later base commit rewrites the same line the work branch rewrote.
     /// </param>
-    public static GitRemoteFixture Create(string? workBranch, bool conflicting = false)
+    /// <param name="rung">
+    /// A feature branch cut from the base, which the work branch is then cut from — null
+    /// for the estate that has no rung, which is every estate until 2026-09-13-35a4.
+    /// </param>
+    public static GitRemoteFixture Create(
+        string? workBranch, bool conflicting = false, string? rung = null)
     {
         var fixture = new GitRemoteFixture(FixtureWorkdir.CreateEmpty());
         Directory.CreateDirectory(fixture.RemotePath);
@@ -41,6 +53,12 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
         Git(remote, "config", "user.email", "fixture@example.com");
         Git(remote, "config", "user.name", "fixture");
         Commit(remote, SharedFile, "one\n", "base v1");
+
+        if (rung is not null)
+        {
+            Git(remote, "checkout", "-b", rung);
+            Commit(remote, RungOnlyFile, "arrived on the rung\n", "rung v1");
+        }
 
         if (workBranch is not null)
         {
@@ -57,6 +75,14 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
     {
         if (conflicting) Commit(RemotePath, SharedFile, "the base rewrote it\n", "base v2");
         else Commit(RemotePath, BaseOnlyFile, "arrived after the branch was cut\n", "base v2");
+    }
+
+    /// <summary>A commit that lands on the RUNG after the work branch was cut from it.</summary>
+    public void AdvanceRung(string rung)
+    {
+        Git(RemotePath, "checkout", rung);
+        Commit(RemotePath, RungLaterFile, "arrived on the rung after the branch was cut\n", "rung v2");
+        Git(RemotePath, "checkout", BaseBranch);
     }
 
     public string ReadWorkFile(string relativePath) =>
