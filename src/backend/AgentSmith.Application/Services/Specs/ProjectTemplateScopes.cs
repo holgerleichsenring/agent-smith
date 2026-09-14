@@ -38,10 +38,27 @@ public sealed class ProjectTemplateScopes(
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
-            || project is null || project.Templates.Count == 0)
-            return new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal);
+            || project is null)
+            return Empty();
+        return Select(project, DiscoveredContexts(pipeline), contexts);
+    }
 
-        var discovered = DiscoveredContexts(pipeline);
+    /// <summary>
+    /// 2026-09-13-ed5a: EVERY template the project declares, for the look that has no
+    /// contexts to select by. The spec dialog's epic analysis is deciding what to build
+    /// before anything is checked out, so it has discovered nothing and is handed nothing —
+    /// and a cut made without the house shape is inherited by every run the epic files.
+    /// </summary>
+    public IReadOnlyDictionary<string, ISourceScopeSandbox> ForProject(ResolvedProject project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        return Select(project, [], contexts: null);
+    }
+
+    private IReadOnlyDictionary<string, ISourceScopeSandbox> Select(
+        ResolvedProject project, HashSet<string> discovered, IReadOnlyCollection<string>? contexts)
+    {
+        if (project.Templates.Count == 0) return Empty();
         var wanted = contexts is null || contexts.Count == 0
             ? null
             : new HashSet<string>(contexts, StringComparer.OrdinalIgnoreCase);
@@ -59,6 +76,8 @@ public sealed class ProjectTemplateScopes(
         }
         return result;
     }
+
+    private static Dictionary<string, ISourceScopeSandbox> Empty() => new(StringComparer.Ordinal);
 
     /// <summary>
     /// Every context this run actually checked out. Empty when the run published none — a

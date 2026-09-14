@@ -95,6 +95,33 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             "th-2", It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    /// <summary>
+    /// 2026-09-13-ed5a: the turn's scopes are disposed before the outcome flow runs and filing
+    /// retries from the stored row in a LATER process, so the provenance has to survive the
+    /// column — not a live sandbox. No new column: it rides the outcome JSON that is already
+    /// the durable handoff.
+    /// </summary>
+    [Fact]
+    public async Task SpecDialogSession_TemplateRevisions_SurviveAReload()
+    {
+        var provider = new RecordingProvider { FailWith = "tracker down" };
+        var sink = BuildSink(provider);
+        var state = await OpenSessionAsync("th-3");
+        var epic = new EpicOutcome(
+            new PhaseDraft("p9000", "Widget platform", "phase: p9000", []),
+            [new PhaseDraft("p9000a", "storage", "phase: p9000a", [])])
+        {
+            Templates = [new TemplateProvenance("template:default", "reference-server", "a1b2c3d", true)],
+        };
+
+        await sink.AcceptAsync(state, epic, CancellationToken.None);
+
+        var session = await _repository.GetOpenByThreadAsync(Platform, "th-3", CancellationToken.None);
+        var restored = OutcomeProposalJson.Read(session!.ConfirmedOutcomeJson!);
+        restored.Templates.Should().ContainSingle().Which.Should().BeEquivalentTo(epic.Templates[0],
+            "a retry in another process files the parent that names what the analysis read");
+    }
+
     [Fact]
     public async Task SetConfirmedAsync_NoOpenSession_FailsLoudly()
     {

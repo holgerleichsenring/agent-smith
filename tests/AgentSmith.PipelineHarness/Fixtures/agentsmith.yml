@@ -31,6 +31,13 @@ repos:
     path: ./Fixtures/CsharpFixture
     url: https://stub.test/spec-dialog-fixture
     auth: ""
+  # 2026-09-13-ed5a: the repo a declared TEMPLATE lives in — the design analysis reads it
+  # read-only at the declared revision while it cuts an epic.
+  spec-dialog-template-fixture:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/spec-dialog-template-fixture
+    auth: ""
 
 projects:
   fixture-fix-bug:
@@ -53,6 +60,21 @@ projects:
     agent: openai-default
     tracker: github-fixture
     repos: [spec-dialog-fixture]
+  # 2026-09-13-ed5a: the same scope, with a template declared for its context.
+  fixture-spec-dialog-template:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [spec-dialog-fixture]
+    templates:
+      - context: default
+        project: fixture-spec-dialog-reference
+        repo: spec-dialog-template-fixture
+        template_context: default
+        revision: v1.4.0
+  fixture-spec-dialog-reference:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [spec-dialog-template-fixture]
 
 secrets:
   azdo_token: ${AGENTSMITH_TEST_AZDO_TOKEN}

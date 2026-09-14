@@ -29,6 +29,9 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogSessionManager>();
         services.AddScoped<SpecDialogCommandHandler>();
         services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>();
+        // 2026-09-13-ed5a: the declared templates the epic analysis may read, and the
+        // provenance it stamps on the outcome for a filer that runs after they are gone.
+        services.AddTransient<SpecDialogTemplateScopes>();
         // p0315e: outcome resolution — confirmation gate + durable outcome
         // store. p0315c: the sink files real tickets via the active scope's
         // tracker (renderer + filer), replacing the session-store default.

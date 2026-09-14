@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-ed5a
+
+decisions:
+  - category: Architecture
+    chose: "The turn runner reads the templates off the ResolvedProject it already resolves"
+    over: "A Templates field on ActiveScope, beside the repos the scope already names"
+    reason: |
+      SpecDialogSessionMapper.ToState rebuilds ActiveScope from exactly two columns — Project and
+      ReposJson — on every load, so a field added there is dropped before the first turn and a
+      test over the scope resolver would pass while the feature did nothing. The runner already
+      calls ResolveProject(state.Project) to get the repo set; the declarations are on the same
+      object, one line later, and they stay a property of the PROJECT rather than of the session.
+
+  - category: Architecture
+    chose: "The dialog's templates go into ContextKeys.Sandboxes beside the scope's repos"
+    over: "The tool-host-only attachment 2026-09-13-6f35 built for the coding master"
+    reason: |
+      The rule that a template stays out of that map is a rule about the CODE preset, where
+      CommitAndPR, the toolchain probe, the preflight checks and the bootstrap handlers all
+      iterate it — a foreign read-only checkout there is a commit attempt on somebody else's
+      repository. The spec-dialog preset is LoadCatalog, LoadCachedCodeMap, AgenticMaster,
+      CollectSpecDialogReply: not one of those handlers exists, and LoadCachedCodeMap reads
+      ContextKeys.Repos, which is untouched. A second attachment mechanism here would buy
+      nothing and would be a second lifetime to get wrong. The repos are inserted FIRST, so
+      sandboxes.Keys.First() — the master's default address — is still a repository.
+
+  - category: Architecture
+    chose: "The provenance is a value on the OutcomeProposal, stored inside ConfirmedOutcomeJson"
+    over: "A new column on SpecDialogSession, or reading the revision off the live scope at filing"
+    reason: |
+      The turn disposes its scopes in its own finally, before the outcome flow runs, and filing
+      is durably retryable from the stored outcome in a LATER process — so a sha read off a live
+      sandbox cannot reach the filer. ConfirmedOutcomeJson is already the durable handoff the
+      filer reads; a new column would carry the same fact one join away from the thing it
+      describes, and would need a migration in four providers for it. It sits on the BASE record
+      rather than on EpicOutcome because the stamp is a fact about the ANALYSIS, not about the
+      kind it resolved to: `outcome with { Templates = … }` needs no type test, and the epic
+      parent is simply the only body that renders it today.
+
+  - category: Implementation
+    chose: "ProjectTemplateScopes gained ForProject(project) and both entry points share one Select"
+    over: "A third selector for the dialog, or faking a PipelineContext to reuse For(pipeline)"
+    reason: |
+      2026-09-13-6f35 already renamed the type away from Derivation* precisely so one selection
+      serves every look; a third would disagree about which template a project is built after the
+      first time a context list changed. For(pipeline) exists because the two RUN-side looks read
+      their project and their discovered contexts out of the pipeline. The dialog has neither — it
+      is deciding what to build before anything is checked out — so it hands the project in
+      directly and selects by no context at all.
+
+  - category: Implementation
+    chose: "The dialog takes EVERY declared template; a run still selects by the contexts it discovered"
+    over: "Guessing the contexts from the conversation so the dialog can narrow the set too"
+    reason: |
+      The binding is per context (2026-09-13-5fa0) and a run knows which contexts it checked out.
+      A dialog discovers none, and the thing it is deciding IS which contexts the work touches —
+      narrowing by a guess would hide the template for the component the epic was about to name.
+      The scopes are lazy, so a template nobody opens costs nothing and disposes to nothing.
+
+  - category: Implementation
+    chose: "TemplatePromptSection.Build takes the ADDRESS list and filters on the template: prefix"
+    over: "Seeding ContextKeys.TemplateAddresses from the dialog so the handler's existing call still fits"
+    reason: |
+      The prefix is the naming contract already, and one filter is what lets a single section
+      serve both surfaces: the coding master appends its template names to the address list,
+      while the dialog's names arrive in the same list through ContextKeys.SandboxRepos.
+      TemplateAddresses is the code preset's channel for entries that are deliberately NOT in the
+      sandbox map; seeding it here would be a second address channel with nothing reading it.
+      AgenticMasterHandler changed by one line, which is what its ratchet had room for.
+
+  - category: Implementation
+    chose: "The seeds moved into SpecDialogTurnSeeds and the template lifetime into SpecDialogTemplateScopes"
+    over: "Six more lines in SpecDialogTurnRunner"
+    reason: |
+      The runner was baselined at 121 lines and FileLengthRatchetTests says extract rather than
+      grow. The seed builder was two pure statics over values — the honest extraction — and the
+      runner came back at 104, which took it out of the baseline entirely.
+
+  - category: Scope
+    chose: "The parent body asserts ZERO fenced blocks, and the spec was corrected to say so"
+    over: "Implementing the spec's 'exactly one fenced block' test as written"
+    reason: |
+      The spec was written against the p0315d contract, where a phase ticket ends in the single
+      yaml block the extractor inverts. 2026-09-13-b7ba shipped first and made the epic parent a
+      REQUIREMENT body, which carries no fence at all — so the test the spec named would have
+      asserted a block that b7ba deliberately removed. The intent survives unchanged (the
+      provenance is appended as plain lines through the existing extraSections injector, never as
+      a fence); only the count it asserts moved from one to zero. The spec file carries the
+      correction in this commit.
+
+  - category: Scope
+    chose: "A template that was OPEN but never read is rendered as 'declared at <rev>, unread'"
+    over: "Reporting the declared revision as if it were the revision the cut was made against"
+    reason: |
+      Only a materialised scope has a sha, and the parent ticket is the record a reader trusts
+      when they ask why the slices are shaped this way. "Read at a1b2c3d" and "declared at
+      v2.1.0, unread" are different claims, and blurring them would put a measurement nobody took
+      on a ticket.
+
+  - category: Scope
+    chose: "The catalog assertion for design-partner-master is gated on the pin citing {{ref:source-precedence}}"
+    over: "A hard assertion, or no catalog test at all"
+    reason: |
+      Same gate 2026-09-13-6f35 used for the coding master: the shared section is authored in
+      agent-smith-skills by 2026-09-13-ab17 and the embedded pin that carries it is bumped by
+      2026-09-13-4072. A hard assertion fails every build between the two; no assertion lets the
+      bump land without the section. Until then the in-repo TemplatePromptSection is what tells
+      the design partner what a template is, and it points at the order rather than restating it.

@@ -27,7 +27,8 @@ public sealed class EpicTicketFiler(PhaseTicketRenderer renderer, EpicChildOrder
         if (order.Error is not null)
             throw new InvalidOperationException($"The epic cannot be filed: {order.Error}.");
 
-        var parentContent = renderer.RenderEpicParent(epic.Parent, order.Children);
+        // 2026-09-13-ed5a: the parent records what the analysis read while it cut.
+        var parentContent = renderer.RenderEpicParent(epic.Parent, order.Children, epic.Templates);
         // 2026-09-13-a3f1: the parent is the record of a cut, never work.
         var parent = await provider.CreateAsync(
             parentContent.Title, parentContent.Body, [PhaseTicketRenderer.EpicLabel], ct);

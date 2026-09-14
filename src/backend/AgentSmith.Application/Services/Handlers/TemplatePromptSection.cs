@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Specs;
+
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
@@ -13,18 +15,29 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 internal static class TemplatePromptSection
 {
-    internal static string Build(IReadOnlyList<string> templateNames)
+    /// <param name="addresses">
+    /// 2026-09-13-ed5a: every address the run can reach, template or repository — the
+    /// <c>template:</c> prefix is what tells them apart, and it is the naming contract
+    /// already. Taking the whole list is what lets ONE section serve both surfaces: the
+    /// coding master appends its templates to the address list, while a spec-dialog turn
+    /// seeds them into the sandbox map the list is read from.
+    /// </param>
+    internal static string Build(IReadOnlyList<string> addresses)
     {
+        var templateNames = addresses?
+            .Where(a => a.StartsWith(ProjectTemplateScopes.NamePrefix, StringComparison.Ordinal))
+            .ToList();
         if (templateNames is null || templateNames.Count == 0) return string.Empty;
         var bullets = string.Join("\n", templateNames.Select(n => $"- `{n}`"));
-        return "\n\n## Templates this phase is built after\n"
+        return "\n\n## Templates this work is built after\n"
             + "These addresses are READ-ONLY checkouts of another project, at the revision "
             + "this project declared. Read them with the same tools you read a repository "
             + "with; write_file, edit and run_command into them come back refused.\n"
             + bullets + "\n\n"
             + "A template answers HOW something here is built — the naming, the layering, "
-            + "the shape a new file takes. It never answers WHAT to build: that is the "
-            + "phase spec, and a template that disagrees with it is out of date, not "
+            + "the shape a new file takes, and where one slice of work ends. It never "
+            + "answers WHAT to build: that is the phase spec, or the feature under "
+            + "discussion, and a template that disagrees with it is out of date, not "
             + "authoritative. Follow the source order your instructions already state.\n";
     }
 }

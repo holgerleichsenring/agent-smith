@@ -82,6 +82,51 @@ public sealed class EpicFilingOrderTests
             "a reader must tell the parent from a predecessor — a branch is cut from the PARENT's rung");
     }
 
+    /// <summary>
+    /// 2026-09-13-ed5a: the parent records what the analysis had open while it cut, because a
+    /// reader who asks why the slices are shaped this way must find the answer on the ticket.
+    /// </summary>
+    [Fact]
+    public async Task OutcomeTicketFiler_EpicWithTemplates_ParentBodyNamesRevisions()
+    {
+        var provider = new RecordingProvider();
+        var epic = Epic(Child("p9000a")) with
+        {
+            Templates =
+            [
+                new TemplateProvenance("template:default", "reference-server", "a1b2c3d", Opened: true),
+                new TemplateProvenance("template:web", "reference-web", "v2.1.0", Opened: false),
+            ],
+        };
+
+        await FileAsync(provider, epic);
+
+        var parent = provider.Created[0].Body;
+        parent.Should().Contain("template:default").And.Contain("reference-server")
+            .And.Contain("read at `a1b2c3d`", "the sha is what the cut was actually made against");
+        parent.Should().Contain("declared at `v2.1.0`, unread",
+            "a template that was open and unread is a different claim from one that was read");
+    }
+
+    /// <summary>
+    /// 2026-09-13-b7ba made the parent a REQUIREMENT body, so the count that must hold is ZERO
+    /// fenced blocks, not one: the phase-execution extractor takes the single yaml block out of
+    /// a phase-labelled ticket, and the provenance is appended as plain lines for that reason.
+    /// </summary>
+    [Fact]
+    public async Task OutcomeTicketFiler_EpicParentBody_StillOpensNoFence()
+    {
+        var provider = new RecordingProvider();
+        var epic = Epic(Child("p9000a")) with
+        {
+            Templates = [new TemplateProvenance("template:default", "reference-server", "a1b2c3d", true)],
+        };
+
+        await FileAsync(provider, epic);
+
+        provider.Created[0].Body.Should().NotContain("```");
+    }
+
     private static async Task<FilingReport> FileAsync(RecordingProvider provider, EpicOutcome epic)
     {
         var factory = new Mock<ITicketProviderFactory>();

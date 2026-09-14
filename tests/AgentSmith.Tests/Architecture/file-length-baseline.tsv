@@ -159,5 +159,4 @@
 121	AgentSmith.Server/Services/Adapters/SlackAdapter.cs
 121	AgentSmith.Server/Services/Adapters/TeamsQuestionCardBuilder.cs
 121	AgentSmith.Server/Services/Hosting/PollerLeaderHostedService.cs
-121	AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs
 230	AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs

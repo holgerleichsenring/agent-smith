@@ -46,14 +46,40 @@ public sealed class PhaseTicketRenderer
         }));
 
     /// <summary>The epic parent: the record of a cut, listing its slices in order.</summary>
-    public PhaseTicketContent RenderEpicParent(PhaseDraft parent, IReadOnlyList<PhaseDraft> children) =>
+    /// <param name="templates">
+    /// 2026-09-13-ed5a: the templates the analysis had open when it made this cut, and the
+    /// revision each stood at. A reader who asks why the slices are shaped this way must find
+    /// the answer on the ticket, without opening a run — and the lines are plain, because a
+    /// REQUIREMENT body opens no fence (2026-09-13-b7ba).
+    /// </param>
+    public PhaseTicketContent RenderEpicParent(
+        PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
+        IReadOnlyList<TemplateProvenance>? templates = null) =>
         new(Title(parent), PhaseTicketBody.Requirement(parent, sb =>
         {
             sb.AppendLine("## Slices");
             foreach (var child in children)
                 sb.AppendLine($"- `{child.PhaseId}` {child.Goal}{FormatRequires(child)}");
             sb.AppendLine();
+            AppendTemplates(sb, templates);
         }));
+
+    private static void AppendTemplates(
+        StringBuilder sb, IReadOnlyList<TemplateProvenance>? templates)
+    {
+        if (templates is null || templates.Count == 0) return;
+        sb.AppendLine("## Templates this cut was made against");
+        foreach (var template in templates)
+            sb.AppendLine($"- `{template.Address}` — {template.Repo} {Revision(template)}");
+        sb.AppendLine();
+    }
+
+    // "Read at" is a measurement and only the opened scope has one; a declaration is what
+    // the other kind carries, and saying which is what keeps the body honest.
+    private static string Revision(TemplateProvenance template) =>
+        template.Revision.Length == 0
+            ? (template.Opened ? "read at its own default revision" : "declared with no revision, unread")
+            : template.Opened ? $"read at `{template.Revision}`" : $"declared at `{template.Revision}`, unread";
 
     private static string Title(PhaseDraft draft) => $"{draft.PhaseId}: {draft.Goal}";
 
