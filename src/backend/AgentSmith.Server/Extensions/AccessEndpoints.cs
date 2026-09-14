@@ -35,7 +35,7 @@ internal static class AccessEndpoints
                 [FromServices] ISystemEventPublisher events, HttpContext ctx, CancellationToken ct) =>
             GuardSignalingAsync(ctx, reload, events, async () =>
             {
-                writer.Save(doc, Attribution(ctx));
+                await writer.SaveAsync(doc, Attribution(ctx), ct);
                 return Results.Ok(await reader.ViewAsync(ct));
             })).Needs(Permissions.AccessWrite);
 

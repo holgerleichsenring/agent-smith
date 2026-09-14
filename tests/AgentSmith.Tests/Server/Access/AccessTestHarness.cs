@@ -61,7 +61,8 @@ internal sealed class AccessTestHarness : IDisposable
         Mapping = new RoleMappingSource(
             new StoredRoleMapping(Store, NullLogger<StoredRoleMapping>.Instance), Auth);
         Mapping.AdoptStore();
-        Writer = new AccessGrantWriter(Store, Mapping, new NewCustomRoleGuard(), Json);
+        Writer = new AccessGrantWriter(
+            Store, Mapping, new CustomRoleRules(), new RoleRemovalGuard(Observed), Json);
         Remover = new PersonRemover(Mapping, Observed, Writer);
         Reader = new AccessSurfaceReader(
             Mapping, Observed, new AccessViewComposer(new AccessPeopleComposer()),
