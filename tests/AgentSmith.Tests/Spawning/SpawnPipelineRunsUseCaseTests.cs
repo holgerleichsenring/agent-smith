@@ -237,6 +237,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
                 claimService.Object, calculator.Object, budget.Object,
                 CapacityTestDoubles.EmptyQueue(),
                 CapacityTestDoubles.NoCorpses(), quotaProbe ?? CapacityTestDoubles.AlwaysAdmit(),
+                CapacityTestDoubles.NoPredecessors(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }

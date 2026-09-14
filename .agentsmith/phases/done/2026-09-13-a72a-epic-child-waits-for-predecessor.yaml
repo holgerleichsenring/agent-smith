@@ -20,8 +20,9 @@ scope:
     SpawnPipelineRunsUseCase.ExecuteAsync, before ValidateForSpawn and before the footprint is
     calculated, so a blocked child reserves nothing, enqueues nothing and creates no queued run
     row; a predecessor still INSIDE its project's trigger_statuses blocks, anything outside them
-    does not; more than a bounded number of unresolved predecessor hops is reported as
-    unresolvable and the child is not waited on.
+    does not, and a project declaring NO trigger_statuses cannot say a slice is done, so it
+    orders nothing and the log names it; more than a bounded number of unresolved predecessor
+    hops is reported as unresolvable and the child is not waited on.
   out: >
     HOLDING THE BLOCKED TICKET IN THE CAPACITY QUEUE. That queue is strict FIFO — the pump peeks
     the head and considers nothing behind it, across all projects — so a blocked entry at the head
