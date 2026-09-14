@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-14-3f5b
+
+decisions:
+  - category: Architecture
+    chose: "The check is registered server-only, and therefore is not part of `agentsmith doctor`"
+    over: "Adding it to AddPreflight, where the CLI and the server share their nine checks"
+    reason: |
+      Two of its four facts do not exist in the CLI's graph. AdminGrant and RoleMappingSource are
+      internal to AgentSmith.Server, so a shared check naming them would not compile; the
+      observed-caller store is registered by the server's access composition and resolves to
+      nothing in DoctorCompositionExtensions, which registers AddPreflight plus two probe seams
+      and nothing else. ServerMemoryFloorCheck is the precedent for the server-only slot.
+      The consequence is stated rather than papered over: what this phase delivers is the SERVER's
+      startup report and health surface, not the CLI command. A regression test asserts the shared
+      registration does not carry the check, because the failure mode of getting this wrong is a
+      doctor that throws on a graph missing three services.
+
+  - category: Architecture
+    chose: "The question is 'a token was accepted inside the observation window', with the window named"
+    over: "'has a token ever been accepted', or an in-memory since-boot flag"
+    reason: |
+      Observations are swept by ObservedCallerRetentionHostedService at observation_retention_days,
+      90 by default. An installation nobody signed into for three months therefore loses its own
+      evidence, and a check claiming "no token has ever been accepted" would send an operator to
+      fix a sign-in that works — with a mandatory fix hint pointing at nothing. The since-boot flag
+      fails the same way faster: it reports "no" on every fresh pod, including the one just rolled
+      out to fix the thing being checked.
+      Naming the window is what lets an operator tell "never" from "not lately" without knowing
+      this repository's retention default.
+
+  - category: Architecture
+    chose: "An unreadable observation store is a third answer, not zero callers"
+    over: "Reading through AccessSurfaceReader, which already has the store and the catch"
+    reason: |
+      AccessSurfaceReader catches a store failure and returns an empty list. That is right for a
+      pane that still has a mapping to render and wrong here, where the store's answer IS the
+      output: an unreachable database would be reported as "nobody has ever signed in", which is
+      the most alarming thing this check can say and would be false. So the check holds
+      IObservedCallerStore itself and distinguishes null (could not be read) from empty.
+
+  - category: Security
+    chose: "Admin reachability is asked as 'can any route be SEEN from here', not of AdminRoute"
+    over: "Reusing AdminRoute.ExistsIn, which already answers a question of this shape"
+    reason: |
+      AdminRoute.ExistsIn returns true whenever a role CLAIM name is configured — which it is by
+      default, and on every installation that has not deliberately cleared it — because a directory
+      can put admin in that claim and no server can see it from here. That is correct for the
+      invariant it guards, where the question is whether a save empties the last ROUTE, and useless
+      as a check, where it would pass everywhere.
+      So this asks the narrower, observable question: a person grant, a group mapping, an
+      environment grant, or a caller actually seen carrying admin. And it reports "no administrator
+      can be seen from here" rather than "nobody is an administrator", because the fourth route is
+      real and invisible until somebody arrives through it.
+
+  - category: Architecture
+    chose: "The check is handed the composed auth block through ActivatorUtilities"
+    over: "Resolving TokenAuthorityConfig out of the container like every other consumer"
+    reason: |
+      p0503e already measured this: the DI-registered TokenAuthorityConfig is read lazily from the
+      environment, so a component built later can measure a different authority than the handler
+      validates against — and its authority probe takes the composed block for exactly that reason.
+      Enforcement is the axis this check turns on, and reporting "enforcement is ON" for a pipeline
+      that was registered without it is the one thing it must never do. AddServerPreflight is
+      called where that block is in scope, so the block is passed in.

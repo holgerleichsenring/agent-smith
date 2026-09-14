@@ -21,7 +21,8 @@ internal static class AccessSurfaceExtensions
         services.AddSingleton<AccessPeopleComposer>();
         services.AddSingleton<AccessViewComposer>();
         services.AddSingleton<AccessSurfaceReader>();
-        services.AddSingleton<NewCustomRoleGuard>();
+        services.AddSingleton<CustomRoleRules>();
+        services.AddSingleton<RoleRemovalGuard>();
         services.AddSingleton<AccessGrantWriter>();
         services.AddSingleton<PersonRemover>();
         // The two services that keep the observation table honest: one takes the buffer off
