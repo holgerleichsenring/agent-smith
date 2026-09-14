@@ -19,8 +19,8 @@ internal static class DerivationTestLooks
         ISandboxFileReaderFactory? files = null, ISourceScopeSandboxFactory? scopes = null) =>
         new(new SandboxTargets(), files ?? new StubSandboxFileReaderFactory(),
             new PackageEcosystemDetector(),
-            new DerivationTemplateScopes(
-                scopes ?? new NoScopes(), NullLogger<DerivationLook>.Instance),
+            new ProjectTemplateScopes(
+                scopes ?? new NoScopes(), NullLogger<ProjectTemplateScopes>.Instance),
             NullLogger<DerivationLook>.Instance);
 
     /// <summary>A source-scope factory that would spawn nothing, for runs with no template.</summary>

@@ -29,7 +29,7 @@ internal static class MasterHandlerFixture
 {
     internal static AgenticMasterHandler Build(
         IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null,
-        int maxSubAgents = 0) =>
+        int maxSubAgents = 0, ISourceScopeSandboxFactory? templateScopes = null) =>
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
@@ -56,6 +56,13 @@ internal static class MasterHandlerFixture
                     new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
                     AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
                 new SandboxTargets()),
+            // 2026-09-13-6f35: no template declared unless a test hands one in — the default
+            // factory throws, so a run that reaches it by accident says so instead of passing.
+            new AgentSmith.Application.Services.Handlers.MasterTemplateScopes(
+                new AgentSmith.Application.Services.Specs.ProjectTemplateScopes(
+                    templateScopes ?? new NoTemplateScopes(),
+                    NullLogger<AgentSmith.Application.Services.Specs.ProjectTemplateScopes>.Instance),
+                NullLogger<AgentSmith.Application.Services.Handlers.MasterTemplateScopes>.Instance),
             WebTool,
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
             new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
@@ -80,6 +87,13 @@ internal static class MasterHandlerFixture
             dialogueTransport: null,
             new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>
+    private sealed class NoTemplateScopes : ISourceScopeSandboxFactory
+    {
+        public ISourceScopeSandbox Create(ResolvedProject project, RepoConnection repo, string? revision = null) =>
+            throw new InvalidOperationException("no template was declared in this test");
+    }
 
     internal static AgenticMasterContext BuildContext(
         string masterSkillName,

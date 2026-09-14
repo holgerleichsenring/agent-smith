@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class DerivationLookFactory(
     SandboxTargets targets, ISandboxFileReaderFactory files,
-    IPackageEcosystemDetector ecosystems, DerivationTemplateScopes templates,
+    IPackageEcosystemDetector ecosystems, ProjectTemplateScopes templates,
     ILogger<DerivationLook> logger)
 {
     public DerivationLook? Create(PipelineContext pipeline)

@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-6f35
+
+decisions:
+  - category: Architecture
+    chose: "The template reaches the master through FilesystemToolHost.AddSandbox and its own pipeline key, never through ContextKeys.Sandboxes"
+    over: "One more entry in the run's sandbox map, which every downstream handler already iterates"
+    reason: |
+      AddSandbox is copy-on-write over the tool host's own runner map and was built (p0331) so a
+      mid-run ensure_repo_sandbox escalation could grow the addressable set without touching the
+      pipeline's map. A template is that same move, decided up front. The map it stays out of is
+      the point: ContextKeys.Sandboxes is read by CommitAndPR, the toolchain probe, the bootstrap
+      handlers and three preflight checks, and a foreign read-only checkout in it is a commit
+      attempt on somebody else's repository and an image resolution for a toolchain nobody built.
+      defaultKey = sandboxes.Keys.First() is unaffected for the same reason.
+
+  - category: Architecture
+    chose: "A second address channel, ContextKeys.TemplateAddresses, that the prompt reads"
+    over: "Relying on the tool host's keys, which is where the entry actually lives"
+    reason: |
+      Reachable is not nameable. AgenticMasterHandler builds its address list from
+      ContextKeys.SandboxRepos (keyToRepo.Values) and hands THAT to
+      MasterPromptSections.BuildRepoNamesSection — an entry added only through AddSandbox is
+      resolvable by name and never stated, so the master would have to guess it. The precedent
+      knew this: EnsureRepoSandboxToolHost calls AddSandbox AND writes ContextKeys.Repos back. A
+      template needs the same, minus the map every handler iterates, which is exactly one key.
+
+  - category: Architecture
+    chose: "Read-only is enforced by SourceScopeSandbox refusing Run and WriteFile by step KIND"
+    over: "A per-repository write guard in PathWriteGuard"
+    reason: |
+      PathWriteGuard judges phase and path, never repository, so widening it is a change to every
+      write in the product for one read-only checkout. The sandbox refuses below the tool host and
+      before anything spawns, so the refusal holds whatever the prompt says — and FilesystemToolHost
+      records a change only when the runner result does not start with "Error", so a refused write
+      cannot reach the commit comment or the run result either.
+
+  - category: Implementation
+    chose: "DerivationTemplateScopes was RENAMED to ProjectTemplateScopes and given an optional context filter"
+    over: "Injecting the derivation-named type into the coding master, or writing a second selection"
+    reason: |
+      One selection serving both looks is the point — two would disagree about which template a
+      phase is built after the first time a context list changed. A type called Derivation* used by
+      the thing that types the code is a lie about who it serves, and the rename costs four call
+      sites. The new parameter narrows to the contexts THIS PHASE changes (PhaseDraft.Contexts): a
+      template declared for a component the ticket never touches is a container spawn and a clone
+      nobody asked for. Null or empty still selects every discovered context, which is what the
+      derivation wants — it is deciding which contexts the phase touches, so it cannot be handed
+      the answer.
+
+  - category: Implementation
+    chose: "MaterializeAsync moved onto ISourceScopeSandbox, and the master materialises before it renders its prompt"
+    over: "Letting the first read discover the failure as a step refusal"
+    reason: |
+      2026-09-13-9802 put MaterializeAsync on the concrete sandbox precisely so a caller that must
+      REFUSE learns the KIND before it spends anything, but left it off the interface, where the
+      only caller that has the typed failure to act on now sits. A template discovered broken at
+      the first read costs a master pass to find out and produces a refusal sentence instead of a
+      typed reason; discovered here it fails the phase naming the repository AND the revision,
+      which are different repairs. It is a defensive assert, not a second user-facing path:
+      DeriveSpec precedes the master and 2026-09-13-84c0 already failed the derivation on it.
+
+  - category: Implementation
+    chose: "The template names join the repo-names section and the attachment path prefix, but NOT MasterUserPrompt's working-repository list"
+    over: "One address list feeding every prompt section"
+    reason: |
+      The tool host routes by name, so any additional entry makes unprefixed paths ambiguous: a
+      single-repo project that gains a template must start prefixing the TARGET's own paths, which
+      is why the repo-names section and repoPrefix both count the templates. The working-repository
+      list renders "one checkout per repository, all on the run branch, checked out at <path>" —
+      every word of which is false about a template. The template gets its own section instead,
+      which says what it is.
+
+  - category: Implementation
+    chose: "The wiring is MasterTemplateScopes + MasterPromptSections-sized helpers, and MasterPipelineFacts was extracted to pay for it"
+    over: "Six more lines inside AgenticMasterHandler"
+    reason: |
+      AgenticMasterHandler sat at 921 lines against a ratchet baseline of 922, so the phase's own
+      wiring did not fit and FileLengthRatchetTests says extract rather than baseline. The three
+      pure statics at the bottom of the handler (StagedRegistries, OtherBinaries, the pipeline list
+      reader) were the honest extraction: they are functions over values with no collaborator, they
+      read the RUN rather than drive the loop, and moving them left the handler at 914.
+
+  - category: Scope
+    chose: "ContextKeys.TemplateAddresses is declared in ContextKeys.Spec.cs"
+    over: "The core ContextKeys.cs, where the sandbox keys it is a sibling of live"
+    reason: |
+      ContextKeys.cs is baselined at 164 lines and sits at exactly 164, so a key plus the paragraph
+      explaining why a template must not be in the sandbox map cannot go there without shortening
+      an unrelated doc comment to make room. The class is partial by design and the spec partial is
+      where the phase-spec-shaped keys already are; a template is declared per context and cited by
+      the cut.
+
+  - category: Scope
+    chose: "The catalog assertion is gated on the pin actually citing {{ref:source-precedence}}"
+    over: "A hard assertion, or no catalog test at all"
+    reason: |
+      The four-way source order is the catalog's own shared section, shipped into agent-smith-skills
+      by 2026-09-13-ab17, and the embedded pin that carries it is bumped by 2026-09-13-4072 — a
+      separate phase. A hard assertion fails every build between the two; no assertion lets the pin
+      bump land without the section. The gate asserts the resolved body names the template the
+      moment the citation appears. Until then the in-repo TemplatePromptSection is what tells the
+      master what a template is, appended to the master body the same way the toolchain capability
+      line is, so it does not depend on the pin at all.

@@ -106,6 +106,8 @@ public sealed class DerivationTemplateLookTests
         public string? ResolvedSha => null;
         public string JobId => "template-scope";
 
+        public Task<string> MaterializeAsync(CancellationToken ct) => Task.FromResult("sha");
+
         public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? p, CancellationToken ct) =>
             Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, string.Empty));

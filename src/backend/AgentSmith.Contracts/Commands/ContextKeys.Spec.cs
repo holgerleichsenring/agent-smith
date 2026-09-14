@@ -60,6 +60,15 @@ public static partial class ContextKeys
     /// </summary>
     public const string StagedRegistries = "StagedRegistries";
 
+    /// <summary>
+    /// 2026-09-13-6f35: IReadOnlyList&lt;string&gt; — the template addresses the coding master
+    /// may read this phase, each one <c>template:&lt;context&gt;</c>. Its own key because the
+    /// repo-name section is built from ContextKeys.SandboxRepos: an entry added to the tool
+    /// host alone is reachable and unnameable, and a template must never enter the sandbox map
+    /// that CommitAndPR, the toolchain probe and the preflight checks iterate.
+    /// </summary>
+    public const string TemplateAddresses = "TemplateAddresses";
+
     /// <summary>p0393a: the ticket segments the derivation was offered, kept so the
     /// accounting and the markdown companions can be rebuilt without re-segmenting.</summary>
     public const string TicketSegments = "TicketSegments";
