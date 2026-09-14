@@ -4,7 +4,6 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
@@ -20,12 +19,19 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// lifetime (disposed when the turn ends — a sandbox that served no read
 /// disposes to nothing). Returns the reply text; the router persists and
 /// delivers it.
+/// <para>
+/// 2026-09-13-ed5a: the project's declared TEMPLATES join that set. The scope's repos come
+/// from the session row; the templates come off the resolved project — the two columns
+/// SpecDialogSessionMapper rebuilds ActiveScope from carry no template, so a field there
+/// would be dropped before the first turn.
+/// </para>
 /// </summary>
 public sealed class SpecDialogTurnRunner(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     ExecutePipelineUseCase pipelineUseCase,
     ISourceScopeSandboxFactory sourceSandboxFactory,
+    SpecDialogTemplateScopes templateScopes,
     SpecDialogQuestionPump questionPump,
     SpecDialogPendingQuestions pendingQuestions,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
@@ -35,15 +41,16 @@ public sealed class SpecDialogTurnRunner(
     {
         var project = ResolveProject(state.Project);
         var scopeRepos = ResolveScopeRepos(project, state.Scope);
-        var sandboxes = scopeRepos.ToDictionary(
-            r => r.Name, r => (ISandbox)sourceSandboxFactory.Create(project, r), StringComparer.Ordinal);
+        var templates = templateScopes.Open(project);
+        var sandboxes = SpecDialogTurnSeeds.Sandboxes(
+            scopeRepos, r => sourceSandboxFactory.Create(project, r), templates);
 
         var slot = new SpecDialogReplySlot();
         var request = new PipelineRequest(
             ProjectName: state.Project,
             PipelineName: PipelinePresets.SpecDialogName,
             Headless: true,
-            Context: BuildSeeds(state, scopeRepos, sandboxes, slot));
+            Context: SpecDialogTurnSeeds.Build(state, scopeRepos, sandboxes, slot));
 
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pump = questionPump.PumpAsync(state, pumpCts.Token);
@@ -52,8 +59,10 @@ public sealed class SpecDialogTurnRunner(
             var result = await pipelineUseCase.ExecuteAsync(request, serverContext.ConfigPath, cancellationToken);
             // CollectSpecDialogReply writes reply + outcome together; a failed
             // run left both empty and resolves to an answer-shaped failure note.
+            // The stamp rides the outcome because the scopes below are gone by filing time.
             return slot is { Reply: not null, Outcome: not null }
-                ? new SpecDialogTurnResult(slot.Reply, slot.Outcome)
+                ? new SpecDialogTurnResult(
+                    slot.Reply, templateScopes.Stamp(slot.Outcome, project, templates))
                 : new SpecDialogTurnResult(ComposeFailureReply(state, result), new AnswerOutcome());
         }
         finally
@@ -85,31 +94,6 @@ public sealed class SpecDialogTurnRunner(
         var matched = project.Repos.Where(r => wanted.Contains(r.Name)).ToList();
         return matched.Count > 0 ? matched : project.Repos;
     }
-
-    private static Dictionary<string, object> BuildSeeds(
-        ConversationState state, IReadOnlyList<RepoConnection> scopeRepos,
-        Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot)
-    {
-        var primary = scopeRepos[0];
-        return new Dictionary<string, object>
-        {
-            [ContextKeys.SpecDialogTranscript] = MapTranscript(state.Transcript),
-            [ContextKeys.SpecDialogReplySlot] = slot,
-            [ContextKeys.DialogueJobId] = state.JobId,
-            [ContextKeys.Sandboxes] = (IReadOnlyDictionary<string, ISandbox>)sandboxes,
-            [ContextKeys.SandboxRepos] = (IReadOnlyDictionary<string, string>)scopeRepos
-                .ToDictionary(r => r.Name, r => r.Name, StringComparer.Ordinal),
-            // The master addresses repos by name through the tool host; the
-            // singular Repository slot only feeds prompt headers/log lines.
-            [ContextKeys.Repository] = new Repository(
-                new BranchName(primary.DefaultBranch ?? "main"), primary.Url ?? string.Empty),
-        };
-    }
-
-    private static IReadOnlyList<SpecDialogTurn> MapTranscript(IReadOnlyList<TranscriptTurn> transcript) =>
-        [.. transcript.Select(t => new SpecDialogTurn(
-            t.Role == TranscriptRole.Assistant ? SpecDialogTurn.AssistantRole : SpecDialogTurn.UserRole,
-            t.Text))];
 
     private string ComposeFailureReply(ConversationState state, CommandResult result)
     {

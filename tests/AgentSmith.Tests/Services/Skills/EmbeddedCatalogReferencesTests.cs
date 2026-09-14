@@ -85,6 +85,37 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         body.Should().Contain("template", "a cited order that never names the template orders nothing");
     }
 
+    /// <summary>
+    /// 2026-09-13-ed5a: the design partner cuts the epic, and a cut made without the house
+    /// shape produces slices that cross the layers the template keeps apart. It must therefore
+    /// state where a template sits among its sources — the catalog's own shared
+    /// <c>source-precedence</c> section (2026-09-13-ab17), whose pin is bumped by
+    /// 2026-09-13-4072. Gated on the citation for the same reason the coding master's is:
+    /// a hard assertion fails every build between the two phases.
+    /// </summary>
+    [Fact]
+    public async Task EmbeddedCatalog_DesignPartnerMaster_SaysWhereATemplateSitsAmongItsSources()
+    {
+        var root = await MaterializeAsync();
+        var master = Directory
+            .GetFiles(Path.Combine(root, "skills", "_masters"), "SKILL.md", SearchOption.AllDirectories)
+            .SingleOrDefault(f => Path.GetFileName(Path.GetDirectoryName(f)) == "design-partner-master");
+        master.Should().NotBeNull("the design partner is the skill that cuts the epic");
+
+        var rules = File.ReadAllText(master!);
+        if (!rules.Contains("{{ref:source-precedence}}", StringComparison.Ordinal))
+            return; // this pin predates the shared section; 2026-09-13-4072 bumps it.
+
+        var catalogPath = new Mock<ISkillsCatalogPath>();
+        catalogPath.Setup(p => p.Root).Returns(root);
+        var body = new SkillBodyResolver(new CatalogSkillReferenceSource(catalogPath.Object))
+            .ResolveBody(
+                new RoleSkillDefinition { Name = "design-partner-master", Rules = rules },
+                SkillRole.Master);
+
+        body.Should().Contain("template", "a cited order that never names the template orders nothing");
+    }
+
     private async Task<string> MaterializeAsync()
     {
         var handler = new EmbeddedSourceHandler(

@@ -61,9 +61,11 @@ decisions:
       THE PARENT TICKET CARRIES THE PROVENANCE. A reader who asks why the slices are shaped this
       way must find the answer without opening a run.
   - key: |
-      THE PARENT BODY MAY NOT OPEN A FENCE. The p0315d contract says the body holds exactly one
-      fenced yaml block and the extractor inverts it. The provenance is appended through the
-      renderer's existing extraSections injector as plain lines.
+      THE PARENT BODY MAY NOT OPEN A FENCE AT ALL. This spec was written against the p0315d
+      contract — one fenced yaml block, inverted by the extractor — but 2026-09-13-b7ba shipped
+      first and made the epic parent a REQUIREMENT body, which carries ZERO fences. The
+      provenance is appended through the renderer's existing extraSections injector as plain
+      lines either way; the count the test asserts is zero, not one.
 
 steps:
   - id: the-turn-reads-the-declarations-and-materialises-them
@@ -83,7 +85,8 @@ tests:
   - "SpecDialogTurn_Ends_DisposesTemplateSandboxes"
   - "SpecDialogSession_TemplateRevisions_SurviveAReload"
   - "OutcomeTicketFiler_EpicWithTemplates_ParentBodyNamesRevisions"
-  - "OutcomeTicketFiler_EpicParentBody_StillHasOneFencedBlock"
+  - "OutcomeTicketFiler_EpicParentBody_StillOpensNoFence"
+  - "SpecDialogTurn_TemplateOpened_StampsTheOutcomeWithWhatItRead"
 
 done:
   - "a spec-dialog session on a project with a declared template can read it during the analysis"
