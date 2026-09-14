@@ -414,9 +414,10 @@ public class CommitAndPRHandlerTests
         var capturedDraft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
-                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<BranchName?>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "fix-bug");
@@ -450,9 +451,10 @@ public class CommitAndPRHandlerTests
         var capturedDraft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
-                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<BranchName?>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
 
         var pipeline = NewPipelineWithSandbox();

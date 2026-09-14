@@ -46,6 +46,9 @@ public sealed class SandboxRepoCloner(
         if (string.IsNullOrEmpty(config.Url))
             return FailWith("Checkout requires a non-empty source URL for non-local providers.", config);
 
+        // 2026-09-13-a284: one repository's sandboxes are clones of the SAME repository, so
+        // they resolve the same rung; the first one that names it answers for the repo.
+        string? rung = null;
         foreach (var (key, sandbox) in sandboxes)
         {
             var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config), null, ct);
@@ -54,10 +57,12 @@ public sealed class SandboxRepoCloner(
             // merge commit, and a sandbox with no committing user cannot make one — a
             // fast-forward passed without it and a three-way merge did not.
             await identity.EnsureConfiguredAsync(sandbox, ct);
-            var problem = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
-            if (problem is not null) return FailWith($"sandbox '{key}': {problem}", config);
+            var placement = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
+            if (placement.Problem is not null)
+                return FailWith($"sandbox '{key}': {placement.Problem}", config);
+            rung ??= placement.Rung;
         }
-        return RepoCheckout.Ready(repo);
+        return RepoCheckout.Ready(repo, rung);
     }
 
     // A fresh clone has no committing identity, so every path that produces a

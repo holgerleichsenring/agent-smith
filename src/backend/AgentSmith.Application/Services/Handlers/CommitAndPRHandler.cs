@@ -291,7 +291,7 @@ public sealed class CommitAndPRHandler(
                 await gitOps.CommitAndPushStagedAsync(sandbox, branch, message, repo.Type, ct);
             }
         }
-        catch (Exception ex) when (LooksLikeEmptyCommit(ex))
+        catch (Exception ex) when (EmptyCommit.Explains(ex))
         {
             logger.LogInformation("{Repo}: no changes, skipping PR", repo.Name);
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
@@ -329,12 +329,15 @@ public sealed class CommitAndPRHandler(
             // An unconditional second create on the same branch throws into the catch
             // below and reports the whole PR step Failed; reusing it and refreshing the
             // body carries the run's outcome onto the PR that already exists.
+            // 2026-09-13-a284: per repository, because the rung is — this loop carries one
+            // branch value for every repo, so one target would send the second one wrong.
+            var target = PullRequestTargets.For(context.Pipeline, repo.Name);
             var existing = await provider.FindOpenPullRequestAsync(branchRepo, ct);
             if (existing is not null)
-                return (await RefreshAsync(provider, repo.Name, existing, body, isDraft, ct), body);
+                return (await RefreshAsync(provider, repo.Name, existing, body, isDraft, target, ct), body);
             var prUrl = await provider.CreatePullRequestAsync(
                 branchRepo, context.Ticket.Title, body, ct,
-                linkedTicketId: context.Ticket.Id, isDraft: isDraft);
+                linkedTicketId: context.Ticket.Id, isDraft: isDraft, targetBranch: target);
             logger.LogInformation("{Repo}: PR opened {Url}", repo.Name, prUrl);
             return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
         }
@@ -351,8 +354,20 @@ public sealed class CommitAndPRHandler(
     // A failed body update is NOT a failed PR: the PR is open and the work is on it.
     private async Task<OpenedPullRequest> RefreshAsync(
         ISourceProvider provider, string repoName, string prUrl, string body, bool isDraft,
-        CancellationToken ct)
+        BranchName? target, CancellationToken ct)
     {
+        // 2026-09-13-a284: this pull request was opened at the SPEC commit, against the
+        // provider's default branch and possibly before the rung existed — and until now
+        // nothing anywhere changed a base. Left on it, a slice's review shows every
+        // predecessor slice's work as well as its own.
+        if (target is not null
+            && PullRequestTargets.NeedsMove(await provider.ReadPullRequestBaseAsync(prUrl, ct), target))
+        {
+            var moved = await provider.RetargetPullRequestAsync(prUrl, target, ct);
+            logger.LogInformation(
+                "{Repo}: the pull request belongs on '{Target}' (moved: {Moved})",
+                repoName, target.Value, moved);
+        }
         var updated = await provider.UpdatePullRequestBodyAsync(prUrl, body, ct);
         // p0393a: the PR was opened as a DRAFT at the spec commit, before any phase was
         // verified. Only a complete, green run takes it out of draft — a stopped sequence
@@ -364,10 +379,6 @@ public sealed class CommitAndPRHandler(
             repoName, prUrl, updated, ready);
         return new OpenedPullRequest(repoName, prUrl, OpenStatus.Opened);
     }
-
-    private static bool LooksLikeEmptyCommit(Exception ex) =>
-        ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains("no changes", StringComparison.OrdinalIgnoreCase);
 
     // p0192: defence-in-depth around the master-prompt rule from p0191. The
     // agent is instructed to apply credentials at user-config level
