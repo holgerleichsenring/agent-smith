@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
@@ -18,20 +19,29 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// 2026-09-13-5cdf: the base is RESOLVED, once, and the same answer serves both halves —
 /// the rung is checked out before <c>git checkout -b</c>, which until now cut from
 /// whatever HEAD the clone happened to be on, and the same resolved base is what a reused
-/// branch merges. Until 2026-09-13-35a4 publishes a rung the ladder always falls through,
-/// so this cuts and merges exactly where it did before.
+/// branch merges.
+/// </para>
+/// <para>
+/// 2026-09-13-35a4: that base now comes from the PUBLISHER, not straight from the ladder,
+/// so the rung a slice cuts from is created by whichever slice reaches this repository
+/// first. Asking the ladder here instead would mean every slice of a feature fell through
+/// to the clone's own base until somebody created the branch by hand. The publisher is
+/// also why <see cref="RepoConnection"/> is threaded in: a push needs the platform token,
+/// and nothing on this path carried one.
 /// </para>
 /// </summary>
 public sealed class SandboxWorkBranchCheckout(
-    SandboxBaseLadder baseLadder,
+    SandboxRungPublisher rungs,
     WorkBranchBaseMerger merger,
+    WorkBranchBaseMergeReport report,
     ILogger<SandboxWorkBranchCheckout> logger)
 {
     /// <summary>
     /// Null when the sandbox is ready to be worked in; otherwise the reason the run must
     /// stop before anything reads or writes this tree.
     /// </summary>
-    public async Task<string?> SwitchAsync(ISandbox sandbox, RunBranch? requested, CancellationToken ct)
+    public async Task<string?> SwitchAsync(
+        ISandbox sandbox, RepoConnection config, RunBranch? requested, CancellationToken ct)
     {
         if (requested is null) return null;
         var branch = requested.Name.Value;
@@ -39,7 +49,7 @@ public sealed class SandboxWorkBranchCheckout(
         // `git checkout` on the branch we are already on is a harmless no-op, so the
         // switch is unconditional — CheckoutAsync only ECHOES the requested branch back.
         var existing = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(branch), null, ct);
-        if (existing.ExitCode != 0) return await CreateAsync(sandbox, requested, ct);
+        if (existing.ExitCode != 0) return await CreateAsync(sandbox, config, requested, ct);
 
         logger.LogInformation("git checkout {Branch} (existing)", branch);
         if (!requested.ComposedFromTicket)
@@ -49,14 +59,15 @@ public sealed class SandboxWorkBranchCheckout(
                 branch);
             return null;
         }
-        var resolved = await baseLadder.ResolveAsync(sandbox, requested.ParentTicketId, ct);
-        return Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, resolved, ct));
+        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct);
+        return report.Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, resolved, ct));
     }
 
-    private async Task<string?> CreateAsync(ISandbox sandbox, RunBranch requested, CancellationToken ct)
+    private async Task<string?> CreateAsync(
+        ISandbox sandbox, RepoConnection config, RunBranch requested, CancellationToken ct)
     {
         var branch = requested.Name.Value;
-        var resolved = await baseLadder.ResolveAsync(sandbox, requested.ParentTicketId, ct);
+        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct);
         // A ladder that FELL THROUGH names the clone's own base, which is where a fresh
         // clone's HEAD already stands — checking it out would be a no-op dressed as a
         // decision, and on a tree some other step positioned it would silently move the
@@ -77,27 +88,5 @@ public sealed class SandboxWorkBranchCheckout(
                 "git checkout -b {Branch} failed (exit={Exit}): {Err}",
                 branch, created.ExitCode, created.ErrorMessage);
         return null;
-    }
-
-    private string? Describe(string branch, BaseMergeResult merge)
-    {
-        switch (merge.Status)
-        {
-            case BaseMergeStatus.Merged:
-                logger.LogInformation("{Branch} now carries {BaseRef}", branch, merge.BaseRef);
-                return null;
-            case BaseMergeStatus.UpToDate:
-                logger.LogInformation("{Branch} already carries {BaseRef}", branch, merge.BaseRef);
-                return null;
-            case BaseMergeStatus.Conflicted:
-                return $"merging '{merge.BaseRef}' into '{branch}' conflicts in "
-                       + $"{merge.ConflictingPaths.Count} path(s): {string.Join(", ", merge.ConflictingPaths)}. "
-                       + "The merge was aborted, so the branch is unchanged — resolve the conflict on "
-                       + $"'{branch}', or delete it to start again from '{merge.BaseRef}'.";
-            default:
-                logger.LogWarning(
-                    "{Branch} keeps the base it was cut from: {Reason}", branch, merge.Reason);
-                return null;
-        }
     }
 }

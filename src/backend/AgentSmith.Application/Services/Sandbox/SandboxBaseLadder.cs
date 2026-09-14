@@ -18,8 +18,9 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// <para>
 /// No provider API is involved: the sandbox clone is FULL (no <c>--depth</c>, no
 /// <c>--single-branch</c>), so every remote branch is already reachable and a rung is
-/// found with a ref check. Nothing here creates or publishes a branch — until
-/// 2026-09-13-35a4 does, every ladder falls through and nothing changes.
+/// found with a ref check. Nothing here creates or publishes a branch: 2026-09-13-35a4's
+/// <see cref="SandboxRungPublisher"/> does, and asks this ladder both before and after its
+/// push, so what a slice cuts from stays a fact read off the clone.
 /// </para>
 /// <para>
 /// TWO rungs, not three: an epic child carries exactly one ancestor stamp, its parent
