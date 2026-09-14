@@ -23,7 +23,7 @@ public sealed class DerivationTemplateLookTests
         var look = Build(out _);
 
         look.Repositories.Should().Equal(Target);
-        look.Templates.Should().Equal(Template);
+        look.Templates.Keys.Should().Equal(Template);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class DerivationTemplateLookTests
             new PackageEcosystemDetector(), NullLogger.Instance);
 
         look.Repositories.Should().Equal(Target);
-        look.Templates.Should().BeEmpty();
+        look.Templates.Keys.Should().BeEmpty();
     }
 
     [Fact]

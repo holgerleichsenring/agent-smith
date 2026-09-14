@@ -118,7 +118,9 @@ public sealed class SpecDerivationCoverageTests
     {
         var deriver = new SpecSetDeriver(
             new CleanReviewer(),
-            new SpecDerivationCall(new SingleClientFactory(client), new AsyncLocalRunContextAccessor()),
+            new SpecDerivationCall(
+                new SingleClientFactory(client), new AsyncLocalRunContextAccessor(),
+                DerivationTestLooks.Proof()),
             DerivationTestLooks.Factory(),
             new FixedPrompt(),
             DerivationTestParsers.Real(),

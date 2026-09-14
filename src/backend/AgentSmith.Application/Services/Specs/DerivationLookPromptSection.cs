@@ -34,7 +34,7 @@ internal static class DerivationLookPromptSection
             + "the shape a component takes, where things live, what a change touches. It never "
             + "says WHAT this ticket wants, and where the target already has a counterpart, the "
             + "target's own form wins.");
-        foreach (var template in look.Templates) sb.AppendLine($"- {template}");
+        foreach (var template in look.Templates.Keys) sb.AppendLine($"- {template}");
         return sb.ToString();
     }
 }
