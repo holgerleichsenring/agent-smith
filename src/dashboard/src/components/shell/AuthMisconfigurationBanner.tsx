@@ -1,5 +1,6 @@
 "use client";
 
+import { useAccessToken } from "@/hooks/useAccessToken";
 import { useAuthRequirements } from "@/hooks/useAuthRequirements";
 import { useRuntimeSettings } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import type { AuthRequirements } from "@/lib/authRequirementsApi";
@@ -23,7 +24,8 @@ import type { AuthRequirements } from "@/lib/authRequirementsApi";
 export function AuthMisconfigurationBanner() {
   const requirements = useAuthRequirements();
   const { auth } = useRuntimeSettings();
-  const missing = missingHalf(requirements, auth.authority);
+  const token = useAccessToken();
+  const missing = missingHalf(requirements, auth.authority, token !== null);
   if (!missing) return null;
 
   return (
@@ -52,6 +54,7 @@ function normalize(authority: string | null): string | null {
 function missingHalf(
   requirements: AuthRequirements | null,
   configured: string,
+  holdsToken: boolean,
 ): MissingHalf | null {
   if (!requirements) return null;
   const server = normalize(requirements.authority);
@@ -61,12 +64,36 @@ function missingHalf(
   if (dashboard === null) return { half: "dashboard", reason: dashboardHalf(requirements) };
   if (server === null) return { half: "server", reason: serverHalf(dashboard) };
   if (server === dashboard) return null;
+  if (!twoAuthoritiesAreAProblem(requirements, holdsToken)) return null;
   return {
     half: "both",
     reason:
       `This dashboard signs in against ${dashboard}, and the server validates tokens from `
       + `${server}. A token minted by one is refused by the other; one of the two is wrong.`,
   };
+}
+
+// 2026-09-14-c72e: two authority strings differing is not the question — whether a token
+// minted by one survives the other is, and that is answered by tokens rather than by
+// strings. A directory's v2 sign-in issuing an id_token beside a v1 resource validating an
+// access token is ONE directory, correctly configured, writing two different strings.
+//
+// A token this tab HOLDS that was not refused is proof the two halves agree. The holding is
+// the half the browser contributes: the server's tokenRefusal is null both for a token it
+// accepted and for a request that carried none, and before the first sign-in that null
+// proves nothing — going quiet there would silence the banner exactly while an operator is
+// working out why they cannot sign in.
+//
+// And only the two checks that read an authority may accuse one. An expired token says
+// nothing about either, and a server that cannot reach its own authority refuses tokens for
+// a reason that is not the operator's configuration at all.
+function twoAuthoritiesAreAProblem(
+  requirements: AuthRequirements,
+  holdsToken: boolean,
+): boolean {
+  const refusal = requirements.tokenRefusal;
+  if (refusal === null) return !holdsToken;
+  return refusal === "audience" || refusal === "issuer";
 }
 
 function dashboardHalf(requirements: AuthRequirements): string {
