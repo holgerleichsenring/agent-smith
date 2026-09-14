@@ -159,16 +159,24 @@ public sealed class WorkBranchBaseMergeTests
             .BeFalse("merging the DEFAULT branch into a slice dissolves the isolation the rung exists for");
     }
 
+    /// <summary>
+    /// 2026-09-13-35a4 replaced this test's premise. It used to pass a parent stamp and
+    /// assert the fall-through, because nothing published a rung yet; a stamped ticket now
+    /// CREATES the rung it did not find (see <c>RungPublicationTests</c>). What "exactly as
+    /// today" still means is a ticket that is not a slice at all — no stamp, no rung, no
+    /// push, and a repository no slice touches never grows a branch.
+    /// </summary>
     [Fact]
-    public async Task WorkBranch_NoRungExists_IsCutExactlyAsToday()
+    public async Task WorkBranch_NoParentStamp_IsCutExactlyAsToday()
     {
         if (!SandboxToolAvailability.IsAvailable("git")) return;
         await using var fixture = GitRemoteFixture.Create(workBranch: null);
 
         var (checkout, sandbox) = await CheckOutAsync(
-            fixture, TicketBranch, composedFromTicket: true, parentTicketId: ParentTicket);
+            fixture, TicketBranch, composedFromTicket: true, parentTicketId: null);
 
         checkout.Repository.Should().NotBeNull();
+        sandbox.Ran("push").Should().BeFalse("a ticket that is not a slice has no feature to publish");
         sandbox.Ran("checkout", $"origin/{Rung}").Should()
             .BeFalse("a rung that does not exist is not checked out — the ladder falls through");
         sandbox.Ran("checkout", "-b", TicketBranch).Should().BeTrue();

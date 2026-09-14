@@ -28,6 +28,19 @@ public static class TestGit
 
     public static WorkBranchBaseMerger Merger => new(NullLogger<WorkBranchBaseMerger>.Instance);
 
+    public static WorkBranchBaseMergeReport MergeReport =>
+        new(NullLogger<WorkBranchBaseMergeReport>.Instance);
+
+    /// <summary>2026-09-13-35a4: the create-only push a shared feature branch is published
+    /// with — never the force-with-lease pusher a work branch uses.</summary>
+    public static CreateOnlyBranchPush BranchCreate =>
+        new(NullLogger<CreateOnlyBranchPush>.Instance);
+
+    /// <summary>2026-09-13-35a4: publishes the feature's branch once, or adopts the one a
+    /// sibling slice published first.</summary>
+    public static SandboxRungPublisher RungPublisher =>
+        new(BaseLadder, BranchCreate, NullLogger<SandboxRungPublisher>.Instance);
+
     public static SandboxWorkBranchCheckout WorkBranchCheckout =>
-        new(BaseLadder, Merger, NullLogger<SandboxWorkBranchCheckout>.Instance);
+        new(RungPublisher, Merger, MergeReport, NullLogger<SandboxWorkBranchCheckout>.Instance);
 }

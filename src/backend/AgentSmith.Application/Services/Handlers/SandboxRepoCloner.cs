@@ -54,7 +54,7 @@ public sealed class SandboxRepoCloner(
             // merge commit, and a sandbox with no committing user cannot make one — a
             // fast-forward passed without it and a three-way merge did not.
             await identity.EnsureConfiguredAsync(sandbox, ct);
-            var problem = await branchCheckout.SwitchAsync(sandbox, branch, ct);
+            var problem = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
             if (problem is not null) return FailWith($"sandbox '{key}': {problem}", config);
         }
         return RepoCheckout.Ready(repo);

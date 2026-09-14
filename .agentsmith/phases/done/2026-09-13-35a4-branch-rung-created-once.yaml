@@ -13,8 +13,9 @@ scope:
     A create-only publish primitive — the rung is pushed at the sha of the ladder's next rung down,
     with no force and no lease, and a non-fast-forward rejection means SOMEONE ELSE CREATED IT: the
     loser re-fetches and adopts the winner's branch rather than retrying; RepoConnection is threaded
-    into the work-branch checkout so a push has the platform token it needs, which the checkout step
-    carries today for no operation; the rung is published before the work branch is cut from it, so
+    into the work-branch checkout so a push has the platform token it needs, which nothing on that
+    path carries today — only the clone step and the pusher stamp GIT_TOKEN, and the checkout step
+    carries no environment at all; the rung is published before the work branch is cut from it, so
     the ladder's answer is real by the time anything depends on it; publishing is idempotent and a
     repository no slice touches never grows a branch.
   out: >

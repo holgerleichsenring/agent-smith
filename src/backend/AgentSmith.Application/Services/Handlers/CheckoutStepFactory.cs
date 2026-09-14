@@ -61,6 +61,19 @@ internal static class CheckoutStepFactory
             WorkingDirectory: Repository.SandboxWorkPath,
             TimeoutSeconds: CheckoutTimeoutSeconds);
 
+    /// <summary>
+    /// 2026-09-13-35a4: creates a branch on the remote at a given ref — NO force and NO
+    /// lease, so a ref that already exists is refused rather than overwritten. It carries
+    /// the credential for the same reason the clone does: it talks to the remote.
+    /// </summary>
+    public static Step BuildCreateRemoteBranchStep(RepoConnection config, string atRef, string branch) =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git",
+            Args: new[] { "-c", CredHelper, "push", "origin", $"{atRef}:refs/heads/{branch}" },
+            WorkingDirectory: Repository.SandboxWorkPath,
+            Env: TokenEnv(config),
+            TimeoutSeconds: CloneTimeoutSeconds);
+
     public static Step BuildCheckoutStep(string branch) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",

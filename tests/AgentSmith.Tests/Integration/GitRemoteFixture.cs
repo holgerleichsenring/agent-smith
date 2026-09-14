@@ -39,7 +39,8 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
     /// </param>
     /// <param name="rung">
     /// A feature branch cut from the base, which the work branch is then cut from — null
-    /// for the estate that has no rung, which is every estate until 2026-09-13-35a4.
+    /// for a remote that has no feature branch yet, which is what the first slice of a
+    /// feature finds and 2026-09-13-35a4 publishes into.
     /// </param>
     public static GitRemoteFixture Create(
         string? workBranch, bool conflicting = false, string? rung = null)
@@ -85,6 +86,24 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
         Git(RemotePath, "checkout", BaseBranch);
     }
 
+    /// <summary>
+    /// 2026-09-13-35a4: a second slice's own full clone, taken BEFORE the feature branch
+    /// exists — the window the creation race lives in. Two slices with no predecessor edge
+    /// between them start together, so both clones predate the rung and both will try to
+    /// create it.
+    /// </summary>
+    public string NewClone(string name)
+    {
+        var path = Path.Combine(_root.Path, name);
+        Git(_root.Path, "clone", RemotePath, path);
+        Git(path, "config", "user.email", "fixture@example.com");
+        Git(path, "config", "user.name", "fixture");
+        return path;
+    }
+
+    /// <summary>What the remote says, without throwing — for asking about refs that may not exist.</summary>
+    public (int Exit, string Output) AskRemote(params string[] args) => Run(RemotePath, args);
+
     public string ReadWorkFile(string relativePath) =>
         File.ReadAllText(Path.Combine(WorkPath, relativePath));
 
@@ -100,6 +119,13 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
 
     private static void Git(string workingDirectory, params string[] args)
     {
+        var (exit, output) = Run(workingDirectory, args);
+        if (exit != 0)
+            throw new InvalidOperationException($"git {string.Join(' ', args)} failed: {output}");
+    }
+
+    private static (int Exit, string Output) Run(string workingDirectory, params string[] args)
+    {
         var psi = new ProcessStartInfo("git")
         {
             WorkingDirectory = workingDirectory,
@@ -110,10 +136,9 @@ internal sealed class GitRemoteFixture : IAsyncDisposable
         foreach (var arg in args) psi.ArgumentList.Add(arg);
         using var process = Process.Start(psi)!;
         var error = process.StandardError.ReadToEnd();
-        process.StandardOutput.ReadToEnd();
+        var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
-        if (process.ExitCode != 0)
-            throw new InvalidOperationException($"git {string.Join(' ', args)} failed: {error}");
+        return (process.ExitCode, output + error);
     }
 
     public ValueTask DisposeAsync() => _root.DisposeAsync();
