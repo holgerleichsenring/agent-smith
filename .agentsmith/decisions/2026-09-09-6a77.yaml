@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-09-6a77
+
+decisions:
+  - category: Architecture
+    chose: "The ProjectMap store is replaced in RealCompositionHarness.ReplaceProductionBoundaries, so every tier gets a per-harness one"
+    over: "Leaving the swap in DockerHarnessRegistrations and adding a second one for the fast tier"
+    reason: |
+      The swap was never a docker concern. p0199b wrote NoOpProjectMapStore against Redis
+      "to keep every test isolated … without this a prior test's stale (empty) ProjectMap
+      hides the StubProjectAnalyzer's canned analysis on subsequent runs" — the exact
+      failure that then went on happening in the fast tier for as long as the fast tier has
+      existed, because nobody registered anything there and AnalyzeProjectHandler resolved
+      the production DiskProjectMapStore. Isolation from the cache is a property of a
+      harness run, not of a sandbox backend, so it belongs where the other boundaries are.
+  - category: Implementation
+    chose: "An in-memory HarnessProjectMapStore, and NoOpProjectMapStore is deleted"
+    over: "Registering NoOpProjectMapStore for every tier, or a DiskProjectMapStore over a per-harness temp directory"
+    reason: |
+      A no-op answers every read with a miss, so the caching path — a second context in one
+      sandbox hitting the entry the first wrote — is never exercised by any harness run.
+      In-memory keeps that path live at production semantics while nothing outlives the
+      harness that produced it. A temp-directory disk store would be equally isolated and
+      would also leave directories behind and re-test File I/O that DiskProjectMapStore's
+      own tests already cover. Two implementations of the same idea is one too many, so the
+      no-op goes.
+  - category: Process
+    chose: "The proof is a harness test that runs the crossing itself: harness 1 with the production analyzer scripted \"{}\", harness 2 with the stub, asserting harness 2's keystone"
+    over: "A unit test over DiskProjectMapStore, or asserting that the cache directory stays empty"
+    reason: |
+      The defect is not in the store — the store is correct, and sharing one entry per
+      repository is what a real run wants. The defect is that two harness runs which
+      disagree about their analyzer addressed one entry. A test that reproduces exactly
+      that ordering is red on main for the same reason CI was red, and stays meaningful if
+      the store implementation is ever swapped again. The empty-cache-root claim is checked
+      once, by hand, as part of the phase's done-list rather than as an assertion that
+      would depend on the process's ambient XDG_CACHE_HOME.
+  - category: Implementation
+    chose: "The stale comment in ReplaceRedisBackedServices is corrected in the same commit"
+    over: "Leaving it and only adding the new registration"
+    reason: |
+      It listed the project-map store among the Redis-backed singletons that "aren't
+      resolved by any handler the harness exercises today". That sentence is the premise
+      under which the gap survived: it was resolved on every single run. A comment that
+      states the opposite of the measured behaviour is the next reader's wrong answer.

@@ -236,7 +236,11 @@ public sealed class PullRequestTargetTests
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
-            new FailedRunPersistence(), new CompletedRunTicketSummary(),
+            new FailedRunPersistence(),
+            new ShortfallDelivery(
+                new UnverifiedWorkReverter(GitOps(), NullLogger<UnverifiedWorkReverter>.Instance),
+                NullLogger<ShortfallDelivery>.Instance),
+            new CompletedRunTicketSummary(),
             NullLogger<CommitAndPRHandler>.Instance);
 
     private static SandboxGitOperations GitOps() =>

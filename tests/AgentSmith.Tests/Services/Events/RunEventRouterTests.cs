@@ -128,10 +128,13 @@ public sealed class RunEventRouterTests
         var slow = guarded.ToRunAsync("slow", step, CancellationToken.None);
         // p0423b: a hang-detector, not a timing claim. The send bound under test is 50ms;
         // this only has to outlast a busy scheduler.
-        // p0432: back down from 120s. The burst that justified the widening is gone — the
-        // suite migrates ONCE and copies, so a starved thread pool no longer looks like a
-        // hang, and a genuine deadlock surfaces in seconds again instead of two minutes.
-        await slow.WaitAsync(TimeSpan.FromSeconds(30));
+        // 2026-09-09-1113: back to 120s. p0432 narrowed it to 30s on the premise that the
+        // migration burst was what starved the pool; two runs on 2026-09-09 then tripped
+        // 30s on a tree that was green — 34338495135 at 48s and 34345964136 at 36s. Neither
+        // was a deadlock: the same logs show string-only assertions taking 42s and a
+        // console-transport timeout test taking 41s, so what the wait measured was the
+        // runner's scheduling. A hang detector is bounded by deadlock, not by impatience.
+        await slow.WaitAsync(TimeSpan.FromSeconds(120));
 
         // … and a healthy client still gets its event.
         await guarded.ToRunAsync("fast", step, CancellationToken.None);

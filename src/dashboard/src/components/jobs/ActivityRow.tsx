@@ -104,11 +104,11 @@ function projectEvent(event: RunEvent): RowView {
     case EventType.RunFinished: {
       const e = event as Extract<RunEvent, { type: EventType.RunFinished }>;
       return {
-        icon: e.status === "success" ? "✓" : "✕",
+        icon: e.status === "success" || e.status === "shortfall" ? "✓" : "✕",
         label: "Run",
         detail: `${e.status} — ${e.summary}`,
         reason: null,
-        severity: e.status === "success" ? "ok" : "error",
+        severity: e.status === "success" || e.status === "shortfall" ? "ok" : "error",
       };
     }
     case EventType.StepStarted: {

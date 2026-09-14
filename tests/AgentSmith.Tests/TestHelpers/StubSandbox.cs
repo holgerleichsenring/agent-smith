@@ -51,6 +51,10 @@ internal sealed class StubSandbox : ISandbox
                 ? _writtenFiles.GetValueOrDefault(Normalize(rp), string.Empty)
                 : string.Empty,
             StepKind.WriteFile => $"File written: {step.Path}",
+            // p0439: a verified head to name, and nothing beyond it — the stub models no
+            // commits, so the branch never carries work its last verification did not see.
+            StepKind.Run when IsGit(step, "rev-parse") => "stub-head",
+            StepKind.Run when IsGit(step, "--name-status") => string.Empty,
             StepKind.Run when IsGitDiff(step) => GitDiffOutput(step),
             _ => string.Empty,
         };
@@ -62,8 +66,10 @@ internal sealed class StubSandbox : ISandbox
     private static string Normalize(string path) =>
         path.StartsWith("/work/", StringComparison.Ordinal) ? path["/work/".Length..] : path;
 
-    private static bool IsGitDiff(Step step) =>
-        step.Command == "git" && step.Args is { } a && a.Contains("diff");
+    private static bool IsGitDiff(Step step) => IsGit(step, "diff");
+
+    private static bool IsGit(Step step, string arg) =>
+        step.Command == "git" && step.Args is { } a && a.Contains(arg);
 
     // `git diff --cached --name-only` -> the staged repo-relative names;
     // `git diff …` (content) -> a real unified diff NAMING the staged files.

@@ -6,9 +6,8 @@ import { useJobsHub } from "@/hooks/useJobsHub";
 import type { RunSnapshot } from "@/types/hub-events";
 import { ConnectionState } from "./ConnectionState";
 import { RunRow } from "./RunRow";
-import { RunFilterChips, type RunFilter } from "./RunFilterChips";
+import { RunFilterChips, matchesFilter, type RunFilter } from "./RunFilterChips";
 import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
-import { toNodeStatus } from "./runStatus";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 
 // p0208: runs list container. Merges overview.active + recent into ONE list,
@@ -62,7 +61,7 @@ export function RunsList() {
     );
   }
 
-  const filtered = filter === "all" ? runs : runs.filter((r) => toNodeStatus(r.status) === filter);
+  const filtered = runs.filter((r) => matchesFilter(r.status, filter));
 
   return (
     <div className="space-y-4">

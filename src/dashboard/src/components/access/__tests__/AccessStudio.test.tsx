@@ -103,6 +103,57 @@ describe("AccessStudio", () => {
     expect(screen.getByTestId("access-person-person12@example.com")).toBeInTheDocument();
   });
 
+  // 2026-09-14-91ad: a role composed here, instead of a refusal and a config import.
+  it("RolesPane_CustomRoleWithAPermissionTheCatalogDropped_EditsTheStoredBundleNotTheRenderedOne", async () => {
+    // The stored bundle names a permission the server's catalog did not recognise, so the
+    // MATRIX renders one permission and the document holds two. An editor reading the
+    // matrix would silently drop the second the first time anybody touched the first.
+    const stored = document({ roles: { auditor: ["config.read", "runs.invent"] } });
+    fetchAccess.mockResolvedValueOnce(viewWith(stored));
+
+    render(<AccessStudio />);
+    await screen.findByTestId("access-studio");
+    fireEvent.click(screen.getByTestId("access-tab-roles"));
+
+    fireEvent.click(await screen.findByTestId("access-role-auditor-config.write"));
+    fireEvent.click(screen.getByTestId("access-save"));
+
+    await waitFor(() => expect(saveAccess).toHaveBeenCalled());
+    expect(saveAccess.mock.calls[0][0].roles.auditor).toEqual([
+      "config.read",
+      "runs.invent",
+      "config.write",
+    ]);
+  });
+
+  it("RolesPane_BuiltInRole_RendersWithoutAnEditAffordance", async () => {
+    render(<AccessStudio />);
+    await screen.findByTestId("access-studio");
+    fireEvent.click(screen.getByTestId("access-tab-roles"));
+
+    // The built-in bundles are not in the document at all, which is what makes a custom
+    // role additive rather than a redefinition.
+    expect(await screen.findByTestId("access-role-edit-auditor")).toBeInTheDocument();
+    expect(screen.queryByTestId("access-role-edit-admin")).toBeNull();
+    expect(screen.queryByTestId("access-role-remove-reader")).toBeNull();
+  });
+
+  it("RolesPane_ANewRole_IsAddedToTheDocumentWithItsPickedPermissions", async () => {
+    render(<AccessStudio />);
+    await screen.findByTestId("access-studio");
+    fireEvent.click(screen.getByTestId("access-tab-roles"));
+
+    fireEvent.change(await screen.findByTestId("access-role-new-name"), {
+      target: { value: "release-manager" },
+    });
+    fireEvent.click(screen.getByTestId("access-role-add"));
+    fireEvent.click(screen.getByTestId("access-role-release-manager-config.read"));
+    fireEvent.click(screen.getByTestId("access-save"));
+
+    await waitFor(() => expect(saveAccess).toHaveBeenCalled());
+    expect(saveAccess.mock.calls[0][0].roles["release-manager"]).toEqual(["config.read"]);
+  });
+
   it("Surface_NameClaimIsNotSub_WarnsAboutSelfAssertedValues", async () => {
     render(<AccessStudio />);
 

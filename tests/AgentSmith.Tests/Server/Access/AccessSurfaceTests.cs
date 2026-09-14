@@ -18,20 +18,21 @@ public sealed class AccessSurfaceTests
     private static readonly TokenAuthorityConfig Named = new() { NameClaim = "preferred_username" };
 
     [Fact]
-    public void Save_FromThePeoplePane_LeavesTheClaimNamesAsTheyWere()
+    public async Task Save_FromThePeoplePane_LeavesTheClaimNamesAsTheyWere()
     {
         using var h = new AccessTestHarness();
-        h.Writer.Save(Doc(new RoleMappingConfig { RoleClaim = "app_roles", GroupClaim = "memberOf" }), Actor);
+        await h.Writer.SaveAsync(
+            Doc(new RoleMappingConfig { RoleClaim = "app_roles", GroupClaim = "memberOf" }), Actor, default);
 
         // The pane edits people and sends the WHOLE document back, because a settings write
         // binds onto a fresh model and every omitted field would revert to its default.
-        var edited = h.Reader.ViewAsync(CancellationToken.None).Result;
-        h.Writer.Save(Doc(new RoleMappingConfig
+        var edited = await h.Reader.ViewAsync(CancellationToken.None);
+        await h.Writer.SaveAsync(Doc(new RoleMappingConfig
         {
             RoleClaim = edited.RoleClaim,
             GroupClaim = edited.GroupClaim,
             PersonGrants = [Grant("sub", "ada", "operator")],
-        }), Actor);
+        }), Actor, default);
 
         var mapping = h.Mapping.Current().Mapping;
         mapping.RoleClaim.Should().Be("app_roles");
@@ -40,34 +41,39 @@ public sealed class AccessSurfaceTests
     }
 
     [Fact]
-    public void CustomRole_AlreadyConfigured_SurvivesAnUnrelatedSave()
+    public async Task CustomRole_AlreadyConfigured_SurvivesAnUnrelatedSave()
     {
         using var h = new AccessTestHarness();
         h.RawDocStore.Save(Write(WithCustomRole()));
         h.Store.Load();
 
-        h.Writer.Save(Doc(new RoleMappingConfig
+        await h.Writer.SaveAsync(Doc(new RoleMappingConfig
         {
             RoleClaim = "roles",
             Roles = { ["auditor"] = ["config.read"] },
             PersonGrants = [Grant("sub", "ada", "auditor")],
-        }), Actor);
+        }), Actor, default);
 
         h.Mapping.Current().Mapping.Roles.Should().ContainKey("auditor");
-        var view = h.Reader.ViewAsync(CancellationToken.None).Result;
+        var view = await h.Reader.ViewAsync(CancellationToken.None);
         view.Roles.Should().Contain(role => role.Name == "auditor" && !role.BuiltIn);
     }
 
+    /// <summary>
+    /// 2026-09-14-91ad: this replaces CustomRole_New_IsRefused. The refusal was right while the
+    /// surface had no way to compose a role and the only case was a legacy bundle to round-trip;
+    /// what it turned into was "the answer to a reasonable question is a config import".
+    /// </summary>
     [Fact]
-    public void CustomRole_New_IsRefused()
+    public async Task CustomRole_New_IsSavedWithItsBundle()
     {
         using var h = new AccessTestHarness();
 
-        var save = () => h.Writer.Save(
+        await h.Writer.SaveAsync(
             Doc(new RoleMappingConfig { RoleClaim = "roles", Roles = { ["auditor"] = ["config.read"] } }),
-            Actor);
+            Actor, default);
 
-        save.Should().Throw<ConfigurationException>().WithMessage("*new custom role cannot be added*");
+        h.Mapping.Current().Mapping.Roles["auditor"].Should().Equal("config.read");
     }
 
     [Fact]
@@ -75,11 +81,11 @@ public sealed class AccessSurfaceTests
     {
         using var h = new AccessTestHarness(auth: Named);
         await h.Observed.UpsertAsync([Seen("ada-0001", "ada@example.com")], CancellationToken.None);
-        h.Writer.Save(Doc(new RoleMappingConfig
+        await h.Writer.SaveAsync(Doc(new RoleMappingConfig
         {
             RoleClaim = "roles",
             PersonGrants = [Grant("preferred_username", "ada@example.com", "admin")],
-        }), Actor);
+        }), Actor, default);
 
         (await h.Remover.RemoveAsync("ada-0001", Actor, CancellationToken.None)).Should().BeTrue();
 
@@ -92,11 +98,11 @@ public sealed class AccessSurfaceTests
     {
         using var h = new AccessTestHarness(auth: Named);
         await h.Observed.UpsertAsync([Seen("ada-0001", "ada@example.com")], CancellationToken.None);
-        h.Writer.Save(Doc(new RoleMappingConfig
+        await h.Writer.SaveAsync(Doc(new RoleMappingConfig
         {
             RoleClaim = "roles",
             PersonGrants = [Grant("preferred_username", "newcomer@example.com", "reader")],
-        }), Actor);
+        }), Actor, default);
 
         var people = (await h.Reader.ViewAsync(CancellationToken.None)).People;
 

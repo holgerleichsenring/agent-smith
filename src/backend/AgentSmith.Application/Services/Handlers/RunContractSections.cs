@@ -40,6 +40,16 @@ internal static class RunContractSections
         sb.AppendLine(account.Trim());
     }
 
+    /// <summary>2026-09-06-3d81: the criteria the master declined, with the evaluated meaning
+    /// of not doing them — beside the account, so the reader of the record sees which
+    /// sentences of the ticket no work could satisfy.</summary>
+    internal static void AppendDeclined(StringBuilder sb, string? declined)
+    {
+        if (string.IsNullOrWhiteSpace(declined)) return;
+        sb.AppendLine();
+        sb.AppendLine(declined.Trim());
+    }
+
     // p0316: surface ticket instructions the master refused (out-of-scope / destructive /
     // injection) as an operator-visible, auditable section — verbatim quote + reason.
     internal static void AppendIgnoredInstructions(

@@ -25,6 +25,7 @@ export function bucketRuns(runs: RunSnapshot[]): MissionBuckets {
         buckets.queued.push(run);
         break;
       case "ok":
+      case "shortfall":
       case "fail":
       case "cancel":
         buckets.finished.push(run);
@@ -72,7 +73,8 @@ export function deriveMetrics(runs: RunSnapshot[], now: number = Date.now()): Mi
   let costTodayUsd = 0;
   for (const run of finishedToday) {
     const status = toNodeStatus(run.status);
-    if (status === "ok") okToday += 1;
+    // p0439: a shortfall is a done wherever runs are counted, never a failure.
+    if (status === "ok" || status === "shortfall") okToday += 1;
     else if (status === "fail") failToday += 1;
     costTodayUsd += run.costUsd ?? 0;
   }

@@ -130,5 +130,7 @@ function dotClass(status: NodeStatus): string {
     // p0327: waiting for the operator's answer — violet, static.
     case "input":
       return "bg-violet-400";
+    case "shortfall":
+      return "bg-teal-500";
   }
 }

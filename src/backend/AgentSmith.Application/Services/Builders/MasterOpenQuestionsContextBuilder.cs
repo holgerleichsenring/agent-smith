@@ -13,6 +13,6 @@ public sealed class MasterOpenQuestionsContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        return new MasterOpenQuestionsContext(ticket, project.Tracker, pipeline);
+        return new MasterOpenQuestionsContext(ticket, project.Tracker, pipeline, command);
     }
 }

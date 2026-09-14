@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-14-91ad
+
+decisions:
+  - category: Architecture
+    chose: "Custom roles are composed in the access surface; NewCustomRoleGuard is replaced by save-time validation"
+    over: "Keeping them read-only, as 2026-08-26-7a51 decided"
+    reason: |
+      That phase chose "custom roles are refused on save and rendered read-only, never deleted"
+      over keeping them editable, because "they came out of p0503d's catalog rather than a request
+      and make the surface harder to read for a case nobody has". The case is now had, and the
+      refusal names no remedy at all — it says the role cannot be added here and lists what is on
+      offer. The remedy is an inference and it is a config import, because role_mapping is a store
+      singleton reachable from this one surface. A guard whose only way out is the YAML this
+      product took away has outlived its reason.
+      What the guard protected is kept and moved earlier: a name colliding with a built-in and a
+      permission outside the catalog were tolerated by RoleCatalog as after-the-fact findings, and
+      are now refusals at the save, where the person who typed them is still looking at them.
+
+  - category: Correctness
+    chose: "The validation is scoped to the roles a save ADDS OR CHANGES"
+    over: "Validating every role in the document that arrives"
+    reason: |
+      The access route takes the WHOLE role-mapping document on every PUT, and the guard being
+      replaced was scoped to additions for exactly this reason. An unscoped catalog check would
+      refuse EVERY save on an installation carrying a legacy role with a permission this version
+      no longer has — so a person grant made in the People pane would fail because of a role
+      nobody touched, and the only way out would be the config import this phase set out to
+      abolish. A shipped test already pins that legacy role as surviving an unrelated save.
+
+  - category: Correctness
+    chose: "The editor reads and writes document.roles — the stored bundle"
+    over: "Editing what the permission matrix renders"
+    reason: |
+      The matrix renders what RoleCatalog RESOLVED, which is the stored bundle minus any
+      permission the catalog did not recognise. 2026-08-26-7a51 chose to carry the document
+      alongside the derived panes over "the dashboard rebuilding the document from what it
+      renders", because a surface reconstructing the document from its own rows would silently
+      rewrite the roles it promises to round-trip verbatim. Editing the rendered bundle would have
+      walked straight back into that: touching one permission of a legacy role would drop its
+      unrecognised one. The catalog is the pick list; the document is the truth.
+
+  - category: Security
+    chose: "Removing a role is refused while a visible holder holds it, and the refusal says the list is a floor"
+    over: "A confirmation dialog, or refusing only when the holder is granted here"
+    reason: |
+      Losing a role means losing every permission with it, with no surface anywhere saying why. A
+      confirmation puts the fact and the decision in the same instant; a refusal that names the
+      holders makes withdrawing the role the deliberate first step it is. All three visible kinds
+      can be cleared — withdraw the grant, unmap the group, or withdraw the directory role and
+      forget the person in the People pane — so the refusal is actionable rather than a wall.
+      It is judged against the document that is about to EXIST, so withdrawing and removing in one
+      save is one deliberate act rather than two refused halves.
+      What it cannot do is be complete: a holder who arrives only through the directory's role
+      claim and has not signed in inside the observation window cannot be seen from here, which is
+      the same blind spot AdminRoute states about admin. The refusal says so, because an
+      administrator removing a role anyway should know the list is a floor rather than a census.
+
+  - category: Security
+    chose: "A store the removal cannot read refuses the removal"
+    over: "Reading the holders through AccessSurfaceReader, which already has the store"
+    reason: |
+      AccessSurfaceReader catches a store failure and returns an empty list — correct for a pane
+      that still has a mapping to render, and exactly wrong here: it would permit the destructive
+      removal precisely when the holders are invisible. So the writer is given the store directly
+      and its save became async, which the route it serves already was.
+
+  - category: Architecture
+    chose: "An edit that REMOVES a permission from a held role is allowed"
+    over: "Refusing it the way a role removal is refused"
+    reason: |
+      Narrowing a role is the ordinary way a role is corrected, and refusing it would leave an
+      installation unable to tighten anything it had once granted. The asymmetry with removing the
+      whole role is deliberate rather than an oversight: removing the role leaves its holders with
+      NOTHING, while narrowing it leaves them with a role that still means something. The pane
+      shows who holds a role while it is being edited, so the loss is visible where it is chosen.
+
+  - category: Correctness
+    chose: "Role names fold case, permission names do not"
+    over: "One comparison rule for both"
+    reason: |
+      RoleCatalog keys roles case-insensitively — a directory decides the capitalisation of an app
+      role and an operator cannot — and compares permission names ordinally. So the save must
+      follow both: a role named ADMIN collides with the built-in and is refused, while a
+      permission written Runs.Read is refused like an invented one. A save that folded case on
+      permissions would accept it and the catalog would then drop it, which is the silent drop
+      this phase exists to end, arriving through the door built to stop it.

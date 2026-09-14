@@ -27,6 +27,9 @@ export function toNodeStatus(status: string | null | undefined): NodeStatus {
     // capacity; resumes as the same run once the answer arrives.
     case "waiting_for_input":
       return "input";
+    // p0439: delivered with a shortfall — its own identity, counted among the dones.
+    case "shortfall":
+      return "shortfall";
     default:
       return "wait";
   }

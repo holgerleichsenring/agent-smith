@@ -15,6 +15,8 @@ describe("StatusIcon", () => {
       { status: "cancel", tone: "bg-slate-100" },
       // p0320d: queued = amber clock, static (waiting for capacity, not stalled).
       { status: "queued", tone: "bg-amber-50" },
+      // p0439: shortfall = teal checklist — a done that is not all of it.
+      { status: "shortfall", tone: "bg-teal-50" },
     ];
     for (const { status, tone } of cases) {
       const { unmount } = render(<StatusIcon status={status} />);

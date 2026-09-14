@@ -8,6 +8,7 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Access;
+using AgentSmith.Server.Services.Hosting;
 using AgentSmith.Tests.Server.Auth;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -61,8 +62,13 @@ internal sealed class AccessTestHarness : IDisposable
         Mapping = new RoleMappingSource(
             new StoredRoleMapping(Store, NullLogger<StoredRoleMapping>.Instance), Auth);
         Mapping.AdoptStore();
-        Writer = new AccessGrantWriter(Store, Mapping, new NewCustomRoleGuard(), Json);
-        Remover = new PersonRemover(Mapping, Observed, Writer);
+        Writer = new AccessGrantWriter(
+            Store, Mapping, new CustomRoleRules(), new RoleRemovalGuard(Observed), Json);
+        // 2026-09-14-2b7c: ONE buffer, shared by the removal and by whatever observes — a
+        // test whose remover and resolver held different buffers could not see the defect
+        // this phase exists for, because the note that suppresses a return is in-memory.
+        Buffer = new CallerObservationBuffer(TimeProvider.System);
+        Remover = new PersonRemover(Mapping, Observed, Buffer, Writer);
         Reader = new AccessSurfaceReader(
             Mapping, Observed, new AccessViewComposer(new AccessPeopleComposer()),
             NullLogger<AccessSurfaceReader>.Instance);
@@ -84,6 +90,19 @@ internal sealed class AccessTestHarness : IDisposable
     public AccessGrantWriter Writer { get; }
     public PersonRemover Remover { get; }
     public AccessSurfaceReader Reader { get; }
+
+    /// <summary>2026-09-14-2b7c: the one buffer the removal and the resolver share.</summary>
+    public CallerObservationBuffer Buffer { get; }
+
+    /// <summary>
+    /// What the flush service does, on demand — the drain and the write are one operation to a
+    /// removal, and a test that drained without the gate would be testing a shape that does not
+    /// ship.
+    /// </summary>
+    public Task FlushAsync(CancellationToken ct = default) =>
+        new CallerObservationFlushHostedService(
+            Observed, Buffer, NullLogger<CallerObservationFlushHostedService>.Instance)
+            .FlushAsync(ct);
 
     /// <summary>A resolver over this harness's mapping — what the authorization path asks.</summary>
     public CallerIdentityResolver Resolver(

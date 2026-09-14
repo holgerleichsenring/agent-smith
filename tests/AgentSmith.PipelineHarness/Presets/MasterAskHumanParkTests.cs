@@ -74,7 +74,7 @@ public sealed class MasterAskHumanParkTests
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" };
         var result = await runner.RunAsync("add-feature");
 
-        result.IsSuccess.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue($"a clarification park is an incomplete run, not a failure: {result.Message}");
         result.Message.Should().Contain("awaiting_user_input");
 
         var park = tickets.Finalized.Should().ContainSingle().Subject;
