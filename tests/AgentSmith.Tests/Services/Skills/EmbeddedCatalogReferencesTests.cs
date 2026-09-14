@@ -54,6 +54,37 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// 2026-09-13-6f35: the coding master must say where a TEMPLATE sits among its sources —
+    /// principles first, the template for what is NEW, existing code for an EXTENSION. That
+    /// wording is the catalog's own shared <c>source-precedence</c> section (2026-09-13-ab17)
+    /// and the pin that carries it is 2026-09-13-4072, so the assertion is gated on the pin
+    /// actually citing it: a hard assertion would fail every build between the two phases,
+    /// and no assertion at all would let the pin bump land without the section.
+    /// </summary>
+    [Fact]
+    public async Task EmbeddedCatalog_CodingMaster_SaysWhereATemplateSitsAmongItsSources()
+    {
+        var root = await MaterializeAsync();
+        var master = Directory
+            .GetFiles(Path.Combine(root, "skills", "_masters"), "SKILL.md", SearchOption.AllDirectories)
+            .SingleOrDefault(f => Path.GetFileName(Path.GetDirectoryName(f)) == "coding-agent-master");
+        master.Should().NotBeNull("the coding master is the skill that types the code");
+
+        var rules = File.ReadAllText(master!);
+        if (!rules.Contains("{{ref:source-precedence}}", StringComparison.Ordinal))
+            return; // this pin predates the shared section; 2026-09-13-4072 bumps it.
+
+        var catalogPath = new Mock<ISkillsCatalogPath>();
+        catalogPath.Setup(p => p.Root).Returns(root);
+        var body = new SkillBodyResolver(new CatalogSkillReferenceSource(catalogPath.Object))
+            .ResolveBody(
+                new RoleSkillDefinition { Name = "coding-agent-master", Rules = rules },
+                SkillRole.Master);
+
+        body.Should().Contain("template", "a cited order that never names the template orders nothing");
+    }
+
     private async Task<string> MaterializeAsync()
     {
         var handler = new EmbeddedSourceHandler(

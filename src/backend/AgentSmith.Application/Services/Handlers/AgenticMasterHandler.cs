@@ -51,6 +51,7 @@ public sealed class AgenticMasterHandler(
     LoopLimitsConfig loopLimits,
     ITicketDocumentMaterializer documentMaterializer,
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
+    MasterTemplateScopes templateScopes, // 2026-09-13-6f35: the templates this phase is built after
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
@@ -166,12 +167,23 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         if (!progress.GetLedger().IsEmpty && flusher is not null)
             await flusher.FlushAsync(progress.GetLedger());
+        // 2026-09-13-6f35: the templates this phase's contexts declare, materialised now so
+        // an unreachable one fails the phase before the first token, and addressable by name
+        // for the rest of this method. They never enter ContextKeys.Sandboxes — see
+        // MasterTemplateAttachment for why that map is the one they stay out of.
+        await using var templates = await templateScopes.OpenAsync(
+            context.Pipeline, draft, isScanMaster || isSpecDialog, cancellationToken);
+        // The tool host resolves by NAME, so a template flips a single-repo run into prefixed
+        // paths — including the target's own. That is the addressable set, not the checkouts.
+        IReadOnlyList<string> allAddresses = templates.Names.Count == 0
+            ? addressNames
+            : [.. addressNames, .. templates.Names];
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
             ["ProjectContextSection"] = MasterPromptSections.BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
             ["CodeMapSection"] = MasterPromptSections.BuildCodeMapSection(context.RepoCodeMaps),
-            ["RepoNames"] = MasterPromptSections.BuildRepoNamesSection(addressNames),
+            ["RepoNames"] = MasterPromptSections.BuildRepoNamesSection(allAddresses),
             ["PlanSection"] = MasterPromptSections.BuildPlanSection(draft),
             ["RunRecordDir"] = runRecordDir,
             // p0258: the master must iterate when its own build/tests come back
@@ -224,6 +236,7 @@ public sealed class AgenticMasterHandler(
             runCommandTimeoutSeconds: runCommandTimeout, stepTimeoutCapSeconds: stepTimeoutCap,
             keyToRepo: keyToRepo, logger: logger)
         { Commands = Specs.PhaseCommandScope.Open(context.Pipeline) };
+        templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         // p0380: memory recall (a read, every surface) + remember (a proposal
         // writing only run-record-class .agentsmith/memory/ paths). Backed by
@@ -274,6 +287,7 @@ public sealed class AgenticMasterHandler(
                 context.Pipeline, sandboxes, keyToRepo, cancellationToken);
             if (!string.IsNullOrEmpty(toolchainSection)) masterBody += "\n\n" + toolchainSection;
         }
+        masterBody += TemplatePromptSection.Build(templates.Names);
 
         // Every master surface gets web_fetch — a read-only GET of a public URL that
         // mutates nothing, so even the read-only scan surface carries it safely.
@@ -286,7 +300,7 @@ public sealed class AgenticMasterHandler(
         // execution run gets the SAME extras as the coding path — the hydrated
         // comment thread is exactly what a re-triggered run parked on a
         // clarification needs (closes the p0315d parked-while-answered residual).
-        var repoPrefix = addressNames.Count > 1 && keyToRepo is not null
+        var repoPrefix = allAddresses.Count > 1 && keyToRepo is not null
             && keyToRepo.TryGetValue(defaultKey, out var defaultRepoName)
             ? $"{defaultRepoName}/"
             : string.Empty;
@@ -765,7 +779,7 @@ public sealed class AgenticMasterHandler(
                 var changedPaths = await ReadChangedPathsAsync(context, cancellationToken);
                 var nudge = MasterNudges.BuildReengageNudge(
                     userPrompt, progress.GetLedger(), log.GetDecisions(), verification,
-                    changedPaths, StagedRegistries(context.Pipeline));
+                    changedPaths, MasterPipelineFacts.StagedRegistries(context.Pipeline));
                 var reengaged = await loopRunner.RunAsync(
                     request with { UserPrompt = nudge, PriorMessages = conversation.Thread() },
                     cancellationToken);
@@ -874,10 +888,10 @@ public sealed class AgenticMasterHandler(
             AgenticMasterContext context, ISandbox sandbox, string runRecordDir,
             string repoPrefix, bool isScanMaster, CancellationToken cancellationToken)
     {
-        var comments = FromPipeline<TicketComment>(context.Pipeline, ContextKeys.TicketComments);
-        var images = FromPipeline<TicketImageAttachment>(context.Pipeline, ContextKeys.Attachments);
-        var documents = FromPipeline<TicketDocumentAttachment>(context.Pipeline, ContextKeys.TicketDocuments);
-        var refs = FromPipeline<AttachmentRef>(context.Pipeline, ContextKeys.TicketAttachmentRefs);
+        var comments = MasterPipelineFacts.ListFrom<TicketComment>(context.Pipeline, ContextKeys.TicketComments);
+        var images = MasterPipelineFacts.ListFrom<TicketImageAttachment>(context.Pipeline, ContextKeys.Attachments);
+        var documents = MasterPipelineFacts.ListFrom<TicketDocumentAttachment>(context.Pipeline, ContextKeys.TicketDocuments);
+        var refs = MasterPipelineFacts.ListFrom<AttachmentRef>(context.Pipeline, ContextKeys.TicketAttachmentRefs);
 
         var materialized = isScanMaster || documents.Count == 0
             ? []
@@ -893,29 +907,8 @@ public sealed class AgenticMasterHandler(
         return (
             isScanMaster ? string.Empty : TicketConversationPromptSection.Render(comments),
             TicketAttachmentPromptSection.Render(
-                images.Count, imageParts.Count > 0, materialized, OtherBinaries(refs, materialized)),
+                images.Count, imageParts.Count > 0, materialized, MasterPipelineFacts.OtherBinaries(refs, materialized)),
             imageParts);
     }
-
-    // Everything that is neither a viewable image nor a materialized document is
-    // listed by name + size only — never downloaded, never inlined.
-    // p0422: what the framework staged for this run, so the master states it rather than
-    // theorising about it — run 22 wrote "no credentials in sandbox" without ever trying.
-    private static IReadOnlyList<string>? StagedRegistries(PipelineContext pipeline) =>
-        pipeline.TryGet<List<string>>(ContextKeys.StagedRegistries, out var staged) ? staged : null;
-
-    private static List<AttachmentRef> OtherBinaries(
-        IReadOnlyList<AttachmentRef> refs, IReadOnlyList<MaterializedTicketDocument> materialized)
-    {
-        var origins = materialized
-            .Select(m => m.OriginFileName)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return refs
-            .Where(r => !TicketImageAttachment.IsSupportedImage(r) && !origins.Contains(r.FileName))
-            .ToList();
-    }
-
-    private static IReadOnlyList<T> FromPipeline<T>(PipelineContext pipeline, string key) =>
-        pipeline.TryGet<IReadOnlyList<T>>(key, out var value) && value is not null ? value : [];
 
 }
