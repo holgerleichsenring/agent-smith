@@ -54,7 +54,7 @@ public sealed class AgenticMasterHandler(
     MasterTemplateScopes templateScopes, // 2026-09-13-6f35: the templates this phase is built after
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
-    IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
+    Resume.PriorRunSeedSource priorRunSeed, // p0356: same-ticket resume seed
     ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
     SandboxWorkingTreeReader workingTree, // p0411: the changed paths the state block carries
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
@@ -127,7 +127,8 @@ public sealed class AgenticMasterHandler(
         // PriorRunLedgerSeeder on progressed-past-bootstrap + the age cap.
         var seedEntries = ProgressLedgerSeeder.Seed(draft);
         if (seedEntries.Count == 0 && !isScanMaster && !isSpecDialog && ticket is not null)
-            seedEntries = await SeedFromPriorRunAsync(ticket, cancellationToken);
+            seedEntries = await priorRunSeed.SeedAsync(
+                context.Pipeline, ticket.Id.Value, cancellationToken);
         // p0356: every accepted update_progress replace flushes the ledger onto the
         // event stream — resume-after-reap needs the ledger DURABLE mid-run, not
         // only at WriteRunResult. The flush is AWAITED by the tool call so it never
@@ -614,30 +615,6 @@ public sealed class AgenticMasterHandler(
             + "{DoneItems} ledger item(s) done, tokens/item {TokensPerItem}",
             context.MasterSkillName, report.TotalTokens, report.CachedShare, report.DoneItems,
             report.TokensPerDoneItem?.ToString() ?? "n/a");
-    }
-
-    // p0356: the same-ticket RESUME seed — the latest prior run's persisted
-    // ledger (flushed mid-run, so a reaped run left one behind), gated in
-    // PriorRunLedgerSeeder. Read failures degrade to the empty seed; resume is
-    // an affordance, never a blocker.
-    private async Task<IReadOnlyList<ProgressLedgerEntry>> SeedFromPriorRunAsync(
-        Ticket ticket, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var prior = await priorRunLedgerReader.ReadLatestForTicketAsync(ticket.Id.Value, cancellationToken);
-            var seed = PriorRunLedgerSeeder.Seed(prior, DateTimeOffset.UtcNow);
-            if (seed.Count > 0)
-                logger.LogInformation(
-                    "Seeded the progress ledger from prior run {PriorRunId} ({Count} item(s), same-ticket resume)",
-                    prior!.RunId, seed.Count);
-            return seed;
-        }
-        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-        {
-            logger.LogDebug(ex, "Prior-run ledger read failed — starting with an empty ledger");
-            return Array.Empty<ProgressLedgerEntry>();
-        }
     }
 
     // p0315b/p0315e: resolve the spec-dialog reply's typed terminal outcome and
