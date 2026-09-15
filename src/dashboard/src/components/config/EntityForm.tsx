@@ -26,6 +26,7 @@ import { CapabilityFieldInputs, pruneToType } from "./capabilityFields";
 import { AgentForm } from "./AgentForm";
 import { RepoPicker } from "./RepoPicker";
 import { ProjectWiring } from "./ProjectWiring";
+import { TemplateBindings } from "./TemplateBindings";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // p0345: the create/edit form body, dispatched by entity kind. The `id` is
@@ -229,6 +230,15 @@ export function EntityForm({
             testId="form-field-pipelines"
             placeholder="code, security-scan"
             onChange={(v) => onChange({ ...p, pipelines: v })}
+          />
+          {/* 2026-09-14-620e: templates are PICKED, not typed. The field writes
+              `templates` only when the operator touches it — absent means "nothing to
+              say", which is what keeps a client that never renders this field from
+              wiping a stored declaration. */}
+          <TemplateBindings
+            project={p}
+            catalog={catalog}
+            onChange={(templates) => onChange({ ...p, templates })}
           />
           <DraftFindings findings={findings} />
           <SelectField

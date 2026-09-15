@@ -1,19 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { EntityForm } from "../EntityForm";
 import type { ConfigCatalog } from "../useConfigCatalog";
 import type { ConfigCapabilities, StudioProject } from "@/lib/configApi";
-import { fetchConnectionRepos } from "@/lib/configApi";
+import { fetchConnectionRepos, fetchProjectContexts } from "@/lib/configApi";
 
 // p0345c: the repo picker talks to the discovery cache — mock only that call,
 // the rest of the module (types, entities' CRUD clients) stays real.
+// 2026-09-14-620e: the template form reads contexts through a second call; it is
+// mocked here too, because every project-form render now makes it.
 vi.mock("@/lib/configApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/configApi")>()),
   fetchConnectionRepos: vi.fn(),
+  fetchProjectContexts: vi.fn(),
 }));
 
 const mockedRepos = vi.mocked(fetchConnectionRepos);
+const mockedContexts = vi.mocked(fetchProjectContexts);
 
 const catalog: ConfigCatalog = {
   agents: [{ id: "gpt5", provider: "openai", models: { coding: { model: "c" }, scan: { model: "s" } }, keySecret: "K" }],
@@ -25,7 +29,19 @@ const catalog: ConfigCatalog = {
     { id: "web", name: "web", branch: "main" },
     { id: "api", name: "api", branch: "main" },
   ],
-  projects: [],
+  projects: [
+    // 2026-09-14-620e: the template target. ProjectTemplateRules refuses a repo the
+    // named project does not carry, so the form offers THIS project's refs.
+    {
+      id: "refapp",
+      agent: "gpt5",
+      tracker: "azdo",
+      repos: ["api"],
+      pipeline: "",
+      pipelines: [],
+      resolution: null,
+    },
+  ],
   "mcp-servers": [],
   secrets: [{ id: "K" }, { id: "T" }],
 };
@@ -41,7 +57,7 @@ const capabilities: ConfigCapabilities = {
   roles: [],
 };
 
-function Harness() {
+function Harness({ initial }: { initial?: Partial<StudioProject> } = {}) {
   const [draft, setDraft] = useState<StudioProject>({
     id: "proj",
     agent: "",
@@ -50,6 +66,7 @@ function Harness() {
     pipeline: "",
     pipelines: [],
     resolution: null,
+    ...initial,
   });
   return (
     <EntityForm
@@ -64,6 +81,8 @@ function Harness() {
 }
 
 beforeEach(() => {
+  mockedContexts.mockReset();
+  mockedContexts.mockResolvedValue({ contexts: ["server", "client"], unreadableReason: null });
   mockedRepos.mockReset();
   mockedRepos.mockResolvedValue({
     discoveredAt: "2026-07-17T09:00:00Z",
@@ -220,5 +239,88 @@ describe("ProjectForm", () => {
     // Deselecting the only repo drops integrity back to amber.
     fireEvent.click(screen.getByTestId("form-ref-repos-option-web"));
     expect(screen.getByTestId("project-integrity")).toHaveAttribute("data-ok", "false");
+  });
+  it("ProjectForm_PicksTargetProjectRepoAndBothContexts", async () => {
+    // 2026-09-14-620e: four of the five template fields are PICKED. The two context
+    // names come from what the repositories declare, the target project and its repo
+    // from the catalog the studio already holds.
+    render(<Harness initial={{ repos: ["web"] }} />);
+    fireEvent.click(screen.getByTestId("form-templates-add"));
+
+    // The local context list is read for this project's own repos. Until it lands the
+    // field is a text box, which is the same honest fallback an unreadable repo gets.
+    await waitFor(() =>
+      expect(screen.getByTestId("form-templates-0-context").tagName).toBe("SELECT"),
+    );
+    expect(mockedContexts).toHaveBeenCalledWith("proj", "web", expect.anything());
+    expect(
+      screen.getByTestId("form-templates-0-context").querySelector('option[value="server"]'),
+    ).not.toBeNull();
+
+    // The target project comes from the catalog.
+    const target = screen.getByTestId("form-templates-0-project");
+    expect(target.tagName).toBe("SELECT");
+    expect(target.querySelector('option[value="refapp"]')).not.toBeNull();
+    fireEvent.change(target, { target: { value: "refapp" } });
+
+    // Its repo options are that project's own refs, not the whole repos catalog.
+    const repo = screen.getByTestId("form-templates-0-repo");
+    expect(repo.querySelector('option[value="api"]')).not.toBeNull();
+    expect(repo.querySelector('option[value="web"]')).toBeNull();
+    fireEvent.change(repo, { target: { value: "api" } });
+
+    // And the target context list is read from THAT repo.
+    await waitFor(() =>
+      expect(screen.getByTestId("form-templates-0-templateContext").tagName).toBe("SELECT"),
+    );
+    expect(mockedContexts).toHaveBeenCalledWith("refapp", "api", expect.anything());
+  });
+
+  it("ProjectForm_RevisionStaysFreeText", async () => {
+    // Nothing in the product enumerates refs, so the revision is the one typed field
+    // and the form says where it is verified instead of shipping the gap quietly.
+    render(<Harness />);
+    fireEvent.click(screen.getByTestId("form-templates-add"));
+
+    const revision = screen.getByTestId("form-templates-0-revision");
+    expect(revision.tagName).toBe("INPUT");
+    fireEvent.change(revision, { target: { value: "v2.1.0" } });
+    expect(screen.getByTestId("form-templates-0-revision")).toHaveValue("v2.1.0");
+  });
+
+  it("ProjectForm_UnreadableRepo_DegradesTheFieldNotTheForm", async () => {
+    // A credential that cannot reach the target is not a reason an operator cannot
+    // finish editing a project: the field says why and accepts a typed name.
+    mockedContexts.mockResolvedValue({ contexts: [], unreadableReason: "403 Forbidden" });
+    render(<Harness initial={{ repos: ["web"] }} />);
+    fireEvent.click(screen.getByTestId("form-templates-add"));
+
+    const unreadable = await screen.findByTestId("form-templates-local-unreadable");
+    expect(unreadable).toHaveTextContent("403 Forbidden");
+    const context = screen.getByTestId("form-templates-0-context");
+    expect(context.tagName).toBe("INPUT");
+    fireEvent.change(context, { target: { value: "server" } });
+    expect(screen.getByTestId("form-templates-0-context")).toHaveValue("server");
+    // The rest of the form still works.
+    expect(screen.getByTestId("form-ref-agent")).toBeInTheDocument();
+  });
+
+  it("ProjectForm_TemplatesUntouched_SurviveAnUnrelatedEdit", async () => {
+    // The SERVER pins that a ProjectEntity omitting templates preserves the stored
+    // declaration (ProjectTemplateStoreTests). What the form owns is this: editing a
+    // field that has nothing to do with templates leaves a loaded list alone.
+    const stored = [
+      { context: "server", project: "refapp", repo: "api", templateContext: "server", revision: "v2.1.0" },
+    ];
+    render(<Harness initial={{ templates: stored }} />);
+
+    fireEvent.change(screen.getByTestId("form-ref-agent"), { target: { value: "gpt5" } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("form-templates-0-templateContext")).toHaveValue("server"),
+    );
+    expect(screen.getByTestId("form-templates-0-project")).toHaveValue("refapp");
+    expect(screen.getByTestId("form-templates-0-repo")).toHaveValue("api");
+    expect(screen.getByTestId("form-templates-0-revision")).toHaveValue("v2.1.0");
   });
 });

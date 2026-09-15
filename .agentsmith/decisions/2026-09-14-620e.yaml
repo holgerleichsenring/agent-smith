@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-14-620e
+
+decisions:
+  - category: Scope
+    chose: "The capabilities-descriptor step was CUT from the spec before it was built"
+    over: "Building it as the spec's second step named it"
+    reason: |
+      An adversarial review of the spec against the code refused the step on four independent
+      facts. ConfigCapabilities carries no project field set at all, so there is no "the
+      templates field" to add. CapabilityFieldKind is text/list/bool/map and none of them
+      expresses a repeated five-field record; the client falls an unknown kind back to a text
+      box, which is the corruption p0456 was about. No coverage test demands a project entry,
+      unlike TrackerFieldCoverageTests for trackers. And the project form is not
+      descriptor-driven: EntityForm's projects case renders hand-written fields and never calls
+      CapabilityFieldInputs, so a descriptor entry would be drawn by nothing. The spec file and
+      its test list were corrected in this commit rather than the step quietly skipped.
+
+  - category: Scope
+    chose: "Two of the five fields come from the catalog, not three"
+    over: "The count the phase was planned with"
+    reason: |
+      Counted against the code rather than asserted. `project` is a project id the referential
+      validator checks and `repo` is a ref of THAT project, which ProjectTemplateRules checks —
+      both are in the catalog the studio holds. `context` and `template_context` are in no
+      catalog; ProjectTemplateRules says so in as many words, which is why they need the
+      endpoint. `revision` is free text. Three would have made the endpoint look optional.
+
+  - category: Architecture
+    chose: "The endpoint takes Permissions.DiagnosticsProbe"
+    over: "Permissions.ConfigRead, like the repo picker beside it"
+    reason: |
+      The neighbouring connections/{id}/repos endpoint is config.read because it reads a CACHE —
+      a last-good snapshot, no outbound call. This one reaches the customer's git host live with
+      the installation's own credentials, which is the sentence DiagnosticsProbe is defined by in
+      Permissions.cs. Giving a live outbound call the read permission of a cache read would have
+      widened config.read to mean something it has never meant.
+
+  - category: Architecture
+    chose: "The lookup re-reads the configuration through IConfigurationLoader on every call"
+    over: "Injecting the AgentSmithConfig singleton, as every neighbouring server service does"
+    reason: |
+      AgentSmithConfig is built once at composition and the config-epoch reloader only calls
+      store.Load(), never rebuilding it — so a repo added in the studio would be invisible to
+      this endpoint until a restart, in exactly the session that added it. The studio's own
+      RepoEntity cannot stand in: it carries id/name/branch and no type or auth, so it cannot
+      build the RepoConnection SourceProviderFactory switches on. DbConfigurationLoader
+      re-assembles from the document store and yields resolved RepoConnections, which is what the
+      listing needs.
+
+  - category: Architecture
+    chose: "A provider's own error text is stripped of URL userinfo and bounded before it is served"
+    over: "Returning RemoteContextListing.UnreadableReason verbatim"
+    reason: |
+      The reason is a thrown third-party message. It can carry a URL, and a URL can carry
+      userinfo — on a redirect, the credential the call was made with. The distinction the
+      listing exists to keep (declares nothing vs could not be read) is worth serving; the raw
+      text is not.
+
+  - category: Architecture
+    chose: "A Local repo IS listed"
+    over: "Skipping it, the way ConnectionDiagnosticsService skips Local repos"
+    reason: |
+      The probe skips Local because there is no service to probe. There IS a directory to list,
+      the path is one the operator declared in their own configuration, and the read is confined
+      to .agentsmith/contexts. Refusing it would break the local-development path this product
+      is developed on, for no gain.
+
+  - category: Testing
+    chose: "The form test asserts that an unrelated edit leaves a loaded templates list alone"
+    over: "ProjectForm_SaveOmittingTemplates_StillPreservesThem, as the spec named it"
+    reason: |
+      The behaviour that name describes is the server's and is already pinned by
+      ProjectTemplateStoreTests, which constructs a ProjectEntity directly. A vitest test cannot
+      assert it and would have passed while proving nothing. What the form owns is that editing
+      a field with nothing to do with templates does not disturb them, and that is what it now
+      asserts.
+
+  - category: UX
+    chose: "A context field is a select while there is a list and a text box when there is not"
+    over: "A select that renders with no options when the repository cannot be read"
+    reason: |
+      An unreachable target is not a reason an operator cannot finish editing a project. A select
+      with no options would be exactly that — the field would refuse work the form never needed
+      to refuse. The fallback carries the reason beside it, so the degradation is visible rather
+      than silent.
+
+  - category: UX
+    chose: "The context lists say they are read from the default branch"
+    over: "Letting the picker imply the list is the one at the template's revision"
+    reason: |
+      Every provider's ListDirectoryAsync resolves the default branch before it lists; nothing
+      reads a directory at an arbitrary revision. So a context that exists only at the pinned
+      revision is not offered, and one that is offered may be absent there. The phase's original
+      done-criterion said "a typo is impossible", which would have been false; it now says
+      unlikely, and the field says where its list comes from.
