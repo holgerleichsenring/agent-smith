@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-a2d0
+
+goal: "The project form LISTS its templates and opens one at a time, so a second declaration stops burying the first under five more fields."
+
+applies_to: "dashboard (the project form's template field)"
+
+requires:
+  - 2026-09-14-620e
+
+scope:
+  in: >
+    The template field becomes a row list in its own file: one row per declared template,
+    carrying all five values, in declaration order. The five fields of 2026-09-14-620e open
+    for one row at a time — a single stored template opens itself, a row added by "Add
+    template" opens itself, opening another closes the first, and removing closes the editor.
+    Removing stays on the row, so a wrong entry goes without being opened. What a collapsed
+    row can say without an outbound call, it says; what it cannot, it does not pretend to.
+  out: >
+    ANYTHING ABOUT A DUPLICATE CONTEXT. The first cut of this spec had the row say "the
+    earlier binding is the one that applies" — which is false: ProjectTemplateScopes skips
+    the repeat, SpecDialogTemplateScopes.Stamp THROWS on it (ToDictionary over the same key,
+    reached every dialog turn), and TemplateProofReport reads the later entry's context out
+    of the earlier entry's scope. Three answers, so there is nothing true for a row to say.
+    2026-09-15-6f8d settles it; this list says nothing until it has.
+    A NEW FIELD, A NEW ENDPOINT, OR A CHANGE TO WHAT IS PICKED. The five fields, their
+    sources and their degradation are 620e's, carried over untouched.
+    REORDERING BY DRAG, AND SORTING THE LIST. Declaration order is load-bearing — the
+    resolver preserves it and three consumers iterate it — so the list renders it and never
+    sorts. Changing it is a different phase.
+    A CACHE IN FRONT OF THE CONTEXT ENDPOINT. Named in the decisions as the cost of
+    collapsing; if it is wanted it is a phase about that endpoint, not about this field.
+
+decisions:
+  - key: |
+      THE COMPLAINT IS LENGTH, AND LENGTH IS WHAT THE COUNT MULTIPLIES. One template is five
+      stacked fields in a 520px drawer; three is fifteen, with no line between the fourteenth
+      and the fifteenth saying which binding they belong to. Collapsing the FIELDS while
+      keeping every VALUE visible removes the length without removing anything an operator
+      reads.
+  - key: |
+      A ROW SHOWS ALL FIVE VALUES, NOT A NAME AND A CHEVRON. A list that hides a value is a
+      list the operator opens every row of to find one — the length complaint again, one
+      click deeper. At 480px of drawer content the row is TWO LINES and nothing is
+      ellipsised: the context on the first, the target and revision in mono on the second,
+      wrapping. A truncated sha is a wrong sha, not a shorter one.
+  - key: |
+      A SINGLE STORED ROW OPENS ITSELF, AND THAT IS THE ONLY CASE ON DISK TODAY. Every
+      template-carrying artefact in the repository declares exactly one. Making N=1 cost an
+      extra click to reach fields that are on screen today would be a regression dressed as
+      consistency. The rule is "the editor is open for the row there is nothing to choose
+      between, and for the row just added" — one is unambiguous, a new one is empty.
+  - key: |
+      COLLAPSING IS A VIEW, NOT A WRITE, AND IT NEEDS NO RESET GUARD. The value stays
+      project.templates; the open row is the component's own state. Reaching another project
+      means closing the drawer — ConfigStudio renders {drawer && <EntityDrawer/>} and the
+      scrim covers the cards — so the field unmounts between projects and re-initialises by
+      construction. A guard keyed on project.id, which the first cut carried, would have been
+      worse than none: the id field is editable while isNew, so it re-opened a row the
+      operator had just closed on every keystroke. Collapsing cannot lose a half-finished row,
+      and the field still writes `templates` only when the operator touches it — 620e's
+      preserve rule, pinned on the server by ProjectTemplateStoreTests.
+  - key: |
+      REMOVING CLOSES THE EDITOR, WHICH IS WHY NO ROW IDENTITY IS NEEDED. An open INDEX
+      survives a removal above it and silently retargets another template; MapField solved
+      that with a generated row id. Here the cheaper rule holds: after a removal the operator
+      is looking at the list, so nothing is open and the index cannot be stale. Test ids stay
+      positional (form-templates-{i}-{field}), which is what keeps 620e's tests meaningful.
+  - key: |
+      THE CALL ARITHMETIC, COUNTED RATHER THAN ASSERTED. useProjectContexts fans out one HTTP
+      call per ref. The FIELD-level read of this project's own repos (R calls) is untouched
+      and still fires on every drawer open; what collapses is the per-row read of the TARGET
+      repository. So R + T becomes R + (rows open) — for the common case, R + 1 today and
+      R + 0 when the operator only reads the list. Re-opening a row fetches again: there is no
+      cache at any layer and this phase adds none. That is one call per deliberate click into
+      an endpoint that is a DiagnosticsProbe precisely because it spends the installation's
+      credentials in a customer system.
+  - key: |
+      A COLLAPSED ROW DOES NOT KNOW IF ITS TARGET IS REACHABLE, AND SAYS NOTHING RATHER THAN
+      SOMETHING. The "could not read the target repository" line comes from the row's own
+      fetch, so a closed row has no opinion — and probing every target on drawer open is the
+      traffic this phase just removed. What a closed row CAN judge without a call is whether
+      the binding is finished; an unfinished one is marked, because the server refuses it at
+      save time and nothing client-side catches it today (templates appear in no studio
+      integrity check).
+  - key: |
+      AN ABSENT REVISION IS THE TARGET REPOSITORY'S OWN DEFAULT BRANCH, NOT THE CATALOG'S
+      `branch`. The clone is `clone <url> .` with no -b (CheckoutStepFactory) and the
+      revision is only landed on when one is declared, so the catalog repo entry's branch
+      field never reaches this path. The row must not render it.
+  - key: |
+      THE FIELD MOVES TO ITS OWN FILE, FOR THE REASON MapField DID. TemplateBindings is
+      already 208 lines over four components against a 120-line ceiling, and a row list with
+      its own open state is not a form primitive. The list, the row and the editor split, and
+      the tests come with them.
+
+steps:
+  - id: a-row-per-template-carrying-every-value
+    action: "A row list in its own file: context, target project/repo, its context, revision, remove — declaration order, two lines, nothing ellipsised, count on the label."
+  - id: one-row-opens-into-the-field-set
+    action: "The open row renders 620e's five fields unchanged; a single stored row and a newly added row open themselves; opening another closes the first; removing closes the editor."
+  - id: a-collapsed-row-marks-what-it-can-judge
+    action: "An unfinished binding is marked on the row; reachability of the target is not claimed, because a closed row makes no call."
+
+tests:
+  - "TemplateList_ThreeTemplates_ShowEveryValueWithoutOpeningAnything"
+  - "TemplateList_RowOpens_RendersTheFieldsAndClosesTheOther"
+  - "TemplateList_SingleStoredTemplate_IsOpenOnLoad"
+  - "TemplateList_AddTemplate_AppendsAnOpenRow"
+  - "TemplateList_Remove_NeedsNoOpenRowAndClosesTheEditor"
+  - "TemplateList_LongRefAndSha_AreShownWhole"
+  - "TemplateList_MissingRevision_ReadsAsTheTargetDefaultBranch"
+  - "TemplateList_UnfinishedBinding_IsMarkedOnTheRow"
+  - "TemplateList_RendersInDeclarationOrder"
+  - "ProjectForm_TemplatesUntouched_SurviveAnUnrelatedEdit"
+
+done:
+  - "three declared templates are readable end to end without opening a row"
+  - "the five fields are on screen only for the row the operator opened, one at a time, and the single stored template is that row on load"
+  - "620e's picking, degradation and preserve behaviour are unchanged and its tests pin them without an edit"
+  - "the list says nothing about a duplicate context, and 2026-09-15-6f8d is the phase that will"
+  - "dashboard tests and build green, backend build green, full suite green"
