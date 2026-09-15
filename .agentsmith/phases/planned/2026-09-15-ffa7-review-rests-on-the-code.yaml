@@ -1,0 +1,156 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-ffa7
+
+goal: "The cut reviewer reads the repository itself and may object that a premise is false, proven by an evidence id the framework minted for a look the reviewer actually took."
+
+applies_to: "backend (spec derivation: what the cut review may read, and what admits its objection)"
+
+scope:
+  in: >
+    SpecCutReviewer is handed a look of its own — the three named read-only tools, its own
+    allowance, its own evidence prefix, per ATTEMPT — and the review prompt describes that look to
+    it: which repositories it may name, how many looks it has, how its ids are spelled. The
+    allowance, the exhausted sentence and the prompt section all stop being fixed to the
+    derivation's twelve. CutFinding gains a trailing nullable Cites. Admission becomes two-shaped:
+    contradiction / uncheckable / not-in-ticket quote a criterion the phase states, as today; FALSE
+    PREMISE cites an id minted in the reviewer's own evidence. The prompt composes its verdict list
+    rather than numbering it in the template. The rejection resolves the id to its line and hands
+    the deriver the line.
+  out: >
+    WHAT A STANDING FALSE PREMISE DOES. 2026-09-15-7d3c.
+    REVIEWING WITHOUT A TICKET, OR OVER A DRAFT THAT STATES NO CRITERIA. 2026-09-15-a5a5 — the
+    dialog path needs both; the ticket path has a ticket and phases with done-lists.
+    TEMPLATE SCOPES IN THE REVIEWER'S LOOK. Named under decisions.
+    A SHELL. DerivationTools is three read-only tools and no shell.
+    SPLITTING THE LOOK FROM THE FINDING. This phase is large and was two. It is one because the
+    look alone reports nothing: the three existing verdicts are all answerable from the phases and
+    the ticket, so a reviewer that could read and not object would add up to twenty-four sandbox
+    round-trips per derivation and change no output at all. A slice that is pure cost is not a
+    slice.
+
+decisions:
+  - key: |
+      PER ATTEMPT, NOT PER DERIVATION, BECAUSE THIS REVIEWER HAS NO MEMORY. SpecCutReviewer.AskAsync
+      builds a fresh single-message conversation on every call and keeps nothing; the deriver
+      accumulates its whole exchange and can see the looks it already took. One allowance across
+      attempts would let attempt one spend it and answer attempts two to four "No look left" to
+      questions they have no record of having asked. DerivationLookBudget's rule guards a STATEFUL
+      retry from re-spending on looks still in view — that premise does not hold here.
+  - key: |
+      THE ALLOWANCE STOPS BEING A CONSTANT, WHICH IS MORE THAN A NUMBER CHANGE. Allowance is a const
+      read by TryTake, baked into the static readonly Exhausted sentence, and rendered into the
+      prompt section twice. A second caller wanting six cannot have six by changing a literal: the
+      budget takes its allowance, mints its own refusal sentence, and the section that describes a
+      look reads both off the look rather than off a constant. Six for the reviewer, against
+      twelve: it checks the premises of a cut that exists, rather than deciding what to build.
+  - key: |
+      A LOOK THE PROMPT DOES NOT DESCRIBE CANNOT BE USED. The tools tell the model to "use one of
+      the names listed as in scope", and the thing that lists them is the derivation's own prompt
+      section — which the review prompt does not render. Handed tools and no list, every call is
+      refused by name resolution before it costs anything, and the phase would pass its build and
+      deliver nothing. The section is rendered for the review too, off the reviewer's own look, or
+      it states the deriver's twelve and the deriver's id spelling to the wrong reader.
+  - key: |
+      AN ITERATION CEILING PER CALL, AND THE DERIVATION TOTAL STATED. The review is created with no
+      maxIterations and takes the factory default of twenty-five, while SpecDerivationCall pins
+      Allowance + 2 and says why. The review gets the same treatment. It bounds ONE call: four
+      attempts each with a fresh allowance is up to twenty-four reviewer looks against the
+      derivation's twelve, and that is the cost this phase adds. Stated here because no done-line
+      can measure it and a reader deserves the number.
+  - key: |
+      THE ID, NOT THE PATH. FactResolver states the rule this copies: a line is a fact when the id
+      it cites is one the framework minted for a look this call took, and the model never labels its
+      own line. A reviewer asked for a path would produce a plausible one for a file it never
+      opened — the same fabrication the verbatim quote exists to stop, moved one field along.
+  - key: |
+      THE REVIEWER MINTS UNDER ITS OWN PREFIX, OR THE REJECTION IS AMBIGUOUS. DerivationEvidence
+      counts from one per instance under a fixed "L". The rejection goes back into the DERIVER's
+      message history, where L1 already names a look the deriver itself took. Two different lines
+      under one id in one conversation is a fact that resolves to the wrong evidence. The prefix
+      becomes a defaulted constructor argument — defaulted, because TemplateProofReportTests
+      constructs one positionally.
+  - key: |
+      THE ID-TO-LINE RESOLUTION DOES NOT EXIST YET AND IS NOT FREE. FactResolver indexes evidence by
+      DerivationEvidence.IdOf and is the only thing that turns an id into the line it names;
+      SpecCutRejection renders a FINDING and never sees an evidence line, so making its private
+      helper reachable buys nothing. SpecCutRejection.For gains the evidence lines as a parameter
+      and resolves through the same index — which is a change at the deriver's call site, in the
+      file at the ceiling, and 2026-09-15-7d3c needs the same resolution for a ticket comment.
+  - key: |
+      THE MINTED SENTENCE AND THE LOG LINES SAY "THE DERIVATION"; THE TOOL DESCRIPTIONS SPELL AN ID.
+      Two different defects. DerivationEvidence writes "the derivation ran '<what>' exited <n>" and
+      the tools log "The derivation searched/read" — rendered into a rejection, the first tells the
+      deriver its own derivation ran a command the reviewer ran. Separately, the [Description]
+      attributes advertise "an evidence id such as [L2]", which is wrong for any caller minting
+      under another letter. The sentence takes its actor. Whether the description can vary per
+      instance is a question for the tool factory, which already overrides the function name at the
+      same call site; if it cannot, the description stops naming a literal id at all.
+  - key: |
+      THE VERDICT LIST IS COMPOSED, NOT NUMBERED IN THE TEMPLATE. The prompt hard-codes the count
+      word and the literal "3. NOT IN THE TICKET", gated on whether the ticket is whole. A second
+      independent predicate — whether a look exists — makes four combinations, which that shape
+      cannot express.
+  - key: |
+      FALSE PREMISE IS A NAMED CONSTANT, NOT A MAGIC STRING. CutFinding.Problem is a free string and
+      the admission will branch on it. The literal is declared once, beside the prompt that asks for
+      it.
+  - key: |
+      NO TEMPLATE SCOPES IN THE REVIEWER'S LOOK. ProjectTemplateScopes.Select calls scopes.Create
+      for every selected declaration, so a second look built through the same factory member clones
+      every declared template again and disposes it separately. The factory gains a member that
+      omits them. It is also the wrong question: a template says what the cut should FOLLOW, the
+      reviewer checks what the cut ASSUMES about the target. Note for a later caller:
+      DerivationLook.Repositories subtracts the template keys, so a template already merged into the
+      run's sandbox map by some other path would list as an ordinary target in a template-free look.
+  - key: |
+      A REVIEW THAT COULD NOT LOOK STILL REVIEWS. SpecCutReview already states that a review which
+      could not be taken blocks nothing. A run with no sandbox gets a null look and today's
+      text-against-text review.
+
+steps:
+  - id: room-in-two-files-at-the-ceiling
+    action: "SpecSetDeriver.cs and DerivationLook.cs both stand at 120 of 120 with no baseline row. In DerivationLook the seam is the allowance — Budget, TemplateBudget, TemplateRefusal, TryOpen — plus the static Merge; in SpecSetDeriver it is message construction, Again and RenderSystemPrompt. Moving Evidence's initializer into the constructor body is one line NET, so the extraction must free at least two. Neither file may gain a baseline row."
+  - id: the-allowance-belongs-to-the-look
+    action: "DerivationLookBudget takes its allowance and mints its own exhausted sentence; the prompt section reads the allowance and the id spelling off the look it describes."
+  - id: the-reviewer-is-handed-a-look-and-told-about-it
+    action: "ISpecCutReviewer.ReviewAsync carries a DerivationLook?; the tools and an iteration ceiling reach the call, and the review prompt renders the look's repositories, allowance and id spelling."
+  - id: the-factory-builds-a-template-free-look
+    action: "DerivationLookFactory gains a member that omits template scopes, with its own test."
+  - id: the-evidence-knows-whose-it-is
+    action: "DerivationEvidence takes a defaulted prefix and an actor for its minted sentence; the tool descriptions and log lines stop asserting the deriver's spelling and the deriver's name."
+  - id: the-finding-may-cite
+    action: "CutFinding gains a trailing nullable Cites; the JSON shape the prompt asks for gains the field."
+  - id: the-admission-has-two-shapes
+    action: "A false-premise finding is admitted by an id minted in the reviewer's own evidence; every other kind keeps the verbatim quote. An inadmissible finding is discarded and logged, as today."
+  - id: the-prompt-composes-its-verdicts
+    action: "The verdict list and the JSON problem enumeration are built from what is on offer; the fourth appears only with a look."
+  - id: the-rejection-resolves-the-id
+    action: "SpecCutRejection.For takes the evidence lines and renders the minted line beside the claim; the deriver's call site passes them."
+  - id: the-signature-fan-out
+    action: "Four ISpecCutReviewer doubles, two direct ReviewAsync call sites and five SpecCutReviewPrompt.For call sites move with the signatures."
+
+tests:
+  - "Review_WithALook_PassesTheReadOnlyToolsAndTheIterationCeiling"
+  - "Review_Prompt_ListsTheRepositoriesTheLookCarries"
+  - "Review_Prompt_StatesTheReviewersAllowanceNotTheDerivations"
+  - "Review_Prompt_StatesTheReviewersIdSpelling"
+  - "Review_EachAttempt_GetsItsOwnAllowance"
+  - "Budget_TwoLooksWithDifferentAllowances_RefuseAtTheirOwn"
+  - "Review_WithoutALook_StillReviewsTheTextAsBefore"
+  - "ReviewerLook_OverAProjectWithTemplates_CreatesNoTemplateScope"
+  - "Evidence_ReviewerAndDeriver_MintDisjointIds"
+  - "Evidence_MintedLine_NamesItsActor"
+  - "Finding_FalsePremiseCitingAMintedId_IsKept"
+  - "Finding_FalsePremiseCitingAnIdNobodyMinted_IsDiscarded"
+  - "Finding_FalsePremiseWithNoCitation_IsDiscarded"
+  - "Finding_ContradictionQuotingACriterion_IsKeptAsBefore"
+  - "Prompt_WithoutALook_OffersThreeVerdictsAndNoCitesField"
+  - "Prompt_WithALookAndATruncatedTicket_OffersContradictionUncheckableAndFalsePremise"
+  - "Rejection_FalsePremise_CarriesTheMintedEvidenceLine"
+
+done:
+  - "a reviewer that read a file and found the cut's premise contradicted produces a finding the deriver is answered with, carrying the line that proves it"
+  - "the reviewer can address the repositories it was given, and is told its own allowance and its own id spelling"
+  - "the same statement without a minted id changes nothing"
+  - "a run without a sandbox behaves exactly as it does today"
+  - "build green, full suite green, file-length ratchet green with no new baseline row"

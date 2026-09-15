@@ -571,6 +571,23 @@
 .mock-config .maprow .pick { padding: 7px 10px; line-height: 1; color: var(--ink-3); }
 .mock-config .maprow .pick:hover { border-color: var(--bad); color: var(--bad); }
 
+/* 2026-09-15-a2d0: templates are a LIST — one row per declaration carrying all five of
+   its values, with the field set opening underneath. Nothing is ellipsised: the drawer is
+   480px of content and a truncated sha is a wrong sha, so the target line wraps instead. */
+.mock-config .tpl-rows { display: flex; flex-direction: column; gap: 7px; }
+.mock-config .tpl-row { border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; }
+.mock-config .tpl-row[data-open="true"] { border-color: var(--accent); }
+.mock-config .tpl-sum { display: flex; align-items: center; gap: 9px; }
+.mock-config .tpl-open { flex: 1; font: inherit; font-size: 13px; font-weight: 600; text-align: left; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; display: flex; align-items: center; gap: 7px; }
+.mock-config .tpl-open .chev { color: var(--ink-3); font-size: 11px; }
+.mock-config .tpl-ctx { font-family: var(--mono); overflow-wrap: anywhere; }
+.mock-config .tpl-todo { font-size: 11px; font-weight: 600; color: var(--bad); flex: none; white-space: nowrap; }
+.mock-config .tpl-sum .pick { padding: 5px 9px; line-height: 1; color: var(--ink-3); }
+.mock-config .tpl-sum .pick:hover { border-color: var(--bad); color: var(--bad); }
+.mock-config .tpl-target { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-config .tpl-rev { color: var(--ink-2); }
+.mock-config .tpl-editor { display: flex; flex-direction: column; gap: 12px; margin-top: 7px; padding-top: 11px; border-top: 1px solid var(--line); }
+
 /* p0488: the connection repo picker — one filter box (which also offers the
    wildcard RULE), a capped scroll window of discovered rows, and the
    covered-by-a-rule row that is deliberately not a free checkbox. */

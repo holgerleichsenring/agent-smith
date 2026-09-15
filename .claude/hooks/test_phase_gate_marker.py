@@ -76,6 +76,26 @@ def Gate_SubjectNamingAPhaseWithoutAMarker_NamesThePhaseInTheLedger():
         assert [line[2] for line in _ledger(ledger)] == ["2026-09-09-e1c8"], _ledger(ledger)
 
 
+def Gate_MarkerCarryingASeriesId_IsGated():
+    """2026-09-03-2f81: the marker required a closing parenthesis straight after four hex
+    digits, so a series commit exited zero with no stderr line and no ledger row — the
+    dashboard build, the backend build, the suite and the harness presets all skipped,
+    and nothing recording that they had been."""
+    with _repository("seed") as repo:
+        completed = _run_gate(
+            'git commit -m "feat: the first slice (2026-08-24-8a3fa)"', repo)
+        assert completed.returncode == 0, completed
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_MarkerCarryingASeriesId_RecordsTheWholeIdInTheLedger():
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        _run_gate('git commit -m "feat: the first slice (2026-08-24-8a3fa)"', repo, ledger)
+        lines = _ledger(ledger)
+        assert [line[2] for line in lines] == ["2026-08-24-8a3fa"], lines
+
+
 def Gate_BodyNamingAPhaseWithAMarkerlessSubject_StaysSilent():
     with _repository("seed") as repo:
         completed = _run_gate(

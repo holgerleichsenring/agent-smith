@@ -53,6 +53,27 @@ answering it wrongly is how two phases end up sharing one id.
 The suffix's **fixed width** marks where the id ends and the label begins:
 `.agentsmith/phases/planned/2026-08-24-8a3f-phase-id-offline-minting.yaml`.
 
+**Phases cut from one piece of work form a series.** They share ONE minted number and
+differ only by a trailing lowercase letter — `2026-08-24-8a3fa`, `2026-08-24-8a3fb`,
+`2026-08-24-8a3fc` — so a file listing shows the kinship that a shared date alone does
+not. Three rules keep that readable:
+
+- **The letter is appended, never dashed.** A slug may legitimately begin with a
+  one-letter word (`2026-08-24-8a3f-a-phase-id-can-be-minted-offline` is this
+  repository's own example), so in a dashed form nothing could tell a series letter from
+  the first word of a label. Appended, position decides: four hex digits, then either a
+  dash or the letter.
+- **The base number is not itself a phase.** A series is `8a3fa` upward; plain `8a3f`
+  names nothing, so nothing has to decide whether it means the series or a member.
+- **A series is minted in one go, and a later addition mints anew.** Appending a fifth
+  member means knowing that `a` through `d` are taken — exactly the coordination the
+  date-minted shape removed, and two agents extending one series would both reach for
+  the same letter. A phase that turns up later gets its own number and says in prose
+  what it follows.
+
+A series letter and a successor letter are the same mechanism and are not told apart;
+the counter namespace carried both meanings and nothing ever depended on the difference.
+
 **Counter ids (`p0042`, `p0057a`, `p0131c-pre`) are a closed namespace.** Every one of
 them stays valid forever and an id is never renamed. The namespace is closed to NEW ids
 only. Counter ids run four to six digits, six because ids minted from a ticket number

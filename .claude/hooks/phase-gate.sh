@@ -62,7 +62,7 @@ ledger="${PHASE_GATE_LOG:-$hooks_dir/../phase-gate.log}"
 # ledger and the gating decision below read this ONE definition — a marker recognised
 # by one and not the other would gate a commit it never records, or record one it
 # never gated.
-phase_id='(p[0-9]+[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})'
+phase_id='(p[0-9]+[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4}[a-z]?)'
 phase_marker="\\(${phase_id}([,[:space:]]+${phase_id})*\\)"
 
 # 2026-09-09-8fce: the marker takes a LIST, because a commit spanning two phases names both
@@ -70,7 +70,7 @@ phase_marker="\\(${phase_id}([,[:space:]]+${phase_id})*\\)"
 # wrote no line. A stricter id shape than the marker's serves the warning below: the marker
 # keeps p[0-9]+ so forms like (p73a) still gate, while a warning built on that shape would
 # fire on "p12" in prose, and a warning that cries wolf is one people scroll past.
-strict_phase_id='(p[0-9]{4,6}[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})'
+strict_phase_id='(p[0-9]{4,6}[a-z]?|[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4}[a-z]?)'
 
 # One line per recognised phase commit: when, what the gate decided, the phase id,
 # the tree it gated and the commit the new one will sit on. That last field is what

@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-1499
+
+goal: "A proposal is attacked by a fresh instance inside the turn that made it, and what it finds is put to the person with the proposal, so nobody approves a plan the repository contradicts unknowingly."
+
+applies_to: "backend (spec dialog: the turn reviews its own proposal, and the confirmation states what was found)"
+
+requires:
+  - 2026-09-15-ffa7
+  - 2026-09-15-a5a5
+  - 2026-09-15-9033
+
+scope:
+  in: >
+    A turn that ends in a phase or epic proposal reviews it BEFORE returning — inside the pipeline,
+    where the scope's sandboxes, the run context and the cost tracker are all still alive, and
+    where the outcome has already been parsed and published onto the context. The review gets a
+    look over those sandboxes, minting under a letter of its own. Admitted findings travel out with
+    the turn result and are stated in the confirmation the person answers, each rendered with the
+    evidence line that proves it rather than an id the design master cannot resolve. The person
+    then does what the person already does: approve, reject, or reply with a note that sends the
+    design turn round again.
+  out: >
+    A CORRECTION ROUND DRIVEN BY THE REVIEWER. Refused on its own reasoning; see decisions.
+    REVIEWING AN ANSWER OR A BUG OUTCOME. An answer files nothing. A bug is a description of a
+    defect and carries no plan for the reviewer's question to bite on.
+    A VETO. The gate stays the person's.
+    A SECOND REVIEWER TYPE. 2026-09-15-a5a5 makes the existing one answerable here.
+    GIVING THE DESIGN MASTER ITS OWN EVIDENCE SUBSTRATE. Named as the successor in 2026-09-15-6d9c.
+    A DIFFERENT SHAPE ON SLACK OR TEAMS. The turn and the confirmation are platform-neutral and
+    stay so; the finding is text in the confirmation every channel already renders.
+
+decisions:
+  - key: |
+      THE REVIEW RUNS INSIDE THE TURN, BECAUSE EVERYTHING IT NEEDS DIES WHEN THE TURN RETURNS. The
+      turn runner disposes its sandboxes in its own finally block and the pipeline's run scope is
+      disposed when the pipeline returns — both BEFORE the router reaches the outcome flow. A review
+      placed after the turn would clone the same repositories a second time, open a call scope
+      inside no run, and hand its tokens to a cost tracker nothing will read. The outcome is
+      already parsed and published onto the pipeline context inside the master handler, so the
+      proposal is in hand at the right moment. ALTERNATIVE REJECTED: reviewing from the outcome
+      flow, which reads more naturally and is where the proposal is already an argument.
+  - key: |
+      THE FINDING IS PUT TO THE PERSON, NOT ROUTED AS AN EDIT — BECAUSE THE EDIT PATH IS DOWNSTREAM
+      OF THE PERSON. The flow reaches the person only through the confirmer, and its edit branch
+      fires on the person's ANSWER. To make findings drive an edit round, the flow would have to
+      return an edit request WITHOUT asking — suppressing the proposal the person has not seen and
+      spending a second full design turn on a model's objection with no human in the loop. That is
+      a veto wearing another name, and it contradicts this phase's own rule. Stating the findings
+      in the confirmation costs one round-trip fewer, removes the model-against-model loop the
+      router's unbounded turn loop would otherwise host, and leaves the decision where it belongs.
+      It also means the acknowledgement that says "revising with YOUR note" keeps telling the truth.
+  - key: |
+      THE NOTE CARRIES THE LINE, NOT THE ID. The design master's transcript contains no evidence
+      ids, so a finding citing one names something the reader who must act on it cannot resolve.
+      2026-09-15-ffa7 builds the resolution into the rejection; the same resolved line is what the
+      confirmation shows.
+  - key: |
+      THE REVIEW MINTS UNDER ITS OWN LETTER, AND ITS LOOK IS NOT THE MASTER'S. Two looks exist in
+      this process. 2026-09-15-ffa7 records what one shared prefix costs when two evidences meet in
+      one conversation. Note also that a template already merged into the turn's sandbox map would
+      list as an ordinary target in a template-free look, which is the shape this review uses.
+  - key: |
+      A REVIEW THAT COULD NOT BE TAKEN BLOCKS NOTHING. The existing rule, kept: a failed review is
+      not evidence of a fault, and a proposal must not be held hostage to a model call that timed
+      out.
+
+steps:
+  - id: room-at-the-review-site
+    action: "The master handler that gates the spec-dialog outcome stands within a handful of lines of its baseline, and needs a dependency and a call. Measure it first and extract if it does not fit; the baseline must end the commit telling the truth."
+  - id: the-turn-reviews-its-own-proposal
+    action: "A phase or epic proposal is reviewed where the outcome is gated, inside the pipeline, over the turn's own sandboxes; answers and bugs are not."
+  - id: the-findings-travel-with-the-turn-result
+    action: "The turn result carries what survived admission, each with its evidence line already resolved; the router's reply path is at its ceiling, so the carrier is the result record, not a new argument on it."
+  - id: the-confirmation-states-them
+    action: "The confirmation the person answers names the findings beside the proposal. Four signatures sit between the turn result and that text; they move together."
+
+tests:
+  - "Turn_PhaseProposal_IsReviewedBeforeItReturns"
+  - "Turn_AnswerOrBugOutcome_IsNotReviewed"
+  - "Turn_Review_UsesTheTurnsOwnSandboxesAndClonesNothingTwice"
+  - "Turn_ReviewCall_IsChargedToTheTurnsRun"
+  - "Turn_ReviewLook_MintsUnderItsOwnLetter"
+  - "Flow_Findings_ReachTheConfirmationTheOperatorAnswers"
+  - "Flow_Findings_NeverSuppressTheProposal"
+  - "Flow_ReviewClean_ReachesTheConfirmerUnchanged"
+  - "Flow_ReviewFailed_DoesNotBlockTheProposal"
+  - "Confirmation_RendersTheEvidenceLine_NotTheId"
+
+done:
+  - "a person asked to approve a proposal whose premise the repository contradicts is told so, with the line that proves it, on any channel"
+  - "no proposal is withheld from the person by the reviewer, and no conversation loops between two models"
+  - "no repository is cloned a second time for the review, and its tokens appear on the turn's run"
+  - "build green, full suite green, file-length ratchet green"

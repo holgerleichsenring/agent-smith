@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-03-2f81
+
+decisions:
+  - category: Testing
+    chose: "One test that reads every reader's SOURCE and asserts the date-minted fragment carries the series letter"
+    over: "Extending the canonical-literal test to compare the readers byte-for-byte, as the spec's step allows"
+    reason: |
+      The readers do not state one identical pattern and never did: the schemas bound the counter
+      namespace to four-to-six digits, while RequiresEdgeChecker, RunStepsReader and the dashboard
+      mirror all spell it as one-or-more. Three spellings are in force and each is right for its
+      caller. What must agree is the DATE-MINTED alternative alone, so that is what is pinned —
+      matched in either the backslash-d or the bracket spelling, and in the doubled-backslash form
+      the JSON files carry. The spec's other branch, dropping the canonical test's claim, would
+      have removed a guard rather than added one.
+  - category: Testing
+    chose: "The reader list is hand-written, and each entry must yield at least one match"
+    over: "Discovering readers by scanning the tree for the fragment"
+    reason: |
+      A discovered list is empty exactly when it matters. If a reader is renamed or rewritten to
+      spell the shape differently, discovery finds nothing there and the test stays green over a
+      reader that no longer recognises a phase id — which is the failure mode this phase exists to
+      end. Listed, the same event turns the list red and names the file.
+  - category: Correctness
+    chose: "The run id needs no exclusion, and the reason is stated where the pattern is"
+    over: "An exclusion list naming RunIdGenerator and the decision schema's run field"
+    reason: |
+      A run id is a date, a T, a time, then the hex. The fragment this test looks for needs a
+      four-digit group followed by two two-digit groups and then the hex — and after the T a run
+      id has only two-digit groups, so the shape cannot occur inside it. Proven by construction
+      rather than by a list, because a list is a second thing to maintain and goes stale silently.
+      The decision schema carries both patterns and the widening touched exactly one of them.
+  - category: Testing
+    chose: "PhaseSpecFile.ForStem reuses FromPath rather than parsing a stem a second time"
+    over: "A test-local regex over the stem"
+    reason: |
+      A second copy of the reading is the thing that agrees with the rule while the reader does
+      not. The test that proves a series member reads back as its own id has to exercise the
+      reader that PhaseNameRuleTests and the record resolver use, or it proves nothing about them.
+  - category: Architecture
+    chose: "PhaseIdFactory is not taught to mint a series"
+    over: "A factory member that mints a number and hands back its lettered members"
+    reason: |
+      The rule is that a series is minted in one go by whoever cuts the work, and that a later
+      addition mints its own number. The factory mints from a clock or a ticket number with no
+      knowledge of siblings, which is exactly the property that makes offline minting safe — a
+      member-aware factory would need to know what is taken, the question the date-minted shape
+      was introduced to abolish. Naming the members is the agent's job, and the grammar now
+      admits what it writes.

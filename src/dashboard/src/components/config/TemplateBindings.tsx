@@ -1,19 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import type { StudioProject, TemplateReference } from "@/lib/configApi";
-import { SelectField, TextField } from "./formFields";
 import { useProjectContexts } from "./useProjectContexts";
+import { Unreadable } from "./templateContextField";
+import { TemplateRow } from "./TemplateRow";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // 2026-09-14-620e: a context of THIS project is built after a context of another
-// project's repository, at a revision. Four of the five fields are PICKED — the target
-// project and its repo from the catalog the studio already holds, both context names
-// from what the repositories actually declare — and the revision is typed, because
-// nothing in the product enumerates refs (2026-09-13-9802 verifies it where it is
-// fetched). A repository that cannot be read degrades its field and never the form.
+// project's repository, at a revision.
+//
+// 2026-09-15-a2d0: the bindings are a LIST, not five stacked fields per declaration. Three
+// templates were fifteen fields in a 520px drawer with no line saying where one binding
+// ended, so the values stay on the rows and the fields open for one row at a time. The
+// single stored declaration — the only shape on disk today — is that row on load.
 
-/** Where a context list comes from, said on the field rather than left to be assumed. */
-const FROM_DEFAULT_BRANCH = "read from the repository's default branch";
+const BLANK: TemplateReference = { context: "", project: "", repo: "", templateContext: "" };
 
 export function TemplateBindings({
   project,
@@ -28,9 +30,30 @@ export function TemplateBindings({
 }) {
   const templates = project.templates ?? [];
   const local = useProjectContexts(project.id, project.repos);
+  // The open row is a VIEW, never a write: the value stays project.templates, so
+  // collapsing cannot lose a half-finished binding. One row at a time, and the index is
+  // safe to hold because every removal closes the editor (below) — the alternative is
+  // MapField's generated row id, which buys nothing once nothing stays open across a
+  // removal.
+  // Reaching another project means closing the drawer — ConfigStudio renders
+  // {drawer && <EntityDrawer/>} and the scrim covers the cards — so this unmounts between
+  // projects and re-initialises by construction. A guard keyed on project.id would be
+  // worse than nothing: the id field is editable while isNew, so it would re-open a row
+  // the operator just closed on every keystroke.
+  const [open, setOpen] = useState<number | null>(templates.length === 1 ? 0 : null);
 
   const set = (index: number, next: TemplateReference) =>
     onChange(templates.map((t, i) => (i === index ? next : t)));
+
+  const remove = (index: number) => {
+    setOpen(null);
+    onChange(templates.filter((_, i) => i !== index));
+  };
+
+  const add = () => {
+    setOpen(templates.length);
+    onChange([...templates, { ...BLANK }]);
+  };
 
   return (
     <div className="field" data-testid={testId}>
@@ -38,6 +61,7 @@ export function TemplateBindings({
         templates
         <span className="help">
           what each context of this project is built after
+          {templates.length > 0 && ` — ${templates.length} declared`}
         </span>
       </label>
 
@@ -47,162 +71,38 @@ export function TemplateBindings({
         </span>
       )}
 
-      {templates.map((template, index) => (
-        <TemplateRow
-          key={index}
-          testId={`${testId}-${index}`}
-          template={template}
-          localContexts={local}
-          catalog={catalog}
-          onChange={(next) => set(index, next)}
-          onRemove={() => onChange(templates.filter((_, i) => i !== index))}
-        />
-      ))}
+      {/* Declaration order, never sorted: the resolver preserves it and the consumers
+          that open and read a template iterate it in that order. */}
+      {templates.length > 0 && (
+        <div className="tpl-rows" role="list">
+          {/* key={index} is safe only because of the invariant above it: remove closes the
+              editor BEFORE the array changes, add appends at the tail, and an edit never
+              changes the length — so no reconciled subtree carries a mounted editor, and
+              its in-flight read, across a reindex. Anything that reorders breaks that. */}
+          {templates.map((template, index) => (
+            <TemplateRow
+              key={index}
+              testId={`${testId}-${index}`}
+              index={index}
+              template={template}
+              open={open === index}
+              localContexts={local}
+              catalog={catalog}
+              onToggle={() => setOpen(open === index ? null : index)}
+              onChange={(next) => set(index, next)}
+              onRemove={() => remove(index)}
+            />
+          ))}
+        </div>
+      )}
 
       <Unreadable testId={`${testId}-local`} subject="this project" lines={local.unreadable} />
 
       <div className="picks">
-        <button
-          type="button"
-          className="pick"
-          data-testid={`${testId}-add`}
-          onClick={() =>
-            onChange([...templates, { context: "", project: "", repo: "", templateContext: "" }])
-          }
-        >
+        <button type="button" className="pick" data-testid={`${testId}-add`} onClick={add}>
           Add template
         </button>
       </div>
     </div>
-  );
-}
-
-function TemplateRow({
-  template,
-  localContexts,
-  catalog,
-  onChange,
-  onRemove,
-  testId,
-}: {
-  template: TemplateReference;
-  localContexts: ReturnType<typeof useProjectContexts>;
-  catalog: ConfigCatalog;
-  onChange: (next: TemplateReference) => void;
-  onRemove: () => void;
-  testId: string;
-}) {
-  // ProjectTemplateRules refuses a repo the target project does not carry, so the repo
-  // options are that project's own refs — not the repos catalog, which is a superset.
-  const target = catalog.projects.find((p) => p.id === template.project);
-  const targetRepos = target?.repos ?? [];
-  const targetContexts = useProjectContexts(template.project, template.repo ? [template.repo] : []);
-
-  return (
-    <div className="field" data-testid={testId}>
-      <ContextField
-        label="context"
-        value={template.context}
-        state={localContexts}
-        subject="this project's repositories"
-        testId={`${testId}-context`}
-        onChange={(v) => onChange({ ...template, context: v })}
-      />
-      <SelectField
-        label="built after project"
-        value={template.project}
-        options={catalog.projects.map((p) => p.id)}
-        testId={`${testId}-project`}
-        // Changing the project invalidates both the repo and the context it named.
-        onChange={(v) => onChange({ ...template, project: v, repo: "", templateContext: "" })}
-      />
-      <SelectField
-        label="its repo"
-        value={template.repo}
-        options={targetRepos}
-        help={template.project ? undefined : "pick a project first"}
-        testId={`${testId}-repo`}
-        onChange={(v) => onChange({ ...template, repo: v, templateContext: "" })}
-      />
-      <ContextField
-        label="its context"
-        value={template.templateContext}
-        state={targetContexts}
-        subject="that repository"
-        testId={`${testId}-templateContext`}
-        onChange={(v) => onChange({ ...template, templateContext: v })}
-      />
-      <TextField
-        label="revision"
-        value={template.revision ?? ""}
-        mono
-        placeholder="a tag, a branch or a commit"
-        // Typed, and said so: no source provider enumerates refs, so there is nothing to
-        // pick from. The name is verified where the template is fetched.
-        help="typed, not picked — nothing lists refs; it is verified where the template is fetched"
-        testId={`${testId}-revision`}
-        onChange={(v) => onChange({ ...template, revision: v === "" ? null : v })}
-      />
-      <Unreadable testId={testId} subject="the target repository" lines={targetContexts.unreadable} />
-      <div className="picks">
-        <button type="button" className="pick" data-testid={`${testId}-remove`} onClick={onRemove}>
-          Remove template
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Why a list is missing, never instead of the field — the name stays typeable. */
-function Unreadable({
-  lines,
-  subject,
-  testId,
-}: {
-  lines: string[];
-  subject: string;
-  testId: string;
-}) {
-  if (lines.length === 0) return null;
-  return (
-    <span className="help" data-testid={`${testId}-unreadable`}>
-      could not read {subject}: {lines.join("; ")}
-    </span>
-  );
-}
-
-/**
- * A context name: PICKED while there is a list, TYPED when there is not. The fallback is
- * the whole point of the field degrading rather than the form — an unreachable target is
- * not a reason an operator cannot finish editing a project, and a select with no options
- * would be exactly that.
- */
-function ContextField({
-  label,
-  value,
-  state,
-  subject,
-  testId,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  state: ReturnType<typeof useProjectContexts>;
-  subject: string;
-  testId: string;
-  onChange: (v: string) => void;
-}) {
-  const help = state.loading
-    ? `reading ${subject}...`
-    : state.names.length > 0
-      ? FROM_DEFAULT_BRANCH
-      : state.unreadable.length > 0
-        ? "no list to pick from - type the name"
-        : `${subject} declare no context - type the name`;
-
-  return state.names.length > 0 ? (
-    <SelectField label={label} value={value} options={state.names} help={help} testId={testId} onChange={onChange} />
-  ) : (
-    <TextField label={label} value={value} mono help={help} testId={testId} onChange={onChange} />
   );
 }
