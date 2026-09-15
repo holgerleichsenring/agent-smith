@@ -45,4 +45,18 @@ public static class PipelineContextExtensions
         foreach (var write in written) paths.Add(write.Path);
         pipeline.Set(ContextKeys.ArtefactsWritten, byRepo);
     }
+
+    /// <summary>
+    /// 2026-09-15-c6e9: rounds ACCUMULATE their outcomes, they do not overwrite. Same idiom as
+    /// <see cref="AppendDecisions"/>, and for the same reason: one repository produces one round
+    /// per component.
+    /// </summary>
+    public static void AppendBootstrapOutcome(
+        this PipelineContext pipeline, BootstrapRoundOutcome outcome)
+    {
+        pipeline.TryGet<List<BootstrapRoundOutcome>>(ContextKeys.BootstrapOutcomes, out var all);
+        all ??= [];
+        all.Add(outcome);
+        pipeline.Set(ContextKeys.BootstrapOutcomes, all);
+    }
 }
