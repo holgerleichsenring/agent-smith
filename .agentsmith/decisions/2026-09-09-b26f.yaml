@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-09-b26f
+
+decisions:
+  - category: Architecture
+    chose: "(Project, TicketId) is the resume seed's key, the project read off ContextKeys.ProjectName"
+    over: "Resolving the project from the run row the seeding run already owns, via ContextKeys.RunId"
+    reason: |
+      The pair is already the identity everywhere else a ticket is addressed — QueuedRunProjection
+      keys its capacity-queue entry on exactly `q.Project == run.Project && q.TicketId ==
+      run.TicketId`. The value matches by construction: ExecutePipelineUseCase sets
+      ContextKeys.ProjectName and stamps RunStartedEvent.Project from the SAME projectConfig.Name,
+      and the projector writes that onto Run.Project. Going through the run row instead would put a
+      database read in front of a read the composition may not have a database for, to recover a
+      string the pipeline context was already holding.
+
+  - category: Architecture
+    chose: "No resolved project name means no seed at all"
+    over: "Falling back to the ticket alone when the project is absent"
+    reason: |
+      The fallback IS the defect. An ephemeral CLI composition resolves no project, and a run that
+      cannot say which project it belongs to has no claim on any project's ledger. The seeder is an
+      affordance — the run opens on an empty checklist exactly as it did before p0356 — so the
+      degraded path costs nothing that correctness needs. The guard sits in both places that could
+      be reached alone: the seed source (no ProjectName binding) and the relational reader (blank
+      project argument).
+
+  - category: Architecture
+    chose: "The seeding responsibility moved out of AgenticMasterHandler into PriorRunSeedSource"
+    over: "Trimming the new comment so the handler's line count stayed put"
+    reason: |
+      AgenticMasterHandler sits in the file-length baseline at 922 lines, where the ratchet allows
+      only shrinking and says so: extract the responsibility you were about to add. Reading the
+      prior ledger, gating it on the project, and logging what carried over is one responsibility
+      with its own two collaborators; it left the handler at 894 lines and arrived as a class with
+      its own tests. Trimming the explanation to buy three lines would have paid the ratchet in the
+      currency it exists to protect.
+
+  - category: Architecture
+    chose: "The resume feature's DI bindings moved to ResumeRegistrations.AddResumeServices()"
+    over: "One more line in PipelineExecutionExtensions"
+    reason: |
+      That file was itself at its baseline (130 lines), so the registration the extraction needed
+      could not be added there either. The eleven Resume.* bindings were already a group announced
+      by its own comment; moved next to the services they name they cost one call line, took the
+      file out of the baseline entirely, and kept the TryAdd ordering the server's relational
+      composition depends on.
+
+  - category: Testing
+    chose: "The proof is two projects carrying one ticket id, with the FOREIGN run sorting newer"
+    over: "Asserting the generated SQL, or two runs that differ only by project"
+    reason: |
+      The reader orders by Id descending, so a test whose foreign run sorts older would pass against
+      the unkeyed filter and prove nothing. Giving beta the higher id makes the old code return
+      beta's ledger for alpha — verified by reverting the predicate and watching
+      PriorLedger_TwoProjectsOneTicketId_EachSeesOnlyItsOwn and PriorLedger_NoRunForThisProject_IsNull
+      fail, then restoring it.
+
+  - category: Scope
+    chose: "No backfill for runs already seeded across projects"
+    over: "Repairing historical ProgressLedgerJson"
+    reason: |
+      p0382 ruled the ledger advisory: a mis-seeded run opened on a wrong checklist and spent tokens
+      re-deriving the truth, but nothing was written from it that a repair could correct. There is
+      no durable record of the mis-seed to fix — recording that provenance is 2026-09-09-debf, which
+      is why this lands first: a SeededFromRunId pointing at another project's run would turn a
+      transient waste into a permanent and believable lie.

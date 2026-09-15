@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Resume;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Application.Services.Triggers;
@@ -44,19 +45,7 @@ public static class PipelineExecutionExtensions
         // unit-test compositions stay quiet; Server overrides in DockerSandboxRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddPipelineExecutor();
-        // p0327: durable dialogue — the hybrid ask gate, checkpoint writer, context
-        // (de)serializer, resume reader, queue-riding resumer, and (a508) the one identity.
-        services.AddTransient<IDialogueJobIdentity, Resume.DialogueJobIdentity>();
-        services.AddTransient<IPipelineContextSerializer, Resume.PipelineContextSerializer>();
-        services.AddTransient<IDialogueCheckpointWriter, Resume.DialogueCheckpointWriter>();
-        services.AddTransient<IDialogueAskGate, Resume.DialogueAskGate>();
-        services.AddTransient<Resume.ResumeRequestReader>();
-        services.AddTransient<IRunResumer, Resume.RunResumer>();
-        // DB-free defaults; the server's relational composition replaces these.
-        services.TryAddSingleton<IRunCheckpointStore, Resume.NoOpRunCheckpointStore>();
-        services.TryAddSingleton<IDialogueAnswerInbox, Resume.NoOpDialogueAnswerInbox>();
-        // p0356: same-ticket resume seed — DB-free compositions read no prior ledger.
-        services.TryAddSingleton<IPriorRunLedgerReader, Resume.NullPriorRunLedgerReader>();
+        services.AddResumeServices();
         // p0356: the sandbox toolchain probe feeding the master's capability line.
         services.AddTransient<ISandboxToolchainProbe, SandboxToolchainProbe>();
         services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
