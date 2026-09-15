@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-a238
+
+goal: "A declared verify stage says what it covers, so whether a written enforcement artefact is actually run stops being a guess made by matching substrings in a shell command."
+
+applies_to: "backend (the context.yaml verify block) + skills catalog (what a delta declares about its artefacts)"
+
+requires:
+  - 2026-09-15-d66f
+
+scope:
+  in: >
+    A verify stage gains a way to declare WHAT it covers — the question this phase exists to
+    answer is what that declaration is, so the phase begins by deciding it against two real
+    context.yaml files rather than proposing one; once declared, an artefact written by the
+    transfer can be matched against the stages that claim it, and an artefact nothing claims
+    is reported as such.
+  out: >
+    REPORTING IT IN THE INIT PULL REQUEST BODY. 2026-09-15-c6e9 composes that body; this phase
+    supplies the fact it would report, and the wiring is a one-line addition there once the
+    fact exists.
+    INFERRING COVERAGE FROM THE COMMAND STRING. That is the thing this phase exists to
+    replace. Any shape that ends in matching "editorconfig" inside "dotnet build" has not
+    solved it.
+
+decisions:
+  - key: |
+      THE COMMAND STRING CANNOT ANSWER IT, WHICH IS WHY THIS IS A PHASE AND NOT A STEP. A verify
+      stage is a label, a shell command and an optional when-present condition. Whether a build
+      command "reaches" an editorconfig or a build property file is a property of the toolchain,
+      not of the string, and the only mechanical test over a string is substring matching — the
+      heuristic-around-a-missing-field shape this project refuses. The field IS the fix.
+  - key: |
+      THE ORDERING IS THE SECOND REASON IT COULD NOT LIVE IN THE TRANSFER. The principles transfer
+      runs BEFORE the skill call that writes context.yaml, so on a cold init no verify block exists
+      at the moment an artefact is written. Whatever shape the declaration takes, the matching
+      happens after the round that authors the block, not inside the one that writes the file.
+  - key: |
+      THE DECISION IS MADE AGAINST REAL FILES OR NOT AT ALL. A coverage declaration invented from
+      the format alone will describe stages nobody writes. The phase opens by reading the verify
+      blocks of two repositories that actually run, and the shape follows from what they already
+      say.
+
+steps:
+  - id: the-declaration-is-decided-against-real-verify-blocks
+    action: "Two real context.yaml verify blocks are read and the coverage declaration is decided from what they already express; the decision is recorded before anything is built."
+  - id: a-stage-declares-what-it-covers
+    action: "The verify stage carries the declaration, and a stage that declares nothing is treated as covering nothing rather than as covering everything."
+  - id: an-unclaimed-artefact-is-reported
+    action: "An artefact no stage claims is reported as a fact of the round, where the init pull request body can name it."
+
+tests:
+  - "VerifyStage_DeclaresCoverage_MatchesAWrittenArtefact"
+  - "VerifyStage_DeclaresNothing_CoversNothing"
+  - "Artefact_NoStageClaimsIt_IsReportedUnclaimed"
+
+done:
+  - "a verify stage can say what it covers, in a shape read off two real repositories"
+  - "an artefact nothing claims is a reported fact, not an inference"
+  - "no coverage decision is made by matching a substring of a command"
+  - "build green, full suite green"
