@@ -10,8 +10,13 @@ namespace AgentSmith.Contracts.Services;
 /// of outcome, because the interrupted run's ledger is exactly what a resumed
 /// run continues. Returns null when no prior ledger exists or the composition
 /// has no database channel (spawned orchestrators, CLI).
+/// 2026-09-09-b26f: keyed on PROJECT AND TICKET. A tracker id is unique only
+/// within its project, so two projects on one tracker can both carry the same
+/// id; on the ticket alone the newer run seeds its checklist from the other
+/// project's work and the master opens on a repository it is not working in.
 /// </summary>
 public interface IPriorRunLedgerReader
 {
-    Task<PriorRunLedger?> ReadLatestForTicketAsync(string ticketId, CancellationToken cancellationToken);
+    Task<PriorRunLedger?> ReadLatestForTicketAsync(
+        string project, string ticketId, CancellationToken cancellationToken);
 }

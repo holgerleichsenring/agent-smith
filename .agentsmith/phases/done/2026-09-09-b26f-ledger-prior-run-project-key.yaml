@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-b26f
+goal: "The prior-run ledger a new run is seeded from is found by project and ticket, not by ticket alone, so two projects sharing a tracker id can never seed each other's work."
+
+applies_to: "backend (prior-run ledger reader and its port) — a live defect found while specifying the ticket read model"
+
+requires: []
+
+scope:
+  in: "IPriorRunLedgerReader and DbPriorRunLedgerReader keyed on (Project, TicketId); the call site passes the project it already resolved. A test proving two projects carrying the same ticket id do not see each other's ledger."
+  out: "Changing what the seeder does with the ledger it gets, its 72h cap or its bootstrap guard. Recording provenance, which is 2026-09-09-debf. Repairing runs that were already seeded across projects — the ledger is advisory (p0382's ruling), so a past mis-seed cost tokens, not correctness, and a backfill would have nothing to write."
+
+decisions:
+  - key: |
+      A REAL DEFECT, FOUND BY SPECIFYING. DbPriorRunLedgerReader filters on r.TicketId with no
+      Project. Two projects on one tracker can both carry AZDO-4471 — the ticket read model
+      treats that as the reason a ticket key must include the project — and today the newer of
+      the two runs seeds its progress ledger from the other project's work. The master then
+      opens with a checklist about a repository it is not working in.
+  - key: |
+      FIXED BEFORE LINEAGE IS RECORDED, NOT AFTER. 2026-09-09-debf writes SeededFromRunId
+      durably. Recording a pointer at another project's run would turn a transient waste of
+      tokens into a permanent, believable lie in the ticket view, so this lands first.
+  - key: |
+      THE ORDERING STAYS ON Id. Run ids are time-sortable by construction (p0156) and SQLite
+      cannot order by the DateTimeOffset column; only the filter changes.
+
+steps:
+  - id: the-port-takes-a-project
+    action: "IPriorRunLedgerReader.ReadLatestForTicketAsync takes the project; the relational implementation filters on both columns; the call site in the master handler passes the project it already has."
+  - id: the-proof
+    action: "A test with two projects, one ticket id, two runs with different ledgers."
+
+tests:
+  - "PriorLedger_TwoProjectsOneTicketId_EachSeesOnlyItsOwn"
+  - "PriorLedger_SameProjectTwoRuns_SeesTheNewer"
+  - "PriorLedger_NoRunForThisProject_IsNull"
+
+done:
+  - "a run is never seeded from another project's ledger"
+  - "the reader's port carries the project"
+  - "build green, full suite green"
