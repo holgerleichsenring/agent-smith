@@ -65,7 +65,9 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.Handlers.MasterTemplateScopes>.Instance),
             WebTool,
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
-            new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
+            new AgentSmith.Application.Services.Resume.PriorRunSeedSource(
+                new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
+                NullLogger<AgentSmith.Application.Services.Resume.PriorRunSeedSource>.Instance),
             new AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe(
                 new ContextVerifyStagesResolver(),
                 new AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter(

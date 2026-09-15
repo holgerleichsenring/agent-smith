@@ -133,7 +133,6 @@
 135	AgentSmith.Application/Services/ApiScanFindingsFormatter.cs
 134	AgentSmith.Infrastructure/Services/Tools/DockerToolRunner.cs
 133	AgentSmith.Application/Services/Handlers/SecuritySnapshotWriter.cs
-130	AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs
 133	AgentSmith.Cli/Commands/ConfigCommand.cs
 132	AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs
 132	AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs
