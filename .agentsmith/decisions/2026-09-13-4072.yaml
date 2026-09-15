@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-13-4072
+
+decisions:
+  - category: Scope
+    chose: "2026-09-13-fcc1 was dropped from requires: and the artefacts-section assertion cut"
+    over: "Waiting for fcc1 so that one bump carries the delta format's artefacts section too"
+    reason: |
+      The phase required fcc1 so a single release would carry both the source-precedence section
+      and the delta format's artefacts section. fcc1 is not built; v5.3.0 carries no artefacts
+      section, so EmbeddedCatalog_DeltaFormat_HasArtefactsSection could not pass and the phase
+      could not be done. The "a pin is not divisible" argument is about one release, not about
+      every future one: fcc1 authors its own catalog change and moves the pin again. Holding this
+      bump hostage would have left three assertions asleep and three phases unproven against the
+      deployed text for as long as an unrelated phase stayed unbuilt.
+
+  - category: Scope
+    chose: "One section with three citations, not three master texts"
+    over: "The phase's own framing of one bump for three wordings"
+    reason: |
+      Read against the catalog rather than the plan: 2026-09-13-ab17 states the source order once
+      in references/source-precedence.md, and the three masters carry {{ref:source-precedence}}
+      rather than their own prose. That is what makes the thing indivisible — a reference and its
+      citations render together or not at all — and it is a stronger reason than three texts
+      happening to land together. The spec was corrected in the same commit.
+
+  - category: Testing
+    chose: "The three pin guards were INVERTED into assertions, not deleted"
+    over: "Removing the short-circuit and leaving the body to run"
+    reason: |
+      Each guard read \"if the master does not cite the section, return\". Deleting the line would
+      have left the citation itself unchecked: a later catalog release that dropped the citation
+      would render a master with no source order and every test here would still pass, because the
+      body only asserts what a resolved citation produces. The guard becomes its own assertion —
+      the pinned master must carry the citation — so the tripwire survives the phase that removed
+      its reason to exist.
+
+  - category: Testing
+    chose: "The assertions were measured against the pin they replace"
+    over: "Trusting that they now test something because they pass"
+    reason: |
+      The spec's own warning is that an assertion can pass by skipping and prove nothing. v5.2.0,
+      the pin this phase replaces, was extracted and checked: zero citations in all three masters
+      and no references/source-precedence.md at all. So the three tests fail on the old pin and
+      pass on the new one, which is the only evidence that moving the pin is what made them true.
+
+  - category: Architecture
+    chose: "The build restores the tarball and re-verifies the hash; the file is checked in"
+    over: "Downloading at runtime, or trusting the checked-in bytes"
+    reason: |
+      Unchanged from p0325 and restated because this is the first bump since: the pin block's own
+      procedure is to move the version and hash, delete the old Resources/*.tar.gz, let
+      RestoreSkillsCatalog download the new one, and check it in. Every build then re-verifies the
+      SHA256, so a tarball that does not match the declared hash fails the build rather than a run.
+      Followed literally here.
