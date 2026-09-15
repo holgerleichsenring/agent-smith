@@ -1,48 +1,40 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-09-13-fcc1
 
-goal: "A language delta ships the artefact that enforces it, and bootstrap writes that artefact to a path in the repository where the build already reaches."
+goal: "A language delta declares the artefact that enforces it, so what a stack's rules require is shipped as a file the catalog validates rather than as prose nobody runs."
 
-applies_to: "skills catalog (the delta format and one delta) + backend (the principles transfer, the init pull request body)"
+applies_to: "skills catalog (the delta format, the validator, the three deltas)"
 
 scope:
   in: >
-    The principles transfer learns a FILE SET — PrinciplesTransferResult becomes one outcome per
-    path, preserve-existing is decided per path, and a path that is absolute or escapes the work
-    root fails the round; the delta format gains an artefacts section, each entry a
-    REPOSITORY-ROOT-RELATIVE path plus its content, with an empty section stated explicitly the way
-    Overrides already is; the catalog validator enforces the section over every delta; the delta of
-    the ecosystem this estate runs ships declarative artefacts only; a written artefact that no
-    declared verify stage reaches is named in the round's result sentence, which reaches the init
-    pull request a human already ratifies.
+    The delta format gains an ARTEFACTS section — one entry per artefact, a
+    repository-root-relative path plus its content in a fenced block, with an empty section
+    stated explicitly the way Overrides already is; the catalog validator enforces the
+    heading over every delta beside the two it already checks; the delta of the ecosystem
+    this estate runs ships declarative artefacts that name no type of any target, and the
+    other two ship the section stated empty.
   out: >
-    THE CORRESPONDENCE TEST. It must name a test assembly, a namespace, a framework and a pairing
-    convention — four things that are properties of a repository, not of a language — so it can be
-    byte-identical across two repos of one stack or it can reference their types, never both. And
-    a repository with no test project cannot receive one through a file write. The shape that pays
-    needs that answer first; a successor phase decides where a reflection test lives before one is
-    shipped.
-    WRITING NEXT TO THE PRINCIPLES FILE. The composed principles live under
-    .agentsmith/contexts/<name>/, which is inside no project glob and read by no analyzer. An
-    artefact written there is enforcement theatre.
-    REWRITING AN EXISTING REPOSITORY TO PASS. An artefact that arrives red is a finding, not a
-    licence to change code the ticket did not ask about.
-    THE TEMPLATE'S OWN GATES. Separate phase; this one is what every bootstrapped repository
-    inherits whether or not it follows a template.
+    WRITING THE ARTEFACT INTO A REPOSITORY. The transfer that would write it is a backend
+    change behind a pin, and nothing in the backend can even read this section until a
+    release is cut. Named successor: 2026-09-15-d66f (artefact-transfer-per-path).
+    NAMING AN UNENFORCED ARTEFACT WHERE A HUMAN READS. Named successor: 2026-09-15-c6e9
+    (init-body-from-the-round), which composes the init pull request body from the round.
+    DECIDING WHETHER A VERIFY STAGE REACHES AN ARTEFACT. Named successor: 2026-09-15-a238
+    (verify-stage-declares-coverage). See the decision below.
+    THE CORRESPONDENCE TEST. It must name a test assembly, a namespace, a framework and a
+    pairing convention — four properties of a repository, not of a language — so it can be
+    byte-identical across two repos of one stack or it can reference their types, never
+    both. Still deferred, and still without a named successor, because the shape that pays
+    needs that answer first.
 
 decisions:
   - key: |
-      A RULE THAT NOTHING RUNS IS A DESCRIPTION, AND DESCRIPTIONS ARE IGNORED. Measured in one real
-      estate: an entity and its response model drift apart with no compile error and five fields
-      have already fallen out of the pair; a column enumeration and the switch that orders by it
-      drift apart and two members order nothing; a column name and the helper that maps it drift
-      apart and one typo sorts the wrong column. Eight silent defects in pairs a test can compare.
-  - key: |
-      THE PRESERVE RULE MUST BE PER FILE, OR NO ESTABLISHED REPOSITORY EVER RECEIVES ANYTHING. The
-      transfer returns PreservedExisting before it reaches its write when a principles file is
-      already there. Applied to a set, one ratified principles.md would suppress every artefact —
-      in exactly the repositories that carry the measured drift. Per-path is not a refinement, it
-      is the difference between the phase working and not.
+      A RULE THAT NOTHING RUNS IS A DESCRIPTION, AND DESCRIPTIONS ARE IGNORED. Measured in one
+      real estate: an entity and its response model drift apart with no compile error and five
+      fields have already fallen out of the pair; a column enumeration and the switch that orders
+      by it drift apart and two members order nothing; a column name and the helper that maps it
+      drift apart and one typo sorts the wrong column. Eight silent defects in pairs a test can
+      compare.
   - key: |
       DECLARATIVE FIRST, BECAUSE DECLARATIVE IS GENUINELY BYTE-IDENTICAL. An analyzer ruleset, an
       editorconfig, a build property file name no type of the target and are true of the language,
@@ -50,49 +42,44 @@ decisions:
       delta rule the format already states. Anything that must reflect over the target's types
       breaks that rule, and this phase does not pretend otherwise.
   - key: |
-      THE FRAMEWORK WRITES IT, FOR THE REASON THE PRINCIPLES PATH WAS TAKEN AWAY FROM THE MODEL. An
-      enforcement artefact authored per repository by a model is a rule that differs between two
+      THE FRAMEWORK DECLARES IT, FOR THE REASON THE PRINCIPLES PATH WAS TAKEN AWAY FROM THE MODEL.
+      An enforcement artefact authored per repository by a model is a rule that differs between two
       repositories of one stack, which is the opposite of a delta.
   - key: |
-      A REPORT NEEDS A READER, AND THE READER DOES NOT EXIST YET, SO THIS PHASE BUILDS IT. The
-      init pull request's body is a fixed literal — "Auto-generated project context, code map, and
-      coding principles" — and the round's result sentence goes to a step result, which is a run
-      record and not something an operator opens. Claiming the sentence already reaches the pull
-      request would have made the reporting step pass while nothing a human reads changed. The
-      body becomes something the transfer can write into.
+      THE PHASE WAS CUT AT THE PIN, BECAUSE THE PIN IS WHERE THE TWO REPOSITORIES MEET. The
+      original phase spanned the catalog and the backend in five steps. Nothing in the backend can
+      assert on an artefacts section until a release carries one, so a single phase would have had
+      to land half its steps behind a guard and the other half unprovable in its own gate. The
+      catalog half ships alone and is provable alone: its validator is its gate.
   - key: |
-      THE CATALOG SHIPS CODE NOW, SO THE REVIEW POINT IS STATED. A delta artefact reaches a target
-      repository through the embedded pin and lands via an automated commit. The catalog pull
-      request reviews it as code, the pin is the version boundary, and the init pull request is the
-      last human gate. Written down because a later phase that removes one of the three must know
-      it was load-bearing.
+      THE ECOSYSTEM DELTA HAS NO ENFORCEMENT CONTENT TO HANG AN ARTEFACT OFF, SO IT IS AUTHORED
+      HERE. The delta names no editorconfig, no build property file, no analyzer and no formatter,
+      even though the universal core makes "formatting and lint enforcement" a required delta hook
+      and nothing validates that hook per delta. This repository ships neither artefact either, so
+      there is no in-house reference to copy — the content is written from the language's own
+      documented mechanisms.
+  - key: |
+      THE SECTION IS STATED EMPTY, NEVER OMITTED, WHICH IS THE SHAPE OVERRIDES ALREADY USES. An
+      omitted section reads the same as an unfinished one. The format states the sentence a delta
+      with no artefacts must carry, and the validator checks the heading, so "this stack declares
+      none" is an answer a reader can tell from an author who stopped writing.
 
 steps:
-  - id: the-transfer-learns-a-file-set
-    action: "PrinciplesTransferResult becomes one outcome per path; preserve-existing is per path; a path outside the work root fails the round."
   - id: the-delta-format-names-its-artefacts
-    action: "The format gains an artefacts section — repository-root-relative path plus content, empty stated explicitly — and the validator enforces it over every delta."
+    action: "DELTA-FORMAT.md gains the Artefacts section — repository-root-relative path plus fenced content, empty stated explicitly — in its required structure."
+  - id: the-validator-enforces-it-over-every-delta
+    action: "validate-skills.sh requires the Artefacts heading over every delta, beside the Additions and Overrides checks it already makes."
   - id: one-delta-carries-declarative-artefacts
-    action: "The delta of the ecosystem this estate runs ships artefacts that name no target type."
-  - id: the-init-pull-request-body-stops-being-a-literal
-    action: "The init pull request body is composed from what the round actually did, instead of a fixed string."
-  - id: an-unenforced-artefact-is-named-where-a-human-reads
-    action: "An artefact no declared verify stage reaches is named in that body."
+    action: "The delta of the ecosystem this estate runs ships artefacts that name no type of any target; the other two state the section empty."
 
 tests:
-  - "Transfer_ExistingPrinciplesAndAbsentArtefact_WritesTheArtefact"
-  - "Transfer_ExistingArtefact_IsPreservedPerPath"
-  - "Transfer_ArtefactPathEscapesWorkRoot_FailsTheRound"
-  - "DeltaFormat_ArtefactsSectionMissing_RefusedByValidator"
-  - "DeltaFormat_ArtefactsSectionEmptyAndStated_Accepted"
-  - "InitPullRequestBody_ComposedFromTheRound_NotALiteral"
-  - "Transfer_NoVerifyStageReachesArtefact_NamedInThePullRequestBody"
-  - "Compose_EveryOtherStack_ByteIdenticalToBefore"
+  - "validate-skills.sh refuses a delta whose Artefacts section is missing"
+  - "validate-skills.sh accepts a delta whose Artefacts section is present and stated empty"
+  - "scripts/package.sh runs the validator and packages principles/ whole"
 
 done:
-  - "a bootstrapped repository of the named ecosystem receives an enforcement artefact at a path its build reaches"
-  - "a repository that already carries principles still receives an artefact it does not have"
-  - "a repository that already carries the artefact keeps its own"
-  - "an artefact no verify stage runs is named in the init pull request body, which a human opens"
-  - "every other stack composes byte-identically to before"
-  - "build green, full suite green"
+  - "the delta format states what an artefacts entry is and what an empty section must say"
+  - "a delta without the section fails the catalog's own validator"
+  - "the ecosystem delta declares at least one artefact whose content names no target type"
+  - "the other two deltas state the section empty"
+  - "validate-skills.sh green, package.sh green"

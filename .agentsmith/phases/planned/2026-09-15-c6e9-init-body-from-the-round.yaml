@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-c6e9
+
+goal: "The init pull request body says what the round actually did, so the one artefact a human opens stops being a fixed sentence that is true of every run alike."
+
+applies_to: "backend (the bootstrap round, the init commit handler)"
+
+requires:
+  - 2026-09-15-d66f
+
+scope:
+  in: >
+    The bootstrap rounds accumulate their principles outcomes on the pipeline context, the way
+    decisions already accumulate; the init pull request body is composed from them — what was
+    transferred, what was preserved as ratified, what was refused and why — instead of the
+    fixed literal it is today; the composition lives in its own type, because the commit
+    handler sits exactly on its file-length baseline.
+  out: >
+    DECIDING WHETHER A VERIFY STAGE REACHES AN ARTEFACT. Named successor: 2026-09-15-a238
+    (verify-stage-declares-coverage). The original phase put this in the body, and it cannot
+    be: see the decision below.
+    A SECOND BODY FOR ANY OTHER PULL REQUEST. This is the init pull request, which is the one
+    a human opens to ratify what the framework wrote.
+
+decisions:
+  - key: |
+      A REPORT NEEDS A READER, AND THE READER DOES NOT EXIST YET, SO THIS PHASE BUILDS IT. The
+      init pull request's body is a fixed literal — "Auto-generated project context, code map, and
+      coding principles" — and the round's result goes to a step result, which is a run record and
+      not something an operator opens. Claiming the sentence already reaches the pull request would
+      have made a reporting step pass while nothing a human reads changed.
+  - key: |
+      THE BODY SAYS WHAT THE ROUND OWNS, NOT WHETHER A GATE WILL RUN IT. The original phase wanted
+      the body to name an artefact no declared verify stage reaches. It cannot: a verify stage is a
+      shell command string, so deciding whether it "reaches" a file means substring-matching a
+      command — a heuristic standing in for a field that does not exist. And the ordering forbids
+      it outright: the transfer runs BEFORE the skill call that writes context.yaml, so on a cold
+      init there is no verify block to consult at the moment the body would need one. The claim is
+      cut, and its successor is named rather than implied.
+  - key: |
+      THE COMPOSITION IS ITS OWN TYPE BECAUSE THE HANDLER HAS NO ROOM, AND THAT IS THE RIGHT SHAPE
+      ANYWAY. The init commit handler is exactly at its file-length baseline, so a single added
+      line fails the ratchet. The extraction is not a workaround: a body composed from run facts is
+      testable on its own, and the handler keeps doing what it does.
+  - key: |
+      ROUNDS ACCUMULATE, THEY DO NOT OVERWRITE. A repository fans out one round per component, so a
+      context key that the last round wins would report one component and silently drop the rest.
+      The pipeline already carries an append idiom for decisions; the outcomes use it.
+  - key: |
+      THE CROSS-LINK MARKER IS LOAD-BEARING AND SURVIVES. The body carries a marker a later handler
+      requires, and that handler fails hard without it. A composed body that dropped it would turn
+      a reporting improvement into a broken pull-request chain, so a test pins the marker rather
+      than trusting the composition to keep it.
+
+steps:
+  - id: the-rounds-accumulate-their-outcomes
+    action: "Each bootstrap round appends its principles outcome to the pipeline context instead of it ending at a step result."
+  - id: the-body-is-composed-from-them
+    action: "A new type composes the init pull request body from the accumulated outcomes; the commit handler calls it instead of holding a literal."
+  - id: the-marker-survives-composition
+    action: "The cross-link marker the later handler requires is present in the composed body, pinned by a test."
+
+tests:
+  - "InitPullRequestBody_ComposedFromTheRound_NotALiteral"
+  - "InitPullRequestBody_PreservedPrinciples_SaysSoRatherThanClaimingTransfer"
+  - "InitPullRequestBody_TwoComponentsOfOneRepo_BothAppear"
+  - "InitPullRequestBody_AlwaysCarriesTheCrossLinkMarker"
+
+done:
+  - "the init pull request body names what was transferred, what was preserved and what was refused"
+  - "a repository with two components has both in the body"
+  - "the cross-link marker is present in every composed body"
+  - "the commit handler does not grow past its baseline"
+  - "build green, full suite green"

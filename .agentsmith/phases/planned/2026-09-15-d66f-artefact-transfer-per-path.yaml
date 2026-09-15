@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-d66f
+
+goal: "The bootstrap transfer writes a delta's declared artefacts into the target as a file SET, deciding preserve-existing per path, so a ratified principles file no longer suppresses every artefact beside it."
+
+applies_to: "backend (the principles template source, the bootstrap transfer, the embedded pin)"
+
+requires:
+  - 2026-09-13-fcc1
+
+scope:
+  in: >
+    ComposedPrinciples carries the artefacts parsed out of the delta; the composer STRIPS the
+    artefacts section from the text it renders into principles.md, so every stack's composed
+    bytes are unchanged; PrinciplesTransferResult gains one outcome per artefact path beside
+    its round-level mode; preserve-existing is decided per path through the sandbox file
+    reader the bootstrap meta-files already use; a path that is absolute or escapes the work
+    root is refused through the existing FilePath rule and fails the round; the pin moves to
+    the release carrying the artefacts section, with the assertion guarded the way
+    2026-09-13-4072 guarded its three.
+  out: >
+    REPLACING PrinciplesTransferResult WITH A COLLECTION. Four call sites read Mode and Error
+    as ROUND-level facts and one of them feeds the bootstrap prompt. The per-path outcomes are
+    added beside them, not instead of them.
+    THE PULL REQUEST BODY. Named successor: 2026-09-15-c6e9 (init-body-from-the-round).
+    REWRITING AN EXISTING REPOSITORY TO PASS. An artefact that arrives red is a finding, not a
+    licence to change code the ticket did not ask about.
+
+decisions:
+  - key: |
+      THE PRESERVE RULE MUST BE PER PATH, OR NO ESTABLISHED REPOSITORY EVER RECEIVES ANYTHING.
+      The transfer returns PreservedExisting before it reaches its write when a principles file is
+      already there. Applied to a set, one ratified principles.md would suppress every artefact —
+      in exactly the repositories that carry the measured drift. Per-path is not a refinement, it
+      is the difference between the phase working and not.
+  - key: |
+      THE COMPOSER MUST STRIP THE SECTION, AND THE ORIGINAL SPEC'S BYTE-IDENTITY CLAIM WAS FALSE
+      WITHOUT IT. Render inlines the whole delta file verbatim into the composed principles, so a
+      mandatory artefacts section changes the composed bytes of EVERY stack, including the two
+      that state it empty. The claim is kept and made true by stripping, rather than dropped.
+  - key: |
+      THE GOLDEN IS CHECKED IN BEFORE THE COMPOSER IS TOUCHED, OR THE CLAIM IS UNFALSIFIABLE. The
+      only determinism test composes twice in one process and compares — that proves determinism,
+      not before-and-after. A composed-principles golden per stack, checked in first, is what
+      turns "byte-identical to before" into something that can fail.
+  - key: |
+      THE EXISTENCE CHECK AND THE PATH RULE ALREADY EXIST AND ARE NOT REINVENTED. The bootstrap
+      meta-files already probe one path at a time through the sandbox file reader, and the domain
+      already carries a path type that refuses a rooted path and any parent traversal. A second
+      copy of either would be a second place for them to disagree.
+  - key: |
+      A MONOREPO FANS OUT ONE ROUND PER COMPONENT AND THEY SHARE ONE SANDBOX, SO A ROOT-RELATIVE
+      ARTEFACT PATH IS WRITTEN ONCE AND PRESERVED TWICE. Three components of one stack in one
+      repository produce three rounds against the same checkout; the first writes the artefact and
+      the other two report it preserved — a file this same run created. That is the CORRECT
+      outcome for a repository-root artefact, which is what the format declares, and the outcome
+      must say "already written by this round", not "ratified by the operator", or the pull
+      request body will make a claim nobody made.
+
+steps:
+  - id: the-composer-parses-and-strips-the-artefacts
+    action: "ComposedPrinciples carries the parsed artefacts; the rendered principles no longer contains the section, and a checked-in golden per stack proves the bytes are unchanged."
+  - id: the-transfer-learns-a-file-set
+    action: "PrinciplesTransferResult gains one outcome per path beside its round-level mode; preserve-existing is decided per path."
+  - id: a-path-outside-the-work-root-fails-the-round
+    action: "An absolute path or one that escapes the work root is refused through the existing path rule and fails the round."
+  - id: the-pin-carries-the-section
+    action: "The embedded pin moves to the release carrying the artefacts section, the assertion guarded until it does."
+
+tests:
+  - "Compose_EveryStack_MatchesTheCheckedInGolden"
+  - "Compose_DeltaWithArtefacts_SectionIsNotInTheRenderedPrinciples"
+  - "Transfer_ExistingPrinciplesAndAbsentArtefact_WritesTheArtefact"
+  - "Transfer_ExistingArtefact_IsPreservedPerPath"
+  - "Transfer_ArtefactPathEscapesWorkRoot_FailsTheRound"
+  - "Transfer_SecondComponentOfOneRepo_ReportsAlreadyWrittenNotRatified"
+  - "EmbeddedCatalog_EcosystemDelta_DeclaresAnArtefact"
+
+done:
+  - "a bootstrapped repository of the named ecosystem receives an enforcement artefact at a repository-root path"
+  - "a repository that already carries principles still receives an artefact it does not have"
+  - "a repository that already carries the artefact keeps its own"
+  - "an artefact path outside the work root fails the round rather than being written"
+  - "every stack composes byte-identically to the checked-in golden"
+  - "build green, full suite green"
