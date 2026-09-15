@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-cb3e
+
+goal: "The dashboard gets the conversation itself: a place in the rail, a transcript, a composer, and the approval affordance a typed question needs."
+
+applies_to: "dashboard (a new place and its components) + backend (the reply's wire shape)"
+
+requires:
+  - 2026-09-15-9033
+
+scope:
+  in: >
+    A route in the dashboard's closed place table and its rail entry. A hub-client subscription to
+    the session group, a transcript that renders the turns in order, a composer that posts to the
+    ingestion endpoint, and the approve / reject / edit affordance a typed question needs — the
+    edit being a note, which is what the flow already routes. The session id is held across a
+    reload. The reply text reaches the browser as something a browser can render: the FRAMEWORK's
+    own composed text learns the channel, and the design master's reply passes through untouched.
+  out: >
+    THE SECOND PANE. 2026-09-15-6d9c; this phase is the conversation, and it is complete without
+    one — it is what the chat channels have today.
+    A RICH EDITOR. The edit path is a note in the conversation.
+    RUN-TRIGGER CHAT.
+
+decisions:
+  - key: |
+      THE COMPOSERS LEARN THE CHANNEL; THE ADAPTER EDGE MUST NOT CONVERT. Two kinds of text go
+      through the same send method. The framework's own — SpecDialogReplyComposer and
+      SpecDialogOutcomeComposer — is Slack mrkdwn: single-asterisk bold, underscore italic,
+      colon-wrapped emoji shortcodes. The design master's REPLY goes through the same call
+      unmodified, and a master writes ordinary markdown: double-asterisk bold, single-asterisk
+      italic, fenced code. A converter at the edge cannot tell them apart, so it would turn every
+      italic the model wrote into bold and mangle its fences — corrupting exactly the half of the
+      transcript that carries the thinking. So the framework's text is composed for the channel it
+      is going to, and the model's reply is never rewritten.
+  - key: |
+      THE PLACE TABLE IS CLOSED, SO THE ROUTE IS AN ENTRY IN IT. The dashboard keeps its places in
+      one table asserted against the rail. A page added outside it is either unreachable or breaks
+      that assertion.
+  - key: |
+      THE SESSION ID LIVES IN THE BROWSER, WHICH IS WHAT 2026-09-15-9033 DECIDED. The session key
+      is (platform, threadId), so a reload that lost the id would silently start a second
+      conversation while the first is still open. It is held, and the page says which session it
+      is in.
+  - key: |
+      THE APPROVAL AFFORDANCE RENDERS THE TYPED QUESTION, IT DOES NOT INVENT ONE. The question
+      arrives through the adapter with its choices; the surface renders those and posts the answer
+      back through the same endpoint the composer uses, so a text reply and a button reply take one
+      path.
+
+steps:
+  - id: the-place
+    action: "A route in the place table with its rail entry."
+  - id: the-transcript-and-the-composer
+    action: "Subscribe to the session group, render the turns in order, post a message; hold the session id across a reload."
+  - id: the-framework-text-is-composed-for-the-channel
+    action: "The two composers emit for the channel they are writing to; the design master's reply passes through untouched."
+  - id: the-typed-question
+    action: "A question renders its choices; the answer goes back through the ingestion path."
+
+tests:
+  - "dashboard: the place is in the table and reachable from the rail"
+  - "dashboard: the composer posts and the turn appears in the transcript"
+  - "dashboard: a reload keeps the session"
+  - "dashboard: a typed question renders its choices and posting one answers it"
+  - "dashboard: composed framework text renders as formatting, not as asterisks and shortcodes"
+  - "Composer_ForTheBrowserChannel_EmitsCommonMark"
+  - "Messenger_TheMastersOwnReply_IsSentByteForByte"
+
+done:
+  - "an operator holds the whole design conversation in the dashboard and approves the filing there"
+  - "no framework line shows raw chat mark-up, and no line the model wrote is altered"
+  - "dashboard build and tests green, backend build green, full suite green"

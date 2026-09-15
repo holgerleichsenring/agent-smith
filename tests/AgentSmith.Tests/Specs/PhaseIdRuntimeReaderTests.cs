@@ -49,6 +49,43 @@ public sealed class PhaseIdRuntimeReaderTests
         error.Should().Contain("not a sibling in this epic");
     }
 
+    /// <summary>
+    /// 2026-09-03-2f81: the readers slice a date-minted id by FIXED WIDTH, so without the
+    /// widening every member of a series reads back as the same id — two phases file their
+    /// decisions into one document and a requires-edge between them becomes a self-edge.
+    /// </summary>
+    [Fact]
+    public void DecisionFileLabel_TwoMembersOfOneSeries_WriteToTwoFiles()
+    {
+        var first = DecisionFileLabel.Resolve($"{Minted}a", runId: null)!.FileName;
+        var second = DecisionFileLabel.Resolve($"{Minted}b", runId: null)!.FileName;
+
+        first.Should().Be($"{Minted}a.yaml");
+        second.Should().Be($"{Minted}b.yaml");
+        first.Should().NotBe(second);
+    }
+
+    [Fact]
+    public void RequiresEdgeChecker_ASeriesSiblingThatExists_Passes()
+    {
+        var first = Draft($"{Minted}a");
+        var second = Draft($"{Minted}b", requires: $"{Minted}a");
+
+        new RequiresEdgeChecker().Check(Draft("2026-08-24-0000"), [first, second])
+            .Should().BeNull(
+                "a series member naming the one before it is the ordinary shape of a series");
+    }
+
+    [Fact]
+    public void RequiresEdgeChecker_ASeriesSiblingThatDoesNot_IsCaught()
+    {
+        var first = Draft($"{Minted}a");
+        var second = Draft($"{Minted}b", requires: $"{Minted}c");
+
+        new RequiresEdgeChecker().Check(Draft("2026-08-24-0000"), [first, second])
+            .Should().Contain("not a sibling in this epic");
+    }
+
     [Fact]
     public void RequiresEdgeChecker_DateMintedSiblingThatExists_Passes()
     {

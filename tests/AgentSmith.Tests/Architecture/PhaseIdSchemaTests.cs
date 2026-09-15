@@ -35,6 +35,20 @@ public sealed class PhaseIdSchemaTests
     }
 
     /// <summary>
+    /// 2026-09-03-2f81: phases cut from one piece of work share a number and differ by a
+    /// trailing letter. Both namespaces carry it, and a series letter is not told apart
+    /// from a successor letter — the counter namespace carried both meanings and nothing
+    /// ever depended on the difference.
+    /// </summary>
+    [Fact]
+    public void Schema_SeriesId_Validates()
+    {
+        SpecPattern().IsMatch($"{Minted}a").Should().BeTrue("a series member is an id");
+        SpecPattern().IsMatch($"{Minted}b-the-second-slice").Should().BeTrue(
+            "the letter is appended to the hex, and the label still follows a dash");
+    }
+
+    /// <summary>
     /// The bound is six digits, not four. An id minted from a ticket number lives in the
     /// counter namespace, and a four-digit bound would make the DEPLOYED server reject
     /// every spec derived from a five- or six-digit ticket — the same truncation p0509
@@ -73,7 +87,7 @@ public sealed class PhaseIdSchemaTests
     public void Schema_BothSchemasInThisRepository_StateOneIdenticalRule()
     {
         const string canonical =
-            @"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4})(?:-[a-z][a-z0-9-]*)?$";
+            @"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$";
 
         SpecPattern().ToString().Should().Be(canonical);
         PatternIn(RepoSchema("decision.schema.json")).Should().Be(canonical,

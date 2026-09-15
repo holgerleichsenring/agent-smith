@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-9033
+
+goal: "The spec dialog gains a dashboard channel — one platform adapter, one ingestion endpoint and a session that belongs to whoever opened it — so the conversation that files tickets needs no chat tenant."
+
+applies_to: "backend (chat ingestion, platform adapters, hub fan-out, session ownership)"
+
+scope:
+  in: >
+    An IPlatformAdapter under a platform name of its own, delivering through JobsHub into a
+    per-session group. An authenticated endpoint that takes one message and routes it through
+    SpecDialogRouter.TryRouteAsync with that platform, a browser-minted session id as threadId and
+    the signed-in principal as userId — dispatched fire-and-forget in its own DI scope under
+    CancellationToken.None, the way both existing channels do it. A session on this platform is
+    OWNED by the principal that opened it: another principal may neither post into it nor join its
+    group. A permission, carried through every table that a permission has to appear in. The hub's
+    subscribe surface is extracted before it is extended, because it may not grow.
+  out: >
+    THE DASHBOARD SURFACE. 2026-09-15-cb3e is the Next.js half — its own route, rail entry, hub
+    client method and component tests — and it is the half that can slip. This phase is provable
+    with no browser.
+    THE SECOND PANE. 2026-09-15-6d9c.
+    THE ADVERSARIAL REVIEW OF THE OUTCOME. 2026-09-15-1499.
+    REPLACING SLACK OR TEAMS. The router is already parameterised by platform. This adds a third
+    and removes none.
+    RUN-TRIGGER CHAT. Only the spec-dialog branch of inbound routing. A message the router hands
+    back is answered on this channel rather than dropped, because a dedicated page has no other
+    conversation to fall through to.
+    A NEW DIALOGUE TRANSPORT. IDialogueTransport is already durable and channel-neutral.
+
+decisions:
+  - key: |
+      A THIRD ADAPTER, NOT A SECOND IMPLEMENTATION. SpecDialogRouter already takes
+      (text, userId, channelId, threadId, platform) and SpecDialogMessenger resolves the adapter by
+      Platform. Sessions, transcript, turn gate, pending questions, outcome confirmation and ticket
+      filing are platform-neutral already. A dashboard-specific dialog would be a second copy of
+      every one of them.
+  - key: |
+      THE SINGLE-ADAPTER RESOLUTION IS ALREADY WRONG, AND THIS PHASE FIXES IT RATHER THAN PINNING
+      IT. Eight classes take a SINGLE IPlatformAdapter — the help handler, the Slack dispatcher, the
+      Slack error action handler, the Slack modal submission handler and four intent handlers — and
+      both adapters are registered non-keyed, Slack then Teams, so the single resolve yields the
+      LAST one. Three of those eight are Slack by name and by purpose and are wired to the TEAMS
+      adapter today: a Slack modal submission, a Slack error action and the Slack dispatcher. That
+      is a defect in main, found while specifying this phase. A third registration would make it
+      four. So the three Slack-named sites are resolved explicitly against the Slack adapter — three
+      constructors — and a test asserts what a bare resolve yields so the next registration cannot
+      move it silently. ALTERNATIVE REJECTED: pinning today's answer as correct, which would have
+      made the defect permanent under a test whose name reads like a guarantee. ALSO REJECTED:
+      keying all three adapters everywhere — correct, and it rewrites eight constructors this phase
+      was not asked to touch.
+  - key: |
+      THE SESSION IS OWNED, BECAUSE A BROWSER-MINTED ID IS NOT A BOUNDARY.
+      SpecDialogSessionManager.GetOpenByThreadAsync and AppendTurnAsync key on (platform, threadId)
+      and never look at UserId; on Slack the channel supplied the boundary. Here a second principal
+      who learns a session id could post into someone else's design conversation and approve its
+      filing — on the one surface that files real tickets. The hub is no help: HubPermissionFilter
+      checks only that the caller holds the method's permission and says in terms that WHICH scope
+      a caller may watch is a different phase. This cannot be that different phase's problem,
+      because shipping the channel without it ships the hole.
+  - key: |
+      FIRE-AND-FORGET IN ITS OWN SCOPE, OR THE HTTP REQUEST WAITS FIFTEEN MINUTES. The router, the
+      session manager and the outcome flow are scoped services, and the approval gate blocks for up
+      to fifteen minutes. Awaiting the route inside the request handler would hold the connection
+      for the whole turn plus the wait, and passing the request's cancellation token would abort
+      the turn when the tab closes. Both existing channels already dispatch on a fresh scope with
+      CancellationToken.None.
+  - key: |
+      THE QUESTION AFFORDANCE IS NOT OPTIONAL. The approval prompt reaches a person ONLY through
+      AskTypedQuestionAsync — the confirmer never sends the question as an ordinary message. An
+      adapter that logs and returns null renders nothing and the gate times out. It need not BLOCK,
+      because a text reply in the session already wins through the pending-question branch, but it
+      must push.
+  - key: |
+      THE OTHER METHODS ARE HONEST, AND THAT IS SAFE HERE FOR A CHECKED REASON. IPlatformAdapter
+      carries a platform name and nine methods. The cross-adapter dispatchers key by the
+      conversation's stored platform rather than iterating adapters, and this phase creates no
+      run-trigger conversation on the new platform, so the progress and completion methods are
+      never dispatched to it. They are implemented as what they are — a hub message, or a logged
+      no-op — never as a silent success.
+  - key: |
+      THE PLATFORM NAME MUST BE DISTINCT. SpecDialogMessenger builds a dictionary keyed on Platform
+      and throws on a duplicate. A name that collides with either existing adapter takes the whole
+      spec dialog down at startup.
+  - key: |
+      A PERMISSION IS NOT ONE LINE. It has to appear in the permission catalogue, in at least one
+      built-in role, in the route baseline and — for a hub method — in the hub permission table,
+      each with a test that fails the build without it. And the hub endpoint itself already demands
+      runs.read, so an operator holding only the new permission cannot connect; the phase states
+      which roles get it.
+
+steps:
+  - id: room-on-the-hub
+    action: "JobsHub stands at its baselined length and may only shrink. Extract its subscribe/replay surface before adding a method, and leave file-length-baseline.tsv telling the truth."
+  - id: the-adapter
+    action: "A dashboard IPlatformAdapter with a distinct platform name, over the hub, into a per-session group; SendInfoAsync and AskTypedQuestionAsync both push."
+  - id: the-slack-named-sites-get-the-slack-adapter
+    action: "The Slack dispatcher, error action handler and modal submission handler resolve the Slack adapter explicitly; a test asserts what a bare IPlatformAdapter resolve yields, so a later registration cannot move it unseen."
+  - id: the-endpoint
+    action: "An authenticated POST that dispatches one message through SpecDialogRouter on a fresh scope, and publishes the chat-ingestion system event the other two channels publish."
+  - id: the-session-belongs-to-its-owner
+    action: "Continuing a session and joining its group require being the principal that opened it; another principal is refused, not served an empty transcript."
+  - id: the-unroutable-message-is-answered
+    action: "A message with no open session and no command is told so on this channel."
+  - id: the-permission
+    action: "One permission through the catalogue, the roles, the route baseline and the hub table."
+
+tests:
+  - "Adapter_Platform_IsDistinctFromEveryOther"
+  - "Adapter_SendInfo_ReachesOnlyTheSessionGroup"
+  - "Adapter_AskTypedQuestion_PushesTheQuestion"
+  - "Adapter_UnusedMethod_IsNeverASilentSuccess"
+  - "Registration_TheSlackNamedSites_ResolveTheSlackAdapter"
+  - "Registration_ABareResolve_YieldsTheDocumentedAdapter"
+  - "Ingest_AuthenticatedMessage_RoutesThroughTheSpecDialogRouter"
+  - "Ingest_DoesNotAwaitTheTurnOnTheRequest"
+  - "Ingest_WithoutThePermission_IsRefused"
+  - "Ingest_SlashSpec_OpensASession"
+  - "Ingest_BySomeoneElsesPrincipal_IsRefused"
+  - "Subscribe_ToAnotherPrincipalsSession_IsRefused"
+  - "Ingest_WithAPendingTypedQuestion_AnswersItInsteadOfRunningATurn"
+  - "Ingest_WhileATurnIsRunning_IsToldSoAndDoesNotQueueASecond"
+  - "Ingest_WithNoOpenSessionAndNoCommand_IsAnswered"
+  - "Ingest_PublishesTheChatIngestionSystemEvent"
+
+done:
+  - "a signed-in operator opens a spec dialog over the API, talks for several turns and has a ticket filed, with no Slack and no Teams configured"
+  - "a second principal can neither read nor write that session"
+  - "a Slack modal, a Slack error and the Slack dispatcher reach Slack, which they do not today"
+  - "Slack and Teams behave exactly as before"
+  - "backend build green, full suite green, file-length ratchet green"

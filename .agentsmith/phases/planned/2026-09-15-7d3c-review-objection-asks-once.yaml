@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-7d3c
+
+goal: "A standing false premise asks the author once and then proceeds, rather than parking the ticket again every run on a question the reviewer re-derives from an unchanged repository."
+
+applies_to: "backend (spec derivation: what a kept cut with a standing code-grounded objection does, and how that question ends)"
+
+requires:
+  - 2026-09-15-ffa7
+  - 2026-09-15-a5a5
+
+scope:
+  in: >
+    LeastObjectedCut keeps the review beside the cut it was offered with, so the deriver knows
+    which objections still stand when the attempts run out. A standing FALSE PREMISE becomes a
+    question hand-back shaped after ScopedContextQuestion — phases dropped, two readings typed, the
+    first taken — carrying the minted evidence line. The hand-back names WHICH question it is, so
+    the ticket comment states the true case and UnansweredQuestionPin looks for the matching
+    marker — in the comment renderer, in the pin's lookup, AND in the private list that decides
+    whether one of our comments is awaiting an answer at all. And the pin reaches the REVIEWER as
+    an explicit argument, threaded from the deriver, so a re-triggered run's reviewer is told the
+    author was already asked about this premise and does not raise it again. Every other standing
+    objection keeps today's course: the cut is returned and SpecCutGate publishes it.
+  out: >
+    PARKING ON A CONTRADICTION. Named under decisions, with the reason.
+    A FIFTH SpecHandbackCase. SpecHandback.TakenReading is gated on Case == Question and
+    UnansweredQuestionPin.Pin requires a TakenReading; a new case would silently stop the pin from
+    firing, which is the very failure this phase exists to close. This is a question, and it stays
+    one.
+    A SECOND ID-TO-LINE RESOLVER. 2026-09-15-ffa7 builds it into the rejection; this phase quotes
+    the same resolved line into a ticket comment.
+    ORDERING AFTER 2026-09-15-a5a5 BY ACCIDENT. It is required, not preferred: that phase narrows
+    the same port this one must thread the pin through, and three phases rewriting one signature in
+    an unconstrained order is a conflict bought for the price of one requires edge.
+
+decisions:
+  - key: |
+      ONLY THE CODE-GROUNDED OBJECTION PARKS. A contradiction or an uncheckable criterion is a fault
+      in the WRITING, which the deriver had three attempts to repair and a reader can see in the
+      spec pull request; the cut is still a cut. A false premise says the plan rests on something
+      that is not in the repository, and no rewording repairs that.
+  - key: |
+      WITHOUT THE PIN REACHING THE REVIEWER THIS PHASE IS A TICKET-STALLING REGRESSION, SO IT IS IN
+      SCOPE. ContextKeys.SpecQuestionPin has exactly one production reader, SpecPromptComposer —
+      the DERIVER's prompt. That is enough for ScopedContextQuestion, whose gap is computed from
+      what the model replies, so a pinned deriver closes it. It is not enough here: the reviewer
+      re-derives its objection from the repository, which has not moved, and raises it again.
+      DeriveSpecQuestionTests already pins that behaviour under the name
+      Question_ModelAsksAgainDespiteThePin_ParksAgainWithoutANotice, and SpecHandbackRepeat.IsRepeat
+      cannot end it — it returns false for anything but RequirementsContradictRepository. The taken
+      reading is only true if the second run can take it.
+  - key: |
+      THE QUESTION SAYS WHICH QUESTION IT IS. SpecHandbackComment renders the heading
+      "the ticket reads two ways, and the work differs", and OwnTicketComment.IsAnswered keys on
+      that same phrase to decide whether anyone replied. For a false premise the ticket does not
+      read two ways — the repository contradicts the plan. The hand-back carries a marker of its
+      own so the comment tells the truth and the pin still finds its own unanswered question.
+      Widening the enum is refused above for a stated reason; this is a typed field on the record.
+  - key: |
+      THE MARKER LIVES IN THREE PLACES, NOT ONE. The comment renderer puts the phrase in the
+      heading; the pin asks whether a comment carrying that phrase was answered; and a private
+      array decides whether one of our comments awaits an answer at all, which is what keeps it in
+      the next run's conversation section. A new marker registered in the first two and not the
+      third posts a question that drops out of view, while the pin looks for a phrase nothing wrote.
+      The persisted set carries the handback field by field and ignores unmatched properties on
+      read, so a new field is additive and an old handback reads back on its default — but both
+      persistence sites are part of this phase, not an afterthought.
+  - key: |
+      TAKEN = BUILD IT ANYWAY. The taken reading must be the behaviour the run has today, or this
+      phase turns every standing objection into a stalled ticket for estates that do not watch
+      their hand-backs. With the pin reaching the reviewer, silence is then a slower path to the
+      same place, not a new failure.
+  - key: |
+      THE HAND-BACK RETURNS A NULL ERROR. DeriveSpecHandler fires KeptDespiteAsync whenever the
+      deriver's error is not null. Returning lastError beside a question would publish
+      "the cut is kept; these findings stand" about a cut that was not kept. Null is what
+      ScopedContextQuestion's path already returns, and the gate event stays for the other case,
+      where it is true.
+
+steps:
+  - id: the-kept-cut-remembers-its-review
+    action: "LeastObjectedCut holds the review beside the cut, so standing findings are known when the loop ends."
+  - id: a-standing-false-premise-becomes-a-question
+    action: "New StandingPremiseQuestion, shaped after ScopedContextQuestion: phases dropped, two readings, the first taken, the minted evidence line quoted in the reason, a null error returned."
+  - id: the-hand-back-names-its-question
+    action: "SpecHandback carries which question it is; SpecHandbackComment renders the matching heading and UnansweredQuestionPin looks for the matching marker."
+  - id: the-hand-back-survives-the-round-trip
+    action: "The new field is written and read at both persistence sites; an old handback without it reads back on its default."
+  - id: the-marker-is-registered-everywhere-a-marker-is-read
+    action: "The comment renderer, the pin's answered-lookup and the awaiting-answer list all know the new marker."
+  - id: the-pin-reaches-the-reviewer
+    action: "The pin is threaded from the deriver into the review call as an explicit argument — the port has no pipeline after 2026-09-15-a5a5 — and a pinned premise is not raised again."
+  - id: room-in-the-deriver
+    action: "SpecSetDeriver.cs is at its ceiling after 2026-09-15-ffa7's extraction. Check it again before adding; how the loop ends is its own type."
+
+tests:
+  - "Loop_EndsWithAStandingFalsePremise_ReturnsAQuestionHandbackAndNoError"
+  - "Loop_EndsWithAContradictionOnly_ReturnsTheCutAndPublishesTheGate"
+  - "Loop_EndsWithBothKinds_ReturnsAQuestionHandback"
+  - "Loop_NoFindingsAtAll_IsUnchanged"
+  - "Question_TakenReading_IsBuildTheCut"
+  - "Question_Reason_QuotesTheMintedEvidenceLine"
+  - "Comment_PremiseQuestion_DoesNotSayTheTicketReadsTwoWays"
+  - "Pin_PremiseQuestionUnanswered_IsFoundByItsOwnMarker"
+  - "Comment_PremiseQuestion_AwaitsAnAnswerAndStaysInTheNextRunsView"
+  - "Handback_WithoutTheNewField_ReadsBackOnItsDefault"
+  - "Rerun_WithThePin_TheReviewerDoesNotRaiseThatPremiseAgain"
+  - "Rerun_WithThePin_ProceedsOnTheTakenReadingAndSaysSo"
+
+done:
+  - "a cut whose premise the reviewer disproved reaches the author as a question, with the evidence line in it and a heading that describes it"
+  - "an unanswered premise question re-triggers onto the cut and says so on the ticket — it does not park a second time"
+  - "a cut with only text-shaped objections behaves exactly as it does today"
+  - "build green, full suite green, file-length ratchet green"
