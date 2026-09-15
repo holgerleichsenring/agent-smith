@@ -49,7 +49,9 @@ function Harness({ templates }: { templates: TemplateReference[] }) {
     id: "proj",
     agent: "",
     tracker: "",
-    repos: ["web"],
+    // 2026-09-15-9b3e: two repos, so a context name declared by both can be modelled —
+    // which is the case that made the picker ambiguous.
+    repos: ["web", "api"],
     pipeline: "",
     pipelines: [],
     resolution: null,
@@ -182,5 +184,75 @@ describe("TemplateList", () => {
     render(<Harness templates={[template(), template({ templateContext: "" })]} />);
     expect(screen.queryByTestId("form-templates-0-unfinished")).toBeNull();
     expect(screen.getByTestId("form-templates-1-unfinished")).toBeInTheDocument();
+  });
+
+  it("TemplateList_CompleteRow_SaysSoAndLabelsItsCloseControl", () => {
+    // 2026-09-15-9b3e: the row said only "not finished", so a COMPLETE row said nothing and
+    // the only control that looked like progress was Add — which appends another blank.
+    render(<Harness templates={[template()]} />);
+
+    expect(screen.getByTestId("form-templates-0-complete")).toHaveTextContent("complete");
+    expect(screen.queryByTestId("form-templates-0-unfinished")).toBeNull();
+
+    // Opened by a2d0 on load (single stored declaration), so the way out is labelled.
+    expect(screen.getByTestId("form-templates-0-close")).toHaveTextContent("collapse");
+    expect(screen.getByTestId("form-templates-0-open")).toHaveAttribute(
+      "aria-label",
+      "Collapse template 1",
+    );
+  });
+
+  it("TemplateList_UnfinishedRow_KeepsSayingSoAndOffersNoCollapseLabelWhenClosed", () => {
+    render(<Harness templates={[template(), template({ context: "", project: "" })]} />);
+
+    expect(screen.getByTestId("form-templates-1-unfinished")).toBeInTheDocument();
+    expect(screen.queryByTestId("form-templates-1-complete")).toBeNull();
+    // Closed rows invite editing, not collapsing.
+    expect(screen.getByTestId("form-templates-1-open")).toHaveAttribute(
+      "aria-label",
+      "Edit template 2",
+    );
+    expect(screen.queryByTestId("form-templates-1-close")).toBeNull();
+  });
+
+  it("ProjectForm_ContextOption_NamesTheRepoItCameFrom", async () => {
+    mockedContexts.mockImplementation(async (_project, repoRef) =>
+      repoRef === "web"
+        ? { contexts: ["frontend"], unreadableReason: null }
+        : { contexts: ["server"], unreadableReason: null },
+    );
+    render(<Harness templates={[template()]} />);
+
+    const option = async (value: string) =>
+      await waitFor(() => {
+        const found = screen
+          .getByTestId("form-templates-0-context")
+          .querySelector(`option[value="${value}"]`);
+        expect(found).not.toBeNull();
+        return found!;
+      });
+
+    expect(await option("frontend")).toHaveTextContent("web");
+    expect(await option("server")).toHaveTextContent("api");
+  });
+
+  it("ProjectForm_ContextDeclaredByTwoRepos_IsOneOptionNamingBoth", async () => {
+    // Both repos declare "default". Two options with the same VALUE would be a choice that
+    // is not one — the browser matches the first, so picking the second would store what the
+    // first means. The stored reference is a bare name and the run keys its scopes by that
+    // bare name, so the picker states the collision instead of pretending to resolve it.
+    mockedContexts.mockResolvedValue({ contexts: ["default"], unreadableReason: null });
+    render(<Harness templates={[template()]} />);
+
+    const option = await waitFor(() => {
+      const found = screen
+        .getByTestId("form-templates-0-context")
+        .querySelectorAll('option[value="default"]');
+      expect(found).toHaveLength(1);
+      return found[0];
+    });
+
+    expect(option).toHaveTextContent("web");
+    expect(option).toHaveTextContent("api");
   });
 });

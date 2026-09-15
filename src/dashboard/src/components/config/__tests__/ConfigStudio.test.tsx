@@ -26,7 +26,7 @@ vi.mock("@/lib/configApi", () => {
   const secrets = [{ id: "OPENAI_KEY" }, { id: "AZDO_PAT" }];
   const projects = [
     // p0345c: `pipeline` (the truth-fixed rename of "trigger") + resolution.
-    { id: "checkout", agent: "gpt5", tracker: "azdo", repos: ["web"], pipeline: "feature", pipelines: ["feature"], resolution: { strategy: "tag", value: "checkout" } },
+    { id: "checkout", agent: "gpt5", tracker: "azdo", repos: ["web"], pipeline: "feature", pipelines: ["feature"], resolution: { strategy: "tag", value: "checkout" }, templates: [{ context: "server", project: "refapp", repo: "web", templateContext: "server" }] },
     // a project with a dangling agent ref, to prove the card flags it
     { id: "broken", agent: "ghost", tracker: "azdo", repos: ["web"], pipeline: "feature", pipelines: [], resolution: null },
   ];
@@ -179,5 +179,29 @@ describe("ConfigStudio", () => {
     expect(await screen.findByTestId("config-changes")).toBeInTheDocument();
     // Changes has no New button (nothing to create in an audit trail).
     expect(screen.queryByTestId("config-new-changes")).not.toBeInTheDocument();
+  });
+  it("Catalog_EveryKind_IsSortedById", async () => {
+    // 2026-09-15-9b3e: the store returns a SELECT with no ORDER BY, so what arrives is not
+    // insertion order — it is no order at all. The fixture lists projects as
+    // checkout, broken; the cards must read broken, checkout.
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
+    await screen.findByTestId("config-card-projects-checkout");
+
+    const ids = screen
+      .queryAllByTestId(/^config-card-projects-/)
+      .map((el) => el.getAttribute("data-testid")!.replace("config-card-projects-", ""));
+
+    expect(ids).toEqual([...ids].sort((a, b) => a.localeCompare(b)));
+    expect(ids[0]).toBe("broken");
+  });
+
+  it("ProjectCard_WithTemplates_NamesThem", async () => {
+    // A template was declarable and invisible on the card that summarises the project.
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
+
+    const line = await screen.findByTestId("config-project-templates-checkout");
+    expect(line).toHaveTextContent("built after refapp");
+    // A project that declares none says nothing rather than "0 templates".
+    expect(screen.queryByTestId("config-project-templates-broken")).toBeNull();
   });
 });
