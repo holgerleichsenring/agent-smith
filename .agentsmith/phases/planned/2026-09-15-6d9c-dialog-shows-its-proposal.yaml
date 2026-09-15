@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-6d9c
+
+goal: "The dashboard conversation gains its second pane: what would be filed, rendered by kind, beside the messages that are still deciding it."
+
+applies_to: "backend (spec dialog: the turn's typed outcome reaches the hub) + dashboard (the second pane)"
+
+requires:
+  - 2026-09-15-cb3e
+
+scope:
+  in: >
+    A turn's OutcomeProposal is published to the session group as a typed payload, from the outcome
+    flow, which already receives it. The pane renders it by kind: a bug as title and body, a phase
+    as goal, steps, tests and done, an epic as parent and children in the order the orderer put
+    them. It re-renders when a turn supersedes the proposal and when an edit note sends the design
+    turn round again. An AnswerOutcome leaves it as it was — it proposes nothing.
+  out: >
+    WHAT THE DIALOG HAD TO ASSUME. It has nothing to show. PhaseDraft carries Facts and
+    Assumptions and PhaseDraftReader reads both, but the design-partner master emits neither — its
+    phase template is phase / goal / steps / tests / done — so both are empty for every dialog
+    draft, and a pane section built on them would always be blank. SUCCESSOR, named by what it
+    does: a phase that gives the design conversation an evidence substrate — the master emits
+    claim lines with citations, the framework mints the ids and resolves them — after which this
+    pane gains the section. That is a catalog change, a release and a pin bump before anything in
+    this repository can show it.
+    PUBLISHING FROM THE ROUTER. See decisions.
+    EDITING IN THE PANE. The edit path is a note in the conversation, which the flow already
+    routes; a second editing surface would have to agree with the transcript about what was said.
+
+decisions:
+  - key: |
+      THE PANE SHOWS THE PROPOSAL, BECAUSE THE PROPOSAL IS THE PART THAT IS TYPED. OutcomeProposal
+      is already Answer / Bug / Phase / Epic and carries the draft. The reply beside it is prose.
+      Rendering the prose a second time in a panel would be a second copy of one statement, and the
+      two would disagree the first time the master worded one differently.
+  - key: |
+      IT IS PUBLISHED FROM THE OUTCOME FLOW, NOT THE ROUTER. The router is where the reply is sent,
+      and it is a baselined file at its ceiling that may only shrink. The outcome flow already
+      receives the proposal as its argument and is well under the cap. Aiming at the reply's send
+      site would have spent the phase on an extraction it does not need.
+  - key: |
+      A PLAIN PAYLOAD, NOT AN EVENT RECORD. The hub-event type generator scans records under the
+      events namespace BY BASE TYPE and treats one without a matching TypeScript interface as
+      drift. A payload deriving from neither run-event nor system-event base is not scanned, which
+      is what makes a plain DTO the cheap answer — and the check runs in CI rather than in the
+      build the phase gate invokes, so getting it wrong would surface late.
+  - key: |
+      AN EPIC RENDERS IN THE ORDER IT WILL BE FILED. EpicChildOrderer already decides that order and
+      the filer follows it. A pane that listed the children in another order would show the operator
+      a plan that is not the one about to be created.
+
+steps:
+  - id: the-outcome-reaches-the-hub
+    action: "The outcome flow publishes the typed proposal to the session group before it asks the person."
+  - id: the-pane-renders-by-kind
+    action: "Bug, phase and epic each render what they are; an answer leaves the pane untouched."
+  - id: the-pane-follows-the-conversation
+    action: "A superseding proposal and an edit-requested round both re-render it."
+
+tests:
+  - "Flow_WithAPhaseProposal_PublishesTheTypedProposal"
+  - "Flow_WithAnAnswerOutcome_PublishesNoProposal"
+  - "Flow_AfterAnEditNote_PublishesTheSupersedingProposal"
+  - "Proposal_ReachesOnlyTheSessionGroup"
+  - "dashboard: a phase proposal renders goal, steps, tests and done"
+  - "dashboard: an epic proposal renders parent and children in the order they will be filed"
+  - "dashboard: an answer turn leaves the pane unchanged"
+
+done:
+  - "an operator sees what would be filed while still discussing it, and sees it change as the conversation changes it"
+  - "no pane section is built on a field nothing populates"
+  - "dashboard build and tests green, backend build green, full suite green"
