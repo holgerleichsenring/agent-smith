@@ -58,9 +58,9 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
     /// 2026-09-13-6f35: the coding master must say where a TEMPLATE sits among its sources —
     /// principles first, the template for what is NEW, existing code for an EXTENSION. That
     /// wording is the catalog's own shared <c>source-precedence</c> section (2026-09-13-ab17)
-    /// and the pin that carries it is 2026-09-13-4072, so the assertion is gated on the pin
-    /// actually citing it: a hard assertion would fail every build between the two phases,
-    /// and no assertion at all would let the pin bump land without the section.
+    /// and 2026-09-13-4072 moved the pin to the release that carries it. The assertion was gated
+    /// on the citation while the two phases were apart; the pin carries it now, so dropping
+    /// the citation from a later release fails here instead of at the first run.
     /// </summary>
     [Fact]
     public async Task EmbeddedCatalog_CodingMaster_SaysWhereATemplateSitsAmongItsSources()
@@ -72,8 +72,8 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         master.Should().NotBeNull("the coding master is the skill that types the code");
 
         var rules = File.ReadAllText(master!);
-        if (!rules.Contains("{{ref:source-precedence}}", StringComparison.Ordinal))
-            return; // this pin predates the shared section; 2026-09-13-4072 bumps it.
+        rules.Should().Contain("{{ref:source-precedence}}",
+            "the pinned master must CITE the shared order rather than restate one of its own");
 
         var catalogPath = new Mock<ISkillsCatalogPath>();
         catalogPath.Setup(p => p.Root).Returns(root);
@@ -89,9 +89,8 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
     /// 2026-09-13-ed5a: the design partner cuts the epic, and a cut made without the house
     /// shape produces slices that cross the layers the template keeps apart. It must therefore
     /// state where a template sits among its sources — the catalog's own shared
-    /// <c>source-precedence</c> section (2026-09-13-ab17), whose pin is bumped by
-    /// 2026-09-13-4072. Gated on the citation for the same reason the coding master's is:
-    /// a hard assertion fails every build between the two phases.
+    /// <c>source-precedence</c> section (2026-09-13-ab17), whose pin was moved by
+    /// 2026-09-13-4072. Ungated with its two siblings, in the commit that moved the pin.
     /// </summary>
     [Fact]
     public async Task EmbeddedCatalog_DesignPartnerMaster_SaysWhereATemplateSitsAmongItsSources()
@@ -103,8 +102,8 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         master.Should().NotBeNull("the design partner is the skill that cuts the epic");
 
         var rules = File.ReadAllText(master!);
-        if (!rules.Contains("{{ref:source-precedence}}", StringComparison.Ordinal))
-            return; // this pin predates the shared section; 2026-09-13-4072 bumps it.
+        rules.Should().Contain("{{ref:source-precedence}}",
+            "the pinned master must CITE the shared order rather than restate one of its own");
 
         var catalogPath = new Mock<ISkillsCatalogPath>();
         catalogPath.Setup(p => p.Root).Returns(root);
@@ -120,8 +119,8 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
     /// 2026-09-13-7d9f: the derivation reads the EPIC a ticket is one slice of, and the section
     /// that carries it tells the model to follow the source order its instructions state rather
     /// than restating that order — so the master must state one, or the section points at
-    /// nothing. Same shared <c>source-precedence</c> section (2026-09-13-ab17), same pin bump
-    /// (2026-09-13-4072), so the assertion is gated the same way its two siblings are.
+    /// nothing. Same shared <c>source-precedence</c> section (2026-09-13-ab17), same pin move
+    /// (2026-09-13-4072), ungated the same way its two siblings are.
     /// </summary>
     [Fact]
     public async Task EmbeddedCatalog_SpecDerivationMaster_SaysWhereATemplateSitsAmongItsSources()
@@ -133,8 +132,8 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         master.Should().NotBeNull("the derivation is the skill that cuts one ticket into phases");
 
         var rules = File.ReadAllText(master!);
-        if (!rules.Contains("{{ref:source-precedence}}", StringComparison.Ordinal))
-            return; // this pin predates the shared section; 2026-09-13-4072 bumps it.
+        rules.Should().Contain("{{ref:source-precedence}}",
+            "the pinned master must CITE the shared order rather than restate one of its own");
 
         var catalogPath = new Mock<ISkillsCatalogPath>();
         catalogPath.Setup(p => p.Root).Returns(root);
