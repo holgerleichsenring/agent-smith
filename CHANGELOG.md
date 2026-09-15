@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.147.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.146.1...v0.147.0) (2026-09-15)
+
+
+### Features
+
+* a delta's artefacts are written per path (2026-09-15-d66f) ([b4e26f8](https://github.com/holgerleichsenring/agent-smith/commit/b4e26f8e57ecc2b8d501adbf0aacdaf684b41770))
+* a delta's artefacts reach the repository and the pull request (d66f + c6e9) ([3b3c4d4](https://github.com/holgerleichsenring/agent-smith/commit/3b3c4d43a9f4b6a73aaf3c5545c430123c8571b6))
+* a feature's branch is created once, by whichever slice gets there first (2026-09-13-35a4) ([3464f80](https://github.com/holgerleichsenring/agent-smith/commit/3464f80edc42caaa45c2f58f54d8ac05fe3e91c4))
+* a phase id may carry a series letter (2026-09-03-2f81) ([6779230](https://github.com/holgerleichsenring/agent-smith/commit/67792307aa45f3f4c849c59dce984da041263f09))
+* a project declares a template per context (2026-09-13-5fa0) ([560e543](https://github.com/holgerleichsenring/agent-smith/commit/560e543e57c5efc0f09aa266fd5e77805da7920d))
+* a pull request opens against the base its branch was cut from (2026-09-13-a284) ([e83ddf2](https://github.com/holgerleichsenring/agent-smith/commit/e83ddf2d5d1c112f8ee33c905cd2ca13416eef36))
+* a refused token names both sides (2026-09-14-c72e) ([3b73f25](https://github.com/holgerleichsenring/agent-smith/commit/3b73f2572a32443ef79d872b2d175387f901ba39))
+* a refused token names both sides (2026-09-14-c72e) ([47d73e3](https://github.com/holgerleichsenring/agent-smith/commit/47d73e35d2f4ceaf0e807e668ed2b84fa0f988cf))
+* a role is composed here, not refused (2026-09-14-91ad) ([b68b60c](https://github.com/holgerleichsenring/agent-smith/commit/b68b60c4c88a4a96b72a321006cb2ef5218d6978))
+* a scope naming another resource is said before sign-in (2026-09-14-d4e8) ([e505e41](https://github.com/holgerleichsenring/agent-smith/commit/e505e4187a054a32d67a85a0ec22661a9fd14c42))
+* a source scope can be asked for a revision (2026-09-13-9802) ([0bc7280](https://github.com/holgerleichsenring/agent-smith/commit/0bc72809d6338fe59ac9d9fff1e663c00e3971f2))
+* a template answers how work is done here, at the cut and at the writing ([8e01226](https://github.com/holgerleichsenring/agent-smith/commit/8e01226098f01657220be6d7120ec9a2b0c0c47b))
+* a template is picked, not typed (2026-09-14-620e) ([c04b324](https://github.com/holgerleichsenring/agent-smith/commit/c04b324ee40b2e0499668484eed7b36644592920))
+* a template is picked, not typed (2026-09-14-620e) ([9803943](https://github.com/holgerleichsenring/agent-smith/commit/9803943e1534358720f787d077cb7f6a3891bda6))
+* a template says what it declares as its own proof (2026-09-13-9f84) ([95db078](https://github.com/holgerleichsenring/agent-smith/commit/95db07809ba745352bed2a191ec93acd5f3d1e07))
+* an epic child waits for its predecessor (2026-09-13-a72a) ([bb926d5](https://github.com/holgerleichsenring/agent-smith/commit/bb926d5dc9132ed1671322e6053a586a8ca9ff0f))
+* an epic is filed as a requirement, not a cut (2026-09-13-b7ba) ([eb7a2e1](https://github.com/holgerleichsenring/agent-smith/commit/eb7a2e1ffe55b850bc6ef0015271f6bdc2d29e81))
+* an epic parent is a record, not a run (2026-09-13-a3f1) ([5dc4161](https://github.com/holgerleichsenring/agent-smith/commit/5dc4161a87fce5c28285ebe7fdeea094be1ef345))
+* every child of an epic is cut against the epic itself (2026-09-13-7d9f) ([7b2dd87](https://github.com/holgerleichsenring/agent-smith/commit/7b2dd874ccff42599bf161ea45121dc59c9c40f1))
+* one base per repository answers the cut, the merge and the diff (2026-09-13-5cdf) ([3d6f4ac](https://github.com/holgerleichsenring/agent-smith/commit/3d6f4ac2c663e1a54b2c29fedc89d7c0292227f3))
+* templates are a list, not fifteen fields (2026-09-15-a2d0) ([359b2a0](https://github.com/holgerleichsenring/agent-smith/commit/359b2a07cf08b4be4c3b168e53c7290d84fb3bd5))
+* templates are a list, not fifteen fields (2026-09-15-a2d0) ([1463296](https://github.com/holgerleichsenring/agent-smith/commit/1463296a20f6eac29fdd425120bab576631b0b13))
+* the coding master can read the template its phase is built after (2026-09-13-6f35) ([d029e99](https://github.com/holgerleichsenring/agent-smith/commit/d029e99b90a04344389e687e875e27473eda9e29))
+* the cut can look into the declared template (2026-09-13-84c0) ([aad981e](https://github.com/holgerleichsenring/agent-smith/commit/aad981e5a4b108f215f067bdfdf7c3a59c2be70e))
+* the init pull request says what the round did (2026-09-15-c6e9) ([038d077](https://github.com/holgerleichsenring/agent-smith/commit/038d077c95d9de02c84add543100dcce0037c594))
+* the pin carries the shared source order (2026-09-13-4072) ([57a42f2](https://github.com/holgerleichsenring/agent-smith/commit/57a42f298bf41baf9b3cc6d0143be62cd330885f))
+* the pin carries the shared source order (2026-09-13-4072) ([43f5ebc](https://github.com/holgerleichsenring/agent-smith/commit/43f5ebc1c3cf661ac1c51afd4a19e49539f6e4d6))
+* the scope remark, and forgetting a person clears the note (2026-09-14-d4e8, 2026-09-14-2b7c) ([44978e3](https://github.com/holgerleichsenring/agent-smith/commit/44978e3f6c6900cef1803536850b21f9884522bf))
+* the sign-in check and the custom role editor (2026-09-14-3f5b, 2026-09-14-91ad) ([d6b723a](https://github.com/holgerleichsenring/agent-smith/commit/d6b723a4c36075321f2d10ae6b1b5d9ca4cef484))
+* the spec dialog reads the declared template while it cuts an epic (2026-09-13-ed5a) ([18409d7](https://github.com/holgerleichsenring/agent-smith/commit/18409d738782cc2b9c26540a9a1ee17ebbf5c3ff))
+* the startup report says whether sign-in can work (2026-09-14-3f5b) ([30f2174](https://github.com/holgerleichsenring/agent-smith/commit/30f217488bba6308ce5dff279c3b9b3545ba971e))
+
+
+### Bug Fixes
+
+* a phase goal fits the rule that judges it ([548c765](https://github.com/holgerleichsenring/agent-smith/commit/548c765fd4c3d2de0185f37e47bdaa179733c4fb))
+* forgetting a person clears the note that decides their return (2026-09-14-2b7c) ([d6e43ac](https://github.com/holgerleichsenring/agent-smith/commit/d6e43ac8a876e318e70b90704f3c6513e842445a))
+* the resume seed is found by project and ticket (2026-09-09-b26f) ([63e5f39](https://github.com/holgerleichsenring/agent-smith/commit/63e5f398a0e2aa5c0ae4dc125fa54380d520da43))
+* the resume seed is found by project and ticket (2026-09-09-b26f) ([164e47a](https://github.com/holgerleichsenring/agent-smith/commit/164e47a8ee6fd3b7fa87809dbf58b4b8a19e119e))
+
 ## [0.146.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.146.0...v0.146.1) (2026-09-09)
 
 
