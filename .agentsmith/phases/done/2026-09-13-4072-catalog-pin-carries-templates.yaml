@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-13-4072
+
+goal: "The embedded skills pin carries the shared source-precedence section three phases already assume, so a deployed run reads the instruction and not the release before it."
+
+applies_to: "backend (the embedded catalog pin)"
+
+requires:
+  - 2026-09-13-ab17
+  - 2026-09-13-84c0
+  - 2026-09-13-6f35
+  - 2026-09-13-ed5a
+
+scope:
+  in: >
+    SkillsCatalogVersion and SkillsCatalogSha256 move to v5.3.0, the release that carries the
+    shared source-precedence section and the three masters citing it; the old tarball is
+    removed and the new one checked in; the pin guards those phases left behind are removed so
+    their assertions run. Every assertion reads the EMBEDDED tarball through EmbeddedSkillsCatalog
+    — never TestSkillsRoot, which resolves a working checkout and whose consumers return early
+    when it is absent, so an assertion written that way passes by skipping and proves nothing.
+  out: >
+    CUTTING THE RELEASE. release-please fires on a conventional pull-request title in the catalog
+    repository; that is not this repository's to do, and a phase that claimed it would claim
+    something its own gate cannot see. Done by the operator: skills #184 merged, v5.3.0 cut.
+    THE DELTA FORMAT'S ARTEFACTS SECTION. Scoped out on execution — 2026-09-13-fcc1 is not built,
+    so v5.3.0 carries no artefacts section and an assertion for one could not pass. The decision
+    below records why that does not break this phase's own "one bump" argument.
+    ANY WORDING CHANGE. The text is authored in the phases that need it. This phase moves a version
+    and a hash.
+
+decisions:
+  - key: |
+      ONE BUMP FOR ONE SECTION, WHICH IS WHAT THE THREE TEXTS TURNED OUT TO BE. The phase was
+      planned as one bump for three master texts. The three masters do not each carry their own
+      wording: 2026-09-13-ab17 states the order ONCE in references/source-precedence.md and the
+      three masters cite it with {{ref:source-precedence}}. So the indivisible thing is the
+      reference plus its three citations, and they all landed in one catalog pull request.
+  - key: |
+      FCC1 IS DROPPED FROM REQUIRES, AND THAT IS A CUT, NOT AN OVERSIGHT. The phase required
+      2026-09-13-fcc1 so that one bump would also carry the delta format's artefacts section.
+      fcc1 is not built and v5.3.0 does not carry it, so the assertion this phase would have
+      written could not pass. The "a pin is not divisible" argument holds within one release, not
+      across two: fcc1 authors a catalog change of its own and bumps the pin again, which is the
+      p0486-to-p0487 shape applied a second time rather than a rule broken.
+  - key: |
+      A PIN-GATED ASSERTION CANNOT BE GREEN BEFORE THE PIN MOVES, SO IT WAS GUARDED, NOT WISHED.
+      An assertion authored in an earlier phase that reads the deployed tarball fails that phase's
+      own gate, because the pin still points at the release before it. Each of those phases landed
+      the assertion behind an explicit guard naming this phase; this phase removes the guards in
+      the same commit that moves the pin, so there is exactly one moment at which they all become
+      true and it is observable.
+  - key: |
+      THE GUARD BECOMES AN ASSERTION RATHER THAN DISAPPEARING. The three short-circuits read "if
+      the master does not cite the section, return". Deleting the line would leave the citation
+      unchecked and a later release could drop it silently. It is inverted instead: the pinned
+      master MUST carry the citation. Measured against the pin it replaces — v5.2.0 carries the
+      citation zero times in all three masters and has no references/source-precedence.md at all
+      — so the three assertions are tripwires, not tests that pass by construction.
+  - key: |
+      THE GATE CANNOT PROVE THE OTHER REPOSITORY, SO THE ASSERTION LIVES HERE. A phase commit in
+      this tree runs the dashboard, the build, the suite and the harness; a commit in the catalog
+      runs its own validator. Neither sees the other. A pin-gated assertion in this repository is
+      the one check that fails when the deployed text and the code disagree.
+
+steps:
+  - id: the-pin-moves
+    action: "SkillsCatalogVersion and SkillsCatalogSha256 move to v5.3.0; the old tarball is removed and the restored one checked in."
+  - id: the-guards-come-off
+    action: "The three pin guards are inverted into assertions, so the citation is required of every future pin."
+
+tests:
+  - "EmbeddedCatalog_CodingMaster_SaysWhereATemplateSitsAmongItsSources"
+  - "EmbeddedCatalog_DesignPartnerMaster_SaysWhereATemplateSitsAmongItsSources"
+  - "EmbeddedCatalog_SpecDerivationMaster_SaysWhereATemplateSitsAmongItsSources"
+  - "EmbeddedCatalog_EveryMaster_ResolvesItsCitedReferences"
+
+done:
+  - "the embedded pin names v5.3.0, whose three masters cite the shared source order"
+  - "the three assertions pass against the deployed tarball, not a working checkout"
+  - "a later pin that drops the citation fails these tests instead of a run"
+  - "the tarball on disk matches the declared hash, which the build re-verifies"
+  - "build green, full suite green"
