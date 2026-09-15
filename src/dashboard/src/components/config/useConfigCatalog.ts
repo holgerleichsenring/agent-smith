@@ -54,6 +54,15 @@ export interface UseConfigCatalog {
   reload: () => Promise<void>;
 }
 
+/**
+ * By id, case-insensitively. Only the top-level catalogs: a project's own `repos` and
+ * `templates` stay in declaration order, which 2026-09-15-a2d0 pinned as load-bearing.
+ */
+function byId<T extends { id: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) =>
+    a.id.localeCompare(b.id, undefined, { sensitivity: "base" }));
+}
+
 export function useConfigCatalog(): UseConfigCatalog {
   const [catalog, setCatalog] = useState<ConfigCatalog>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -72,7 +81,20 @@ export function useConfigCatalog(): UseConfigCatalog {
         mcpServersApi.list(signal),
         secretsApi.list(signal),
       ]);
-      setCatalog({ agents, trackers, connections, repos, projects, "mcp-servers": mcp, secrets });
+      // 2026-09-15-9b3e: sorted HERE, not at the render sites. The store returns a SELECT
+      // with no ORDER BY, and ten places render one of these arrays — the cards, the agent,
+      // tracker, repos and three secret pickers, the key-secret picker, the connection
+      // dropdown, the repo inventory and the template editor's project list. Sorting once
+      // where they are loaded reaches every one; sorting where they are drawn reaches one.
+      setCatalog({
+        agents: byId(agents),
+        trackers: byId(trackers),
+        connections: byId(connections),
+        repos: byId(repos),
+        projects: byId(projects),
+        "mcp-servers": byId(mcp),
+        secrets: byId(secrets),
+      });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError(err as Error);

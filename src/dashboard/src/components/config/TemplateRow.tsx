@@ -46,15 +46,29 @@ export function TemplateRow({
           type="button"
           className="tpl-open"
           aria-expanded={open}
+          aria-label={open ? `Collapse template ${index + 1}` : `Edit template ${index + 1}`}
           aria-controls={`${testId}-editor`}
           data-testid={`${testId}-open`}
           onClick={onToggle}
         >
           <span className="chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
           <span className="tpl-ctx">{context}</span>
-          {isUnfinished(template) && (
+          {/* 2026-09-15-9b3e: the row always says which of the two states it is in. It said
+              only "not finished", so a COMPLETE open row said nothing at all — and the only
+              control that looked like progress was Add, which appends another empty binding.
+              There is no save here on purpose: the drawer saves the project. */}
+          {isUnfinished(template) ? (
             <span className="tpl-todo" data-testid={`${testId}-unfinished`}>
               not finished
+            </span>
+          ) : (
+            <span className="tpl-done" data-testid={`${testId}-complete`}>
+              complete
+            </span>
+          )}
+          {open && (
+            <span className="tpl-close" data-testid={`${testId}-close`}>
+              done — collapse
             </span>
           )}
         </button>

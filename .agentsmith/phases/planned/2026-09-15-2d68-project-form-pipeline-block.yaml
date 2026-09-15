@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-2d68
+
+goal: "The project form stops rendering three different questions as three identical dropdowns, so an operator can tell what declares a pipeline from what picks one."
+
+applies_to: "dashboard (the project form) + backend (whether the legacy singular is still offered)"
+
+scope:
+  in: >
+    The three pipeline fields are grouped and labelled for what each ANSWERS: `pipelines`
+    declares which pipelines this project has, `default_pipeline` picks the one that runs when
+    no routing label matched, and `pipeline` is the legacy singular that only applies when the
+    list is empty; the form says that routing itself happens on the tracker, because an
+    operator reading three pipeline fields reasonably concludes it happens here; the legacy
+    singular is presented as legacy rather than as a peer.
+  out: >
+    REMOVING ANY OF THE THREE. ResolveDefaultPipelineName throws when two pipelines are
+    declared and no default is set, so a project that lost the field would not start.
+    EXPOSING PER-PIPELINE OVERRIDES. The studio's project entity carries pipeline NAMES only;
+    an override authored in YAML survives a studio save by name-match but is invisible here.
+    Whether the form should show them is a question about a feature nothing checked in uses —
+    see the decision below.
+
+decisions:
+  - key: |
+      THE OPERATOR'S READING WAS RIGHT AND THE CONCLUSION WAS WRONG. "Routing happens in the
+      tracker, so why is this here" — routing does happen there. But `pipelines` is not routing:
+      it is the DECLARATION of what this project may run, and `default_pipeline` is what happens
+      when nothing routed. Three questions rendered as three same-shaped dropdowns is what made
+      one of them look redundant.
+  - key: |
+      THE LEGACY SINGULAR IS THE ONE THAT SHOULD LOOK DIFFERENT. `pipeline` is synthesised into a
+      definition only when `pipelines` is empty, so on any project with a list it is dead weight
+      the form presents as an equal. Whether it is hidden, disabled or merely marked is the
+      decision this phase makes against what the stored configurations actually carry.
+  - key: |
+      WHETHER PER-PIPELINE OVERRIDES DESERVE A FORM IS UNDECIDED, AND IT IS UNDECIDED ON
+      EVIDENCE. The only checked-in example is commented out and no harness fixture declares
+      `pipelines:` at all, so the feature may be configured nowhere. The question is settled by
+      reading the `pipelines` arrays in a real installation's stored configuration, not by
+      reasoning about the schema — and until someone does, adding a form for it would be
+      building for a user nobody has found.
+
+steps:
+  - id: the-three-fields-are-grouped-and-say-what-they-answer
+    action: "The form groups the pipeline fields and labels each with the question it answers, naming the tracker as where routing happens."
+  - id: the-legacy-singular-reads-as-legacy
+    action: "`pipeline` is presented as the legacy fallback it is, decided against what stored configurations carry."
+
+tests:
+  - "ProjectForm_PipelineBlock_SaysWhereRoutingHappens"
+  - "ProjectForm_ProjectWithAPipelineList_MarksTheLegacySingular"
+
+done:
+  - "an operator can say what each of the three fields answers without reading the code"
+  - "the form names the tracker as where a ticket is routed"
+  - "no field is removed and no run changes behaviour"
+  - "dashboard tests and build green"

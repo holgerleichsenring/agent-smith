@@ -171,6 +171,18 @@ export function MultiPickField({
 // type, connection type, agent provider, pipeline, resolution strategy). The
 // current value stays selectable even if capabilities do not list it (a stale
 // entity must remain editable, never silently rewritten).
+/**
+ * 2026-09-15-9b3e: an option may carry a LABEL distinct from its value. A context name is
+ * stored bare, but two repositories of one project may both declare it — so the option has
+ * to say "default (api, web)" while still storing "default". Two options with the same
+ * value would be a choice that is not one: the browser matches the first, and picking the
+ * second would store what the first means.
+ */
+export type SelectOption = string | { value: string; label: string };
+
+const optionValue = (o: SelectOption) => (typeof o === "string" ? o : o.value);
+const optionLabel = (o: SelectOption) => (typeof o === "string" ? o : o.label);
+
 export function SelectField({
   label,
   value,
@@ -183,14 +195,15 @@ export function SelectField({
 }: {
   label: string;
   value: string;
-  options: string[];
+  options: SelectOption[];
   onChange: (v: string) => void;
   placeholder?: string;
   testId?: string;
   required?: boolean;
   help?: string;
 }) {
-  const opts = value && !options.includes(value) ? [value, ...options] : options;
+  const opts: SelectOption[] =
+    value && !options.some((o) => optionValue(o) === value) ? [value, ...options] : options;
   return (
     <div className="field">
       <label>
@@ -201,8 +214,8 @@ export function SelectField({
       <select data-testid={testId} value={value} onChange={(e) => onChange(e.target.value)} className="mono">
         <option value="">{placeholder}</option>
         {opts.map((o) => (
-          <option key={o} value={o}>
-            {o}
+          <option key={optionValue(o)} value={optionValue(o)}>
+            {optionLabel(o)}
           </option>
         ))}
       </select>

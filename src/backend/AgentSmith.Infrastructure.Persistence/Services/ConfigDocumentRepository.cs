@@ -16,8 +16,10 @@ public sealed class ConfigDocumentRepository(AgentSmithDbContext db)
 {
     public bool IsEmpty() => !db.ConfigEntities.Any();
 
+    // 2026-09-15-9b3e: without ORDER BY there is NO order, only the look of one.
     public IReadOnlyList<ConfigDocRow> LoadAll() =>
         db.ConfigEntities.AsNoTracking()
+            .OrderBy(e => e.EntityType).ThenBy(e => e.EntityId)
             .Select(e => new ConfigDocRow(e.EntityType, e.EntityId, e.Doc, e.Version))
             .ToList();
 
