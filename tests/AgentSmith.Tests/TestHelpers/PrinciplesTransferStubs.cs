@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.TestHelpers;
 
@@ -18,12 +20,21 @@ internal static class PrinciplesTransferStubs
     public const string CatalogOrigin = "stub-catalog";
 
     public static BootstrapPrinciplesTransfer NoTemplates() =>
-        new(new StubPrinciplesTemplateSource(null), new StubCatalogPath(),
+        new(new StubPrinciplesTemplateSource(null), new StubCatalogPath(), Writer(),
             NullLogger<BootstrapPrinciplesTransfer>.Instance);
 
     public static BootstrapPrinciplesTransfer Composing(string composedContent) =>
-        new(new StubPrinciplesTemplateSource(composedContent), new StubCatalogPath(),
+        new(new StubPrinciplesTemplateSource(composedContent), new StubCatalogPath(), Writer(),
             NullLogger<BootstrapPrinciplesTransfer>.Instance);
+
+    /// <summary>
+    /// 2026-09-15-d66f: a real writer over a stub reader factory. These stubs model catalogs
+    /// that declare no artefact, so the writer returns before it touches the sandbox — but it
+    /// is the real type, so a change to its contract breaks here rather than silently passing.
+    /// </summary>
+    public static BootstrapArtefactWriter Writer() =>
+        new(new Mock<ISandboxFileReaderFactory>().Object,
+            NullLogger<BootstrapArtefactWriter>.Instance);
 
     internal sealed class StubCatalogPath : ISkillsCatalogPath
     {

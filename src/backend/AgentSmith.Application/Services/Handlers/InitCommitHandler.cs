@@ -118,7 +118,7 @@ public sealed class InitCommitHandler(
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Reason: ex.Message), null);
         }
 
-        var body = $"Auto-generated project context, code map, and coding principles.\n\n{SiblingMarker}";
+        var body = InitPullRequestBody.Compose(context.Pipeline, repo.Name, SiblingMarker);
         try
         {
             var provider = sourceFactory.Create(repo);
