@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-15-a2d0
+
+decisions:
+  - category: Scope
+    chose: "The duplicate-context note was CUT from the spec before it was built, and 2026-09-15-6f8d was minted for it"
+    over: "Shipping a row that says 'the earlier binding is the one that applies'"
+    reason: |
+      The spec claimed that sentence was what the product does, citing
+      ProjectTemplateScopes.cs:71 (`if (result.ContainsKey(name)) continue;`). An adversarial
+      review of the spec against the code found two more consumers that disagree with it.
+      SpecDialogTemplateScopes.Stamp builds `project.Templates.ToDictionary(t => prefix +
+      t.Context, ...)`, which THROWS ArgumentException on the repeat, and SpecDialogTurnRunner
+      reaches it every turn. TemplateProofReport iterates every declaration and resolves each
+      by context, so the second entry's TemplateContext is read out of the first entry's scope
+      at the first entry's revision. Three consumers, three answers, and no rule in
+      ProjectTemplateRules forbidding the input — so there was nothing true for a row to say.
+      The list stays silent until 2026-09-15-6f8d decides it.
+
+  - category: UX
+    chose: "A single stored template opens itself; two or more open nothing on load"
+    over: "Nothing opens on load, symmetrically"
+    reason: |
+      Every template-carrying artefact in the repository declares exactly one, so the
+      symmetric rule would have made the only shape that exists cost an extra click to reach
+      fields that were already on screen — a regression dressed as consistency. The rule that
+      survives is "the editor is open for the row there is nothing to choose between, and for
+      the row just added". It also keeps ProjectForm_TemplatesUntouched_SurviveAnUnrelatedEdit
+      green WITHOUT an edit, which is the stronger proof of the preserve behaviour: an
+      unedited test cannot have been bent to fit.
+
+  - category: Architecture
+    chose: "Removing a row closes the editor, so the open row stays an index"
+    over: "A generated row identity, as MapField carries"
+    reason: |
+      An open INDEX survives a removal above it and silently retargets a different template.
+      MapField solved that with `type Row = { id: number; ... }` because its rows ARE its
+      state. Here the rows are props and the only hazard is the open index, so closing on
+      removal removes the hazard outright and keeps the test ids positional —
+      form-templates-{i}-{field}, which is what keeps 620e's tests meaningful.
+
+  - category: Architecture
+    chose: "A closed row makes no outbound call, and says nothing about whether its target is reachable"
+    over: "Keeping every row's editor mounted and hidden, so the reachability line survives"
+    reason: |
+      useProjectContexts fans out one call per ref, and the endpoint is a DiagnosticsProbe
+      because it spends the installation's credentials inside a customer system. Opening the
+      drawer costs R (this project's own repos, unchanged) + one per OPEN row, where it used
+      to be R + one per declared template. Keeping editors mounted would have preserved the
+      "could not read the target repository" line at the price of restoring that traffic on
+      every drawer open. What a closed row can judge without a call — an unfinished binding —
+      it marks; what it cannot, it does not claim. Re-opening a row reads again: nothing
+      caches this call at any layer, and this phase adds no cache.
+
+  - category: UX
+    chose: "The row wraps and ellipsises nothing"
+    over: "One line per row with text-overflow, as .repo-row carries"
+    reason: |
+      The drawer is 480px of content and a template's target line is a project, a repo ref, a
+      context and a revision. A truncated sha is a wrong sha, not a shorter one, and a row
+      that hides a value is the length complaint one click deeper — which is the failure this
+      phase exists to remove.
+
+  - category: CodeQuality
+    chose: "The field split into four files"
+    over: "Growing the existing 208-line TemplateBindings.tsx"
+    reason: |
+      principles.md caps a class at 120 lines and TemplateBindings was already past it across
+      four components. The split follows the precedent formFields.tsx states for MapField — a
+      row list with its own state is not a form primitive: the field and its open state, the
+      row, the editor, and the two context helpers both of them need.
+
+  - category: Architecture
+    chose: "No reset guard on the open row at all"
+    over: "Re-initialising it when project.id changes, which the first implementation carried"
+    reason: |
+      A review of the implementation against the code found the guard fired on the wrong
+      path and was dead on the one it was written for. ConfigStudio renders {drawer &&
+      <EntityDrawer/>} and the drawer's scrim covers the cards that would open another
+      entity, so the field unmounts between projects and useState re-initialises anyway.
+      What project.id DOES change on is every keystroke of a new project's id field, which
+      EntityForm leaves editable while isNew — so the guard re-opened a row the operator had
+      just closed, character by character. The branch was deleted rather than repaired.
