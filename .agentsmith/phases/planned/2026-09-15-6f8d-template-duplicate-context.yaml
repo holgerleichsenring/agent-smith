@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-6f8d
+
+goal: "Two templates for one context are decided once, because today three consumers disagree and one of them throws on every dialog turn."
+
+applies_to: "backend (template resolution, the dialog stamp, the proof report)"
+
+requires:
+  - 2026-09-13-5fa0
+
+scope:
+  in: >
+    One answer to "what does a second template for the same context mean", applied to every
+    consumer: ProjectTemplateRules (which has four rules and no rule about this),
+    ProjectTemplateScopes (first entry wins, ordinally), SpecDialogTemplateScopes (throws),
+    TemplateProofReport (reads the LATER entry's template context out of the EARLIER entry's
+    scope). Whether the answer is a refusal at config time or a defined precedence is the
+    phase's decision; what it may not stay is three answers.
+  out: >
+    THE STUDIO LIST. 2026-09-15-a2d0 lists templates and deliberately says nothing about a
+    duplicate, because there is nothing true to say until this phase says it.
+    THE CASE-SENSITIVITY OF A CONTEXT NAME EVERYWHERE ELSE. This phase settles it for
+    templates; ConfigNames.Comparer is OrdinalIgnoreCase and the scope dictionary is Ordinal,
+    and the same split elsewhere is its own question.
+
+decisions:
+  - key: |
+      THE THREE DISAGREEMENTS, EACH READ OFF THE CODE. ProjectTemplateScopes.cs:65 keys an
+      Ordinal dictionary and skips a repeat (`if (result.ContainsKey(name)) continue;`), while
+      filtering the same names OrdinalIgnoreCase two lines above — so `server` and `Server`
+      both open. SpecDialogTemplateScopes.cs:58 calls ToDictionary over the same keys, which
+      throws ArgumentException on the repeat; SpecDialogTurnRunner reaches it every turn.
+      TemplateProofReport.cs:50 iterates every declaration and resolves each by context, so
+      the second entry's TemplateContext is read out of the first entry's scope and revision.
+  - key: |
+      A CRASH IS NOT A REFUSAL. Nothing stops the configuration being written:
+      ProjectTemplateRules.Check has four rules and names none of them this, and
+      ProjectTemplateResolver.Resolve is a Select with no dedup. So the operator's first
+      notice is a failed turn, which is the wrong place and the wrong sentence.
+
+steps:
+  - id: one-rule-decides-what-a-duplicate-is
+    action: "Decide refusal-at-config-time or defined precedence, state it once, and make every consumer read that statement."
+  - id: the-comparer-is-the-same-everywhere
+    action: "One comparer for a template context across the filter, the scope key and the stamp."
+  - id: the-proof-report-reads-its-own-declaration
+    action: "A declaration is read out of the scope its own entry opened, or not read at all."
+
+tests:
+  - "Templates_TwoForOneContext_AreDecidedOnceNotThreeWays"
+  - "Stamp_TwoTemplatesForOneContext_DoesNotThrow"
+  - "Templates_ContextsDifferingInCase_FollowTheSameComparerEverywhere"
+  - "ProofReport_TwoForOneContext_ReadsNoDeclarationOutOfAnotherScope"
+
+done:
+  - "a duplicate context has one meaning, stated in one place, and every consumer reads it"
+  - "no dialog turn throws on a configuration the studio and the loader both accept"
+  - "full suite green"
