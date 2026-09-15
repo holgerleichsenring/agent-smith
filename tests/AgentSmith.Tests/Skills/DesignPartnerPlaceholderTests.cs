@@ -35,11 +35,11 @@ public sealed class DesignPartnerPlaceholderTests
     }
 
     private static IReadOnlyList<string> PlaceholderIds(string master) =>
-        Regex.Matches(master, @"\b\d{4}-\d{2}-\d{2}-[0-9a-f]{4}\b")
+        Regex.Matches(master, @"\b\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?\b")
              .Select(m => m.Value)
              .Distinct(StringComparer.Ordinal)
              .ToList();
 
     private static Regex SpecId() =>
-        new(@"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4})(?:-[a-z][a-z0-9-]*)?$");
+        new(@"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$");
 }

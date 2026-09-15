@@ -25,6 +25,6 @@ internal sealed partial record DecisionFileLabel(string FileName, string HeaderK
     // Mirrors the `phase` pattern in .agentsmith/decision.schema.json: the closed
     // counter namespace, or a p0507 date-minted id. The date branch cannot collide with
     // a run id — a run id carries a `T` and a time where this one carries the suffix.
-    [GeneratedRegex(@"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4})(?:-[a-z][a-z0-9-]*)?$")]
+    [GeneratedRegex(@"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$")]
     private static partial Regex PhasePattern();
 }

@@ -35,6 +35,14 @@ describe("splitPhasePrefix", () => {
       .toEqual({ phaseId: "2026-08-24-8a3f", label: "Generate plan" });
   });
 
+  // 2026-09-03-2f81: phases cut from one piece of work share a number and differ by a
+  // trailing letter. Unwidened, the rail reads the id as ending at the hex and renders
+  // the letter as the first character of the step label.
+  it("RunStepRail_SeriesMember_CarriesItsLetterIntoThePhaseId", () => {
+    expect(splitPhasePrefix("2026-08-24-8a3fb: Generate plan"))
+      .toEqual({ phaseId: "2026-08-24-8a3fb", label: "Generate plan" });
+  });
+
   it("still leaves a date that is not a minted id alone", () => {
     expect(splitPhasePrefix("2026-13-99-zzzz: nightly"))
       .toEqual({ phaseId: null, label: "2026-13-99-zzzz: nightly" });
