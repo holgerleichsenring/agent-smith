@@ -85,6 +85,9 @@ vi.mock("@/lib/configApi", () => {
       pipelines: ["code", "security-scan"],
       roles: [{ key: "coding", optional: false }],
     }),
+    // 2026-09-14-620e: the template form reads context names live; a wholesale
+    // module mock has to declare it or the form throws on mount.
+    fetchProjectContexts: vi.fn().mockResolvedValue({ contexts: [], unreadableReason: null }),
     fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
   };
 });

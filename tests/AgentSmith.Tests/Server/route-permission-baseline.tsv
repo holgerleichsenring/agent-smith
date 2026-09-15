@@ -28,6 +28,7 @@ GET	/api/config/findings	anonymous
 GET	/api/config/installation	anonymous
 GET	/api/config/mcp-servers	config.read
 GET	/api/config/projects	config.read
+GET	/api/config/projects/{project}/contexts	diagnostics.probe
 GET	/api/config/repos	config.read
 GET	/api/config/secrets	secrets.read
 GET	/api/config/settings	config.read

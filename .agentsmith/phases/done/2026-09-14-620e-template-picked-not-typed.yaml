@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-14-620e
+
+goal: "A template is picked from what exists, not typed from memory, so the studio can declare one and a typo is unlikely rather than merely refused later."
+
+applies_to: "backend (a context-listing endpoint) + dashboard (the project form)"
+
+requires:
+  - 2026-09-13-5fa0
+
+scope:
+  in: >
+    An endpoint that lists the context names of a project's repo — read through
+    ISourceProvider.ListDirectoryAsync over `.agentsmith/contexts`, the same call
+    SandboxLanguageResolver already makes, which needs no sandbox and no run; the project
+    form binds a template per context, with the target project and its repo ref chosen from
+    the catalog the studio already holds and BOTH context names chosen from what the
+    endpoint returns; a repo the endpoint cannot read says so and the field falls back to
+    text rather than blocking the form.
+  out: >
+    A BRANCH PICKER FOR THE REVISION. No source provider lists refs — CheckoutAsync takes a
+    branch name and nothing enumerates them — so the revision stays free text, verified
+    where it is fetched (2026-09-13-9802). Listing refs is a provider capability with its
+    own phase.
+    A CAPABILITIES DESCRIPTOR ENTRY. Cut from this phase on review, because four separate
+    facts refuse it and the decision below states them; the project form is not
+    descriptor-driven at all today.
+    VALIDATING A CONTEXT NAME AT WRITE TIME. The endpoint makes a typo unlikely; it does not
+    make the stored name checkable, because the target repository moves independently of
+    this configuration. The refusal stays where the template is fetched.
+    A PICKER ANYWHERE ELSE. This is the project form. What else might want contexts is a
+    question this endpoint answers when something asks.
+
+decisions:
+  - key: |
+      FOUR FREE TEXT FIELDS WOULD NOT HAVE BEEN HONEST, THEY WOULD HAVE BEEN A SHIFTED ERROR. The
+      first cut of the template work scoped the studio out on the grounds that "contexts are
+      discovered inside a run and no endpoint serves them, so a typed picker has no data". The
+      first half is true and the conclusion does not follow: two of the five fields are already
+      in the catalog the studio holds, and two more are readable without a run.
+  - key: |
+      TWO FROM THE CATALOG, TWO FROM THE ENDPOINT, ONE TYPED — counted against the code rather
+      than asserted. `project` is another project id the referential validator already checks,
+      and `repo` is a repo ref of THAT project, which ProjectTemplateRules already checks; both
+      are in the catalog the studio holds. `context` and `template_context` are in no catalog —
+      ProjectTemplateRules says so in as many words — and are what the endpoint supplies.
+      `revision` is free text.
+  - key: |
+      CONTEXT DISCOVERY NEEDS NO SANDBOX, WHICH IS THE FACT THE FIRST CUT MISSED.
+      SandboxLanguageResolver.ListContextsAsync reads `.agentsmith/contexts` through
+      ISourceProvider.ListDirectoryAsync — a provider call, not a checkout, and
+      ConnectionDiagnosticsService already makes provider calls from a plain server service.
+      What is unavailable at config time is a context's CONTENT, not its NAME, and a picker
+      needs only the name.
+  - key: |
+      THE LIST IS THE DEFAULT BRANCH'S, AND THE FORM SAYS SO. Every provider's
+      ListDirectoryAsync resolves the default branch before it lists; nothing reads a path at
+      an arbitrary revision. So a context that exists only at the pinned revision is not
+      offered, and one that is offered may be absent there. Saying "a typo is impossible"
+      would have been false — the field says where its list comes from instead.
+  - key: |
+      THE REVISION STAYS TYPED, AND THAT IS SAID OUT LOUD RATHER THAN QUIETLY SHIPPED. Nothing
+      in the product enumerates refs. Leaving one field free while the other four are picked is
+      honest about where the remaining risk is; pretending the whole form is safe would not be.
+  - key: |
+      AN UNREADABLE REPOSITORY DEGRADES THE FIELD, NEVER THE FORM. A token that cannot reach the
+      target, a repository that has not been initialised, a host that is down — none of those is a
+      reason an operator cannot finish editing a project. The field says why it could not offer a
+      list and accepts a name.
+  - key: |
+      IT IS A PROBE PERMISSION, NOT A READ. The neighbouring connections/{id}/repos endpoint is
+      config.read because it reads a CACHE. This one makes an outbound authenticated call into a
+      customer system with the installation's own credentials, which is the sentence
+      Permissions.DiagnosticsProbe is defined by. It takes that permission.
+  - key: |
+      THE CONFIG IS RE-READ PER CALL, BECAUSE THE SINGLETON IS STALE BY CONSTRUCTION.
+      AgentSmithConfig is built once at composition and the config-epoch reloader only calls
+      store.Load(); a repo added in the studio would be invisible to this endpoint until a
+      restart — in exactly the session that just added it. IConfigurationLoader.LoadConfig
+      re-assembles from the document store, and it is what resolves a repo ref to a
+      RepoConnection, which the studio's own RepoEntity (id/name/branch) cannot do.
+  - key: |
+      A PROVIDER'S OWN ERROR TEXT IS NOT SERVED VERBATIM. RemoteContextListing carries the
+      thrown message, which is third-party text that can carry a URL and, on a redirect, a
+      credential inside one. The reason is stripped of URL userinfo and bounded before it
+      leaves the server.
+  - key: |
+      A LOCAL REPO IS LISTED, UNLIKE A PROBE. ConnectionDiagnosticsService skips Local because
+      there is no service to probe; there IS a directory to list, the path is one the operator
+      declared in their own configuration, and the read is confined to
+      `.agentsmith/contexts`. Refusing it would break the local-development path this product
+      is developed on.
+  - key: |
+      THE PRESERVE RULE IS PINNED ON THE SERVER, AND THE DASHBOARD TEST SAYS WHAT IT CAN SEE.
+      ProjectTemplateStoreTests already pins that a ProjectEntity omitting templates preserves
+      the stored declaration. A form test cannot assert that — it asserts what it owns: an edit
+      to an unrelated field leaves a loaded templates list untouched.
+
+steps:
+  - id: an-endpoint-lists-a-project-repo-s-contexts
+    action: "A config endpoint returns the context names under .agentsmith/contexts for a project's repo ref, through the source provider, re-reading the configuration per call."
+  - id: the-project-form-picks-instead-of-typing
+    action: "Target project and repo ref come from the catalog; both context names come from the endpoint; the revision is typed and says where it is verified."
+  - id: an-unreadable-repository-says-so
+    action: "A repo whose contexts cannot be listed reports a sanitised reason and the field accepts a typed name."
+
+tests:
+  - "ListContexts_RepoWithTwoContexts_ReturnsBothNames"
+  - "ListContexts_RepoWithoutTheDirectory_ReturnsEmptyAndSaysSo"
+  - "ListContexts_UnreachableRepo_ReportsTheReasonNotAnEmptyList"
+  - "ListContexts_UnreachableReason_CarriesNoCredential"
+  - "ListContexts_UnknownProjectOrRepoRef_IsNotFound"
+  - "ProjectForm_PicksTargetProjectRepoAndBothContexts"
+  - "ProjectForm_RevisionStaysFreeText"
+  - "ProjectForm_TemplatesUntouched_SurviveAnUnrelatedEdit"
+
+done:
+  - "an operator declares a template in the studio without typing a project, a repo or a context name"
+  - "a repository whose contexts cannot be listed leaves the form usable and says why, without echoing a credential"
+  - "the revision is the only typed field, and the form says it is verified where it is fetched"
+  - "the context lists say they are read from the default branch"
+  - "dashboard tests and build green, backend build green, full suite green"
