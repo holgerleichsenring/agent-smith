@@ -4,6 +4,7 @@ using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Config;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgentSmith.Server.Extensions;
@@ -59,6 +60,22 @@ internal static class ConfigCapabilityEndpoints
                     discovery?.Repos.Select(r => new ConnectionRepoView(r.Name, r.DefaultBranch)).ToList()
                         ?? []));
             }).Needs(Permissions.ConfigRead);
+
+        // 2026-09-14-620e: the template form's context picker. Unlike the repo picker above,
+        // which reads a CACHE, this makes an outbound authenticated call into a customer
+        // system with the installation's own credentials — the sentence DiagnosticsProbe is
+        // defined by, so it takes that permission and not config.read. Unknown project or
+        // repo ref → 404; a repo that cannot be read → 200 with a reason, because the form
+        // must stay usable when the credential cannot reach the target.
+        app.MapGet("/api/config/projects/{project}/contexts",
+            async (string project, [FromQuery] string repo,
+                [FromServices] TemplateContextLookup lookup, CancellationToken ct) =>
+            {
+                var view = await lookup.ListAsync(project, repo, ct);
+                return view is null
+                    ? Results.NotFound(new { error = $"Project '{project}' declares no repo '{repo}'." })
+                    : Results.Ok(view);
+            }).Needs(Permissions.DiagnosticsProbe);
 
         return app;
     }

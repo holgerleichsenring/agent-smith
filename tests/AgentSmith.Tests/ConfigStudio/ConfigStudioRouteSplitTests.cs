@@ -13,7 +13,8 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// p0510: the split of ConfigStudioEndpoints into per-surface files is behaviour-
 /// preserving, so the routes it maps are the proof. This reads the mapped endpoints
 /// straight off the route builder — no server, no store — and asserts the same
-/// thirty-nine verb/path pairs the single file produced. The two file-length
+/// verb/path pairs the single file produced, plus what has been mapped beside them
+/// since (2026-09-14-620e's template-context picker is the fortieth). The two file-length
 /// assertions hold the other half of the phase: the split files stay under the limit
 /// and none of them buys its way into the ratchet baseline.
 /// </summary>
@@ -37,7 +38,7 @@ public sealed class ConfigStudioRouteSplitTests
 
     [Fact]
     public void ConfigStudio_MappedRoutes_AreTheSameThirtyNineAfterTheSplit() =>
-        MappedRoutes().Should().HaveCount(39);
+        MappedRoutes().Should().HaveCount(40);
 
     [Fact]
     public void ConfigStudio_MappedRoutes_KeepTheirVerbsAndPaths() =>
@@ -68,6 +69,7 @@ public sealed class ConfigStudioRouteSplitTests
             "POST /api/config/projects/validate",
             "POST /api/config/trackers/validate",
             "GET /api/config/connections/{id}/repos",
+            "GET /api/config/projects/{project}/contexts",
             "GET /api/config/export.yml",
             "POST /api/config/import",
             "GET /api/config/changes",

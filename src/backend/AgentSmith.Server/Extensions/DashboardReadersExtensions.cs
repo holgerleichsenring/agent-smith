@@ -1,5 +1,6 @@
 using AgentSmith.Server.Services.Catalog;
 using AgentSmith.Server.Services.Diagnostics;
+using AgentSmith.Server.Services.Config;
 using AgentSmith.Server.Services.Events;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +31,9 @@ internal static class DashboardReadersExtensions
         services.AddSingleton<IInfraConnectivityProbe, InfraConnectivityProbe>();
         services.AddSingleton<IChatConnectivityProbe, ChatConnectivityProbe>();
         services.AddSingleton<IConnectionDiagnosticsService, ConnectionDiagnosticsService>();
+        // 2026-09-14-620e: transient, like the ISandboxLanguageResolver it reads through —
+        // a singleton would capture it.
+        services.AddTransient<TemplateContextLookup>();
         return services;
     }
 }
