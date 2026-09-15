@@ -94,6 +94,10 @@ public sealed class PrinciplesTemplateContentTests
                 .BeTrue($"the {slug} delta must ship with the catalog");
             delta.Should().Contain("## Additions", $"{slug}: DELTA-FORMAT requires Additions");
             delta.Should().Contain("## Overrides", $"{slug}: DELTA-FORMAT requires Overrides");
+            // 2026-09-13-fcc1 added a third mandatory section. It is asserted against the PIN
+            // (ComposedPrinciplesGoldenTests), not here: TestSkillsRoot resolves whatever branch
+            // the operator's catalog checkout is on, so a contract assertion placed here passes
+            // or fails on someone's working tree.
         }
     }
 

@@ -195,6 +195,7 @@ public sealed class BootstrapPrinciplesTransferTests
             });
         var transfer = new BootstrapPrinciplesTransfer(
             templates.Object, new PrinciplesTransferStubs.StubCatalogPath(),
+            PrinciplesTransferStubs.Writer(),
             NullLogger<BootstrapPrinciplesTransfer>.Instance);
         var handler = NewHandler(new CapturedPrompt(), transfer);
         var pipeline = NewPipeline(new StubSandbox());

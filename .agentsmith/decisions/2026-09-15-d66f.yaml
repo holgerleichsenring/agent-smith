@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-15-d66f
+
+decisions:
+  - category: Architecture
+    chose: "The composer parses the artefacts out of the delta and STRIPS the section before rendering"
+    over: "Leaving the delta text intact, as the original phase assumed"
+    reason: |
+      CatalogPrinciplesTemplateSource.Render inlines the whole delta file verbatim into the
+      composed principles. Once the catalog made the artefacts section mandatory, that changed the
+      composed bytes of EVERY stack — including rust and typescript, which only state the section
+      empty. The original phase's done-criterion "every other stack composes byte-identically to
+      before" was therefore false as written. Stripping keeps the criterion and makes it true, and
+      it is the right shape anyway: an artefact is a file for the repository, so restating it in
+      principles.md would be a second place for the two to disagree.
+
+  - category: Testing
+    chose: "The goldens were minted from the pin BEFORE the bump, then the bump had to reproduce them"
+    over: "Writing the byte-identity test after the change, against whatever the composer then produced"
+    reason: |
+      The only determinism test in the codebase composes twice in one process and compares — that
+      proves determinism, not before-and-after, so the phase's claim had nothing behind it. Minting
+      the goldens from v5.3.0 (the release with no artefacts section) and then moving the pin to
+      v5.4.0 (where the section is mandatory) makes the test the actual evidence: it can only pass
+      if the strip works. Measured rather than assumed — with the strip disabled, four of the five
+      golden assertions fail, rust and typescript among them.
+
+  - category: Architecture
+    chose: "Preserve-existing is decided per path, in a type of its own"
+    over: "Extending the transfer's single round-level decision to cover the set"
+    reason: |
+      The transfer returns PreservedExisting before it reaches its write when a principles file is
+      already there. Applied to a file set, one ratified principles.md would suppress every
+      artefact beside it — in exactly the established repositories that carry the drift artefacts
+      exist to catch. The loop, the path rule and the existence probe also do not fit in the
+      transfer's remaining length budget, and a separate type is the shape the neighbouring
+      BootstrapMetaFiles already took for the same reason.
+
+  - category: Architecture
+    chose: "PrinciplesTransferResult gains the per-path outcomes BESIDE its mode"
+    over: "Turning the result into a collection, as the original phase worded it"
+    reason: |
+      Four call sites read Mode and Error as ROUND-level facts, and one of them feeds the bootstrap
+      prompt — an artefact set cannot answer "what happened to principles.md". Replacing the record
+      would have broken that plumbing for no gain.
+
+  - category: Architecture
+    chose: "The existing FilePath rule and the existing sandbox file reader are reused"
+    over: "A path check and an existence probe written for this phase"
+    reason: |
+      The domain already refuses a rooted path and any parent traversal, and the bootstrap meta
+      files already probe one path at a time through the sandbox reader. A second copy of either
+      would be a second place for them to disagree, which is the whole argument for having the
+      first one.
+
+  - category: Correctness
+    chose: "A file an earlier round of THIS run wrote reports AlreadyWrittenThisRound, not PreservedExisting"
+    over: "One preserved status for anything already on disk"
+    reason: |
+      A repository fans out one round per component against a single checkout. Three components of
+      one stack produce three rounds, and the repository-root artefact the first one writes is
+      present for the other two. Reporting that as preserved would credit the operator with a file
+      this very run created — and the init pull request body, which the next phase composes from
+      these outcomes, would state it as ratified.
+
+  - category: Testing
+    chose: "The mandatory-section assertion lives on the PIN, not on the catalog checkout"
+    over: "Extending PrinciplesTemplateContentTests, which is where the sibling assertions live"
+    reason: |
+      That test resolves TestSkillsRoot — whatever branch the operator's catalog checkout happens
+      to be on — and returns early when it is absent. Adding the assertion there made it fail
+      locally the moment it was written, because the checkout sat on an unrelated branch while the
+      contract had already shipped on main. A statement about what the product SHIPS belongs on the
+      embedded tarball, which this repository owns and this phase just moved.
+
+  - category: Architecture
+    chose: "The ticket-content keys were extracted into their own ContextKeys partial"
+    over: "Adding the new key to ContextKeys.cs, which sits at its length baseline"
+    reason: |
+      The ratchet refuses growth of a baselined file and says to extract rather than add a row.
+      ContextKeys already documents itself as split into per-subdomain partial files, and the three
+      ticket-content keys with their long doc comments are one such subdomain — so the split is the
+      convention the type already states, not a workaround, and no call site changes because it is
+      the same class. The file went 164 to 152 and the baseline was tightened to match: room freed
+      by an extraction is not room for the next unrelated addition.

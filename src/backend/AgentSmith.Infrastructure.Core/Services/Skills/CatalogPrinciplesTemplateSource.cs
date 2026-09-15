@@ -42,8 +42,15 @@ public sealed class CatalogPrinciplesTemplateSource(
         var slug = NormalizeSlug(languageSlug);
         var deltaPath = Path.Combine(principlesDir, "deltas", $"{slug}.md");
         var delta = File.Exists(deltaPath) ? File.ReadAllText(deltaPath) : null;
-        var content = Render(File.ReadAllText(corePath), delta, slug);
-        return new ComposedPrinciples(content, slug, DeltaApplied: delta is not null);
+        // 2026-09-15-d66f: the artefacts a delta declares are files for the REPOSITORY, not
+        // prose for the principles. They are taken out before rendering, so the composed
+        // bytes are exactly what they were before the section became mandatory.
+        var (rendered, artefacts) = delta is null
+            ? (null, (IReadOnlyList<PrinciplesArtefact>)[])
+            : DeltaArtefactSection.Split(delta);
+        var content = Render(File.ReadAllText(corePath), rendered, slug);
+        return new ComposedPrinciples(
+            content, slug, DeltaApplied: delta is not null, Artefacts: artefacts);
     }
 
     // Free-form discovery slugs that mean the same delta file. Unknown slugs

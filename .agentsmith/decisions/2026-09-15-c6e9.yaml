@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-15-c6e9
+
+decisions:
+  - category: Architecture
+    chose: "The body is composed in its own type, which reads the pipeline itself"
+    over: "Composing it inside InitCommitHandler, where the literal was"
+    reason: |
+      InitCommitHandler sits at exactly its file-length baseline, so the handler may not gain a
+      single line — its call had to stay one line, which means the pipeline read moved into the
+      composing type too. That is the better shape regardless: a body composed from run facts can
+      be asserted directly, while a string interpolated inside a commit handler can only be
+      reached through a whole run.
+
+  - category: Architecture
+    chose: "Two Compose overloads — one over the pipeline, one over the facts"
+    over: "Only the pipeline overload, which the handler needs"
+    reason: |
+      The pipeline overload is what keeps the handler at one line; the facts overload is what
+      makes every case testable without constructing a run. Eight assertions exercise the second,
+      including the ones about multiple components and about an artefact refused — cases a
+      pipeline-shaped test would have made expensive enough to skip.
+
+  - category: Correctness
+    chose: "Rounds APPEND their outcome to the pipeline"
+    over: "Setting a context key per round"
+    reason: |
+      A repository fans out one round per component, so a key the last round wins would report one
+      component and silently drop the rest. The pipeline already carries this idiom for decisions,
+      and the extension sits beside it.
+
+  - category: Correctness
+    chose: "The body filters to its own repository"
+    over: "Rendering every outcome the run produced"
+    reason: |
+      A multi-repo init opens one pull request per repository. Every one of them describing every
+      repository's contexts would tell a reviewer of the API repo about the web repo's principles,
+      which is noise at best and a wrong ratification at worst. A test pins it.
+
+  - category: Correctness
+    chose: "The cross-link marker is appended by the composing type, not by the caller"
+    over: "Leaving the caller to concatenate it, as the literal did"
+    reason: |
+      PrCrossLinkHandler replaces that marker with the sibling pull-request list and fails hard
+      when it is absent. A composed body that dropped it would turn a reporting improvement into a
+      broken pull-request chain. Putting it inside the composition means there is one place it can
+      be forgotten, and a test asserts it for both the bootstrapped and the empty case.
+
+  - category: Scope
+    chose: "The body says what was written, preserved and refused — not whether a gate will run it"
+    over: "Naming an artefact that no declared verify stage reaches, as the original phase wanted"
+    reason: |
+      A verify stage is a label, a shell command and a when-present condition. Whether a build
+      command reaches an editorconfig is not decidable from that string; the only mechanical test
+      over a string is substring matching, which is a heuristic standing in for a field that does
+      not exist. The ordering forbids it besides: the transfer runs BEFORE the skill call that
+      writes context.yaml, so on a cold init there is no verify block to consult at the moment an
+      artefact is written. Cut to a named successor (2026-09-15-a238) rather than approximated.
+
+  - category: Correctness
+    chose: "A run that bootstrapped nothing gets exactly the old body"
+    over: "An empty section, or a sentence saying no rounds ran"
+    reason: |
+      Not every pipeline that opens an init pull request runs bootstrap rounds. Reporting their
+      absence would be a new line of noise on runs that never had anything to say, and the literal
+      was correct for exactly that case. A test pins the byte-for-byte fallback.

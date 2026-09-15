@@ -1,3 +1,4 @@
+using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -21,6 +22,7 @@ namespace AgentSmith.Application.Services;
 public sealed class BootstrapPrinciplesTransfer(
     IPrinciplesTemplateSource templates,
     ISkillsCatalogPath catalogPath,
+    BootstrapArtefactWriter artefactWriter,
     ILogger<BootstrapPrinciplesTransfer> logger)
 {
     private const int WriteTimeoutSeconds = 30;
@@ -43,12 +45,26 @@ public sealed class BootstrapPrinciplesTransfer(
             return new PrinciplesTransferResult(
                 PrinciplesMode.SkillWrites, CatalogOrigin: ResolvedCatalogOrigin());
 
+        // 2026-09-15-d66f: the artefacts are decided per path, so they are applied on EVERY
+        // path through this method. A ratified principles.md used to return here and suppress
+        // them — in exactly the established repositories they are meant for.
+        var artefacts = await artefactWriter.ApplyAsync(
+            sandbox, repoName, contextName, composed.Artefacts,
+            pipeline.ArtefactsWrittenIn(repoName), cancellationToken);
+        pipeline.RememberArtefactWrites(repoName, artefacts);
+        if (artefacts.FirstOrDefault(a => a.Status == ArtefactStatus.Refused) is { } refused)
+            return new PrinciplesTransferResult(
+                PrinciplesMode.SkillWrites,
+                $"BootstrapPrinciplesTransfer: artefact '{refused.Path}' refused — {refused.Reason}",
+                Artefacts: artefacts);
+
         if (!string.IsNullOrWhiteSpace(existingPrinciples))
         {
             logger.LogInformation(
                 "{Repo}/{Context}: principles.md exists — preserved as ratified, not overwritten",
                 repoName, contextName);
-            return new PrinciplesTransferResult(PrinciplesMode.PreservedExisting);
+            return new PrinciplesTransferResult(
+                PrinciplesMode.PreservedExisting, Artefacts: artefacts);
         }
 
         var step = new Step(
@@ -60,12 +76,13 @@ public sealed class BootstrapPrinciplesTransfer(
             return new PrinciplesTransferResult(
                 PrinciplesMode.SkillWrites,
                 $"BootstrapPrinciplesTransfer: writing {principlesPath} failed — "
-                + (result.ErrorMessage ?? "unknown error"));
+                + (result.ErrorMessage ?? "unknown error"),
+                Artefacts: artefacts);
 
         logger.LogInformation(
             "{Repo}/{Context}: transferred composed principles core+{Slug} (delta applied: {DeltaApplied}) to {Path}",
             repoName, contextName, composed.LanguageSlug, composed.DeltaApplied, principlesPath);
-        return new PrinciplesTransferResult(PrinciplesMode.Transferred);
+        return new PrinciplesTransferResult(PrinciplesMode.Transferred, Artefacts: artefacts);
     }
 
     // Per-component language from discovery wins; the repo-level ProjectMap

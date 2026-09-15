@@ -65,4 +65,11 @@ public static partial class ContextKeys
     /// sandbox's representative — and a bootstrap round writes one context's context.yaml from
     /// the map it is handed. The per-sandbox map stays what the plan and the masters read.</summary>
     public const string ContextProjectMaps = "ContextProjectMaps";
+
+    /// <summary>
+    /// 2026-09-15-c6e9: one BootstrapRoundOutcome per round, ACCUMULATED. A repository fans out
+    /// one round per component, so a key the last round wins would report one component and
+    /// silently drop the rest.
+    /// </summary>
+    public const string BootstrapOutcomes = "BootstrapOutcomes";
 }
