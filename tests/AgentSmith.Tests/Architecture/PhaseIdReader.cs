@@ -30,7 +30,7 @@ internal sealed class PhaseIdReader
     // p0507: the second namespace. A date-minted id is the UTC date plus a four-hex
     // random suffix, and the suffix's FIXED WIDTH is what says where the id ends — so
     // it reads correctly by prefix, exactly like Counter, whether or not a slug follows.
-    private const string Minted = @"\d{4}-\d{2}-\d{2}-[0-9a-f]{4}";
+    private const string Minted = @"\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?";
 
     /// <summary>The reading in force.</summary>
     public static PhaseIdReader Current { get; } = new(

@@ -26,10 +26,10 @@ namespace AgentSmith.Tests.Architecture;
 internal sealed partial class PhaseSpecFile
 {
     [GeneratedRegex(
-        @"^(?<id>\d{4}-\d{2}-\d{2}-[0-9a-f]{4}|p\d{4,6}[a-z]?(?:-pre)?)(?:-(?<slug>.*))?$")]
+        @"^(?<id>\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?|p\d{4,6}[a-z]?(?:-pre)?)(?:-(?<slug>.*))?$")]
     private static partial Regex FileStemRegex();
 
-    [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$")]
+    [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?$")]
     private static partial Regex DateMintedRegex();
 
     private readonly Lazy<JsonNode?> _document;
@@ -79,6 +79,15 @@ internal sealed partial class PhaseSpecFile
             ? new PhaseSpecFile(path, match.Groups["id"].Value, match.Groups["slug"].Value)
             : new PhaseSpecFile(path, stem, string.Empty);
     }
+
+    /// <summary>
+    /// 2026-09-03-2f81: the same stem reading, over a NAME rather than a file on disk, so a
+    /// rule about how a name is read can be proven without writing one into the phases
+    /// directory. Reuses FromPath deliberately — a second copy of the reading would be the
+    /// thing that agrees with the rule while the reader does not.
+    /// </summary>
+    internal static PhaseSpecFile ForStem(string stem) =>
+        FromPath(System.IO.Path.Combine("phases", stem + ".yaml"));
 
     private static JsonNode? Parse(string path)
     {

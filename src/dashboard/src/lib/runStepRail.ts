@@ -15,7 +15,7 @@ const STEP_ID_PREFIX = "step-";
 // that predate that, so old runs still render the real step name.
 // p0507: both id shapes — the counter namespace and a date-minted id. This mirrors
 // RunStepsReader.PhaseQualifiedRegex; fixing only the backend leaves the raw prefix here.
-const PHASE_PREFIX_RE = /^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4})): (.+)$/;
+const PHASE_PREFIX_RE = /^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)): (.+)$/;
 
 export function splitPhasePrefix(label: string): { phaseId: string | null; label: string } {
   const match = PHASE_PREFIX_RE.exec(label);
