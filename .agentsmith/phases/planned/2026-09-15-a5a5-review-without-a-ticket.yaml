@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-a5a5
+
+goal: "The cut review answers where there is no ticket and where a draft states no criteria, instead of inventing a coverage verdict and discarding every finding as an invention."
+
+applies_to: "backend (spec derivation: what the cut review may be asked, what it may quote, and what admits a quote)"
+
+requires:
+  - 2026-09-15-ffa7
+
+scope:
+  in: >
+    The coverage verdict is gated on the ticket being PRESENT, not on its length: whole, truncated
+    and absent are three states, and the third offers two verdicts. What the reviewer is ASKED is
+    widened with what it may quote: the verdicts stop being worded as criteria alone and name what
+    a phase states in place of one, and each phase is rendered with its quotable text and no empty
+    heading. Admission accepts a verbatim quote from the done-list, or from the goal or a step's
+    action where there is no done-list — under a match rule that a blank string and a bare step id
+    can no longer satisfy. The port is narrowed to the drafts and the key it actually reads.
+  out: >
+    A SECOND REVIEWER TYPE. The question is the same question; what changes is what it may be asked
+    about.
+    INVENTING A COVERAGE VERDICT WITHOUT A TICKET. There is no source of truth to compare against.
+    MAKING THE DESIGN MASTER EMIT A DONE-LIST. A catalog change, a release and a pin bump for a
+    draft shape the schema deliberately leaves optional — and a phase with a goal and steps and no
+    criteria is still a plan that can rest on a false premise.
+
+decisions:
+  - key: |
+      PRESENCE, NOT LENGTH — AN EMPTY STRING PASSES A LENGTH TEST. The prompt decides whether the
+      ticket is whole with one comparison against a character ceiling, so an absent ticket is
+      classified as a complete one and NOT IN THE TICKET is offered against nothing. The prompt's
+      own comment records what this produces: shown a fragment, a reviewer cannot tell "the ticket
+      never asked" from "I was not shown the part that asks", and answers the first confidently
+      every time — five false findings on one live run. Shown no ticket at all it does the same.
+  - key: |
+      A DRAFT THAT STATES NO CRITERIA IS STILL A PLAN. Admission keeps a finding only when the
+      quoted text is in the phase's done-list. The schema requires only a phase and a goal, and the
+      design-partner master's epic children carry a phase, a goal and steps and no done-list. Every
+      finding against such a child is discarded as an invention and logged as one — the reviewer is
+      blamed for the shape of what it was shown.
+  - key: |
+      THE MATCH RULE IS THE ADMISSION, AND IT IS ALREADY TOO WEAK TO WIDEN. Matches is bidirectional
+      substring containment, so the shorter side wins: an empty string is contained in everything,
+      and a draft whose done-list carries a blank entry — which the reader produces from a null YAML
+      item — admits every finding TODAY. Adding step actions makes it worse, because a step with an
+      id and no action reads back with its id as its action, and the schema's own examples of an id
+      are "domain", "contracts", "config", "verify". A fabricated sentence containing the word
+      "verify" would be admitted as a quote. So the rule gains a floor: a quote is non-empty, and a
+      quotable string too short to identify what it came from is not quotable. This is a live defect
+      being closed, not a new risk being taken.
+  - key: |
+      WIDENING WHAT MAY BE QUOTED WITHOUT WIDENING WHAT MAY BE FOUND CHANGES NOTHING. All three
+      verdicts are worded as criteria — "two criteria of the SAME phase", "a criterion nobody can
+      check", "a criterion the ticket never asked for" — and the JSON asks for a criterion quoted
+      verbatim from the phase. A reviewer told to quote a criterion from a phase that states none
+      will invent one, which is the same failure this phase exists to end, moved one field along.
+      The verdicts name what a phase states in place of a criterion.
+  - key: |
+      THE PORT ASKS FOR WHAT IT READS. ReviewAsync touches only the set's phases and its key, and
+      the prompt only the phases — but the parameter is a SpecSet, whose Current property throws on
+      an empty revision list and whose accounting and source have no meaning for a draft never
+      derived from a ticket. A caller outside the derivation would build an aggregate with three
+      real fields and three that must stay unread forever. Narrowing costs one signature and
+      removes the trap. It is the THIRD change to this port in this set, which is why 7d3c requires
+      this phase rather than only its predecessor.
+
+steps:
+  - id: the-ticket-has-three-states
+    action: "Whole, truncated, absent; the coverage verdict is offered only for the first, and the verdict list composes accordingly."
+  - id: the-verdicts-name-what-a-phase-states
+    action: "The three verdict texts and the JSON field stop assuming a criterion exists."
+  - id: the-prompt-renders-what-is-quotable
+    action: "Each phase is rendered with the text the reviewer may quote from — its criteria, else its goal and step actions — and no empty heading."
+  - id: the-match-rule-gains-a-floor
+    action: "A blank quotable string and a string too short to identify its source no longer admit a finding; the existing blank done-entry case is covered by the same floor."
+  - id: the-port-takes-drafts-and-a-key
+    action: "ISpecCutReviewer.ReviewAsync takes the phase drafts and the key it already reads; Describe takes a PhaseDraft; the derivation caller passes its set's own."
+
+tests:
+  - "Prompt_WithNoTicket_OffersTwoVerdictsAndNeverNotInTheTicket"
+  - "Prompt_WithATruncatedTicket_IsUnchanged"
+  - "Prompt_WithAWholeTicket_IsUnchanged"
+  - "Prompt_APhaseWithNoDoneList_RendersItsGoalAndStepActionsAsQuotable"
+  - "Prompt_APhaseWithNoDoneList_RendersNoEmptyDoneHeading"
+  - "Prompt_Verdicts_DoNotAssumeACriterionExists"
+  - "Finding_QuotingAGoalOfADoneLessPhase_IsKept"
+  - "Finding_QuotingAStepActionOfADoneLessPhase_IsKept"
+  - "Finding_QuotingABareStepId_IsDiscarded"
+  - "Finding_AgainstAPhaseWithABlankDoneEntry_IsDiscarded"
+  - "Finding_QuotingNothingTheDraftStates_IsStillDiscarded"
+  - "Finding_QuotingACriterion_IsKeptAsBefore"
+  - "Review_CalledWithDraftsAlone_NeedsNoFabricatedSpecSet"
+
+done:
+  - "a review asked over a draft with no ticket never reports that the ticket did not ask for something"
+  - "a finding against a phase that states only a goal and steps survives admission"
+  - "a fabricated quote is still discarded, and a blank or one-word match no longer admits one"
+  - "every existing derivation-path review behaves exactly as it does today"
+  - "build green, full suite green, file-length ratchet green"
