@@ -284,6 +284,27 @@ export interface ConnectionRepos {
   repos: DiscoveredRepo[];
 }
 
+/** 2026-09-14-620e: the context names one repo of one project declares, read live
+ *  through the source provider. `unreadableReason` non-null means the repository could
+ *  not be read at all — a different answer from "it declares none", and the form keeps
+ *  them apart. The list is the repository's DEFAULT BRANCH, not the template revision. */
+export interface ProjectContexts {
+  contexts: string[];
+  unreadableReason: string | null;
+}
+
+export async function fetchProjectContexts(
+  project: string,
+  repoRef: string,
+  signal?: AbortSignal,
+): Promise<ProjectContexts> {
+  return getJson<ProjectContexts>(
+    `/api/config/projects/${encodeURIComponent(project)}/contexts` +
+      `?repo=${encodeURIComponent(repoRef)}`,
+    signal,
+  );
+}
+
 export async function fetchConnectionRepos(
   connectionId: string,
   signal?: AbortSignal,
@@ -409,6 +430,18 @@ export interface ProjectResolution {
   value: string;
 }
 
+/** 2026-09-13-5fa0: one template binding — a context of THIS project is built after
+ *  (project, repo, context) of another, at a revision. 2026-09-14-620e: `project` and
+ *  `repo` are picked from the catalog, both context names from the contexts endpoint,
+ *  and `revision` is the one typed field — nothing in the product enumerates refs. */
+export interface TemplateReference {
+  context: string;
+  project: string;
+  repo: string;
+  templateContext: string;
+  revision?: string | null;
+}
+
 /** The relational heart: agent + tracker are single FKs, repos a FK set.
  *  p0345c truth-fix: the field once mislabeled `trigger` IS the pipeline —
  *  renamed on the wire; `resolution` is a strategy choice, not freetext. */
@@ -422,6 +455,10 @@ export interface StudioProject {
   resolution: ProjectResolution | null;
   /** p0392: what runs when a ticket carries no routing label. */
   defaultPipeline?: string;
+  /** 2026-09-13-5fa0: ABSENT means "nothing to say about templates", which is why a
+   *  new project's blank draft omits it — the server writes the field only when it is
+   *  present, so a client that does not know it cannot wipe a stored declaration. */
+  templates?: TemplateReference[] | null;
 }
 
 export interface StudioMcpServer {
