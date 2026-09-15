@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-09-15-d66f
 
-goal: "The bootstrap transfer writes a delta's declared artefacts into the target as a file SET, deciding preserve-existing per path, so a ratified principles file no longer suppresses every artefact beside it."
+goal: "The bootstrap transfer writes a delta's declared artefacts as a file SET, deciding preserve-existing per path, so a ratified principles file no longer suppresses every artefact beside it."
 
 applies_to: "backend (the principles template source, the bootstrap transfer, the embedded pin)"
 
