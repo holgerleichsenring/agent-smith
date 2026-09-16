@@ -3,6 +3,7 @@
 import type { TemplateReference } from "@/lib/configApi";
 import { TemplateEditor } from "./TemplateEditor";
 import type { useProjectContexts } from "./useProjectContexts";
+import { isTemplateUnfinished } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // 2026-09-15-a2d0: one declared template as a ROW that carries all five of its values,
@@ -57,7 +58,7 @@ export function TemplateRow({
               only "not finished", so a COMPLETE open row said nothing at all — and the only
               control that looked like progress was Add, which appends another empty binding.
               There is no save here on purpose: the drawer saves the project. */}
-          {isUnfinished(template) ? (
+          {isTemplateUnfinished(template) ? (
             <span className="tpl-todo" data-testid={`${testId}-unfinished`}>
               not finished
             </span>
@@ -104,7 +105,3 @@ export function TemplateRow({
     </div>
   );
 }
-
-/** What the server refuses at save time, minus the revision, which is optional. */
-const isUnfinished = (t: TemplateReference): boolean =>
-  !t.context || !t.project || !t.repo || !t.templateContext;

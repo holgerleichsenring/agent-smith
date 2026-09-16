@@ -1,7 +1,7 @@
 "use client";
 
 import type { StudioProject, TemplateReference } from "@/lib/configApi";
-import { resolveRepoRef, resolves } from "./integrity";
+import { isTemplateUnfinished, resolveRepoRef, resolves } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // 2026-09-16-942a: what a project is wired to, drawn from what is STORED.
@@ -198,8 +198,7 @@ function layout(project: StudioProject, catalog: ConfigCatalog): RepoBlock[] {
 }
 
 function node(template: TemplateReference, index: number, catalog: ConfigCatalog): ContextNode {
-  const unfinished =
-    !template.context || !template.project || !template.repo || !template.templateContext;
+  const unfinished = isTemplateUnfinished(template);
   return {
     key: `${template.contextRepo ?? ""}-${template.context || "unnamed"}-${index}`,
     context: template.context,
