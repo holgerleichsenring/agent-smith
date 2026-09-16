@@ -73,3 +73,34 @@ decisions:
       card at all, and that connection-scoped repo refs are not falsely reported as dangling.
       The chips they read are gone; what they proved is not. Both now assert the graph node's
       own coloured state.
+
+  - category: Implementation
+    chose: "The controls never shrink and the middle block yields"
+    over: "Leaving the card's flex row as it was"
+    reason: |
+      Shipped broken and caught by the operator, not by the suite. The summary became a row of
+      marks, and a wrapping row's min-content width is its widest item — so the middle block
+      claimed the space, the controls block shrank below its own content, and every button on
+      the right broke across three lines. The middle block is named and told to yield; the
+      controls are told not to shrink and not to wrap.
+
+  - category: Testing
+    chose: "The layout contract is pinned as source text"
+    over: "Trusting the component tests, which passed while the card was visibly broken"
+    reason: |
+      jsdom does no layout, so nothing in this suite could see the wrapping — and nothing did.
+      What a test CAN pin is the contract the stylesheet keys on: that the middle block and the
+      controls are addressable, and that the three rules holding them exist. It would not have
+      caught the original mistake, but it stops the fix from being silently undone. The real
+      gap is that this loop has no way to render a page; it is stated in the phase rather than
+      papered over.
+
+  - category: UX
+    chose: "The wiring disclosure is a button like the others"
+    over: "The muted hint text it was"
+    reason: |
+      It was styled as the same 11.5px muted text as "edit ›", between a bordered Initialize and
+      a type badge — so the one control that reveals the graph read as a label, and the operator
+      reported there was no way to expand. It now carries the same treatment as Initialize and
+      says what it does.
+
