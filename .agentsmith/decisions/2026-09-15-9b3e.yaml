@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-15-9b3e
+
+decisions:
+  - category: Architecture
+    chose: "The catalogs are sorted once in the hook that loads them"
+    over: "Sorting where the cards render, as the first cut of this spec said"
+    reason: |
+      That cut claimed one sort at the render point fixes all seven catalogs. It does not: ten
+      places render an array from the same catalog — the cards, the agent, tracker and repos
+      pickers, three auth-secret pickers, the key-secret picker, the connection dropdown, the
+      repo inventory and the template editor's project list. Sorting in the loader reaches every
+      one, including the pickers the first cut never counted, and it is one change instead of
+      ten. Nested lists are untouched: a project's repos and templates keep declaration order,
+      which 2026-09-15-a2d0 pinned as load-bearing.
+
+  - category: Correctness
+    chose: "The document read gains an ORDER BY as well"
+    over: "Client-side sorting alone"
+    reason: |
+      The claim that the store returns insertion order was a guess. A SELECT without ORDER BY
+      has NO order — it merely looks stable, which is worse, because it looks deliberate. The
+      client sort fixes what an operator sees; the ORDER BY is what makes two readers, and two
+      exports, agree at all. Neither alone is the whole answer.
+
+  - category: UX
+    chose: "One option per distinct context name, labelled with every repository that declares it"
+    over: "One option per repository-and-name pair"
+    reason: |
+      TemplateReference.Context stores a bare name and the run keys its template scopes by that
+      bare name. Two options sharing a VALUE would be a choice that is not one: the browser
+      matches the first, so picking the second would store what the first means. One option that
+      names both repositories keeps the choice real and states the collision instead of hiding
+      it. The help line names any context more than one repository declares.
+
+  - category: Scope
+    chose: "The repo travels in the CLIENT; no wire shape changes"
+    over: "Returning repo plus context from the endpoint, as the first cut specified"
+    reason: |
+      The contexts endpoint is called once per repo ref and the merge already held the ref
+      before it flattened the names away — the caller has always known which repo it asked
+      about. Changing the payload would have touched the view record, the lookup, the endpoint,
+      its seven tests and four dashboard mocks, for data the client already has. The
+      target-side field is unaffected either way: it asks about exactly one repo by
+      construction, so it could never collide.
+
+  - category: Scope
+    chose: "The row's close control is labelled and a complete row says so"
+    over: "Building a completeness notion and a way out, as the first cut assumed"
+    reason: |
+      2026-09-15-a2d0 already shipped the toggle and the unfinished badge, and a test already
+      pins the badge. What made Add look like the way forward is that the close control is an
+      unlabelled chevron on the same button that opens it, and that a COMPLETE row said nothing
+      at all. Rebuilding what exists would have been the larger and worse change.
+
+  - category: Correctness
+    chose: "The draft check reports a BROKEN binding and stays silent on an unfinished one"
+    over: "Running the template rules over every declared binding"
+    reason: |
+      The form re-posts the whole draft every 250 ms and Add appends an empty binding, so
+      judging unfinished rows would report "names unknown project ''" on every keystroke — for
+      a row whose own badge already says it is unfinished. Only a binding that names something
+      and names it wrong is a finding.
+
+  - category: Architecture
+    chose: "The template half of the referential validator is extracted into its own caller"
+    over: "Calling ConfigReferentialValidator.ValidateProject from the draft check"
+    reason: |
+      That method also judges agent, tracker and repos and throws ONE aggregated string, so a
+      blank new draft would report "references unknown agent ''" on every keystroke with no
+      per-field split — the same flooding by another route. The extraction is a CALLER of
+      ProjectTemplateRules, not a second copy: the validator calls it too, so there is still one
+      statement of what a binding may not be. Its own file because both the rules type and the
+      validator are close enough to the length limit that neither had room.
+
+  - category: Scope
+    chose: "The three pipeline fields stay, defended on one argument instead of two"
+    over: "Removing them, and over defending them with per-pipeline overrides"
+    reason: |
+      ResolveDefaultPipelineName throws when two pipelines are declared and no default is set,
+      so a project that lost the field would not start — that settles it alone. The override
+      argument was dropped on review: ProjectEntity.Pipelines carries NAMES only, so the studio
+      can neither author nor show an override, and nothing checked in uses one (the single
+      example is commented out; no harness fixture declares pipelines at all). Defending a field
+      with a capability that field does not expose would have been a bad argument that happened
+      to reach the right answer. The form is the real defect: 2026-09-15-2d68.
+
+  - category: Process
+    chose: "The deferred successor was minted before it was cited"
+    over: "The id the first cut of this spec referenced"
+    reason: |
+      That cut deferred three out-of-scope items to an id that existed nowhere — a silent defer
+      under a number nobody could open, and a direct breach of the minting rule, which says a
+      random suffix cannot be reserved in advance. The successor is minted, written and
+      committed with this phase; the remaining deferral, a repo-qualified context, is described
+      in prose because it has no file yet.

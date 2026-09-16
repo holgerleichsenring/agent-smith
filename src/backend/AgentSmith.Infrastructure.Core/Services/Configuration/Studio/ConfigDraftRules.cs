@@ -35,7 +35,17 @@ public sealed class ConfigDraftRules(
         var rawTracker = tracker is null ? null : RawConfigPatch.Tracker(tracker, existing: null);
 
         effectiveTriggers.Apply(draft.Id, project, rawTracker);
-        return normalizer.Inspect(draft.Id, project);
+        // 2026-09-15-9b3e: the template rules ran only on the WRITE, so a broken binding
+        // reached the operator as a 400 after Save rather than as a finding on the field
+        // that caused it. Not the whole referential validator: it also judges agent,
+        // tracker and repos and throws one aggregated string, so a blank new draft would
+        // report "references unknown agent ''" on every keystroke.
+        return
+        [
+            .. normalizer.Inspect(draft.Id, project),
+            .. ProjectTemplateDraftCheck.MessagesFor(draft, catalog)
+                .Select(m => ProjectFindings.Blocking(draft.Id, "templates", m)),
+        ];
     }
 
     /// <summary>

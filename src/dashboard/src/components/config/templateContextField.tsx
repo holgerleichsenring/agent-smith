@@ -48,16 +48,31 @@ export function ContextField({
   testId: string;
   onChange: (v: string) => void;
 }) {
+  const shared = state.origins.filter((o) => o.repos.length > 1);
   const help = state.loading
     ? `reading ${subject}...`
-    : state.names.length > 0
-      ? FROM_DEFAULT_BRANCH
+    : state.origins.length > 0
+      ? shared.length > 0
+        // The stored reference is a bare name, and the run keys its scopes by that bare
+        // name — so a name two repositories declare opens one scope both match. Said here
+        // because the picker cannot resolve it and must not pretend to.
+        ? `${FROM_DEFAULT_BRANCH} — ${shared.map((o) => o.name).join(", ")} declared by more than one`
+        : FROM_DEFAULT_BRANCH
       : state.unreadable.length > 0
         ? "no list to pick from - type the name"
-        : `${subject} declare no context - type the name`;
+        : `${subject} declares no context - type the name`;
 
-  return state.names.length > 0 ? (
-    <SelectField label={label} value={value} options={state.names} help={help} testId={testId} onChange={onChange} />
+  return state.origins.length > 0 ? (
+    <SelectField
+      label={label}
+      value={value}
+      // One option per distinct NAME. Two options sharing a value would be a choice that is
+      // not one; the repositories ride the label instead.
+      options={state.origins.map((o) => ({ value: o.name, label: `${o.name}  ·  ${o.repos.join(", ")}` }))}
+      help={help}
+      testId={testId}
+      onChange={onChange}
+    />
   ) : (
     <TextField label={label} value={value} mono help={help} testId={testId} onChange={onChange} />
   );
