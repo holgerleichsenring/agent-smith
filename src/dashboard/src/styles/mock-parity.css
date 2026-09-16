@@ -510,6 +510,9 @@
 
 /* entity card */
 .mock-config .ecard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.14s; }
+/* 2026-09-16-5451: a project card's root is inert — 2026-09-16-d7c3 moved its click onto
+   the row — so the surface between the controls stops offering a pointer it ignores. */
+.mock-config .ecard.inert { cursor: default; }
 .mock-config .ecard:hover { border-color: var(--ink-3); }
 /* 2026-09-16-942a: the card clips its box, which would cut the wiring drawing off. The
    clipping is lifted only while the card is expanded. */
@@ -534,6 +537,14 @@
 .mock-config .ecard .ec-id { min-width: 0; flex: 1 1 auto; }
 .mock-config .ecard .ec-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
 .mock-config .ecard .ec-right > * { white-space: nowrap; flex: none; }
+/* 2026-09-16-d7c3 (design/mockups/project-card.html, CHANGE 1 and CHANGE 2): on a project
+   card the id and the marks share ONE row, and that row is the disclosure. Scoped by the
+   extra class — .ec-id and .ec-sub are shared by all seven kinds and a secret's sub-line is
+   a full sentence, which must not become a chip row. */
+.mock-config .ecard .ec-id.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mock-config .ecard .ec-sub.ec-marks { margin-top: 0; }
+.mock-config .ecard .ec-disclosure { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; background: none; border: 0; padding: 0; font: inherit; text-align: left; cursor: pointer; }
+.mock-config .ecard .ec-disclosure .chev { color: var(--ink-3); font-size: 11px; flex: none; }
 .mock-config .tybadge { font-size: 11px; font-weight: 650; padding: 3px 10px; border-radius: 20px; background: var(--panel-2); color: var(--ink-2); }
 .mock-config .edit-hint { font-size: 11.5px; color: var(--ink-3); }
 

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-5451
+
+decisions:
+  - category: Implementation
+    chose: "A modifier class on the project card's root, with the cursor scoped off there"
+    over: "Changing the shared card rule, or selecting on the test id"
+    reason: |
+      The card rule carries background, border, radius, shadow and overflow for all seven kinds;
+      touching it to fix one kind's cursor would put six unrelated surfaces in the diff.
+      Selecting on the test id would make a testing hook load-bearing for appearance. A modifier
+      says what it means and the component already branches on the same condition.
+
+  - category: Scope
+    chose: "A newly minted id rather than rewriting the phase that caused it"
+    over: "Amending 2026-09-16-d7c3"
+    reason: |
+      d7c3 is already committed and gated, and a later commit sits on top of it. Rewriting it
+      means a rebase, and the gate hooks the commit rather than the rebase — the rewritten
+      commit would be one the gate never saw. 2026-09-03-2f81 states that a later addition
+      mints anew, which is this.
+
+  - category: Implementation
+    chose: "The pointer is removed rather than the click restored"
+    over: "Making the project card's surface clickable again"
+    reason: |
+      The operator asked for exactly the opposite: they would not click a control labelled
+      wiring, and editing belongs to a control labelled Edit. The surface was the last thing on
+      the card still claiming to do something — the row is a button, Edit is a button, the marks
+      are text. A cursor is an affordance, and this one had stopped being true.

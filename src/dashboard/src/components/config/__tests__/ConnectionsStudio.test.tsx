@@ -126,7 +126,7 @@ describe("ConfigStudio connections (p0345b)", () => {
     render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-projects-sample");
 
-    fireEvent.click(screen.getByTestId("config-card-graph-toggle-sample"));
+    fireEvent.click(screen.getByTestId("config-card-disclosure-sample"));
 
     expect(screen.getByTestId("graph-node-repo-sample-conn/Sample.Api"))
       .toHaveAttribute("data-coloured", "false");
