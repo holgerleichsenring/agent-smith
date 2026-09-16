@@ -23,6 +23,22 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// </summary>
 public sealed class ConfigCapabilitiesTests
 {
+    [Fact]
+    public void Capabilities_TrackerFields_DeclareDefaultPipelineOptional()
+    {
+        // 2026-09-16-a4d7: declared, so every tracker form renders it — and OPTIONAL,
+        // because Required is enforced by ValidateTracker on every upsert and would make
+        // every tracker configured before the phase unsaveable.
+        var capabilities = ConfigStudioCapabilities.Build(["claude"]);
+
+        foreach (var type in capabilities.TrackerTypes)
+        {
+            var field = type.Fields.Should().ContainSingle(f => f.Key == "defaultPipeline").Which;
+            field.Required.Should().BeFalse();
+            field.Kind.Should().Be(CapabilityFieldKind.Text);
+        }
+    }
+
     private static IReadOnlyList<string> Required(ConfigCapabilities capabilities, string trackerType) =>
         capabilities.TrackerTypes.Single(t => t.Type == trackerType)
             .Fields.Where(f => f.Required).Select(f => f.Key).ToList();

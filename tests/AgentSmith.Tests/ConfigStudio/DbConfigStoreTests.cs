@@ -39,6 +39,8 @@ public sealed class DbConfigStoreTests : IDisposable
             tracker: test-ado
             repos: [test-repo]
             pipeline: fix-bug
+            resolution:
+              tag: testproject
         limits:
           max_tool_calls_per_skill: 42
         secrets:
@@ -126,6 +128,25 @@ public sealed class DbConfigStoreTests : IDisposable
         _h.DocStore.Save(new ConfigDocWrite("limits", "default", doc, null, [], "tester"));
 
         _h.DocStore.LoadAll().Should().ContainSingle(r => r.Type == "limits" && r.Doc.Contains("aBrandNewSettingAddedLater"));
+    }
+
+    [Fact]
+    public void Tracker_DefaultPipeline_RoundTripsThroughTheStudioAndYaml()
+    {
+        // 2026-09-16-a4d7: the tracker's fallback is a studio field, so it has to survive
+        // the whole loop — entity in, document store, export, real loader — and land on the
+        // merged trigger the way the tracker's label map already does.
+        _h.Import(SampleYaml);
+        var stored = _h.Store.GetTrackers().Single(t => t.Id == "test-ado");
+        stored.DefaultPipeline.Should().BeNull("nothing declared it yet");
+
+        _h.Store.UpsertTracker(stored with { DefaultPipeline = "security-scan" }, Tester);
+
+        _h.Store.GetTrackers().Single(t => t.Id == "test-ado").DefaultPipeline.Should().Be("security-scan");
+        var yaml = _h.Store.ExportYaml();
+        yaml.Should().Contain("default_pipeline: security-scan");
+        RealLoader().LoadConfig(WriteTemp(yaml))
+            .Projects["testproject"].AzuredevopsTrigger!.DefaultPipeline.Should().Be("security-scan");
     }
 
     private ConfigCatalog FileStoreCatalog(string yaml)

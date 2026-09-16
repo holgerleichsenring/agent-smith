@@ -142,18 +142,14 @@ public static class ConfigStudioCapabilities
             $"Tracker type '{type}' has no capabilities descriptor — add its field set."),
     };
 
-    // The tracker-owned workflow (p0281b) — identical for every tracker type.
-    // TrackerEntity carries these and RawConfigPatch applies them; without a
-    // descriptor entry the studio form never rendered them, so a failed run
-    // could not be given a native failed_status from the UI and the ticket
-    // stayed claimable (the re-trigger loop observed live on 2026-07-27).
-    //
-    // p0392: the four that were declared were the four the UI happened to render.
-    // RawTrackerEntry reads eleven, and the missing seven included
-    // needs_clarification_status — the field whose absence refused a boot on
-    // 2026-07-31 and could not be set from the UI at all, so no amount of care
-    // would have prevented it. TrackerFieldCoverageTests is what keeps this list
-    // level with the raw model from here on.
+    // The tracker-owned workflow (p0281b) — identical for every tracker type. TrackerEntity
+    // carries these and RawConfigPatch applies them; without a descriptor entry the studio
+    // form never rendered them, so a failed run could not be given a native failed_status
+    // from the UI and the ticket stayed claimable (observed live on 2026-07-27).
+    // p0392: the four declared were the four the UI happened to render; the seven missing
+    // included needs_clarification_status, whose absence refused a boot on 2026-07-31 and
+    // could not be set from the UI at all. CapabilityCoverageTests keeps this list level
+    // with the raw model from here on.
     private static readonly IReadOnlyList<CapabilityField> WorkflowFields =
     [
         new CapabilityField("triggerStatuses", "Trigger statuses", Required: false, CapabilityFieldKind.List),
@@ -166,6 +162,9 @@ public static class ConfigStudioCapabilities
         new CapabilityField("extraFields", "Extra ticket fields", Required: false, CapabilityFieldKind.List),
         new CapabilityField("zeroMatchComment", "Comment when nothing matched", Required: false, CapabilityFieldKind.Bool),
         new CapabilityField("pipelineFromLabel", "Pipeline by label", Required: false, CapabilityFieldKind.Map),
+        // 2026-09-16-a4d7: OPTIONAL — Required is enforced by ValidateTracker and surfaced as a
+        // blocking draft finding, so it would make every existing tracker unsaveable.
+        new CapabilityField("defaultPipeline", "Default pipeline", Required: false),
         new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map),
     ];
 
@@ -222,6 +221,7 @@ public static class ConfigStudioCapabilities
         "needsClarificationStatus" => tracker.NeedsClarificationStatus,
         "notImplementableStatus" => tracker.NotImplementableStatus,
         "closeTransitionName" => tracker.CloseTransitionName,
+        "defaultPipeline" => tracker.DefaultPipeline,
         _ => null,
     };
 
