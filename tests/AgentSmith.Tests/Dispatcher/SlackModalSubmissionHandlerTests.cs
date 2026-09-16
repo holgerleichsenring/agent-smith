@@ -10,6 +10,7 @@ using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Infrastructure.Models;
 using FluentAssertions;
+using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using StackExchange.Redis;
@@ -23,6 +24,10 @@ public sealed class SlackModalSubmissionHandlerTests
     private readonly Mock<IPlatformAdapter> _adapter = new();
     private readonly Mock<IConfigurationLoader> _configLoader = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactory = new();
+    // 2026-09-15-9033: the handler holds the SLACK adapter by type now, so what it says
+    // is read off the Slack API call it makes rather than off a mocked interface — which
+    // is also the only way to see that the reply reaches Slack at all.
+    private readonly RecordingSlackApi _slackApi = new();
     private readonly SlackModalSubmissionHandler _sut;
 
     public SlackModalSubmissionHandlerTests()
@@ -101,7 +106,15 @@ public sealed class SlackModalSubmissionHandlerTests
             listHandler,
             createHandler,
             initHandler,
-            _adapter.Object,
+            new SlackAdapter(
+                new SlackApiClient(
+                    new HttpClient(_slackApi),
+                    new SlackAdapterOptions { BotToken = "test-token" },
+                    NullLogger<SlackApiClient>.Instance),
+                new SlackTypedQuestionBlockBuilder(),
+                new SlackMessageBlockBuilder(),
+                new SlackProgressFormatter(),
+                NullLogger<SlackAdapter>.Instance),
             NullLogger<SlackModalSubmissionHandler>.Instance);
     }
 
@@ -165,10 +178,8 @@ public sealed class SlackModalSubmissionHandlerTests
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
-        _adapter.Verify(a => a.SendMessageAsync(
-            "C123",
-            It.Is<string>(s => s.Contains("select a project")),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _slackApi.Posts.Should().ContainSingle()
+            .Which.Should().Contain("C123").And.Contain("select a project");
     }
 
     [Fact]
@@ -178,10 +189,8 @@ public sealed class SlackModalSubmissionHandlerTests
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
-        _adapter.Verify(a => a.SendMessageAsync(
-            "C123",
-            It.Is<string>(s => s.Contains("Invalid command")),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _slackApi.Posts.Should().ContainSingle()
+            .Which.Should().Contain("C123").And.Contain("Invalid command");
     }
 
     [Fact]
@@ -191,10 +200,8 @@ public sealed class SlackModalSubmissionHandlerTests
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
-        _adapter.Verify(a => a.SendMessageAsync(
-            "C123",
-            It.Is<string>(s => s.Contains("select a ticket")),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _slackApi.Posts.Should().ContainSingle()
+            .Which.Should().Contain("C123").And.Contain("select a ticket");
     }
 
     [Fact]
@@ -212,6 +219,25 @@ public sealed class SlackModalSubmissionHandlerTests
         var act = async () => await _sut.HandleAsync(payload, CancellationToken.None);
 
         await act.Should().NotThrowAsync();
+    }
+
+    /// <summary>
+    /// Captures what the Slack adapter posts, and answers ok so the adapter's own error
+    /// path stays out of the way.
+    /// </summary>
+    private sealed class RecordingSlackApi : HttpMessageHandler
+    {
+        public List<string> Posts { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Posts.Add(await request.Content!.ReadAsStringAsync(cancellationToken));
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"ok\":true}"),
+            };
+        }
     }
 
     private static JsonNode BuildPayload(

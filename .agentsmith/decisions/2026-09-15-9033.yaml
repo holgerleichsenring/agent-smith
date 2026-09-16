@@ -1,0 +1,213 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-15-9033
+
+decisions:
+  - category: Architecture
+    chose: "A third IPlatformAdapter plus an ingestion endpoint"
+    over: "A dashboard-specific spec-dialog implementation"
+    reason: |
+      The router already takes (text, userId, channelId, threadId, platform) and the messenger
+      already resolves the adapter by Platform. Sessions, transcript, turn gate, pending
+      questions, outcome confirmation and ticket filing are platform-neutral as they stand, so a
+      dashboard-specific dialog would have been a second copy of every one of them. The channel
+      is therefore one adapter (DashboardAdapter), one route (POST /api/spec-dialog/messages) and
+      one dispatcher that decides what an unroutable message means here.
+
+  - category: Implementation
+    chose: "The three Slack-named sites name SlackAdapter in their constructors"
+    over: "A test that pins today's single-adapter answer as correct"
+    reason: |
+      Both chat adapters register non-keyed, Slack then Teams, so a single-service resolve yields
+      the LAST one — and SlackMessageDispatcher, SlackErrorActionHandler and
+      SlackModalSubmissionHandler, all Slack by name and by purpose, were wired to the TEAMS
+      adapter. A third registration would have made it four. The three now take SlackAdapter by
+      type. Keying all three adapters everywhere is the complete fix and rewrites eight
+      constructors this phase was not asked to touch; the five that remain (the help handler and
+      four intent handlers) are the run-trigger chat path, which both chat platforms share.
+      Registration_ABareResolve_YieldsTheDocumentedAdapter states what they get, so a later
+      registration cannot move it unseen.
+
+  - category: Implementation
+    chose: "The dashboard adapter is registered BEFORE the two chat adapters"
+    over: "Appending it to the composition chain where a new line naturally goes"
+    reason: |
+      Last registration wins a single resolve. Appending would have moved the five remaining
+      single-adapter sites onto a hub group — a chat reply for a Slack or Teams run trigger
+      delivered into the dashboard's SignalR fan-out, i.e. nowhere. The ordering is load-bearing
+      and says so at the call site.
+
+  - category: Security
+    chose: "A dashboard session belongs to the principal that opened it, checked on both ingresses"
+    over: "Leaving scope to the later phase that owns hub scoping"
+    reason: |
+      GetOpenByThreadAsync and AppendTurnAsync key on (platform, threadId) and never read UserId;
+      on Slack the channel supplied the boundary and a browser-minted dialog id supplies none.
+      The hub filter is no help either — it checks that a caller holds the method's permission
+      and says in terms that WHICH scope a caller may watch is a different phase. Shipping the
+      channel without ownership would have shipped a hole on the one surface that files real
+      tickets, so SpecDialogOwnership guards the POST and the hub join. An id with no open
+      session is free to take: it is the id a page mints for the dialog it is about to open, and
+      nothing is delivered into a group until a session exists.
+
+  - category: Security
+    chose: "The ownership check also covers the session a '/spec resume <id>' would pull in"
+    over: "Checking only the session already on the dialog id"
+    reason: |
+      Found while implementing: resume RE-BINDS an existing session onto the current thread and
+      reopens it, without looking at who owns it. Guarding only the thread's own session would
+      have left a second principal able to type '/spec resume <id>' on a fresh dialog id and take
+      the conversation — the same takeover by another door. Guarding it in SpecDialogOwnership
+      rather than in SpecDialogSessionManager keeps Slack and Teams exactly as they were, where
+      resuming a colleague's session in a shared channel is existing behaviour.
+
+  - category: Implementation
+    chose: "Fire-and-forget on a fresh DI scope under CancellationToken.None"
+    over: "Awaiting the routed turn inside the request"
+    reason: |
+      The router, session manager and outcome flow are scoped, and the approval gate blocks for
+      up to fifteen minutes. Awaiting would hold the connection for the whole turn plus the wait,
+      and passing the request's token would abort the conversation when the tab closed. Both
+      existing channels already dispatch this way; the endpoint mirrors them line for line.
+
+  - category: Implementation
+    chose: "AskTypedQuestionAsync pushes the question and returns null"
+    over: "Logging and returning null, or blocking on an answer"
+    reason: |
+      The approval prompt reaches a person ONLY through this method — the confirmer never sends
+      the question as an ordinary message — so an adapter that merely logged would render nothing
+      and let the gate time out after fifteen minutes. It must push. It need not block: a text
+      reply in the session already wins through the router's pending-question branch, so a second
+      wait here would only add a race between two answer paths.
+
+  - category: Implementation
+    chose: "The six methods this channel never carries log what arrived"
+    over: "Returning Task.CompletedTask as a silent success"
+    reason: |
+      No run-trigger conversation is created on this platform and the cross-adapter dispatchers
+      key by the conversation's stored platform, so progress / done / error / detail /
+      clarification / question-answered are unreachable here by construction. If one is ever
+      dispatched, the log is the only place it can be seen. A silent success would make the
+      channel look like it delivered.
+
+  - category: Implementation
+    chose: "The hub context is an optional constructor dependency"
+    over: "Registering the adapter inside the dashboard API gate"
+    reason: |
+      IHubContext<JobsHub> exists only when AGENTSMITH_UI_API_ENABLED leaves the dashboard API
+      composed, while the adapter must be registered unconditionally — SpecDialogMessenger
+      enumerates every adapter when it is built, and it is built for Slack ingestion too.
+      Registering the adapter inside the gate would also have made it the LAST IPlatformAdapter
+      registration, which is the defect this phase repairs. With the dashboard off nothing can
+      open a session on this platform anyway (the endpoint rides the same gate), and a push that
+      finds no hub says so.
+
+  - category: Implementation
+    chose: "JobsHub's system backfill moved into SystemBacklogReader"
+    over: "Adding the subscribe method to a file already at its ratchet length"
+    reason: |
+      The hub stood at its baselined 164 lines and a baselined file may only shrink. The read is
+      a responsibility of its own — a bounded XREVRANGE plus envelope deserialisation, the same
+      shape TrailReader already has — so extracting it left the hub carrying subscriptions and
+      the reader carrying reads. The hub is 146 lines now and the baseline says so.
+
+  - category: Security
+    chose: "One permission, dialog.write, in the operator and admin bundles"
+    over: "Reusing runs.control, or splitting read from write"
+    reason: |
+      A spec dialog ends in FILED tickets against this installation's trackers, which is neither
+      a run control nor a read. Watching one needs no second permission because a caller may only
+      watch a dialog they own — that is decided per dialog by the hub method, not per capability.
+      A reader does not hold it. The hub connection itself already demands runs.read, which the
+      operator bundle carries through reader, so an operator can both connect and subscribe.
+
+  - category: Testing
+    chose: "The channel is proven over the real router and the real session store"
+    over: "Unit tests around a mocked router"
+    reason: |
+      Everything this phase is asked to get right lives in the seams: what the endpoint hands the
+      router, what the adapter pushes and where, which principal a session belongs to, and what
+      happens to a second message while a turn runs. A mocked router would have proven the
+      wiring's shape and none of its behaviour. The rig is SpecDialogRoutingTests' — SQLite with
+      the shipped migrations — with the design turn itself the only stub.
+
+  - category: Testing
+    chose: "SlackModalSubmissionHandlerTests reads what was posted to Slack"
+    over: "Keeping the mocked IPlatformAdapter it used to verify"
+    reason: |
+      SlackAdapter is sealed, so the handler naming it by type left the test with no interface to
+      mock. Asserting on the captured Slack API call is the stronger claim anyway: it shows the
+      reply reaches Slack, which is exactly what this repair restores.
+
+  - category: Scope
+    chose: "'/spec list' still lists every open dashboard session"
+    over: "Filtering the list to the caller"
+    reason: |
+      Recorded rather than fixed. ListOpenAsync takes a platform and no owner, and narrowing it
+      would change the signature the command handler uses for Slack and Teams, where listing a
+      channel's sessions is the point. With resume guarded, a leaked id grants nothing — but the
+      list does disclose other principals' session ids, projects and activity times on this
+      platform, and that is worth a follow-up phase rather than a silent gap.
+
+  - category: Correctness
+    chose: "The shared dispatcher takes a platform lookup and answers on the channel it was handed"
+    over: "Injecting the Slack adapter into it, as this phase's own spec decided"
+    reason: |
+      The spec counted three Slack-named single-adapter sites. Two are Slack by name AND by
+      purpose. The third, SlackMessageDispatcher, is named for Slack and serves every channel:
+      TeamsEndpoints resolves that same class and TeamsInteractionHandler takes it directly. A
+      fixed adapter there repairs Slack's error replies by breaking Teams' — a Teams error would
+      post to Slack with a Teams conversation id and fail. The spec's two claims, "a Slack error
+      reaches Slack" and "Teams behaves exactly as before", cannot both hold for that class.
+      DispatchAsync already receives the platform and simply never passed it on, so the repair is
+      to thread it through to the two reply sites and resolve the adapter by it. That is the
+      alternative the spec rejected as too large ("key the adapters"), scoped to the one class
+      that needs it rather than to all eight.
+      Nothing went red when the wrong version was built, because no test covered the Teams error
+      path at all. Two now do, and a third pins that this class takes no concrete adapter — the
+      shape of the mistake, not just its instance.
+
+  - category: Security
+    chose: "Resume and list are scoped to the session's owner in the session manager, not at the endpoint"
+    over: "Guarding the dashboard endpoint and the hub, which is where this phase's own tests looked"
+    reason: |
+      An adversarial review of the built code found the boundary bypassable and it was. The resume
+      path is reached from a Slack or Teams thread with no endpoint and no hub in the way; the
+      lookup is by session id alone, with no platform predicate, and the resume then rewrites the
+      session's platform, channel and thread while never touching its owner. So '/spec resume
+      <id>' typed in any chat workspace pulled a dashboard session onto that thread — transcript,
+      confirmed outcome and the live approval gate that files real tickets. '/spec list' handed
+      out exactly the ids needed, because it filtered by platform and not by owner.
+      The check therefore belongs where every door passes: the manager. An unowned session answers
+      NOT FOUND rather than "not yours", so the command is no id oracle either. Listing is narrowed
+      on every platform, because after this a session nobody else can resume is one nobody else has
+      a use for.
+  - category: Security
+    chose: "State plainly that ownership collapses when token enforcement is off, rather than fail closed here"
+    over: "Refusing the endpoint when TokenAuthorityConfig.Enforce is false"
+    reason: |
+      Enforce has no initialiser and is therefore false on a default install, and an unauthenticated
+      principal resolves to a single shared owner. Every ownership check in this phase is real and
+      every one of them compares that same string, so on such an install the isolation is nominal.
+      Failing closed would take the whole dialog away from every operator who has not yet configured
+      an authority — a product posture decision that is the operator's, not this phase's. What this
+      phase owes is that nobody reads "belongs to the principal that opened it" as isolation it does
+      not have when enforcement is off.
+  - category: Correctness
+    chose: "Order the open-session list in memory"
+    over: "Leaving the ORDER BY in the query"
+    reason: |
+      Found by one of the tests added above: SQLite cannot translate an ORDER BY over a
+      DateTimeOffset and throws, so '/spec list' failed outright on the default persistence
+      provider — on Slack and Teams too, since this phase. No test had ever called it. The open set
+      of one platform is a handful of rows.
+  - category: Testing
+    chose: "A source guard over the dispatcher's two reply sites, named as a source guard"
+    over: "Claiming a behavioural test that did not exist"
+    reason: |
+      An earlier revision of this commit said two tests covered the Teams error path. They did not:
+      both construct the adapter lookup directly and never touch the dispatcher, so reverting the
+      repair turned nothing red. The dispatcher's collaborators are eight concrete classes deep,
+      which is why no test calls DispatchAsync at all and why the regression was invisible in the
+      first place. What is affordable is reading the two reply sites and insisting they pass the
+      platform they were handed; it was proven to fail on the reverted code before it was kept. It
+      is weaker than a behavioural test and says so.

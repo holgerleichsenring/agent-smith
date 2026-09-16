@@ -1,4 +1,3 @@
-using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
@@ -8,8 +7,9 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
-/// Parses an incoming Slack message via the IntentEngine and routes the
-/// resolved intent to the appropriate handler.
+/// Parses an incoming chat message and routes the resolved intent to its handler. Named
+/// for Slack, serving every channel — Teams resolves this same class — so every reply
+/// below answers on the platform it was handed.
 /// </summary>
 public sealed class SlackMessageDispatcher(
     IntentEngine intentEngine,
@@ -20,7 +20,7 @@ public sealed class SlackMessageDispatcher(
     HelpHandler helpHandler,
     ClarificationStateManager clarificationState,
     SpecDialogRouter specDialogRouter,
-    IPlatformAdapter adapter,
+    PlatformAdapters adapters,
     ILogger<SlackMessageDispatcher> logger)
 {
     public async Task DispatchAsync(
@@ -44,16 +44,17 @@ public sealed class SlackMessageDispatcher(
             // branch above keys state by the real platform.
             var intent = await intentEngine.ParseAsync(
                 text, userId, channelId, DispatcherDefaults.PlatformSlack, cancellationToken);
-            await RouteAsync(intent, channelId, cancellationToken);
+            await RouteAsync(intent, channelId, platform, cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error dispatching message from {UserId} in {ChannelId}", userId, channelId);
-            await SendErrorSafeAsync(channelId, ex.Message, cancellationToken);
+            await SendErrorSafeAsync(channelId, platform, ex.Message, cancellationToken);
         }
     }
 
-    private async Task RouteAsync(ChatIntent intent, string channelId, CancellationToken ct)
+    private async Task RouteAsync(
+        ChatIntent intent, string channelId, string platform, CancellationToken ct)
     {
         switch (intent)
         {
@@ -84,7 +85,8 @@ public sealed class SlackMessageDispatcher(
                 await helpHandler.SendGreetingAsync(channelId, ct);
                 break;
             case ErrorIntent error:
-                await adapter.SendMessageAsync(channelId, $":x: {error.ErrorMessage}", ct);
+                await adapters.SendMessageAsync(
+                    platform, channelId, $":x: {error.ErrorMessage}", ct);
                 break;
             case ClarificationNeeded c:
                 await HandleClarificationAsync(c, channelId, ct);
@@ -103,11 +105,12 @@ public sealed class SlackMessageDispatcher(
         await helpHandler.SendClarificationAsync(channelId, c.Suggestion, ct);
     }
 
-    private async Task SendErrorSafeAsync(string channelId, string message, CancellationToken ct)
+    private async Task SendErrorSafeAsync(
+        string channelId, string platform, string message, CancellationToken ct)
     {
         try
         {
-            await adapter.SendMessageAsync(channelId, $":x: {message}", ct);
+            await adapters.SendMessageAsync(platform, channelId, $":x: {message}", ct);
         }
         catch (Exception ex)
         {
