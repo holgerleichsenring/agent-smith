@@ -76,3 +76,58 @@ export interface SpecDialogQuestionPush {
    *  stopped being an answer and becomes a whole design turn on the word "approve". */
   expiresAt: string | null;
 }
+
+// 2026-09-15-6d9c: the turn's typed outcome, and what filing it actually created — the two
+// pushes the right-hand column changes state on. Plain payloads rather than hub events: the
+// event-type generator scans the events namespace by base type, and these derive from
+// neither base.
+
+/** One drafted phase as the proposal pane renders it. */
+export interface SpecDialogPhaseProposal {
+  phaseId: string;
+  goal: string;
+  /** The step actions, in spec order. */
+  steps: string[];
+  tests: string[];
+  done: string[];
+  requires: string[];
+}
+
+/** The fix-bug ticket a bug outcome would file — body exactly as the filer composes it. */
+export interface SpecDialogBugProposal {
+  title: string;
+  body: string;
+}
+
+/**
+ * What this turn would file. An answer proposes nothing and is never pushed, so the pane
+ * keeps whatever is still under discussion.
+ */
+export interface SpecDialogProposalPush {
+  dialogId: string;
+  /** "bug", "phase" or "epic" — the pane renders by it. */
+  kind: string;
+  bug: SpecDialogBugProposal | null;
+  phase: SpecDialogPhaseProposal | null;
+  parent: SpecDialogPhaseProposal | null;
+  /** An epic's children IN THE ORDER THEY WILL BE FILED. */
+  children: SpecDialogPhaseProposal[];
+  at: string;
+}
+
+/** One ticket that was actually created. `reference` is a web URL where the provider gives one. */
+export interface SpecDialogFiledTicket {
+  reference: string;
+  title: string;
+}
+
+/**
+ * What the filing attempt did. `filed` carries every ticket that was created even when
+ * `error` is set — a partial epic must never silently lose the children it did create.
+ */
+export interface SpecDialogFilingPush {
+  dialogId: string;
+  filed: SpecDialogFiledTicket[];
+  error: string | null;
+  at: string;
+}

@@ -148,12 +148,15 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             },
         };
         var filer = new OutcomeTicketFiler(
-            config, factory.Object, new PhaseTicketRenderer(),
+            config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer()),
             NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
             filer, _sessions, messenger, new SpecDialogOutcomeComposer(),
+            new DashboardOutcomeChannel(
+                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
+                NullLogger<DashboardOutcomeChannel>.Instance),
             NullLogger<TicketFilingOutcomeSink>.Instance);
     }
 

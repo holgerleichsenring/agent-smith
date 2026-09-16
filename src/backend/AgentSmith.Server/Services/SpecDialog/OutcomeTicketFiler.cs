@@ -19,6 +19,7 @@ public sealed class OutcomeTicketFiler(
     AgentSmithConfig config,
     ITicketProviderFactory ticketFactory,
     PhaseTicketRenderer renderer,
+    BugTicketRenderer bugRenderer,
     EpicTicketFiler epicFiler,
     ILogger<OutcomeTicketFiler> logger)
 {
@@ -60,13 +61,13 @@ public sealed class OutcomeTicketFiler(
         return ticketFactory.Create(resolved.Tracker);
     }
 
-    private static async Task FileBugAsync(
+    private async Task FileBugAsync(
         ITicketProvider provider, BugTicketDraft ticket,
         List<FiledTicket> filed, CancellationToken ct)
     {
-        var body = string.IsNullOrWhiteSpace(ticket.AcceptanceCriteria)
-            ? ticket.Description
-            : $"{ticket.Description}\n\n## Acceptance criteria\n{ticket.AcceptanceCriteria}";
+        // 2026-09-15-6d9c: rendered, not composed here — the proposal pane shows the same
+        // body before this runs, and two copies of it would drift apart.
+        var body = bugRenderer.RenderBody(ticket);
         var created = await provider.CreateAsync(ticket.Title, body, labels: [], ct);
         filed.Add(new FiledTicket(created.Reference, ticket.Title));
     }

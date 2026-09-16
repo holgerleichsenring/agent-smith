@@ -3,10 +3,10 @@
 import type { SpecDialogProject, SpecDialogSession } from "@/types/spec-dialog";
 
 // 2026-09-15-cb3e: WHAT THE AGENT IS GROUNDED IN — the project, the repositories and the
-// templates a turn of this conversation may read. It is the second column from the first
-// phase because it is what decides whether the agent's statements are worth anything: a
-// proposal is only as good as the code it was allowed to look at. 2026-09-15-6d9c fills
-// the column below it with the proposal under discussion and then with what was filed.
+// templates a turn of this conversation may read. It is what decides whether the agent's
+// statements are worth anything: a proposal is only as good as the code it was allowed to
+// look at. 2026-09-15-6d9c: the FIRST state of the right-hand column, shown until the
+// conversation has proposed something — DialogColumn decides which state is current.
 
 export function DialogScopePanel({
   session,
