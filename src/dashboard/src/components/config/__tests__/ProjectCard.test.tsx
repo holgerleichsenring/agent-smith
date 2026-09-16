@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
 import { EntityCard } from "../EntityCard";
 import type { ConfigCatalog } from "../useConfigCatalog";
 import type { StudioProject, TemplateReference } from "@/lib/configApi";
@@ -182,5 +183,23 @@ describe("ProjectCard wiring graph", () => {
 
     expect(screen.getByTestId("config-card-graph-sample")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ProjectCard_ControlsAndSummary_KeepTheirLayoutHooks", () => {
+    // jsdom does no layout, so nothing here can see that the buttons wrap. What it CAN pin is
+    // the contract the stylesheet keys on: the summary became a row of marks whose min-content
+    // width is the widest mark, so the middle block must yield and the controls must not
+    // shrink. Dropping either class silently reproduces the defect.
+    const { container } = card(project());
+
+    expect(container.querySelector(".ec-id"), "the middle block is addressable so it can yield")
+      .not.toBeNull();
+    expect(container.querySelector(".ec-right"), "the controls are addressable").not.toBeNull();
+    expect(container.querySelector(".ec-marks"), "the summary is a mark row").not.toBeNull();
+
+    const css = readFileSync("src/styles/mock-parity.css", "utf8");
+    expect(css).toContain(".mock-config .ecard .ec-id { min-width: 0;");
+    expect(css).toMatch(/\.mock-config \.ecard \.ec-right \{[^}]*flex: none;/);
+    expect(css).toMatch(/\.mock-config \.ecard \.ec-right > \* \{[^}]*white-space: nowrap;/);
   });
 });

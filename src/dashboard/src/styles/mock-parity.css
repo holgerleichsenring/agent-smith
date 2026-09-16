@@ -528,7 +528,12 @@
 .mock-config .ec-mark { font-size: 11px; font-family: var(--mono, ui-monospace, monospace); padding: 3px 7px; border-radius: 4px; background: var(--panel-2); color: var(--ink-2); white-space: nowrap; }
 .mock-config .ec-mark.warn { color: var(--warn, #a8571c); background: color-mix(in srgb, var(--warn, #a8571c) 12%, transparent); }
 .mock-config .ec-mark.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
-.mock-config .ecard .ec-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* 2026-09-16-bedc: the controls never shrink and never wrap. The summary became a row of
+   marks, whose min-content width is the widest mark — so the middle block claimed the space
+   and the buttons on the right broke across three lines. The middle block yields instead. */
+.mock-config .ecard .ec-id { min-width: 0; flex: 1 1 auto; }
+.mock-config .ecard .ec-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
+.mock-config .ecard .ec-right > * { white-space: nowrap; flex: none; }
 .mock-config .tybadge { font-size: 11px; font-weight: 650; padding: 3px 10px; border-radius: 20px; background: var(--panel-2); color: var(--ink-2); }
 .mock-config .edit-hint { font-size: 11.5px; color: var(--ink-3); }
 
