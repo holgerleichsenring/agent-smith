@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-15-cb3e
+
+decisions:
+  - category: Scope
+    chose: "The two-column layout ships NOW, with the right column showing the SCOPE"
+    over: "One column this phase, restructured by 2026-09-15-6d9c when the proposal pane arrives"
+    reason: |
+      Decided by the orchestrator, beyond the spec text. A one-column page would force the next
+      phase to rebuild the layout before it could add anything, and a right column that stays
+      empty until the first proposal tells the operator nothing in the meantime. What it holds
+      instead is what the conversation is grounded in — which project, which repositories, which
+      templates a turn may read — and that is exactly what decides whether the agent's statements
+      are worth anything: a proposal is only as good as the code it was allowed to look at.
+      2026-09-15-6d9c fills the column below it with the proposal under discussion.
+
+  - category: Architecture
+    chose: "A composed line is a TYPE (ComposedReply) that becomes text only when a channel is named"
+    over: "A markup parameter on every composer method, or a converter at the adapter edge"
+    reason: |
+      Two kinds of text go through one send method. The framework's own is chat mrkdwn —
+      single-asterisk bold, underscore italic, colon-wrapped emoji shortcodes; the design master's
+      REPLY passes through the same call unmodified and is ordinary markdown, where the same
+      asterisks mean italic. A converter at the edge cannot tell them apart and would turn every
+      italic the model wrote into bold and mangle its fences — corrupting the half of the
+      transcript that carries the thinking. The composers therefore return a line that is not yet
+      bound to a channel, and SpecDialogMessenger binds it on the overload that takes one. A
+      plain string takes the other overload and is sent byte for byte, so neither kind of text can
+      take the other's path by accident. It also left every call site unchanged, including
+      SpecDialogRouter, which sits at its file-length baseline and may only shrink.
+
+  - category: Implementation
+    chose: "The question's KIND travels on the wire beside its choices"
+    over: "Rendering only the choices the question carries, as the spec assumed"
+    reason: |
+      The spec's premise was wrong where it met the code: SpecDialogOutcomeConfirmer asks the
+      approval that files tickets with Choices: null, and both chat adapters build the
+      approve/reject pair from the question's TYPE (SlackTypedQuestionBlockBuilder.BuildApproval).
+      A surface rendering only a choice list would therefore render NOTHING on the one question
+      that files real tickets, and the gate would time out. SpecDialogChannelQuestion now carries
+      the type, lower-cased, and the browser builds the same controls from it — choices where the
+      question lists them, approve/reject for an approval, yes/no for a confirmation, and nothing
+      at all for free text, which the composer already answers.
+
+  - category: Architecture
+    chose: "ONE read route, GET /api/spec-dialog/{dialogId}, answering the whole page"
+    over: "Separate routes for the session, the projects and the resumable sessions"
+    reason: |
+      The three answer one question — what is on this page — and a surface stitching three reads
+      together would render three different moments of one conversation. The payload carries the
+      session (null until one is opened) with its scope and durable transcript, the projects a new
+      conversation can be opened on, and the sessions this caller may resume. It takes the same
+      dialog.write permission as the ingest route and then checks the owner, because a
+      browser-minted dialog id is no boundary: the resumable list is filtered to the caller's own
+      sessions for the same reason, since a session id is all "/spec resume" needs.
+
+  - category: Implementation
+    chose: "The transcript is re-seeded from the server only when the CONVERSATION changed"
+    over: "Re-seeding on every refetch, or never reading the durable transcript at all"
+    reason: |
+      The dialog id survives a reload, so the conversation must too — a page that kept the id and
+      showed nothing would look like a session that never happened. But the durable transcript
+      holds only the user and master turns: the framework's own lines (opened, resumed, filed,
+      rejected) are never stored. Re-seeding after every reply would therefore delete them from
+      the screen. The page seeds on load, on a new conversation and on a resume, and appends
+      everything that arrives in between. The scope panel is refetched after every reply, because
+      a reply may have opened, resumed or re-scoped the session.
+
+  - category: Implementation
+    chose: "A control's command waits for the hub subscription before it is posted"
+    over: "Posting /spec on the new dialog id as soon as the button is clicked"
+    reason: |
+      A new conversation mints a new dialog id, and the reply to "/spec <project>" is pushed into
+      that id's group. Posting before the page has joined it would deliver the only notice of a
+      session opening into a group nobody is in, and it is not in the durable transcript to be
+      recovered later. The command is queued and flushed when the subscription resolves. Commands
+      sent by a control are not echoed into the transcript either — the operator clicked "new
+      conversation", they did not say "/spec".
+
+
+  - category: Implementation
+    chose: "ResultCodeBlock decides inline-ness from the shape of the node"
+    over: "Leaving it on react-markdown's `inline` prop, which is no longer passed"
+    reason: |
+      react-markdown stopped passing `inline`, so every inline span of code has been rendering as
+      a terminal-panel <pre> nested inside its own paragraph — invalid HTML and a warning on every
+      markdown surface in the dashboard. It is glaring in this transcript, where the framework
+      names session ids in backticks in almost every line. A fence names its language or spans
+      more than one line; nothing else does, and that is what the component reads now.
+
+  - category: Architecture
+    chose: "A place in the closed table and its own rail section, a peer of Runs and Pull requests"
+    over: "A route under /system, or a page reachable only by typing the URL"
+    reason: |
+      The dashboard's place table is closed and asserted against the rail, so a route added
+      outside it is either unreachable or turns that assertion red. /system is where the running
+      system is watched; designing the work is not a diagnostic about it, and the conversation
+      that decides what gets built belongs beside the runs it produces.
+
+  - category: Correctness
+    chose: "A refused subscribe unwinds its own bookkeeping and rethrows"
+    over: "Leaving the group counter as it was, which is what every earlier subscribe could assume"
+    reason: |
+      Found by an adversarial review of this commit. The spec-dialog group is the first one a
+      server can REFUSE — 2026-09-15-9033 made it owned — and the client counted the subscriber
+      before issuing the invoke, then never undid it when the invoke threw. The refusal itself
+      rendered correctly; the damage was the NEXT mount, which found the count already at one,
+      skipped the invoke, resolved, and rendered a live-looking conversation that could never
+      receive a reply. Silent, on the surface that files tickets. Both halves are tested and the
+      counter test was watched failing on the reverted code.
+  - category: Correctness
+    chose: "The pending question is held whole, with its deadline, and the read returns it"
+    over: "Leaving it in the hub push and in React state, where it was"
+    reason: |
+      Two defects with one cause. A reload during the fifteen-minute approval gate kept the
+      dialog id and the transcript and lost the question — the master still blocked, the operator
+      with nothing to approve and no record of what was asked. And nothing is pushed when a wait
+      EXPIRES: the confirmer simply stops waiting and clears its entry, so the card kept offering
+      Approve, whose click was no longer an answer — it posted the literal word as a message and
+      bought a whole design turn on it. Holding the question rather than its id lets the read
+      rebuild the card; carrying the deadline lets the card retire itself. In-memory is still the
+      right home: a browser reload does not end the server's wait, and if the process dies the
+      wait dies with it.
+  - category: Correctness
+    chose: "One 'New conversation' click per dialog id, and a sequence guard on the reads"
+    over: "Trusting that a person clicks once and that answers arrive in order"
+    reason: |
+      Minting an id and opening a session on it are two steps; a second click between them opened
+      a session on an id nothing was watching while the page sat on another with no session and no
+      explanation. Separately, every hub message triggers a read, so a slow answer could land after
+      a newer one and roll the scope column back to a moment that had passed.

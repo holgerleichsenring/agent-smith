@@ -18,7 +18,8 @@ import type {
 // per-sandbox event streams live in dedicated hooks so a component subscribes
 // only to what it renders.
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "/hub/jobs";
+/** The one hub URL every subscriber connects through. */
+export const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "/hub/jobs";
 
 // p0200: dashboard-side cap of the Recent list. The backend retains 50 for
 // debug; the dashboard shows the latest 20 unless URL has ?debug=1.

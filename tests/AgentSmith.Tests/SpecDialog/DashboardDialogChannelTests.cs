@@ -238,7 +238,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     {
         await SendAsync("/spec");
         var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
-        _pendingQuestions.Set(state!.JobId, "q-approval");
+        _pendingQuestions.Set(state!.JobId, "q-approval", "approve this?");
 
         await Ingest("yes", Owner);
         await SettleAnswers();

@@ -52,11 +52,10 @@ public sealed class DashboardAdapter(
     public async Task<DialogAnswer?> AskTypedQuestionAsync(string channelId,
         DialogQuestion question, string? threadId, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(question);
         await PushAsync(
             "SpecDialogQuestion", Dialog(channelId, threadId),
-            id => new SpecDialogChannelQuestion(
-                id, question.QuestionId, question.Text,
-                question.Choices ?? [], DateTimeOffset.UtcNow),
+            id => SpecDialogChannelQuestion.From(id, question, DateTimeOffset.UtcNow),
             cancellationToken);
         return null;
     }

@@ -20,6 +20,9 @@ const RUN_WHY_PLACE = "Run · why";
 const FIXED_PLACES: Record<string, string> = {
   "/": "Runs",
   "/pull-requests": "Pull requests",
+  // 2026-09-15-cb3e: where the work is DESIGNED — a peer of the two above, not a
+  // diagnostic under /system.
+  "/spec-dialog": "Design dialog",
   // 2026-08-27-7463: the one Insight destination — spend, runs by outcome and
   // criteria outcomes, where /system/cost, /system/today and /system/expectations
   // used to be three pages.

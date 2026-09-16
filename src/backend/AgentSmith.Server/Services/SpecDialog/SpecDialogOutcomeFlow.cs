@@ -46,6 +46,6 @@ public sealed class SpecDialogOutcomeFlow(
         }
     }
 
-    private Task SendAsync(ConversationState state, string text, CancellationToken ct) =>
-        messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, text, ct);
+    private Task SendAsync(ConversationState state, ComposedReply notice, CancellationToken ct) =>
+        messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, notice, ct);
 }

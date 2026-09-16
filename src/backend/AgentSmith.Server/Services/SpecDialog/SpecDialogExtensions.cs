@@ -52,6 +52,10 @@ internal static class SpecDialogExtensions
         // the ingestion endpoint's one entry point into the router.
         services.AddScoped<SpecDialogOwnership>();
         services.AddScoped<DashboardDialogDispatcher>();
+        // 2026-09-15-cb3e: the dialog page's read. Scoped for the session manager's unit of
+        // work; the catalog is transient because it re-reads the configuration per call.
+        services.AddTransient<SpecDialogProjectCatalog>();
+        services.AddScoped<SpecDialogViewReader>();
         return services;
     }
 }
