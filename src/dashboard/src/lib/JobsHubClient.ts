@@ -13,6 +13,10 @@ import type {
   SystemActivitySnapshot,
 } from "@/types/hub-events";
 import type { SystemEvent } from "@/types/system-events";
+import type {
+  SpecDialogMessagePush,
+  SpecDialogQuestionPush,
+} from "@/types/spec-dialog";
 
 // p0169f: single shared HubConnection per tab; ref-counted group
 // subscriptions; lazy-connect on first subscribe. Owns the connection
@@ -67,6 +71,7 @@ const KEY_OVERVIEW = "overview";
 const KEY_SYSTEM = "system";
 const keyRun = (runId: string) => `run:${runId}`;
 const keySandbox = (runId: string, repo: string) => `sandbox:${runId}:${repo}`;
+const keySpecDialog = (dialogId: string) => `spec-dialog:${dialogId}`;
 
 // p0388b: the per-run trail poll is GONE. Its first tick shipped the whole
 // structural trail of the run as one JSON per client per page load, and it
@@ -118,6 +123,11 @@ export class JobsHubClient {
   // p0370: the coalesced sandbox-activity beat (p0367) that replaced the Run-group
   // tool-call firehose — one rollup per run per interval, feeds the detail liveness.
   readonly sandboxActivity = makeSubject<SandboxActivityRollup>();
+  // 2026-09-15-cb3e: the spec dialog's own delivery. Plain subjects, not behavior
+  // subjects: replaying the last reply to a later-mounting listener would put a line into
+  // the transcript twice, and a question already answered back on the screen.
+  readonly specDialogMessages = makeSubject<SpecDialogMessagePush>();
+  readonly specDialogQuestions = makeSubject<SpecDialogQuestionPush>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -135,9 +145,18 @@ export class JobsHubClient {
   // repeated SubscribeRun/SubscribeSystem replays the retained window, which
   // the ScopeBuffers dedup against the live tail.
   private async join(key: string, invoke: () => Promise<unknown>): Promise<void> {
-    if (this.groups.incRef(key)) {
-      this.rejoiners.set(key, invoke);
+    if (!this.groups.incRef(key)) return;
+    this.rejoiners.set(key, invoke);
+    try {
       await invoke();
+    } catch (thrown) {
+      // 2026-09-15-cb3e: an invoke the server REFUSES is a first for this client — the
+      // spec-dialog group is owned, so a foreign dialog id throws here. Leaving the count
+      // at one made the next mount skip the invoke entirely and resolve: the page rendered
+      // as subscribed and received nothing, silently, on the surface that files tickets.
+      this.groups.decRef(key);
+      this.rejoiners.delete(key);
+      throw thrown;
     }
   }
 
@@ -189,6 +208,20 @@ export class JobsHubClient {
 
   private async unsubscribeSystem(): Promise<void> {
     this.leave(KEY_SYSTEM);
+  }
+
+  /**
+   * 2026-09-15-cb3e: joins the group one spec dialog is delivered through. The hub
+   * refuses a dialog whose session belongs to another principal, so this rejects rather
+   * than quietly joining nothing — the caller renders the refusal.
+   */
+  async subscribeSpecDialog(dialogId: string): Promise<() => Promise<void>> {
+    await this.ensureStarted();
+    await this.join(
+      keySpecDialog(dialogId),
+      () => this.connection!.invoke("SubscribeSpecDialog", dialogId),
+    );
+    return async () => { this.leave(keySpecDialog(dialogId)); };
   }
 
   async expandSandbox(runId: string, repo: string): Promise<() => Promise<void>> {
@@ -314,6 +347,10 @@ export class JobsHubClient {
       this.systemEvents.emit(event));
     conn.on("SystemBacklog", (events: SystemEvent[]) =>
       this.systemBacklog.emit(events));
+    conn.on("SpecDialogMessage", (message: SpecDialogMessagePush) =>
+      this.specDialogMessages.emit(message));
+    conn.on("SpecDialogQuestion", (question: SpecDialogQuestionPush) =>
+      this.specDialogQuestions.emit(question));
     conn.on("SandboxActivity", (rollup: SandboxActivityRollup) =>
       this.sandboxActivity.emit(rollup));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>

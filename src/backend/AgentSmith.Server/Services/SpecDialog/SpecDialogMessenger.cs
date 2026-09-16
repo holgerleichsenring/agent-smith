@@ -17,6 +17,20 @@ public sealed class SpecDialogMessenger(
     private readonly Dictionary<string, IPlatformAdapter> _adapters =
         adapters.ToDictionary(a => a.Platform, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 2026-09-15-cb3e: a line the framework composed, bound to the dialect this platform's
+    /// channel reads. The overload below sends a string as it stands — which is how the
+    /// design master's own reply reaches a reader unrewritten.
+    /// </summary>
+    public Task SendAsync(
+        string platform, string channelId, string threadId, ComposedReply reply,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reply);
+        return SendAsync(
+            platform, channelId, threadId, reply.In(SpecDialogMarkup.For(platform)), cancellationToken);
+    }
+
     public async Task SendAsync(
         string platform, string channelId, string threadId, string text,
         CancellationToken cancellationToken)

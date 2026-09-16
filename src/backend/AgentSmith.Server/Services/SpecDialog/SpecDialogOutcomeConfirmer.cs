@@ -31,12 +31,13 @@ public sealed class SpecDialogOutcomeConfirmer(
     {
         var question = new DialogQuestion(
             Guid.NewGuid().ToString("N"), QuestionType.Approval,
-            composer.ComposeConfirmation(proposal),
+            composer.ComposeConfirmation(proposal).In(SpecDialogMarkup.For(state.Platform)),
             Context: null, Choices: null, DefaultAnswer: "", ConfirmationTimeout);
 
         // The thread's next text message is the answer (router pending branch);
         // the buttons are the same question's second input surface.
-        pendingQuestions.Set(state.JobId, question.QuestionId);
+        pendingQuestions.Set(
+            state.JobId, question, DateTimeOffset.UtcNow + ConfirmationTimeout);
         using var buttonCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var buttons = RelayButtonAnswerAsync(state, question, buttonCts.Token);
         try
