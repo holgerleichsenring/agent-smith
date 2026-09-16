@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-8502
+
+decisions:
+  - category: Implementation
+    chose: "The controls never shrink and the id-and-summary block yields"
+    over: "Leaving the card's flex row as 2026-09-16-bedc left it"
+    reason: |
+      Shipped broken and caught by the operator, not by the suite. The summary became a wrapping
+      row of marks, and such a row's min-content width is its widest item — so the middle block
+      claimed the space, the controls block shrank below its own content, and every button on the
+      right broke across three lines. The middle block had no class at all, so it could not be
+      told to yield until it was given one.
+
+  - category: UX
+    chose: "The wiring disclosure takes the treatment of the control beside it"
+    over: "The muted hint text it was"
+    reason: |
+      It carried the same eleven-and-a-half-point muted styling as the "edit" hint, between a
+      bordered button and a type badge — so the one control that reveals the graph read as a
+      label, and the operator reported there was no way to expand a card. It now looks like the
+      control it is and names what it does.
+
+  - category: Testing
+    chose: "The layout contract is pinned as source text"
+    over: "Trusting the component suite, which was green while the card was visibly broken"
+    reason: |
+      jsdom does no layout, so nothing here could see the wrapping — a thousand passing tests
+      said nothing about it. What a test CAN pin is the contract the stylesheet keys on: that
+      both blocks are addressable and that the three rules holding them exist. It would not have
+      caught the original mistake. It stops the fix from being silently undone, and it is honest
+      about which of those two it is.
+
+  - category: Tooling
+    chose: "The absence of a way to render a page is stated rather than worked around"
+    over: "Claiming the suite covers the card"
+    reason: |
+      This loop has no browser and no screenshot script — the repository's screenshots are a
+      manual artefact. Two visual defects in two phases reached the operator because of it, and
+      both were caught by them looking. Recorded so the next reader knows the suite's silence on
+      layout is a known hole and not evidence.
+
+  - category: Scope
+    chose: "A newly minted id rather than a series letter on the phase it fixes"
+    over: "2026-09-16-bedc plus a letter"
+    reason: |
+      2026-09-03-2f81 admits a trailing series letter but states that a series is minted in one
+      go and that a later addition mints anew. This is a later addition to a phase already
+      shipped and merged.
