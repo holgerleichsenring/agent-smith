@@ -120,14 +120,20 @@ describe("ConfigStudio connections (p0345b)", () => {
   });
 
   it("Studio_OperatorShapedConfig_ProjectConnRefsResolve_NothingFalselyDangling", async () => {
+    // 2026-09-16-bedc: the chip row this read is gone; the graph is the wiring now. Moved
+    // rather than deleted — it is the only proof that p0345b connection-scoped refs
+    // ("conn/Name") are not reported as dangling.
     render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-projects-sample");
-    // Both conn-scoped refs resolve via the connections catalog even though
-    // the repos catalog is empty.
-    expect(screen.getByTestId("config-card-repo-sample-conn/Sample.Api")).toHaveAttribute("data-resolved", "true");
-    expect(screen.getByTestId("config-card-repo-sample-conn/Sample.Web")).toHaveAttribute("data-resolved", "true");
-    expect(screen.getByTestId("config-card-agent-sample")).toHaveAttribute("data-resolved", "true");
-    expect(screen.getByTestId("config-card-tracker-sample")).toHaveAttribute("data-resolved", "true");
+
+    fireEvent.click(screen.getByTestId("config-card-graph-toggle-sample"));
+
+    expect(screen.getByTestId("graph-node-repo-sample-conn/Sample.Api"))
+      .toHaveAttribute("data-coloured", "false");
+    expect(screen.getByTestId("graph-node-repo-sample-conn/Sample.Web"))
+      .toHaveAttribute("data-coloured", "false");
+    expect(screen.getByTestId("graph-node-agent-sample")).toHaveAttribute("data-coloured", "false");
+    expect(screen.getByTestId("graph-node-tracker-sample")).toHaveAttribute("data-coloured", "false");
   });
 
   it("Studio_OperatorShapedProject_EditDrawer_IntegrityConfirmed", async () => {

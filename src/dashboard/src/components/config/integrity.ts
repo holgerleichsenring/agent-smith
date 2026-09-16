@@ -1,4 +1,4 @@
-import type { ConfigEntityKind, StudioProject } from "@/lib/configApi";
+import type { ConfigEntityKind, StudioProject, TemplateReference } from "@/lib/configApi";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // p0345: referential-integrity helpers. `resolves` answers "does this ref point
@@ -71,4 +71,27 @@ export function projectIntegrity(
     reposOk,
     ok: agentOk && trackerOk && reposOk,
   };
+}
+
+/**
+ * 2026-09-16-bedc: which template bindings are UNFINISHED, by index.
+ * <para/>
+ * Stated once. This rule was written out four times — in the card, the project form, the
+ * template row and the graph — and this phase would have added a fifth by splitting the
+ * card's count naively. It is the same question the rest of this module answers: what about
+ * this project is not yet sound.
+ *
+ * Unfinished is not the same as UNRESOLVED. A binding missing a field is one nobody finished
+ * typing; a reference naming a catalog entry that does not exist is a different problem with
+ * a different fix. The revision is optional and never makes a binding unfinished.
+ */
+export function isTemplateUnfinished(template: TemplateReference): boolean {
+  return !template.context || !template.project || !template.repo || !template.templateContext;
+}
+
+/** The indices of the bindings <see cref="isTemplateUnfinished"/> refuses. */
+export function unfinishedTemplates(project: StudioProject): number[] {
+  return (project.templates ?? [])
+    .map((t, i) => (isTemplateUnfinished(t) ? i : -1))
+    .filter((i) => i >= 0);
 }

@@ -56,24 +56,40 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 describe("ProjectCard wiring graph", () => {
-  it("ProjectCard_Collapsed_NamesTheDefaultPipelineNotAPipelineCount", () => {
-    // The card said "0 pipelines" for a project that runs perfectly well, because it
-    // counted a list that decides nothing about what a ticket runs.
+  it("ProjectCard_Collapsed_StatesEachFactSeparately", () => {
+    // The card said "0 pipelines" for a project that runs perfectly well, because it counted
+    // a list that decides nothing about what a ticket runs. 2026-09-16-bedc: and it said the
+    // rest as one run-on sentence, so no fact could be found without reading the others.
     card(project());
 
-    const sub = screen.getByTestId("config-project-pipeline-sample");
-    expect(sub.textContent).toBe("pipeline code");
-    expect(sub.closest(".ec-sub")?.textContent).toContain("2 repositories");
-    expect(sub.closest(".ec-sub")?.textContent).not.toContain("pipelines");
+    expect(screen.getByTestId("config-project-pipeline-sample").textContent).toBe("default · code");
+    expect(screen.getByTestId("config-project-repos-sample").textContent).toBe("2 repositories");
+    expect(screen.getByTestId("config-project-resolution-sample")).toBeInTheDocument();
+    expect(screen.getByTestId("config-project-pipeline-sample").closest(".ec-sub")?.textContent)
+      .not.toContain("pipelines");
     expect(screen.queryByTestId("config-project-unresolved-sample")).toBeNull();
+    expect(screen.queryByTestId("config-project-unfinished-sample")).toBeNull();
   });
 
-  it("ProjectCard_Collapsed_NamesWhatIsUnresolved", () => {
+  it("ProjectCard_Collapsed_DrawsNoChipRow", () => {
+    // The graph behind the card's own control IS the wiring. The flat chip row was a second
+    // copy of it, left in place because 942a described an addition where a replacement
+    // was meant.
+    const { container } = card(project());
+
+    expect(screen.queryByTestId("config-card-wiring-sample")).toBeNull();
+    expect(container.querySelector(".wire")).toBeNull();
+  });
+
+  it("ProjectCard_UnfinishedTemplate_IsNamedApartFromUnresolvedReferences", () => {
+    // Two problems with two different fixes: a reference names a catalog entry that does not
+    // exist; an unfinished binding is one nobody finished typing. One number named neither.
     card(project({ agent: "gone", templates: [template({ templateContext: "" })] }));
 
-    expect(screen.getByTestId("config-project-unresolved-sample").textContent).toContain(
-      "2 unresolved",
-    );
+    expect(screen.getByTestId("config-project-unresolved-sample").textContent)
+      .toContain("1 unresolved");
+    expect(screen.getByTestId("config-project-unfinished-sample").textContent)
+      .toContain("1 template unfinished");
   });
 
   it("ProjectCard_Expanded_DrawsEachTemplatesContextUnderItsRepository", () => {

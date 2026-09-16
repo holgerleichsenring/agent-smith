@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-bedc
+
+goal: "The project card carries one wiring, not two, and states its facts as separate marks, so the graph replaces the chip row it was built to replace."
+
+applies_to: "dashboard (the project card, the shared integrity predicate, the studio stylesheet, the checked-in mockup)"
+
+requires:
+  - 2026-09-16-942a
+
+scope:
+  in: >
+    The flat wires chip row is REMOVED from the project card — it is that card's entire body,
+    so the body becomes nothing, which two other kinds already do; the card's summary becomes
+    one mark per fact under a class of its own, because the class it uses today is shared by
+    all seven kinds and a secret's summary is a sentence; an unfinished template is named
+    apart from an unresolved reference; the predicate that decides "unfinished", written out
+    four times in four files, is stated once and read from all of them; the rules the chip row
+    leaves behind are removed; the checked-in mockup, which still shows both shapes, is
+    updated with them.
+  out: >
+    THE WIRING CHIP COMPONENT. The system page's config-reads view still draws chips and is
+    its only other consumer — the component stays for that one survivor.
+    THE GRAPH ITSELF. Its columns, its edges and what it draws are 2026-09-16-942a's.
+    THE DRAWER'S TWO VERDICTS. See the decision: the drawer splits the same way the card does
+    and nobody asked it to be merged. Named here so the next reader does not mistake it for an
+    oversight; a phase that merges them is not this one.
+
+decisions:
+  - key: |
+      THE SPEC SAID "COLLAPSES TO THE FACTS" AND NEVER SAID THE OLD ROW GOES, SO IT DID NOT.
+      2026-09-16-942a describes a card that collapses to a summary and expands into a graph. It
+      was implemented exactly as written: the summary changed, the graph was added — and the
+      wires chip row, which the graph exists to replace, was left rendering unconditionally
+      beside it. The card shows the same wiring twice, in two shapes, one of which is the shape
+      the phase set out to retire. A spec that describes an addition where a replacement was
+      meant gets an addition.
+  - key: |
+      THE CHECKED-IN MOCKUP SHOWS BOTH SHAPES, SO THIS PHASE SUPERSEDES IT RATHER THAN CITING
+      IT. The first cut of this spec argued from "what the agreed design showed". The design
+      checked into this repository shows the opposite: it emits the wires chip row and the
+      run-on summary line, which are the two things being removed. Either the mockup is updated
+      with the change or every later argument from "mock parity" points at a file describing
+      the state before it. It is updated here.
+  - key: |
+      A RUN-ON SENTENCE IS NOT A SUMMARY AN OPERATOR SCANS, AND THE CLASS IT USES IS SHARED. The
+      card's line reads "pipeline none declared · via tag X · 3 repositories · built after Y" —
+      four facts of different kinds separated by the same character, so nothing can be found
+      without reading all of it. The class carrying it is used by all seven kinds, and a
+      secret's summary is a full sentence; turning it into a row of marks would reflow every
+      card. The marks get a class of their own.
+  - key: |
+      AN UNFINISHED TEMPLATE IS NOT AN UNRESOLVED REFERENCE. The card folds both into one count.
+      An unresolved reference names a catalog entry that does not exist and is fixed by picking
+      a different one; an unfinished template is a binding nobody finished typing and is fixed
+      by finishing it. Reporting them as one number tells an operator neither what is wrong nor
+      where to go.
+  - key: |
+      THE PREDICATE IS WRITTEN FOUR TIMES, SO STATING IT ONCE IS PART OF THE PHASE, NOT TIDYING.
+      "Unfinished" is decided in the card, in the project form, in the template row and in the
+      graph — four copies of one rule, and this phase would add a fifth by writing the split
+      naively. It moves to the module that already owns the card's other integrity question. The
+      form's copy is the one the drawer imports, so leaving it there would pull the drawer's form
+      into every card's module graph. There is a test in this codebase that pins exactly this
+      shape for a different shared predicate; it is the model.
+  - key: |
+      THE DRAWER SPLITS THE SAME WAY AND IS LEFT ALONE, DELIBERATELY. Its one-line verdict is
+      computed from catalog references only and never looks at templates, while an unfinished
+      binding disables Save through a different element — so the drawer can read "every
+      reference resolves" while Save is off. That is the same two-category split this phase makes
+      on the card, already present and not asked about. Recorded rather than fixed, so the next
+      reader knows it was seen.
+  - key: |
+      THE GRAPH STAYS BEHIND A CONTROL. A page listing every project cannot draw a graph per card
+      by default — the drawing is tall and the list is for scanning. What changes is that nothing
+      else claims to be the wiring while it is closed.
+
+steps:
+  - id: the-unfinished-predicate-is-stated-once
+    action: "The unfinished-template predicate moves to the shared integrity module and its four copies read it."
+  - id: the-chip-row-leaves-the-project-card
+    action: "The project card's body becomes nothing; the graph is its wiring."
+  - id: the-summary-becomes-separate-marks
+    action: "Each fact is its own mark under a class the other six kinds do not use: the pipeline, how a ticket reaches the project, the repository count, what it is built after."
+  - id: an-unfinished-template-is-named-as-one
+    action: "Unfinished templates and unresolved references are counted and named apart."
+  - id: what-the-row-leaves-behind-is-removed
+    action: "The stylesheet rules whose only consumer was the row are deleted, and the checked-in mockup is updated to the new card."
+
+tests:
+  - "ProjectCard_Collapsed_DrawsNoChipRow"
+  - "ProjectCard_Collapsed_StatesEachFactSeparately"
+  - "ProjectCard_UnfinishedTemplate_IsNamedApartFromUnresolvedReferences"
+  - "UnfinishedTemplates_HasOneImplementation_SharedByEveryReader"
+  - "ConfigReads_StillDrawsItsWiringChips"
+
+done:
+  - "the project card shows its wiring in exactly one shape"
+  - "each fact on the card can be found without reading the others"
+  - "an unfinished template and a broken reference are told apart"
+  - "one statement of what unfinished means, read by all four consumers"
+  - "the checked-in mockup shows the card this phase ships"
+  - "dashboard tests and build green"
