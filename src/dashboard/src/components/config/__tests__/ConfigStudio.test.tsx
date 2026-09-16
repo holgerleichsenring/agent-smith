@@ -78,16 +78,17 @@ describe("ConfigStudio", () => {
     expect(screen.queryByTestId("config-tabs")).not.toBeInTheDocument();
   });
 
-  it("ProjectCard_WiresRow_RendersResolvedChips", async () => {
+  it("ProjectCard_Expanded_GraphMarksTheDanglingRef", async () => {
+    // 2026-09-16-bedc: this was the chip row's test. The chips are gone and the graph is the
+    // wiring — but the thing it proved is still worth proving, so it moved rather than being
+    // deleted: a project naming an agent no catalog carries is SHOWN as broken on the card.
     render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
-    await screen.findByTestId("config-card-projects-checkout");
-    // agent → [project] ← tracker · repo — resolved chips neutral, project green.
-    expect(screen.getByTestId("config-card-agent-checkout")).toHaveAttribute("data-resolved", "true");
-    expect(screen.getByTestId("config-card-tracker-checkout")).toHaveAttribute("data-resolved", "true");
-    expect(screen.getByTestId("config-card-repo-checkout-web")).toHaveAttribute("data-resolved", "true");
-    expect(screen.getByTestId("config-card-project-chip-checkout")).toHaveTextContent("checkout");
-    // The dangling agent ref on the broken project renders rose (unresolved).
-    expect(screen.getByTestId("config-card-agent-broken")).toHaveAttribute("data-resolved", "false");
+    await screen.findByTestId("config-card-projects-broken");
+
+    fireEvent.click(screen.getByTestId("config-card-graph-toggle-broken"));
+
+    expect(screen.getByTestId("graph-node-agent-broken")).toHaveAttribute("data-coloured", "true");
+    expect(screen.getByTestId("graph-node-tracker-broken")).toHaveAttribute("data-coloured", "false");
   });
 
   it("AgentCard_ListsPresentModelRoles_NoPhantomDashes", async () => {

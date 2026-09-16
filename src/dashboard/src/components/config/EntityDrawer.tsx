@@ -14,7 +14,7 @@ import { EntityForm } from "./EntityForm";
 import { requiredFieldsFilled } from "./capabilityFields";
 import { blockingFindings, useDraftFindings } from "./useDraftFindings";
 import { projectIntegrity } from "./integrity";
-import { unfinishedTemplates } from "./ProjectForm";
+import { unfinishedTemplates } from "./integrity";
 import { cn } from "@/lib/utils";
 import type { ConfigCatalog } from "./useConfigCatalog";
 

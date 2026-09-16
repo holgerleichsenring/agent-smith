@@ -12,18 +12,18 @@ import type {
   StudioTracker,
 } from "@/lib/configApi";
 import { ENTITY_BADGE, ENTITY_ICON } from "./entities";
-import { FieldBlock, WiringChip } from "./primitives";
+import { FieldBlock } from "./primitives";
 import type { ConfigCatalog } from "./useConfigCatalog";
-import { resolves, resolveRepoRef } from "./integrity";
+import { resolves, resolveRepoRef, unfinishedTemplates } from "./integrity";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
 import { ProjectGraph } from "./ProjectGraph";
 
 // p0345/p0343c (pixel identity): one entity card in the config-studio.html
 // .ecard DOM — .ec-top (icon block, mono id, sub line, type badge + "edit ›"),
-// .fields field-block strips, and for projects the .wire row with the green
-// project node between the agent → ← tracker chips. Clicking anywhere opens
-// the edit drawer. Reference wiring resolves against the live catalog —
-// dangling refs go rose via data-resolved.
+// .fields field-block strips. Clicking anywhere opens the edit drawer.
+// 2026-09-16-bedc: a project card has NO body. Its wiring is the graph behind its own
+// control; the flat chip row that used to sit here was the second copy of it, left in
+// place because 942a described an addition where a replacement was meant.
 
 export function EntityCard({
   kind,
@@ -271,55 +271,12 @@ function CardBody({
     }
     case "repos":
       return null; // the mock repo card is ec-top only (name in the sub line)
-    case "projects": {
-      const p = entity as StudioProject;
-      return (
-        <div className="wire" data-testid={`config-card-wiring-${p.id}`}>
-          <span className="wlbl">wires</span>
-          <WiringChip
-            label="agent"
-            kind="agent"
-            value={p.agent}
-            resolved={resolves(catalog, "agents", p.agent)}
-            testId={`config-card-agent-${p.id}`}
-          />
-          <span className="warr">→</span>
-          {/* p0343b: the project itself is the GREEN center of the wires row. */}
-          <span
-            data-testid={`config-card-project-chip-${p.id}`}
-            className="pw-node proj"
-            style={{ padding: "4px 10px", fontSize: "11.5px" }}
-          >
-            {p.id}
-          </span>
-          <span className="warr">←</span>
-          <WiringChip
-            label="tracker"
-            kind="tracker"
-            value={p.tracker}
-            resolved={resolves(catalog, "trackers", p.tracker)}
-            testId={`config-card-tracker-${p.id}`}
-          />
-          <span className="warr">·</span>
-          {p.repos.length === 0 && <span className="wlbl">no repos</span>}
-          {p.repos.map((repoId) => {
-            // p0345b: conn-scoped discovery refs ("conn/Name") resolve against
-            // the connections catalog; plain refs against repos.
-            const result = resolveRepoRef(catalog, repoId);
-            return (
-              <WiringChip
-                key={repoId}
-                label={repoId.includes("/") ? "conn repo" : "repo"}
-                kind="repo"
-                value={repoId}
-                resolved={result.ok}
-                testId={`config-card-repo-${p.id}-${repoId}`}
-              />
-            );
-          })}
-        </div>
-      );
-    }
+    case "projects":
+      // 2026-09-16-bedc: the graph behind the card's own control is the wiring. This case
+      // drew a second one, a flat chip row, unconditionally — the very shape 942a's graph
+      // was built to replace, left beside it because that spec described an addition.
+      return null;
+
     case "mcp-servers": {
       const m = entity as StudioMcpServer;
       return (
@@ -357,34 +314,56 @@ function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog:
   const templates = project.templates ?? [];
   const targets = [...new Set(templates.map((t) => t.project).filter(Boolean))];
   const pipeline = project.defaultPipeline || project.pipeline || "none declared";
-  const unresolved = unresolvedCount(project, catalog);
+  const unresolved = unresolvedRefs(project, catalog);
+  const unfinished = unfinishedTemplates(project).length;
   return (
-    <div className="ec-sub">
-      <span data-testid={`config-project-pipeline-${project.id}`}>pipeline {pipeline}</span>
-      {project.resolution ? <> · via {project.resolution.strategy} {project.resolution.value}</> : null}
-      {" · "}
-      {project.repos.length} {project.repos.length === 1 ? "repository" : "repositories"}
-      {templates.length > 0 ? (
-        <span data-testid={`config-project-templates-${project.id}`}>
-          {" "}· built after {targets.join(", ")}
+    // 2026-09-16-bedc: one MARK per fact. It was four facts of different kinds separated by
+    // the same character, so none could be found without reading all of them. The outer class
+    // stays — it is shared by all seven kinds and a secret's summary is a sentence — and the
+    // marks sit under one of their own.
+    <div className="ec-sub ec-marks">
+      <span className="ec-mark" data-testid={`config-project-pipeline-${project.id}`}>
+        {pipeline === "none declared" ? "no default pipeline" : `default · ${pipeline}`}
+      </span>
+      {project.resolution ? (
+        <span className="ec-mark" data-testid={`config-project-resolution-${project.id}`}>
+          {project.resolution.strategy} {project.resolution.value}
+        </span>
+      ) : null}
+      <span className="ec-mark" data-testid={`config-project-repos-${project.id}`}>
+        {project.repos.length} {project.repos.length === 1 ? "repository" : "repositories"}
+      </span>
+      {targets.length > 0 ? (
+        <span className="ec-mark" data-testid={`config-project-templates-${project.id}`}>
+          built after {targets.join(", ")}
+        </span>
+      ) : null}
+      {/* Two different problems with two different fixes: a reference names a catalog entry
+          that does not exist; an unfinished binding is one nobody finished typing. Counted
+          as one number, neither could be acted on. */}
+      {unfinished > 0 ? (
+        <span className="ec-mark warn" data-testid={`config-project-unfinished-${project.id}`}>
+          {unfinished} template{unfinished === 1 ? "" : "s"} unfinished
         </span>
       ) : null}
       {unresolved > 0 ? (
-        <span data-testid={`config-project-unresolved-${project.id}`} style={{ color: "var(--bad)" }}>
-          {" "}· {unresolved} unresolved
+        <span className="ec-mark bad" data-testid={`config-project-unresolved-${project.id}`}>
+          {unresolved} unresolved
         </span>
       ) : null}
     </div>
   );
 }
 
-/** Every reference the card can judge without a call, plus a binding the server refuses. */
-function unresolvedCount(project: StudioProject, catalog: ConfigCatalog): number {
+/** Every reference the card can judge without a call. An unfinished binding is NOT one. */
+function unresolvedRefs(project: StudioProject, catalog: ConfigCatalog): number {
   let count = 0;
   if (!resolves(catalog, "agents", project.agent)) count++;
   if (!resolves(catalog, "trackers", project.tracker)) count++;
   for (const ref of project.repos) if (!resolveRepoRef(catalog, ref).ok) count++;
+  // 2026-09-16-bedc: a template naming a project that does not exist is a reference like any
+  // other. It was counted in neither bucket.
   for (const t of project.templates ?? [])
-    if (!t.context || !t.project || !t.repo || !t.templateContext) count++;
+    if (t.project && !resolves(catalog, "projects", t.project)) count++;
   return count;
 }

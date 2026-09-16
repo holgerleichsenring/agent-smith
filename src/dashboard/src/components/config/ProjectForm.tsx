@@ -13,7 +13,7 @@ import { RepoPicker } from "./RepoPicker";
 import { TemplateBindings } from "./TemplateBindings";
 import { TrackerRouting } from "./TrackerRouting";
 import { camelCase } from "./capabilityFields";
-import { projectIntegrity } from "./integrity";
+import { projectIntegrity, unfinishedTemplates } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // 2026-09-16-74a2: the project form was one scroll of eleven controls, three of which
@@ -223,13 +223,6 @@ function markedTabs(findings: ConfigFinding[], project: StudioProject): Set<Proj
   }
   if (unfinishedTemplates(project).length > 0) marked.add("templates");
   return marked;
-}
-
-/** What the server refuses where templates are fetched — the revision is optional. */
-export function unfinishedTemplates(project: StudioProject): number[] {
-  return (project.templates ?? [])
-    .map((t, i) => (!t.context || !t.project || !t.repo || !t.templateContext ? i : -1))
-    .filter((i) => i >= 0);
 }
 
 // p0393/p0392: `pipelines` is what the studio may OFFER; a stored configuration may carry
