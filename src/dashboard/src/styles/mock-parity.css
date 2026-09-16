@@ -510,6 +510,9 @@
 
 /* entity card */
 .mock-config .ecard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.14s; }
+/* 2026-09-16-5451: a project card's root is inert — 2026-09-16-d7c3 moved its click onto
+   the row — so the surface between the controls stops offering a pointer it ignores. */
+.mock-config .ecard.inert { cursor: default; }
 .mock-config .ecard:hover { border-color: var(--ink-3); }
 /* 2026-09-16-942a: the card clips its box, which would cut the wiring drawing off. The
    clipping is lifted only while the card is expanded. */

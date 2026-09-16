@@ -285,4 +285,12 @@ describe("ProjectCard wiring graph", () => {
 
     expect(screen.queryByTestId("config-card-badge-sample")).toBeNull();
   });
+
+  it("ProjectCard_Root_DoesNotOfferAPointer", () => {
+    // d7c3 moved this card's click onto the row and left the whole surface inviting one.
+    // Everything else on the card says what it does; the surface was the last thing lying.
+    const { container } = card(project());
+
+    expect(container.querySelector(".ecard")).toHaveClass("inert");
+  });
 });
