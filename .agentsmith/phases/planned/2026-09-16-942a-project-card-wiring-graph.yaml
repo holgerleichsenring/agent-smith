@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-942a
+
+goal: "A project card expands into a graph of what it is wired to, so a template's real owner — a context of one repository — is visible instead of inferred from a flat row of chips."
+
+applies_to: "dashboard (the project card, the wiring view)"
+
+requires:
+  - 2026-09-16-4df5
+
+scope:
+  in: >
+    The project card collapses to the facts an operator scans — the default pipeline, how a
+    ticket reaches it, how many repositories, and whether anything is unresolved; a disclosure
+    control expands it into an inline SVG graph in FOUR columns: agent and tracker, the
+    project, its repositories with the contexts its own templates name, and the template each
+    of those contexts is built after; an unresolved or unfinished edge is the only coloured
+    mark; the drawing is sized for the page it sits on, which is 1000 pixels wide and not the
+    screen.
+  out: >
+    READING CONTEXTS FROM THE GIT HOST. The card draws what the stored templates already say.
+    A template names its context and, since 2026-09-16-4df5, the repository that context
+    belongs to — so the graph needs no call at all. Asking the contexts endpoint per card
+    would be one authenticated outbound call per repository per card, each re-assembling the
+    whole configuration, on a page that lists every project. A repository whose contexts no
+    template names is drawn without any.
+    A NODE THAT OPENS ITS SECTION. The drawer takes a kind and an entity and no section; three
+    signatures would have to change and the tab state would have to be seedable from outside.
+    Worth doing, not worth hiding inside this phase — a named successor is written when the
+    tabs exist.
+    AN EDITABLE GRAPH. Nothing is dragged, connected or deleted in the drawing.
+    A GRAPH IN THE DRAWER. It cannot breathe in 560px; the drawer keeps its one-line verdict.
+
+decisions:
+  - key: |
+      THE FLAT CHIP ROW NEVER SHOWED THE SHAPE, AND THE SHAPE IS THE POINT. A template does not
+      belong to the project: it belongs to a CONTEXT, and a context belongs to a repository.
+      Drawn as one row of chips, a project with three repositories and three templates is nine
+      equal-looking names. Drawn as columns, two repositories declaring the same context name is
+      visible — which is the configuration that silently dropped a template, crashed a dialog
+      turn and mis-keyed a proof report before 2026-09-16-4df5 separated them.
+  - key: |
+      THE GRAPH IS DRAWN FROM WHAT IS STORED, WHICH IS WHY IT COSTS NOTHING. The first cut said
+      the contexts were "already read for the template picker". They are not: that hook mounts
+      only inside the open drawer, holds no shared cache, and fans out one request per repo ref
+      against the git host under a probe permission, each call re-assembling the configuration.
+      Ten projects would be twenty such calls on page load. Every context the graph needs to draw
+      is already in the project's own templates — a template names its context and its repository
+      — so the drawing reads the catalog it already has.
+  - key: |
+      THE PAGE IS 1000 PIXELS, NOT THE SCREEN, SO IT IS FOUR COLUMNS AND NOT FIVE. The first cut
+      reasoned that "a five-column graph needs three times the drawer's width" and that the card
+      could have it. The studio's main column is capped at 1000px, so a card gives the drawing
+      about 900. The contexts sit INSIDE their repository's block rather than in a column of
+      their own, which is also the truer picture: a context is part of a repository, not a peer
+      of one.
+  - key: |
+      HAND-AUTHORED SVG, NOT A GRAPH LIBRARY. Four columns with a known number of rows is a layout
+      a component can compute; a layout engine would be a dependency, a bundle and a render loop
+      for a picture whose shape is fixed. The edges are orthogonal so they sit on a grid rather
+      than being routed.
+  - key: |
+      COLOUR IS RESERVED FOR THE THING THAT IS WRONG. Every node and edge takes the theme's
+      foreground; the only coloured marks are an unfinished binding and a reference that does not
+      resolve. A drawing where everything is coloured says nothing about what needs attention.
+  - key: |
+      EXPANDING IS NOT EDITING, AND TODAY THE WHOLE CARD IS THE EDIT BUTTON. The card is one
+      element with role=button and onClick=edit over its entire surface, so a disclosure control
+      must stop the event — the precedent is the init action already sitting on these cards. The
+      card's overflow is hidden, which will clip a drawing that exceeds its box.
+  - key: |
+      THE CARD STOPS COUNTING PIPELINES. "0 pipelines" is what the card says today for a project
+      that runs perfectly well, because it counts a list that decides nothing about what a ticket
+      runs. It names the default pipeline — the thing that actually answers when nothing routed —
+      and the repository count, which is the size of the project.
+
+steps:
+  - id: the-card-says-what-is-scanned-for
+    action: "The collapsed card names the default pipeline, how a ticket reaches the project, the repository count, and anything unresolved."
+  - id: a-disclosure-control-expands-it
+    action: "A control that does not trigger the card's edit action expands it; the card's clipping is lifted for the drawing."
+  - id: the-card-expands-into-the-graph
+    action: "Four columns: agent and tracker, the project, each repository with the contexts its templates name, and the template each is built after."
+  - id: only-a-problem-is-coloured
+    action: "An unfinished binding or an unresolved reference is the only coloured mark."
+
+tests:
+  - "ProjectCard_Collapsed_NamesTheDefaultPipelineNotAPipelineCount"
+  - "ProjectCard_Expanded_DrawsEachTemplatesContextUnderItsRepository"
+  - "ProjectCard_TwoReposDeclaringOneContextName_AreTwoNodes"
+  - "ProjectCard_RepositoryNoTemplateNames_IsDrawnWithoutContexts"
+  - "ProjectCard_UnfinishedTemplate_IsTheOnlyColouredMark"
+  - "ProjectCard_Expanding_DoesNotOpenTheEditor"
+  - "ProjectCard_Expanded_MakesNoOutboundCall"
+
+done:
+  - "an operator sees that a template belongs to a context of one repository"
+  - "two repositories declaring one context name are two nodes, not one"
+  - "the card names what decides the pipeline instead of counting a list that decides nothing"
+  - "expanding a card makes no request and opens no editor"
+  - "dashboard tests and build green"
