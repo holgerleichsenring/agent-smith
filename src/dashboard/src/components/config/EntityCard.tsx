@@ -55,7 +55,7 @@ export function EntityCard({
     >
       <div className="ec-top">
         <div className="ec-ic">{ENTITY_ICON[kind]}</div>
-        <div>
+        <div className="ec-id">
           <div className="ec-name">{entity.id}</div>
           <SubLine kind={kind} entity={entity} catalog={catalog} />
         </div>
@@ -65,7 +65,7 @@ export function EntityCard({
           {kind === "projects" && (
             <button
               type="button"
-              className="edit-hint"
+              className="pick"
               aria-expanded={expanded}
               aria-label={expanded ? `Hide how ${entity.id} is wired` : `Show how ${entity.id} is wired`}
               data-testid={`config-card-graph-toggle-${entity.id}`}
@@ -74,7 +74,7 @@ export function EntityCard({
                 setExpanded((x) => !x);
               }}
             >
-              {expanded ? "▾ wiring" : "▸ wiring"}
+              {expanded ? "▾ Hide wiring" : "▸ Wiring"}
             </button>
           )}
           <span className="tybadge" data-testid={`config-card-badge-${entity.id}`}>

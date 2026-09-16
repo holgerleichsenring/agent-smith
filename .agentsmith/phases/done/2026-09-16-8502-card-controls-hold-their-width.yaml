@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-8502
+
+goal: "A project card's controls hold their width and its disclosure reads as a control, so the row of marks that replaced the summary stops breaking the buttons beside it."
+
+applies_to: "dashboard (the project card, the studio stylesheet)"
+
+requires:
+  - 2026-09-16-bedc
+
+scope:
+  in: >
+    The block holding the id and the summary is named and told to yield, and the block holding
+    the controls is told not to shrink and not to wrap — a wrapping row of marks has the width
+    of its widest mark as its minimum, which is what pushed every button on the right across
+    three lines; the control that reveals the graph carries the same treatment as the other
+    controls and says what it does, because it was the muted hint text beside it and nobody
+    could tell it was a control; the contract the stylesheet keys on is pinned as source text,
+    since nothing in this suite can see a layout.
+  out: >
+    THE TYPE BADGE. A card on a page of nothing but projects carries a badge reading
+    "project". It is drawn for all seven kinds from one function and is not this phase's.
+    A WAY TO SEE A RENDERED PAGE. This loop has no browser and no screenshot script, which is
+    why the defect reached an operator. Naming it is all this phase can do about it.
+
+decisions:
+  - key: |
+      A WRAPPING ROW'S MINIMUM IS ITS WIDEST ITEM, AND THAT IS THE WHOLE DEFECT. The card's top
+      line is a flex row: an icon, a block with the id and the summary, and a block of controls.
+      The summary was one line of text, which shrinks. 2026-09-16-bedc made it a wrapping row of
+      marks, whose min-content width is the widest mark — so the middle block claimed the space,
+      the controls block shrank below its own content, and every button on the right broke across
+      three lines. The middle block is named so it can be told to yield; the controls are told not
+      to shrink.
+  - key: |
+      THE DISCLOSURE WAS STYLED AS A LABEL, SO IT READ AS ONE. It carried the same muted
+      eleven-and-a-half-point treatment as the "edit" hint, sitting between a bordered button and
+      a type badge — and the operator reported there was no way to expand the card at all. It
+      takes the treatment the neighbouring control already has and says what it does.
+  - key: |
+      A SOURCE-TEXT GUARD IS WEAK AND IT IS WHAT THERE IS. jsdom does no layout, so nothing in
+      this suite could see the wrapping and nothing did — the whole dashboard suite was green
+      while the card was visibly broken. What a test CAN pin is the contract the rules key on:
+      that the two blocks are addressable and that the three rules holding them exist. It would
+      not have caught the original mistake; it stops the fix from being silently undone.
+  - key: |
+      IT IS A NEW ID RATHER THAN A LETTER ON THE PHASE IT FIXES. 2026-09-03-2f81 admits a series
+      letter but states that a series is minted in one go and that a later addition mints anew.
+      This is a later addition to a phase already shipped.
+
+steps:
+  - id: the-controls-hold-their-width
+    action: "The id-and-summary block is named and yields; the controls block does not shrink and its children do not wrap."
+  - id: the-disclosure-reads-as-a-control
+    action: "The control that reveals the graph carries the same treatment as the control beside it and names what it does."
+  - id: the-contract-is-pinned
+    action: "A test pins that both blocks are addressable and that the rules holding them exist."
+
+tests:
+  - "ProjectCard_ControlsAndSummary_KeepTheirLayoutHooks"
+
+done:
+  - "the controls on a project card sit on one line"
+  - "the control that reveals the graph looks like one"
+  - "the rules the layout depends on cannot be removed unnoticed"
+  - "dashboard tests and build green"
