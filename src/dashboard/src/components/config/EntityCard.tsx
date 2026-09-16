@@ -77,9 +77,17 @@ export function EntityCard({
               {expanded ? "▾ Hide wiring" : "▸ Wiring"}
             </button>
           )}
-          <span className="tybadge" data-testid={`config-card-badge-${entity.id}`}>
-            {typeBadge(kind, entity)}
-          </span>
+          {/* 2026-09-16-b706: a project card carries no badge. It showed the declared pipeline
+              list joined, and the literal "project" when that list was empty — so on a page of
+              nothing but projects it said nothing, and when it said anything it was the list
+              2026-09-16-74a2 stopped asking an operator to author. The marks carry every fact
+              this card has. Every other kind's badge names something its card does not
+              otherwise carry. */}
+          {kind !== "projects" && (
+            <span className="tybadge" data-testid={`config-card-badge-${entity.id}`}>
+              {typeBadge(kind, entity)}
+            </span>
+          )}
           <button
             type="button"
             className="edit-hint"
@@ -115,10 +123,8 @@ function typeBadge(kind: ConfigEntityKind, entity: StudioEntity): string {
       const r = entity as StudioRepo;
       return r.branch ? `branch ${r.branch}` : ENTITY_BADGE.repos;
     }
-    case "projects": {
-      const p = entity as StudioProject;
-      return p.pipelines.length > 0 ? p.pipelines.join(" · ") : ENTITY_BADGE.projects;
-    }
+    case "projects":
+      return ENTITY_BADGE.projects; // unreachable: a project card renders no badge (b706)
     case "mcp-servers":
       return (entity as StudioMcpServer).transport || ENTITY_BADGE["mcp-servers"];
     case "secrets":
