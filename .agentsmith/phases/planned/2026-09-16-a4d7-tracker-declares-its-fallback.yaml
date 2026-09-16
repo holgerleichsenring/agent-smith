@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-a4d7
+
+goal: "A tracker declares the pipeline that runs when no tag matched, so the answer stops being a hardcoded 'fix-bug' that no operator can see or change."
+
+applies_to: "backend (the tracker entity, the trigger merge, the capabilities descriptor, a startup finding) + dashboard (the tracker form)"
+
+requires:
+  - 2026-09-15-9b3e
+
+scope:
+  in: >
+    The tracker gains a default pipeline beside the label map it already owns; the trigger
+    merge copies it into the wrapper exactly the way it copies the map; the capabilities
+    descriptor declares it so the tracker form renders it, as OPTIONAL — see the decision; a
+    tracker that declares neither a map nor a default reports an advisory finding naming what
+    every ticket will therefore run, and that finding names the FIELD rather than the type;
+    the wrapper's hardcoded literal moves to the one place that answers with it, so "the
+    trigger states no default" becomes expressible at all.
+  out: >
+    MARKING THE FIELD REQUIRED. Reviewed against the code and refused: the descriptor's
+    Required flag is enforced by ValidateTracker on every studio upsert AND surfaced by the
+    draft rules as a BLOCKING finding that disables Save — so every tracker configured before
+    this phase would stop being saveable. That is the 2026-07-31 shape one layer up. It is
+    declared optional and an advisory finding carries it.
+    A PIPELINE PICKER FOR IT. CapabilityFieldKind is text, list, bool or map; there is no
+    picker kind, so the descriptor renders a text box. And the preset list does not contain
+    "fix-bug", so a picker could not even offer the value the finding names. A kind that picks
+    from a served list is its own phase.
+    A PROJECT-LEVEL TRIGGER FORM. The studio has no form for the per-project trigger wrapper
+    and writes none. A project that overrides the fallback in YAML keeps doing so; the merge
+    already prefers what the wrapper carries.
+    CHANGING WHAT RUNS TODAY. A tracker that declares nothing behaves exactly as it does now.
+
+decisions:
+  - key: |
+      THE FALLBACK BELONGS WHERE THE MAP IS, AND THE MAP IS ON THE TRACKER. PipelineResolver
+      matches a ticket's tag against the map, and answers with the trigger's own default when
+      there is no map at all. EffectiveTriggerBuilder.FillWorkflow already copies the map from
+      the tracker into the wrapper — and copies eight other workflow fields the same way — but
+      never the default, because the tracker has none to copy. A map and the answer for "nothing
+      matched" are one decision; splitting them across two files is why the answer is invisible.
+  - key: |
+      IT IS HARDCODED TODAY AND NOBODY CAN SEE IT. WebhookTriggerConfig.DefaultPipeline defaults
+      to the literal "fix-bug". A project routing by the resolution shorthand with no label map
+      sends every ticket there, whatever the project's own default_pipeline says — and the
+      project form's help text asserts the opposite in as many words. That sentence is corrected
+      by 2026-09-16-74a2; this phase gives the field it should have pointed at.
+  - key: |
+      OPTIONAL IN THE DESCRIPTOR, BECAUSE REQUIRED IS NOT WHAT IT SOUNDS LIKE. The first cut of
+      this spec said "required of the form, never a refused boot". That is wrong: the Required
+      flag is read by ValidateTracker, which DbConfigStore calls on every upsert and which throws
+      — and ConfigDraftRules wraps the same call as a BLOCKING finding, which disables Save in the
+      drawer. Every tracker configured before this phase would stop being saveable. An advisory
+      finding that NAMES the destination ("every ticket runs fix-bug") is information nobody has
+      today, and it costs no existing configuration anything.
+  - key: |
+      THE HARDCODED LITERAL MOVES TO WHERE IT IS ANSWERED, OR "STATES NONE" CANNOT BE EXPRESSED.
+      WebhookTriggerConfig.DefaultPipeline is a non-nullable string initialised to "fix-bug", so
+      no merge can tell "the project declared fix-bug" from "the project declared nothing" — the
+      usual ??= idiom can never fire, and the isFresh idiom beside it only helps a project with no
+      trigger wrapper at all. The field becomes nullable and the literal moves to the resolver
+      that returns it, which is the single place it is consumed as an answer. Behaviour for a
+      configuration that declares nothing is unchanged; a nullable field with no such move would
+      turn "runs fix-bug" into "ticket dropped", which is the one thing this phase must not do.
+  - key: |
+      THE FINDING NAMES ITS FIELD, WHICH THE TRACKER PATH DOES NOT DO TODAY. ConfigDraftRules'
+      tracker findings hardcode the field as "type", so the drawer footer would say the type is
+      the problem. A finding about a missing fallback that points at the type field is worse than
+      no finding.
+  - key: |
+      THE WRAPPER STILL WINS, BECAUSE MERGING IS HOW EVERY OTHER WORKFLOW FIELD BEHAVES. The
+      tracker supplies what the project's trigger did not state. A project that already declares
+      its own fallback in YAML keeps it, unchanged and unreported.
+
+steps:
+  - id: the-tracker-carries-a-default-pipeline
+    action: "TrackerEntity and the raw tracker carry a default pipeline; it round-trips through YAML and the studio."
+  - id: the-merge-copies-it-like-the-map
+    action: "FillWorkflow fills the wrapper's default from the tracker when the wrapper states none, beside the label-map copy it already makes."
+  - id: the-form-renders-it
+    action: "The capabilities descriptor declares the field so every tracker form renders it, optional, as a text box — no picker kind exists."
+  - id: a-tracker-that-declares-neither-says-where-tickets-go
+    action: "A tracker with no label map and no default reports an advisory finding naming the pipeline every ticket will run."
+
+tests:
+  - "Tracker_DeclaresDefaultPipeline_FillsTheTriggerWrapper"
+  - "Tracker_ProjectTriggerDeclaresItsOwn_TrackerDoesNotOverrideIt"
+  - "Tracker_DeclaresNothing_BehavesExactlyAsBefore"
+  - "Tracker_NoMapAndNoDefault_ReportsWhereTicketsGo"
+  - "Capabilities_TrackerFields_DeclareDefaultPipelineOptional"
+  - "Tracker_ExistingTrackerWithoutIt_StillSaves"
+  - "PipelineResolver_TriggerStatesNoDefault_StillAnswersFixBug"
+  - "TrackerForm_MissingDefaultPipeline_IsAdvisoryAndNamesTheField"
+
+done:
+  - "an operator sets, in the studio, what runs when a ticket's tag matched nothing"
+  - "every tracker configured before this phase still saves unchanged"
+  - "a tracker that declares nothing runs exactly as it does today"
+  - "a project that declares its own fallback keeps it"
+  - "a tracker with neither says, in a finding, where every ticket will go"
+  - "dashboard tests and build green, backend build green, full suite green"
