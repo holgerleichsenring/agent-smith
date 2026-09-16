@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-b706
+
+goal: "A project card carries no type badge, because on a page of nothing but projects it reads 'project' and when it reads anything else it is the pipeline list the form stopped asking for."
+
+applies_to: "dashboard (the project card)"
+
+requires:
+  - 2026-09-16-8502
+
+scope:
+  in: >
+    The project card renders no type badge; every other kind keeps its own, because theirs
+    names something — a provider, a tracker type, a branch, a transport, or that a secret is
+    an env-name and nothing more.
+  out: >
+    THE BADGE ON THE OTHER SIX KINDS. Each of those says something the card does not
+    otherwise carry.
+    THE PIPELINE LIST ITSELF. It stays in the stored configuration and is still authored in
+    YAML; 2026-09-16-74a2 only stopped the form asking an operator to write it.
+
+decisions:
+  - key: |
+      IT IS EITHER NOISE OR A DUPLICATE OF SOMETHING RETIRED, AND NEVER ANYTHING ELSE. The
+      badge shows the project's declared pipeline list joined, and the literal "project" when
+      that list is empty. On a page listing nothing but projects the fallback says nothing at
+      all; and when the list is not empty, the badge shows the very list 2026-09-16-74a2
+      decided an operator should not be asked to author, in a place the marks already summarise
+      as the default that actually runs.
+  - key: |
+      THE MARKS ALREADY CARRY EVERY FACT THE CARD HAS. The default pipeline, how a ticket
+      reaches the project, the repository count, what it is built after, and anything unfinished
+      or unresolved. A badge beside them adds a seventh mark that is not a fact.
+  - key: |
+      THE OTHER SIX KEEP THEIRS, WHICH IS WHY THIS IS NOT A CHANGE TO THE BADGE ITSELF. An
+      agent's badge names its provider, a tracker's its type, a repo's its branch, an MCP
+      server's its transport, and a secret's says it is an env-name and nothing more — each one
+      the only place that fact appears on the card. Only the project's had nothing to say.
+
+steps:
+  - id: the-project-card-drops-its-badge
+    action: "The type badge is not rendered for a project; the other six kinds are untouched."
+
+tests:
+  - "ProjectCard_Collapsed_CarriesNoTypeBadge"
+  - "OtherCards_KeepTheirTypeBadge"
+
+done:
+  - "a project card shows no badge"
+  - "an agent, tracker, repo, connection, mcp server and secret card each still show theirs"
+  - "dashboard tests and build green"

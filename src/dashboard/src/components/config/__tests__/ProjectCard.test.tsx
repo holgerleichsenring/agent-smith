@@ -202,4 +202,12 @@ describe("ProjectCard wiring graph", () => {
     expect(css).toMatch(/\.mock-config \.ecard \.ec-right \{[^}]*flex: none;/);
     expect(css).toMatch(/\.mock-config \.ecard \.ec-right > \* \{[^}]*white-space: nowrap;/);
   });
+
+  it("ProjectCard_Collapsed_CarriesNoTypeBadge", () => {
+    // It read "project" on a page of nothing but projects, and when it read anything else it
+    // was the declared pipeline list — which 2026-09-16-74a2 stopped asking anyone to author.
+    card(project());
+
+    expect(screen.queryByTestId("config-card-badge-sample")).toBeNull();
+  });
 });
