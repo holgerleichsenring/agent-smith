@@ -124,18 +124,8 @@ function SubLine({
       const r = entity as StudioRepo;
       return <div className="ec-sub">{r.name || "—"}</div>;
     }
-    case "projects": {
-      const p = entity as StudioProject;
-      // p0345c truth-fix: the sub-line names the PIPELINE (once mislabeled
-      // "trigger") and, when set, the resolution strategy that routes tickets.
-      return (
-        <div className="ec-sub">
-          {p.pipelines.length} {p.pipelines.length === 1 ? "pipeline" : "pipelines"}
-          {p.pipeline ? <> · pipeline {p.pipeline}</> : null}
-          {p.resolution ? <> · via {p.resolution.strategy} {p.resolution.value}</> : null}
-        </div>
-      );
-    }
+    case "projects":
+      return <ProjectSubLine project={entity as StudioProject} />;
     case "mcp-servers": {
       const m = entity as StudioMcpServer;
       return <div className="ec-sub">{m.url || "—"}</div>;
@@ -322,4 +312,26 @@ function CardBody({
     case "secrets":
       return null; // the mock secret card is ec-top only (usage in the sub line)
   }
+}
+
+// p0345c truth-fix: the sub-line names the PIPELINE (once mislabeled "trigger") and, when
+// set, the resolution strategy that routes tickets.
+// 2026-09-15-9b3e: and what the project is built AFTER. A template was declarable and
+// invisible on the card that summarises the project — its own function, because the switch
+// above is long enough without a second clause inside one case.
+function ProjectSubLine({ project }: { project: StudioProject }) {
+  const templates = project.templates ?? [];
+  const targets = [...new Set(templates.map((t) => t.project).filter(Boolean))];
+  return (
+    <div className="ec-sub">
+      {project.pipelines.length} {project.pipelines.length === 1 ? "pipeline" : "pipelines"}
+      {project.pipeline ? <> · pipeline {project.pipeline}</> : null}
+      {project.resolution ? <> · via {project.resolution.strategy} {project.resolution.value}</> : null}
+      {templates.length > 0 ? (
+        <span data-testid={`config-project-templates-${project.id}`}>
+          {" "}· built after {targets.join(", ")}
+        </span>
+      ) : null}
+    </div>
+  );
 }

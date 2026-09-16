@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-9b3e
+
+goal: "The studio's catalog lists sort by id and a context option says which repository declared it, so an operator can find an entry and see when one name means two places."
+
+applies_to: "dashboard (the catalog hook, the form fields, the project card) + backend (the document read order, the project draft check)"
+
+requires:
+  - 2026-09-15-a2d0
+
+scope:
+  in: >
+    The seven catalogs are sorted by id ONCE where they are loaded, which is the only place
+    that reaches all ten lists an operator sees; the document read gains an order, because a
+    SELECT without ORDER BY has none and two browsers may disagree; a context option carries
+    the repositories that declared it, since a project has several and two may both declare
+    "default"; the collapse control on a template row is labelled and a finished row says so;
+    the project card names what the project is built after; the project draft check runs the
+    TEMPLATE rules it never ran, reporting a broken binding and staying silent on a merely
+    unfinished one.
+  out: >
+    REMOVING pipeline, pipelines OR default_pipeline. ResolveDefaultPipelineName THROWS when
+    two pipelines are declared and no default is set, so removal breaks runs. What is wrong is
+    the FORM, and that is 2026-09-15-2d68 (project-form-pipeline-block).
+    RESOLVING THE AMBIGUITY. TemplateReference.Context stores a bare name and the run keys its
+    scopes by that bare name, so two repositories declaring "default" open one scope both
+    match. This phase makes the picker SAY so; a repo-qualified context is a field change with
+    consumers of its own, described in prose at the end of the successor above rather than
+    reserved under an id nobody can open.
+    A SAVE BUTTON PER TEMPLATE. The drawer saves the project; a second save inside it would be
+    a second thing to forget.
+    ATTACHING A FINDING TO A ROW. The project form renders findings as a list, not per field —
+    a finding can name `templates`, not which binding. Saying which row needs a mechanism this
+    phase does not build.
+
+decisions:
+  - key: |
+      SORTING BELONGS IN THE LOADER, NOT AT THE RENDER SITE, BECAUSE THERE ARE TEN RENDER SITES.
+      The first cut of this spec said one sort where the cards render fixes all seven catalogs.
+      It does not: the agent, tracker, repos, three auth-secret and key-secret pickers, the
+      connection dropdown, the repo inventory and the template editor's project list all render
+      their own array from the same catalog. Sorting once in the hook that loads them fixes every
+      one, including the pickers the first cut never counted.
+  - key: |
+      "INSERTION ORDER" WAS A GUESS, AND THE TRUTH IS WORSE. The document read is a SELECT with
+      no ORDER BY, so the order is undefined rather than stable — it merely looks deliberate. The
+      client sort is what an operator sees; an ORDER BY on the read is what makes two browsers,
+      and an export, agree at all. Both, because neither alone is the whole answer.
+  - key: |
+      A CONTEXT NAME IS NOT UNIQUE WITHIN A PROJECT, AND THE PICKER MUST NOT OFFER A CHOICE THAT
+      IS NOT ONE. A project carries several repositories, contexts are per repository, and the
+      stored reference is the bare name. Two options with the same VALUE would let an operator
+      pick the second and store what the first means. So there is ONE option per distinct name,
+      labelled with every repository that declares it — the choice stays real and the collision
+      is stated instead of hidden.
+  - key: |
+      THE REPO IS ALREADY IN THE CLIENT, SO NO WIRE SHAPE CHANGES. The contexts endpoint is
+      called once per repo ref and the merge already holds the ref before it flattens the names
+      away. Carrying it through costs nothing; changing the payload would have touched the view
+      record, the lookup, the endpoint, its seven tests and four dashboard mocks — for data the
+      caller already has. The target-side field is unaffected either way: it asks about one repo
+      by construction.
+  - key: |
+      THE ROW ALREADY CLOSES AND ALREADY SAYS "NOT FINISHED", SO THE FIX IS SMALLER THAN REPORTED.
+      2026-09-15-a2d0 shipped the toggle and the unfinished badge. What made Add look like the way
+      forward is that the close control is an unlabelled chevron on the same button that opens it,
+      and that a COMPLETE row says nothing at all. Labelling the control and stating completeness
+      is the whole change; the spec's first cut would have rebuilt what exists.
+  - key: |
+      AN UNFINISHED BINDING IS NOT A BROKEN ONE, AND THE DRAFT CHECK MUST TELL THEM APART. The
+      form re-posts the whole draft every 250 ms, and a freshly added row is empty by
+      construction. Running the template rules unfiltered would report "names unknown project ''"
+      on every keystroke of a row whose own badge already says it is unfinished. Only a binding
+      that names something and names it WRONG is a finding.
+  - key: |
+      THE REFERENTIAL VALIDATOR IS NOT CALLED WHOLE, BECAUSE IT ALSO CHECKS THE OTHER FIELDS AND
+      THROWS ONE AGGREGATED STRING. On a blank new draft that yields "references unknown agent ''"
+      with no per-field split, which is the same flooding by another route. The template half is
+      extracted into a message-returning helper that both sides call, so the rule is still stated
+      once.
+  - key: |
+      THE PIPELINE FIELDS STAY, ON ONE ARGUMENT RATHER THAN TWO. ResolveDefaultPipelineName throws
+      when two pipelines are declared and no default is set — that alone settles it. The
+      per-pipeline override argument is dropped: the studio's project entity carries pipeline
+      NAMES only, so the form cannot author or show an override, and nothing checked in uses one
+      (the single example is commented out and no harness fixture declares pipelines at all).
+      Defending a field the operator complained about with a capability that field does not
+      expose would have been a bad argument that happened to reach the right answer.
+
+steps:
+  - id: the-loader-sorts-every-catalog
+    action: "The catalog hook sorts each of the seven arrays by id, case-insensitively, before it publishes them."
+  - id: the-document-read-has-an-order
+    action: "The config document read orders by type then id, so the order is defined rather than whatever the query returns."
+  - id: a-context-option-names-its-repositories
+    action: "A select option may carry a label distinct from its value; a context option is labelled with the repositories that declare that name, one option per distinct name."
+  - id: a-template-row-labels-its-way-out
+    action: "The collapse control is labelled and a complete row says it is complete, beside the unfinished badge that already exists."
+  - id: the-project-card-names-its-templates
+    action: "The project card says how many templates the project declares and what they point at."
+  - id: the-draft-check-runs-the-template-rules
+    action: "ForProject reports a broken template binding as a finding on `templates`, and stays silent on a binding that is merely incomplete."
+
+tests:
+  - "Catalog_EveryKind_IsSortedById"
+  - "ProjectForm_ContextDeclaredByTwoRepos_IsOneOptionNamingBoth"
+  - "ProjectForm_ContextOption_NamesTheRepoItCameFrom"
+  - "TemplateList_CompleteRow_SaysSoAndLabelsItsCloseControl"
+  - "ProjectCard_WithTemplates_NamesThem"
+  - "DraftCheck_TemplateNamesUnknownProject_IsAFinding"
+  - "DraftCheck_TemplateRepoNotCarriedByThatProject_IsAFinding"
+  - "DraftCheck_TemplateBindingStillEmpty_IsNotAFinding"
+
+done:
+  - "an operator finds a project by scanning an alphabetical list, and every picker is alphabetical too"
+  - "two repositories declaring one context name produce one option that names both"
+  - "a template row says when it is finished and how to leave it"
+  - "the project card says what the project is built after"
+  - "a broken template binding is reported before Save; a half-typed one is not"
+  - "dashboard tests and build green, backend build green, full suite green"
