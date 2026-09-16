@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-4df5
+
+decisions:
+  - category: Correctness
+    chose: "The scope NAME carries the local repository, not only the selection"
+    over: "Matching a declaration against the run's sandbox-to-repository map"
+    reason: |
+      The first cut of this spec said the selection should match on the pair. That fixes ONE of
+      the two paths: ForProject, which the spec dialog uses, is handed a project and nothing
+      else — no pipeline, no sandboxes, no repository map — so two declarations of one name
+      would still collapse to one key there. The name is what both paths share, so the name is
+      where the distinction has to live.
+
+  - category: Correctness
+    chose: "Qualified is template:<repo>/<context>; unqualified keeps template:<context>"
+    over: "Putting a repository into every name"
+    reason: |
+      An unqualified declaration has no repository to put in a name, so a single shape would
+      mean either inventing one or changing how every stored declaration is addressed — and six
+      pinned tests plus every operator's configuration read the current shape. Two shapes on one
+      rule keeps them all meaning exactly what they mean now. The path router already resolves
+      the longest registered key followed by a slash, so the forms coexist without ambiguity.
+
+  - category: Correctness
+    chose: "One builder, called by all three consumers"
+    over: "Fixing each of the three places that compose the name"
+    reason: |
+      They had already drifted, which is the evidence: the scope selection DISCARDED a duplicate,
+      the spec-dialog stamp RAISED on it — ToDictionary on a duplicate key, so a project
+      declaring two templates for one context name crashed every dialog turn — and the proof
+      report keyed its evidence by it and proved the first declaration twice while reading as
+      covered. Three copies of one shape produced three behaviours. A fourth consumer now
+      inherits the answer.
+
+  - category: Architecture
+    chose: "The builder is its own type"
+    over: "A static member on ProjectTemplateScopes, where it started"
+    reason: |
+      With its doc comment it pushed that file to 128 lines against a 120 limit, and the ratchet
+      is right: how a declaration is ADDRESSED is not the same responsibility as which
+      declarations a run opens. Both consumers outside that file now depend on the name and not
+      on the selector.
+
+  - category: Architecture
+    chose: "The local repository is optional"
+    over: "Requiring it once the field exists"
+    reason: |
+      Absent already means something: "the context of that name, wherever it is", which is every
+      stored declaration and is correct for any project whose repositories do not collide.
+      Requiring it would refuse sound configurations. The scope count follows DECLARATIONS, not
+      repositories, so an unqualified declaration opens exactly one scope before and after.
+
+  - category: UX
+    chose: "The option value encodes the pair and the handler writes both fields"
+    over: "A second dropdown for the repository"
+    reason: |
+      A select emits one string and the stored context is a bare name, so one choice has to
+      carry two facts. A separate repository dropdown would be a field that is meaningless
+      until the context is picked and wrong whenever it disagrees with it. The repo rides the
+      value only when it disambiguates — a name one repository declares stores no repository,
+      so nothing gains a qualification it does not need.
+
+  - category: Scope
+    chose: "The target-context picker is untouched"
+    over: "Giving both context fields the pair"
+    reason: |
+      The binding already names the template's repository, so "its context" asks about exactly
+      one repository by construction and cannot collide. Changing it would have been a contract
+      change for a problem it does not have.
+
+  - category: UX
+    chose: "No row opens itself on load"
+    over: "Opening the single stored declaration, as 2026-09-15-a2d0 did"
+    reason: |
+      That was right when the field was one binding. With the list as the primary view and every
+      row carrying its values unopened, an editor that opens itself is a surprise rather than a
+      shortcut — and it is the one row nobody asked to edit. Five existing tests reached into an
+      editor that was open by accident; they are corrected here rather than worked around.

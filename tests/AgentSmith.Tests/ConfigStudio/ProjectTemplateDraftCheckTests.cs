@@ -45,6 +45,24 @@ public sealed class ProjectTemplateDraftCheckTests
     }
 
     [Fact]
+    public void TemplateRules_LocalRepoNotCarriedByThisProject_IsRefused()
+    {
+        // 2026-09-16-4df5: the likeliest typo now that the field exists — it is the one repo
+        // ref an operator writes without the target project in front of them.
+        var draft = WithTemplate(
+            new TemplateReference("server", "refapp", "reference", "server", null, "nosuchrepo"));
+
+        Messages(draft).Should().ContainSingle()
+            .Which.Should().Contain("this project does not carry");
+    }
+
+    [Fact]
+    public void TemplateRules_LocalRepoThisProjectCarries_IsSound() =>
+        Messages(WithTemplate(
+                new TemplateReference("server", "refapp", "reference", "server", null, "target")))
+            .Should().BeEmpty();
+
+    [Fact]
     public void DraftCheck_SoundTemplate_IsNotAFinding() =>
         Messages(WithTemplate(new TemplateReference("server", "refapp", "reference", "server")))
             .Should().BeEmpty();

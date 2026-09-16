@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-4df5
+
+goal: "A template binding may name the repository its context belongs to, so two repositories both declaring 'default' each get their own template instead of one winning and one crashing the dialog."
+
+applies_to: "backend (the template reference, the scope name, three consumers) + dashboard (the context picker, the row list)"
+
+requires:
+  - 2026-09-15-9b3e
+
+scope:
+  in: >
+    TemplateReference gains the repository its LOCAL context belongs to, optional so every
+    stored declaration keeps meaning what it means today; the scope NAME carries it, because
+    one of the two selection paths has no repository information at all and only the name can
+    tell two declarations apart there; the three consumers that rebuild that name from the
+    context alone are moved onto one shared builder, including the one that THROWS on a
+    duplicate; the rules refuse a local repository this project does not carry; the picker
+    offers one option per repository-and-name pair and writes both fields; every row starts
+    collapsed.
+  out: >
+    QUALIFYING THE TARGET SIDE. The binding already names the template's repo, so 'its
+    context' cannot collide by construction — and the picker for it keeps its current shape.
+    NARROWING A PHASE DRAFT BY PAIR. A draft names contexts as bare names, and a qualified
+    declaration still matches a draft that names only 'default'. That is correct: the draft
+    says which contexts the work touches, not which repository's.
+    RENAMING A CONTEXT. Two repositories declaring 'default' is normal.
+
+decisions:
+  - key: |
+      IT IS NOT ONLY A SILENT DROP — ONE SURFACE THROWS. ProjectTemplateScopes builds the scope
+      name from the context alone and skips a name it already added, so the second declaration
+      is discarded with no log line. SpecDialogTemplateScopes builds a dictionary from the same
+      key with ToDictionary, which raises on a duplicate: a project declaring two templates for
+      one context name crashes EVERY spec-dialog turn. And TemplateProofReport rebuilds the same
+      name to key its evidence, so the second declaration's template is never proven while the
+      report reads as covered. The operator's question had no answer at any layer.
+  - key: |
+      THE NAME CARRIES THE REPOSITORY, BECAUSE ONE PATH HAS NO REPOSITORY TO MATCH ON. The
+      pipeline path can join the run's sandbox-to-repository map; the spec-dialog path selects
+      templates with no pipeline, no sandboxes and no such map. So matching on the pair fixes
+      one path and leaves the other with two declarations and one key. The name is what both
+      paths share.
+  - key: |
+      A QUALIFIED DECLARATION IS NAMED template:<repo>/<context>; AN UNQUALIFIED ONE KEEPS
+      template:<context>. Two shapes, one rule: a declaration that names no repository has none
+      to put in a name, and keeping its shape is what leaves every stored configuration and every
+      pinned prompt assertion meaning exactly what it means now. The path router already resolves
+      the longest registered key followed by a slash — it was built for nested group paths — so
+      the two forms coexist without ambiguity.
+  - key: |
+      ONE BUILDER, BECAUSE THREE PLACES REBUILD THIS NAME TODAY AND THAT IS WHY IT DRIFTED. The
+      scope selection, the spec-dialog provenance stamp and the proof report each compose the
+      prefix and the context by hand. The shape is stated once from here on, so a fourth consumer
+      inherits the answer instead of composing a fourth copy.
+  - key: |
+      OPTIONAL, BECAUSE ABSENT ALREADY MEANS SOMETHING. Every stored declaration names no
+      repository and means "the context of that name, wherever it is" — correct for any project
+      whose repositories do not collide. Making it required would refuse sound configurations.
+      An unqualified declaration opens exactly one scope before and after this phase: the count
+      follows DECLARATIONS, not repositories.
+  - key: |
+      THE PICKER WRITES TWO FIELDS FROM ONE CHOICE, AND THE OPTION VALUE IS AN ENCODED PAIR. A
+      select emits one string, and the stored context is a bare name — so the option value
+      encodes repository and name, and the change handler decodes it and writes both. The field
+      that picks the TARGET's context keeps its plain-string shape: it asks about one repository
+      by construction, so it can never collide.
+  - key: |
+      EVERY ROW STARTS COLLAPSED, INCLUDING THE ONLY ONE. The list is the primary view and a row
+      carries its values unopened, so an editor that opens itself is a surprise rather than a
+      shortcut — and it is the one row nobody asked to edit. Four existing tests reach into the
+      open editor without a click and are corrected here rather than worked around.
+
+steps:
+  - id: a-binding-may-name-its-local-repository
+    action: "TemplateReference and the raw entry carry the local repository, optional, round-tripping through YAML and the studio."
+  - id: the-scope-name-is-stated-once
+    action: "One builder composes the scope name — qualified as repo/context, unqualified as today — and the scope selection, the dialog stamp and the proof report all use it."
+  - id: two-declarations-of-one-name-both-open
+    action: "The selection stops discarding a name it has seen, and the dialog stamp stops raising on a duplicate key."
+  - id: the-rules-judge-the-local-repository
+    action: "A local repository this project does not carry is refused where the other template rules are stated."
+  - id: the-picker-offers-the-pair
+    action: "A context option is one repository-and-name pair; choosing one writes both fields. The target-context field is unchanged."
+  - id: every-row-starts-collapsed
+    action: "No row opens itself on load."
+
+tests:
+  - "Scopes_TwoReposDeclaringOneContextName_BothTemplatesOpen"
+  - "Scopes_UnqualifiedDeclaration_KeepsTodaysNameAndOpensOne"
+  - "Scopes_QualifiedDeclaration_IsNamedAfterItsRepo"
+  - "SpecDialogStamp_TwoDeclarationsOfOneName_DoesNotThrow"
+  - "TemplateRules_LocalRepoNotCarriedByThisProject_IsRefused"
+  - "LoadConfig_TemplateNamingItsLocalRepo_RoundTrips"
+  - "ProjectForm_TwoReposDeclaringOneName_AreTwoSelectableOptions"
+  - "TemplateList_SingleStoredTemplate_StartsCollapsed"
+
+done:
+  - "an operator binds two identically named contexts of two repositories to different templates"
+  - "a declaration naming no repository keeps its scope name and opens exactly one scope"
+  - "a project declaring two templates for one context name no longer crashes a dialog turn"
+  - "the proof report proves both declarations rather than one"
+  - "the row list opens nothing by itself"
+  - "dashboard tests and build green, backend build green, full suite green"

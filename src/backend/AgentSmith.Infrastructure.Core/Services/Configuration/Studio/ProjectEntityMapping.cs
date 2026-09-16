@@ -34,7 +34,7 @@ internal static class ProjectEntityMapping
     /// </summary>
     public static IReadOnlyList<TemplateReference> ToTemplates(RawProjectEntry project) =>
         [.. project.Templates.Select(t => new TemplateReference(
-            t.Context, t.Project, t.Repo, t.TemplateContext, t.Revision))];
+            t.Context, t.Project, t.Repo, t.TemplateContext, t.Revision, t.ContextRepo))];
 
     public static List<RawTemplateEntry> ToRaw(IReadOnlyList<TemplateReference> templates) =>
         [.. templates.Select(t => new RawTemplateEntry
@@ -44,6 +44,7 @@ internal static class ProjectEntityMapping
             Repo = t.Repo,
             TemplateContext = t.TemplateContext,
             Revision = t.Revision,
+            ContextRepo = t.ContextRepo,
         })];
 
     // p0345c: surface the flat resolution shorthand; when the project instead
