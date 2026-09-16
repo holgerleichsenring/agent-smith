@@ -94,66 +94,9 @@ describe("ProjectCard wiring graph", () => {
       .toContain("1 template unfinished");
   });
 
-  it("ProjectCard_Expanded_DrawsEachTemplatesContextUnderItsRepository", () => {
-    card(project({ templates: [template(), template({ context: "client", contextRepo: "web", repo: "api" })] }));
-    expand();
-
-    // The context is drawn INSIDE its repository's block, and its template beside it.
-    const apiBlock = screen.getByTestId("graph-block-sample-api");
-    const webBlock = screen.getByTestId("graph-block-sample-web");
-    expect(apiBlock.contains(screen.getByTestId("graph-node-repo-sample-api"))).toBe(true);
-    expect(apiBlock.contains(screen.getByTestId("graph-node-context-sample-api-server-0"))).toBe(true);
-    expect(webBlock.contains(screen.getByTestId("graph-node-context-sample-web-client-0"))).toBe(true);
-    expect(apiBlock.contains(screen.getByTestId("graph-node-context-sample-web-client-0"))).toBe(false);
-    expect(screen.getByTestId("graph-node-template-sample-api-server-0").textContent).toContain(
-      "refapp / api · server",
-    );
-    // And the drawing states its own claim, for a reader who cannot see it.
-    expect(screen.getByRole("img").getAttribute("aria-label")).toContain("2 repositories");
-  });
-
-  it("ProjectCard_TwoReposDeclaringOneContextName_AreTwoNodes", () => {
-    // The case 4df5 exists for: one context NAME declared by two repositories.
-    card(
-      project({
-        templates: [
-          template({ context: "default", contextRepo: "api" }),
-          template({ context: "default", contextRepo: "web" }),
-        ],
-      }),
-    );
-    expand();
-
-    expect(screen.getByTestId("graph-node-context-sample-api-default-0")).toBeInTheDocument();
-    expect(screen.getByTestId("graph-node-context-sample-web-default-0")).toBeInTheDocument();
-  });
-
-  it("ProjectCard_RepositoryNoTemplateNames_IsDrawnWithoutContexts", () => {
-    card(project({ templates: [template()] }));
-    expand();
-
-    const webBlock = screen.getByTestId("graph-block-sample-web");
-    expect(screen.getByTestId("graph-node-repo-sample-web")).toBeInTheDocument();
-    // `web` is drawn, and nothing is invented under it.
-    expect(webBlock.querySelectorAll('[data-testid^="graph-node-context-"]')).toHaveLength(0);
-    // …while the repository a template DOES name carries its context.
-    expect(
-      screen.getByTestId("graph-block-sample-api").querySelectorAll('[data-testid^="graph-node-context-"]'),
-    ).toHaveLength(1);
-  });
-
-  it("ProjectCard_UnfinishedTemplate_IsTheOnlyColouredMark", () => {
-    card(project({ templates: [template(), template({ context: "client", contextRepo: "web", templateContext: "" })] }));
-    expand();
-
-    const coloured = [...document.querySelectorAll('[data-coloured="true"]')].map((n) =>
-      n.getAttribute("data-testid"),
-    );
-    expect(coloured).toEqual([
-      "graph-node-context-sample-web-client-0",
-      "graph-node-template-sample-web-client-0",
-    ]);
-  });
+  // 2026-09-16-4b41: the four tests that stood here read the drawing's BLOCKS — a context
+  // nested inside its repository's rectangle. Five columns retires that shape, and the card
+  // test file was already half graph, so what they proved moved to ProjectGraph.test.tsx.
 
   it("ProjectCard_ClickingTheRow_ExpandsAndDoesNotOpenTheEditor", () => {
     // 2026-09-16-d7c3: the row is the disclosure and Edit is the only route into the editor.
