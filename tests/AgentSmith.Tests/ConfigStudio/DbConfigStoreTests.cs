@@ -39,6 +39,8 @@ public sealed class DbConfigStoreTests : IDisposable
             tracker: test-ado
             repos: [test-repo]
             pipeline: fix-bug
+            resolution:
+              tag: testproject
         limits:
           max_tool_calls_per_skill: 42
         secrets:
@@ -126,6 +128,69 @@ public sealed class DbConfigStoreTests : IDisposable
         _h.DocStore.Save(new ConfigDocWrite("limits", "default", doc, null, [], "tester"));
 
         _h.DocStore.LoadAll().Should().ContainSingle(r => r.Type == "limits" && r.Doc.Contains("aBrandNewSettingAddedLater"));
+    }
+
+    [Fact]
+    public void Tracker_DefaultPipeline_RoundTripsThroughTheStudioAndYaml()
+    {
+        // 2026-09-16-a4d7: the tracker's fallback is a studio field, so it has to survive
+        // the whole loop — entity in, document store, export, real loader — and land on the
+        // merged trigger the way the tracker's label map already does.
+        _h.Import(SampleYaml);
+        var stored = _h.Store.GetTrackers().Single(t => t.Id == "test-ado");
+        stored.DefaultPipeline.Should().BeNull("nothing declared it yet");
+
+        _h.Store.UpsertTracker(stored with { DefaultPipeline = "security-scan" }, Tester);
+
+        _h.Store.GetTrackers().Single(t => t.Id == "test-ado").DefaultPipeline.Should().Be("security-scan");
+        var yaml = _h.Store.ExportYaml();
+        yaml.Should().Contain("default_pipeline: security-scan");
+        RealLoader().LoadConfig(WriteTemp(yaml))
+            .Projects["testproject"].AzuredevopsTrigger!.DefaultPipeline.Should().Be("security-scan");
+    }
+
+    [Fact]
+    public void Project_SavingADefault_WritesItIntoThePipelinesList()
+    {
+        // 2026-09-16-74a2: a default naming a pipeline the project does not declare is a
+        // BLOCKING startup finding — the project is disabled. The form states the default
+        // and the patch derives the list, so this state is no longer authorable from it.
+        _h.Import(SampleYaml);
+        var project = _h.Store.GetProjects().Single(p => p.Id == "testproject");
+
+        _h.Store.UpsertProject(project with { DefaultPipeline = "security-scan" }, Tester);
+
+        var saved = _h.Store.GetProjects().Single(p => p.Id == "testproject");
+        saved.DefaultPipeline.Should().Be("security-scan");
+        saved.Pipelines.Should().Contain("security-scan");
+        new ProjectConfigNormalizer()
+            .Inspect("testproject", RawConfigPatch.Project(saved, existing: null))
+            .Should().NotContain(f => f.Field == "default_pipeline");
+    }
+
+    [Fact]
+    public void Project_StoredPipelineList_SurvivesASaveThatOnlyChangesTheDefault()
+    {
+        // The union, not a replacement: each stored entry carries a per-pipeline agent,
+        // skills path, principles path and confidence threshold, and a save that sent only
+        // the default would delete every other entry and its overrides.
+        var existing = new RawProjectEntry
+        {
+            Pipelines =
+            [
+                new RawPipelineEntry { Name = "code", Agent = "claude-default", ConfidenceThreshold = 80 },
+                new RawPipelineEntry { Name = "security-scan" },
+            ],
+        };
+        var entity = new ProjectEntity(
+            "testproject", "claude-default", "test-ado", ["test-repo"], null,
+            ["code", "security-scan"], null, DefaultPipeline: "pr-review");
+
+        var patched = RawConfigPatch.Project(entity, existing);
+
+        patched.Pipelines.Select(p => p.Name).Should().Equal("code", "security-scan", "pr-review");
+        patched.Pipelines[0].Agent.Should().Be("claude-default");
+        patched.Pipelines[0].ConfidenceThreshold.Should().Be(80);
     }
 
     private ConfigCatalog FileStoreCatalog(string yaml)

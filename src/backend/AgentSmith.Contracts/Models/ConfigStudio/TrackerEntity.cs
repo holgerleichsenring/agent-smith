@@ -31,7 +31,9 @@ public sealed record TrackerEntity(
     string? CloseTransitionName = null,
     IReadOnlyList<string>? ExtraFields = null,
     bool? ZeroMatchComment = null,
-    IReadOnlyDictionary<string, string>? LifecycleStatusNames = null)
+    IReadOnlyDictionary<string, string>? LifecycleStatusNames = null,
+    // 2026-09-16-a4d7: APPENDED, never inserted — ToTracker calls this record positionally.
+    string? DefaultPipeline = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }

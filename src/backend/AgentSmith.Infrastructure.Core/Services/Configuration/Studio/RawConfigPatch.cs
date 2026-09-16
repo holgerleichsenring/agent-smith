@@ -75,6 +75,7 @@ public static class RawConfigPatch
         tracker.NeedsClarificationStatus = entity.NeedsClarificationStatus;
         tracker.NotImplementableStatus = entity.NotImplementableStatus;
         tracker.CloseTransitionName = entity.CloseTransitionName;
+        tracker.DefaultPipeline = entity.DefaultPipeline; // 2026-09-16-a4d7
         if (entity.ExtraFields is { } extraFields) tracker.ExtraFields = [.. extraFields];
         if (entity.ZeroMatchComment is { } zeroMatch) tracker.ZeroMatchComment = zeroMatch;
         if (entity.LifecycleStatusNames is { } lifecycle)
@@ -123,11 +124,28 @@ public static class RawConfigPatch
             project.Templates = ProjectEntityMapping.ToRaw(templates);
         if (entity.Resolution is { } resolution)
             project.Resolution = new Dictionary<string, string> { [resolution.Strategy] = resolution.Value };
-        if (entity.Pipelines.Count > 0)
-            project.Pipelines = entity.Pipelines
+        // 2026-09-16-74a2: the UNION of the names given and the default, never one or the
+        // other. A default naming an undeclared pipeline is a BLOCKING startup finding that
+        // disables the project, so the default is always written into the list; and the list
+        // is not replaced by it, because each stored entry carries its own agent, skills
+        // path, principles path and confidence threshold — sending only the default would
+        // delete those silently, which is how default_branch and consumes are already lost.
+        var names = PipelineNames(entity);
+        if (names.Count > 0)
+            project.Pipelines = names
                 .Select(name => existing?.Pipelines.FirstOrDefault(p => p.Name == name) ?? new RawPipelineEntry { Name = name })
                 .ToList();
         return project;
+    }
+
+    private static List<string> PipelineNames(ProjectEntity entity)
+    {
+        List<string> names = [.. entity.Pipelines];
+        var fallback = entity.DefaultPipeline;
+        if (!string.IsNullOrWhiteSpace(fallback)
+            && !names.Any(n => string.Equals(n, fallback, StringComparison.OrdinalIgnoreCase)))
+            names.Add(fallback);
+        return names;
     }
 
     public static RawConnectionEntry Connection(ConnectionEntity entity, RawConnectionEntry? existing)

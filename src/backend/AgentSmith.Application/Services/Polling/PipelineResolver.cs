@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Tickets;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,9 @@ namespace AgentSmith.Application.Services.Polling;
 ///   - Iteration order over pipeline_from_label is the dictionary's insertion
 ///     order. First key whose value appears in the (filtered) labels wins.
 ///     Operators with overlapping keys should keep entries unambiguous.
-///   - If pipeline_from_label is empty, returns trigger.DefaultPipeline.
+///   - If pipeline_from_label is empty, returns trigger.DefaultPipeline — or, when the
+///     trigger declares none, PipelinePresets.UndeclaredFallbackPipeline. This is the one
+///     place the undeclared fallback is consumed as an answer (2026-09-16-a4d7).
 ///   - If pipeline_from_label is non-empty but nothing matches, returns null
 ///     so the caller can apply its own fallback.
 /// </summary>
@@ -60,7 +63,9 @@ public sealed class PipelineResolver
             }
         }
 
-        var result = (map is null || map.Count == 0) ? trigger.DefaultPipeline : null;
+        var result = (map is null || map.Count == 0)
+            ? trigger.DefaultPipeline ?? PipelinePresets.UndeclaredFallbackPipeline
+            : null;
         logger?.LogInformation(
             "PipelineResolver: in=[{In}] user=[{User}] no-match → {Pipeline} (will fall back to default)",
             string.Join(", ", inputLabels), string.Join(", ", userLabels),

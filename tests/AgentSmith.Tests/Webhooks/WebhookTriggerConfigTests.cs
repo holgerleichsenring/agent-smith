@@ -13,7 +13,10 @@ public sealed class WebhookTriggerConfigTests
         // JiraTriggerConfig should be assignable to WebhookTriggerConfig
         WebhookTriggerConfig baseConfig = jiraConfig;
         baseConfig.Should().NotBeNull();
-        baseConfig.DefaultPipeline.Should().Be("fix-bug");
+        // 2026-09-16-a4d7: the literal initialiser was the defect — it made "this trigger
+        // declares no fallback" inexpressible, so no merge could fill it and no operator
+        // could see it. The answer for an undeclared trigger is PipelineResolver's.
+        baseConfig.DefaultPipeline.Should().BeNull();
         baseConfig.DoneStatus.Should().Be("In Review");
     }
 

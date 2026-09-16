@@ -14,6 +14,8 @@ import { EntityForm } from "./EntityForm";
 import { requiredFieldsFilled } from "./capabilityFields";
 import { blockingFindings, useDraftFindings } from "./useDraftFindings";
 import { projectIntegrity } from "./integrity";
+import { unfinishedTemplates } from "./ProjectForm";
+import { cn } from "@/lib/utils";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // p0345: the slide-over create/edit drawer. Owns the draft, persists via the
@@ -53,10 +55,16 @@ export function EntityDrawer({
   const idOk = draft.id.trim().length > 0;
   const projectOk =
     kind !== "projects" || projectIntegrity(catalog, draft as StudioProject).ok;
+  // 2026-09-16-74a2: a binding missing its context, project, repo or template context is
+  // refused where templates are fetched, and the row already says so. Letting the save
+  // through stores a declaration that can never resolve, and the operator learns it on the
+  // next run instead of on the form.
+  const unfinished = kind === "projects" ? unfinishedTemplates(draft as StudioProject) : [];
   // p0345c: typed entities need a TYPE, and the capabilities descriptor's
   // required per-type fields must be filled before saving.
   const typedOk = typedEntityOk(kind, draft, capabilities);
-  const canSave = idOk && projectOk && typedOk && blocking.length === 0 && !busy;
+  const canSave =
+    idOk && projectOk && typedOk && unfinished.length === 0 && blocking.length === 0 && !busy;
 
   async function save() {
     setBusy(true);
@@ -93,7 +101,14 @@ export function EntityDrawer({
         className="dbg open"
         onClick={onClose}
       />
-      <aside className="drawer open" aria-label="Create or edit">
+      {/* 2026-09-16-74a2: one drawer element serves all seven kinds, so the project's
+          extra width is a MODIFIER on it, not a second drawer. jsdom loads no stylesheet,
+          so the 560 itself ships unasserted — what a test can pin is that the modifier is
+          applied for a project and not for a secret. */}
+      <aside
+        className={cn("drawer open", kind === "projects" && "wide-project")}
+        aria-label="Create or edit"
+      >
         <div className="dh">
           <div className="dh-ic">{ENTITY_ICON[kind]}</div>
           <h2>{isNew ? `New ${ENTITY_SINGULAR[kind]}` : `Edit ${ENTITY_SINGULAR[kind]}`}</h2>
@@ -129,9 +144,7 @@ export function EntityDrawer({
           <span
             className="vmsg"
             data-testid={
-              blocking.length > 0
-                ? "config-drawer-blocked"
-                : kind === "projects" && !projectOk
+              blocking.length > 0 || (kind === "projects" && (!projectOk || unfinished.length > 0))
                 ? "config-drawer-blocked"
                 : undefined
             }
@@ -146,6 +159,8 @@ export function EntityDrawer({
                 : blocking[0].reason
               : kind === "projects" && !projectOk
               ? "resolve all references to save"
+              : unfinished.length > 0
+              ? `template ${unfinished[0] + 1} is unfinished — give it a context, a project, a repo and a template context`
               : !typedOk
               ? "pick a type and fill its required fields"
               : "Fill the required fields"}

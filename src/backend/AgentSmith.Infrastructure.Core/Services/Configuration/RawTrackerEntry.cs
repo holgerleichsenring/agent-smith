@@ -38,6 +38,13 @@ public sealed class RawTrackerEntry
     /// <summary>p0281b: tracker-owned label→pipeline map; a project trigger overrides it.</summary>
     public Dictionary<string, string>? PipelineFromLabel { get; set; }
 
+    /// <summary>
+    /// 2026-09-16-a4d7: tracker-owned default_pipeline — what a ticket runs when no entry of
+    /// the map above matched. A project trigger overrides it. Unset leaves the hardcoded
+    /// fallback in force, which is the state this field makes visible.
+    /// </summary>
+    public string? DefaultPipeline { get; set; }
+
     /// <summary>p0140a: optional opt-in for zero-match comment on this tracker.</summary>
     public bool ZeroMatchComment { get; set; } = false;
 

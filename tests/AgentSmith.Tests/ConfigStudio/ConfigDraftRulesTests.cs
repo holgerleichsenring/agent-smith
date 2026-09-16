@@ -1,4 +1,6 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.ConfigStudio;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using FluentAssertions;
@@ -60,15 +62,49 @@ public sealed class ConfigDraftRulesTests
 
         var findings = _rules.ForTracker(draft);
 
-        findings.Should().ContainSingle().Which.Reason
+        // 2026-09-16-a4d7 added a second, ADVISORY finding to the same draft (it declares
+        // no routing either), so the blocking one is selected rather than assumed alone.
+        findings.Should().ContainSingle(f => f.IsBlocking).Which.Reason
             .Should().Contain("url").And.Contain("authSecret");
+    }
+
+    [Fact]
+    public void Tracker_NoMapAndNoDefault_ReportsWhereTicketsGo()
+    {
+        // Neither a label map nor a fallback: every ticket this tracker routes runs the
+        // hardcoded preset, and until now nothing said so anywhere.
+        var draft = new TrackerEntity(
+            Id: "gh", Type: "github", AuthSecret: "GITHUB_TOKEN", Url: "https://github.com/x/y");
+
+        var findings = _rules.ForTracker(draft);
+
+        var advisory = findings.Should().ContainSingle().Which;
+        advisory.IsBlocking.Should().BeFalse();
+        advisory.Field.Should().Be("defaultPipeline");
+        advisory.Reason.Should().Contain(PipelinePresets.UndeclaredFallbackPipeline);
+    }
+
+    [Fact]
+    public void Tracker_ExistingTrackerWithoutIt_StillSaves()
+    {
+        // The descriptor declares the field OPTIONAL on purpose: Required is enforced by
+        // ValidateTracker on every upsert and surfaced as a BLOCKING draft finding, so
+        // requiring it would make every tracker configured before this phase unsaveable.
+        var draft = new TrackerEntity(
+            Id: "gh", Type: "github", AuthSecret: "GITHUB_TOKEN", Url: "https://github.com/x/y");
+
+        _rules.ForTracker(draft).Should().NotContain(f => f.IsBlocking);
+        FluentActions.Invoking(() => ConfigStudioCapabilities.ValidateTracker(draft)).Should().NotThrow();
     }
 
     [Fact]
     public void Studio_TrackerComplete_HasNoFindings()
     {
+        // 2026-09-16-a4d7: "complete" now includes declaring where an unrouted ticket goes;
+        // a tracker that declares neither a map nor a default carries the advisory finding.
         var draft = new TrackerEntity(
-            Id: "gh", Type: "github", AuthSecret: "GITHUB_TOKEN", Url: "https://github.com/x/y");
+            Id: "gh", Type: "github", AuthSecret: "GITHUB_TOKEN", Url: "https://github.com/x/y",
+            DefaultPipeline: "code");
 
         _rules.ForTracker(draft).Should().BeEmpty();
     }

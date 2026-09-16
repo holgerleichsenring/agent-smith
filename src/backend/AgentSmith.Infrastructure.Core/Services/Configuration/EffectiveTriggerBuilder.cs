@@ -49,6 +49,10 @@ public sealed class EffectiveTriggerBuilder
         wrapper.FailedStatus ??= tracker.FailedStatus;
         wrapper.NeedsClarificationStatus ??= tracker.NeedsClarificationStatus;
         wrapper.NotImplementableStatus ??= tracker.NotImplementableStatus; // p0390
+        // 2026-09-16-a4d7: the map and the answer for 'nothing matched' are one decision,
+        // so the tracker supplies both. ??= rather than isFresh: a project that declares a
+        // trigger wrapper but no default still inherits the tracker's.
+        wrapper.DefaultPipeline ??= tracker.DefaultPipeline;
         if (IsEmpty(wrapper.PipelineFromLabel) && tracker.PipelineFromLabel is { Count: > 0 } labels)
             wrapper.PipelineFromLabel = new Dictionary<string, string>(labels);
     }
