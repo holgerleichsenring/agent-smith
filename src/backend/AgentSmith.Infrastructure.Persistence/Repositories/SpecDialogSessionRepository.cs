@@ -29,12 +29,19 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
         unitOfWork.Set<SpecDialogSession>()
             .FirstOrDefaultAsync(s => s.SessionId == sessionId, ct);
 
+    /// <summary>
+    /// 2026-09-15-9033: the ordering is done in memory because SQLite cannot translate an
+    /// ORDER BY over a DateTimeOffset and throws NotSupportedException — so '/spec list'
+    /// failed outright on the default provider, on every platform, and no test had asked it
+    /// to. The open set of one platform is a handful of rows; sorting them here costs
+    /// nothing and works on every provider.
+    /// </summary>
     public async Task<IReadOnlyList<SpecDialogSession>> ListOpenAsync(
         string platform, CancellationToken ct) =>
-        await unitOfWork.Set<SpecDialogSession>()
-            .Where(s => s.Platform == platform && s.IsOpen)
-            .OrderByDescending(s => s.LastActivityAt)
-            .ToListAsync(ct);
+        [.. (await unitOfWork.Set<SpecDialogSession>()
+                .Where(s => s.Platform == platform && s.IsOpen)
+                .ToListAsync(ct))
+            .OrderByDescending(s => s.LastActivityAt)];
 
     /// <summary>Persists changes staged on a tracked session entity.</summary>
     public Task SaveAsync(CancellationToken ct) => unitOfWork.SaveChangesAsync(ct);

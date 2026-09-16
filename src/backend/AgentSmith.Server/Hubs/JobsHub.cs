@@ -1,14 +1,12 @@
-using AgentSmith.Contracts.Events;
-using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Services.Events;
+using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.AspNetCore.SignalR;
-using StackExchange.Redis;
 
 namespace AgentSmith.Server.Hubs;
 
 /// <summary>
-/// Dashboard fan-out hub. Three Subscribe methods route clients into the
-/// overview / per-run / per-sandbox SignalR groups. On SubscribeOverview /
+/// Dashboard fan-out hub. The Subscribe methods route clients into the overview /
+/// per-run / per-sandbox / per-spec-dialog SignalR groups. On SubscribeOverview /
 /// SubscribeRun we replay the retained stream window before live tail
 /// starts; the MAXLEN=10000 bound is part of the contract — clients see
 /// the oldest retained event as the start of their visible history.
@@ -16,12 +14,13 @@ namespace AgentSmith.Server.Hubs;
 public sealed class JobsHub(
     JobsBroadcaster broadcaster,
     SandboxExpansionRegistry expansionRegistry,
-    IConnectionMultiplexer redis,
     TrailReader trailReader,
     ResultMarkdownReader resultReader,
     PlanMarkdownReader planReader,
     SpecMarkdownReader specReader, // p0390
-    AnalyzeMarkdownReader analyzeReader, EventEnvelopeSerializer envelopes) : Hub
+    AnalyzeMarkdownReader analyzeReader,
+    SystemBacklogReader systemBacklog,
+    SpecDialogOwnership dialogOwnership) : Hub
 {
     // p0246f: the run list + detail are served from the DB system-of-record over
     // REST (GET /api/runs, RunQueryEndpoints) — survives a process restart AND a
@@ -40,49 +39,32 @@ public sealed class JobsHub(
         await Clients.Caller.SendAsync("SystemActivityUpdated", broadcaster.GetSystemActivity());
     }
 
-    // The tracker is a live "what is the poller doing right now" view, not an
-    // audit log — the durable signal (a triggered ticket) is a Run in the DB.
-    // So on join we seed only a small recent tail for immediate context; live
-    // events then arrive via JobsBroadcaster's stream drain. We deliberately do
-    // NOT replay the full retained window (up to MAXLEN / 24h): dumping the whole
-    // history on every (re)subscribe is the "runs through everything again"
-    // effect, and nobody scrolls a poll log back hours.
-    private const int SystemBackfillTail = 50;
-
     /// <summary>
-    /// p0173a / p0248: subscribes the caller to the system-level event group and
-    /// seeds a bounded recent tail (last <see cref="SystemBackfillTail"/> events)
-    /// in a SINGLE "SystemBacklog" batch before the live tail starts. Sending the
-    /// backfill as one array (not one "SystemEvent" message per entry) means the
-    /// dashboard renders it in one paint instead of visibly stepping through the
-    /// events one by one. Bounded XREVRANGE, returned chronologically so the
-    /// drawer's newest-first sort is unaffected.
+    /// p0173a / p0248: subscribes the caller to the system-level event group and seeds the
+    /// recent tail in a SINGLE "SystemBacklog" batch before the live tail starts. Sending
+    /// the backfill as one array (not one "SystemEvent" message per entry) means the
+    /// dashboard renders it in one paint instead of visibly stepping through the events one
+    /// by one.
     /// </summary>
     public async Task SubscribeSystem()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.System);
-        var db = redis.GetDatabase();
-        // Last N descending, then reverse to chronological order for the client.
-        var entries = await db.StreamRangeAsync(
-            SystemEventStreamKeys.Stream, "-", "+", SystemBackfillTail, Order.Descending);
-        // List<object>, not List<SystemEvent>: SignalR/STJ serializes each element
-        // by its DECLARED type, so a List<SystemEvent> would drop every derived
-        // property (tracker, labels, ticketId, …) and crash the client. Boxing to
-        // object makes STJ emit the concrete runtime type — same reason GetTrail
-        // returns IReadOnlyList<object>.
-        var backlog = new List<object>(entries.Length);
-        for (var i = entries.Length - 1; i >= 0; i--)
-        {
-            foreach (var pair in entries[i].Values)
-            {
-                var payload = pair.Value.ToString();
-                if (string.IsNullOrEmpty(payload)) continue;
-                var systemEvent = envelopes.DeserializeSystem(payload);
-                if (systemEvent is null) continue;
-                backlog.Add(systemEvent);
-            }
-        }
-        await Clients.Caller.SendAsync("SystemBacklog", backlog);
+        await Clients.Caller.SendAsync("SystemBacklog", await systemBacklog.ReadAsync());
+    }
+
+    /// <summary>
+    /// 2026-09-15-9033: joins the caller to the group their spec dialog is delivered
+    /// through. A dialog id is minted by the browser and is therefore no boundary at all —
+    /// on Slack the channel supplied one — so the session's OWNER is checked here. The
+    /// method's permission says a caller may hold spec dialogs; it does not say which one,
+    /// and this is the surface that files real tickets.
+    /// </summary>
+    public async Task SubscribeSpecDialog(string dialogId)
+    {
+        var owner = dialogOwnership.OwnerOf(Context.User);
+        if (!await dialogOwnership.MayWatchAsync(dialogId, owner, Context.ConnectionAborted))
+            throw new HubException($"Spec dialog '{dialogId}' belongs to another principal.");
+        await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.SpecDialog(dialogId));
     }
 
     public async Task SubscribeRun(string runId)

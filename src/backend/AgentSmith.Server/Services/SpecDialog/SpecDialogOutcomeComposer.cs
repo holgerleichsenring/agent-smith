@@ -7,52 +7,56 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// Builds the chat texts of the outcome flow — the confirmation question
 /// showing the proposed outcome (+ the epic slice shape), and the filed /
 /// rejected / timed-out / edit / failure notices. Pure text composition.
+/// <para>
+/// 2026-09-15-cb3e: composed for the channel that reads it, like every other framework
+/// line. This one matters most — it is the text a person approves ticket filing on.
+/// </para>
 /// </summary>
 public sealed class SpecDialogOutcomeComposer
 {
-    public string ComposeConfirmation(OutcomeProposal proposal) =>
-        $"{Describe(proposal)}\nApprove to file this outcome, Reject to drop it — "
-        + "any other reply is an edit note I will revise the proposal with.";
+    public ComposedReply ComposeConfirmation(OutcomeProposal proposal) => new(m =>
+        $"{Describe(proposal, m)}\nApprove to file this outcome, Reject to drop it — "
+        + "any other reply is an edit note I will revise the proposal with.");
 
-    public string ComposeRejected() =>
-        "Rejected — nothing was filed. Keep discussing; I will re-propose when the shape changes.";
+    public ComposedReply ComposeRejected() => new(_ =>
+        "Rejected — nothing was filed. Keep discussing; I will re-propose when the shape changes.");
 
-    public string ComposeTimeout() =>
-        "Confirmation timed out — nothing will be filed. Ask again in this thread when you want me to re-propose.";
+    public ComposedReply ComposeTimeout() => new(_ =>
+        "Confirmation timed out — nothing will be filed. Ask again in this thread when you want me to re-propose.");
 
-    public string ComposeEditAck(string note) =>
-        $"Revising the proposal with your note: _{note}_";
+    public ComposedReply ComposeEditAck(string note) => new(m =>
+        $"Revising the proposal with your note: {m.Italic(note)}");
 
-    public string ComposeFiled(OutcomeProposal proposal, IReadOnlyList<FiledTicket> filed) =>
-        $"Filed {Summarize(proposal)}:\n{FormatTickets(filed)}";
+    public ComposedReply ComposeFiled(OutcomeProposal proposal, IReadOnlyList<FiledTicket> filed) =>
+        new(_ => $"Filed {Summarize(proposal)}:\n{FormatTickets(filed)}");
 
-    public string ComposeFilingFailure(string error, IReadOnlyList<FiledTicket> filed)
+    public ComposedReply ComposeFilingFailure(string error, IReadOnlyList<FiledTicket> filed) => new(_ =>
     {
         var head = filed.Count == 0
             ? "Ticket filing failed — nothing was created."
             : $"Ticket filing failed part-way. Created before the failure:\n{FormatTickets(filed)}";
         return $"{head}\nError: {error}\n"
             + "The confirmed outcome stays stored on this session — ask again in this thread to re-propose and retry.";
-    }
+    });
 
     private static string FormatTickets(IReadOnlyList<FiledTicket> filed) =>
         string.Join("\n", filed.Select(t => $"- {t.Reference} — {t.Title}"));
 
-    private static string Describe(OutcomeProposal proposal) => proposal switch
+    private static string Describe(OutcomeProposal proposal, SpecDialogMarkup m) => proposal switch
     {
         BugOutcome bug =>
-            $"Proposed outcome: *fix-bug ticket* — {bug.Ticket.Title}\n{bug.Ticket.Description}",
+            $"Proposed outcome: {m.Bold("fix-bug ticket")} — {bug.Ticket.Title}\n{bug.Ticket.Description}",
         PhaseOutcome phase =>
-            $"Proposed outcome: *one phase* — `{phase.Draft.PhaseId}` {phase.Draft.Goal}",
-        EpicOutcome epic => DescribeEpic(epic),
+            $"Proposed outcome: {m.Bold("one phase")} — `{phase.Draft.PhaseId}` {phase.Draft.Goal}",
+        EpicOutcome epic => DescribeEpic(epic, m),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no confirmation shape."),
     };
 
-    private static string DescribeEpic(EpicOutcome epic)
+    private static string DescribeEpic(EpicOutcome epic, SpecDialogMarkup m)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Proposed outcome: *epic* `{epic.Parent.PhaseId}` — {epic.Parent.Goal}");
+        sb.AppendLine($"Proposed outcome: {m.Bold("epic")} `{epic.Parent.PhaseId}` — {epic.Parent.Goal}");
         sb.AppendLine("Slices, in order:");
         foreach (var child in epic.Children)
             sb.AppendLine($"- `{child.PhaseId}` {child.Goal}{FormatRequires(child)}");

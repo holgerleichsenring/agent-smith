@@ -29,6 +29,14 @@ public sealed record PhaseDraft(
     public IReadOnlyList<PhaseStep> Steps { get; init; } = [];
 
     /// <summary>
+    /// 2026-09-15-6d9c: the test names the spec names, read from the same yaml. The design
+    /// master's phase template emits them beside the steps and the done-list, and the
+    /// proposal pane shows all three — so they are parsed once here rather than re-parsed
+    /// by every consumer of the draft.
+    /// </summary>
+    public IReadOnlyList<string> Tests { get; init; } = [];
+
+    /// <summary>
     /// 2026-09-07-b7e2: what the derivation LOOKED UP before writing, each line with the
     /// evidence it cites. Read from the spec's own <c>facts</c> key, admitted by the
     /// schema's open top level; a spec written before this phase has none.

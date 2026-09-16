@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -69,6 +70,9 @@ public sealed class SpecDialogRoutingTests : IDisposable
                 messenger, new SpecDialogPendingQuestions(), outcomeComposer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             _outcomeSink.Object, outcomeComposer, messenger,
+new DashboardOutcomeChannel(
+                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
+                NullLogger<DashboardOutcomeChannel>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,

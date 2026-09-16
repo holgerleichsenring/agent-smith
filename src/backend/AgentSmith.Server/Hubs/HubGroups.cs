@@ -1,8 +1,8 @@
 namespace AgentSmith.Server.Hubs;
 
 /// <summary>
-/// SignalR group naming conventions for the JobsHub. Three group-filter
-/// levels — overview / run-specific / sandbox-specific — express the
+/// SignalR group naming conventions for the JobsHub. The group-filter levels —
+/// overview / run-specific / sandbox-specific / spec-dialog-specific — express the
 /// subscription levels in the dashboard contract.
 /// </summary>
 public static class HubGroups
@@ -17,4 +17,11 @@ public static class HubGroups
     /// field on each event gives the client per-origin filtering.
     /// </summary>
     public const string System = "system";
+
+    /// <summary>
+    /// 2026-09-15-9033: one group per spec-dialog session, because a design conversation
+    /// is addressed to the one person holding it rather than to the dashboard. Who may
+    /// join is the hub method's question — the group name is only a name.
+    /// </summary>
+    public static string SpecDialog(string dialogId) => $"spec-dialog:{dialogId}";
 }

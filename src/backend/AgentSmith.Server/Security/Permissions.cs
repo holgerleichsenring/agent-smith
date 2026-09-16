@@ -61,11 +61,17 @@ internal static class Permissions
     internal const string AccessRead = "access.read";
     internal const string AccessWrite = "access.write";
 
+    // 2026-09-15-9033: a spec dialog is a design conversation that ends in FILED tickets,
+    // so holding one is a write even where it reads like chat. Watching one needs no
+    // second permission: a caller may only watch a dialog they own, which the hub decides
+    // per dialog rather than per capability.
+    internal const string DialogWrite = "dialog.write";
+
     internal static IReadOnlyList<string> All { get; } =
     [
         RunsRead, RunsWatch, RunsControl, RunsDelete, ProjectsInit, CatalogRead,
         DiagnosticsRead, DiagnosticsProbe, ConfigRead, ConfigWrite, ConfigExport,
         ConfigImport, SecretsRead, SecretsWrite, IdentityRead, AccessRead, AccessWrite,
-        ArchiveExport, ArchiveImport,
+        ArchiveExport, ArchiveImport, DialogWrite,
     ];
 }

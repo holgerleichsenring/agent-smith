@@ -139,7 +139,7 @@ public sealed class EpicFilingOrderTests
             },
         };
         var filer = new OutcomeTicketFiler(
-            config, factory.Object, new PhaseTicketRenderer(),
+            config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer()),
             NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, CancellationToken.None);

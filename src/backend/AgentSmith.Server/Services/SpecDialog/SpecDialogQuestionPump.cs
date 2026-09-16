@@ -27,7 +27,7 @@ public sealed class SpecDialogQuestionPump(
             {
                 if (message.Type != BusMessageType.Question
                     || string.IsNullOrEmpty(message.QuestionId)) continue;
-                pendingQuestions.Set(state.JobId, message.QuestionId!);
+                pendingQuestions.Set(state.JobId, message.QuestionId!, message.Text);
                 await messenger.SendAsync(
                     state.Platform, state.ChannelId, state.ThreadId!,
                     composer.ComposeQuestion(message.Text), cancellationToken);

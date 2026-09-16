@@ -11,9 +11,12 @@ scope:
     per-session group. An authenticated endpoint that takes one message and routes it through
     SpecDialogRouter.TryRouteAsync with that platform, a browser-minted session id as threadId and
     the signed-in principal as userId — dispatched fire-and-forget in its own DI scope under
-    CancellationToken.None, the way both existing channels do it. A session on this platform is
-    OWNED by the principal that opened it: another principal may neither post into it nor join its
-    group. A permission, carried through every table that a permission has to appear in. The hub's
+    CancellationToken.None, the way both existing channels do it. A session is OWNED by the
+    principal that opened it, at EVERY door into it: posting, joining its hub group, and resuming
+    it by id — the resume path is reached from a chat thread without passing the endpoint or the
+    hub at all, and rewrites where a session lives. Listing is narrowed the same way, since a
+    session nobody else can resume is one nobody else has a use for. Where token enforcement is
+    off every principal resolves to one shared owner, and that is stated rather than implied. A permission, carried through every table that a permission has to appear in. The hub's
     subscribe surface is extracted before it is extended, because it may not grow.
   out: >
     THE DASHBOARD SURFACE. 2026-09-15-cb3e is the Next.js half — its own route, rail entry, hub
@@ -40,11 +43,13 @@ decisions:
       IT. Eight classes take a SINGLE IPlatformAdapter — the help handler, the Slack dispatcher, the
       Slack error action handler, the Slack modal submission handler and four intent handlers — and
       both adapters are registered non-keyed, Slack then Teams, so the single resolve yields the
-      LAST one. Three of those eight are Slack by name and by purpose and are wired to the TEAMS
-      adapter today: a Slack modal submission, a Slack error action and the Slack dispatcher. That
+      LAST one. TWO of those eight are Slack by name and by purpose and are wired to the TEAMS
+      adapter today: a Slack modal submission and a Slack error action. The dispatcher LOOKS like a
+      third and is not — Teams resolves that same class — so it takes the platform per call. That
       is a defect in main, found while specifying this phase. A third registration would make it
-      four. So the three Slack-named sites are resolved explicitly against the Slack adapter — three
-      constructors — and a test asserts what a bare resolve yields so the next registration cannot
+      four. So the two Slack-named sites are resolved explicitly against the Slack adapter, the
+      dispatcher takes the platform per call, and a test asserts what a bare resolve yields so the
+      next registration cannot
       move it silently. ALTERNATIVE REJECTED: pinning today's answer as correct, which would have
       made the defect permanent under a test whose name reads like a guarantee. ALSO REJECTED:
       keying all three adapters everywhere — correct, and it rewrites eight constructors this phase
@@ -95,7 +100,7 @@ steps:
   - id: the-adapter
     action: "A dashboard IPlatformAdapter with a distinct platform name, over the hub, into a per-session group; SendInfoAsync and AskTypedQuestionAsync both push."
   - id: the-slack-named-sites-get-the-slack-adapter
-    action: "The Slack dispatcher, error action handler and modal submission handler resolve the Slack adapter explicitly; a test asserts what a bare IPlatformAdapter resolve yields, so a later registration cannot move it unseen."
+    action: "The error action handler and the modal submission handler resolve the Slack adapter explicitly; the shared dispatcher answers on the platform each call carries; a test asserts what a bare IPlatformAdapter resolve yields, so a later registration cannot move it unseen."
   - id: the-endpoint
     action: "An authenticated POST that dispatches one message through SpecDialogRouter on a fresh scope, and publishes the chat-ingestion system event the other two channels publish."
   - id: the-session-belongs-to-its-owner

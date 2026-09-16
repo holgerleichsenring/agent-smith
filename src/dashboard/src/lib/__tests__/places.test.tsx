@@ -77,6 +77,13 @@ describe("Places", () => {
       .toEqual([]);
   });
 
+  it("Places_TheDesignDialog_IsATopLevelDestination", () => {
+    // 2026-09-15-cb3e: designing the work is a peer of watching it, not a diagnostic
+    // under /system — and the table is closed, so the route lives in it or nowhere.
+    expect(placeForPath("/spec-dialog")).toBe("Design dialog");
+    expect(railHrefs("/")).toContain("/spec-dialog");
+  });
+
   it("Places_TheHomePath_IsOnePlaceNotFiveBuckets", () => {
     // The five monitor entries differ only by a query the root layout may not read, so
     // they are one place — and the table holds one row for them, not five.

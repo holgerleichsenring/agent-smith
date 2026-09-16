@@ -25,6 +25,8 @@ public sealed class PhaseDraftReader
             // p0394a: the spec's steps are the run's plan of record — they seed the
             // progress ledger and render as the master's plan section.
             Steps = ReadSteps(map),
+            // 2026-09-15-6d9c: the test names, for the pane that shows what would be filed.
+            Tests = ReadStrings(map, "tests"),
             // 2026-09-07-b7e2: what the derivation looked up and what it assumed —
             // absent on every spec written before the derivation could look.
             Facts = ReadFacts(map),
