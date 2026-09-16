@@ -85,7 +85,7 @@ describe("ConfigStudio", () => {
     render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-projects-broken");
 
-    fireEvent.click(screen.getByTestId("config-card-graph-toggle-broken"));
+    fireEvent.click(screen.getByTestId("config-card-disclosure-broken"));
 
     expect(screen.getByTestId("graph-node-agent-broken")).toHaveAttribute("data-coloured", "true");
     expect(screen.getByTestId("graph-node-tracker-broken")).toHaveAttribute("data-coloured", "false");

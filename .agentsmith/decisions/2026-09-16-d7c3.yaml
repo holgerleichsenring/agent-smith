@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-d7c3
+
+decisions:
+  - category: Architecture
+    chose: "The row is a real <button> and .ec-right is its sibling; the card root stops being a button"
+    over: "Keeping role=button on the root and stopping the event on every control inside it"
+    reason: |
+      The root carried role=button with a click and an Enter handler while containing the init
+      control, its checkbox label, the wiring toggle and the edit control. An ARIA button takes
+      no interactive descendants, so the markup was already invalid — not a consequence of this
+      phase. Moving the button role onto the row and lifting the controls out as a SIBLING is
+      what fixes it, and it is the same change the operator asked for by another route: they
+      would not click a control labelled 'wiring', and editing belongs to a control labelled
+      Edit. Stopping the event on each control would have preserved the invalid nesting and the
+      accidental-edit surface.
+
+  - category: Scope
+    chose: "The row treatment is conditional on kind === projects; the other six kinds are untouched"
+    over: "Making every card's row the button"
+    reason: |
+      .ec-id and .ec-sub are shared by all seven kinds and a secret's sub-line is a full
+      sentence, which must not become a chip row. The six other kinds also have nothing to
+      disclose, so a disclosure button there would control nothing. They keep the whole-card
+      click, the muted 'edit ›' hint and the prose sub-line — which is also what keeps
+      mock-parity.test.tsx's .edit-hint assertion (it renders section='agents') honest rather
+      than accidentally satisfied.
+
+  - category: Implementation
+    chose: "The six kinds that keep the root handler gain an e.target === e.currentTarget guard"
+    over: "Leaving the handler as it was, since no test saw the bug"
+    reason: |
+      The Enter handler fired for any descendant, so Enter on a control inside the card ran the
+      control AND opened the editor — on a project card, Enter on the wiring toggle expanded and
+      edited, and Enter on the edit hint called onEdit twice. Every existing test fires click,
+      which is why nothing saw it. The guard lands here because this phase is the one moving the
+      handler, and OtherCards_StillOpenTheEditorWhenClicked now pins it.
+
+  - category: Implementation
+    chose: "The project sub-line's wrapper became a <span>"
+    over: "Leaving it a <div> inside the row button"
+    reason: |
+      A <button>'s content model is phrasing, and the marks now sit inside the row button. The
+      shared .ec-sub class stays on it because three existing assertions reach it through
+      closest('.ec-sub'), and its children were already spans.
+
+  - category: Implementation
+    chose: "Edit is a .pick control on a project card and stays .edit-hint on the other six"
+    over: "Promoting 'edit ›' to a control everywhere"
+    reason: |
+      The spec asks for Edit to be a control rather than a hint on the card whose root no longer
+      opens the editor — there it is the ONLY route in, so it has to look like one. On the six
+      kinds where the whole card is still clickable the hint is still a hint, and promoting it
+      would have been a change to six surfaces no phase asked about. The testid
+      config-card-edit-<id> is unchanged, so every existing editor-opening click still lands.
+
+  - category: Implementation
+    chose: "aria-controls names an id the panel carries only while expanded"
+    over: "Rendering an empty panel element so the id always resolves"
+    reason: |
+      The reference does exactly this — a collapsed card's button carries aria-controls for a
+      panel that is not in the DOM. Rendering an always-present empty wrapper would add a border
+      rule and padding to every collapsed project card to satisfy a validator. The test asserts
+      the id resolves once the row is expanded.
+
+  - category: Tooling
+    chose: "A test reads design/mockups/project-card.html and asserts the classes its CHANGES block names"
+    over: "Citing the file in prose and asserting nothing"
+    reason: |
+      An earlier draft of this phase said 'the file wins' with nothing reading the file, and a
+      review then found the file itself wrong in thirteen places. The test slices the file from
+      its '=== CHANGES ===' marker to </style>, strips comments, collects the class tokens from
+      the remaining selectors and asserts the rendered card produces each one — so the file
+      cannot drift from the component in either direction, and the UNCHANGED block (which names
+      .actions, a class the app does not have and never claimed to) stays out of scope. The path
+      is cwd-relative, like the existing mock-parity.css read: in the jsdom suite import.meta.url
+      carries an http scheme, so fileURLToPath does not work from a .tsx test.
+
+  - category: Scope
+    chose: "The .ecard cursor:pointer rule is left alone"
+    over: "Making a project card's root cursor default now that it is not clickable"
+    reason: |
+      Recorded so the next reader knows it was seen. The reference's .ecard rule sits in its
+      UNCHANGED block, which is the running app copied for legibility and explicitly not a
+      proposal — it also drops the box-shadow and the radius token, which nobody means. A
+      project card's root does now show a pointer it does not honour; the fix is one :has()
+      rule and belongs to whoever measures the card next, not to a phase whose definition of
+      done says nothing about it.
