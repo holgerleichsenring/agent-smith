@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Polling;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
 
@@ -6,6 +7,19 @@ namespace AgentSmith.Tests.Services.Polling;
 
 public sealed class PipelineResolverTests
 {
+    // 2026-09-16-a4d7: WebhookTriggerConfig.DefaultPipeline is nullable now, so a trigger
+    // can state that it declares none. The behaviour for that trigger is UNCHANGED — the
+    // literal moved out of the config object and into the one place that answers with it.
+    [Fact]
+    public void PipelineResolver_TriggerStatesNoDefault_StillAnswersFixBug()
+    {
+        var trigger = new WebhookTriggerConfig();
+
+        trigger.DefaultPipeline.Should().BeNull();
+        new PipelineResolver().Resolve(trigger, ["some-label"]).Should().Be("fix-bug");
+        PipelinePresets.UndeclaredFallbackPipeline.Should().Be("fix-bug");
+    }
+
     [Fact]
     public void Resolve_EmptyPipelineFromLabel_ReturnsDefaultPipeline()
     {

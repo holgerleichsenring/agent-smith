@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
 import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
+import type { ConfigFinding } from "@/lib/configApi";
 
 // p0392: the studio says what is missing BEFORE the save. On 2026-07-31 a trigger was
 // missing needs_clarification_status, the server refused to start, and the way out was a
@@ -48,6 +49,7 @@ vi.mock("@/lib/configApi", () => {
         // p0393: a RETIRED preset name. It still runs, so it must still load.
         pipeline: "fix-bug",
         pipelines: ["fix-bug"],
+        defaultPipeline: "fix-bug",
         resolution: { strategy: "tag", value: "legacy" },
       },
     ]),
@@ -73,6 +75,9 @@ vi.mock("@/lib/configApi", () => {
             },
             { key: "zeroMatchComment", label: "comment when nothing matched", required: false, kind: "bool" },
             { key: "pipelineFromLabel", label: "pipeline by label", required: false, kind: "map" },
+            // 2026-09-16-a4d7: declared, and OPTIONAL — required would make every tracker
+            // configured before that phase unsaveable.
+            { key: "defaultPipeline", label: "default pipeline", required: false, kind: "text" },
           ],
         },
       ],
@@ -91,6 +96,20 @@ vi.mock("@/lib/configApi", () => {
     fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
   };
 });
+
+// The module mock's factory is hoisted and cannot be referenced from a test, so the one
+// finding it serves is restated here for the tests that override the validator and put it
+// back. Two copies of a literal, in one file, is cheaper than a shared mutable fixture.
+const parkFindingForRestore: ConfigFinding = {
+  subsystem: "configuration",
+  severity: "blocking",
+  reason:
+    "Project 'demo' github_trigger: pipeline 'code' can park a run on an operator question, " +
+    "but needs_clarification_status is not set.",
+  project: "demo",
+  trigger: "github_trigger",
+  field: "needs_clarification_status",
+};
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -126,7 +145,10 @@ describe("Config Studio shows what is missing (p0392)", () => {
   it("Studio_StoredRetiredPipelineName_LoadsAndIsLabelledRetired", async () => {
     await openProject("legacy");
 
-    const pipeline = (await screen.findByTestId("form-field-pipeline")) as HTMLSelectElement;
+    // 2026-09-16-74a2: three pipeline fields became one, and it is the DEFAULT — the
+    // legacy singular left the form (the loader shim still appends it to the list).
+    fireEvent.click(await screen.findByTestId("form-tab-pipeline"));
+    const pipeline = (await screen.findByTestId("form-field-defaultPipeline")) as HTMLSelectElement;
     // It LOADS: the stored value survives opening the form.
     expect(pipeline.value).toBe("fix-bug");
     expect(pipeline.querySelector('option[value="fix-bug"]')).not.toBeNull();
@@ -142,7 +164,8 @@ describe("Config Studio shows what is missing (p0392)", () => {
     );
     fireEvent.click(await screen.findByTestId("config-new-projects"));
 
-    const pipeline = (await screen.findByTestId("form-field-pipeline")) as HTMLSelectElement;
+    fireEvent.click(await screen.findByTestId("form-tab-pipeline"));
+    const pipeline = (await screen.findByTestId("form-field-defaultPipeline")) as HTMLSelectElement;
     const offered = [...pipeline.querySelectorAll("option")]
       .map((o) => o.getAttribute("value"))
       .filter((v) => v !== "");
@@ -166,5 +189,89 @@ describe("Config Studio shows what is missing (p0392)", () => {
     // the operator's label keys contain colons, and the text form shredded them.
     expect(screen.getByTestId("form-field-pipelineFromLabel-add")).toBeInTheDocument();
     expect(screen.queryByTestId("form-field-pipelineFromLabel")?.tagName).not.toBe("TEXTAREA");
+  });
+
+  it("Drawer_ProjectKind_CarriesTheWideModifier", async () => {
+    // 2026-09-16-74a2: one drawer element serves all seven kinds, so the project's width
+    // is a MODIFIER on it. jsdom loads no stylesheet, so the 560 itself cannot be
+    // asserted — what CAN be pinned is that the modifier is applied for a project and not
+    // for a secret, which is one field and asks for no room.
+    const { unmount } = render(
+      <ConfigCatalogProvider>
+        <ConfigStudio section="projects" />
+      </ConfigCatalogProvider>,
+    );
+    fireEvent.click(await screen.findByTestId("config-card-edit-legacy"));
+    expect(screen.getByLabelText("Create or edit").className).toContain("wide-project");
+    unmount();
+
+    render(
+      <ConfigCatalogProvider>
+        <ConfigStudio section="secrets" />
+      </ConfigCatalogProvider>,
+    );
+    fireEvent.click(await screen.findByTestId("config-new-secrets"));
+    expect(screen.getByLabelText("Create or edit").className).not.toContain("wide-project");
+  });
+
+  it("ProjectForm_UnfinishedTemplate_BlocksSaveAndNamesIt", async () => {
+    // A binding missing its context, project, repo or template context is refused where
+    // templates are fetched. Letting the save through stores a declaration that can never
+    // resolve, and the operator learns it on the next run instead of on the form.
+    const api = await import("@/lib/configApi");
+    vi.mocked(api.validateProjectDraft).mockResolvedValue([]);
+    try {
+      await openProject("legacy");
+      await waitFor(() => expect(screen.getByTestId("config-drawer-save")).not.toBeDisabled());
+
+      fireEvent.click(screen.getByTestId("form-tab-templates"));
+      fireEvent.click(screen.getByTestId("form-templates-add"));
+
+      expect(screen.getByTestId("config-drawer-save")).toBeDisabled();
+      expect(screen.getByTestId("config-drawer-blocked").textContent).toContain(
+        "template 1 is unfinished",
+      );
+      // And the section that needs attention is marked on its own tab.
+      expect(screen.getByTestId("form-tab-templates")).toHaveAttribute("data-marked", "true");
+    } finally {
+      vi.mocked(api.validateProjectDraft).mockResolvedValue([parkFindingForRestore]);
+    }
+  });
+
+  it("TrackerForm_MissingDefaultPipeline_IsAdvisoryAndNamesTheField", async () => {
+    // 2026-09-16-a4d7: a tracker declaring neither a label map nor a fallback routes every
+    // ticket to the hardcoded preset. The server says so; the form shows it ON the field it
+    // is about — the tracker findings all said "type" before — and does NOT block the save,
+    // because every tracker configured before that phase is in exactly this state.
+    const api = await import("@/lib/configApi");
+    vi.mocked(api.validateTrackerDraft).mockResolvedValue([
+      {
+        subsystem: "configuration",
+        severity: "advisory",
+        reason:
+          "Tracker 'gh' declares no pipeline_from_label and no default pipeline: " +
+          "every ticket it routes runs 'fix-bug'.",
+        project: null,
+        trigger: null,
+        field: "defaultPipeline",
+      },
+    ]);
+    try {
+      render(
+        <ConfigCatalogProvider>
+          <ConfigStudio section="trackers" />
+        </ConfigCatalogProvider>,
+      );
+      fireEvent.click(await screen.findByTestId("config-card-edit-gh"));
+
+      expect(await screen.findByTestId("form-field-defaultPipeline")).toBeInTheDocument();
+      const slot = await screen.findByTestId("form-finding-defaultPipeline");
+      expect(slot).toHaveAttribute("data-severity", "advisory");
+      expect(slot.textContent).toContain("fix-bug");
+      // Advisory never disables Save.
+      await waitFor(() => expect(screen.getByTestId("config-drawer-save")).not.toBeDisabled());
+    } finally {
+      vi.mocked(api.validateTrackerDraft).mockResolvedValue([]);
+    }
   });
 });

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -55,19 +56,35 @@ public sealed class ConfigDraftRules(
     /// </summary>
     public IReadOnlyList<StartupFinding> ForTracker(TrackerEntity draft)
     {
+        List<StartupFinding> findings = [];
         try
         {
             ConfigStudioCapabilities.ValidateTracker(draft);
-            return [];
         }
         catch (ConfigurationException ex)
         {
-            return
-            [
-                new StartupFinding(
-                    StartupSubsystems.Configuration, StartupFindingSeverity.Blocking,
-                    ex.Message, Field: "type"),
-            ];
+            findings.Add(new StartupFinding(
+                StartupSubsystems.Configuration, StartupFindingSeverity.Blocking,
+                ex.Message, Field: "type"));
         }
+        if (UndeclaredRouting(draft) is { } advisory) findings.Add(advisory);
+        return findings;
+    }
+
+    /// <summary>
+    /// 2026-09-16-a4d7: a tracker declaring neither a label map nor a default routes every
+    /// ticket to the hardcoded fallback, and nothing said so. ADVISORY, not blocking — every
+    /// tracker configured before that phase is in this state and must keep saving — and it
+    /// names its own field, because the tracker findings above all say "type".
+    /// </summary>
+    private static StartupFinding? UndeclaredRouting(TrackerEntity draft)
+    {
+        if (draft.PipelineFromLabel is { Count: > 0 }) return null;
+        if (!string.IsNullOrWhiteSpace(draft.DefaultPipeline)) return null;
+        return new StartupFinding(
+            StartupSubsystems.Configuration, StartupFindingSeverity.Advisory,
+            $"Tracker '{draft.Id}' declares no pipeline_from_label and no default pipeline: "
+            + $"every ticket it routes runs '{PipelinePresets.UndeclaredFallbackPipeline}'.",
+            Field: "defaultPipeline");
     }
 }

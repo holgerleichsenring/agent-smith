@@ -156,6 +156,8 @@ describe("ConfigStudio", () => {
     fireEvent.change(screen.getByTestId("form-field-id"), { target: { value: "newproj" } });
     fireEvent.change(screen.getByTestId("form-ref-agent"), { target: { value: "gpt5" } });
     fireEvent.change(screen.getByTestId("form-ref-tracker"), { target: { value: "azdo" } });
+    // 2026-09-16-74a2: the repo pickers live in the form's repos section.
+    fireEvent.click(screen.getByTestId("form-tab-repos"));
     fireEvent.click(screen.getByTestId("form-ref-repos-option-web"));
 
     const save = screen.getByTestId("config-drawer-save");

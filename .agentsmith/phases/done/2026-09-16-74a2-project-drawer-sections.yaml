@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-74a2
+
+goal: "The project drawer becomes five tabbed sections and its three pipeline fields become one, so a form nobody could read states what it actually decides."
+
+applies_to: "dashboard (the project form, the entity drawer) + backend (the project patch)"
+
+requires:
+  - 2026-09-16-4df5
+
+supersedes:
+  - 2026-09-15-2d68
+
+scope:
+  in: >
+    The project drawer widens from 520 to 560 and its body becomes five tabs — identity,
+    repos, pipeline, templates, routing — with a tab marking a section that needs attention;
+    the pipeline section keeps ONE field, the default, and renders the tracker's label map
+    read-only beside it with the sentence that is missing today, naming the hardcoded
+    fix-bug for what it is until 2026-09-16-a4d7 gives the tracker a field to declare;
+    saving sends the UNION of the stored pipeline names and the default, so the blocking
+    startup rule becomes unreachable from this form without any stored entry being dropped; a template row carries a done control and an unfinished
+    binding blocks the save; the standalone repo picker is drawn only when the repo catalog
+    has entries.
+  out: >
+    THE WIRING PREVIEW. It leaves the drawer entirely — a graph cannot breathe in 560px.
+    2026-09-16-942a puts it on the project card, where the page gives it about 900 pixels.
+    EDITING THE LABEL MAP HERE. It belongs to the tracker; this section renders it read-only
+    and points at it. The map is already on the studio's tracker entity, so this needs nothing
+    from 2026-09-16-a4d7 — that phase only upgrades one sentence, from "the hardcoded fix-bug"
+    to "what this tracker declares".
+    A FORM FOR PER-PIPELINE OVERRIDES. ProjectEntity carries pipeline NAMES only; an override
+    authored in YAML survives a save by name-match and stays invisible. Nothing checked in
+    uses one, so a form for it would be built for a user nobody has found.
+    WIDENING EVERY DRAWER. A secret is one field. Only the project asks for the room.
+
+decisions:
+  - key: |
+      THE LIST DOES NOT GATE ROUTING, WHICH IS A NARROWER CLAIM THAN THE FIRST CUT MADE AND THE
+      ONLY ONE THAT SURVIVES THE CODE. PipelineConfigResolver.Resolve looks a name up and, when
+      the project does not declare it, synthesises a definition and runs it anyway — so a ticket
+      tagged for an undeclared pipeline runs fine, and nothing the operator writes here decides
+      what a ticket runs. The first cut said the list "gates nothing", and that is false: nine
+      places read it, and several are load-bearing. ProjectPipelineResolver turns each entry into
+      a definition and emits BLOCKING findings for a nameless entry, an unknown agent or a
+      confidence threshold outside 0-100; ClarificationParkStatusRule reads it to decide which
+      pipelines a trigger can reach; ResolveDefaultPipelineName throws when two are declared and
+      no default is set. The list is machinery. The defect is that the form asked an operator to
+      author it in order to answer a question it does not answer.
+  - key: |
+      SO THE FORM STATES THE DEFAULT AND SENDS A UNION, NEVER A REPLACEMENT. RawConfigPatch
+      replaces the stored list wholesale from the names it is given, and each entry carries the
+      per-pipeline agent, skills path, principles path and confidence threshold. A form that sent
+      only the default would delete every other entry and its overrides silently — the same class
+      as default_branch and consumes. The union preserves order and every stored entry.
+  - key: |
+      THE FORM KEEPS THE DEFAULT AND DERIVES THE LIST, SO THE BLOCKING RULE BECOMES UNREACHABLE.
+      A default naming an undeclared pipeline is a BLOCKING startup finding — the project is
+      disabled. Writing the list to contain the default on every save means this form can no
+      longer author that state. The list is not removed from the file: it is derived from what
+      the form does state, and a list authored in YAML keeps its entries.
+  - key: |
+      THE LEGACY SINGULAR LEAVES THE FORM AND STAYS IN THE FILE. ApplyLegacyShim appends
+      `pipeline` to `pipelines` on every load regardless of list length and sets
+      default_pipeline from it when none is set — so it is already one of the declared pipelines
+      by the time anything reads them, and showing it as a third peer field described a
+      distinction that does not survive loading. Blanking it in the form was a no-op anyway: the
+      patch writes it only when non-blank.
+  - key: |
+      TABS, NOT A RAIL, BECAUSE THE DRAWER IS 520 PIXELS WIDE. A left rail costs a third of the
+      width; the sections are five and their names are short. 560 is what two fields side by side
+      need, and it is the smallest change that stops the form being one scroll.
+  - key: |
+      THE WIDTH IS ONE STYLESHEET RULE AND NO TEST CAN SEE IT. One drawer element serves all seven
+      kinds, so the project width is a modifier on it, not a second drawer. jsdom loads no
+      stylesheet, so the 560 itself ships unasserted — what a test CAN pin is that the modifier is
+      applied for a project and not for a secret. Stated so nobody later reads a green suite as
+      proof of the width.
+  - key: |
+      ONLY TWO TABS CAN CARRY A FINDING TODAY, AND THE SPEC SAYS WHICH. A project draft's findings
+      name default_pipeline, templates, and six tracker-owned status fields the project form
+      renders no input for. So pipeline and templates can be marked; identity, repos and routing
+      have nothing that could mark them, and a finding naming a status field belongs to the
+      tracker, not to a tab here. Marking a tab that can never be marked would be decoration.
+  - key: |
+      AN UNFINISHED TEMPLATE IS NOT SAVED, BECAUSE THE SERVER WOULD NOT KEEP IT EITHER. A binding
+      missing its project, repo or context is refused where templates are fetched and is already
+      marked on the row. Letting the save through stores a declaration that can never resolve,
+      and the operator learns it on the next run instead of on the form.
+  - key: |
+      A PICKER WITH NOTHING TO OFFER IS NOT DRAWN. "pick from the catalog / no entries in
+      catalog" renders even when every repository came from a connection, which is the normal
+      shape. The picker returns the moment the catalog has an entry.
+
+steps:
+  - id: the-drawer-widens-and-gains-tabs
+    action: "The project drawer is 560px and its body is five tabs; a section with an unresolved problem is marked on its tab."
+  - id: the-pipeline-section-keeps-one-field
+    action: "Default pipeline is the only pipeline control; the tracker's label map renders read-only beside it, naming what happens when nothing matches."
+  - id: saving-sends-the-union-not-a-replacement
+    action: "The union of the stored pipeline names and the default is what a save sends; the derivation lives in the patch, so every writer of a project entity inherits it."
+  - id: an-unfinished-template-blocks-the-save
+    action: "A row carries a done control; an unfinished binding disables the save and the footer says which."
+  - id: an-empty-catalog-picker-is-not-drawn
+    action: "The standalone repo picker renders only when the repos catalog has entries."
+
+tests:
+  - "ProjectForm_FiveSections_EachReachableByTab"
+  - "ProjectForm_PipelineSection_HasOneControlAndNamesTheTracker"
+  - "ProjectForm_SavingADefault_WritesItIntoThePipelinesList"
+  - "ProjectForm_StoredPipelineList_SurvivesASaveThatOnlyChangesTheDefault"
+  - "ProjectForm_UnfinishedTemplate_BlocksSaveAndNamesIt"
+  - "ProjectForm_EmptyRepoCatalog_DrawsNoStandalonePicker"
+  - "ProjectForm_PipelineOrTemplateFinding_MarksThatTab"
+  - "ProjectForm_TrackerStatusFinding_MarksNoTab"
+  - "Drawer_ProjectKind_CarriesTheWideModifier"
+
+done:
+  - "an operator reads what each pipeline control decides without reading the code"
+  - "the form cannot author a default that disables the project"
+  - "a stored pipeline entry and its overrides survive a save that only changed the default"
+  - "an unfinished template cannot be saved, and the form says which one"
+  - "a repo picker with nothing to offer is absent"
+  - "dashboard tests and build green, backend build green, full suite green"

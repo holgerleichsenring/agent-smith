@@ -135,11 +135,12 @@ describe("ConfigStudio connections (p0345b)", () => {
     await screen.findByTestId("config-card-projects-sample");
     fireEvent.click(screen.getByTestId("config-card-edit-sample"));
 
-    // The wiring preview resolves the conn-scoped refs green and Save is open.
+    // 2026-09-16-74a2: the five-node preview left the drawer; the verdict it always
+    // carried stayed, and it is the half that gates Save.
     expect(screen.getByTestId("project-integrity")).toHaveAttribute("data-ok", "true");
-    expect(screen.getByTestId("wiring-repo-conn/Sample.Api")).toHaveAttribute("data-resolved", "true");
     expect(screen.getByTestId("config-drawer-save")).not.toBeDisabled();
-    // The existing conn refs are visible and manageable in the form.
+    // The existing conn refs are visible and manageable in the form's repos section.
+    fireEvent.click(screen.getByTestId("form-tab-repos"));
     expect(screen.getByTestId("form-connref-chip-conn/Sample.Api")).toBeInTheDocument();
     expect(screen.getByTestId("form-connref-chip-conn/Sample.Web")).toBeInTheDocument();
   });

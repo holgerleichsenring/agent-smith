@@ -10,7 +10,15 @@ public class WebhookTriggerConfig
 {
     public ProjectResolutionConfig? ProjectResolution { get; set; }
     public Dictionary<string, string>? PipelineFromLabel { get; set; }
-    public string DefaultPipeline { get; set; } = "fix-bug";
+    /// <summary>
+    /// 2026-09-16-a4d7: the pipeline a ticket runs when no label matched. Nullable, so
+    /// "this trigger declares none" is expressible at all — with a literal initialiser no
+    /// merge could tell a declared value from an undeclared one, and the tracker could
+    /// never fill it. The answer for an undeclared trigger is
+    /// <see cref="AgentSmith.Contracts.Commands.PipelinePresets.UndeclaredFallbackPipeline"/>,
+    /// applied by PipelineResolver — the one place it is consumed as an answer.
+    /// </summary>
+    public string? DefaultPipeline { get; set; }
     public List<string> TriggerStatuses { get; set; } = [];
     public string DoneStatus { get; set; } = "In Review";
 
