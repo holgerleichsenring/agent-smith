@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type HTMLAttributes } from "react";
 import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
 import type {
   StudioAgent,
@@ -36,74 +36,95 @@ export function EntityCard({
   catalog: ConfigCatalog;
   onEdit: () => void;
 }) {
-  // 2026-09-16-942a: a project card expands into the graph of what it is wired to. The
-  // whole card is the edit button, so the disclosure control stops the event — the
-  // precedent is the init action already sitting on these cards — and the card's
-  // overflow, which is hidden, is lifted while the drawing is out.
+  // 2026-09-16-942a: a project card expands into the graph of what it is wired to.
+  // 2026-09-16-d7c3: and the ROW is what expands it. The card used to be one big edit
+  // button that also contained buttons — invalid for role=button, and it put editing on
+  // the surface an operator hits by accident while the disclosure hid behind a control
+  // labelled "wiring" that nobody would click. The row is a real button now, .ec-right is
+  // its sibling, and Edit is the only route into the editor. The other six kinds keep the
+  // whole-card click: their sub-line is prose, not a mark row, and nothing asked for it.
   const [expanded, setExpanded] = useState(false);
+  const isProject = kind === "projects";
+  const graphId = `config-card-graph-panel-${entity.id}`;
+  // 2026-09-16-d7c3: the Enter handler never had a target guard, so it fired for any
+  // descendant — Enter on a control inside the card ran the control AND opened the editor.
+  const rootProps: HTMLAttributes<HTMLDivElement> = isProject
+    ? {}
+    : {
+        role: "button",
+        tabIndex: 0,
+        onClick: onEdit,
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && e.target === e.currentTarget) onEdit();
+        },
+      };
   return (
     <div
       data-testid={`config-card-${kind}-${entity.id}`}
-      className="ecard"
+      className={isProject ? "ecard inert" : "ecard"}
       data-expanded={expanded ? "true" : "false"}
-      role="button"
-      tabIndex={0}
-      onClick={onEdit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onEdit();
-      }}
+      {...rootProps}
     >
       <div className="ec-top">
-        <div className="ec-ic">{ENTITY_ICON[kind]}</div>
-        <div className="ec-id">
-          <div className="ec-name">{entity.id}</div>
-          <SubLine kind={kind} entity={entity} catalog={catalog} />
-        </div>
+        {isProject ? (
+          // The disclosure carries the icon, the id and the marks — one row, phrasing
+          // content only, so a real <button> may host it. .ec-right stays OUTSIDE it.
+          <button
+            type="button"
+            className="ec-disclosure"
+            aria-expanded={expanded}
+            aria-controls={graphId}
+            data-testid={`config-card-disclosure-${entity.id}`}
+            onClick={() => setExpanded((x) => !x)}
+          >
+            <span className="chev" aria-hidden="true">
+              {expanded ? "▾" : "▸"}
+            </span>
+            <span className="ec-ic">{ENTITY_ICON[kind]}</span>
+            <span className="ec-id row">
+              <span className="ec-name">{entity.id}</span>
+              <SubLine kind={kind} entity={entity} catalog={catalog} />
+            </span>
+          </button>
+        ) : (
+          <>
+            <div className="ec-ic">{ENTITY_ICON[kind]}</div>
+            <div className="ec-id">
+              <div className="ec-name">{entity.id}</div>
+              <SubLine kind={kind} entity={entity} catalog={catalog} />
+            </div>
+          </>
+        )}
         <div className="ec-right">
           {/* p0489: a project can be asked to initialize itself right here. */}
-          {kind === "projects" && <ProjectInitAction project={entity.id} />}
-          {kind === "projects" && (
-            <button
-              type="button"
-              className="pick"
-              aria-expanded={expanded}
-              aria-label={expanded ? `Hide how ${entity.id} is wired` : `Show how ${entity.id} is wired`}
-              data-testid={`config-card-graph-toggle-${entity.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((x) => !x);
-              }}
-            >
-              {expanded ? "▾ Hide wiring" : "▸ Wiring"}
-            </button>
-          )}
+          {isProject && <ProjectInitAction project={entity.id} />}
           {/* 2026-09-16-b706: a project card carries no badge. It showed the declared pipeline
               list joined, and the literal "project" when that list was empty — so on a page of
               nothing but projects it said nothing, and when it said anything it was the list
               2026-09-16-74a2 stopped asking an operator to author. The marks carry every fact
               this card has. Every other kind's badge names something its card does not
               otherwise carry. */}
-          {kind !== "projects" && (
+          {!isProject && (
             <span className="tybadge" data-testid={`config-card-badge-${entity.id}`}>
               {typeBadge(kind, entity)}
             </span>
           )}
           <button
             type="button"
-            className="edit-hint"
+            className={isProject ? "pick" : "edit-hint"}
             data-testid={`config-card-edit-${entity.id}`}
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
             }}
           >
-            edit ›
+            {isProject ? "Edit" : "edit ›"}
           </button>
         </div>
       </div>
       <CardBody kind={kind} entity={entity} catalog={catalog} />
-      {kind === "projects" && expanded && (
-        <div className="pgraph-wrap" onClick={(e) => e.stopPropagation()}>
+      {isProject && expanded && (
+        <div className="pgraph-wrap" id={graphId}>
           <ProjectGraph project={entity as StudioProject} catalog={catalog} />
         </div>
       )}
@@ -327,7 +348,9 @@ function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog:
     // the same character, so none could be found without reading all of them. The outer class
     // stays — it is shared by all seven kinds and a secret's summary is a sentence — and the
     // marks sit under one of their own.
-    <div className="ec-sub ec-marks">
+    // 2026-09-16-d7c3: a span, not a div — the marks now sit inside the row's <button>,
+    // whose content model is phrasing.
+    <span className="ec-sub ec-marks">
       <span className="ec-mark" data-testid={`config-project-pipeline-${project.id}`}>
         {pipeline === "none declared" ? "no default pipeline" : `default · ${pipeline}`}
       </span>
@@ -357,7 +380,7 @@ function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog:
           {unresolved} unresolved
         </span>
       ) : null}
-    </div>
+    </span>
   );
 }
 

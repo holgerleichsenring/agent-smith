@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-4b41
+
+decisions:
+  - category: Architecture
+    chose: "Five columns and a flat row list; the repository block rectangle is gone"
+    over: "Keeping the contexts nested inside their repository's rectangle"
+    reason: |
+      A template belongs to a context and a context belongs to a repository — three things
+      and two arrows. Nesting drew only one of them. The block arithmetic did not survive:
+      the height was a sum of block chrome (a rectangle per repository plus a row per context
+      inside it) and is now ROW_TOP + rows * ROW, one row per (repository, context) pair and
+      one row for a repository no template names. The repository node is centred against its
+      own contexts, so a repository declaring three of them is one node beside three rows.
+
+  - category: Implementation
+    chose: "Truncation is a character budget: floor((boxWidth - 18) / (0.6 * fontSize))"
+    over: "textLength/lengthAdjust, a clip path, or measuring the text"
+    reason: |
+      The labels are monospaced and an advance of 0.6em holds for the stack they use, so the
+      budget is computable without measuring — and a narrower face only over-truncates, which
+      is the safe direction. Stretching the glyphs gives no ellipsis and squashes the name; a
+      clip path cuts mid-glyph and needs an id per node. jsdom cannot measure text at all, so
+      a measuring implementation would also be untestable here. Only the label line is mono;
+      the caption above it is sans and short, and the rule applies to the label. The budget
+      lives in an exported fitLabel so it can be asserted directly rather than inferred from
+      a rendered string.
+
+  - category: Implementation
+    chose: "The column headers are 12 units, not the reference file's 10"
+    over: "Copying the reference's font-size=10 verbatim"
+    reason: |
+      This is a departure from the reference and it is the one the phase's own decision asks
+      for. The studio's main column caps at 1000px and the drawing gets about 906 of it, so a
+      1090-unit viewBox renders at roughly 0.83: node labels at 12.5 land near 10.5 pixels,
+      which is fine, and headers at 10 land near 8, which is not. Sizing them for the SCALED
+      result puts them at 12 units, about 10 pixels rendered — the same legibility floor the
+      node labels already clear. Letter-spacing drops from the reference's 1.4 to 1.2 so the
+      widest header still fits inside its column at the larger size. Every other coordinate in
+      the drawing reproduces the reference exactly, verified rect by rect against the
+      three-repository case the file draws.
+
+  - category: Implementation
+    chose: "The agent/tracker/project stack is centred on the ROWS' middle, computed"
+    over: "Copying the reference's y=52/120/86, or centring on the canvas"
+    reason: |
+      The reference is a hand-placed illustration of one three-row case and puts the project
+      at y=112 while its rows sit at 66, 158 and 250 — the fan to the first row is short and
+      the fan to the last is long. A file cannot hand-place the case with six repositories.
+      Centring on the canvas is also wrong: the last row carries the drawing's bottom padding,
+      so the canvas middle is 182 and the rows' middle is 158. The stack is centred on the
+      rows' middle, which fans symmetrically for any row count. Two floors keep it honest at
+      one row: the stack's middle never rises above 91 (its top would cross the header rule at
+      25) and the height never falls below that middle plus 65.
+
+  - category: Scope
+    chose: "Unfinished keeps the drawing's single problem colour"
+    over: "A second colour so unfinished and unresolved are told apart in the drawing"
+    reason: |
+      The drawing has one problem colour and a drawing where everything is coloured says
+      nothing about what needs attention. Telling the two apart is the card's mark row, which
+      bedc already separated. Also left alone, as the phase says: which repository a context
+      belongs to is not annotated on the card, and the graph still makes no call.
+
+  - category: Tooling
+    chose: "The graph tests get a new file, src/components/config/__tests__/ProjectGraph.test.tsx"
+    over: "Rewriting them in place in ProjectCard.test.tsx"
+    reason: |
+      That file was 213 lines and half of it was the drawing, while d7c3 had just added six
+      card tests to it. Four of its tests read the drawing's BLOCKS — a context nested inside
+      its repository's rectangle — a premise this phase retires; they were rewritten against
+      rows and moved, along with the colour test. ProjectCard.test.tsx keeps only what is
+      about the card: the marks, the click model, the reference file, and that expanding makes
+      no outbound call.
+
+  - category: Implementation
+    chose: "graph-block-<project>-<ref> became graph-row-<project>-<ref>"
+    over: "Keeping the old testid on an element that is no longer a block"
+    reason: |
+      A block was a rectangle containing its contexts; a row is a group with no rectangle of
+      its own. Only ProjectCard.test.tsx read it, and those tests moved. Every other testid is
+      unchanged, which is why ConfigStudio.test.tsx and ConnectionsStudio.test.tsx — the only
+      proof that a dangling agent ref is surfaced and that connection-scoped repo refs are not
+      falsely dangling — needed no edit in this phase.
+
+  - category: Scope
+    chose: "The test on the truncation budget's edge was verified, not changed"
+    over: "Widening the budget or relaxing the assertion pre-emptively"
+    reason: |
+      ProjectCard_Expanded_DrawsEachTemplatesContextUnderItsRepository asserted the built-after
+      label 'refapp / api · server' — 21 characters — and the phase names it as the test
+      sitting on the budget's edge. At the reference's 196-unit box and 12-unit label the
+      budget is 24, so it is not truncated; the assertion moved into
+      ProjectGraph_LabelInsideTheBudget_IsNotTruncated unchanged and now says so deliberately
+      rather than by accident.

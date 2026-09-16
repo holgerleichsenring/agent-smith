@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-5451
+
+goal: "A project card's surface stops offering a pointer it no longer honours, so the one part of the card that is not a control stops looking like one."
+
+applies_to: "dashboard (the project card, the studio stylesheet)"
+
+requires:
+  - 2026-09-16-d7c3
+
+scope:
+  in: >
+    The card root's pointer cursor is scoped off for a project, because 2026-09-16-d7c3 moved
+    that card's click onto the row and left the whole surface still inviting one; the other six
+    kinds keep both the click and the cursor.
+  out: >
+    THE CURSOR ON THE OTHER SIX. Their whole card still opens the editor, so the pointer is
+    still true.
+    THE REST OF THE CARD RULE. Its background, border, radius, shadow and overflow are shared by
+    every kind and nothing here is about them.
+
+decisions:
+  - key: |
+      IT IS A NEW ID BECAUSE THE PHASE THAT CAUSED IT IS ALREADY WRITTEN. 2026-09-16-d7c3 made a
+      project card's root inert and its commit is already gated; rewriting it would produce a
+      commit the gate never saw, because the gate hooks the commit and not a rebase. A later
+      addition mints anew, as 2026-09-03-2f81 states.
+  - key: |
+      A CURSOR IS AN AFFORDANCE AND THIS ONE NOW LIES. Everything else on the card says what it
+      does: the row is a button, Edit is a button, the marks are text. The surface between them
+      is the only thing left claiming to be clickable, and it is the thing that stopped being
+      clickable. It was noticed while building d7c3 and recorded rather than fixed, because that
+      phase's done-list did not cover it; this is that record being paid.
+
+steps:
+  - id: a-project-card-does-not-offer-a-pointer
+    action: "The root's pointer cursor is scoped off for a project card; the other six keep it."
+
+tests:
+  - "ProjectCard_Root_DoesNotOfferAPointer"
+  - "OtherCards_Root_StillOfferAPointer"
+
+done:
+  - "a project card's surface does not invite a click it ignores"
+  - "the other six cards are unchanged"
+  - "dashboard tests and build green"
