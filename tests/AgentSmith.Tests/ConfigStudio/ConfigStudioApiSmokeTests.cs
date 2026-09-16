@@ -395,8 +395,12 @@ public sealed class ConfigStudioApiSmokeTests
                 new TrackerEntity("draft", "azure_devops", AuthSecret: null));
             var trackerFindings =
                 await tracker.Content.ReadFromJsonAsync<List<AgentSmith.Server.Models.StartupFindingView>>();
-            trackerFindings.Should().ContainSingle().Which.Reason
+            trackerFindings.Should().ContainSingle(f => f!.Severity == "blocking").Which.Reason
                 .Should().Contain("organization").And.Contain("authSecret");
+            // 2026-09-16-a4d7: the same draft declares neither a label map nor a fallback,
+            // so it also carries the ADVISORY finding naming where every ticket would go.
+            trackerFindings.Should().Contain(f =>
+                f!.Severity == "advisory" && f.Field == "defaultPipeline");
 
             // Nothing the draft carried leaked into the installation's live findings.
             app.Services.GetService<IStartupFindings>()?.All.Should().BeNullOrEmpty();

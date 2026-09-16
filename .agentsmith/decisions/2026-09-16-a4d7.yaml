@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-a4d7
+
+decisions:
+  - category: Architecture
+    chose: "The undeclared fallback is a const on PipelinePresets (Contracts); PipelineResolver is still the only place that APPLIES it as an answer"
+    over: "Putting the literal on PipelineResolver itself, as the spec's fourth decision words it"
+    reason: |
+      The spec says the literal moves to "the resolver that returns it, which is the single
+      place it is consumed as an answer". PipelineResolver lives in AgentSmith.Application;
+      the new advisory finding lives in ConfigDraftRules, which is in
+      AgentSmith.Infrastructure.Core — and Infrastructure.Core does not reference
+      Application (both reference Contracts only). A const on the resolver would therefore
+      have forced a SECOND "fix-bug" literal into the rule that reports it, and the two
+      would drift the first time the fallback changed — the defect class this phase exists
+      to remove. The name is declared once, as
+      PipelinePresets.UndeclaredFallbackPipeline in Contracts, next to the alias table that
+      already contained the literal ("fix-bug" -> code) and now reads the constant. The
+      SPEC'S PROPERTY is preserved exactly: PipelineResolver.Resolve is the only code that
+      turns it into an answer (src/backend/AgentSmith.Application/Services/Polling/
+      PipelineResolver.cs:66-68); WebhookTriggerConfig no longer carries an initialiser and
+      no merge can mistake "declared fix-bug" for "declared nothing".
+
+  - category: Implementation
+    chose: "ClaimPreChecker reads `trigger.DefaultPipeline ?? UndeclaredFallbackPipeline` rather than the bare nullable field"
+    over: "Leaving the comparison on the now-nullable field"
+    reason: |
+      src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:38 answers "is this
+      pipeline reachable from this trigger?" by comparing the request's pipeline to the
+      trigger's default. With the initialiser gone, a trigger that declares nothing would
+      have compared against null and answered PipelineNotLabelTriggered for exactly the
+      pipeline it actually routes to — a claim refused for a configuration whose behaviour
+      the spec forbids changing ("a tracker that declares nothing behaves EXACTLY as
+      before"). The pre-checker is not answering with the fallback, it is reasoning about
+      what the resolver would answer, so it reads the same constant.
+      ProjectResolver (Triggers/ProjectResolver.cs:71-77) needed nothing: it consumes
+      PipelineResolver's result and drops an unmatched ticket only when a label map exists,
+      which is unchanged.
+
+  - category: Implementation
+    chose: "EffectiveTriggerBuilder fills the wrapper with `??=`, not with the isFresh idiom beside it"
+    over: "`if (isFresh) wrapper.DefaultPipeline = tracker.DefaultPipeline;`, matching the done_status line above it"
+    reason: |
+      isFresh is `existing is null` — it only helps a project that declares no trigger
+      wrapper at all. done_status has to use it because its field is non-nullable with an
+      initialiser ("In Review"), so ??= could never fire there. DefaultPipeline is nullable
+      now, which is the whole point of making it nullable: a project that declares an
+      explicit trigger wrapper but states no default still inherits the tracker's, exactly
+      as failed_status and needs_clarification_status already do two lines up. A project
+      that DOES declare its own keeps it, unchanged and unreported.
+
+  - category: Implementation
+    chose: "TrackerEntity's new parameter is APPENDED to the positional record"
+    over: "Inserting it beside PipelineFromLabel, where it belongs semantically"
+    reason: |
+      ConfigCatalogMapper.ToTracker calls the record positionally with seventeen arguments.
+      Inserting a parameter shifts every argument after it silently — the compiler accepts
+      it wherever the types line up, and four of the neighbours are `string?`. The field is
+      appended and the record carries a comment saying why, so the next field goes to the
+      same place.
+
+  - category: Scope
+    chose: "The descriptor declares defaultPipeline OPTIONAL and an ADVISORY draft finding carries it"
+    over: "Required: true, which is what 'the form must render it' sounds like"
+    reason: |
+      Taken from the spec, verified against the code before implementing: the Required flag
+      is read by ConfigStudioCapabilities.ValidateTracker, which DbConfigStore calls on
+      every upsert and which THROWS, and which ConfigDraftRules.ForTracker wraps as a
+      Blocking finding that disables Save in the drawer. Every tracker configured before
+      this phase declares nothing, so Required would make all of them unsaveable — the
+      2026-07-31 shape one layer up. Tracker_ExistingTrackerWithoutIt_StillSaves pins both
+      halves: no blocking finding, and ValidateTracker does not throw.
+      CapabilityFieldKind is text/list/bool/map, so it renders a TextField and not a picker,
+      which the spec's out-of-scope section already states.
+
+  - category: Implementation
+    chose: "The advisory finding names Field 'defaultPipeline'; the blocking requiredness finding keeps 'type'"
+    over: "One shared field name for every tracker finding"
+    reason: |
+      ConfigDraftRules.ForTracker hardcoded Field: "type" on the single finding it could
+      make, which was acceptable while that finding was about the type's required fields.
+      A finding about a missing fallback that points at the type field would send the
+      operator to the wrong input, and the drawer renders a field-named finding ON that
+      field (capabilityFields.tsx FieldSlot). The requiredness finding still says "type"
+      because it is about the type's field set and is not this phase's business.
+
+  - category: Tooling
+    chose: "Four comment lines in ConfigStudioCapabilities.cs were compressed to pay for the two added lines"
+    over: "Adding a baseline entry, or extracting WorkflowFields into a second file"
+    reason: |
+      The file sits at exactly its file-length ratchet baseline (259), so any added line
+      fails FileLengthRatchetTests.NoBaselineFile_GrewSinceTheRatchetWasInstalled. The two
+      added lines are a descriptor entry and its FieldValue mapping — both belong to the
+      table they extend, so extracting the table to buy room would move a responsibility
+      for a bookkeeping reason. Two comment paragraphs that restated the same 2026-07-31
+      history twice were reflowed instead; nothing they said was dropped, and the file is
+      back at 259.
+
+  - category: Tooling
+    chose: "Four existing tests were corrected to the new truth rather than worked around"
+    over: "Keeping them green by preserving the old shape"
+    reason: |
+      WebhookTriggerConfigTests asserted DefaultPipeline == "fix-bug" on a fresh config —
+      that assertion WAS the defect, and it now asserts null with the reason written down.
+      ConfigDraftRulesTests.Studio_RequiredFieldEmpty_BlocksSaveAndNamesTheField selected
+      the single finding; the same draft now also carries the advisory one, so it selects
+      the blocking finding explicitly. Studio_TrackerComplete_HasNoFindings had a "complete"
+      tracker that declared no routing at all — it now declares one, which is what complete
+      means after this phase. ConfigStudioApiSmokeTests made the same single-finding
+      assumption over the wire and now asserts both findings by severity.
+      EffectiveTriggerBuilderTests' new Tracker_DeclaresNothing_BehavesExactlyAsBefore drops
+      the shared fixture's label map, because a map present makes an unmatched ticket a DROP
+      rather than a fallback — asserting fix-bug with a map would have asserted a behaviour
+      the resolver has never had.

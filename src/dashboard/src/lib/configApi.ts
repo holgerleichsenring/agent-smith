@@ -397,6 +397,10 @@ export interface StudioTracker {
   extraFields?: string[];
   zeroMatchComment?: boolean;
   lifecycleStatusNames?: Record<string, string>;
+  // 2026-09-16-a4d7: what a ticket runs when no pipelineFromLabel entry matched. Absent
+  // means the tracker declares none, and every ticket it routes runs the hardcoded
+  // fallback — which is what the advisory finding on this field says.
+  defaultPipeline?: string;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to

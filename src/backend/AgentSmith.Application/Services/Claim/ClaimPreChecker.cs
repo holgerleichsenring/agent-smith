@@ -35,7 +35,10 @@ internal static class ClaimPreChecker
         if (string.Equals(pipelineName, PipelinePresets.PhaseExecutionName, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        if (string.Equals(trigger.DefaultPipeline, pipelineName, StringComparison.Ordinal))
+        // 2026-09-16-a4d7: an undeclared default still routes to the fallback, so the
+        // reachability answer must read the same value PipelineResolver would return.
+        var fallback = trigger.DefaultPipeline ?? PipelinePresets.UndeclaredFallbackPipeline;
+        if (string.Equals(fallback, pipelineName, StringComparison.Ordinal))
             return true;
 
         return trigger.PipelineFromLabel is { } map

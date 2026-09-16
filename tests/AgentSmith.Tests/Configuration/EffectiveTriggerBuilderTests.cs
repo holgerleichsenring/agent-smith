@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Polling;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -127,6 +129,57 @@ public class EffectiveTriggerBuilderTests
         project.AzuredevopsTrigger.Should().BeSameAs(legacy);
         legacy.ProjectResolution!.Value.Should().Be("X");
         legacy.DoneStatus.Should().Be("Resolved");
+    }
+
+    // 2026-09-16-a4d7: the label map and the answer for "nothing matched" are one
+    // decision, so the tracker owns both and the merge copies both.
+    [Fact]
+    public void Tracker_DeclaresDefaultPipeline_FillsTheTriggerWrapper()
+    {
+        var tracker = AdoTracker();
+        tracker.DefaultPipeline = "security-scan";
+        var project = new RawProjectEntry { Tracker = "t", Resolution = new() { ["tag"] = "checkout" } };
+
+        _builder.Apply("p", project, tracker);
+
+        project.AzuredevopsTrigger!.DefaultPipeline.Should().Be("security-scan");
+    }
+
+    [Fact]
+    public void Tracker_ProjectTriggerDeclaresItsOwn_TrackerDoesNotOverrideIt()
+    {
+        var tracker = AdoTracker();
+        tracker.DefaultPipeline = "security-scan";
+        var project = new RawProjectEntry
+        {
+            Tracker = "t",
+            AzuredevopsTrigger = new WebhookTriggerConfig
+            {
+                ProjectResolution = new ProjectResolutionConfig { Strategy = ResolutionStrategy.Tag, Value = "X" },
+                DefaultPipeline = "code",
+            },
+        };
+
+        _builder.Apply("p", project, tracker);
+
+        project.AzuredevopsTrigger!.DefaultPipeline.Should().Be("code");
+    }
+
+    [Fact]
+    public void Tracker_DeclaresNothing_BehavesExactlyAsBefore()
+    {
+        // No tracker default and no project default: the wrapper states none, and the
+        // resolver — the one place that answers — still answers fix-bug. No label map
+        // either, because a map turns an unmatched ticket into a drop, not a fallback.
+        var tracker = AdoTracker();
+        tracker.PipelineFromLabel = null;
+        var project = new RawProjectEntry { Tracker = "t", Resolution = new() { ["tag"] = "checkout" } };
+
+        _builder.Apply("p", project, tracker);
+
+        var trigger = project.AzuredevopsTrigger!;
+        trigger.DefaultPipeline.Should().BeNull();
+        new PipelineResolver().Resolve(trigger, []).Should().Be(PipelinePresets.UndeclaredFallbackPipeline);
     }
 
     [Fact]

@@ -73,6 +73,9 @@ vi.mock("@/lib/configApi", () => {
             },
             { key: "zeroMatchComment", label: "comment when nothing matched", required: false, kind: "bool" },
             { key: "pipelineFromLabel", label: "pipeline by label", required: false, kind: "map" },
+            // 2026-09-16-a4d7: declared, and OPTIONAL — required would make every tracker
+            // configured before that phase unsaveable.
+            { key: "defaultPipeline", label: "default pipeline", required: false, kind: "text" },
           ],
         },
       ],
@@ -166,5 +169,42 @@ describe("Config Studio shows what is missing (p0392)", () => {
     // the operator's label keys contain colons, and the text form shredded them.
     expect(screen.getByTestId("form-field-pipelineFromLabel-add")).toBeInTheDocument();
     expect(screen.queryByTestId("form-field-pipelineFromLabel")?.tagName).not.toBe("TEXTAREA");
+  });
+
+  it("TrackerForm_MissingDefaultPipeline_IsAdvisoryAndNamesTheField", async () => {
+    // 2026-09-16-a4d7: a tracker declaring neither a label map nor a fallback routes every
+    // ticket to the hardcoded preset. The server says so; the form shows it ON the field it
+    // is about — the tracker findings all said "type" before — and does NOT block the save,
+    // because every tracker configured before that phase is in exactly this state.
+    const api = await import("@/lib/configApi");
+    vi.mocked(api.validateTrackerDraft).mockResolvedValue([
+      {
+        subsystem: "configuration",
+        severity: "advisory",
+        reason:
+          "Tracker 'gh' declares no pipeline_from_label and no default pipeline: " +
+          "every ticket it routes runs 'fix-bug'.",
+        project: null,
+        trigger: null,
+        field: "defaultPipeline",
+      },
+    ]);
+    try {
+      render(
+        <ConfigCatalogProvider>
+          <ConfigStudio section="trackers" />
+        </ConfigCatalogProvider>,
+      );
+      fireEvent.click(await screen.findByTestId("config-card-edit-gh"));
+
+      expect(await screen.findByTestId("form-field-defaultPipeline")).toBeInTheDocument();
+      const slot = await screen.findByTestId("form-finding-defaultPipeline");
+      expect(slot).toHaveAttribute("data-severity", "advisory");
+      expect(slot.textContent).toContain("fix-bug");
+      // Advisory never disables Save.
+      await waitFor(() => expect(screen.getByTestId("config-drawer-save")).not.toBeDisabled());
+    } finally {
+      vi.mocked(api.validateTrackerDraft).mockResolvedValue([]);
+    }
   });
 });

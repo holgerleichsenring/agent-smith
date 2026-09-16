@@ -96,6 +96,11 @@ public static partial class PipelinePresets
     /// </summary>
     public static string GetDefaultSkillsPath(string pipelineName) => DefaultSkillsPath;
 
+    /// <summary>2026-09-16-a4d7: what a ticket runs when neither the tracker nor the project's
+    /// trigger declares a fallback. PipelineResolver is the only place that ANSWERS with it; the
+    /// name lives here so the studio's draft rules can report it across the assembly boundary.</summary>
+    public const string UndeclaredFallbackPipeline = "fix-bug";
+
     /// <summary>
     /// p0393: preset names that RESOLVE to another preset. An operator configuration
     /// naming one keeps working and logs the replacement — renaming by alias rather than
@@ -105,7 +110,7 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyDictionary<string, string> PresetAliases =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["fix-bug"] = CodeName,
+            [UndeclaredFallbackPipeline] = CodeName,
             ["fix-no-test"] = CodeName,
             ["add-feature"] = CodeName,
             [PhaseExecutionName] = CodeName,
