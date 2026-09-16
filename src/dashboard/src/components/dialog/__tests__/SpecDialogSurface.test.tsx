@@ -3,7 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SpecDialogSurface } from "../SpecDialogSurface";
 import { __forgetDialogIdForTests } from "@/lib/specDialogSession";
 import type {
+  SpecDialogFilingPush,
   SpecDialogMessagePush,
+  SpecDialogPhaseProposal,
+  SpecDialogProposalPush,
   SpecDialogQuestionPush,
   SpecDialogView,
 } from "@/types/spec-dialog";
@@ -29,6 +32,8 @@ function makeSubject<T>() {
 
 const messages = makeSubject<SpecDialogMessagePush>();
 const questions = makeSubject<SpecDialogQuestionPush>();
+const proposals = makeSubject<SpecDialogProposalPush>();
+const filings = makeSubject<SpecDialogFilingPush>();
 const subscribeSpecDialog = vi.fn(async () => async () => {});
 
 
@@ -36,6 +41,8 @@ vi.mock("@/lib/JobsHubClient", () => ({
   getJobsHubClient: () => ({
     specDialogMessages: messages,
     specDialogQuestions: questions,
+    specDialogProposals: proposals,
+    specDialogFilings: filings,
     subscribeSpecDialog,
   }),
 }));
@@ -79,6 +86,44 @@ function question(overrides: Partial<SpecDialogQuestionPush> = {}): SpecDialogQu
     choices: [],
     at: "2026-09-15T10:01:00Z",
     expiresAt: null,
+    ...overrides,
+  };
+}
+
+function phase(
+  phaseId: string,
+  overrides: Partial<SpecDialogPhaseProposal> = {},
+): SpecDialogPhaseProposal {
+  return {
+    phaseId,
+    goal: `goal of ${phaseId}`,
+    steps: [`step of ${phaseId}`],
+    tests: [`Test_Of_${phaseId}`],
+    done: [`done of ${phaseId}`],
+    requires: [],
+    ...overrides,
+  };
+}
+
+function proposal(overrides: Partial<SpecDialogProposalPush> = {}): SpecDialogProposalPush {
+  return {
+    dialogId: heldDialogId(),
+    kind: "phase",
+    bug: null,
+    phase: phase("p9001"),
+    parent: null,
+    children: [],
+    at: "2026-09-15T10:03:00Z",
+    ...overrides,
+  };
+}
+
+function filing(overrides: Partial<SpecDialogFilingPush> = {}): SpecDialogFilingPush {
+  return {
+    dialogId: heldDialogId(),
+    filed: [{ reference: "https://tracker/7", title: "p9001: the phase" }],
+    error: null,
+    at: "2026-09-15T10:04:00Z",
     ...overrides,
   };
 }
@@ -290,5 +335,132 @@ describe("SpecDialogSurface", () => {
     render(<SpecDialogSurface />);
 
     await waitFor(() => expect(screen.queryByTestId("dialog-composer")).toBeNull());
+  });
+
+  it("SpecDialog_APhaseProposal_RendersGoalStepsTestsAndDone", async () => {
+    await renderSurface();
+
+    act(() => proposals.emit(proposal()));
+
+    const pane = await screen.findByTestId("dialog-proposal");
+    expect(pane).toHaveAttribute("data-kind", "phase");
+    expect(pane).toHaveTextContent("goal of p9001");
+    expect(pane).toHaveTextContent("step of p9001");
+    expect(pane).toHaveTextContent("Test_Of_p9001");
+    expect(pane).toHaveTextContent("done of p9001");
+    expect(screen.queryByTestId("dialog-scope")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialog_ABugProposal_RendersTitleAndBody", async () => {
+    await renderSurface();
+
+    act(() => proposals.emit(proposal({
+      kind: "bug",
+      phase: null,
+      bug: { title: "Widget drops", body: "It drops.\n\n## Acceptance criteria\nIt stops." },
+    })));
+
+    const pane = await screen.findByTestId("dialog-proposal-bug");
+    expect(pane).toHaveTextContent("Widget drops");
+    expect(pane).toHaveTextContent("It drops.");
+    expect(pane).toHaveTextContent("It stops.");
+  });
+
+  it("SpecDialog_AnEpicProposal_RendersParentAndChildrenInFilingOrder", async () => {
+    await renderSurface();
+
+    act(() => proposals.emit(proposal({
+      kind: "epic",
+      phase: null,
+      parent: phase("p9000"),
+      // As the backend ordered them: the orderer the filer itself runs put b before a.
+      children: [phase("p9000b"), phase("p9000a", { requires: ["p9000b"] })],
+    })));
+
+    expect(await screen.findByTestId("dialog-proposal-phase-p9000")).toHaveTextContent(
+      "goal of p9000",
+    );
+    // ":scope > li" is the slice list itself; a plain "li" would also collect the steps
+    // and tests rendered inside each slice.
+    const listed = [
+      ...screen.getByTestId("dialog-proposal-children").querySelectorAll(":scope > li"),
+    ];
+    expect(listed.map((item) => item.textContent?.slice(0, 6))).toEqual(["p9000b", "p9000a"]);
+  });
+
+  it("SpecDialog_AnAnswerTurn_LeavesThePaneUnchanged", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    await screen.findByTestId("dialog-proposal");
+
+    // An answer turn delivers a reply and no proposal — it proposes nothing.
+    act(() => messages.emit({
+      dialogId: heldDialogId(),
+      title: "Spec dialog",
+      text: "The ledger is written by the master, not the funnel.",
+      at: "2026-09-15T10:05:00Z",
+    }));
+
+    expect(await screen.findByTestId("dialog-turn-agent")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9001");
+  });
+
+  it("SpecDialog_ASupersedingProposal_ReplacesTheOneBeingDiscussed", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    await screen.findByTestId("dialog-proposal");
+
+    act(() => proposals.emit(proposal({ phase: phase("p9002") })));
+
+    const pane = await screen.findByTestId("dialog-proposal");
+    expect(pane).toHaveTextContent("goal of p9002");
+    expect(pane).not.toHaveTextContent("goal of p9001");
+  });
+
+  it("SpecDialog_WhatWasFiled_ShowsEachReferenceAndTitle", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => filings.emit(filing()));
+
+    const pane = await screen.findByTestId("dialog-filed");
+    expect(pane).toHaveTextContent("p9001: the phase");
+    expect(pane.querySelector("a")).toHaveAttribute("href", "https://tracker/7");
+    expect(screen.queryByTestId("dialog-proposal")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialog_APartialFailure_ShowsWhatWasCreatedBesideTheError", async () => {
+    await renderSurface();
+
+    act(() => filings.emit(filing({
+      filed: [{ reference: "https://tracker/1", title: "p9000: the cut" }],
+      error: "the tracker refused the second slice",
+    })));
+
+    const pane = await screen.findByTestId("dialog-filed");
+    expect(pane).toHaveTextContent("p9000: the cut");
+    expect(screen.getByTestId("dialog-filed-error")).toHaveTextContent(
+      "the tracker refused the second slice",
+    );
+  });
+
+  it("SpecDialog_AProposalAfterAFiling_MovesTheColumnBackToWhatIsBeingDecided", async () => {
+    await renderSurface();
+    act(() => filings.emit(filing()));
+    await screen.findByTestId("dialog-filed");
+
+    act(() => proposals.emit(proposal({ phase: phase("p9002") })));
+
+    expect(await screen.findByTestId("dialog-proposal")).toHaveTextContent("goal of p9002");
+    expect(screen.queryByTestId("dialog-filed")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialog_APushForAnotherDialog_ChangesNothing", async () => {
+    await renderSurface();
+
+    act(() => proposals.emit(proposal({ dialogId: "someone-elses-dialog" })));
+
+    expect(screen.queryByTestId("dialog-proposal")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-scope")).toBeInTheDocument();
   });
 });

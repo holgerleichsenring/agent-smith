@@ -38,6 +38,7 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogOutcomeComposer>();
         services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddTransient<PhaseTicketRenderer>();
+        services.AddTransient<BugTicketRenderer>();
         // 2026-09-13-a72a: an epic's children are filed in dependency order, so a child's
         // predecessor stamp can name a ticket that already exists.
         services.AddTransient<EpicChildOrderer>();
@@ -56,6 +57,10 @@ internal static class SpecDialogExtensions
         // work; the catalog is transient because it re-reads the configuration per call.
         services.AddTransient<SpecDialogProjectCatalog>();
         services.AddScoped<SpecDialogViewReader>();
+        // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
+        // what filing it actually created.
+        services.AddTransient<SpecDialogProposalComposer>();
+        services.AddSingleton<DashboardOutcomeChannel>();
         return services;
     }
 }

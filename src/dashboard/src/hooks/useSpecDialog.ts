@@ -5,7 +5,12 @@ import { HUB_URL } from "@/hooks/useJobsHub";
 import { getJobsHubClient } from "@/lib/JobsHubClient";
 import { fetchSpecDialog, postSpecDialogMessage } from "@/lib/specDialogApi";
 import { currentDialogId, startNewDialog } from "@/lib/specDialogSession";
-import type { SpecDialogQuestionPush, SpecDialogView } from "@/types/spec-dialog";
+import type {
+  SpecDialogFilingPush,
+  SpecDialogProposalPush,
+  SpecDialogQuestionPush,
+  SpecDialogView,
+} from "@/types/spec-dialog";
 
 // 2026-09-15-cb3e: one design conversation, held by the page. The dialog id comes from the
 // browser and survives a reload; the transcript is seeded from the durable one and then
@@ -30,6 +35,10 @@ export interface SpecDialogState {
   view: SpecDialogView | null;
   entries: DialogEntry[];
   question: SpecDialogQuestionPush | null;
+  /** What this turn would file, until a later turn supersedes it. */
+  proposal: SpecDialogProposalPush | null;
+  /** What filing it actually created — the column's last state. */
+  filed: SpecDialogFilingPush | null;
   failure: Error | null;
   send: (text: string) => Promise<void>;
   startNew: (project?: string) => Promise<void>;
@@ -41,6 +50,8 @@ export function useSpecDialog(): SpecDialogState {
   const [view, setView] = useState<SpecDialogView | null>(null);
   const [entries, setEntries] = useState<DialogEntry[]>([]);
   const [question, setQuestion] = useState<SpecDialogQuestionPush | null>(null);
+  const [proposal, setProposal] = useState<SpecDialogProposalPush | null>(null);
+  const [filed, setFiled] = useState<SpecDialogFilingPush | null>(null);
   const [failure, setFailure] = useState<Error | null>(null);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
@@ -113,6 +124,16 @@ export function useSpecDialog(): SpecDialogState {
     const offQuestion = client.specDialogQuestions.add((asked) => {
       if (asked.dialogId === dialogId) setQuestion(asked);
     });
+    // A new proposal supersedes the last one AND whatever it was filed as: the column
+    // moves back to what is being decided now.
+    const offProposal = client.specDialogProposals.add((proposed) => {
+      if (proposed.dialogId !== dialogId) return;
+      setProposal(proposed);
+      setFiled(null);
+    });
+    const offFiled = client.specDialogFilings.add((filing) => {
+      if (filing.dialogId === dialogId) setFiled(filing);
+    });
     client.subscribeSpecDialog(dialogId)
       .then((cancel) => {
         if (cancelled) return void cancel();
@@ -126,6 +147,8 @@ export function useSpecDialog(): SpecDialogState {
       cancelled = true;
       offMessage();
       offQuestion();
+      offProposal();
+      offFiled();
       void stop?.();
     };
   }, [dialogId, append, load, post]);
@@ -142,6 +165,8 @@ export function useSpecDialog(): SpecDialogState {
     reseed.current = true;
     setEntries([]);
     setQuestion(null);
+    setProposal(null);
+    setFiled(null);
     setView(null);
     // The router parses the same commands a chat channel types; the page is what spares
     // the operator from typing them.
@@ -153,12 +178,18 @@ export function useSpecDialog(): SpecDialogState {
     async (sessionId: string) => {
       // The resumed session brings its own transcript, so the next read re-seeds.
       reseed.current = true;
+      // The resumed conversation has its own outcome; the column falls back to the scope
+      // rather than keeping the proposal of the one being left.
+      setProposal(null);
+      setFiled(null);
       if (dialogId) await post(dialogId, `/spec resume ${sessionId}`, false);
     },
     [dialogId, post],
   );
 
-  return { dialogId, view, entries, question, failure, send, startNew, resume };
+  return {
+    dialogId, view, entries, question, proposal, filed, failure, send, startNew, resume,
+  };
 }
 
 function seed(view: SpecDialogView): DialogEntry[] {

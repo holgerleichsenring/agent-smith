@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -317,6 +318,9 @@ public sealed class DashboardDialogChannelTests : IDisposable
                 _dialogueTransport.Object, messenger, _pendingQuestions, outcomeComposer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
+new DashboardOutcomeChannel(
+                new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
+                NullLogger<DashboardOutcomeChannel>.Instance, _hub),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,

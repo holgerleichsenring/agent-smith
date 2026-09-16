@@ -4,15 +4,15 @@ import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { PageHead } from "@/components/system/PageHead";
 import { DialogComposer } from "./DialogComposer";
+import { DialogColumn } from "./DialogColumn";
 import { DialogQuestionCard } from "./DialogQuestionCard";
-import { DialogScopePanel } from "./DialogScopePanel";
 import { DialogSessionControls } from "./DialogSessionControls";
 import { DialogTranscript } from "./DialogTranscript";
 
-// 2026-09-15-cb3e: the design conversation, in the dashboard. Two columns from the start:
-// the conversation on the left, what it is grounded in on the right — a proposal is worth
-// exactly as much as the code the agent was allowed to read, and 2026-09-15-6d9c fills the
-// right column with the proposal under discussion.
+// 2026-09-15-cb3e: the design conversation, in the dashboard. Two columns: the conversation
+// on the left, and on the right ONE column that changes with the conversation —
+// 2026-09-15-6d9c: what the agent may read, then the proposal under discussion, then the
+// tickets it was filed as.
 
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
@@ -47,9 +47,11 @@ export function SpecDialogSurface() {
               onSend={(text) => void dialog.send(text)}
             />
           </section>
-          <DialogScopePanel
+          <DialogColumn
             session={dialog.view?.session ?? null}
             projects={dialog.view?.projects ?? []}
+            proposal={dialog.proposal}
+            filed={dialog.filed}
           />
         </div>
       </main>

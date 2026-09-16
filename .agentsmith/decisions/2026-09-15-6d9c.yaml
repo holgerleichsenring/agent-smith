@@ -1,0 +1,113 @@
+phase: 2026-09-15-6d9c
+decisions:
+  - id: the-column-changes-state
+    chose: >
+      The right-hand column built by 2026-09-15-cb3e gains two further STATES — scope, then
+      proposal, then what was filed — and DialogColumn decides which is current.
+    alternative: >
+      Introduce a second pane beside the scope panel, as this phase's spec originally said,
+      or stack scope / proposal / filing as three panels in one column.
+    why: >
+      SCOPE CORRECTION decided by the orchestrator, and the spec was corrected in this commit
+      to say so. cb3e already built the two-column layout and the first of the column's
+      states, so "introduce the second pane" was false against the code. Three stacked panels
+      would put three scroll regions and three headings where the operator has one question at
+      a time: what may this read / what would it file / what exists now.
+  - id: published-from-the-flow-and-the-sink
+    chose: >
+      SpecDialogOutcomeFlow.HandleAsync publishes the proposal before it asks the person;
+      TicketFilingOutcomeSink.AcceptAsync publishes the FilingReport it already holds.
+    alternative: >
+      Publish from SpecDialogRouter, where the reply is sent.
+    why: >
+      SpecDialogRouter sits AT its length baseline (file-length-baseline.tsv) and may only
+      shrink, so aiming there would have spent the phase on an extraction nothing else needed.
+      Both chosen sites already receive exactly the value being published, which is what makes
+      them seams rather than hooks.
+  - id: the-filing-push-precedes-the-notice
+    chose: >
+      The sink publishes to the column BEFORE it composes and sends the chat notice.
+    alternative: >
+      Publish after the notice and the transcript append, in narrative order.
+    why: >
+      The column is the record of what was created. A chat API that cannot be reached must not
+      take that record down with it.
+  - id: a-plain-dto-not-an-event-record
+    chose: >
+      SpecDialogProposalPush and SpecDialogFilingPush are plain records under Server/Models,
+      deriving from no event base, with hand-written TypeScript interfaces beside the cb3e ones.
+    alternative: >
+      Model them as hub events under the events namespace and let the generator emit the types.
+    why: >
+      tools/build-hub-event-types.mjs scans records under the events namespace BY BASE TYPE and
+      calls one without a matching interface drift. It runs in the dashboard CI workflow, which
+      the commit gate does not invoke, so an event record here would have gone red late and for
+      a reason unrelated to the feature. `pnpm gen:hub-events` was run and reports no drift.
+  - id: the-dashboard-platform-only
+    chose: >
+      DashboardOutcomeChannel publishes nothing when the session's platform is not the
+      dashboard.
+    alternative: >
+      Publish unconditionally and let an empty SignalR group swallow it.
+    why: >
+      A Slack or Teams session reads its outcome in the thread it was proposed in; its thread id
+      is a dialog id nobody has joined. Saying so in code is the honest version of a push that
+      would happen to reach nobody, and it is the claim the test Propose_OnAChatPlatform_
+      PublishesNothingToTheHub pins.
+  - id: the-epic-is-ordered-by-the-filers-own-orderer
+    chose: >
+      SpecDialogProposalComposer runs EpicChildOrderer — the same instance type EpicTicketFiler
+      runs — and publishes the children in the order it returns. An epic whose edges cannot be
+      ordered is published in the cut's own order.
+    alternative: >
+      Publish the children as the cut listed them and let the column sort them, or publish
+      nothing for an unorderable epic.
+    why: >
+      A column listing them in another order shows a plan that is not the one about to be
+      created. For the unorderable case the filer refuses the epic outright; showing the
+      operator the shape they are about to be refused beats showing them an empty column.
+  - id: the-draft-gained-its-tests
+    chose: >
+      PhaseDraft carries Tests and PhaseDraftReader reads the spec's `tests:` key, beside Done
+      and Steps.
+    alternative: >
+      Drop tests from the rendered proposal, or re-parse the draft's yaml inside the composer.
+    why: >
+      SPEC PREMISE CORRECTED. The spec says a phase renders "goal, steps, tests and done" and
+      the design master's phase template emits all four, but the draft carried no tests field
+      at all — PhaseDraftReader read done, steps, facts, assumptions and contexts and never
+      tests. Re-parsing the yaml in the composer would have been a second reader of one
+      document, which is the thing this reader exists to prevent.
+  - id: one-body-for-the-bug
+    chose: >
+      BugTicketRenderer composes the fix-bug body; OutcomeTicketFiler and the proposal composer
+      both call it.
+    alternative: >
+      Compose the body a second time in the composer, or show description and acceptance
+      criteria as separate fields in the column.
+    why: >
+      The column's claim is that this is what WOULD be filed. Two copies of the composition
+      would disagree the first time either side gained a section, and separate fields would
+      quietly weaken the claim to "these are the ingredients of it".
+  - id: no-assumptions-section
+    chose: >
+      Nothing is rendered for PhaseDraft.Facts or PhaseDraft.Assumptions, and nothing the
+      master wrote is labelled a verified fact.
+    alternative: >
+      Render the two fields the draft already carries.
+    why: >
+      The design-partner master in the skills repository emits neither, so both are empty for
+      every draft this conversation can produce, and nothing on this path resolves a citation.
+      The successor is named in the spec's out: by what it does — a phase that gives the design
+      conversation an evidence substrate, which is a catalog change, a release and a pin bump
+      away.
+  - id: no-run-status-for-a-filed-ticket
+    chose: >
+      The filed state shows references and titles and says nothing about whether a run has
+      picked a ticket up.
+    alternative: >
+      Show each filed ticket's run beside it.
+    why: >
+      That needs a ticket-to-run lookup which does not exist on this path, and this phase is
+      about what the conversation produced. Named as a successor in the spec's out: rather than
+      left silent.

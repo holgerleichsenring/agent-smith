@@ -14,7 +14,9 @@ import type {
 } from "@/types/hub-events";
 import type { SystemEvent } from "@/types/system-events";
 import type {
+  SpecDialogFilingPush,
   SpecDialogMessagePush,
+  SpecDialogProposalPush,
   SpecDialogQuestionPush,
 } from "@/types/spec-dialog";
 
@@ -128,6 +130,11 @@ export class JobsHubClient {
   // the transcript twice, and a question already answered back on the screen.
   readonly specDialogMessages = makeSubject<SpecDialogMessagePush>();
   readonly specDialogQuestions = makeSubject<SpecDialogQuestionPush>();
+  // 2026-09-15-6d9c: what the turn would file, and what filing it created. Plain subjects
+  // for the same reason: a proposal replayed to a later listener would put a superseded
+  // plan back into a column that has since moved on.
+  readonly specDialogProposals = makeSubject<SpecDialogProposalPush>();
+  readonly specDialogFilings = makeSubject<SpecDialogFilingPush>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -351,6 +358,10 @@ export class JobsHubClient {
       this.specDialogMessages.emit(message));
     conn.on("SpecDialogQuestion", (question: SpecDialogQuestionPush) =>
       this.specDialogQuestions.emit(question));
+    conn.on("SpecDialogProposal", (proposal: SpecDialogProposalPush) =>
+      this.specDialogProposals.emit(proposal));
+    conn.on("SpecDialogFiled", (filing: SpecDialogFilingPush) =>
+      this.specDialogFilings.emit(filing));
     conn.on("SandboxActivity", (rollup: SandboxActivityRollup) =>
       this.sandboxActivity.emit(rollup));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>
