@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-bedc
+
+decisions:
+  - category: Scope
+    chose: "The project card's body is removed entirely; the graph is its only wiring"
+    over: "Leaving the chip row as a collapsed summary of the graph"
+    reason: |
+      2026-09-16-942a describes a card that collapses to a summary and expands into a graph, and
+      it was implemented exactly as written: the summary changed, the graph was added, and the
+      chip row — the shape the graph exists to replace — kept rendering unconditionally beside
+      it. The card showed the same wiring twice. A spec that describes an ADDITION where a
+      replacement was meant gets an addition; this is the sentence that phase was missing. The
+      chip row was the whole projects case, so the body is now null, which two other kinds
+      already do.
+
+  - category: Implementation
+    chose: "The unfinished-template predicate moved to the integrity module"
+    over: "Importing the project form's copy, or writing a fifth"
+    reason: |
+      The rule was written out four times — the card, the project form, the template row and the
+      graph — and splitting the card's count would have added a fifth. The form's copy is the one
+      the drawer imports, so pointing the card at it would have pulled the drawer's form into
+      every card's module graph. The integrity module already owns the card's other integrity
+      question. Two forms are exported because the readers need both: one over a single binding,
+      one over a project. A source-text guard pins that there is exactly one implementation,
+      modelled on the identical guard for the shared glob rule.
+
+  - category: Implementation
+    chose: "The card's marks get a class of their own"
+    over: "Turning the shared sub-line class into a chip row"
+    reason: |
+      That class is used by all seven kinds and a secret's summary is a full sentence; making it
+      a flex row would have reflowed every card in the studio. The outer element keeps the shared
+      class because three existing assertions read it through `closest`.
+
+  - category: Implementation
+    chose: "An unfinished template and an unresolved reference are counted apart"
+    over: "One number, as the card had it"
+    reason: |
+      They are different problems with different fixes: a reference names a catalog entry that
+      does not exist and is fixed by picking another; an unfinished binding is one nobody
+      finished typing and is fixed by finishing it. One number told an operator neither. A third
+      case was folded into neither and now counts as a reference: a template naming a project the
+      catalog does not carry.
+
+  - category: TradeOff
+    chose: "The checked-in mockup is marked superseded rather than rewritten"
+    over: "Rewriting its card-rendering JavaScript to match"
+    reason: |
+      The first cut of this spec argued from "what the agreed design showed" — and the design
+      checked into this repository shows the opposite: it emits both the chip row and the run-on
+      line. Left alone, every later mock-parity argument would point at the state before this
+      change. Rewriting its string-concatenated renderer is more risk than value for a historical
+      artefact, so the file now opens by naming what about it is superseded and where the current
+      truth lives. The rest of the mockup is untouched and still current.
+
+  - category: Scope
+    chose: "The drawer's two verdicts are recorded, not merged"
+    over: "Fixing the same split there in this phase"
+    reason: |
+      The drawer's one-line verdict is computed from catalog references only and never looks at
+      templates, while an unfinished binding disables Save through a different element — so it
+      can read "every reference resolves" while Save is off. That is the same two-category split
+      this phase makes on the card, already present and not asked about. Recorded so the next
+      reader knows it was seen rather than missed.
+
+  - category: Testing
+    chose: "Two tests moved to the graph rather than being deleted"
+    over: "Deleting them with the chip row they read"
+    reason: |
+      Each was the only proof of something: that a dangling agent reference is surfaced on a
+      card at all, and that connection-scoped repo refs are not falsely reported as dangling.
+      The chips they read are gone; what they proved is not. Both now assert the graph node's
+      own coloured state.
