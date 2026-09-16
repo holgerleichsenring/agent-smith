@@ -1,0 +1,228 @@
+<!-- 2026-09-16: THE REFERENCE for the project card and its wiring graph.
+
+     This file is the spec's subject, not an illustration of it. Four rounds of building this
+     card from PROSE about a mock lost something each time. What a phase says about this card
+     is now said by pointing here.
+
+     TWO RULES FOR READING IT.
+
+     1. Only what is marked CHANGES is normative. Everything else is copied from the running
+        app so the page is legible, and is NOT a proposal — the classes below are shared by
+        all seven card kinds and by RepoInventory and ChangesView, so a geometry drift here
+        would rewrite surfaces no phase asked about.
+
+     2. The tokens are the app's own, name for name and value for value, lifted from
+        src/styles/mock-parity.css. An earlier draft of this file invented --canvas where the
+        app has --bg and shifted three colours by a few digits; ported literally that is one
+        undefined variable and three regressions.
+
+     Identifiers are anonymised: this repository never carries customer, project or target
+     names. -->
+<title>Project card — reference</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  /* --- the app's tokens, verbatim from mock-parity.css --- */
+  :root {
+    --bg:#fffefb; --panel:#f8f4f0; --panel-2:#efe9df;
+    --ink:#201515; --ink-2:#605d52; --ink-3:#939084;
+    --line:#e6dfd0; --line-2:#efe9dd;
+    --accent:#22c55e; --accent-wash:#e7f6ec;
+    --bad:#c0392b;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:400 15px/1.5 var(--sans); padding:28px 20px 60px; }
+  .main { max-width:1000px; margin:0 auto; }   /* the studio's real cap — the drawing gets ~906 */
+
+  h1 { font:700 22px/1.2 var(--sans); margin:0 0 4px; }
+  .lead { color:var(--ink-3); font-size:13px; margin:0 0 6px; }
+  .key { font-size:12.5px; color:var(--ink-2); margin:0 0 22px; }
+  .key b { color:var(--accent); }
+
+  /* --- UNCHANGED, copied so the page renders. Do not read as a proposal. --- */
+  .ecard { border:1px solid var(--line); border-radius:12px; background:var(--panel); margin-bottom:12px; overflow:hidden; }
+  .ec-top { display:flex; align-items:center; gap:12px; padding:14px 16px; }
+  .ec-ic { width:34px; height:34px; border-radius:9px; background:var(--accent-wash); color:var(--accent); display:grid; place-items:center; font-size:15px; flex:none; }
+  .ec-name { font:640 14.5px/1 var(--mono); }
+  .ec-right { margin-left:auto; display:flex; align-items:center; gap:10px; flex:none; }
+  .ec-right > * { white-space:nowrap; flex:none; }
+  .ec-mark { font:500 11px/1 var(--mono); padding:3px 7px; border-radius:4px; background:var(--panel-2); color:var(--ink-2); white-space:nowrap; }
+  .ec-mark.warn { color:#a8571c; background:#f7ece1; }
+  .ec-mark.bad { color:var(--bad); background:#f7e7e4; }
+  .pick { font:500 12.5px/1 var(--mono); padding:7px 12px; border-radius:9px; border:1px solid var(--line); background:var(--bg); color:var(--ink-2); cursor:pointer; display:inline-flex; align-items:center; gap:7px; }
+  .pick.on { border-color:var(--accent); color:#177a3c; background:var(--accent-wash); font-weight:600; }
+  .actions { display:flex; align-items:center; gap:10px; padding-right:10px; border-right:1px solid var(--line); }
+
+  /* ================= CHANGES ================= */
+
+  /* CHANGE 1 — the id and the marks share ONE row. Scoped: .ec-id is the wrapper for all
+     seven kinds and a secret's sub-line is a full sentence, so the row is conditional on the
+     marks being present. Keep the `min-width: 0` declaration — a test pins that literal. */
+  .ec-id { min-width:0; flex:1 1 auto; }
+  .ec-id.row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ec-sub.ec-marks { display:flex; flex-wrap:wrap; gap:6px; margin-top:0; }
+
+  /* CHANGE 2 — the ROW is the disclosure. A real button, so Enter works and screen readers
+     announce it; .ec-right is its SIBLING, never nested inside it, because an ARIA button
+     takes no interactive descendants — which the card violates today. Edit is the only route
+     into the editor and is a control, not a hint. */
+  .ec-disclosure { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:12px; background:none; border:0; padding:0; font:inherit; text-align:left; cursor:pointer; }
+  .ec-disclosure .chev { color:var(--ink-3); font-size:11px; flex:none; }
+
+  /* --- the graph --- */
+  .pgraph-wrap { border-top:1px solid var(--line); padding:14px; }
+  .pgraph-wrap svg { display:block; width:100%; height:auto; }
+  .pgraph-cap { font-size:12.5px; color:var(--ink-3); margin-top:10px; max-width:74ch; }
+</style>
+
+<div class="main">
+  <h1>Project card — reference</h1>
+  <p class="lead">One row collapsed. The row is the disclosure; Edit is the only way into the editor.</p>
+  <p class="key"><b>Normative:</b> the one-row header, the disclosure/Edit split, the five graph columns with headers, and truncation. Everything else is the running app, copied so this renders.</p>
+
+  <div class="ecard">
+    <div class="ec-top">
+      <button class="ec-disclosure" type="button" aria-expanded="false" aria-controls="g-boilerplate">
+        <span class="chev">▸</span>
+        <span class="ec-ic">◈</span>
+        <span class="ec-id row">
+          <span class="ec-name">azuredevops-boilerplate</span>
+          <span class="ec-sub ec-marks">
+            <span class="ec-mark">default · code</span>
+            <span class="ec-mark">tag Boilerplate</span>
+            <span class="ec-mark">2 repositories</span>
+          </span>
+        </span>
+      </button>
+      <span class="ec-right">
+        <span class="actions">
+          <button class="pick" type="button">Initialize</button>
+          <button class="pick on" type="button">✓ Auto-accept PRs</button>
+        </span>
+        <button class="pick" type="button">Edit</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="ecard">
+    <div class="ec-top">
+      <button class="ec-disclosure" type="button" aria-expanded="true" aria-controls="g-sample">
+        <span class="chev">▾</span>
+        <span class="ec-ic">◈</span>
+        <span class="ec-id row">
+          <span class="ec-name">azuredevops-sample</span>
+          <span class="ec-sub ec-marks">
+            <span class="ec-mark">default · code</span>
+            <span class="ec-mark">tag Sample-test</span>
+            <span class="ec-mark">3 repositories</span>
+            <span class="ec-mark">built after azuredevops-boilerplate</span>
+            <span class="ec-mark warn">1 template unfinished</span>
+          </span>
+        </span>
+      </button>
+      <span class="ec-right">
+        <span class="actions">
+          <button class="pick" type="button">Initialize</button>
+          <button class="pick on" type="button">✓ Auto-accept PRs</button>
+        </span>
+        <button class="pick" type="button">Edit</button>
+      </span>
+    </div>
+
+    <div class="pgraph-wrap" id="g-sample">
+      <!-- CHANGE 3 — FIVE columns, each with a header. Today the contexts are nested inside
+           their repository's block, which hides two of the three relationships the drawing
+           exists to show.
+
+           HEIGHT IS COMPUTED, NOT FIXED. This viewBox is for 3 repositories x 1 context each.
+           The rule: one ROW per (repository, context) pair, and one row for a repository no
+           template names. row = 92 units; height = 44 + rows * 92. Width is always 1090.
+
+           CHANGE 4 — a label wider than its box is truncated to a character budget and keeps
+           the full string on <title>. These labels are MONO, advance 0.6em, so
+           budget = floor((boxWidth - 18) / (0.6 * fontSize)). SVG text does not wrap and a
+           real repo ref is three times the width of any name an earlier mock used.
+
+           Unfinished draws in --bad, like any other problem: the graph has one problem colour
+           today and giving it a second is not this drawing's business. The marks row above is
+           where unfinished and unresolved are told apart. -->
+      <svg viewBox="0 0 1090 320" role="img"
+           aria-label="azuredevops-sample runs on an agent and is triggered by a tracker. It has three repositories, each declaring one context, and each context is built after a template. One template is unfinished.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <polygon points="0,1 9,5 0,9" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g font-family="Inter, system-ui, sans-serif" fill="currentColor">
+          <text x="16"  y="17" font-size="10" font-weight="600" letter-spacing="1.4" opacity=".55">AGENT · TRACKER</text>
+          <text x="236" y="17" font-size="10" font-weight="600" letter-spacing="1.4" opacity=".55">PROJECT</text>
+          <text x="472" y="17" font-size="10" font-weight="600" letter-spacing="1.4" opacity=".55">REPOSITORIES</text>
+          <text x="720" y="17" font-size="10" font-weight="600" letter-spacing="1.4" opacity=".55">CONTEXTS</text>
+          <text x="882" y="17" font-size="10" font-weight="600" letter-spacing="1.4" opacity=".55">BUILT AFTER</text>
+          <line x1="0" y1="25" x2="1090" y2="25" stroke="currentColor" opacity=".16"/>
+
+          <rect x="16" y="52" width="176" height="46" rx="8" fill="none" stroke="currentColor" opacity=".45"/>
+          <text x="30" y="70" font-size="10" opacity=".55">agent</text>
+          <text x="30" y="87" font-size="12.5" font-family="IBM Plex Mono, monospace">azure-openai-defa…<title>azure-openai-default</title></text>
+          <rect x="16" y="120" width="176" height="46" rx="8" fill="none" stroke="currentColor" opacity=".45"/>
+          <text x="30" y="138" font-size="10" opacity=".55">tracker</text>
+          <text x="30" y="155" font-size="12.5" font-family="IBM Plex Mono, monospace">sample-cloud-dev<title>sample-cloud-dev</title></text>
+
+          <path d="M192 75 H206 Q214 75 214 83 V104 Q214 112 222 112 H230" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <path d="M192 143 H206 Q214 143 214 135 V120 Q214 112 222 112 H230" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="196" y="70"  font-size="9.5" opacity=".5">runs on</text>
+          <text x="196" y="160" font-size="9.5" opacity=".5">triggered by</text>
+
+          <rect x="236" y="86" width="182" height="52" rx="8" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <text x="250" y="104" font-size="10" opacity=".55">project</text>
+          <text x="250" y="123" font-size="13" font-weight="600" font-family="IBM Plex Mono, monospace">azuredevops-sample<title>azuredevops-sample</title></text>
+
+          <path d="M418 112 H437 Q445 112 445 104 V74  Q445 66  453 66  H464" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <path d="M418 112 H437 Q445 112 445 120 V150 Q445 158 453 158 H464" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <path d="M418 112 H437 Q445 112 445 120 V242 Q445 250 453 250 H464" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+
+          <rect x="472" y="44"  width="196" height="44" rx="8" fill="none" stroke="currentColor" opacity=".45"/>
+          <text x="486" y="62" font-size="10" opacity=".55">repository</text>
+          <text x="486" y="79" font-size="12.5" font-family="IBM Plex Mono, monospace">Sample.Api<title>Sample.Api</title></text>
+          <rect x="472" y="136" width="196" height="44" rx="8" fill="none" stroke="currentColor" opacity=".45"/>
+          <text x="486" y="154" font-size="10" opacity=".55">repository</text>
+          <text x="486" y="171" font-size="12.5" font-family="IBM Plex Mono, monospace">sample-cloud/Sampl…<title>sample-cloud/Sample.Worker</title></text>
+          <rect x="472" y="228" width="196" height="44" rx="8" fill="none" stroke="currentColor" opacity=".45"/>
+          <text x="486" y="246" font-size="10" opacity=".55">repository</text>
+          <text x="486" y="263" font-size="12.5" font-family="IBM Plex Mono, monospace">Sample.Client<title>Sample.Client</title></text>
+
+          <path d="M668 66  H712" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <path d="M668 158 H712" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <path d="M668 250 H712" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="672" y="60" font-size="9.5" opacity=".5">declares</text>
+
+          <rect x="720" y="46"  width="118" height="40" rx="6" fill="none" stroke="currentColor" opacity=".35"/>
+          <text x="732" y="63" font-size="10" opacity=".55">context</text>
+          <text x="732" y="79" font-size="12" font-family="IBM Plex Mono, monospace">api<title>api</title></text>
+          <rect x="720" y="138" width="118" height="40" rx="6" fill="none" stroke="currentColor" opacity=".35"/>
+          <text x="732" y="155" font-size="10" opacity=".55">context</text>
+          <text x="732" y="171" font-size="12" font-family="IBM Plex Mono, monospace">default<title>default · Sample.Worker</title></text>
+          <rect x="720" y="230" width="118" height="40" rx="6" fill="none" stroke="var(--bad)" opacity=".8"/>
+          <text x="732" y="247" font-size="10" opacity=".55">context</text>
+          <text x="732" y="263" font-size="12" font-family="IBM Plex Mono, monospace">default<title>default · Sample.Client</title></text>
+
+          <path d="M838 66  H874" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <path d="M838 158 H874" fill="none" stroke="currentColor" opacity=".5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <path d="M838 250 H874" fill="none" stroke="var(--bad)" opacity=".7" stroke-dasharray="3 3" marker-end="url(#ar)"/>
+
+          <rect x="882" y="44"  width="196" height="44" rx="8" fill="none" stroke="currentColor" opacity=".45"/>
+          <text x="896" y="62" font-size="10" opacity=".55">built after</text>
+          <text x="896" y="79" font-size="12" font-family="IBM Plex Mono, monospace">azuredevops-boile…<title>azuredevops-boilerplate / Boilerplate.Api · default</title></text>
+          <rect x="882" y="136" width="196" height="44" rx="8" fill="none" stroke="currentColor" opacity=".45"/>
+          <text x="896" y="154" font-size="10" opacity=".55">built after</text>
+          <text x="896" y="171" font-size="12" font-family="IBM Plex Mono, monospace">azuredevops-boile…<title>azuredevops-boilerplate / Boilerplate.Worker · default</title></text>
+          <rect x="882" y="228" width="196" height="44" rx="8" fill="none" stroke="var(--bad)" stroke-dasharray="4 3"/>
+          <text x="896" y="246" font-size="10" opacity=".55">built after</text>
+          <text x="896" y="263" font-size="12" font-family="IBM Plex Mono, monospace" fill="var(--bad)">? / ? · ?<title>? / ? · ?</title></text>
+        </g>
+      </svg>
+      <p class="pgraph-cap">How azuredevops-sample is wired: its agent and tracker, its 3 repositories, the contexts its own templates name, and the template each of those is built after.</p>
+    </div>
+  </div>
+</div>

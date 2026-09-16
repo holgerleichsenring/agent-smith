@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-4b41
+
+goal: "The wiring graph draws five columns with headers and truncates a label to its box, so the relationships it exists to show stop being hidden inside a block and long names stop running off the card."
+
+applies_to: "dashboard (the wiring graph)"
+
+requires:
+  - 2026-09-16-d7c3
+
+scope:
+  in: >
+    The drawing named in src/dashboard/design/mockups/project-card.html: five columns — agent
+    and tracker, project, repositories, contexts, built after — each with a header, one ROW per
+    repository-and-context pair and one row for a repository no template names, a height
+    computed from that row count rather than fixed, and every node carrying its caption; a
+    label wider than its box truncated to a character budget with the full string on its title.
+  out: >
+    WHAT THE GRAPH DRAWS. Its nodes and edges still come from the project's own templates and
+    still make no call — 2026-09-16-942a. Only the layout changes.
+    A SECOND PROBLEM COLOUR. The drawing has one, and unfinished keeps using it; the marks row
+    on the card is where unfinished and unresolved are told apart.
+    NAMING WHICH REPOSITORY A CONTEXT BELONGS TO ON THE CARD. The reference once annotated the
+    two identically named contexts with "the row says which"; no mark says which, and adding
+    one is the card's business, not the drawing's.
+
+decisions:
+  - key: |
+      NESTING HIDES TWO OF THE THREE RELATIONSHIPS THE DRAWING EXISTS TO SHOW. A template
+      belongs to a context and a context belongs to a repository — three things and two arrows.
+      Drawing the contexts inside their repository's rectangle leaves only one arrow visible.
+      Five columns is not a preference; it is the shape the phase before it argued for and then
+      could not fit.
+  - key: |
+      THE ARITHMETIC THAT SAID FIVE COLUMNS DO NOT FIT MEASURED THE WRONG THING, AND SO DID THE
+      ONE THAT SAID THEY DO. 2026-09-16-942a nested them because the studio's main column is
+      capped at a thousand pixels. An SVG scales, so width is never the constraint — legibility
+      is. At the cap the scale is about 0.83: node labels land near ten and a half pixels, which
+      is fine, and the COLUMN HEADERS the change is named after land near eight, which is not.
+      The headers are therefore sized for the scaled result, not for the viewBox.
+  - key: |
+      THE BLOCK ARITHMETIC DOES NOT SURVIVE, WHICH IS WHY THIS IS ITS OWN PHASE. The height
+      today is a sum of block chrome — a rectangle per repository plus a row per context inside
+      it. Five columns replaces it with a flat row list, the repository node centred against its
+      own contexts. Bundling that with a click-model change and a stylesheet change is how the
+      last four rounds happened.
+  - key: |
+      TRUNCATION IS A CHARACTER BUDGET, BECAUSE THE LABELS ARE MONOSPACED AND THE ALTERNATIVES
+      ARE WORSE. An advance of 0.6em holds for the stack these labels use, so the budget is
+      computable without measuring — and a narrower face only over-truncates, which is the safe
+      direction. Fitting text by stretching glyphs gives no ellipsis and squashes the name; a
+      clip path cuts mid-glyph and needs an id per node. Only the label line is mono; the
+      caption above it is not, and the rule applies to the label.
+  - key: |
+      TRUNCATION FIRES ON ORDINARY DATA, NOT ONLY ON PATHOLOGICAL NAMES. A built-after label is
+      a project, a repo and a context joined, and an existing test asserts one that is a single
+      character inside the budget. The budget is therefore stated in the phase and the test that
+      sits on its edge is named here rather than discovered when it breaks.
+
+steps:
+  - id: the-drawing-becomes-five-columns
+    action: "Agent and tracker, project, repositories, contexts, built after — each with a header, laid out as the reference names."
+  - id: the-height-follows-the-rows
+    action: "One row per repository-and-context pair, one for a repository no template names; the height is computed from that count."
+  - id: every-node-carries-its-caption
+    action: "Repository, context and built-after nodes each name what they are, as the reference shows."
+  - id: a-long-label-is-truncated
+    action: "A label wider than its box is shortened to a character budget derived from the monospace advance, with the full string on its title."
+
+tests:
+  - "ProjectGraph_DrawsFiveColumnHeaders"
+  - "ProjectGraph_OneRowPerRepositoryAndContextPair"
+  - "ProjectGraph_RepositoryNoTemplateNames_StillGetsARow"
+  - "ProjectGraph_ManyReposAndContexts_HeightGrows"
+  - "ProjectGraph_LabelLongerThanItsBox_IsTruncatedAndKeepsItsTitle"
+  - "ProjectGraph_LabelInsideTheBudget_IsNotTruncated"
+
+done:
+  - "the repository, its context and the template it is built after are three columns with two arrows between them"
+  - "a project with six repositories draws a taller graph than one with three"
+  - "a repository ref three times longer than any name in the reference stays inside its box"
+  - "the full name is still readable on hover"
+  - "dashboard tests and build green"

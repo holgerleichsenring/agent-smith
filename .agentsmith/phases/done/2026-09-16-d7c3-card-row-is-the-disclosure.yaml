@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-16-d7c3
+
+goal: "A project card's row expands its wiring and Edit opens the editor, so the card stops being one big edit button with a control nobody would click."
+
+applies_to: "dashboard (the project card, the studio stylesheet, the reference mockup)"
+
+requires:
+  - 2026-09-16-b706
+  - 2026-09-16-8502
+
+scope:
+  in: >
+    src/dashboard/design/mockups/project-card.html is checked in as THE SUBJECT of this phase
+    and the next; what it marks CHANGES is normative and the rest is the running app copied so
+    the page renders. From it, this phase takes the header only: the id and the marks share one
+    row; the row is a real button that expands the wiring, carrying aria-expanded and
+    aria-controls; the controls sit beside it as a SIBLING, never inside it; the separate
+    wiring control is gone; Edit is the only route into the editor and is a control rather than
+    a hint. The keyboard handler gains the guard it never had.
+  out: >
+    THE GRAPH. Five columns, headers, truncation and a computed height are a rewrite of the
+    drawing and are 2026-09-16-4b41, against the same reference file.
+    THE MARKS THEMSELVES. Which facts a card states is bedc's and b706's; only where they sit
+    changes.
+    THE OTHER SIX KINDS. Their whole card stays clickable and their sub-line stays prose — a
+    secret's is a sentence — so the row treatment is conditional, not global.
+    A PIXEL COMPARISON WITH THE REFERENCE. jsdom does no layout. A test can read the file and
+    assert every class and testid it names is produced; it cannot agree with how it looks.
+
+decisions:
+  - key: |
+      THE CARD IS AN ARIA BUTTON THAT ALREADY CONTAINS BUTTONS, WHICH IS INVALID TODAY AND NOT
+      CAUSED BY THIS PHASE. The root carries role=button with a click and an Enter handler, and
+      inside it sit the init control, its checkbox label, the wiring toggle and the edit hint.
+      An ARIA button takes no interactive descendants. Making the ROW the button and the
+      controls its sibling is what fixes that, and it is the same change the operator asked for
+      by another route: they would not click a control labelled "wiring", and editing belongs
+      to a control labelled Edit.
+  - key: |
+      THE KEYBOARD HANDLER HAS NO TARGET GUARD, AND THE BUG IS LIVE. The root's Enter handler
+      fires for any descendant, so today Enter on the wiring toggle expands AND opens the
+      editor, and Enter on the edit hint calls it twice. No test saw it because every test
+      fires click. The guard lands here because this phase is the one moving the handler.
+  - key: |
+      NO EXISTING TEST OPENS THE EDITOR BY CLICKING THE CARD ROOT. Every editor-opening click in
+      the suite already targets the edit control. So removing the root handler costs nothing and
+      the risk in this change is entirely in the other six kinds, which keep it.
+  - key: |
+      THE ROW IS SCOPED, BECAUSE THE WRAPPER IS SHARED BY SEVEN KINDS. The element holding the
+      id and the sub-line is the same one for every card, and a secret's sub-line is a full
+      sentence that must not become a chip row. The row treatment is conditional on the marks
+      being present, and the existing min-width declaration is kept verbatim because a test
+      pins that literal.
+  - key: |
+      THE REFERENCE IS THE SUBJECT AND A TEST ENFORCES THAT, OR IT IS DECORATION. An earlier
+      draft of this phase said "the file wins" with nothing reading the file; a review found
+      the file itself wrong in thirteen places and refused the phase. The file was corrected
+      first — it now carries the app's own tokens rather than near-miss invented ones, and
+      marks which of its rules are normative — and a test reads it and asserts the classes and
+      testids it names are produced.
+
+steps:
+  - id: the-reference-is-checked-in
+    action: "The mockup lives beside the other studio mockups, states which of its rules are normative, and uses the app's own tokens."
+  - id: the-id-and-the-marks-share-one-row
+    action: "The wrapper becomes a wrapping row when marks are present; the other six kinds are untouched."
+  - id: the-row-is-a-real-disclosure-button
+    action: "A button carrying aria-expanded and aria-controls wraps the icon, id and marks; the controls are its sibling; the root is no longer a button."
+  - id: edit-is-the-only-route-into-the-editor
+    action: "The separate wiring control is gone and the edit control opens the editor, by click and by Enter, exactly once."
+  - id: a-test-reads-the-reference
+    action: "A test reads the mockup file and asserts every class and testid it names is produced by the card."
+
+tests:
+  - "ProjectCard_IdAndMarksShareOneFlexRow"
+  - "ProjectCard_ClickingTheRow_ExpandsAndDoesNotOpenTheEditor"
+  - "ProjectCard_EnterOnEdit_OpensTheEditorExactlyOnce"
+  - "ProjectCard_NoSeparateWiringControl"
+  - "ProjectCard_Row_IsNotARoleButtonHostingButtons"
+  - "ProjectCard_MatchesTheReferenceFile"
+  - "OtherCards_StillOpenTheEditorWhenClicked"
+
+done:
+  - "the row expands the wiring and Edit opens the editor"
+  - "Enter on a control does one thing"
+  - "no element with role button contains a button"
+  - "a secret card still reads as a sentence and still opens its editor when clicked"
+  - "dashboard tests and build green"
