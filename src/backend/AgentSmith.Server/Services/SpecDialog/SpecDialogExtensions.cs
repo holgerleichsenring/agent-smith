@@ -47,6 +47,11 @@ internal static class SpecDialogExtensions
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
         services.AddScoped<SpecDialogRouter>();
+        // 2026-09-15-9033: the dashboard channel. The ownership guard rides the same
+        // scoped unit of work as the session manager it reads through; the dispatcher is
+        // the ingestion endpoint's one entry point into the router.
+        services.AddScoped<SpecDialogOwnership>();
+        services.AddScoped<DashboardDialogDispatcher>();
         return services;
     }
 }

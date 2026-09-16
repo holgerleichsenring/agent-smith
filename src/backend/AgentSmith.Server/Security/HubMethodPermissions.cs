@@ -32,6 +32,11 @@ internal static class HubMethodPermissions
             ["ExpandSandbox"] = new(Permissions.RunsWatch),
             ["CollapseSandbox"] = new(Permissions.RunsWatch),
 
+            // 2026-09-15-9033: the dialog's own delivery group. The permission says the
+            // caller may hold spec dialogs; WHICH dialog is the method's own check,
+            // because a browser-minted dialog id is no boundary.
+            ["SubscribeSpecDialog"] = new(Permissions.DialogWrite),
+
             ["GetTrail"] = new(Permissions.RunsRead),
             ["GetTrailPage"] = new(Permissions.RunsRead),
             ["GetResultMarkdown"] = new(Permissions.RunsRead),

@@ -70,6 +70,7 @@ POST	/api/runs/{runId}/answer	runs.control
 POST	/api/runs/{runId}/cancel	runs.control
 POST	/api/runs/{runId}/judgements	runs.control
 POST	/api/runs/{runId}/retry	runs.control
+POST	/api/spec-dialog/messages	dialog.write
 POST	/api/teams/messages	anonymous
 POST	/slack/commands	anonymous
 POST	/slack/events	anonymous

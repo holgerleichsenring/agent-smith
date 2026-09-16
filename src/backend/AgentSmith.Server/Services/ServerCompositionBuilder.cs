@@ -48,6 +48,10 @@ public static class ServerCompositionBuilder
             .AddSandbox()
             .AddSandboxGlobalConfig()
             .AddOrchestratorGlobalConfig()
+            // 2026-09-15-9033: the dashboard channel first, the two chat adapters after —
+            // a bare IPlatformAdapter resolve is the run-trigger chat path and must stay
+            // on a chat platform (DashboardChannelRegistrationTests pins what it yields).
+            .AddDashboardAdapter()
             .AddSlackAdapter()
             .AddTeamsAdapter()
             .AddIntentHandlers()

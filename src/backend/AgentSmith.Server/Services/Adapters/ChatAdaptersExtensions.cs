@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.Server.Extensions;
 
 /// <summary>
-/// Slack + Teams chat adapters. Each builds a typed HttpClient with a 30s timeout
+/// Slack + Teams + dashboard chat adapters. Each builds a typed HttpClient with a 30s timeout
 /// matching the platform's regional routing, wires the per-platform message / card
 /// builders + progress formatter, and registers the adapter as a Singleton —
 /// exposed through IPlatformAdapter so the dispatcher resolves all adapters
@@ -16,6 +16,19 @@ namespace AgentSmith.Server.Extensions;
 /// </summary>
 internal static class ChatAdaptersExtensions
 {
+    /// <summary>
+    /// 2026-09-15-9033: the dashboard's own spec-dialog channel. Registered BEFORE the two
+    /// chat adapters on purpose: eight classes still take a single IPlatformAdapter and a
+    /// single-service resolve yields the LAST registration, so a third one added at the end
+    /// would silently move the run-trigger chat path onto a hub group.
+    /// </summary>
+    internal static IServiceCollection AddDashboardAdapter(this IServiceCollection services)
+    {
+        services.AddSingleton<DashboardAdapter>();
+        services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<DashboardAdapter>());
+        return services;
+    }
+
     internal static IServiceCollection AddTeamsAdapter(this IServiceCollection services)
     {
         var options = new TeamsAdapterOptions

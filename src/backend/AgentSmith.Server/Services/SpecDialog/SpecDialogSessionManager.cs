@@ -73,12 +73,21 @@ public sealed class SpecDialogSessionManager(
     /// Re-binds the session with the given id to the current thread and reopens
     /// it, so the conversation continues where it left off.
     /// </summary>
+    /// <summary>
+    /// 2026-09-15-9033: a session is resumed by its OWNER or by nobody. The lookup is by
+    /// session id alone — no platform, no channel — and the resume then rewrites where the
+    /// session lives, so without this check a /spec resume typed in any chat thread pulls a
+    /// session out from under whoever opened it, transcript and approval gate included.
+    /// An unowned session answers "not found" rather than "not yours": the same reply the
+    /// caller gets for an id that never existed, so the command is no id oracle either.
+    /// </summary>
     public async Task<ConversationState?> ResumeAsync(
-        string sessionId, string platform, string channelId, string threadId,
+        string sessionId, string userId, string platform, string channelId, string threadId,
         CancellationToken ct)
     {
         var session = await repository.GetBySessionIdAsync(sessionId, ct);
-        if (session is null) return null;
+        if (session is null || !string.Equals(session.UserId, userId, StringComparison.Ordinal))
+            return null;
 
         await repository.CloseOpenForThreadAsync(platform, threadId, ct);
         session.Platform = platform;
@@ -94,9 +103,16 @@ public sealed class SpecDialogSessionManager(
         return SpecDialogSessionMapper.ToState(session);
     }
 
+    /// <summary>
+    /// The caller's own open sessions. Listing another person's serves nothing now that only
+    /// its owner can resume it, and it disclosed the ids, projects and activity times of every
+    /// conversation on the platform to anyone who asked.
+    /// </summary>
     public async Task<IReadOnlyList<ConversationState>> ListOpenAsync(
-        string platform, CancellationToken ct) =>
-        [.. (await repository.ListOpenAsync(platform, ct)).Select(SpecDialogSessionMapper.ToState)];
+        string userId, string platform, CancellationToken ct) =>
+        [.. (await repository.ListOpenAsync(platform, ct))
+            .Where(session => string.Equals(session.UserId, userId, StringComparison.Ordinal))
+            .Select(SpecDialogSessionMapper.ToState)];
 
     public Task CloseAsync(string platform, string threadId, CancellationToken ct) =>
         repository.CloseOpenForThreadAsync(platform, threadId, ct);

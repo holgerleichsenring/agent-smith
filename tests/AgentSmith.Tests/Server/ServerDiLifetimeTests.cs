@@ -196,6 +196,10 @@ public sealed class ServerDiLifetimeTests
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()
                 .AddOrchestratorGlobalConfig()
+                // 2026-09-15-9033: the dashboard channel composes here too, and BEFORE the
+                // chat adapters — the order decides what a single IPlatformAdapter resolve
+                // yields, and this mirror is where a lifetime violation would show.
+                .AddDashboardAdapter()
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()

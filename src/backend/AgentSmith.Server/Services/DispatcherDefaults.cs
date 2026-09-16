@@ -33,6 +33,12 @@ internal static class DispatcherDefaults
     public const string PlatformSlack = "slack";
     public const string PlatformTeams = "teams";
 
+    // 2026-09-15-9033: the dashboard's own spec-dialog channel. Distinct from the two
+    // above by necessity — SpecDialogMessenger keys its adapter dictionary on the
+    // platform name and throws on a duplicate, which would take the spec dialog down at
+    // startup rather than in the one conversation that collided.
+    public const string PlatformDashboard = "dashboard";
+
     // --- Config ---
     public const string ConfigPath = "config/agentsmith.yml";
 

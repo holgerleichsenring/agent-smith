@@ -1,4 +1,3 @@
-using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
@@ -13,7 +12,9 @@ namespace AgentSmith.Server.Services.Adapters;
 public sealed class SlackErrorActionHandler(
     FixTicketIntentHandler fixHandler,
     ConversationStateManager stateManager,
-    IPlatformAdapter adapter,
+    // 2026-09-15-9033: the SLACK adapter, explicitly — a Slack button's answer was
+    // resolving the last-registered adapter, which is the Teams one.
+    SlackAdapter adapter,
     ILogger<SlackErrorActionHandler> logger)
 {
     private static readonly string OwnerSlackUserId =
