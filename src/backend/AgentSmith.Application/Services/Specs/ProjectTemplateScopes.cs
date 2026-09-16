@@ -24,9 +24,6 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class ProjectTemplateScopes(
     ISourceScopeSandboxFactory scopes, ILogger<ProjectTemplateScopes> logger)
 {
-    /// <summary>How a template entry is addressed, so a model can tell one from a target.</summary>
-    public const string NamePrefix = "template:";
-
     /// <param name="contexts">
     /// 2026-09-13-6f35: narrows the selection further to the contexts a caller is working
     /// ON — the phase spec's own <c>contexts</c> list. Empty or null selects every
@@ -67,7 +64,11 @@ public sealed class ProjectTemplateScopes(
         {
             if (discovered.Count > 0 && !discovered.Contains(template.Context)) continue;
             if (wanted is not null && !wanted.Contains(template.Context)) continue;
-            var name = $"{NamePrefix}{template.Context}";
+            // 2026-09-16-4df5: the name carries the local repository when the declaration
+            // names one, so two declarations of one context name are two addresses. The skip
+            // below is now only reachable for a genuine duplicate — the same context declared
+            // twice with the same qualification — where taking the first is still right.
+            var name = TemplateScopeName.For(template.Context, template.ContextRepo);
             if (result.ContainsKey(name)) continue;
             result[name] = scopes.Create(project, template.Repo, template.Revision);
             logger.LogInformation(

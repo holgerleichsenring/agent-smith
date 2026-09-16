@@ -316,6 +316,8 @@ describe("ProjectForm", () => {
 
     fireEvent.change(screen.getByTestId("form-ref-agent"), { target: { value: "gpt5" } });
 
+    // 2026-09-16-4df5: rows start collapsed, so the fields exist only once one is opened.
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
     await waitFor(() =>
       expect(screen.getByTestId("form-templates-0-templateContext")).toHaveValue("server"),
     );

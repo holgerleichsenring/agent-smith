@@ -3,7 +3,7 @@
 import type { TemplateReference } from "@/lib/configApi";
 import { SelectField, TextField } from "./formFields";
 import { useProjectContexts } from "./useProjectContexts";
-import { ContextField, Unreadable } from "./templateContextField";
+import { ContextField, LocalContextField, Unreadable } from "./templateContextField";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // 2026-09-14-620e: the five fields of one template binding. Four are PICKED — the target
@@ -37,13 +37,12 @@ export function TemplateEditor({
 
   return (
     <div className="tpl-editor" id={`${testId}-editor`} data-testid={`${testId}-editor`}>
-      <ContextField
-        label="context"
+      <LocalContextField
         value={template.context}
+        contextRepo={template.contextRepo ?? null}
         state={localContexts}
-        subject="this project's repositories"
         testId={`${testId}-context`}
-        onChange={(v) => onChange({ ...template, context: v })}
+        onChange={(name, repo) => onChange({ ...template, context: name, contextRepo: repo })}
       />
       <SelectField
         label="built after project"

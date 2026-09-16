@@ -55,9 +55,13 @@ public sealed class SpecDialogTemplateScopes(
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(opened);
         if (opened.Count == 0) return outcome;
-        var declared = project.Templates.ToDictionary(
-            t => $"{ProjectTemplateScopes.NamePrefix}{t.Context}",
-            t => t.Revision ?? string.Empty, StringComparer.Ordinal);
+        // 2026-09-16-4df5: ToDictionary RAISES on a duplicate key, and the key was the context
+        // name alone — so a project declaring a template for two repositories' 'default'
+        // crashed every turn here. The name now carries the local repository, and the build
+        // takes the first of a genuine duplicate rather than throwing.
+        var declared = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var template in project.Templates)
+            declared.TryAdd(TemplateScopeName.For(template), template.Revision ?? string.Empty);
         return outcome with
         {
             Templates = [.. opened.Select(entry => Provenance(

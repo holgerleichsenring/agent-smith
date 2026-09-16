@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class TemplateProofReportTests
 {
     private const string Consumer = "server";
-    private const string Address = ProjectTemplateScopes.NamePrefix + Consumer;
+    private const string Address = TemplateScopeName.Prefix + Consumer;
     private const string TemplateContext = "reference";
     private const string Path = "/work/.agentsmith/contexts/reference/context.yaml";
 
