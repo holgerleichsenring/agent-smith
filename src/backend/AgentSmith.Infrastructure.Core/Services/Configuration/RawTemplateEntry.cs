@@ -10,6 +10,13 @@ public sealed class RawTemplateEntry
     /// <summary>The context OF THIS PROJECT the binding applies to.</summary>
     public string Context { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 2026-09-16-4df5: which repo of THIS project that context belongs to (`context_repo`).
+    /// Absent means "wherever that name is", which is what every declaration written before
+    /// this field says — it is named only when two repositories declare one context name.
+    /// </summary>
+    public string? ContextRepo { get; set; }
+
     /// <summary>The project the template belongs to.</summary>
     public string Project { get; set; } = string.Empty;
 

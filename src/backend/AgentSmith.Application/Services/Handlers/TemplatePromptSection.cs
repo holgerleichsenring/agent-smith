@@ -25,7 +25,7 @@ internal static class TemplatePromptSection
     internal static string Build(IReadOnlyList<string> addresses)
     {
         var templateNames = addresses?
-            .Where(a => a.StartsWith(ProjectTemplateScopes.NamePrefix, StringComparison.Ordinal))
+            .Where(a => a.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal))
             .ToList();
         if (templateNames is null || templateNames.Count == 0) return string.Empty;
         var bullets = string.Join("\n", templateNames.Select(n => $"- `{n}`"));

@@ -14,7 +14,12 @@ public sealed record TemplateReference(
     string Project,
     string Repo,
     string TemplateContext,
-    string? Revision = null)
+    string? Revision = null,
+    // 2026-09-16-4df5: which repository of THIS project the local context belongs to.
+    // Optional, and absent is what every stored declaration says today: "the context of that
+    // name, wherever it is" — correct for any project whose repositories do not collide.
+    // Named only when two of them declare one name and each wants its own template.
+    string? ContextRepo = null)
 {
     public TemplateReference() : this(string.Empty, string.Empty, string.Empty, string.Empty) { }
 }

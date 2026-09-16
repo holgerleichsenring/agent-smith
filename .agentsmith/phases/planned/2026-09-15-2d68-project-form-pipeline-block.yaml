@@ -7,7 +7,10 @@ applies_to: "dashboard (the project form) + backend (whether the legacy singular
 
 scope:
   in: >
-    The three pipeline fields are grouped and labelled for what each ANSWERS: `pipelines`
+    The project form points at the tracker's label map as where a ticket's tag decides the
+    pipeline, and links to it, because that is the field an operator actually wants when they
+    ask why three pipeline fields exist here;
+    the three pipeline fields are grouped and labelled for what each ANSWERS: `pipelines`
     declares which pipelines this project has, `default_pipeline` picks the one that runs when
     no routing label matched, and `pipeline` is the legacy singular that only applies when the
     list is empty; the form says that routing itself happens on the tracker, because an
@@ -22,6 +25,14 @@ scope:
     see the decision below.
 
 decisions:
+  - key: |
+      THE ROUTING THE OPERATOR DESCRIBED IS THE ROUTING THAT ALREADY RUNS, AND THE FORM NEVER
+      SAID SO. A ticket carries a tag; PipelineResolver matches that tag against the map the
+      TRACKER owns (pipeline_from_label, or the global trigger map when the tracker declares
+      none) and returns the pipeline it names. A map that matches nothing drops the ticket on
+      purpose — with no map at all the tracker's own default_pipeline answers. So "the pipeline
+      comes from the tracker, and really from the tag on the ticket" is a description of the
+      product, not a request. What is missing is a form that says it.
   - key: |
       THE OPERATOR'S READING WAS RIGHT AND THE CONCLUSION WAS WRONG. "Routing happens in the
       tracker, so why is this here" — routing does happen there. But `pipelines` is not routing:
@@ -44,11 +55,14 @@ decisions:
 steps:
   - id: the-three-fields-are-grouped-and-say-what-they-answer
     action: "The form groups the pipeline fields and labels each with the question it answers, naming the tracker as where routing happens."
+  - id: the-form-points-at-where-the-tag-decides
+    action: "The pipeline block names the tracker's label map as what a ticket's tag is matched against, and says what happens when nothing matches."
   - id: the-legacy-singular-reads-as-legacy
     action: "`pipeline` is presented as the legacy fallback it is, decided against what stored configurations carry."
 
 tests:
-  - "ProjectForm_PipelineBlock_SaysWhereRoutingHappens"
+  - "ProjectForm_PipelineBlock_NamesTheTrackerLabelMap"
+  - "ProjectForm_PipelineBlock_SaysWhatHappensWhenNoTagMatches"
   - "ProjectForm_ProjectWithAPipelineList_MarksTheLegacySingular"
 
 done:

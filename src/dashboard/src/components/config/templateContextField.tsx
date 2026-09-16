@@ -29,6 +29,80 @@ export function Unreadable({
 }
 
 /**
+ * 2026-09-16-4df5: the LOCAL context picker. One option per repository-and-name PAIR, so a
+ * project whose Client and BackgroundWorker both declare "default" offers two choices and
+ * each can be bound to its own template.
+ * <para>
+ * A select emits one string and the stored context is a bare name, so the option value
+ * encodes the pair and the handler decodes it and writes both fields. The TARGET context
+ * picker keeps the plain-string shape below: it asks about exactly one repository, so it
+ * cannot collide.
+ * </para>
+ */
+const SEP = "\u0000";
+const encode = (name: string, repo: string | null) => (repo ? `${repo}${SEP}${name}` : name);
+const decode = (v: string): { name: string; repo: string | null } => {
+  const at = v.indexOf(SEP);
+  return at < 0 ? { name: v, repo: null } : { name: v.slice(at + 1), repo: v.slice(0, at) };
+};
+
+export function LocalContextField({
+  value,
+  contextRepo,
+  state,
+  testId,
+  onChange,
+}: {
+  value: string;
+  contextRepo: string | null;
+  state: ReturnType<typeof useProjectContexts>;
+  testId: string;
+  onChange: (name: string, repo: string | null) => void;
+}) {
+  const subject = "this project's repositories";
+  if (state.origins.length === 0)
+    return (
+      <TextField
+        label="context"
+        value={value}
+        mono
+        help={
+          state.loading
+            ? `reading ${subject}...`
+            : state.unreadable.length > 0
+              ? "no list to pick from - type the name"
+              : `${subject} declare no context - type the name`
+        }
+        testId={testId}
+        onChange={(v) => onChange(v, null)}
+      />
+    );
+
+  // One option per pair. A name only one repository declares still names it, so the option
+  // reads the same either way and the stored value gains the repo only when it disambiguates.
+  const options = state.origins.flatMap((o) =>
+    o.repos.map((repo) => ({
+      value: encode(o.name, o.repos.length > 1 ? repo : null),
+      label: `${o.name}  ·  ${repo}`,
+    })),
+  );
+
+  return (
+    <SelectField
+      label="context"
+      value={encode(value, contextRepo)}
+      options={options}
+      help={FROM_DEFAULT_BRANCH}
+      testId={testId}
+      onChange={(v) => {
+        const picked = decode(v);
+        onChange(picked.name, picked.repo);
+      }}
+    />
+  );
+}
+
+/**
  * The fallback is the whole point of the FIELD degrading rather than the form — an
  * unreachable target is not a reason an operator cannot finish editing a project, and a
  * select with no options would be exactly that.
