@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-b706
+
+decisions:
+  - category: Implementation
+    chose: "A project card renders no type badge"
+    over: "Changing what the badge shows for a project"
+    reason: |
+      There was nothing left for it to show. It rendered the declared pipeline list joined, and
+      the literal "project" when that list was empty — so on a page listing nothing but projects
+      the fallback said nothing at all, and when the list was not empty it showed the very list
+      2026-09-16-74a2 decided an operator should not be asked to author, beside marks that
+      already name the default that actually runs.
+
+  - category: Scope
+    chose: "The other six kinds keep theirs, untouched"
+    over: "Removing the badge from every card"
+    reason: |
+      Each of those names something its card does not otherwise carry: an agent's provider, a
+      tracker's type, a repo's branch, an MCP server's transport, and for a secret the fact that
+      it is an env-name and nothing more. Only the project's had nothing to say, because its
+      marks carry every fact it has.
+
+  - category: Implementation
+    chose: "The badge function keeps a projects case that cannot be reached"
+    over: "Removing the case and narrowing the switch"
+    reason: |
+      The function is exhaustive over the seven kinds and the compiler checks that. Removing one
+      arm would trade a dead branch for a type hole, so the arm stays and says in one line why
+      nothing calls it.
