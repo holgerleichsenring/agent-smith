@@ -34,7 +34,8 @@ public sealed class ProjectTemplateResolver(ProjectRepoResolver repoResolver)
         if (raws.Count == 0) return [];
 
         var references = raws
-            .Select(r => new TemplateReference(r.Context, r.Project, r.Repo, r.TemplateContext, r.Revision))
+            .Select(r => new TemplateReference(
+                r.Context, r.Project, r.Repo, r.TemplateContext, r.Revision, r.ContextRepo))
             .ToList();
         var repoRefsByProject = rawProjects.ToDictionary(
             kv => kv.Key,
@@ -68,6 +69,7 @@ public sealed class ProjectTemplateResolver(ProjectRepoResolver repoResolver)
                 + $"'{raw.Repo}' of project '{raw.Project}', which does not resolve to a repository"));
             return null;
         }
-        return new ProjectTemplate(raw.Context, raw.TemplateContext, raw.Revision, repos[0]);
+        return new ProjectTemplate(
+            raw.Context, raw.TemplateContext, raw.Revision, repos[0], raw.ContextRepo);
     }
 }

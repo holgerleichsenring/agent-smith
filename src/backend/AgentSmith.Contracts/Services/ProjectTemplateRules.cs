@@ -26,8 +26,21 @@ public static class ProjectTemplateRules
         ArgumentNullException.ThrowIfNull(repoRefsByProject);
         var errors = new List<string>();
 
+        repoRefsByProject.TryGetValue(project, out var ownRepoRefs);
         foreach (var template in templates)
         {
+            // 2026-09-16-4df5: the LOCAL repo, when the binding names one. A name this project
+            // does not carry would address a scope no run can open — and it is the likeliest
+            // typo now that the field exists, because it is the one repo ref an operator can
+            // write without the target project in front of them.
+            if (!string.IsNullOrWhiteSpace(template.ContextRepo) && ownRepoRefs is not null
+                && !ownRepoRefs.Any(r => ConfigNames.AreSame(r, template.ContextRepo)))
+            {
+                errors.Add($"project '{project}': template for context '{template.Context}' "
+                    + $"says that context lives in repo '{template.ContextRepo}', which this "
+                    + "project does not carry");
+                continue;
+            }
             if (!repoRefsByProject.TryGetValue(template.Project, out var repoRefs))
             {
                 errors.Add($"project '{project}': template for context '{template.Context}' "

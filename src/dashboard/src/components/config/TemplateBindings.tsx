@@ -15,7 +15,7 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 // ended, so the values stay on the rows and the fields open for one row at a time. The
 // single stored declaration — the only shape on disk today — is that row on load.
 
-const BLANK: TemplateReference = { context: "", project: "", repo: "", templateContext: "" };
+const BLANK: TemplateReference = { context: "", contextRepo: null, project: "", repo: "", templateContext: "" };
 
 export function TemplateBindings({
   project,
@@ -40,7 +40,10 @@ export function TemplateBindings({
   // projects and re-initialises by construction. A guard keyed on project.id would be
   // worse than nothing: the id field is editable while isNew, so it would re-open a row
   // the operator just closed on every keystroke.
-  const [open, setOpen] = useState<number | null>(templates.length === 1 ? 0 : null);
+  // 2026-09-16-4df5: nothing opens itself. a2d0 opened the single stored declaration on
+  // load; with the list the primary view and every row carrying its values unopened, an
+  // editor that opens itself is a surprise, and it is the one row nobody asked to edit.
+  const [open, setOpen] = useState<number | null>(null);
 
   const set = (index: number, next: TemplateReference) =>
     onChange(templates.map((t, i) => (i === index ? next : t)));

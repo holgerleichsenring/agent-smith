@@ -13,8 +13,13 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// a revision verified at write time can be deleted five minutes later anyway.
 /// </para>
 /// </summary>
+/// <param name="ContextRepo">2026-09-16-4df5: which repository of THIS project
+/// <paramref name="Context"/> belongs to, when two of them declare that name and each wants
+/// its own template. Null means "wherever that name is", which is every declaration written
+/// before the field existed.</param>
 public sealed record ProjectTemplate(
     string Context,
     string TemplateContext,
     string? Revision,
-    RepoConnection Repo);
+    RepoConnection Repo,
+    string? ContextRepo = null);

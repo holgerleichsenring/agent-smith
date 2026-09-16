@@ -49,7 +49,10 @@ public sealed class TemplateProofReport(
             || project is null) return;
         foreach (var declared in project.Templates)
         {
-            var name = ProjectTemplateScopes.NamePrefix + declared.Context;
+            // 2026-09-16-4df5: through the one builder. Composed here by hand, two
+            // declarations of one context name resolved to one scope and one evidence key, so
+            // the second was never proven while the report read as covered.
+            var name = TemplateScopeName.For(declared);
             if (!look.Templates.TryGetValue(name, out var scope) || !scope.IsMaterialized) continue;
             var (what, exit) = await ReadAsync(declared, scope, cancellationToken);
             var id = look.Evidence.RememberOnce(name, what, exit, ran: exit == Read);

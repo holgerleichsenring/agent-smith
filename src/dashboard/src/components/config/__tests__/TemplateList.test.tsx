@@ -110,12 +110,14 @@ describe("TemplateList", () => {
     expect(screen.getByTestId("form-templates-1-open")).toHaveTextContent("alpha");
   });
 
-  it("TemplateList_SingleStoredTemplate_IsOpenOnLoad", () => {
-    // One declaration is the only shape on disk today; making it cost a click to reach
-    // fields that were on screen before would be a regression dressed as consistency.
+  it("TemplateList_SingleStoredTemplate_StartsCollapsed", () => {
+    // 2026-09-16-4df5: a2d0 opened the single stored declaration on load. With the list the
+    // primary view and every row carrying its values unopened, an editor that opens itself is
+    // a surprise — and it is the one row nobody asked to edit.
     render(<Harness templates={[template()]} />);
-    expect(screen.getByTestId("form-templates-0-editor")).toBeInTheDocument();
-    expect(screen.getByTestId("form-templates-0-revision")).toHaveValue("v2.1.0");
+
+    expect(screen.getByTestId("form-templates-0-row")).toHaveAttribute("data-open", "false");
+    expect(screen.queryByTestId("form-templates-0-editor")).toBeNull();
   });
 
   it("TemplateList_RowOpens_RendersTheFieldsAndClosesTheOther", () => {
@@ -191,7 +193,9 @@ describe("TemplateList", () => {
     // the only control that looked like progress was Add — which appends another blank.
     render(<Harness templates={[template()]} />);
 
+    // The state badge reads without opening; the close label only exists while open.
     expect(screen.getByTestId("form-templates-0-complete")).toHaveTextContent("complete");
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
     expect(screen.queryByTestId("form-templates-0-unfinished")).toBeNull();
 
     // Opened by a2d0 on load (single stored declaration), so the way out is labelled.
@@ -222,6 +226,7 @@ describe("TemplateList", () => {
         : { contexts: ["server"], unreadableReason: null },
     );
     render(<Harness templates={[template()]} />);
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
 
     const option = async (value: string) =>
       await waitFor(() => {
@@ -236,23 +241,30 @@ describe("TemplateList", () => {
     expect(await option("server")).toHaveTextContent("api");
   });
 
-  it("ProjectForm_ContextDeclaredByTwoRepos_IsOneOptionNamingBoth", async () => {
-    // Both repos declare "default". Two options with the same VALUE would be a choice that
-    // is not one — the browser matches the first, so picking the second would store what the
-    // first means. The stored reference is a bare name and the run keys its scopes by that
-    // bare name, so the picker states the collision instead of pretending to resolve it.
+  it("ProjectForm_TwoReposDeclaringOneName_AreTwoSelectableOptions", async () => {
+    // 2026-09-16-4df5: 9b3e offered ONE option naming both repos, because the stored context
+    // was a bare name and two options sharing a value would be a choice that is not one. The
+    // binding can name its local repo now, so they are two real choices — which is what the
+    // Client's "default" and the BackgroundWorker's "default" each needing their own template
+    // actually requires.
     mockedContexts.mockResolvedValue({ contexts: ["default"], unreadableReason: null });
     render(<Harness templates={[template()]} />);
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
 
-    const option = await waitFor(() => {
-      const found = screen
-        .getByTestId("form-templates-0-context")
-        .querySelectorAll('option[value="default"]');
-      expect(found).toHaveLength(1);
-      return found[0];
+    const labels = await waitFor(() => {
+      const found = [
+        ...screen.getByTestId("form-templates-0-context").querySelectorAll("option"),
+      ].filter((o) => o.textContent?.includes("default"));
+      expect(found).toHaveLength(2);
+      return found;
     });
 
-    expect(option).toHaveTextContent("web");
-    expect(option).toHaveTextContent("api");
+    // The hook sorts the refs it asks about, so the order is api then web — asserted as a
+    // SET, because which repo comes first is not what this test is about.
+    expect(labels.map((o) => o.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining("api"), expect.stringContaining("web")]),
+    );
+    // Two DISTINCT values, or the browser would match the first for both.
+    expect(labels[0].getAttribute("value")).not.toBe(labels[1].getAttribute("value"));
   });
 });
