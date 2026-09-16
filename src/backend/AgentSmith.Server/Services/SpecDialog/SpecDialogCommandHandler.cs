@@ -16,22 +16,22 @@ public sealed class SpecDialogCommandHandler(
         SpecCommand command, string userId, string channelId, string threadId,
         string platform, CancellationToken ct) => command switch
     {
-        SpecListCommand => HandleListAsync(channelId, threadId, platform, ct),
-        SpecResumeCommand resume => HandleResumeAsync(resume, channelId, threadId, platform, ct),
+        SpecListCommand => HandleListAsync(userId, channelId, threadId, platform, ct),
+        SpecResumeCommand resume => HandleResumeAsync(resume, userId, channelId, threadId, platform, ct),
         SpecOpenCommand open => HandleOpenAsync(open.Project, forceNew: false, userId, channelId, threadId, platform, ct),
         SpecNewCommand fork => HandleOpenAsync(fork.Project, forceNew: true, userId, channelId, threadId, platform, ct),
         _ => throw new InvalidOperationException($"Unhandled spec command {command.GetType().Name}"),
     };
 
     private async Task HandleListAsync(
-        string channelId, string threadId, string platform, CancellationToken ct)
+        string userId, string channelId, string threadId, string platform, CancellationToken ct)
     {
-        var open = await sessions.ListOpenAsync(platform, ct);
+        var open = await sessions.ListOpenAsync(userId, platform, ct);
         await messenger.SendAsync(platform, channelId, threadId, composer.ComposeList(open), ct);
     }
 
     private async Task HandleResumeAsync(
-        SpecResumeCommand resume, string channelId, string threadId,
+        SpecResumeCommand resume, string userId, string channelId, string threadId,
         string platform, CancellationToken ct)
     {
         if (resume.SessionId.Length == 0)
@@ -40,7 +40,8 @@ public sealed class SpecDialogCommandHandler(
             return;
         }
 
-        var state = await sessions.ResumeAsync(resume.SessionId, platform, channelId, threadId, ct);
+        var state = await sessions.ResumeAsync(
+            resume.SessionId, userId, platform, channelId, threadId, ct);
         var reply = state is null
             ? composer.ComposeSessionNotFound(resume.SessionId)
             : composer.ComposeResumed(state);

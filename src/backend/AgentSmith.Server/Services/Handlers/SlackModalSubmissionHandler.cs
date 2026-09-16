@@ -1,4 +1,3 @@
-using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
 using Microsoft.Extensions.Logging;
@@ -16,7 +15,7 @@ internal sealed class SlackModalSubmissionHandler(
     ListTicketsIntentHandler listHandler,
     CreateTicketIntentHandler createHandler,
     InitProjectIntentHandler initHandler,
-    IPlatformAdapter adapter,
+    SlackAdapter adapter,
     ILogger<SlackModalSubmissionHandler> logger)
 {
     public async Task HandleAsync(JsonNode payload, CancellationToken ct)

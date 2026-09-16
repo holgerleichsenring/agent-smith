@@ -38,6 +38,7 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogOutcomeComposer>();
         services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddTransient<PhaseTicketRenderer>();
+        services.AddTransient<BugTicketRenderer>();
         // 2026-09-13-a72a: an epic's children are filed in dependency order, so a child's
         // predecessor stamp can name a ticket that already exists.
         services.AddTransient<EpicChildOrderer>();
@@ -47,6 +48,19 @@ internal static class SpecDialogExtensions
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
         services.AddScoped<SpecDialogRouter>();
+        // 2026-09-15-9033: the dashboard channel. The ownership guard rides the same
+        // scoped unit of work as the session manager it reads through; the dispatcher is
+        // the ingestion endpoint's one entry point into the router.
+        services.AddScoped<SpecDialogOwnership>();
+        services.AddScoped<DashboardDialogDispatcher>();
+        // 2026-09-15-cb3e: the dialog page's read. Scoped for the session manager's unit of
+        // work; the catalog is transient because it re-reads the configuration per call.
+        services.AddTransient<SpecDialogProjectCatalog>();
+        services.AddScoped<SpecDialogViewReader>();
+        // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
+        // what filing it actually created.
+        services.AddTransient<SpecDialogProposalComposer>();
+        services.AddSingleton<DashboardOutcomeChannel>();
         return services;
     }
 }

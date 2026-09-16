@@ -29,6 +29,11 @@ internal static class BuiltInRoles
         .. ReaderBundle,
         Permissions.RunsControl, Permissions.RunsDelete,
         Permissions.ProjectsInit, Permissions.DiagnosticsProbe,
+        // 2026-09-15-9033: an operator holds the spec dialog, because it files tickets
+        // against this installation's trackers. A reader does not — and the hub the
+        // dialog is delivered through already demands runs.read, which the operator
+        // bundle carries through reader.
+        Permissions.DialogWrite,
     ];
 
     internal static IReadOnlyDictionary<string, IReadOnlyList<string>> All { get; } =

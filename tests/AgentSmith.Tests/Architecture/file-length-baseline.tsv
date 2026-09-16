@@ -85,7 +85,7 @@
 166	AgentSmith.Server/Extensions/TeamsEndpoints.cs
 164	AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs
 152	AgentSmith.Contracts/Commands/ContextKeys.cs
-164	AgentSmith.Server/Hubs/JobsHub.cs
+146	AgentSmith.Server/Hubs/JobsHub.cs
 163	AgentSmith.Application/Services/Prompts/PlanParser.cs
 161	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs
 153	AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs
@@ -100,7 +100,7 @@
 155	AgentSmith.Server/Services/ChatIntentParser.cs
 154	AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs
 154	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs
-153	AgentSmith.Server/Services/Handlers/SlackModalSubmissionHandler.cs
+152	AgentSmith.Server/Services/Handlers/SlackModalSubmissionHandler.cs
 151	AgentSmith.Application/Services/Handlers/QueryKnowledgeHandler.cs
 151	AgentSmith.Application/Services/Handlers/RunResultSectionWriter.cs
 150	AgentSmith.Application/Services/Handlers/SchemaFlattener.cs

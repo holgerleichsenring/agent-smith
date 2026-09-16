@@ -43,6 +43,7 @@ internal static class IntentExtensions
         services.AddScoped<CreateTicketIntentHandler>();
         services.AddScoped<InitProjectIntentHandler>();
         services.AddScoped<HelpHandler>();
+        services.AddScoped<AgentSmith.Server.Services.Adapters.PlatformAdapters>();
         services.AddScoped<SlackMessageDispatcher>();
         services.AddScoped<SlackErrorActionHandler>();
         services.AddScoped<SlackInteractionHandler>();

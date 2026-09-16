@@ -199,6 +199,16 @@ export function AppRail() {
             count={openPrCount ?? undefined}
           />
 
+          {/* 2026-09-15-cb3e: its own section because designing the work is not
+              monitoring it — the conversation that decides what gets built. */}
+          <Section label="Design" style={{ marginTop: 10 }} />
+          <AppRailItem
+            label="Design dialog"
+            href="/spec-dialog"
+            icon="✎"
+            active={isActive("/spec-dialog")}
+          />
+
           <Section label="System" style={{ marginTop: 10 }} />
           {SUBSYSTEM_ITEMS.map((s) => (
             <AppRailItem

@@ -17,11 +17,17 @@ public sealed class SpecDialogOutcomeFlow(
     IOutcomeSink outcomeSink,
     SpecDialogOutcomeComposer composer,
     SpecDialogMessenger messenger,
+    DashboardOutcomeChannel outcomeChannel,
     ILogger<SpecDialogOutcomeFlow> logger)
 {
     public async Task<OutcomeFlowResult> HandleAsync(
         ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
     {
+        // The pane shows what would be filed BEFORE the approval is asked, so the person
+        // holding the question reads the proposal itself rather than a summary of it. An
+        // answer proposes nothing and publishes nothing — the channel decides that, because
+        // "which outcomes have a shape" is the same question the pane asks.
+        await outcomeChannel.ProposeAsync(state, proposal, cancellationToken);
         if (proposal is AnswerOutcome) return new OutcomeFlowCompleted();
 
         var confirmation = await confirmer.ConfirmAsync(state, proposal, cancellationToken);
@@ -46,6 +52,6 @@ public sealed class SpecDialogOutcomeFlow(
         }
     }
 
-    private Task SendAsync(ConversationState state, string text, CancellationToken ct) =>
-        messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, text, ct);
+    private Task SendAsync(ConversationState state, ComposedReply notice, CancellationToken ct) =>
+        messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, notice, ct);
 }
