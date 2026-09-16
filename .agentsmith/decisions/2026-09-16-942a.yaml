@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-942a
+
+decisions:
+  - category: Architecture
+    chose: "The graph reads only project.templates and the catalog the page already holds"
+    over: "useProjectContexts, which already knows how to read a repository's context names"
+    reason: |
+      Taken from the spec and confirmed against the hook before building: it mounts only
+      inside the open drawer, holds no shared cache, and fans out one request per repo ref
+      against the git host under a probe permission, each call re-assembling the whole
+      configuration. Ten projects would be twenty such calls on page load. Every context
+      the drawing needs is already stored — a template names its context and, since 4df5,
+      the repository that context belongs to. ProjectCard_Expanded_MakesNoOutboundCall
+      stubs fetch and asserts zero calls, so the next person to reach for the hook here
+      finds a failing test rather than a comment.
+
+  - category: Implementation
+    chose: "A template with no contextRepo lands on the project's sole repository, or in a block that says the repository is not named"
+    over: "Drawing it as an unresolved reference, or attaching it to every repository"
+    reason: |
+      The spec does not answer this and the code does: 4df5 made contextRepo optional and
+      says it is named ONLY when two repositories declare one context name, so an unset
+      value is the normal shape rather than a defect. With one repository it is
+      unambiguous and lands there silently. With several, the card genuinely cannot say
+      which repository owns the name without the read this phase exists to avoid — so it
+      is drawn in its own block labelled 'repository not named' and left UNCOLOURED,
+      because an unstated repository is allowed. A contextRepo naming a repository the
+      project does not declare is a different thing and IS coloured: that reference does
+      not resolve.
+
+  - category: Implementation
+    chose: "Colour is carried on two nodes for one unfinished binding — the context and its template"
+    over: "One mark per binding"
+    reason: |
+      The binding is drawn as two nodes and the thing that is wrong can be in either half
+      (a missing context, or a missing target project/repo/context), so marking only one
+      would send the reader to the wrong end half the time. They are still ONE problem:
+      ProjectCard_UnfinishedTemplate_IsTheOnlyColouredMark enumerates every coloured node
+      in the drawing and asserts it is exactly those two, so a future node that colours
+      itself for a reason that is not a problem fails there.
+
+  - category: Implementation
+    chose: "The expanded card is EntityCard state, and the wrapper stops the click"
+    over: "State inside the project CardBody arm"
+    reason: |
+      Two things outside CardBody need the flag: the disclosure control sits in the card's
+      ec-top row beside the init action, and the card's own element carries
+      data-expanded, which is what lifts the `overflow: hidden` that would otherwise clip
+      the drawing. Both the control and the drawing's wrapper stopPropagation, because the
+      whole card is one element with role=button and onClick=edit — the precedent is
+      ProjectInitAction, which already sits inside it and does the same.
+
+  - category: Implementation
+    chose: "The collapsed sub-line names the default pipeline, the routing, the repository count and an unresolved count"
+    over: "Also changing the type badge, which still lists pipeline names"
+    reason: |
+      The spec's complaint is precise: the card said '0 pipelines' for a project that runs
+      perfectly well, because it counted a list that decides nothing about what a ticket
+      runs. That count is in the SUB-LINE, which is what changed. The badge is a different
+      control, the spec does not name it, and changing it would be a second decision made
+      quietly. The pipeline named is defaultPipeline, falling back to the legacy singular
+      when the stored project has only that — the studio read path does not apply the
+      loader's shim, so the fallback is the difference between naming the pipeline and
+      saying 'none declared' about a project that has one.
+
+  - category: TradeOff
+    chose: "The unresolved count is only what the card can judge without a call"
+    over: "A verdict that matches the drawer's"
+    reason: |
+      References into the catalog (agent, tracker, repo refs) and a binding the server
+      already refuses are decidable here. Whether a template's TARGET is reachable is not,
+      and claiming it would be the outbound traffic this phase exists to remove — the same
+      line TemplateRow already draws for the same reason.
+
+  - category: Scope
+    chose: "A node opens nothing; the graph is not editable"
+    over: "Clicking a node to open the drawer on that section"
+    reason: |
+      Straight from the spec's out-of-scope list, and the code agrees: the drawer takes a
+      kind and an entity and no section, so three signatures would have to change and the
+      tab state would have to be seedable from outside. Worth doing, not worth hiding
+      inside this phase — and the tabs it would target only exist as of 2026-09-16-74a2.

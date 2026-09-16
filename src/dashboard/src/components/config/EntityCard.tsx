@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
 import type {
   StudioAgent,
@@ -15,6 +16,7 @@ import { FieldBlock, WiringChip } from "./primitives";
 import type { ConfigCatalog } from "./useConfigCatalog";
 import { resolves, resolveRepoRef } from "./integrity";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
+import { ProjectGraph } from "./ProjectGraph";
 
 // p0345/p0343c (pixel identity): one entity card in the config-studio.html
 // .ecard DOM — .ec-top (icon block, mono id, sub line, type badge + "edit ›"),
@@ -34,10 +36,16 @@ export function EntityCard({
   catalog: ConfigCatalog;
   onEdit: () => void;
 }) {
+  // 2026-09-16-942a: a project card expands into the graph of what it is wired to. The
+  // whole card is the edit button, so the disclosure control stops the event — the
+  // precedent is the init action already sitting on these cards — and the card's
+  // overflow, which is hidden, is lifted while the drawing is out.
+  const [expanded, setExpanded] = useState(false);
   return (
     <div
       data-testid={`config-card-${kind}-${entity.id}`}
       className="ecard"
+      data-expanded={expanded ? "true" : "false"}
       role="button"
       tabIndex={0}
       onClick={onEdit}
@@ -54,6 +62,21 @@ export function EntityCard({
         <div className="ec-right">
           {/* p0489: a project can be asked to initialize itself right here. */}
           {kind === "projects" && <ProjectInitAction project={entity.id} />}
+          {kind === "projects" && (
+            <button
+              type="button"
+              className="edit-hint"
+              aria-expanded={expanded}
+              aria-label={expanded ? `Hide how ${entity.id} is wired` : `Show how ${entity.id} is wired`}
+              data-testid={`config-card-graph-toggle-${entity.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded((x) => !x);
+              }}
+            >
+              {expanded ? "▾ wiring" : "▸ wiring"}
+            </button>
+          )}
           <span className="tybadge" data-testid={`config-card-badge-${entity.id}`}>
             {typeBadge(kind, entity)}
           </span>
@@ -71,6 +94,11 @@ export function EntityCard({
         </div>
       </div>
       <CardBody kind={kind} entity={entity} catalog={catalog} />
+      {kind === "projects" && expanded && (
+        <div className="pgraph-wrap" onClick={(e) => e.stopPropagation()}>
+          <ProjectGraph project={entity as StudioProject} catalog={catalog} />
+        </div>
+      )}
     </div>
   );
 }
@@ -125,7 +153,7 @@ function SubLine({
       return <div className="ec-sub">{r.name || "—"}</div>;
     }
     case "projects":
-      return <ProjectSubLine project={entity as StudioProject} />;
+      return <ProjectSubLine project={entity as StudioProject} catalog={catalog} />;
     case "mcp-servers": {
       const m = entity as StudioMcpServer;
       return <div className="ec-sub">{m.url || "—"}</div>;
@@ -319,19 +347,44 @@ function CardBody({
 // 2026-09-15-9b3e: and what the project is built AFTER. A template was declarable and
 // invisible on the card that summarises the project — its own function, because the switch
 // above is long enough without a second clause inside one case.
-function ProjectSubLine({ project }: { project: StudioProject }) {
+/**
+ * 2026-09-16-942a: the facts an operator scans. It said "0 pipelines" for a project that
+ * runs perfectly well, because it counted a list that decides nothing about what a ticket
+ * runs. It names the default pipeline — what actually answers when nothing routed — how a
+ * ticket reaches the project, the repository count, and whether anything is unresolved.
+ */
+function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog: ConfigCatalog }) {
   const templates = project.templates ?? [];
   const targets = [...new Set(templates.map((t) => t.project).filter(Boolean))];
+  const pipeline = project.defaultPipeline || project.pipeline || "none declared";
+  const unresolved = unresolvedCount(project, catalog);
   return (
     <div className="ec-sub">
-      {project.pipelines.length} {project.pipelines.length === 1 ? "pipeline" : "pipelines"}
-      {project.pipeline ? <> · pipeline {project.pipeline}</> : null}
+      <span data-testid={`config-project-pipeline-${project.id}`}>pipeline {pipeline}</span>
       {project.resolution ? <> · via {project.resolution.strategy} {project.resolution.value}</> : null}
+      {" · "}
+      {project.repos.length} {project.repos.length === 1 ? "repository" : "repositories"}
       {templates.length > 0 ? (
         <span data-testid={`config-project-templates-${project.id}`}>
           {" "}· built after {targets.join(", ")}
         </span>
       ) : null}
+      {unresolved > 0 ? (
+        <span data-testid={`config-project-unresolved-${project.id}`} style={{ color: "var(--bad)" }}>
+          {" "}· {unresolved} unresolved
+        </span>
+      ) : null}
     </div>
   );
+}
+
+/** Every reference the card can judge without a call, plus a binding the server refuses. */
+function unresolvedCount(project: StudioProject, catalog: ConfigCatalog): number {
+  let count = 0;
+  if (!resolves(catalog, "agents", project.agent)) count++;
+  if (!resolves(catalog, "trackers", project.tracker)) count++;
+  for (const ref of project.repos) if (!resolveRepoRef(catalog, ref).ok) count++;
+  for (const t of project.templates ?? [])
+    if (!t.context || !t.project || !t.repo || !t.templateContext) count++;
+  return count;
 }
