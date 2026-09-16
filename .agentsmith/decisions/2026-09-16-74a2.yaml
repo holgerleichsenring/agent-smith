@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-16-74a2
+
+decisions:
+  - category: Architecture
+    chose: "The project form moved out of EntityForm into its own ProjectForm.tsx, with the routing section and the findings summary"
+    over: "Growing the switch arm in EntityForm.tsx"
+    reason: |
+      The project arm was already the largest of seven in one switch, and five tabbed
+      sections with their own tab state cannot live in a function that has no state at
+      all. EntityForm keeps what it was built for — dispatch by kind — and the six other
+      kinds are untouched. The per-strategy resolution hints, the pipeline help and the
+      draft-findings list moved with the sections that use them, so nothing that only the
+      project form reads is left behind in the dispatcher.
+
+  - category: Implementation
+    chose: "Only the ACTIVE tab's panel is mounted"
+    over: "Rendering all five and hiding four with `hidden`"
+    reason: |
+      Two reasons, one of them load-bearing. TemplateBindings mounts useProjectContexts,
+      which fires one read per repository of the project against the git host; mounting it
+      on every drawer open would make those calls for an operator who opened the drawer to
+      change an agent. And a hidden panel is still found by getByTestId, so a suite that
+      asserted "each section is reachable by its tab" would pass without any tab working.
+      The cost is that existing tests reach a control by naming its section — which is the
+      truth about the form now, and is why they were edited rather than worked around.
+
+  - category: Scope
+    chose: "The five-node wiring preview leaves the drawer in this phase; the one-line verdict stays"
+    over: "Leaving it in place until 2026-09-16-942a draws the card graph"
+    reason: |
+      Both specs state the end shape: this one says "THE WIRING PREVIEW ... leaves the
+      drawer entirely — a graph cannot breathe in 560px", and 942a says "the drawer keeps
+      its one-line verdict". Carrying it through the rebuild would also have forced a
+      decision neither spec sanctions — which of the five tabs a five-node graph belongs
+      to. The integrity verdict is not part of the graph: it is what gates Save, it is
+      about the unit rather than a section, and it sits below the tabs where it is always
+      visible. ProjectWiring.tsx is deleted rather than left unused, and the .preview-wire
+      / .pw-graph / .pw-repos rules with it; .pw-node stays because the card's wires row
+      and the system config view both draw the project node.
+
+  - category: Implementation
+    chose: "The pipeline union lives in RawConfigPatch.Project, and the form sends its loaded list back unchanged"
+    over: "Computing the union in the form before it saves"
+    reason: |
+      RawConfigPatch replaces the stored list wholesale from the names it is given, and
+      each RawPipelineEntry carries an agent, a skills path, a principles path and a
+      confidence threshold. A form that sent only the default would delete every other
+      entry and its overrides silently — the same class as default_branch and consumes.
+      Putting the derivation in the patch means the CLI and the YAML import inherit it,
+      and a client that does not know about the rule cannot author the state it prevents.
+      The `if (entity.Pipelines.Count > 0)` guard is now a guard on the UNION, so a project
+      with an empty list and a declared default gets a list containing it — which is what
+      makes ProjectConfigNormalizer's blocking "default_pipeline is not declared in
+      pipelines" finding unreachable from this form.
+
+  - category: Implementation
+    chose: "The pipeline section's sentence distinguishes THREE routing states, not two"
+    over: "One sentence about what happens when no label matches"
+    reason: |
+      The spec asks the section to name what happens when nothing matches. The code has
+      three answers, and collapsing them would have replaced one false sentence with
+      another. PipelineResolver returns the trigger's default ONLY when there is no label
+      map at all; with a map present and nothing matching it returns null and
+      ProjectResolver DROPS the ticket — the default is never read. So the section says
+      "not routed to this project at all" when a map exists, and names the pipeline when
+      one does not. The third state is the map's own hit, which the read-only rows show.
+      2026-09-16-a4d7 shipped first on this branch, so the fallback sentence already reads
+      "what this tracker declares" when the tracker declares one, and names the undeclared
+      fallback plus where to set it when it does not — the upgrade this spec deferred to
+      a4d7 in its own out-of-scope note.
+
+  - category: Implementation
+    chose: "unfinishedTemplates() is exported from ProjectForm and read by EntityDrawer"
+    over: "Exporting TemplateRow's private isUnfinished, or restating the rule in the drawer"
+    reason: |
+      The rule — a binding missing context, project, repo or templateContext — is the
+      server's, and it was already written twice (TemplateRow's row marker, and
+      ProjectTemplateDraftCheck on the server). A third copy in the drawer would drift.
+      The drawer needs INDEXES, not a boolean, because the footer names which row, so the
+      exported helper returns the indexes and TemplateRow keeps its own one-row predicate
+      for the marker it renders. The tab marker reads the same helper, so a blocked save
+      and a marked section can never disagree.
+
+  - category: Implementation
+    chose: "The templates tab is marked for an unfinished binding as well as for a finding"
+    over: "Marking strictly from server findings, as the spec's decision enumerates"
+    reason: |
+      The spec's decision answers the question "which findings can mark a tab" and the
+      answer is default_pipeline and templates. The scope sentence asks for "a tab marking
+      a section that needs attention", and an unfinished binding is the one condition that
+      blocks the save without any finding existing — the drawer's footer says which row,
+      but an operator standing on the identity tab would have no idea where to go. It
+      lands on the same tab a templates finding marks, so it adds no mechanism.
+
+  - category: Implementation
+    chose: "The drawer width is a `wide-project` modifier, not `wide`"
+    over: "`wide`, the obvious name"
+    reason: |
+      `.mock-viewer .drawer.wide` already exists and is the 1320px trace drawer. The two
+      selectors do not collide (different page scopes), but two modifiers spelled the same
+      and meaning 560 and 1320 is the kind of thing that gets copied into the wrong file.
+      The 560 itself ships unasserted, which the spec says out loud: jsdom loads no
+      stylesheet, so Drawer_ProjectKind_CarriesTheWideModifier pins the modifier and
+      nothing else.
+
+  - category: Tooling
+    chose: "Eight existing dashboard tests were edited to the new form"
+    over: "Keeping them green by leaving the old controls in place"
+    reason: |
+      Five needed a tab click before a control they already asserted (ProjectForm's
+      repos/routing/templates tests, ConfigStudio_CompleteProject_EnablesSaveAndPersists,
+      Studio_OperatorShapedProject_EditDrawer_IntegrityConfirmed). Three asserted
+      something that is now false: ProjectForm_PipelineSelect_FromCapabilities asserted the
+      legacy singular `pipeline` control, which left the form — it became
+      ProjectForm_PipelineSection_HasOneControlAndNamesTheTracker, which asserts the ONE
+      control and the absence of the other two; and two assertions on `wiring-repo-*`
+      nodes, which belonged to the preview that left the drawer, now read the verdict that
+      stayed and proves the same thing (a conn-scoped ref resolves). The two
+      MissingRequiredFields pipeline tests moved to form-field-defaultPipeline, and the
+      seeded project gained the default the retired-name test is about.

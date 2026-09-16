@@ -13,41 +13,20 @@ import type {
   StudioTracker,
 } from "@/lib/configApi";
 import { ENTITY_SINGULAR } from "./entities";
-import {
-  TextField,
-  SelectField,
-  NumberField,
-  CheckField,
-  RefSelect,
-  MultiRefSelect,
-  ListField,
-} from "./formFields";
+import { TextField, SelectField, NumberField, CheckField, RefSelect } from "./formFields";
 import { CapabilityFieldInputs, pruneToType } from "./capabilityFields";
 import { AgentForm } from "./AgentForm";
-import { RepoPicker } from "./RepoPicker";
-import { ProjectWiring } from "./ProjectWiring";
-import { TemplateBindings } from "./TemplateBindings";
+import { ProjectForm } from "./ProjectForm";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // p0345: the create/edit form body, dispatched by entity kind. The `id` is
 // editable only when new (it is the primary key). Every reference field is a
 // RefSelect/MultiRefSelect bound to a catalog list — the project form is the
-// relational heart and also renders the live wiring preview. The secret form is
+// relational heart and gets its own five-tab file (2026-09-16-74a2). The secret form is
 // deliberately id-only with a redaction bar: no value input exists anywhere.
 // p0345c: tracker/connection/agent forms are CAPABILITIES-driven — type and
 // provider are dropdowns from the backend descriptor, and the field set below
 // a type renders from that type's declared fields. No hardcoded type knowledge.
-
-// Per-strategy value hints for the project resolution block. The STRATEGY LIST
-// itself comes from capabilities; these are only human placeholders/help for
-// the strategies the product ships (unknown strategies fall back to a generic
-// hint, they are still selectable).
-const RESOLUTION_HINTS: Record<string, { placeholder: string; help: string }> = {
-  tag: { placeholder: "e.g. checkout", help: "ticket tag/label that routes to this project" },
-  area_path: { placeholder: "e.g. Product\\Team\\Component", help: "the ticket's area path" },
-  repo: { placeholder: "e.g. Sample.Api", help: "a repo name mentioned on the ticket" },
-  to_address: { placeholder: "e.g. team@example.com", help: "the inbound email address" },
-};
 
 export function EntityForm({
   kind,
@@ -167,106 +146,17 @@ export function EntityForm({
         </div>
       );
     }
-    case "projects": {
-      const p = draft as StudioProject;
-      // p0345b: a project's repo refs come in two forms — plain catalog ids
-      // (toggled from the repos catalog) and connection-scoped discovery refs
-      // "conn/RepoName" (managed by the RepoPicker). Both live in the one
-      // `repos` array; the split here is presentational only.
-      const plainRefs = p.repos.filter((r) => !r.includes("/"));
-      const connRefs = p.repos.filter((r) => r.includes("/"));
-      const hint = p.resolution ? RESOLUTION_HINTS[p.resolution.strategy] : undefined;
+    case "projects":
       return (
-        <div className="flex flex-col gap-4">
-          {idField}
-          <RefSelect
-            label="agent"
-            value={p.agent}
-            options={catalog.agents}
-            testId="form-ref-agent"
-            onChange={(v) => onChange({ ...p, agent: v })}
-          />
-          <RefSelect
-            label="tracker"
-            value={p.tracker}
-            options={catalog.trackers}
-            testId="form-ref-tracker"
-            onChange={(v) => onChange({ ...p, tracker: v })}
-          />
-          <MultiRefSelect
-            label="repos"
-            values={plainRefs}
-            options={catalog.repos}
-            testId="form-ref-repos"
-            onChange={(v) => onChange({ ...p, repos: [...v, ...connRefs] })}
-          />
-          <RepoPicker
-            label="connection-scoped repos"
-            values={connRefs}
-            connections={catalog.connections}
-            testId="form-connref"
-            onChange={(v) => onChange({ ...p, repos: [...plainRefs, ...v] })}
-          />
-          <SelectField
-            label="pipeline"
-            value={p.pipeline}
-            options={capabilities?.pipelines ?? []}
-            help={pipelineHelp(p.pipeline, capabilities)}
-            testId="form-field-pipeline"
-            onChange={(v) => onChange({ ...p, pipeline: v })}
-          />
-          <SelectField
-            label="default pipeline"
-            value={p.defaultPipeline ?? ""}
-            options={capabilities?.pipelines ?? []}
-            placeholder="— same as pipeline —"
-            help={pipelineHelp(p.defaultPipeline ?? "", capabilities, "what runs when a ticket carries no routing label")}
-            testId="form-field-defaultPipeline"
-            onChange={(v) => onChange({ ...p, defaultPipeline: v === "" ? undefined : v })}
-          />
-          <ListField
-            label="pipelines (comma separated)"
-            values={p.pipelines}
-            testId="form-field-pipelines"
-            placeholder="code, security-scan"
-            onChange={(v) => onChange({ ...p, pipelines: v })}
-          />
-          {/* 2026-09-14-620e: templates are PICKED, not typed. The field writes
-              `templates` only when the operator touches it — absent means "nothing to
-              say", which is what keeps a client that never renders this field from
-              wiping a stored declaration. */}
-          <TemplateBindings
-            project={p}
-            catalog={catalog}
-            onChange={(templates) => onChange({ ...p, templates })}
-          />
-          <DraftFindings findings={findings} />
-          <SelectField
-            label="resolution strategy"
-            value={p.resolution?.strategy ?? ""}
-            options={capabilities?.resolutionStrategies ?? []}
-            placeholder="— none —"
-            help="how a ticket resolves to this project"
-            testId="form-field-resolution-strategy"
-            onChange={(v) =>
-              onChange({ ...p, resolution: v ? { strategy: v, value: p.resolution?.value ?? "" } : null })
-            }
-          />
-          {p.resolution && (
-            <TextField
-              label="resolution value"
-              value={p.resolution.value}
-              mono
-              placeholder={hint?.placeholder ?? "match value for this strategy"}
-              help={hint?.help ?? `value the ${p.resolution.strategy} strategy matches on`}
-              testId="form-field-resolution-value"
-              onChange={(v) => onChange({ ...p, resolution: { ...p.resolution!, value: v } })}
-            />
-          )}
-          <ProjectWiring project={p} catalog={catalog} />
-        </div>
+        <ProjectForm
+          project={draft as StudioProject}
+          onChange={onChange}
+          catalog={catalog}
+          capabilities={capabilities}
+          findings={findings}
+          idField={idField}
+        />
       );
-    }
     case "mcp-servers": {
       const m = draft as StudioMcpServer;
       return (
@@ -303,48 +193,6 @@ export function EntityForm({
       );
     }
   }
-}
-
-// p0393/p0392: `Names` is what the studio may OFFER; `IsAcceptedName` is what a stored
-// configuration may CARRY. A retired alias (fix-bug) must keep loading and must never be
-// presented as a choice for a new project — SelectField keeps an unlisted current value
-// selectable, and this labels it for what it is.
-function pipelineHelp(
-  value: string,
-  capabilities: ConfigCapabilities | null,
-  fallback = "the pipeline a triggered ticket runs",
-): string {
-  if (!capabilities) return "capabilities unavailable";
-  if (value && !capabilities.pipelines.includes(value))
-    return `'${value}' is a retired name — it still runs, but pick a current one to replace it`;
-  return fallback;
-}
-
-// p0392: what the server would say about this project, before it is saved. The rules run
-// on the server (ConfigDraftRules); this only renders the answer. A finding that names a
-// field is ALSO shown on that field — the summary here is for the ones that name the unit.
-function DraftFindings({ findings }: { findings: ConfigFinding[] }) {
-  if (findings.length === 0) return null;
-  return (
-    <div className="field" data-testid="form-draft-findings">
-      <label>
-        what the server would report <span className="help">before you save</span>
-      </label>
-      <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
-        {findings.map((f, i) => (
-          <li
-            key={`${f.field ?? "unit"}-${i}`}
-            data-testid={f.field ? `form-draft-finding-${f.field}` : "form-draft-finding"}
-            data-severity={f.severity}
-            className="help"
-            style={{ color: f.severity === "blocking" ? "var(--bad)" : undefined }}
-          >
-            {f.reason}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
 
 // p0345c: polling is part of the v2 tracker CONTRACT (not per-type) — an
