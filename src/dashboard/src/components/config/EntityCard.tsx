@@ -61,7 +61,7 @@ export function EntityCard({
   return (
     <div
       data-testid={`config-card-${kind}-${entity.id}`}
-      className="ecard"
+      className={isProject ? "ecard inert" : "ecard"}
       data-expanded={expanded ? "true" : "false"}
       {...rootProps}
     >

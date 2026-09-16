@@ -216,4 +216,13 @@ describe("ConfigStudio", () => {
     const badge = await screen.findByTestId("config-card-badge-gpt5");
     expect(badge).toHaveTextContent("openai");
   });
+
+  it("OtherCards_Root_StillOfferAPointer", async () => {
+    // Their whole card still opens the editor, so the pointer is still true.
+    const { container } = render(
+      <ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
+    await screen.findByTestId("config-card-agents-gpt5");
+
+    expect(container.querySelector(".ecard")).not.toHaveClass("inert");
+  });
 });
