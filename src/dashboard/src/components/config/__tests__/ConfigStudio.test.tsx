@@ -207,4 +207,13 @@ describe("ConfigStudio", () => {
     // A project that declares none says nothing rather than "0 templates".
     expect(screen.queryByTestId("config-project-templates-broken")).toBeNull();
   });
+
+  it("OtherCards_KeepTheirTypeBadge", async () => {
+    // Only the project's badge had nothing to say. An agent's names its provider — the one
+    // place that fact appears on the card.
+    render(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
+
+    const badge = await screen.findByTestId("config-card-badge-gpt5");
+    expect(badge).toHaveTextContent("openai");
+  });
 });
