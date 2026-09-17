@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work it out — surface mock (2026-09-17-f74e)</title>
+<!--
+  2026-09-17-f74e: the target for the surface, not a sketch of a direction.
+
+  Every name in it is a sample. The conversation is invented and deliberately shows the
+  shape the phase is FOR: the agent asks a question that changes the cut before it
+  proposes one, the long draft is a card in the stream and structure in the pane, and the
+  decision has a surface of its own.
+-->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper:#f1f3f0; --surface:#ffffff; --sunk:#e8ebe7;
+    --ink:#171c19; --muted:#5d6763; --line:#dde2dd;
+    --primary:#1f4d3d; --primary-ink:#ffffff; --primary-soft:#e4ede8;
+    --attention:#a85a1b; --attention-soft:#fbf1e6;
+    --code-bg:#101c18; --code-ink:#cfe0d6; --code-dim:#7d9a8c;
+    --display:"Bricolage Grotesque",Georgia,serif;
+    --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#10150f; --surface:#171d18; --sunk:#1e2620;
+      --ink:#e7ece8; --muted:#98a49c; --line:#2a332d;
+      --primary:#8fc9ac; --primary-ink:#0e1a14; --primary-soft:#1c2a23;
+      --attention:#e0a06a; --attention-soft:#2a2118;
+      --code-bg:#0a120e; --code-ink:#cfe0d6; --code-dim:#6d8a7c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#10150f; --surface:#171d18; --sunk:#1e2620;
+    --ink:#e7ece8; --muted:#98a49c; --line:#2a332d;
+    --primary:#8fc9ac; --primary-ink:#0e1a14; --primary-soft:#1c2a23;
+    --attention:#e0a06a; --attention-soft:#2a2118;
+    --code-bg:#0a120e; --code-ink:#cfe0d6; --code-dim:#6d8a7c;
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--body); font-size:14px; line-height:1.55; }
+  h1,h2,h3 { font-family:var(--display); font-weight:700; margin:0; text-wrap:balance; letter-spacing:-0.01em; }
+  img { max-width:100%; }
+  code,.mono { font-family:var(--mono); font-size:0.86em; }
+  .frame { max-width:1500px; margin:0 auto; padding-inline:16px; padding-block:14px 28px; }
+
+  .top { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 16px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+  .mark { font-family:var(--display); font-weight:700; font-size:19px; letter-spacing:-0.02em; }
+  .mark span { color:var(--muted); font-weight:500; }
+  .top .sub { color:var(--muted); font-size:13px; flex:1 1 240px; }
+  .whoami { color:var(--muted); font-size:12.5px; }
+  .note { margin:10px 0 0; padding:8px 12px; border-left:3px solid var(--primary);
+          background:var(--primary-soft); font-size:13px; border-radius:0 4px 4px 0; }
+
+  .cols { display:grid; gap:16px; margin-top:16px; grid-template-columns:230px minmax(0,1fr) 380px; align-items:start; }
+  @media (max-width:1180px) { .cols { grid-template-columns:minmax(0,1fr) 340px; } .past { grid-column:1 / -1; } }
+  @media (max-width:820px)  { .cols { grid-template-columns:minmax(0,1fr); } }
+
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:6px; }
+  .phead { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); }
+  .phead h2 { font-size:13px; letter-spacing:0.02em; }
+  .eyebrow { font-family:var(--body); font-size:11px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; color:var(--muted); }
+
+  .newbtn { display:block; width:100%; text-align:left; padding:9px 12px; font:inherit; font-weight:600;
+            color:var(--primary-ink); background:var(--primary); border:0; border-radius:5px; cursor:pointer; }
+  .past .body { padding:10px; display:flex; flex-direction:column; gap:12px; }
+  .daygroup { display:flex; flex-direction:column; gap:2px; }
+  .daygroup > .eyebrow { padding:2px 4px 4px; }
+  .conv { display:block; width:100%; text-align:left; border:0; background:none; font:inherit; color:inherit;
+          padding:7px 8px; border-radius:5px; cursor:pointer; border-left:2px solid transparent; }
+  .conv:hover { background:var(--sunk); }
+  .conv[aria-current="true"] { background:var(--sunk); border-left-color:var(--primary); }
+  .conv .t { display:block; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .conv .m { display:flex; gap:6px; align-items:center; color:var(--muted); font-size:11.5px; margin-top:1px; }
+  .dot { width:4px; height:4px; border-radius:50%; background:currentColor; opacity:.5; flex:none; }
+  .chip { font-family:var(--mono); font-size:10.5px; padding:0 4px; border:1px solid var(--line); border-radius:3px; color:var(--muted); }
+  .chip.filed { color:var(--primary); border-color:var(--primary); }
+
+  .stream { padding:16px 18px; display:flex; flex-direction:column; gap:18px; }
+  .msg { display:grid; grid-template-columns:24px minmax(0,1fr); gap:10px; }
+  .who { width:24px; height:24px; border-radius:5px; display:grid; place-items:center;
+         font-family:var(--mono); font-size:10px; font-weight:500; margin-top:1px; }
+  .who.me { background:var(--sunk); color:var(--muted); }
+  .who.ag { background:var(--primary); color:var(--primary-ink); }
+  .said > p { margin:0 0 8px; } .said > p:last-child { margin-bottom:0; }
+
+  .working { display:flex; align-items:center; gap:9px; color:var(--muted); }
+  .ring { width:12px; height:12px; border-radius:50%; border:2px solid currentColor; border-top-color:transparent;
+          animation:spin 900ms linear infinite; flex:none; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce) { .ring { animation-duration:3s; } }
+  .reading { margin-top:6px; font-family:var(--mono); font-size:11.5px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
+  .reading .done::before { content:"\2713 "; color:var(--primary); }
+  .reading .now::before  { content:"\203A "; }
+
+  .card { border:1px solid var(--line); border-radius:5px; overflow:hidden; }
+  .card .row { display:flex; align-items:center; gap:10px; padding:9px 11px; }
+  .card .kind { font-family:var(--mono); font-size:11px; padding:1px 6px; border-radius:3px;
+                background:var(--primary-soft); color:var(--primary); font-weight:500; }
+  .card .ttl { font-weight:600; flex:1 1 auto; min-width:0; }
+  .card .look { font:inherit; font-size:12.5px; border:0; background:none; color:var(--primary);
+                text-decoration:underline; text-underline-offset:2px; cursor:pointer; padding:0; white-space:nowrap; }
+  .card .slices { border-top:1px solid var(--line); background:var(--sunk); padding:8px 11px;
+                  display:flex; flex-direction:column; gap:3px; font-size:12.5px; }
+  .card .slices span { color:var(--muted); }
+  .card .slices b { font-family:var(--mono); font-size:11px; font-weight:500; color:var(--ink); }
+
+  .decide { border:1px solid var(--attention); border-radius:6px; background:var(--attention-soft); }
+  .decide .hd { padding:10px 12px 0; }
+  .decide .bd { padding:4px 12px 10px; }
+  .decide .acts { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:0 12px 11px; }
+  .btn { font:inherit; font-size:13px; font-weight:600; padding:6px 13px; border-radius:5px; cursor:pointer; }
+  .btn.go { background:var(--primary); color:var(--primary-ink); border:1px solid var(--primary); }
+  .btn.no { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .decide .hint { color:var(--muted); font-size:12px; flex:1 1 180px; }
+
+  .composer { border-top:1px solid var(--line); padding:11px 14px; display:flex; gap:9px; align-items:flex-end; }
+  .composer .box { flex:1 1 auto; border:1px solid var(--line); border-radius:5px; padding:9px 11px; color:var(--muted); min-height:58px; }
+
+  .tabs { display:flex; gap:2px; }
+  .tab { font:inherit; font-size:12px; font-weight:600; border:0; background:none; color:var(--muted);
+         padding:3px 8px; border-radius:4px; cursor:pointer; }
+  .tab[aria-selected="true"] { background:var(--primary-soft); color:var(--primary); }
+  .art { padding:12px; display:flex; flex-direction:column; gap:14px; }
+  .parent .eyebrow { display:block; margin-bottom:2px; }
+  .parent h3 { font-size:15px; line-height:1.35; }
+  .parent .id { font-family:var(--mono); font-size:11.5px; color:var(--muted); }
+  .slice { border:1px solid var(--line); border-radius:5px; }
+  .slice > summary { list-style:none; cursor:pointer; padding:9px 10px; display:flex; gap:9px; align-items:baseline; }
+  .slice > summary::-webkit-details-marker { display:none; }
+  .slice .n { font-family:var(--mono); font-size:11px; color:var(--muted); flex:none; }
+  .slice .g { font-weight:500; flex:1 1 auto; }
+  .slice .open { color:var(--muted); font-size:11px; flex:none; }
+  .slice[open] .open { display:none; }
+  .slice .inner { padding:0 10px 10px 30px; display:flex; flex-direction:column; gap:9px; }
+  .fieldset .eyebrow { display:block; margin-bottom:3px; }
+  .fieldset ul { margin:0; padding-left:16px; font-size:12.5px; }
+  .fieldset li { margin:1px 0; }
+  .fieldset li.m { font-family:var(--mono); font-size:11.5px; list-style:none; margin-left:-16px; }
+  .fieldset li.m::before { content:"\00B7"; color:var(--muted); margin-right:6px; }
+  .yaml { background:var(--code-bg); color:var(--code-ink); border-radius:5px; padding:10px 12px;
+          font-family:var(--mono); font-size:11.5px; line-height:1.5; overflow-x:auto; margin-top:6px; }
+  .yaml .k { color:var(--code-dim); }
+
+  .foot { margin-top:18px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted);
+          font-size:12.5px; display:flex; flex-wrap:wrap; gap:6px 18px; }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <header class="top">
+    <div class="mark">Work it out <span>· agent-smith</span></div>
+    <div class="sub">Say what you want to be true. Leave with tickets someone can run.</div>
+    <div class="whoami">operator · <span class="mono">sample-portal</span></div>
+  </header>
+
+  <p class="note"><strong>The target for 2026-09-17-f74e.</strong> Every name is a sample. The
+    conversation is invented, and shows what the phase is for: the agent asks a question that
+    changes the cut before it proposes one.</p>
+
+  <div class="cols">
+
+    <section class="panel past">
+      <div class="phead"><h2>Conversations</h2></div>
+      <div class="body">
+        <button class="newbtn">+ New conversation</button>
+
+        <div class="daygroup">
+          <div class="eyebrow">Today</div>
+          <button class="conv" aria-current="true">
+            <span class="t">Dependency update across three repositories</span>
+            <span class="m"><span class="chip">portal</span><span class="dot"></span>7 turns<span class="dot"></span>now</span>
+          </button>
+          <button class="conv">
+            <span class="t">Framework major upgrade — one slice or three?</span>
+            <span class="m"><span class="chip">portal</span><span class="dot"></span>12 turns<span class="dot"></span>09:14</span>
+          </button>
+        </div>
+
+        <div class="daygroup">
+          <div class="eyebrow">Yesterday</div>
+          <button class="conv">
+            <span class="t">Split the infrastructure state per environment</span>
+            <span class="m"><span class="chip">sample-fleet</span><span class="dot"></span>21 turns<span class="dot"></span><span class="chip filed">epic filed</span></span>
+          </button>
+          <button class="conv">
+            <span class="t">Why does the legacy client still ship its old toolkit?</span>
+            <span class="m"><span class="chip">sample-access</span><span class="dot"></span>4 turns<span class="dot"></span>answered</span>
+          </button>
+        </div>
+
+        <div class="daygroup">
+          <div class="eyebrow">Last week</div>
+          <button class="conv">
+            <span class="t">Document rendering is slow at month end</span>
+            <span class="m"><span class="chip">sample-billing</span><span class="dot"></span>9 turns<span class="dot"></span><span class="chip filed">bug filed</span></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="phead">
+        <h2>Dependency update across three repositories</h2>
+        <span class="eyebrow">session ab368da5</span>
+      </div>
+
+      <div class="stream">
+        <div class="msg">
+          <div class="who me">OP</div>
+          <div class="said"><p>update every dependency in the client, the server and the worker</p></div>
+        </div>
+
+        <div class="msg">
+          <div class="who ag">AS</div>
+          <div class="said">
+            <p>Three repositories, three package managers. Before I cut anything: the Worker and
+              the Server share four package families — if those move apart, the integration tests
+              between them stop compiling. Do you want them held together?</p>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="who me">OP</div>
+          <div class="said"><p>yes, hold those together. the client can move on its own.</p></div>
+        </div>
+
+        <div class="msg">
+          <div class="who ag">AS</div>
+          <div class="said">
+            <div class="working"><span class="ring" aria-hidden="true"></span>
+              <span>Reading the repositories — about a minute.</span></div>
+            <div class="reading">
+              <span class="done">Sample.Portal.Server — 38 direct packages</span>
+              <span class="done">Sample.Portal.Worker — 22 direct packages</span>
+              <span class="now">Sample.Portal.Client — the manifest and its lock file</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="who ag">AS</div>
+          <div class="said">
+            <p>The Client carries a lock file, so it is its own slice whatever we do. Server and
+              Worker share the families you want held, but they are separate solutions with
+              separate test projects — one slice each keeps a failure attributable.</p>
+            <div class="card">
+              <div class="row">
+                <span class="kind">epic</span>
+                <span class="ttl">Update dependencies to compatible supported versions</span>
+                <button class="look">Inspect &rarr;</button>
+              </div>
+              <div class="slices">
+                <div><b>b17c</b> <span>Server packages, consistently, and validate</span></div>
+                <div><b>c52e</b> <span>Worker packages, same families</span></div>
+                <div><b>d93f</b> <span>Client packages and the lock file</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="decide">
+          <div class="hd"><span class="eyebrow" style="color:var(--attention)">Waiting on you</span></div>
+          <div class="bd">File this epic? A parent record and three slices, created in that order —
+            the second waits for the first to leave its trigger status.</div>
+          <div class="acts">
+            <button class="btn go">Approve &amp; file</button>
+            <button class="btn no">Reject</button>
+            <span class="hint">Anything you write below is a note, and the proposal is revised with it.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="box">Keep talking, or answer above…</div>
+        <button class="btn go">Send</button>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="phead">
+        <div class="tabs">
+          <button class="tab" aria-selected="true">Proposal</button>
+          <button class="tab">Scope</button>
+          <button class="tab">Filed</button>
+        </div>
+        <span class="eyebrow">not filed yet</span>
+      </div>
+
+      <div class="art">
+        <div class="parent">
+          <span class="eyebrow">Parent — a record, not work</span>
+          <h3>Update client, server and worker dependencies to compatible supported versions</h3>
+          <div class="id">2026-09-17-a8c4</div>
+        </div>
+
+        <div class="fieldset">
+          <span class="eyebrow">Slices, in the order they run</span>
+
+          <details class="slice" open>
+            <summary><span class="n">1 · b17c</span><span class="g">Server packages, consistently, and validate</span><span class="open">open</span></summary>
+            <div class="inner">
+              <div class="fieldset"><span class="eyebrow">Steps</span>
+                <ul>
+                  <li>Update direct packages across the server projects, keeping families aligned</li>
+                  <li>Repair build and API incompatibilities caused by the version jumps — no behaviour changes</li>
+                  <li>Restore, build, run unit and integration tests</li>
+                </ul>
+              </div>
+              <div class="fieldset"><span class="eyebrow">Tests</span>
+                <ul>
+                  <li class="m">ServerSolution_RestoreAndBuild_Succeeds</li>
+                  <li class="m">ServerTests_AfterDependencyUpdate_Pass</li>
+                </ul>
+              </div>
+              <div class="fieldset"><span class="eyebrow">Done when</span>
+                <ul><li>Every server project and its tests carry updated compatible versions, and the solution builds and tests green</li></ul>
+              </div>
+            </div>
+          </details>
+
+          <details class="slice">
+            <summary><span class="n">2 · c52e</span><span class="g">Worker packages, same families</span><span class="open">open</span></summary>
+            <div class="inner">
+              <div class="fieldset"><span class="eyebrow">Waits for</span>
+                <ul><li>Slice 1 — the shared families move once, and this proves they still meet</li></ul>
+              </div>
+              <div class="fieldset"><span class="eyebrow">Tests</span>
+                <ul>
+                  <li class="m">WorkerSolution_RestoreAndBuild_Succeeds</li>
+                  <li class="m">WorkerIntegrationTests_AfterDependencyUpdate_Pass</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+
+          <details class="slice">
+            <summary><span class="n">3 · d93f</span><span class="g">Client packages and the lock file</span><span class="open">open</span></summary>
+            <div class="inner">
+              <div class="fieldset"><span class="eyebrow">Steps</span>
+                <ul>
+                  <li>Update direct dependencies and development dependencies</li>
+                  <li>Regenerate the lock file to match the manifest</li>
+                  <li>Repair framework, test-runner and language incompatibilities — no behaviour changes</li>
+                </ul>
+              </div>
+              <div class="fieldset"><span class="eyebrow">Tests</span>
+                <ul>
+                  <li class="m">ClientBuild_AfterDependencyUpdate_Succeeds</li>
+                  <li class="m">ClientTests_AfterDependencyUpdate_Pass</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <details>
+          <summary class="eyebrow" style="cursor:pointer">The same thing, as it will be filed</summary>
+          <div class="yaml"><span class="k">kind:</span> epic
+<span class="k">parent:</span>
+  <span class="k">phase:</span> 2026-09-17-a8c4
+<span class="k">children:</span>
+  - <span class="k">phase:</span> 2026-09-17-b17c
+  - <span class="k">phase:</span> 2026-09-17-c52e
+    <span class="k">requires:</span> [2026-09-17-b17c]
+  - <span class="k">phase:</span> 2026-09-17-d93f</div>
+        </details>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span><strong>What this changes.</strong> Past conversations are a list, not a row of buttons.</span>
+    <span>A long draft is a card in the stream and structure in the pane — never a wall of YAML mid-sentence.</span>
+    <span>Working is visible and says what it is reading.</span>
+    <span>The decision has a surface of its own.</span>
+  </footer>
+</div>
+</body>
+</html>
