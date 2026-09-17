@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Turns;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.SpecDialog;
@@ -25,6 +26,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 public sealed class SpecDialogProposalReview(
     ISpecCutReviewer reviewer,
     DerivationLookFactory looks,
+    ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the review is not dark
     ILogger<SpecDialogProposalReview> logger)
 {
     public async Task ReviewAsync(
@@ -34,8 +36,10 @@ public sealed class SpecDialogProposalReview(
         if (!pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var proposal)
             || proposal is null || DraftsOf(proposal) is not { Count: > 0 } drafts) return;
 
+        await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Reviewing), ct);
         // The look is over the turn's repositories and owns none of them — the runner disposes
-        // the scopes it opened — so there is nothing to dispose here.
+        // the scopes it opened — so there is nothing to dispose here. Its tools report each
+        // read and search through the same observer this line just used.
         var look = looks.ForProposalReview(pipeline);
         var key = pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var jobId) && jobId is not null
             ? jobId

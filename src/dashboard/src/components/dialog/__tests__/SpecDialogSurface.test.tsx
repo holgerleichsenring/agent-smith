@@ -4,6 +4,7 @@ import { SpecDialogSurface } from "../SpecDialogSurface";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { __forgetDialogIdForTests } from "@/lib/specDialogSession";
 import type {
+  SpecDialogActivityPush,
   SpecDialogFilingPush,
   SpecDialogMessagePush,
   SpecDialogPhaseProposal,
@@ -38,6 +39,7 @@ const questions = makeSubject<SpecDialogQuestionPush>();
 const proposals = makeSubject<SpecDialogProposalPush>();
 const filings = makeSubject<SpecDialogFilingPush>();
 const readings = makeSubject<SpecDialogReadingPush>();
+const activity = makeSubject<SpecDialogActivityPush>();
 const subscribeSpecDialog = vi.fn(async () => async () => {});
 
 
@@ -48,6 +50,7 @@ vi.mock("@/lib/JobsHubClient", () => ({
     specDialogProposals: proposals,
     specDialogFilings: filings,
     specDialogReadings: readings,
+    specDialogActivity: activity,
     subscribeSpecDialog,
   }),
 }));
@@ -654,6 +657,53 @@ describe("SpecDialogSurface", () => {
       ["repo-a: ready", "ready"],
       ["template-repo: could not be opened", "failed"],
     ]);
+  });
+
+  // 2026-09-17-042ee: and what it DOES with them — newest last, so the eye stays at the
+  // bottom where the next line arrives, with everything older folded away.
+  it("SpecDialog_WhileATurnRuns_ListsWhatItDoesNewestLast", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await screen.findByTestId("dialog-working");
+
+    const at = new Date().toISOString();
+    act(() => {
+      activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "read_file", detail: "repo-a/src/A.cs", at });
+      activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "grep_in_files", detail: "Dispatch", at });
+      activity.emit({ dialogId: heldDialogId(), kind: "model", name: "sample-model", detail: "Checking the router.", at });
+      activity.emit({ dialogId: heldDialogId(), kind: "reviewing", name: null, detail: null, at });
+      activity.emit({ dialogId: "someone-else", kind: "tool", name: "read_file", detail: "foreign", at });
+    });
+
+    const shown = await screen.findByTestId("dialog-activity");
+    expect(within(shown).getAllByTestId("dialog-activity-line").map((line) => line.textContent)).toEqual([
+      "grep_in_files Dispatch",
+      "thinking — Checking the router.",
+      "reviewing its own proposal against the code",
+    ]);
+    const folded = screen.getByTestId("dialog-activity-folded");
+    expect(folded).toHaveTextContent("1 earlier step");
+    expect(within(folded).getAllByTestId("dialog-activity-line").map((line) => line.textContent)).toEqual([
+      "read_file repo-a/src/A.cs",
+    ]);
+  });
+
+  it("SpecDialog_WhenTheAnswerArrives_ForgetsWhatTheTurnDid", async () => {
+    const { result } = renderHook(() => useSpecDialog());
+    await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+    await act(() => result.current.send("update every dependency"));
+    const dialogId = result.current.dialogId!;
+    act(() => activity.emit({
+      dialogId, kind: "revising", name: null, detail: null, at: new Date().toISOString(),
+    }));
+    expect(result.current.activity).toHaveLength(1);
+
+    act(() => messages.emit({ dialogId, title: "Spec dialog", text: "done", at: new Date().toISOString() }));
+
+    expect(result.current.activity).toEqual([]);
   });
 
   // The indicator hides its lines once the turn is answered anyway, so only the hook's own

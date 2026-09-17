@@ -29,13 +29,10 @@ public sealed class DashboardReadingChannel(
     /// Sets the turn's observer until the handle is disposed; null — nothing set — for a
     /// session on any other platform.
     /// </summary>
-    public IDisposable? Observe(ConversationState state)
-    {
-        ArgumentNullException.ThrowIfNull(state);
-        return IsDashboard(state.Platform)
-            ? observers.Observe(new DialogReadingObserver(this, Dialog(state)))
+    public IDisposable? Observe(ConversationState state) =>
+        DialogTarget.IsDashboard(state)
+            ? observers.Observe(new DialogReadingObserver(this, DialogTarget.Of(state)))
             : null;
-    }
 
     /// <summary>
     /// Pushes one report to the dialog. Never throws unless the caller cancelled: a progress
@@ -59,11 +56,4 @@ public sealed class DashboardReadingChannel(
                 dialogId, repoName, progress);
         }
     }
-
-    // The dialog id IS the thread id, as it is for every other push on this channel.
-    private static string Dialog(ConversationState state) =>
-        string.IsNullOrEmpty(state.ThreadId) ? state.ChannelId : state.ThreadId;
-
-    private static bool IsDashboard(string platform) =>
-        string.Equals(platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase);
 }

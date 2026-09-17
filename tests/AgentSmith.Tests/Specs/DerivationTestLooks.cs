@@ -16,11 +16,13 @@ internal static class DerivationTestLooks
 
     /// <summary>A factory over the pipeline's sandboxes; with none set, it yields no host.</summary>
     public static DerivationLookFactory Factory(
-        ISandboxFileReaderFactory? files = null, ISourceScopeSandboxFactory? scopes = null) =>
+        ISandboxFileReaderFactory? files = null, ISourceScopeSandboxFactory? scopes = null,
+        AgentSmith.Application.Services.Turns.TurnActivityTools? activity = null) =>
         new(new SandboxTargets(), files ?? new StubSandboxFileReaderFactory(),
             new PackageEcosystemDetector(),
             new ProjectTemplateScopes(
                 scopes ?? new NoScopes(), NullLogger<ProjectTemplateScopes>.Instance),
+            activity ?? TurnActivityRecorder.Tools(),
             NullLogger<DerivationLook>.Instance);
 
     /// <summary>2026-09-13-9f84: the template-proof read as the product composes it — the

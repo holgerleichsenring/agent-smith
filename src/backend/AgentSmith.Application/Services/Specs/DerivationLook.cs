@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.AI;
@@ -37,17 +38,21 @@ public sealed class DerivationLook : IAsyncDisposable
         IReadOnlyDictionary<string, ISandbox> sandboxes, ISandboxFileReaderFactory files,
         IPackageEcosystemDetector ecosystems, ILogger logger,
         IReadOnlyDictionary<string, ISourceScopeSandbox>? templates = null,
-        DerivationLookTerms? terms = null, bool audits = true)
+        DerivationLookTerms? terms = null, bool audits = true,
+        TurnActivityTools? activity = null)
     {
         ArgumentNullException.ThrowIfNull(sandboxes);
         _templates = templates ?? new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal);
         Terms = terms ?? DerivationLookTerms.Derivation;
         _gate = new DerivationLookGate(sandboxes, _templates, Terms);
         Evidence = new DerivationEvidence(Terms.EvidencePrefix, $"the {Terms.Actor}");
-        Tools = DerivationTools.Over(
+        var tools = DerivationTools.Over(
             new RepositorySearchTool(this, logger),
             new RepositoryFileReadTool(this, files, logger),
             audits ? new DependencyAuditTool(this, files, ecosystems, logger) : null);
+        // 2026-09-17-042ee: a look reports what it reads to whoever set an observer. Nobody
+        // has during a derivation; a design turn's proposal review runs inside one that has.
+        Tools = activity?.Reporting(tools) ?? tools;
     }
 
     /// <summary>2026-09-15-ffa7: whose look this is — its allowance, its id letter, its name.</summary>

@@ -41,14 +41,25 @@ internal static class ToolArgumentFacts
     public static string Hash(string argsJson)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(argsJson)), 0, 8);
 
-    public static string? Summarize(AIFunctionArguments arguments)
+    public static string? Summarize(AIFunctionArguments arguments) => Summarize(arguments, forOperator: false);
+
+    /// <summary>2026-09-17-042ee: the same whitelist and cap, reworded for the PERSON watching
+    /// a design turn — see <see cref="OperatorToolSummary"/> for what it does differently and
+    /// why. The event stream's own summary is unchanged by it.</summary>
+    public static string? SummarizeForOperator(AIFunctionArguments arguments)
+        => Summarize(arguments, forOperator: true);
+
+    private static string? Summarize(AIFunctionArguments arguments, bool forOperator)
     {
         foreach (var key in SummaryKeys)
         {
             if (!arguments.TryGetValue(key, out var raw) || raw is null) continue;
             var rendered = Render(raw);
             if (string.IsNullOrWhiteSpace(rendered)) continue;
-            return rendered.Length > SummaryCap ? rendered[..SummaryCap] : rendered;
+            // Reworded BEFORE the cap: a url cut at 120 characters no longer parses as one,
+            // and would be shown whole exactly when it is longest.
+            if (forOperator) rendered = OperatorToolSummary.Of(arguments, key, rendered!);
+            return rendered!.Length > SummaryCap ? rendered[..SummaryCap] : rendered;
         }
         return null;
     }

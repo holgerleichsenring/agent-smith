@@ -115,6 +115,20 @@ export interface SpecDialogReadingPush {
   at: string;
 }
 
+/** What a running design turn was doing when it reported one step. */
+export type SpecDialogActivityKind = "tool" | "model" | "reviewing" | "revising";
+
+/** 2026-09-17-042ee: one step a running design turn took, pushed as it happens. A tool
+ *  carries its name and a whitelisted argument summary; a model call carries the model and
+ *  the intent it narrated; reviewing and revising are states and carry neither. */
+export interface SpecDialogActivityPush {
+  dialogId: string;
+  kind: SpecDialogActivityKind;
+  name: string | null;
+  detail: string | null;
+  at: string;
+}
+
 // 2026-09-15-6d9c: the turn's typed outcome, and what filing it actually created — the two
 // pushes the right-hand column changes state on. Plain payloads rather than hub events: the
 // event-type generator scans the events namespace by base type, and these derive from

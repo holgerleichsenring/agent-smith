@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Turns;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.SpecDialog;
@@ -22,6 +23,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 public sealed class SpecDialogProposalRefusal(
     IAgenticLoopRunner loopRunner,
     ISpecDialogPromptFactory promptFactory,
+    ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the re-prompt is visible
     ILogger<SpecDialogProposalRefusal> logger)
 {
     internal const string EmptyProseNotice =
@@ -38,6 +40,7 @@ public sealed class SpecDialogProposalRefusal(
             return loopResult;
 
         logger.LogWarning("Design turn proposed before the operator replied to a discussion — re-prompting once");
+        await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Revising), ct);
         AgenticLoopResult retry;
         try
         {
