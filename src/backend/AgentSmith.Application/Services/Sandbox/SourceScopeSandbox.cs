@@ -1,5 +1,3 @@
-using AgentSmith.Application.Services.Builders;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
@@ -14,16 +12,15 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// idle self-exit and the orphan reaper are the backstops.
 /// <para>2026-09-13-9802: a scope may name a revision. The git ladder that lands on it, and
 /// the five refusals it tells apart, live in <see cref="SourceScopeMaterialiser"/> — which
-/// also issues the clone, before this guard applies. Here: the guard and the lifetime.</para>
+/// also issues the clone, before this guard applies; <see cref="SourceScopeOpener"/> spawns
+/// it. Here: the guard, the lifetime, and the progress an ambient observer is told.</para>
 /// </summary>
 public sealed class SourceScopeSandbox(
     ResolvedProject project,
     RepoConnection repo,
     string? revision,
-    SourceScopeMaterialiser materialiser,
-    ISandboxFactory sandboxFactory,
-    SandboxSpecBuilder specBuilder,
-    IRunContextAccessor runContext,
+    SourceScopeOpener opener,
+    ISourceScopeObserverAccessor observers,
     ILogger logger) : ISourceScopeSandbox
 {
     private readonly SemaphoreSlim _materializeGate = new(1, 1);
@@ -37,13 +34,9 @@ public sealed class SourceScopeSandbox(
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
-        if (!IsReadKind(step.Kind))
-            return Refuse(step,
-                $"Step kind '{step.Kind}' is not available on the read-only source sandbox "
-                + "for spec-dialog grounding — only file reads (read_file, grep, "
-                + "list_directory, directory_tree) are served.");
-
-        if (string.IsNullOrEmpty(repo.Url)) return Refuse(step, NoCloneUrl().Message);
+        if (SourceScopeRefusal.UnlessRead(step) is { } notARead) return notARead;
+        if (string.IsNullOrEmpty(repo.Url))
+            return SourceScopeRefusal.Because(step, NoCloneUrl().Message);
 
         try
         {
@@ -53,7 +46,7 @@ public sealed class SourceScopeSandbox(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Source scope '{Repo}' failed to materialise", repo.Name);
-            return Refuse(step, ex.Message);
+            return SourceScopeRefusal.Because(step, ex.Message);
         }
     }
 
@@ -72,9 +65,6 @@ public sealed class SourceScopeSandbox(
         $"Repo '{repo.Name}' has no clone URL configured — source grounding is "
         + "unavailable for it; answer from the code map or say what is missing.");
 
-    private static bool IsReadKind(StepKind kind) => kind is
-        StepKind.ReadFile or StepKind.ListFiles or StepKind.Grep or StepKind.DirectoryTree;
-
     private async Task<ISandbox> EnsureMaterializedAsync(CancellationToken ct)
     {
         if (_inner is not null) return _inner;
@@ -85,20 +75,20 @@ public sealed class SourceScopeSandbox(
             logger.LogInformation(
                 "Materialising source scope '{Repo}' at '{Revision}'",
                 repo.Name, revision ?? "the clone's own default");
-            // language/pipelineName null → generic git-bearing image, p0320a light profile.
-            var spec = specBuilder.Build(project, language: null, pipelineName: null)
-                with { RunId = runContext.CurrentRunId };
-            var created = await sandboxFactory.CreateAsync(spec, ct);
+            await ReportAsync(SourceScopeProgress.Opening, ct);
             try
             {
-                ResolvedSha = await materialiser.PrepareAsync(created, repo, revision, ct);
+                (var opened, ResolvedSha) = await opener.OpenAsync(project, repo, revision, ct);
+                _inner = opened;
             }
             catch
             {
-                await created.DisposeAsync();
+                // Not open, so the next read reports opening again; this ends the line it drew.
+                await ReportAsync(SourceScopeProgress.Failed, CancellationToken.None);
                 throw;
             }
-            return _inner = created;
+            await ReportAsync(SourceScopeProgress.Ready, ct);
+            return _inner;
         }
         finally
         {
@@ -106,9 +96,12 @@ public sealed class SourceScopeSandbox(
         }
     }
 
-    private static StepResult Refuse(Step step, string reason) => new(
-        StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1,
-        TimedOut: false, DurationSeconds: 0, ErrorMessage: reason, OutputContent: null);
+    // No observer set is the default: nothing is told, and the scope behaves as it always did.
+    // The revision is part of the name told, because two templates may pin one repository twice.
+    private Task ReportAsync(SourceScopeProgress progress, CancellationToken ct) =>
+        observers.Current?.ReportAsync(
+            revision is null ? repo.Name : $"{repo.Name}@{revision}", progress, ct)
+        ?? Task.CompletedTask;
 
     public async ValueTask DisposeAsync()
     {

@@ -31,6 +31,16 @@ public sealed class SpecDialogSession : EntityBase
     /// </summary>
     public string? ConfirmedOutcomeJson { get; set; }
 
+    /// <summary>
+    /// JSON of the proposal under discussion — the latest one a turn put to the person, kept
+    /// until a later one supersedes it or the person rejects it. What a reloaded page shows
+    /// in the proposal pane; the transcript keeps the reply it came from.
+    /// </summary>
+    public string? LatestProposalJson { get; set; }
+
+    /// <summary>JSON of what the latest filing attempt created, and its error if it stopped.</summary>
+    public string? LatestFilingJson { get; set; }
+
     /// <summary>False once the session is closed or forked away from.</summary>
     public bool IsOpen { get; set; } = true;
 

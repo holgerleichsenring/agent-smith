@@ -103,7 +103,7 @@ public sealed class SpecDialogRouter(
             }
 
             await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, ct);
-            await messenger.SendAsync(platform, channelId, threadId, result.Reply, ct);
+            await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
             // p0315e: a non-answer outcome is proposed + confirmed in-thread,
             // then handed to the outcome sink (p0315c: ticket filing). Runs
             // inside the turn gate; the pending-question branch above routes

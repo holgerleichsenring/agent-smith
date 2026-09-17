@@ -16,6 +16,15 @@ public sealed class SpecDialogProposalComposer(
     public const string PhaseKind = "phase";
     public const string EpicKind = "epic";
 
+    /// <summary>The kind a proposal files as, or null for an answer, which files nothing.</summary>
+    public static string? KindOf(OutcomeProposal? proposal) => proposal switch
+    {
+        BugOutcome => BugKind,
+        PhaseOutcome => PhaseKind,
+        EpicOutcome => EpicKind,
+        _ => null,
+    };
+
     /// <summary>
     /// The pane payload, or null for an outcome that proposes nothing — an answer, which
     /// leaves the pane showing whatever is still under discussion.
@@ -47,5 +56,5 @@ public sealed class SpecDialogProposalComposer(
     private static SpecDialogPhaseView View(PhaseDraft draft) => new(
         draft.PhaseId, draft.Goal,
         [.. draft.Steps.Select(step => step.Action)],
-        draft.Tests, draft.Done, draft.Requires);
+        draft.Tests, draft.Done, draft.Requires, draft.Yaml);
 }

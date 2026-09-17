@@ -300,12 +300,14 @@ public sealed class CodingMasterTemplateTests
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         var scope = new SourceScopeSandbox(
             ProjectWithTemplate(), ProjectWithTemplate().Templates[0].Repo, "v4.2.0",
-            new SourceScopeMaterialiser(), spawns,
-            new SandboxSpecBuilder(
-                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
-                Mock.Of<IAgentImageResolver>(
-                    r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test")),
-            runContext.Object, NullLogger<SourceScopeSandbox>.Instance);
+            new SourceScopeOpener(
+                new SourceScopeMaterialiser(), spawns,
+                new SandboxSpecBuilder(
+                    new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
+                    Mock.Of<IAgentImageResolver>(
+                        r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test")),
+                runContext.Object),
+            new AsyncLocalSourceScopeObserverAccessor(), NullLogger<SourceScopeSandbox>.Instance);
         var host = TargetHost();
         new MasterTemplateAttachment(
             new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal) { [Address] = scope })

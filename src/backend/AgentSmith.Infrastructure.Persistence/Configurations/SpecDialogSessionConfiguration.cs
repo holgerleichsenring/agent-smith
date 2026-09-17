@@ -8,7 +8,8 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// <summary>
 /// Spec-dialog sessions (p0315a). SessionId is the unique resume handle; the
 /// (Platform, ThreadId) index serves the per-thread open-session lookup on
-/// every inbound chat message. Indexed strings cap at the MySQL-safe length.
+/// every inbound chat message, and the owner index serves the caller's conversation list.
+/// Indexed strings cap at the MySQL-safe length.
 /// </summary>
 public sealed class SpecDialogSessionConfiguration : IEntityTypeConfiguration<SpecDialogSession>
 {
@@ -23,5 +24,6 @@ public sealed class SpecDialogSessionConfiguration : IEntityTypeConfiguration<Sp
         builder.Property(s => s.Project).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(s => s.SessionId).IsUnique();
         builder.HasIndex(s => new { s.Platform, s.ThreadId });
+        builder.HasIndex(s => s.UserId);
     }
 }

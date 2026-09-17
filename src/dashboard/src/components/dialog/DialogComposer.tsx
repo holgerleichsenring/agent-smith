@@ -27,39 +27,39 @@ export function DialogComposer({
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 border-t border-mute px-3.5 py-3">
       {hint && (
-        <p data-testid="dialog-composer-hint" className="dsh-body text-[var(--color-ink-mid)]">
+        <p data-testid="dialog-composer-hint" className="dsh-body text-body">
           {hint}
         </p>
       )}
-      <div className="flex gap-2">
-      <textarea
-        data-testid="dialog-composer-text"
-        value={text}
-        rows={3}
-        disabled={disabled}
-        placeholder="Describe what you want built — or answer the question above."
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          // Enter sends, shift+enter keeps writing: a design message is often several
-          // sentences, and a send on every newline would cut them into turns.
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            send();
-          }
-        }}
-        className="flex-1 rounded border border-stone-300 px-3 py-2 dsh-body text-stone-700"
-      />
-      <button
-        type="button"
-        data-testid="dialog-composer-send"
-        onClick={send}
-        disabled={disabled}
-        className="self-end rounded bg-emerald-700 px-3 py-2 text-sm text-white hover:bg-emerald-800 disabled:bg-stone-300"
-      >
-        Send
-      </button>
+      <div className="flex items-end gap-2">
+        <textarea
+          data-testid="dialog-composer-text"
+          value={text}
+          rows={3}
+          disabled={disabled}
+          placeholder="Keep talking, or answer above…"
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter sends, shift+enter keeps writing: a design message is often several
+            // sentences, and a send on every newline would cut them into turns.
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              send();
+            }
+          }}
+          className="min-w-0 flex-1 rounded-md border border-mute bg-canvas px-3 py-2 dsh-body text-ink placeholder:text-body-mid"
+        />
+        <button
+          type="button"
+          data-testid="dialog-composer-send"
+          onClick={send}
+          disabled={disabled}
+          className="rounded-md bg-primary-deep px-3 py-1.5 dsh-body font-semibold text-on-primary hover:bg-primary-pressed disabled:opacity-50"
+        >
+          Send
+        </button>
       </div>
     </div>
   );

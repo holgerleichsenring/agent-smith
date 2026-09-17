@@ -31,6 +31,13 @@ public sealed class SpecDialogReplyComposer
     public ComposedReply ComposeResumeUsage() => new(_ =>
         "Usage: `/spec resume <id>` — see `/spec list` for open sessions.");
 
+    public ComposedReply ComposeResumeRefused(SpecDialogResumeRefused refused) => new(_ =>
+        refused.QuestionPending
+            ? $"Spec dialog `{refused.SessionId}` is waiting for an answer where it is open. " +
+              "Answer it there, then open the conversation here."
+            : $"Spec dialog `{refused.SessionId}` is in the middle of a turn. " +
+              "Open it here once that turn has replied.");
+
     public ComposedReply ComposeSessionNotFound(string sessionId) => new(_ =>
         $"No spec-dialog session `{sessionId}` found. `/spec list` shows open sessions.");
 

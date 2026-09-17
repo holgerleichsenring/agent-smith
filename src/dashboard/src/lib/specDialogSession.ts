@@ -17,6 +17,11 @@ export function currentDialogId(): string {
   return held() ?? hold(mintDialogId());
 }
 
+/** Back to a conversation that is open on an id this page already knows, held from now on. */
+export function returnToDialog(dialogId: string): string {
+  return hold(dialogId);
+}
+
 /** A fresh conversation: a new id, held from now on. */
 export function startNewDialog(): string {
   return hold(mintDialogId());

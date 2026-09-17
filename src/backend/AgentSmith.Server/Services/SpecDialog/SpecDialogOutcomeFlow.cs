@@ -18,6 +18,7 @@ public sealed class SpecDialogOutcomeFlow(
     SpecDialogOutcomeComposer composer,
     SpecDialogMessenger messenger,
     DashboardOutcomeChannel outcomeChannel,
+    SpecDialogLatestOutcomeStore latestOutcome,
     ILogger<SpecDialogOutcomeFlow> logger)
 {
     public async Task<OutcomeFlowResult> HandleAsync(
@@ -29,6 +30,9 @@ public sealed class SpecDialogOutcomeFlow(
         // "which outcomes have a shape" is the same question the pane asks.
         await outcomeChannel.ProposeAsync(state, proposal, cancellationToken);
         if (proposal is AnswerOutcome) return new OutcomeFlowCompleted();
+        // Kept beside the push, never for an answer: an answer leaves the proposal under
+        // discussion where it was, live and after a reload alike.
+        await latestOutcome.SetProposalAsync(state.Platform, state.ThreadId!, proposal, cancellationToken);
 
         var confirmation = await confirmer.ConfirmAsync(state, proposal, cancellationToken);
         logger.LogInformation(
@@ -44,9 +48,13 @@ public sealed class SpecDialogOutcomeFlow(
                 await SendAsync(state, composer.ComposeEditAck(edit.Note), cancellationToken);
                 return new OutcomeFlowEditRequested(edit.Note);
             case OutcomeRejected:
+                await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
                 await SendAsync(state, composer.ComposeRejected(), cancellationToken);
                 return new OutcomeFlowCompleted();
             default:
+                // A timed-out approval is over as surely as a rejected one; the pane must not
+                // offer it after a reload. An edit note keeps it, because it is being revised.
+                await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
                 await SendAsync(state, composer.ComposeTimeout(), cancellationToken);
                 return new OutcomeFlowCompleted();
         }

@@ -1,10 +1,14 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -16,11 +20,28 @@ namespace AgentSmith.Tests.SpecDialog;
 /// asked to approve it, and what the filing attempt actually created is published from the
 /// sink that holds the report. Both reach the one session group and nothing wider.
 /// </summary>
-public sealed class DialogProposalPaneTests
+public sealed class DialogProposalPaneTests : IDisposable
 {
     private const string Dialog = "d-6d9c";
 
     private readonly RecordingDialogHub _hub = new();
+    private readonly SqliteConnection _connection;
+    private readonly AgentSmithDbContext _context;
+
+    public DialogProposalPaneTests()
+    {
+        _connection = new SqliteConnection("Data Source=:memory:");
+        _connection.Open();
+        _context = new AgentSmithDbContext(
+            new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
+        _context.Database.Migrate();
+    }
+
+    public void Dispose()
+    {
+        _context.Dispose();
+        _connection.Dispose();
+    }
 
     [Fact]
     public async Task Flow_WithAPhaseProposal_PublishesTheTypedProposal()
@@ -197,6 +218,7 @@ public sealed class DialogProposalPaneTests
                 transport.Object, messenger, new SpecDialogPendingQuestions(), composer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, messenger, Channel(),
+            new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 

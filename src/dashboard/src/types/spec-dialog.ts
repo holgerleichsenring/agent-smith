@@ -26,23 +26,45 @@ export interface SpecDialogTurn {
 export interface SpecDialogSession {
   sessionId: string;
   scope: SpecDialogProject;
+  /** Assistant turns come without their draft — the pane shows it; operator turns as written. */
   transcript: SpecDialogTurn[];
   lastActivityAt: string;
+  /** The proposal under discussion; null when nothing is, including after a rejection. */
+  proposal: SpecDialogProposalPush | null;
+  /** What the latest filing created. Older than `proposal` means it filed an earlier one. */
+  filing: SpecDialogFilingPush | null;
+  /** The index in `transcript` of the turn the proposal card belongs on. */
+  proposalTurn: number | null;
 }
 
+/** What a conversation's latest filing created. Only a filing produces one. */
+export interface SpecDialogConversationOutcome {
+  /** "bug", "phase" or "epic" from the latest proposal; null once that was rejected. */
+  kind: string | null;
+  tickets: number;
+  /** The filing stopped with an error after creating some of the tickets. */
+  partial: boolean;
+}
+
+/** One of the caller's conversations, open or closed, addressed by its session id. */
 export interface SpecDialogSessionSummary {
   sessionId: string;
   project: string;
   turns: number;
   lastActivityAt: string;
+  /** The first line the operator wrote; null before they wrote one. */
+  title: string | null;
+  outcome: SpecDialogConversationOutcome | null;
+  /** The dialog id an open conversation lives on; null once it is closed. */
+  openDialogId: string | null;
 }
 
-/** Everything the surface needs for one dialog id, in one read. */
+/** What the surface needs for one dialog id, re-read after every message. The caller's
+ *  conversation list is a read of its own, because it reads every listed transcript. */
 export interface SpecDialogView {
   dialogId: string;
   session: SpecDialogSession | null;
   projects: SpecDialogProject[];
-  openSessions: SpecDialogSessionSummary[];
   /** What the turn is blocked on, so a reload during the gate keeps the question. */
   question: SpecDialogQuestionPush | null;
 }
@@ -77,6 +99,17 @@ export interface SpecDialogQuestionPush {
   expiresAt: string | null;
 }
 
+/** How far a design turn got with opening one repository. */
+export type SpecDialogReadingState = "opening" | "ready" | "failed";
+
+/** 2026-09-17-c7aec: one repository a running design turn opened, pushed as it happens. */
+export interface SpecDialogReadingPush {
+  dialogId: string;
+  repo: string;
+  state: SpecDialogReadingState;
+  at: string;
+}
+
 // 2026-09-15-6d9c: the turn's typed outcome, and what filing it actually created — the two
 // pushes the right-hand column changes state on. Plain payloads rather than hub events: the
 // event-type generator scans the events namespace by base type, and these derive from
@@ -91,6 +124,8 @@ export interface SpecDialogPhaseProposal {
   tests: string[];
   done: string[];
   requires: string[];
+  /** The spec as the master wrote it — the raw form the reply no longer carries. */
+  yaml: string;
 }
 
 /** The fix-bug ticket a bug outcome would file — body exactly as the filer composes it. */

@@ -2,12 +2,12 @@ namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// 2026-09-15-cb3e: everything the dashboard's dialog surface needs for one dialog id, in
-/// one read: the conversation on it (null until one is opened), the projects a new one can
-/// be opened on, and the sessions this caller may resume.
+/// one read: the conversation on it (null until one is opened) and the projects a new one can
+/// be opened on.
 /// <para>
-/// One payload rather than three routes because they answer one question — what is on this
-/// page — and a surface that had to stitch three reads together would render three
-/// different moments of the same conversation.
+/// The caller's other conversations are NOT here. The page reads this view after every hub
+/// message, and a list that reads every listed transcript for its titles would be reloaded
+/// on every reply; it has its own read.
 /// </para>
 /// </summary>
 /// <param name="Question">The question the turn is blocked on, if it is. It reaches the
@@ -18,5 +18,4 @@ public sealed record SpecDialogView(
     string DialogId,
     SpecDialogSessionView? Session,
     IReadOnlyList<SpecDialogProjectView> Projects,
-    IReadOnlyList<SpecDialogSessionSummary> OpenSessions,
     SpecDialogChannelQuestion? Question);

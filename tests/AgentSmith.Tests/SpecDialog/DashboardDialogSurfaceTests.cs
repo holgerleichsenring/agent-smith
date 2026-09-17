@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.SpecDialog;
 using System.Security.Claims;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
@@ -139,7 +140,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
             Platform, Dialog, TranscriptRole.User, "a widget that reads the ledger",
             CancellationToken.None);
 
-        var view = await Reader().ReadAsync(Dialog, Owner, CancellationToken.None);
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
 
         view.Session.Should().NotBeNull();
         view.Session!.Scope.Name.Should().Be("sample");
@@ -153,23 +154,11 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
     [Fact]
     public async Task ReadAsync_WithNoSessionOpen_CarriesTheProjectsOneCouldBeOpenedOn()
     {
-        var view = await Reader().ReadAsync(Dialog, Owner, CancellationToken.None);
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
 
         view.Session.Should().BeNull();
         view.Projects.Should().ContainSingle().Which.Templates.Should().ContainSingle()
             .Which.Revision.Should().Be("v1.2");
-    }
-
-    [Fact]
-    public async Task ReadAsync_TheResumableSessions_AreOnlyTheCallersOwn()
-    {
-        await OpenAsync(Owner);
-        await OpenAsync(Intruder, "d-other");
-
-        var mine = await Reader().ReadAsync(Dialog, Owner, CancellationToken.None);
-
-        mine.OpenSessions.Should().ContainSingle(
-            "a session id is all '/spec resume' needs, so another principal's may not be listed");
     }
 
     [Fact]
@@ -197,7 +186,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         var deadline = DateTimeOffset.UtcNow.AddMinutes(15);
         _pending.Set(state!.JobId, Approval("file these three tickets?"), deadline);
 
-        var view = await Reader().ReadAsync(Dialog, Owner, CancellationToken.None);
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
 
         view.Question.Should().NotBeNull();
         view.Question!.Text.Should().Be("file these three tickets?");
@@ -211,7 +200,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
     {
         await OpenAsync(Owner);
 
-        (await Reader().ReadAsync(Dialog, Owner, CancellationToken.None))
+        (await Reader().ReadAsync(Dialog, CancellationToken.None))
             .Question.Should().BeNull();
     }
 
@@ -226,7 +215,9 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
     private readonly SpecDialogPendingQuestions _pending = new();
 
     private SpecDialogViewReader Reader() =>
-        new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending);
+        new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending,
+            new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
+            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()));
 
     private SpecDialogMessenger Messenger() =>
         new([Adapter()], NullLogger<SpecDialogMessenger>.Instance);

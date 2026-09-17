@@ -14,8 +14,8 @@ scope:
     succeeds or fails. The observer is carried ambiently for the duration of a turn — the pattern the
     run context already uses — with a silent default, so every run that does not set one behaves
     exactly as today. The spec-dialog turn runner sets one for dashboard sessions before the pipeline
-    runs; it resolves the dialog to push to from the session at push time. The page renders a line per
-    repository: opening, ready, or failed.
+    runs, pushing to the dialog the turn runs on. The page renders a line per repository and revision:
+    opening, ready, or failed.
   out: >
     A RUN ID ANNOUNCEMENT OR JOINING A RUN GROUP.
     A CHANGE TO THE SCOPE FACTORY'S SIGNATURE OR TO THE SHARED TEMPLATE SCOPES.
@@ -60,7 +60,7 @@ steps:
   - id: the-scope-reports
     action: "Opening, ready and failed are reported from the one materialising method, once each."
   - id: the-turn-sets-it
-    action: "The spec-dialog turn runner sets a dashboard observer for dashboard sessions, resolving the dialog at push time."
+    action: "The spec-dialog turn runner sets a dashboard observer for dashboard sessions, bound to the dialog the turn runs on."
   - id: the-types
     action: "The dashboard types carry the push."
 
@@ -68,11 +68,14 @@ tests:
   - "Scope_OnMaterialise_ReportsOpeningThenReady"
   - "Scope_WhenPreparationFails_ReportsFailed"
   - "Scope_OpenedTwice_ReportsOnce"
+  - "Scope_AtARevision_ReportsTheRevisionWithTheName"
   - "Scope_WithNoObserverSet_BehavesAsBefore"
   - "CodingRun_WithTemplates_ReportsNothing"
   - "DialogTurn_OnTheDashboard_PushesEachOpenedRepositoryToItsGroup"
   - "DialogTurn_TemplateScopes_AreReportedToo"
   - "DialogTurn_OnSlack_PushesNothing"
+  - "SpecDialog_WhileATurnReads_ShowsEachOpenedRepositoryAndItsState"
+  - "SpecDialog_WhenTheAnswerArrives_ForgetsTheTurnsRepositories"
 
 done:
   - "an operator watching a design turn sees which repositories it opened, which are ready and which failed"
