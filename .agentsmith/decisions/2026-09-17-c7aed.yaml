@@ -1,0 +1,176 @@
+phase: 2026-09-17-c7aed
+decisions:
+  - id: the-tokens-the-mock-maps-to
+    chose: >
+      The theme's own colour utilities (border-mute, bg-canvas, bg-canvas-soft, text-ink,
+      text-body, bg-primary-deep, text-on-primary) and the six dsh rungs plus eyebrow-uppercase.
+      The mock's primary maps to primary-deep, its sunk ground to canvas-soft, its line to mute.
+      The decision surface, which the mock draws in an attention colour, is drawn in primary-deep.
+    alternative: >
+      Add an attention token to the theme, or keep the amber classes the question card had.
+    why: >
+      The theme has no attention colour, and adding one is the dashboard-wide design change the
+      spec names as out of scope. The amber classes are raw palette, which the new scan refuses.
+      White text on the brand primary is too faint to read, so buttons use its deep rung.
+  - id: an-open-conversation-is-returned-to
+    chose: >
+      Opening a conversation that is still open returns to the dialog id it lives on; only a
+      closed one is resumed onto a fresh dialog id. The spec's test is written against that as
+      SpecDialog_OpeningAClosedConversation_ResumesOntoAFreshDialogIdAndClosesNothing.
+    alternative: >
+      Every opening resumes onto a fresh dialog id, as the spec text says.
+    why: >
+      The spec predates the review fix in 2026-09-17-c7aeb: resuming an open conversation moved
+      it away from the tab still showing it, and a resume is refused mid-turn. That behaviour and
+      its tests stay.
+  - id: the-card-is-on-the-entry
+    chose: >
+      A dialog entry may carry the proposal it produced. Live, a proposal push attaches to the last
+      agent entry, or becomes a turn of its own when the reply it follows was empty (only the
+      draft). On a reload the seed attaches the session's proposal at proposalTurn and keeps that
+      turn even when its text is empty. A card-only turn has the test id dialog-turn-card.
+    alternative: >
+      Always attach to the last agent entry, or render the card beside the transcript.
+    why: >
+      The push follows the reply it came from, but an empty reply adds no entry, so "the last
+      agent entry" would put the card on whatever the agent said before, such as an edit
+      acknowledgement. A separate test id keeps "no empty agent turn" true for a turn that was
+      nothing but the draft.
+  - id: the-pane-follows-the-conversation-until-chosen
+    chose: >
+      The pane defaults to filed, else proposal, else scope, as the one column did. A tab click or
+      a card's Inspect is held only while the proposal and filing objects are the same ones; a new
+      push takes the pane back. Inspecting an older card shows that card's proposal marked
+      superseded.
+    alternative: >
+      Keep the choice until the operator changes it, or let Inspect only switch the tab.
+    why: >
+      What is being decided now outranks a tab picked earlier, which is what the old column
+      promised and its tests pin. Live, every proposing turn has a card, and a card that showed the
+      latest proposal instead of its own would point at the wrong thing.
+  - id: a-tab-without-content-is-not-offered
+    chose: >
+      Proposal only with a proposal, filed only with a filing, scope with a session or a configured
+      project. With none of them the scope panel still renders its "no project is configured"
+      sentence, with no tab.
+    alternative: >
+      Always offer all three tabs, empty ones disabled.
+    why: >
+      The spec asks that a tab with nothing to show is not offered. The sentence about a missing
+      project is the only thing that tells an operator why nothing can start.
+  - id: the-decision-surface-counts-what-the-proposal-carries
+    chose: >
+      The approval question shows one line built from the proposal ("File this epic? A parent
+      record and 2 slices."), the confirmation text as sent below it, and Approve & file / Reject.
+      Every other question kind keeps its controls, and an expired approval keeps its no-longer-
+      waiting state.
+    alternative: >
+      The mock's line alone, or the confirmation text alone.
+    why: >
+      The mock's line is what an operator decides on; the confirmation text is where reviewer
+      findings will arrive (2026-09-15-1499), so it stays visible. Nothing about ordering is said
+      that the proposal does not carry.
+  - id: wording-kept-where-the-data-says-less
+    chose: >
+      Slices are "in the order they will be filed", not the mock's "in the order they run". A
+      slice's "Waits for" names its requires ids. Reading lines keep "repo: state" with a glyph in
+      front, and the working line says "Opening the repositories it needs…" or "Working it out…",
+      with no duration. The conversation chip reads "epic filed" or "epic partly filed", followed
+      by its ticket count (see the-ticket-count-is-read-not-hovered).
+    alternative: >
+      Take the mock's words throughout.
+    why: >
+      The backend orders children with the filer's orderer, which is filing order; whether one
+      runs after another depends on the project. A glyph alone would state a failure by colour.
+      The existing list test's wording assertion was updated to the mock's chip words.
+  - id: the-name-once-in-the-rail
+    chose: >
+      The rail entry reads Work it out under the unchanged section label Design; the place table,
+      the page head and the failure surface ("Work it out page") say Work it out. The route stays.
+    alternative: >
+      Rename the section label as well.
+    why: >
+      The spec's decision: renaming both prints the name twice. The rail test renders the link
+      text and counts the name once.
+  - id: collapse-by-container
+    chose: >
+      The grid sits in an @container: one column below 48rem, exchange plus pane from 48rem with
+      the conversations spanning above, three columns from 72rem.
+    alternative: >
+      Viewport breakpoints, or folding the conversations into a disclosure.
+    why: >
+      The shell's rail and padding take a fixed share of the window, so only the surface's own
+      width says whether three columns fit. Spanning above is the mock's own narrow layout. The
+      breakpoints are unverified by eye in this phase: no test measures layout.
+  - id: the-palette-scan-is-scoped
+    chose: >
+      DialogComponents_ClassNameScan_FindsNoRawPaletteClass scans the files directly under
+      components/dialog for utility prefixes followed by a Tailwind palette name and shade, or by
+      white or black.
+    alternative: >
+      A dashboard-wide scan, or a computed-style check.
+    why: >
+      Other surfaces use the raw palette hundreds of times. The name says it is a class-name scan,
+      because colour arriving through a stylesheet or a shared primitive passes it.
+  - id: two-components-replaced
+    chose: >
+      DialogSessionControls became DialogConversations (list, picker, new) with the identity line
+      moved to the exchange head; DialogColumn became DialogPane. Their test ids are kept.
+    alternative: >
+      Restyle the two in place.
+    why: >
+      The controls were one row of buttons and the column one panel at a time; the layout the mock
+      draws is a column of its own and a tabbed pane, and keeping the old names would mislabel them.
+  - id: a-proposal-the-server-let-go-leaves-the-page
+    chose: >
+      A read issued after the page learned its proposal (from a push or from the seed), which
+      carries no proposal, clears it from the pane and takes its card off the exchange, dropping a
+      turn that was only that card. Rejection and timeout reach the page the same way — a notice
+      and the read after it — so one rule covers both. Earlier, superseded cards stay.
+    alternative: >
+      Recognise the rejection and timeout notices by their words, or clear on the approval
+      question going away, or leave live and reload disagreeing.
+    why: >
+      The server clears the stored proposal on both and a reload shows it gone; the read after the
+      notice is the server's own view, so nothing is inferred from wording. A read issued before
+      the push cannot have seen it and says nothing about it. An edit note keeps the proposal
+      stored, so its read keeps the card. The test for an answer turn now mocks the read holding
+      the proposal, as the server does.
+  - id: a-live-push-outranks-a-read-that-left-before-it
+    chose: >
+      The page records the read count when it learns a proposal or a question. A re-seeding read
+      issued before that push keeps the live proposal and puts its card back on the seeded
+      transcript, and does not overwrite the live question. A draft the read caught stored gives
+      its card way to the live one, compared by content because a push and a read stamp it with
+      different moments.
+    alternative: >
+      Compare the push's at with the read's proposal at, or ignore any read that overlaps a push.
+    why: >
+      The push is stamped when sent and the read stamps the stored draft with its turn's moment,
+      so the two ats never match; the existing reads counter already orders what the page issued
+      against what it received. Ignoring the read would lose the transcript it exists to seed. A
+      question pushed during the read was overwritten the same way, which hid the approval
+      summary, so it takes the same guard.
+  - id: the-ticket-count-is-read-not-hovered
+    chose: >
+      The chip reads "epic filed · 3 tickets" or "epic partly filed · 3 tickets"; with no kind it
+      reads "3 tickets filed". The title attribute is gone.
+    alternative: >
+      Keep the count in a title, or add it as visually hidden text.
+    why: >
+      A title is not reliably exposed to keyboard or screen-reader users and never to touch, and
+      the count is what says how much a partial filing made. The list test asserts the whole
+      chip text.
+  - id: review-findings-left-to-successors
+    chose: >
+      Three review findings are not fixed here. In the narrow stacked layout Inspect switches the
+      pane off-screen and gives no feedback — successor "Inspect scrolls the stacked pane into
+      view". The conversation list is re-read only on a session change or a filing, so a
+      conversation that crosses midnight stays under Yesterday — successor "the conversation list
+      regroups when the day changes". The approval summary uses digits where the mock spells
+      numbers, and the mock's "now" time is not shown — deliberate, no successor.
+    alternative: >
+      Fix all of them in this phase.
+    why: >
+      The first two need behaviour this phase does not have (scroll management, a clock tick) and
+      are named so they are not lost; the last two are wording and data choices already made.

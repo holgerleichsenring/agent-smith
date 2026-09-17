@@ -34,6 +34,9 @@ export interface DialogEntry {
   kind: DialogEntryKind;
   text: string;
   at: string;
+  /** 2026-09-17-c7aed: the proposal this agent turn produced, shown as a card on it. Live every
+   *  proposing turn keeps its own; after a reload only the latest is known. */
+  proposal?: SpecDialogProposalPush;
 }
 
 export interface SpecDialogState {
@@ -90,6 +93,16 @@ export function useSpecDialog(): SpecDialogState {
   // into a group this page has not joined, so it waits for the subscription.
   const pending = useRef<string | null>(null);
   const counter = useRef(0);
+  // The reply a proposal follows added no entry when it was only the draft, so its card needs
+  // a turn of its own rather than the agent line said before it.
+  const replyWasDraftOnly = useRef(false);
+  // The proposal the pane holds and the read count when it was learned. Only a read issued
+  // AFTER that says anything about it: an earlier one may have left before the push arrived,
+  // and one issued later that holds no proposal means the server let it go — a rejection or a
+  // timed-out approval, which a reload would also show as gone.
+  const known = useRef<KnownProposal | null>(null);
+  // The same for a question: one pushed while a read was out is newer than what that read says.
+  const askedAtRead = useRef<number | null>(null);
 
   // Reading the held id is a browser act, so it happens after the first render rather
   // than during it.
@@ -114,15 +127,35 @@ export function useSpecDialog(): SpecDialogState {
       setView(next);
       // The question lives only in this state and in the server's in-memory wait, so a
       // reload has to take it back from the read or the approval gate loses its card.
-      setQuestion(next.question);
+      if (askedAtRead.current === null || askedAtRead.current < issued) setQuestion(next.question);
       const armed = reseed.current;
-      if (armed === false) return;
-      if (typeof armed === "string" && next.session?.sessionId !== armed) return;
+      const live = known.current;
+      const learnedBefore = live !== null && live.read < issued;
+      if (armed === false || (typeof armed === "string" && next.session?.sessionId !== armed)) {
+        if (learnedBefore && !next.session?.proposal) {
+          known.current = null;
+          setProposal(null);
+          setEntries((held) => withoutCard(held, live.proposal));
+        }
+        return;
+      }
       reseed.current = false;
+      // A proposal pushed while this read was out is newer than anything the read carries.
+      // The read may still have caught it stored, under a moment of its own: its card then
+      // gives way to the live one rather than standing beside it.
+      if (live !== null && !learnedBefore) {
+        const seeded = seed(next);
+        const stored = next.session?.proposal ?? null;
+        const rest = stored && sameDraft(stored, live.proposal) ? withoutCard(seeded, stored) : seeded;
+        // The pane already holds it, and whatever was filed after it; only the entries were replaced.
+        setEntries(withCard(rest, live.proposal, live.ownTurn));
+        return;
+      }
       setEntries(seed(next));
       // The pane lived only in pushes, so a reload lost what was being decided and what was
       // filed. The session keeps both; the column takes them back the way the pushes set it.
       const held = heldOutcome(next);
+      known.current = held.proposal ? { proposal: held.proposal, read: issued, ownTurn: false } : null;
       setProposal(held.proposal);
       setFiled(held.filed);
     } catch (thrown) {
@@ -181,11 +214,14 @@ export function useSpecDialog(): SpecDialogState {
       setAwaiting(false);
       setReadings([]);
       // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
-      if (message.text.trim().length > 0) append("agent", message.text, message.at);
+      replyWasDraftOnly.current = message.text.trim().length === 0;
+      if (!replyWasDraftOnly.current) append("agent", message.text, message.at);
       void load(dialogId);
     });
     const offQuestion = client.specDialogQuestions.add((asked) => {
-      if (asked.dialogId === dialogId) setQuestion(asked);
+      if (asked.dialogId !== dialogId) return;
+      askedAtRead.current = reads.current;
+      setQuestion(asked);
     });
     // A new proposal supersedes the last one AND whatever it was filed as: the column
     // moves back to what is being decided now.
@@ -193,6 +229,9 @@ export function useSpecDialog(): SpecDialogState {
       if (proposed.dialogId !== dialogId) return;
       setProposal(proposed);
       setFiled(null);
+      const ownTurn = replyWasDraftOnly.current;
+      known.current = { proposal: proposed, read: reads.current, ownTurn };
+      setEntries((held) => withCard(held, proposed, ownTurn));
     });
     const offReading = client.specDialogReadings.add((reading) => {
       if (reading.dialogId === dialogId) setReadings((held) => upsertReading(held, reading));
@@ -244,6 +283,9 @@ export function useSpecDialog(): SpecDialogState {
   // so its answer lands in a group this page has joined.
   const switchTo = useCallback((command: string | null, awaited: boolean | string, to?: string) => {
     reseed.current = awaited;
+    replyWasDraftOnly.current = false;
+    known.current = null;
+    askedAtRead.current = null;
     setEntries([]);
     setQuestion(null);
     setProposal(null);
@@ -288,6 +330,14 @@ export function useSpecDialog(): SpecDialogState {
   };
 }
 
+interface KnownProposal {
+  proposal: SpecDialogProposalPush;
+  /** The read count when the page learned it; reads issued up to it cannot have seen it. */
+  read: number;
+  /** Whether its card was a turn of its own, for a re-seed that has to put it back. */
+  ownTurn: boolean;
+}
+
 /** A repository keeps its place; a later state replaces the earlier one. */
 function upsertReading(
   held: SpecDialogReadingPush[],
@@ -298,15 +348,51 @@ function upsertReading(
   return held.map((line, index) => (index === at ? reading : line));
 }
 
+/** A turn that was only a draft is kept when the card belongs on it, and dropped otherwise. */
 function seed(view: SpecDialogView): DialogEntry[] {
-  return (view.session?.transcript ?? [])
-    .map((turn, index) => ({
+  const session = view.session;
+  return (session?.transcript ?? [])
+    .map((turn, index): DialogEntry => ({
       key: `held-${index}`,
-      kind: (turn.role === "user" ? "user" : "agent") as DialogEntryKind,
+      kind: turn.role === "user" ? "user" : "agent",
       text: turn.text,
       at: turn.at,
+      ...(index === session?.proposalTurn && session.proposal ? { proposal: session.proposal } : {}),
     }))
-    .filter((entry) => entry.kind === "user" || entry.text.trim().length > 0);
+    .filter((entry) => entry.kind === "user" || entry.text.trim().length > 0 || entry.proposal);
+}
+
+/** A proposal follows the reply it came from, so its card goes on that reply — or on a turn of
+ *  its own when the reply was nothing but the draft and so added no entry. */
+function withCard(
+  held: DialogEntry[],
+  proposal: SpecDialogProposalPush,
+  ownTurn: boolean,
+): DialogEntry[] {
+  const last = held.at(-1);
+  if (!ownTurn && last?.kind === "agent" && !last.proposal) {
+    return [...held.slice(0, -1), { ...last, proposal }];
+  }
+  return [...held, { key: `card-${proposal.at}-${held.length}`, kind: "agent", text: "", at: proposal.at, proposal }];
+}
+
+/** The proposal the server let go takes its card with it; a turn that was only that card goes too. */
+function withoutCard(held: DialogEntry[], proposal: SpecDialogProposalPush): DialogEntry[] {
+  return held
+    .map((entry) => {
+      if (entry.proposal !== proposal) return entry;
+      const rest = { ...entry };
+      delete rest.proposal;
+      return rest;
+    })
+    .filter((entry) => entry.kind === "user" || entry.text.trim().length > 0 || entry.proposal);
+}
+
+/** The same draft, whichever moment it was stamped with — a push and a read stamp it differently. */
+function sameDraft(a: SpecDialogProposalPush, b: SpecDialogProposalPush): boolean {
+  const draft = ({ kind, bug, phase, parent, children }: SpecDialogProposalPush) =>
+    JSON.stringify({ kind, bug, phase, parent, children });
+  return draft(a) === draft(b);
 }
 
 /** A filing older than the proposal filed an earlier one, and the proposal outranks it —

@@ -116,6 +116,13 @@ tests:
   - "dashboard: the approval surface states only what the proposal carries"
   - "dashboard: a tab with nothing to show is not offered"
   - "dashboard: the dialog components contain no raw palette class"
+  - "dashboard: a rejected proposal leaves no tab and no card, live as after a reload"
+  - "dashboard: a timed-out approval leaves no tab and no card, live as after a reload"
+  - "dashboard: a proposal pushed while the first read is out survives the read"
+  - "dashboard: a read that caught the live proposal stored shows its card once"
+  - "dashboard: a new conversation forgets that the last reply was only a draft"
+  - "dashboard: inspecting an earlier card shows its draft marked superseded"
+  - "dashboard: speakers, cards and tabs are named for assistive technology"
 
 done:
   - "the rail, the header and the place table all say Work it out"
