@@ -1,0 +1,139 @@
+phase: 2026-09-17-c7aeb
+decisions:
+  - id: the-resume-is-its-own-type
+    chose: >
+      SpecDialogResumer owns the resume (ownership, the mid-turn refusal, the move) and returns a
+      SpecDialogResumeResult union: resumed, not found, refused with whether a question is waiting.
+      The command handler maps each to a reply; the session manager no longer resumes.
+    alternative: >
+      Keep ResumeAsync on SpecDialogSessionManager and give the manager the turn gate and the
+      pending-question registry, returning null for "not found" and a new flag for "busy".
+    why: >
+      The manager stood at 119 of 120 lines, and a null could not carry a third answer. A refusal
+      is only reported after the owner check, so it tells nobody else whether a session is busy.
+  - id: the-gate-is-held-for-the-move
+    chose: >
+      The resume refuses while a question is pending, then enters the turn gate itself and holds it
+      for the rewrite, releasing it after.
+    alternative: >
+      Only ask whether the gate is held, through a new read method on the gate.
+    why: >
+      A check-then-move leaves a window in which a message on the old tab starts a turn on the
+      thread about to move. Holding the gate closes it with the gate's own TryEnter; a message in
+      that moment is told a turn is in progress and still reaches the transcript.
+  - id: the-list-is-a-read-of-its-own
+    chose: >
+      GET /api/spec-dialog/conversations (dialog.write) answers for the signed-in principal through
+      SpecDialogConversationList. SpecDialogView loses OpenSessions, and its reader loses the owner
+      parameter it only needed for that list.
+    alternative: >
+      Keep the list in the view, or add an id-carrying read for a closed session.
+    why: >
+      The view is re-read after every hub message and the list parses every listed transcript. The
+      list takes no dialog id, so it needs no ownership rule beyond the owner filter in its query.
+  - id: capped-by-id-sorted-in-memory
+    chose: >
+      ListByOwnerAsync filters platform and owner, orders by Id descending and takes 50 in SQL, then
+      sorts by LastActivityAt in memory. The owner column gains an index, migrated in both sets as
+      AddSpecDialogSessionOwnerIndex.
+    alternative: >
+      ORDER BY LastActivityAt in SQL, or no cap.
+    why: >
+      SQLite cannot order by a DateTimeOffset. A resume does not change Id, so a conversation created
+      before the 50 most recent and resumed today falls outside the list.
+  - id: outcome-and-title-derived
+    chose: >
+      The outcome comes from SpecDialogLatestOutcomeStore.Of(session), the one reading of c7aea's two
+      columns: none without a filing that created a ticket; kind from the latest proposal; partial
+      when the filing has an error. The title is the first operator turn's first prose line outside
+      a leading fence, shortened to 120 characters.
+    alternative: >
+      An outcome column and a title column.
+    why: >
+      A second record of the filing could disagree with the first, and a title column would be null
+      for every older conversation. The kind is null when a later proposal was rejected, because the
+      filing does not record what it filed.
+  - id: dashboard-reseeds-on-the-awaited-session
+    chose: >
+      Opening a past conversation mints a dialog id, queues "/spec resume <id>" for the subscription,
+      and arms re-seeding with that SESSION ID: a read re-seeds only once it shows that session.
+      Clicking the conversation open in this tab does nothing.
+    alternative: >
+      Set the boolean reseed flag after the resume post resolves.
+    why: >
+      The fresh id's first read and the resume race, and the hub reply can arrive before the post
+      resolves. Waiting for the session covers every order, so the re-seed happens after the resume.
+      A refused resume leaves it armed until the tab opens or starts a conversation.
+  - id: list-reread-when-the-session-here-changes
+    chose: >
+      The page reads the list on mount, after a filing push, and when the session held in this tab
+      changes (opened, resumed, forked).
+    alternative: >
+      Mount and filing only, as the spec says.
+    why: >
+      Otherwise a conversation opened in this tab would stay missing from the list until a filing or
+      a reload. A session change is not per message, so the list still stays off the hot path.
+  - id: another-tab-finds-out-late
+    chose: >
+      Not built. A conversation open in tab A and opened in tab B moves to B; A's next message finds
+      nothing open and the page's auto-open starts a new conversation on A's old id.
+    alternative: >
+      Push a "moved" notice to the old dialog group on resume.
+    why: >
+      Nothing is lost. Telling that tab is the successor named in the spec: a tab whose conversation
+      was opened elsewhere is told so instead of starting a new one.
+
+  - category: Correctness
+    chose: "A filing records the kind it filed; the list reads the kind from the filing"
+    over: "Deriving the kind from the latest proposal, as this phase first did"
+    reason: |
+      Found while rebasing onto the review fixes of 2026-09-17-c7aea, which made a timed-out approval
+      clear the latest proposal as a rejection already did. Deriving the outcome's kind from that
+      proposal meant an epic filed and then followed by any discarded proposal — rejected or merely
+      left to time out — lost what it was, and the list read "filed" with no kind. What was filed does
+      not change because a later idea was dropped, so the filing record keeps its own kind. A record
+      written before the kind was kept falls back to the proposal, which is what it used to read.
+  - category: Correctness
+    chose: "The one reading of a session's pane record is forgiving, for the view and the list alike"
+    over: "A static reader shared by both, which threw on an unreadable row"
+    reason: |
+      This phase moved the reading into one method so the view and the list could not disagree;
+      c7aea's review had made the view's reading forgiving at the same time. Merged naively, the list
+      would have kept the throwing reader — and since it reads every listed session, one malformed row
+      would have failed the operator's whole history rather than one outcome. The single reading is now
+      an instance method that logs and shows the record as absent, and the list takes the store.
+  - category: Correctness
+    chose: "Opening a conversation that is still open returns to the dialog it lives on"
+    over: "Resuming it onto a fresh dialog id, as every opening did"
+    reason: |
+      Found in review. A dialog id is a tab, a session is the conversation. Resuming an open
+      conversation from the list moved it away from the dialog that still showed it, so the first tab
+      went silent without being told. The list now names the dialog an open conversation lives on and
+      the dashboard goes there; only a closed conversation is resumed onto a fresh id.
+  - category: Correctness
+    chose: "A resume into the thread the session already lives in closes nothing"
+    over: "Closing every open session of the target thread before reopening"
+    reason: |
+      Found in review. The close ran before the session was reopened, so resuming into its own thread
+      closed the very session being resumed, and the tests missed it because one shared change tracker
+      still held the open row. The resume now recognises that it is already there.
+  - category: Implementation
+    chose: "A failed read of the conversation list is logged, not shown as a failed dialog"
+    over: "Setting the dialog's failure, which put a failure banner over a working conversation"
+    reason: |
+      The list is a side panel. Its read failing says nothing about the conversation in front of the
+      operator, who can keep talking.
+  - category: Scope
+    chose: "Named successors for the review findings this phase does not fix"
+    reason: |
+      - The router appends the operator's message before it takes the turn gate, so a resume refused
+        by the gate can race a message already appended. Successor: the router takes the turn gate
+        before it appends. SpecDialogRouter is at its length baseline, so the reorder needs its own cut.
+      - Every anonymous operator (no sign-in configured) shares one owner, so each sees all anonymous
+        conversations. Successor: the conversation list without sign-in is scoped to the dialog's tab.
+      - A later failed filing that created no ticket replaces the report of an earlier successful one,
+        so the list stops showing the epic that was filed. Successor: a filing that created nothing
+        keeps the previous filing's outcome.
+      - The title reader skips every fenced block, knows only backtick fences, and its 120-character
+        cut has no test. Successor: the conversation title reader covers tilde fences and its cut.
+      - Chat `/spec list` still lists open sessions only; the dashboard list is the full history.

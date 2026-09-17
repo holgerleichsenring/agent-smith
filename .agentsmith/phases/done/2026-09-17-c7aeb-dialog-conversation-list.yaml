@@ -45,8 +45,8 @@ decisions:
       session or a question is pending.
   - key: |
       THE OUTCOME IS DERIVED, NOT STORED TWICE. 2026-09-17-c7aea keeps the latest filing report durably.
-      The kind comes from the latest proposal and partial from a report that did not succeed but created
-      tickets. A second column would be a second record of one fact that could disagree with the first.
+      The kind comes from the filing, which records what it filed, and partial from a report that did not
+      succeed but created tickets. A second column would be a second record of one fact that could disagree with the first.
       Only filings produce an outcome, so an answer after a filing changes nothing and a conversation
       that filed nothing shows none.
   - key: |

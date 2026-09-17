@@ -77,11 +77,31 @@ describe("Places", () => {
       .toEqual([]);
   });
 
-  it("Places_TheDesignDialog_IsATopLevelDestination", () => {
+  it("Places_WorkItOut_IsATopLevelDestination", () => {
     // 2026-09-15-cb3e: designing the work is a peer of watching it, not a diagnostic
     // under /system — and the table is closed, so the route lives in it or nowhere.
-    expect(placeForPath("/spec-dialog")).toBe("Design dialog");
+    expect(placeForPath("/spec-dialog")).toBe("Work it out");
     expect(railHrefs("/")).toContain("/spec-dialog");
+  });
+
+  // 2026-09-17-c7aed: the parity test above compares hrefs, so a rail still reading the old
+  // name passed it. This one reads the link's own text — and the name appears once, on the
+  // entry, not again as the section label above it.
+  it("Places_WorkItOut_TheRailRendersTheSameLabel", () => {
+    usePathname.mockReturnValue("/");
+    const view = render(
+      <EventStoreProvider store={silentEventStore()}>
+        <ConfigCatalogProvider>
+          <AppRail />
+        </ConfigCatalogProvider>
+      </EventStoreProvider>,
+    );
+    const rail = screen.getByTestId("app-rail");
+    const link = rail.querySelector('a[href="/spec-dialog"]');
+
+    expect(link).toHaveTextContent(placeForPath("/spec-dialog")!);
+    expect(rail.textContent?.split("Work it out")).toHaveLength(2);
+    view.unmount();
   });
 
   it("Places_TheHomePath_IsOnePlaceNotFiveBuckets", () => {

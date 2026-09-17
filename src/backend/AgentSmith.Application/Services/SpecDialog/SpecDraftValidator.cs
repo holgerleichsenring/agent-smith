@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using AgentSmith.Application.Services.Validation;
 using YamlDotNet.Core;
 
@@ -17,17 +16,14 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// rule in the schema unenforceable.
 /// </para>
 /// </summary>
-public sealed partial class SpecDraftValidator(PhaseSpecSchemaProvider schemaProvider)
+public sealed class SpecDraftValidator(PhaseSpecSchemaProvider schemaProvider)
     : ISpecDraftValidator
 {
-    [GeneratedRegex("```yaml\\s*\\n(.*?)```", RegexOptions.Singleline)]
-    private static partial Regex YamlBlockRegex();
-
     public SpecDraftOutcome Validate(string reply)
     {
         if (string.IsNullOrWhiteSpace(reply)) return new SpecDraftAbsent();
 
-        var blocks = YamlBlockRegex().Matches(reply);
+        var blocks = SpecDialogDraftBlocks.YamlBlock().Matches(reply);
         if (blocks.Count == 0) return new SpecDraftAbsent();
         if (blocks.Count > 1)
             return new SpecDraftInvalid(

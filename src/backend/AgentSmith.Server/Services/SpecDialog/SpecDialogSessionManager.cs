@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// Opens, continues, closes, resumes and forks spec-dialog sessions keyed by
-/// chat thread. State lives in the relational system-of-record (NOT the
+/// Opens, continues, closes and forks spec-dialog sessions keyed by chat thread; a resume
+/// is <see cref="SpecDialogResumer"/>. State lives in the relational system-of-record (NOT the
 /// volatile Redis conversation cache) so transcripts survive a Redis flush.
 /// </summary>
 public sealed class SpecDialogSessionManager(
@@ -66,40 +66,6 @@ public sealed class SpecDialogSessionManager(
         session.LastActivityAt = turn.At;
         await repository.SaveAsync(ct);
 
-        return SpecDialogSessionMapper.ToState(session);
-    }
-
-    /// <summary>
-    /// Re-binds the session with the given id to the current thread and reopens
-    /// it, so the conversation continues where it left off.
-    /// </summary>
-    /// <summary>
-    /// 2026-09-15-9033: a session is resumed by its OWNER or by nobody. The lookup is by
-    /// session id alone — no platform, no channel — and the resume then rewrites where the
-    /// session lives, so without this check a /spec resume typed in any chat thread pulls a
-    /// session out from under whoever opened it, transcript and approval gate included.
-    /// An unowned session answers "not found" rather than "not yours": the same reply the
-    /// caller gets for an id that never existed, so the command is no id oracle either.
-    /// </summary>
-    public async Task<ConversationState?> ResumeAsync(
-        string sessionId, string userId, string platform, string channelId, string threadId,
-        CancellationToken ct)
-    {
-        var session = await repository.GetBySessionIdAsync(sessionId, ct);
-        if (session is null || !string.Equals(session.UserId, userId, StringComparison.Ordinal))
-            return null;
-
-        await repository.CloseOpenForThreadAsync(platform, threadId, ct);
-        session.Platform = platform;
-        session.ChannelId = channelId;
-        session.ThreadId = threadId;
-        session.IsOpen = true;
-        session.LastActivityAt = timeProvider.GetUtcNow();
-        await repository.SaveAsync(ct);
-
-        logger.LogInformation(
-            "Resumed spec-dialog session {SessionId} into thread {ThreadId} on {Platform}",
-            sessionId, threadId, platform);
         return SpecDialogSessionMapper.ToState(session);
     }
 

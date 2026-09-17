@@ -16,22 +16,22 @@ export function DialogScopePanel({
   projects: SpecDialogProject[];
 }) {
   return (
-    <aside data-testid="dialog-scope" className="rounded border border-stone-200 p-3">
-      <h2 className="dsh-h3 mb-1 font-semibold text-stone-800">Scope</h2>
+    <div data-testid="dialog-scope">
+      <h2 className="dsh-h3 mb-1 font-semibold text-ink">Scope</h2>
       {session ? (
         <>
-          <p className="mb-2 text-xs text-[var(--color-ink-mid)]">
+          <p className="mb-2 dsh-label text-body">
             What this conversation may read.
           </p>
           <Grounding project={session.scope} />
         </>
       ) : (
         <>
-          <p className="mb-2 text-xs text-[var(--color-ink-mid)]">
+          <p className="mb-2 dsh-label text-body">
             No conversation is open on this page yet. A new one can be grounded in:
           </p>
           {projects.length === 0 ? (
-            <p data-testid="dialog-scope-none" className="dsh-body text-stone-700">
+            <p data-testid="dialog-scope-none" className="dsh-body text-ink">
               No project is configured, so there is nothing to design against yet.
             </p>
           ) : (
@@ -39,14 +39,14 @@ export function DialogScopePanel({
           )}
         </>
       )}
-    </aside>
+    </div>
   );
 }
 
 function Grounding({ project }: { project: SpecDialogProject }) {
   return (
     <div data-testid={`dialog-scope-project-${project.name}`} className="mb-3">
-      <div className="dsh-body font-semibold text-stone-800">{project.name}</div>
+      <div className="dsh-body font-semibold text-ink">{project.name}</div>
       <Facts label="Repositories" items={project.repos} empty="no repositories" />
       <Facts
         label="Templates"
@@ -61,11 +61,11 @@ function Grounding({ project }: { project: SpecDialogProject }) {
 function Facts({ label, items, empty }: { label: string; items: string[]; empty: string }) {
   return (
     <div className="mt-1">
-      <div className="dsh-label uppercase tracking-wide text-[var(--color-ink-mid)]">{label}</div>
+      <div className="eyebrow-uppercase text-body">{label}</div>
       {items.length === 0 ? (
-        <div className="dsh-label text-[var(--color-ink-mid)]">{empty}</div>
+        <div className="dsh-label text-body">{empty}</div>
       ) : (
-        <ul className="dsh-label ml-4 list-disc text-stone-700">
+        <ul className="ml-4 list-disc font-mono dsh-mono text-ink">
           {items.map((item) => (
             <li key={item}>{item}</li>
           ))}

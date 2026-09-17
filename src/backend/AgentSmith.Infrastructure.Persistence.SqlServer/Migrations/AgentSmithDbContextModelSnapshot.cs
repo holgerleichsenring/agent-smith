@@ -1157,6 +1157,12 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("LastActivityAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("LatestFilingJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LatestProposalJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Platform")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -1197,6 +1203,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.HasIndex("SessionId")
                         .IsUnique();
+
+                    b.HasIndex("UserId");
 
                     b.HasIndex("Platform", "ThreadId");
 

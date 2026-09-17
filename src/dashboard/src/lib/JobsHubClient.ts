@@ -18,6 +18,7 @@ import type {
   SpecDialogMessagePush,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
+  SpecDialogReadingPush,
 } from "@/types/spec-dialog";
 
 // p0169f: single shared HubConnection per tab; ref-counted group
@@ -135,6 +136,9 @@ export class JobsHubClient {
   // plan back into a column that has since moved on.
   readonly specDialogProposals = makeSubject<SpecDialogProposalPush>();
   readonly specDialogFilings = makeSubject<SpecDialogFilingPush>();
+  // 2026-09-17-c7aec: which repositories the running turn opened. A plain subject: a line
+  // replayed to a later listener would put a finished turn's repository back on screen.
+  readonly specDialogReadings = makeSubject<SpecDialogReadingPush>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -362,6 +366,8 @@ export class JobsHubClient {
       this.specDialogProposals.emit(proposal));
     conn.on("SpecDialogFiled", (filing: SpecDialogFilingPush) =>
       this.specDialogFilings.emit(filing));
+    conn.on("SpecDialogReading", (reading: SpecDialogReadingPush) =>
+      this.specDialogReadings.emit(reading));
     conn.on("SandboxActivity", (rollup: SandboxActivityRollup) =>
       this.sandboxActivity.emit(rollup));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>

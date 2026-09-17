@@ -1,9 +1,10 @@
-// 2026-09-15-cb3e: the dialog surface's two calls — what is on this dialog id, and one
-// message into it. Both carry the dialog id the BROWSER minted; the server decides whether
-// this caller owns the conversation behind it.
+// 2026-09-15-cb3e: the dialog surface's calls — what is on this dialog id, one message into
+// it, and the caller's conversations. The first two carry the dialog id the BROWSER minted;
+// the server decides whether this caller owns the conversation behind it. The list carries
+// no id at all: it answers for the signed-in principal.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
-import type { SpecDialogView } from "@/types/spec-dialog";
+import type { SpecDialogSessionSummary, SpecDialogView } from "@/types/spec-dialog";
 
 const MESSAGES_PATH = "/api/spec-dialog/messages";
 
@@ -12,6 +13,13 @@ export async function fetchSpecDialog(
   signal?: AbortSignal,
 ): Promise<SpecDialogView> {
   return getJson<SpecDialogView>(`/api/spec-dialog/${encodeURIComponent(dialogId)}`, signal);
+}
+
+/** The caller's conversations, open and closed, most recently active first. */
+export async function fetchSpecDialogConversations(
+  signal?: AbortSignal,
+): Promise<SpecDialogSessionSummary[]> {
+  return getJson<SpecDialogSessionSummary[]>("/api/spec-dialog/conversations", signal);
 }
 
 /**

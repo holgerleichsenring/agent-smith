@@ -203,7 +203,7 @@ export function AppRail() {
               monitoring it — the conversation that decides what gets built. */}
           <Section label="Design" style={{ marginTop: 10 }} />
           <AppRailItem
-            label="Design dialog"
+            label="Work it out"
             href="/spec-dialog"
             icon="✎"
             active={isActive("/spec-dialog")}
