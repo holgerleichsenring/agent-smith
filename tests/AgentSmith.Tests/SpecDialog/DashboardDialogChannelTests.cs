@@ -451,8 +451,9 @@ new DashboardOutcomeChannel(
             new SpecDialogCommandHandler(
                 _sessions, _resumer, new SpecDialogScopeResolver(SingleProjectLoader()),
                 composer, messenger),
-            _turnRunner.Object, outcomeFlow, _turnGate, _pendingQuestions,
-            _dialogueTransport.Object, composer, messenger,
+            _turnRunner.Object, outcomeFlow, _turnGate,
+            new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object),
+            composer, messenger,
             NullLogger<SpecDialogRouter>.Instance);
     }
 

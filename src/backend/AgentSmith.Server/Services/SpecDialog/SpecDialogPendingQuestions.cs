@@ -47,12 +47,12 @@ public sealed class SpecDialogPendingQuestions
     public bool TryPeek(string sessionId, out PendingQuestion pending) =>
         _pending.TryGetValue(sessionId, out pending!);
 
-    public bool TryTake(string sessionId, out string questionId)
-    {
-        var taken = _pending.TryRemove(sessionId, out var pending);
-        questionId = taken ? pending!.Question.QuestionId : null!;
-        return taken;
-    }
+    /// <summary>
+    /// Consumes the question only while it is still the one that was peeked, so an answer is
+    /// recorded by what it answered and never handed to a question that replaced it (2026-09-17-042el).
+    /// </summary>
+    public bool TryTake(string sessionId, PendingQuestion peeked) =>
+        _pending.TryRemove(KeyValuePair.Create(sessionId, peeked));
 
     public void Clear(string sessionId) => _pending.TryRemove(sessionId, out _);
 }

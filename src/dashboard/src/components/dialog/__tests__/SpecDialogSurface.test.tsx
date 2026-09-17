@@ -241,6 +241,86 @@ describe("SpecDialogSurface", () => {
       expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve"));
   });
 
+  // 2026-09-17-042el: a click on the gate is a decision, and it reads as one — live and after a reload.
+  // The post is accepted before it is routed, so the click is pending until a later read confirms it.
+  it("SpecDialog_ApprovingTheGate_ShowsADecisionNotAnOperatorMessage", async () => {
+    await renderSurface();
+    act(() => questions.emit(question()));
+
+    fireEvent.click(await screen.findByTestId("dialog-answer-approve"));
+
+    const pending = await screen.findByTestId("dialog-turn-decision");
+    expect(pending.querySelector("[data-decision]")).toHaveAttribute("data-decision", "approved");
+    expect(pending.querySelector("[data-decision]")).toHaveAttribute("data-pending", "true");
+    expect(pending).not.toHaveTextContent("Approved");
+    expect(screen.queryByTestId("dialog-turn-user")).toBeNull();
+
+    const stored = view();
+    stored.session!.transcript = [
+      { role: "user", text: "approve", at: "2026-09-15T10:02:00Z", decision: "approved" },
+    ];
+    fetchSpecDialog.mockResolvedValue(stored);
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "Filed.", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-turn-decision").querySelector("[data-decision]"))
+        .not.toHaveAttribute("data-pending"));
+    expect(screen.getAllByTestId("dialog-turn-decision")).toHaveLength(1);
+    expect(screen.getByTestId("dialog-turn-decision")).toHaveTextContent("Approved");
+    expect(screen.queryByTestId("dialog-turn-user")).toBeNull();
+  });
+
+  it("SpecDialog_AnApprovalTheServerDidNotRecord_IsDroppedAndTheQuestionComesBack", async () => {
+    await renderSurface();
+    act(() => questions.emit(question()));
+    fireEvent.click(await screen.findByTestId("dialog-answer-approve"));
+    await screen.findByTestId("dialog-turn-decision");
+    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
+
+    const unrecorded = view({ question: question() });
+    unrecorded.session!.transcript = [
+      { role: "user", text: "approve", at: "2026-09-15T10:02:00Z", decision: null },
+    ];
+    fetchSpecDialog.mockResolvedValue(unrecorded);
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "A turn is in progress.", at: new Date().toISOString(),
+    }));
+
+    expect(await screen.findByTestId("dialog-answer-approve")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-turn-decision")).toBeNull();
+  });
+
+  it("SpecDialog_ADecisionThisPageCannotName_ReadsAsTheMessageItWas", async () => {
+    const held = view();
+    held.session!.transcript = [
+      { role: "user", text: "escalate", at: "2026-09-15T10:02:00Z", decision: "escalated" as never },
+    ];
+    fetchSpecDialog.mockResolvedValue(held);
+
+    render(<SpecDialogSurface />);
+
+    expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent("escalate");
+    expect(screen.queryByTestId("dialog-turn-decision")).toBeNull();
+  });
+
+  it("SpecDialog_AReload_ShowsARecordedDecisionAsADecision", async () => {
+    const held = view();
+    held.session!.transcript = [
+      { role: "user", text: "reject", at: "2026-09-15T10:02:00Z", decision: "rejected" },
+      { role: "user", text: "and a question", at: "2026-09-15T10:03:00Z", decision: null },
+    ];
+    fetchSpecDialog.mockResolvedValue(held);
+
+    render(<SpecDialogSurface />);
+
+    const decision = await screen.findByTestId("dialog-turn-decision");
+    expect(decision.querySelector("[data-decision]")).toHaveAttribute("data-decision", "rejected");
+    expect(screen.getAllByTestId("dialog-turn-user")).toHaveLength(1);
+    expect(screen.getByTestId("dialog-turn-user")).toHaveTextContent("and a question");
+  });
+
   it("SpecDialog_ComposedFrameworkText_RendersAsFormattingNotAsPunctuation", async () => {
     await renderSurface();
 

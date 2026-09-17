@@ -78,8 +78,16 @@ tests:
   - "Classifier_YesToAFreeTextQuestion_IsNotADecision"
   - "Router_AnswerWhileATurnHoldsTheGate_IsStillAnAnswer"
   - "TranscriptTurn_RowWithoutDecision_ReadsAsAMessage"
+  - "Admission_QuestionEndsDuringTheAppend_StoresNoDecision"
+  - "Admission_TwoAnswersToOneQuestion_OnlyTheOneTakenKeepsItsDecision"
+  - "Admission_QuestionReplacedDuringTheAppend_IsNotTaken"
+  - "TranscriptTurn_DecisionThisBuildCannotName_ReadsAsNone"
+  - "Router_EditNoteAnswer_ReRunsOverATranscriptEndingInTheNote"
   - "dashboard: approving shows a decision entry, not an operator message"
   - "dashboard: after a reload a recorded decision shows as a decision entry"
+  - "dashboard: a clicked decision is pending until a read confirms the stored decision"
+  - "dashboard: a decision the server did not record is dropped and the question card comes back"
+  - "dashboard: a decision the page cannot name reads as the message it was"
 
 done:
   - "clicking Approve & file shows a decision, not the word approve as a message, live and after a reload"

@@ -1,4 +1,3 @@
-using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
@@ -19,8 +18,7 @@ public sealed class SpecDialogRouter(
     ISpecDialogTurnRunner turnRunner,
     SpecDialogOutcomeFlow outcomeFlow,
     SpecDialogTurnGate turnGate,
-    SpecDialogPendingQuestions pendingQuestions,
-    IDialogueTransport dialogueTransport,
+    SpecDialogAnswerAdmission admission,
     SpecDialogReplyComposer composer,
     SpecDialogMessenger messenger,
     ILogger<SpecDialogRouter> logger)
@@ -53,18 +51,12 @@ public sealed class SpecDialogRouter(
     {
         if (threadId is null) return false;
 
-        var state = await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.User, text, null, ct);
-        if (state is null) return false;
-
-        // A live ask_human question wins: the running master is blocked on it,
-        // so this message IS the answer (it stays in the transcript either way).
-        if (pendingQuestions.TryTake(state.JobId, out var questionId))
-        {
-            await dialogueTransport.PublishAnswerAsync(
-                state.JobId,
-                new DialogAnswer(questionId, text, null, DateTimeOffset.UtcNow, userId), ct);
-            return true;
-        }
+        // A live question wins: the running master is blocked on it, so this message IS the
+        // answer (it stays in the transcript either way).
+        var admitted = await admission.AdmitAsync(text, userId, platform, threadId, ct);
+        if (admitted is null) return false;
+        if (admitted.Answered) return true;
+        var state = admitted.State;
 
         if (!turnGate.TryEnter(state.JobId))
         {
@@ -102,7 +94,7 @@ public sealed class SpecDialogRouter(
                 return;
             }
 
-            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, ct);
+            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
             await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
             // p0315e: a non-answer outcome is proposed + confirmed in-thread,
             // then handed to the outcome sink (p0315c: ticket filing). Runs

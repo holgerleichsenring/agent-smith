@@ -38,6 +38,8 @@ public sealed class SpecDialogRoutingTests : IDisposable
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner;
     private readonly Mock<AgentSmith.Contracts.Dialogue.IDialogueTransport> _dialogueTransport = new();
     private readonly Mock<IOutcomeSink> _outcomeSink = new();
+    private readonly SpecDialogTurnGate _turnGate = new();
+    private readonly SpecDialogPendingQuestions _pendingQuestions = new();
 
     public SpecDialogRoutingTests()
     {
@@ -52,8 +54,8 @@ public sealed class SpecDialogRoutingTests : IDisposable
             repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
         var messenger = new SpecDialogMessenger(
             [_adapter.Object], NullLogger<SpecDialogMessenger>.Instance);
-        var turnGate = new SpecDialogTurnGate();
-        var pendingQuestions = new SpecDialogPendingQuestions();
+        var turnGate = _turnGate;
+        var pendingQuestions = _pendingQuestions;
         var commandHandler = new SpecDialogCommandHandler(
             _sessions,
             new SpecDialogResumer(repository, turnGate, pendingQuestions, TimeProvider.System,
@@ -72,7 +74,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
                 _dialogueTransport.Object,
-                messenger, new SpecDialogPendingQuestions(), outcomeComposer,
+                messenger, pendingQuestions, outcomeComposer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             _outcomeSink.Object, outcomeComposer, messenger,
 new DashboardOutcomeChannel(
@@ -82,8 +84,8 @@ new DashboardOutcomeChannel(
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,
-            _turnRunner.Object, outcomeFlow, turnGate, pendingQuestions,
-            Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(),
+            _turnRunner.Object, outcomeFlow, turnGate,
+            new SpecDialogAnswerAdmission(_sessions, pendingQuestions, _dialogueTransport.Object),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }
 
@@ -190,6 +192,85 @@ new DashboardOutcomeChannel(
         var state = await _sessions.GetOpenByThreadAsync(Platform, "th-kind", CancellationToken.None);
         state!.Transcript.Select(t => (t.Role, t.Kind)).Should().Equal(
             (TranscriptRole.User, (SpecDialogTurnKind?)null), (TranscriptRole.Assistant, SpecDialogTurnKind.Failure));
+    }
+
+    // 2026-09-17-042el: an edit note typed at the approval gate is routed as the answer, and the turn
+    // it re-runs reads a transcript that already ends with the note — the append precedes the publish.
+    [Fact]
+    public async Task Router_EditNoteAnswer_ReRunsOverATranscriptEndingInTheNote()
+    {
+        const string note = "cut it into two slices";
+        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        var reRun = new TaskCompletionSource<ConversationState>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var noteRouted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var turns = 0;
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ConversationState state, CancellationToken _) =>
+            {
+                if (Interlocked.Increment(ref turns) == 1)
+                    return SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft));
+                reRun.TrySetResult(state);
+                await noteRouted.Task;
+                return SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome());
+            });
+        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(answer.Task);
+        // The publish holds its caller until the re-run has read the transcript — awaited or not, a
+        // publish ahead of the append is then seen — and the store is never used by both routes at once.
+        _dialogueTransport.Setup(t => t.PublishAnswerAsync(
+                It.IsAny<string>(), It.IsAny<AgentSmith.Contracts.Dialogue.DialogAnswer>(), It.IsAny<CancellationToken>()))
+            .Returns((string _, AgentSmith.Contracts.Dialogue.DialogAnswer published, CancellationToken _) =>
+            {
+                answer.TrySetResult(published);
+                reRun.Task.Wait(TimeSpan.FromSeconds(10));
+                return Task.CompletedTask;
+            });
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-note", Platform, CancellationToken.None);
+        var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-note", CancellationToken.None))!.JobId;
+        var proposing = Task.Run(() => _router.TryRouteAsync(
+            "draft the phase", "U1", Channel, "th-note", Platform, CancellationToken.None));
+        for (var waited = 0; !_pendingQuestions.TryPeek(sessionId, out _); waited++)
+        {
+            waited.Should().BeLessThan(1000, "the proposal reaches the approval gate");
+            await Task.Delay(10);
+        }
+
+        (await _router.TryRouteAsync(note, "U1", Channel, "th-note", Platform, CancellationToken.None))
+            .Should().BeTrue();
+
+        var reRunState = await reRun.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        noteRouted.SetResult();
+        reRunState.Transcript.Last(turn => turn.Role == TranscriptRole.User).Text.Should().Be(note);
+        (await proposing.WaitAsync(TimeSpan.FromSeconds(10))).Should().BeTrue();
+    }
+
+    // 2026-09-17-042el: a question is pending only while a turn holds the gate, so the answer
+    // must not wait for the gate.
+    [Fact]
+    public async Task Router_AnswerWhileATurnHoldsTheGate_IsStillAnAnswer()
+    {
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-gate", Platform, CancellationToken.None);
+        var opened = await _sessions.GetOpenByThreadAsync(Platform, "th-gate", CancellationToken.None);
+        _turnGate.TryEnter(opened!.JobId).Should().BeTrue();
+        _pendingQuestions.Set(opened.JobId, new AgentSmith.Contracts.Dialogue.DialogQuestion(
+            "q-gate", AgentSmith.Contracts.Dialogue.QuestionType.Approval, "file it?",
+            null, null, "", TimeSpan.FromMinutes(15)), expiresAt: null);
+        var sentBefore = _adapter.Invocations.Count;
+
+        var handled = await _router.TryRouteAsync("approve", "U1", Channel, "th-gate", Platform, CancellationToken.None);
+
+        handled.Should().BeTrue();
+        _adapter.Invocations.Count.Should().Be(sentBefore, "an answer is not told a turn is in progress");
+        _dialogueTransport.Verify(t => t.PublishAnswerAsync(opened.JobId,
+            It.Is<AgentSmith.Contracts.Dialogue.DialogAnswer>(a => a.QuestionId == "q-gate"),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _turnRunner.Verify(r => r.RunTurnAsync(
+            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+        var state = await _sessions.GetOpenByThreadAsync(Platform, "th-gate", CancellationToken.None);
+        state!.Transcript.Should().ContainSingle().Which.Decision.Should().Be(SpecDialogDecision.Approved);
     }
 
     [Fact]

@@ -10,6 +10,7 @@ import {
 } from "@/lib/specDialogApi";
 import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
 import type {
+  SpecDialogDecision,
   SpecDialogFilingPush,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
@@ -27,7 +28,14 @@ import type {
 // session, resumed another, or re-scoped this one, and a stale scope panel is a claim
 // about what the agent has read.
 
-export type DialogEntryKind = "user" | "agent";
+// 2026-09-17-042el: an approve or reject is a DECISION, not something the operator said. The
+// buttons add it locally because a read re-seeds only when the conversation changes, so the
+// server's record of it would never appear live; after a reload the seed maps that record to the
+// same entry. A typed "approve" is echoed as typed and reads back as the decision it was.
+// The post is accepted before the message is routed, so a click is PENDING until a read issued after
+// it says what was stored: the entry then becomes that decision, or goes, and the question card comes
+// back from the same read when the question is still open.
+export type DialogEntryKind = "user" | "agent" | "decision";
 
 export interface DialogEntry {
   key: string;
@@ -37,6 +45,22 @@ export interface DialogEntry {
   /** 2026-09-17-c7aed: the proposal this agent turn produced, shown as a card on it. Live every
    *  proposing turn keeps its own; after a reload only the latest is known. */
   proposal?: SpecDialogProposalPush;
+  /** Set on a decision entry. */
+  decision?: SpecDialogDecision;
+  /** Set on a decision the page showed before any read confirmed the server stored it. */
+  pending?: PendingDecision;
+}
+
+export interface PendingDecision {
+  /** The read count when it was shown; only a read issued after that can confirm it. */
+  read: number;
+  /** The transcript length the page last read; the stored decision is at or after it. */
+  fromTurn: number;
+}
+
+/** The two decisions this page knows. The transcript shows any other stored value as the message it was. */
+export function isDecision(value: unknown): value is SpecDialogDecision {
+  return value === "approved" || value === "rejected";
 }
 
 export interface SpecDialogState {
@@ -57,7 +81,8 @@ export interface SpecDialogState {
   /** The repositories the running turn opened, one per repository at its latest state, in
    *  the order they were first opened. Empty again when a new turn starts or the answer arrives. */
   readings: SpecDialogReadingPush[];
-  send: (text: string, project?: string) => Promise<void>;
+  /** A decision is posted as its word and shown as a decision entry rather than echoed. */
+  send: (text: string, project?: string, decision?: SpecDialogDecision) => Promise<void>;
   startNew: (project?: string) => Promise<void>;
   /** Continues a past conversation in this tab, on a dialog id of its own. */
   open: (sessionId: string, openDialogId?: string | null) => Promise<void>;
@@ -103,15 +128,17 @@ export function useSpecDialog(): SpecDialogState {
   const known = useRef<KnownProposal | null>(null);
   // The same for a question: one pushed while a read was out is newer than what that read says.
   const askedAtRead = useRef<number | null>(null);
+  // How long the transcript was at the latest read — where a decision clicked now will be stored.
+  const turnsRead = useRef(0);
 
   // Reading the held id is a browser act, so it happens after the first render rather
   // than during it.
   useEffect(() => setDialogId(currentDialogId()), []);
 
-  const append = useCallback((kind: DialogEntryKind, text: string, at: string) => {
+  const append = useCallback((kind: DialogEntryKind, text: string, at: string, extra: Partial<DialogEntry> = {}) => {
     counter.current += 1;
     const key = `${kind}-${counter.current}`;
-    setEntries((held) => [...held, { key, kind, text, at }]);
+    setEntries((held) => [...held, { key, kind, text, at, ...extra }]);
   }, []);
 
   // Reads overlap: every hub message triggers one, and a stale answer arriving late would
@@ -128,6 +155,8 @@ export function useSpecDialog(): SpecDialogState {
       // The question lives only in this state and in the server's in-memory wait, so a
       // reload has to take it back from the read or the approval gate loses its card.
       if (askedAtRead.current === null || askedAtRead.current < issued) setQuestion(next.question);
+      turnsRead.current = next.session?.transcript.length ?? 0;
+      setEntries((held) => settled(held, next, issued));
       const armed = reseed.current;
       const live = known.current;
       const learnedBefore = live !== null && live.read < issued;
@@ -166,13 +195,18 @@ export function useSpecDialog(): SpecDialogState {
   // A command a CONTROL sent is not echoed: the operator clicked "new conversation", they
   // did not say "/spec". What they typed themselves is echoed, because the channel
   // delivers replies and never a copy of the message just sent.
-  const post = useCallback(async (id: string, text: string, echo: boolean) => {
+  const post = useCallback(async (id: string, text: string, echo: boolean | SpecDialogDecision) => {
     // Cleared before the post: the turn starts on the server before the post returns, and its
     // first repository may be announced before this line would otherwise run.
     setReadings([]);
     try {
       await postSpecDialogMessage(id, text);
-      if (echo) append("user", text, new Date().toISOString());
+      if (echo === true) append("user", text, new Date().toISOString());
+      else if (echo)
+        append("decision", text, new Date().toISOString(), {
+          decision: echo,
+          pending: { read: reads.current, fromTurn: turnsRead.current },
+        });
       setQuestion(null);
       setAwaiting(true);
     } catch (thrown) {
@@ -266,7 +300,7 @@ export function useSpecDialog(): SpecDialogState {
   /// whole point is that nobody types a command. So the session is opened first, on the
   /// project the page already knows, and the message follows it.
   const send = useCallback(
-    async (text: string, project?: string) => {
+    async (text: string, project?: string, decision?: SpecDialogDecision) => {
       const said = text.trim();
       if (!dialogId || said.length === 0) return;
       if (!view?.session) {
@@ -274,7 +308,7 @@ export function useSpecDialog(): SpecDialogState {
         reseed.current = true;
         await post(dialogId, `/spec ${project}`, false);
       }
-      await post(dialogId, said, true);
+      await post(dialogId, said, decision ?? true);
     },
     [dialogId, view, post],
   );
@@ -354,12 +388,33 @@ function seed(view: SpecDialogView): DialogEntry[] {
   return (session?.transcript ?? [])
     .map((turn, index): DialogEntry => ({
       key: `held-${index}`,
-      kind: turn.role === "user" ? "user" : "agent",
+      kind: turn.decision ? "decision" : turn.role === "user" ? "user" : "agent",
       text: turn.text,
       at: turn.at,
+      ...(turn.decision ? { decision: turn.decision } : {}),
       ...(index === session?.proposalTurn && session.proposal ? { proposal: session.proposal } : {}),
     }))
-    .filter((entry) => entry.kind === "user" || entry.text.trim().length > 0 || entry.proposal);
+    .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
+}
+
+/** A pending decision meets the first read issued after it: the decision stored at or after the turn
+ *  it was clicked at replaces it — each stored decision confirms one click — and without one it goes. */
+function settled(held: DialogEntry[], view: SpecDialogView, issued: number): DialogEntry[] {
+  if (!held.some((entry) => entry.pending && entry.pending.read < issued)) return held;
+  const turns = view.session?.transcript ?? [];
+  const claimed = new Set<number>();
+  return held.flatMap((entry): DialogEntry[] => {
+    const pending = entry.pending;
+    if (!pending || pending.read >= issued) return [entry];
+    const index = turns.findIndex(
+      (turn, at) => at >= pending.fromTurn && !claimed.has(at) && isDecision(turn.decision));
+    if (index < 0) return [];
+    claimed.add(index);
+    const turn = turns[index];
+    return isDecision(turn.decision)
+      ? [{ key: entry.key, kind: "decision", text: turn.text, at: turn.at, decision: turn.decision }]
+      : [];
+  });
 }
 
 /** A proposal follows the reply it came from, so its card goes on that reply — or on a turn of
@@ -385,7 +440,7 @@ function withoutCard(held: DialogEntry[], proposal: SpecDialogProposalPush): Dia
       delete rest.proposal;
       return rest;
     })
-    .filter((entry) => entry.kind === "user" || entry.text.trim().length > 0 || entry.proposal);
+    .filter((entry) => entry.kind !== "agent" || entry.text.trim().length > 0 || entry.proposal);
 }
 
 /** The same draft, whichever moment it was stamped with — a push and a read stamp it differently. */

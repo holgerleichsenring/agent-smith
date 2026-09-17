@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Markdown } from "@/components/ui/Markdown";
-import type { DialogEntry } from "@/hooks/useSpecDialog";
+import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
 import { DialogProposalCard } from "./DialogProposalCard";
 
@@ -12,6 +12,9 @@ import { DialogProposalCard } from "./DialogProposalCard";
 // What the operator typed is rendered as the plain text they typed.
 // 2026-09-17-c7aed: a turn that proposed something carries a card, and a turn that was only
 // the draft is the card alone.
+// 2026-09-17-042el: an approve or reject is shown as the decision it was, not as the word — as
+// pending until a read confirms the server stored it. A decision this page cannot name is shown as
+// the message it was.
 
 export function DialogTranscript({
   entries,
@@ -65,16 +68,37 @@ function Turn({
   entry: DialogEntry;
   onInspect: (proposal: SpecDialogProposalPush) => void;
 }) {
-  const mine = entry.kind === "user";
+  if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
+  const mine = entry.kind !== "agent";
   const said = entry.text.trim().length > 0;
   return (
-    <DialogMessage who={mine ? "user" : "agent"} testId={said ? `dialog-turn-${entry.kind}` : "dialog-turn-card"}>
+    <DialogMessage who={mine ? "user" : "agent"} testId={said ? `dialog-turn-${mine ? "user" : "agent"}` : "dialog-turn-card"}>
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
       ) : (
         said && <Markdown>{entry.text}</Markdown>
       )}
       {entry.proposal && <DialogProposalCard proposal={entry.proposal} onInspect={onInspect} />}
+    </DialogMessage>
+  );
+}
+
+function Decision({ entry }: { entry: DialogEntry }) {
+  const approved = entry.decision === "approved";
+  if (entry.pending)
+    return (
+      <DialogMessage who="user" testId="dialog-turn-decision">
+        <p data-decision={entry.decision} data-pending="true" className="dsh-body text-body">
+          <span className="eyebrow-uppercase">Sent</span>{" "}
+          {approved ? "Approve — waiting for it to be recorded" : "Reject — waiting for it to be recorded"}
+        </p>
+      </DialogMessage>
+    );
+  return (
+    <DialogMessage who="user" testId="dialog-turn-decision">
+      <p data-decision={entry.decision} className="dsh-body font-semibold text-ink">
+        {approved ? "Approved — file the proposal" : "Rejected — nothing is filed"}
+      </p>
     </DialogMessage>
   );
 }
