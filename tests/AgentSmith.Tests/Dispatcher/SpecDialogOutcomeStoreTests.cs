@@ -149,7 +149,8 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer()),
+            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
+                NullLogger<EpicTicketFiler>.Instance),
             NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
@@ -197,6 +198,10 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
                 new TicketId(_created.Count.ToString()),
                 $"https://tracker.test/{_created.Count}"));
         }
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            Task.FromResult(ParentLinkResult.Linked);
 
         public Task FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>

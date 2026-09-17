@@ -302,16 +302,17 @@ public sealed partial class SpecDialogOutcomeTests
         bed.Tickets.Created.Skip(1).Should()
             .OnlyContain(t => t.Labels.Contains(PhaseTicketRenderer.PhaseLabel));
         bed.Tickets.Created[0].Body.Should().Contain("## Slices").And.Contain("p9000a").And.Contain("p9000b");
-        bed.Tickets.Created[1].Body.Should().Contain("Parent: https://tracker.test/1");
-        bed.Tickets.Created[2].Body.Should().Contain("Parent: https://tracker.test/1");
+        // 2026-09-17-042ea: the parent is a tracker link and a label, not a line the deriver reads.
+        bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("Parent:"));
+        bed.Tickets.Links.Should().Equal(("2", "1"), ("3", "1"));
         // 2026-09-13-b7ba: a child is a REQUIREMENT — what is wanted and why, with no fenced
         // block and no step list, so the run that picks it up derives against the repository as
         // it then is instead of replaying a cut made weeks earlier. The order survives as prose.
         bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("```"));
         bed.Tickets.Created[2].Body.Should().Contain("## Requires").And.Contain("p9000a");
         bed.Tickets.Comments.Should().ContainSingle(
-            "the parent links its children — a comment, honestly, since no tracker "
-            + "provider exposes native links").Which.Comment.Should()
+            "the parent lists its children in order — the tracker's links carry no order"
+            ).Which.Comment.Should()
             .Contain("https://tracker.test/2").And.Contain("https://tracker.test/3");
         bed.Adapter.SentTexts.Should().Contain(t =>
             t.Contains("https://tracker.test/1") && t.Contains("https://tracker.test/2")
@@ -553,6 +554,12 @@ public sealed partial class SpecDialogOutcomeTests
     {
         private readonly List<(string Title, string Body, IReadOnlyList<string> Labels)> _created = [];
         private readonly List<(TicketId Id, string Comment)> _comments = [];
+        private readonly List<(string Child, string Parent)> _links = [];
+
+        public IReadOnlyList<(string Child, string Parent)> Links
+        {
+            get { lock (_links) return [.. _links]; }
+        }
 
         public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels)> Created
         {
@@ -583,6 +590,13 @@ public sealed partial class SpecDialogOutcomeTests
                     new TicketId(_created.Count.ToString()),
                     $"https://tracker.test/{_created.Count}"));
             }
+        }
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
+        {
+            lock (_links) _links.Add((child.Id.Value, parent.Value));
+            return Task.FromResult(ParentLinkResult.Linked);
         }
 
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)

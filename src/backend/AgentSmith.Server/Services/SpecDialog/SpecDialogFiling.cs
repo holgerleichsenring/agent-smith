@@ -9,5 +9,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// read back from the latest proposal, because the latest proposal is cleared whenever a later
 /// one is rejected or times out: an epic filed and then followed by a discarded proposal would
 /// otherwise lose what it was. Null only on a record written before the kind was kept.</param>
+/// <param name="Notes">What went wrong without unfiling anything, such as a child the tracker
+/// would not link to its parent. Null only on a record written before notes were kept.</param>
 public sealed record SpecDialogFiling(
-    IReadOnlyList<FiledTicket> Filed, string? Error, DateTimeOffset At, string? Kind = null);
+    IReadOnlyList<FiledTicket> Filed, string? Error, DateTimeOffset At, string? Kind = null,
+    IReadOnlyList<string>? Notes = null);

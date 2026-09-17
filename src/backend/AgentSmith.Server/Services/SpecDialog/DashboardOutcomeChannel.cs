@@ -54,7 +54,7 @@ public sealed class DashboardOutcomeChannel(
         var dialogId = Dialog(state);
         return PushAsync(
             FiledMethod, dialogId,
-            new SpecDialogFilingPush(dialogId, report.Filed, report.Error, DateTimeOffset.UtcNow),
+            new SpecDialogFilingPush(dialogId, report.Filed, report.Error, DateTimeOffset.UtcNow, report.Notes),
             cancellationToken);
     }
 

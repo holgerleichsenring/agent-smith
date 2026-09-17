@@ -82,6 +82,75 @@ public sealed class EpicFilingOrderTests
             "a reader must tell the parent from a predecessor — a branch is cut from the PARENT's rung");
     }
 
+    /// <summary>2026-09-17-042ea: the tracker shows each child under its parent.</summary>
+    [Fact]
+    public async Task EpicFiling_EachChild_IsLinkedToItsParent()
+    {
+        var provider = new RecordingProvider();
+
+        var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
+
+        provider.Links.Should().Equal(("2", "1"), ("3", "1"));
+        report.Notes.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// 2026-09-17-042ea: the tickets exist and the labels still order them. Were a refused link the
+    /// filing's error, the notice would offer a retry that files every ticket a second time.
+    /// </summary>
+    [Fact]
+    public async Task EpicFiling_ALinkThatFails_FilesTheRemainingChildrenAndNotesIt_WithoutAnError()
+    {
+        var provider = new RecordingProvider { RefuseLinkOf = "2" };
+
+        var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
+
+        report.Error.Should().BeNull("a link is for people; nothing was unfiled");
+        provider.Created.Should().HaveCount(3, "the child after the refused link is still filed");
+        report.Filed.Should().HaveCount(3);
+        report.Notes.Should().ContainSingle().Which.Should()
+            .Contain("https://tracker.test/2").And.Contain("https://tracker.test/1").And.Contain("link type is disabled");
+    }
+
+    /// <summary>
+    /// An HttpClient timeout throws TaskCanceledException with nobody having cancelled. Escaping
+    /// the filer, it stopped the sink after the confirmed outcome was stored, and asking again
+    /// filed every ticket a second time.
+    /// </summary>
+    [Fact]
+    public async Task EpicFiling_ALinkThatTimesOut_FilesTheRemainingChildrenAndNotesIt()
+    {
+        var provider = new RecordingProvider { ThrowOnLinkOf = ("2", new TaskCanceledException("the link timed out")) };
+
+        var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
+
+        report.Error.Should().BeNull();
+        provider.Created.Should().HaveCount(3);
+        report.Notes.Should().ContainSingle().Which.Should().Contain("the link timed out");
+    }
+
+    [Fact]
+    public async Task EpicFiling_ALinkThatThrows_IsANoteNotAnError()
+    {
+        var provider = new RecordingProvider { ThrowOnLinkOf = ("2", new InvalidOperationException("tracker exploded")) };
+
+        var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
+
+        report.Error.Should().BeNull();
+        report.Filed.Should().HaveCount(3);
+        report.Notes.Should().ContainSingle().Which.Should().Contain("https://tracker.test/2").And.Contain("tracker exploded");
+    }
+
+    [Fact]
+    public async Task OutcomeTicketFiler_ATrackerTimeoutOnCreate_IsReportedNotThrown()
+    {
+        var provider = new RecordingProvider { ThrowOnCreate = new TaskCanceledException("create timed out") };
+
+        var report = await FileAsync(provider, Epic(Child("p9000a")));
+
+        report.Error.Should().Be("create timed out", "nobody cancelled, so the report names the failure");
+    }
+
     /// <summary>
     /// 2026-09-13-ed5a: the parent records what the analysis had open while it cut, because a
     /// reader who asks why the slices are shaped this way must find the answer on the ticket.
@@ -140,7 +209,8 @@ public sealed class EpicFilingOrderTests
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer()),
+            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
+                NullLogger<EpicTicketFiler>.Instance),
             NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, CancellationToken.None);
     }
@@ -168,6 +238,14 @@ public sealed class EpicFilingOrderTests
 
         public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels)> Created => _created;
 
+        public List<(string Child, string Parent)> Links { get; } = [];
+
+        public string? RefuseLinkOf { get; init; }
+
+        public (string Child, Exception Error)? ThrowOnLinkOf { get; init; }
+
+        public Exception? ThrowOnCreate { get; init; }
+
         public string ProviderType => "recording";
 
         public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
@@ -180,9 +258,20 @@ public sealed class EpicFilingOrderTests
             string title, string description, IReadOnlyList<string> labels,
             CancellationToken cancellationToken)
         {
+            if (ThrowOnCreate is not null) throw ThrowOnCreate;
             _created.Add((title, description, labels));
             return Task.FromResult(new CreatedTicket(
                 new TicketId(_created.Count.ToString()), $"https://tracker.test/{_created.Count}"));
+        }
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
+        {
+            if (ThrowOnLinkOf is { } thrown && child.Id.Value == thrown.Child) throw thrown.Error;
+            if (child.Id.Value == RefuseLinkOf)
+                return Task.FromResult(ParentLinkResult.Failed("the link type is disabled"));
+            Links.Add((child.Id.Value, parent.Value));
+            return Task.FromResult(ParentLinkResult.Linked);
         }
 
         public Task FinalizeAsync(

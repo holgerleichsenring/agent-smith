@@ -156,6 +156,22 @@ public sealed class DialogProposalPaneTests : IDisposable
         push.Error.Should().Be("the tracker refused the child");
     }
 
+    /// <summary>2026-09-17-042ea: a child the tracker would not link is said, not hidden.</summary>
+    [Fact]
+    public async Task Filed_WithANote_PublishesTheNoteAndNamesItInTheNotice()
+    {
+        var report = new FilingReport([new FiledTicket("https://tracker/2", "p9000a: slice")], Error: null)
+        {
+            Notes = ["https://tracker/2 is not linked to its parent https://tracker/1: refused"],
+        };
+
+        await Channel().FiledAsync(State(), report, CancellationToken.None);
+
+        Filings().Single().Notes.Should().Equal(report.Notes);
+        new SpecDialogOutcomeComposer().ComposeFiled(new PhaseOutcome(new PhaseDraft("p9000a", "slice", "phase: p9000a", [])), report)
+            .In(SpecDialogMarkup.For("slack")).Should().Contain("is not linked to its parent");
+    }
+
     [Fact]
     public async Task Filed_AfterASuccessfulFiling_PublishesTheReferencesAndTitles()
     {

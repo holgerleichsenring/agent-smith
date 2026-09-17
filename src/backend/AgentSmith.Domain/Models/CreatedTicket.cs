@@ -9,4 +9,10 @@ namespace AgentSmith.Domain.Models;
 public sealed record CreatedTicket(TicketId Id, string? WebUrl)
 {
     public string Reference => WebUrl ?? $"#{Id.Value}";
+
+    /// <summary>
+    /// The tracker's internal id where it differs from <see cref="Id"/> and a later call needs
+    /// it: GitHub's database id, which a sub-issue link takes instead of the issue number.
+    /// </summary>
+    public string? NativeId { get; init; }
 }

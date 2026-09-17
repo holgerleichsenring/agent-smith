@@ -37,13 +37,13 @@ public sealed class PhaseTicketRenderer
     /// and worked in three weeks, after its siblings have moved the code — and an embedded
     /// spec would win over the repository it claims to plan against, because SpecSourceResolver
     /// takes a spec in the description and never calls the deriver at all.
+    /// <para>
+    /// 2026-09-17-042ea: no Parent line. The tracker links the child to its parent and the label
+    /// stamps it; a line in the body was a segment the deriver had to carry or discard.
+    /// </para>
     /// </summary>
-    public PhaseTicketContent RenderChildRequirement(PhaseDraft draft, string parentReference) =>
-        new(Title(draft), PhaseTicketBody.Requirement(draft, sb =>
-        {
-            sb.AppendLine($"Parent: {parentReference}");
-            sb.AppendLine();
-        }));
+    public PhaseTicketContent RenderChildRequirement(PhaseDraft draft) =>
+        new(Title(draft), PhaseTicketBody.Requirement(draft, _ => { }));
 
     /// <summary>The epic parent: the record of a cut, listing its slices in order.</summary>
     /// <param name="templates">

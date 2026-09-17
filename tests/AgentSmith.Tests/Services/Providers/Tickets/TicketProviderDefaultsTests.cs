@@ -48,6 +48,10 @@ public sealed class TicketProviderDefaultsTests
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            Task.FromResult(ParentLinkResult.Unsupported("this fake has no relations"));
+
         public Task FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
             => Task.CompletedTask;

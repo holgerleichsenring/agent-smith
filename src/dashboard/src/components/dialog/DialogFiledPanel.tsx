@@ -5,9 +5,13 @@ import type { SpecDialogFilingPush } from "@/types/spec-dialog";
 // 2026-09-15-6d9c: WHAT WAS FILED — the tickets that now exist, by reference and title. The
 // report behind it is honest about a partial failure, and so is this: the tickets that WERE
 // created are listed above the error that stopped the rest, because they exist either way.
+// 2026-09-17-042ea: a note says what went wrong without unfiling anything, such as a child the
+// tracker would not link to its parent; it sits under the tickets it is about.
 
 export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
   const partial = filed.error !== null && filed.filed.length > 0;
+  // A push from a server older than filing notes carries none.
+  const notes = filed.notes ?? [];
   return (
     <div data-testid="dialog-filed">
       <h2 className="dsh-h3 mb-1 font-semibold text-ink">
@@ -27,6 +31,13 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
               <Reference reference={ticket.reference} />
               <div className="text-ink">{ticket.title}</div>
             </li>
+          ))}
+        </ul>
+      )}
+      {notes.length > 0 && (
+        <ul data-testid="dialog-filed-notes" className="mt-2 dsh-label flex flex-col gap-1 text-body">
+          {notes.map((note) => (
+            <li key={note}>{note}</li>
           ))}
         </ul>
       )}

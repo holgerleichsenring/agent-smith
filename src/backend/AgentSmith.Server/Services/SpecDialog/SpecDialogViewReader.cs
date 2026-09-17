@@ -54,7 +54,8 @@ public sealed class SpecDialogViewReader(
                     card is { } turn ? state.Transcript[turn].At : state.LastActivityAt),
             latest.Filing is null
                 ? null
-                : new SpecDialogFilingPush(dialogId, latest.Filing.Filed, latest.Filing.Error, latest.Filing.At),
+                : new SpecDialogFilingPush(dialogId, latest.Filing.Filed, latest.Filing.Error,
+                    latest.Filing.At, latest.Filing.Notes ?? []),
             card);
     }
 }

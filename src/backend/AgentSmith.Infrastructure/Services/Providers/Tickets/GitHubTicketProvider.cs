@@ -12,11 +12,7 @@ using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
-/// <summary>
-/// p0147f: thin Octokit orchestrator. Field mapping in
-/// <see cref="GitHubFieldMapper"/>; list/query in <see cref="GitHubIssueLister"/>;
-/// attachments in <see cref="GitHubAttachmentLoader"/>.
-/// </summary>
+/// <summary>Thin Octokit orchestrator; mapping, listing and attachments live in their own types.</summary>
 public sealed class GitHubTicketProvider : ITicketProvider
 {
     private readonly string _owner;
@@ -27,6 +23,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly GitHubCommentMapper _commentMapper = new();
     private readonly GitHubIssueLister _lister;
     private readonly ILogger _logger;
+    private readonly TrackerParentLink _parentLink;
 
     public string ProviderType => "GitHub";
 
@@ -41,6 +38,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
         _mapper = mapper;
         _lister = new GitHubIssueLister(_client, connection, _mapper, logger);
         _logger = logger;
+        _parentLink = new TrackerParentLink("GitHub", logger);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -61,13 +59,11 @@ public sealed class GitHubTicketProvider : ITicketProvider
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) throw new TicketNotFoundException(ticketId);
-        _logger.LogDebug("GitHub GetTicket #{Ticket}: Issue.Get {Owner}/{Repo}#{Number}",
-            ticketId.Value, _owner, _repo, n);
+        _logger.LogDebug("GitHub GetTicket #{Ticket}: Issue.Get {Owner}/{Repo}#{Number}", ticketId.Value, _owner, _repo, n);
         try
         {
             var ticket = _mapper.Map(ticketId, await _client.Issue.Get(_owner, _repo, n));
-            _logger.LogDebug("GitHub GetTicket #{Ticket}: status={Status} labels={Count}",
-                ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
+            _logger.LogDebug("GitHub GetTicket #{Ticket}: status={Status} labels={Count}", ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
             return ticket;
         }
         catch (NotFoundException) { throw new TicketNotFoundException(ticketId); }
@@ -77,12 +73,10 @@ public sealed class GitHubTicketProvider : ITicketProvider
         TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) return [];
-        try { return GitHubAttachmentLoader.ParseRefs((await _client.Issue.Get(_owner, _repo, n)).Body); }
-        catch { return []; }
+        try { return GitHubAttachmentLoader.ParseRefs((await _client.Issue.Get(_owner, _repo, n)).Body); } catch { return []; }
     }
 
-    // p0317: the ticket conversation. Transport failures propagate — the
-    // fetch-time caller (FetchTicketHandler) owns the fail-soft contract.
+    // Transport failures propagate — FetchTicketHandler owns fail-soft.
     public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
@@ -100,9 +94,22 @@ public sealed class GitHubTicketProvider : ITicketProvider
         string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
     {
         var issue = await _client.Issue.Create(_owner, _repo, BuildNewIssue(title, description, labels));
-        _logger.LogInformation(
-            "GitHub created issue #{Number} in {Owner}/{Repo}", issue.Number, _owner, _repo);
-        return new CreatedTicket(new TicketId(issue.Number.ToString()), issue.HtmlUrl);
+        _logger.LogInformation("GitHub created issue #{Number} in {Owner}/{Repo}", issue.Number, _owner, _repo);
+        return Created(issue);
+    }
+
+    // The database id rides along: a sub-issue link names the child by it, not by its number.
+    internal static CreatedTicket Created(Issue issue) =>
+        new(new TicketId(issue.Number.ToString()), issue.HtmlUrl) { NativeId = issue.Id.ToString() };
+
+    public async Task<ParentLinkResult> LinkToParentAsync(
+        CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
+    {
+        if (!TryParseIssueNumber(parent, out var n) || !long.TryParse(child.NativeId, out var childId))
+            return ParentLinkResult.Failed("A sub-issue link needs the parent's number and the child's database id.");
+        var request = GitHubSubIssueRequest.For(_owner, _repo, n, childId);
+        return await _parentLink.AttemptAsync(() =>
+            _client.Connection.Post(request.Path, request.Body, GitHubSubIssueRequest.Accepts, cancellationToken), cancellationToken);
     }
 
     internal static NewIssue BuildNewIssue(
@@ -132,16 +139,11 @@ public sealed class GitHubTicketProvider : ITicketProvider
         await _client.Issue.Update(_owner, _repo, n, new IssueUpdate { State = ItemState.Closed });
     }
 
-    // Open-state discovery for the poller + dashboard/chat listing. Without this
-    // GitHub fell back to ITicketProvider's empty default (see JiraTicketProvider).
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         => _lister.ListOpenAsync(cancellationToken);
 
-    // p0283b: GitHub issues are open/closed only, so the status branch maps to "open"; narrow
-    // by the resolution tag (open + label) when every branch is Tag-based, else stay broad.
-    // p0300c: the agent-smith trigger-label guard (query.TriggerLabels) stays in-process — the
-    // GitHub label filter is AND-only with no prefix match, and issues are repo-scoped (bounded),
-    // so the in-process ProjectResolver drops non-trigger tickets without a server-side clause.
+    // Issues are open/closed only: narrow by label when every branch is tag-based, else stay broad.
+    // The trigger-label guard stays in-process — GitHub's label filter is AND-only with no prefix match.
     public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
         DiscoveryQuery query, CancellationToken cancellationToken)
         => query.AllTagLabelsOrNull() is { Count: > 0 } labels
@@ -156,7 +158,6 @@ public sealed class GitHubTicketProvider : ITicketProvider
     public async Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) return;
-        // "closed"/"open" are native states; anything else is treated as a label.
         if (statusName.Equals("closed", StringComparison.OrdinalIgnoreCase))
             await _client.Issue.Update(_owner, _repo, n, new IssueUpdate { State = ItemState.Closed });
         else if (statusName.Equals("open", StringComparison.OrdinalIgnoreCase))
@@ -165,7 +166,6 @@ public sealed class GitHubTicketProvider : ITicketProvider
             await _client.Issue.Labels.AddToIssue(_owner, _repo, n, [statusName]);
     }
 
-    // GitHub issues have no rev-guard; sequential comment + state change is safe.
     public async Task FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
     {

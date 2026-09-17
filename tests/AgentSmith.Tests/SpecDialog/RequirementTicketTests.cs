@@ -61,13 +61,16 @@ public sealed class RequirementTicketTests
             + "line and be filtered away — so no filed ticket has ever carried its reasoning");
 
     [Fact]
-    public void RenderChildRequirement_Body_NamesItsParentAndItsRequires()
-    {
-        var body = Render();
+    public void RenderChildRequirement_Body_NamesItsRequires() =>
+        Render().Should().Contain("## Requires").And.Contain("p9000");
 
-        body.Should().Contain("Parent: https://tracker.test/1");
-        body.Should().Contain("## Requires").And.Contain("p9000");
-    }
+    /// <summary>
+    /// 2026-09-17-042ea: the tracker links the child to its parent and a label stamps it; a line in
+    /// the body was a segment the deriver had to carry or discard, and nothing parsed it.
+    /// </summary>
+    [Fact]
+    public void RequirementTicket_Body_CarriesNoParentLine() =>
+        Render().Should().NotContain("Parent:");
 
     [Fact]
     public void RenderPhase_SinglePhaseOutcome_StillEmbedsTheSpec()
@@ -93,5 +96,5 @@ public sealed class RequirementTicketTests
     }
 
     private static string Render() =>
-        new PhaseTicketRenderer().RenderChildRequirement(Draft, "https://tracker.test/1").Body;
+        new PhaseTicketRenderer().RenderChildRequirement(Draft).Body;
 }
