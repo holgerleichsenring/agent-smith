@@ -6,13 +6,21 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// 2026-09-13-a3f1: what the framework's own filing labels mean to routing, read in one
 /// place rather than spelled out again at each decision.
 /// <para>
-/// A PHASE ticket is work and hard-binds to phase execution. An EPIC record is the summary
-/// of a cut and is not work at all — it is refused before every other rule, because every
-/// other rule ends in something and one of them would otherwise claim it.
+/// A PHASE ticket is work and hard-binds to phase execution. A RECORD is not work at all —
+/// it is refused before every other rule, because every other rule ends in something and one
+/// of them would otherwise claim it.
 /// </para>
 /// <para>
-/// 2026-09-13-a72a: an epic CHILD also carries where it sits in the cut — its parent and
-/// each sibling it follows — as STAMPS. IncomingTicketEnvelope carries Labels, AreaPath,
+/// 2026-09-17-0e79d: the record label's meaning widened from "the summary of a cut" to "a
+/// record, not work". An approved epic files ONE phase-labelled work ticket and one record per
+/// slice; a record carries the label, the tracker link and no stamp at all, because no machine
+/// reads it — it never routes, never runs and is not a rung.
+/// </para>
+/// <para>
+/// 2026-09-13-a72a: an epic child of the WITHDRAWN N-children shape carries where it sits in the
+/// cut — its parent and each sibling it follows — as STAMPS, and so does a hand-stamped ticket:
+/// the stamps stay, and they are what tells a legacy child from the broken hand-off the spec gate
+/// fails. IncomingTicketEnvelope carries Labels, AreaPath,
 /// SourceRepoUrl, ToAddress, TicketId, TicketUrl and Platform and NO description, so a
 /// label is the only place on both the polling and the webhook path where the funnel can
 /// read it without a tracker round-trip. Each stamp carries a RESERVED PREFIX naming its
@@ -49,15 +57,24 @@ public static class FiledTicketLabels
         return labels.Any(l => string.Equals(l, ApprovedSetStamp, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// 2026-09-17-0e79d: NO PRODUCTION CALLER LEFT. The framework stamps no POSITION on anything
+    /// it files any more — an epic's work ticket cuts from its own base and its slice records
+    /// carry no position stamp at all. These two writers stay because the readers below must be
+    /// held to the format something actually writes: the tickets that carry these stamps are the
+    /// legacy children already on a tracker and the ones an operator stamps by hand, and the tests
+    /// that stand in for both build their envelopes here rather than repeating the prefixes.
+    /// </summary>
     public static string ParentStamp(string ticketId) => ParentPrefix + ticketId;
 
+    /// <inheritdoc cref="ParentStamp"/>
     public static string PredecessorStamp(string ticketId) => PredecessorPrefix + ticketId;
 
     /// <summary>The ticket ids this ticket must not start before, in label order.</summary>
     public static IReadOnlyList<string> PredecessorIds(IEnumerable<string> labels) =>
         [.. Stamped(labels, PredecessorPrefix)];
 
-    /// <summary>The epic record this ticket is a slice of, or null when it is not a slice.</summary>
+    /// <summary>The epic parent this ticket is a slice of, or null when it carries no stamp.</summary>
     public static string? ParentId(IEnumerable<string> labels) =>
         Stamped(labels, ParentPrefix).FirstOrDefault();
 

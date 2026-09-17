@@ -309,8 +309,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
         var filer = new OutcomeTicketFiler(
             Loader().LoadConfig(string.Empty), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
-                NullLogger<EpicTicketFiler>.Instance),
+            TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
             NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(

@@ -147,7 +147,10 @@ function summaryOf(proposal: SpecDialogProposalPush): string | null {
   if (proposal.bug) return "File this bug? One fix-bug ticket.";
   if (proposal.parent) {
     const slices = proposal.children.length;
-    return `File this epic? A parent record and ${slices} slice${slices === 1 ? "" : "s"}.`;
+    // 2026-09-17-0e79d: the parent draft IS the work ticket and the slices are the records —
+    // the other way round from the shape this line was written for. It is the one line on the
+    // card that counts what the button files, so it has to count what is actually filed.
+    return `File this epic? One work ticket and ${slices} slice record${slices === 1 ? "" : "s"}.`;
   }
   if (proposal.phase) return "File this phase? One ticket.";
   return null;

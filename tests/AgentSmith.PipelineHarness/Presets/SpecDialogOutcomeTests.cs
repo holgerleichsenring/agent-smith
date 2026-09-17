@@ -289,8 +289,12 @@ public sealed partial class SpecDialogOutcomeTests
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("https://tracker.test/1"));
     }
 
+    /// <summary>
+    /// 2026-09-17-0e79d: one work ticket, one run, one pull request per repository — and one
+    /// record per slice that nothing routes and no machine reads.
+    /// </summary>
     [Fact]
-    public async Task CreatePhase_EpicOutcome_FilesLinkedPhaseTicketsWithRequires()
+    public async Task CreatePhase_EpicOutcome_FilesOneWorkTicketAndOneRecordPerSlice()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-epic");
@@ -308,34 +312,46 @@ public sealed partial class SpecDialogOutcomeTests
 
         await RunFlowAsync(bed.Harness, state, epic);
 
-        bed.Tickets.Created.Should().HaveCount(3, "parent first, then the slices in order");
+        bed.Tickets.Created.Should().HaveCount(3, "the work ticket first, then a record per slice");
         bed.Tickets.Created.Select(t => t.Title).Should().Equal(
             "p9000: Widget platform end to end",
             "p9000a: Widget storage layer",
             "p9000b: Widget API on top of the storage layer");
-        // 2026-09-13-a3f1: the parent is the record of a cut and carries its own label, so no
-        // routing path can turn an epic summary into a run; the slices are the work.
-        bed.Tickets.Created[0].Labels.Should().Equal(PhaseTicketRenderer.EpicLabel);
+        // 2026-09-17-0e79d: the work ticket is the phase-labelled one — it is what a run picks up,
+        // and the set it works is stored under its own spec key. The records carry the record
+        // label, which is refused before every other resolution rule.
+        bed.Tickets.Created[0].Labels.Should().Equal(
+            PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp);
         bed.Tickets.Created.Skip(1).Should()
-            .OnlyContain(t => t.Labels.Contains(PhaseTicketRenderer.PhaseLabel));
+            .OnlyContain(t => t.Labels.Count == 1 && t.Labels[0] == PhaseTicketRenderer.EpicLabel);
         bed.Tickets.Created[0].Body.Should().Contain("## Slices").And.Contain("p9000a").And.Contain("p9000b");
-        // 2026-09-17-042ea: the parent is a tracker link and a label, not a line the deriver reads.
+        // 2026-09-17-042ea: the work ticket is a tracker link, not a line the deriver reads.
         bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("Parent:"));
         bed.Tickets.Links.Should().Equal(("2", "1"), ("3", "1"));
-        // 2026-09-13-b7ba: a child is a REQUIREMENT — what is wanted and why, with no fenced
-        // block and no step list, so the run that picks it up derives against the repository as
-        // it then is instead of replaying a cut made weeks earlier. The order survives as prose.
+        // 2026-09-13-b7ba: a record is a REQUIREMENT — what is wanted and why, with no fenced
+        // block and no step list. It is read by a person; the run works the approved set.
         bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("```"));
-        // 2026-09-17-042eb: the order is the phase-requires label and the parent's slice list; a
+        // 2026-09-17-042eb: the order is the stored set's and the work ticket's slice list; a
         // sibling's phase id in a tracker body means nothing, so it is not repeated there.
         bed.Tickets.Created[2].Body.Should().NotContain("## Requires");
-        // 2026-09-17-042eb: the child's done list reaches the filed ticket as acceptance criteria,
+        // 2026-09-17-042eb: the slice's done list reaches its record as acceptance criteria,
         // and reads back as exactly what was written.
         AcceptanceCriteriaSection.Read(bed.Tickets.Created[1].Body).Should().Equal("a widget is stored and read back");
         bed.Tickets.Created[1].Body.Should().NotContain("Add the widget store", "steps stay out of a requirement");
-        bed.Tickets.Created[2].Labels.Should().Contain(FiledTicketLabels.PredecessorStamp("2"));
+        // 2026-09-17-0e79d: no stamps anywhere — a parent stamp would cut the run's branch from
+        // another ticket's rung, and a predecessor stamp would hold a run that has no sibling run.
+        bed.Tickets.Created.Should().OnlyContain(
+            t => FiledTicketLabels.ParentId(t.Labels) == null
+                && FiledTicketLabels.PredecessorIds(t.Labels).Count == 0);
+        var tracker = bed.Harness.Services.GetRequiredService<AgentSmithConfig>()
+            .Projects[Project].Tracker;
+        var record = await bed.Harness.Services.GetRequiredService<ISpecApprovalStore>()
+            .GetAsync(tracker.Name, SpecSetKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
+                CancellationToken.None);
+        record.Should().NotBeNull("the whole approved set is stored under the WORK ticket's key");
+        record!.Set.Phases.Select(p => p.PhaseId).Should().Equal("p9000a", "p9000b");
         bed.Tickets.Comments.Should().ContainSingle(
-            "the parent lists its children in order — the tracker's links carry no order"
+            "the work ticket lists its records in order — the tracker's links carry no order"
             ).Which.Comment.Should()
             .Contain("https://tracker.test/2").And.Contain("https://tracker.test/3");
         bed.Adapter.SentTexts.Should().Contain(t =>

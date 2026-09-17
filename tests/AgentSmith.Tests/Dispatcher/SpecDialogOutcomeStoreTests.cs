@@ -149,8 +149,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
-                NullLogger<EpicTicketFiler>.Instance),
+            TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
             NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(

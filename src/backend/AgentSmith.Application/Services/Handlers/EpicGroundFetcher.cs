@@ -12,11 +12,17 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-09-13-7d9f: reads the epic a ticket is one slice of, so every child of one cut is
 /// derived against the same shared ground instead of re-inventing it per ticket.
 /// <para>
-/// The parent is addressed by the <c>phase-parent:</c> stamp 2026-09-13-a72a puts on every
+/// The parent is addressed by the <c>phase-parent:</c> stamp 2026-09-13-a72a put on every
 /// filed child, NOT by a reference: CreatedTicket.Reference is the web url when there is
 /// one, and recovering an id from a web url is a parser per provider. Nothing new has to be
 /// produced — GetTicketAsync is a non-default member of ITicketProvider that all four
 /// adapters implement — so the whole mechanism is a fetch and a prompt section.
+/// </para>
+/// <para>
+/// 2026-09-17-0e79d: the framework files no stamped child any more, so the ground it reads is
+/// a LEGACY child's or a hand-stamped ticket's. An approved epic loses nothing by it: its run
+/// derives nothing — it works a set cut with the whole programme in view, in the conversation —
+/// and ground for a cut that is not being made is not a loss.
 /// </para>
 /// <para>
 /// A missing parent DEGRADES. It may be deleted, moved, or invisible to this token, and the

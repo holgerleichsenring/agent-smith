@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Scope;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Server.Services.SpecDialog;
@@ -33,4 +34,13 @@ internal static class ApprovedSetDoubles
 
     internal static ApprovedPhaseSetRecorder Recorder(ISpecApprovalStore? store = null) =>
         new(store ?? Store(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+
+    /// <summary>
+    /// 2026-09-17-0e79d: the epic filer stores the approved set under the WORK ticket it files,
+    /// so it needs a recorder of its own. A test that reads the stored set passes its own store.
+    /// </summary>
+    internal static EpicTicketFiler EpicFiler(ISpecApprovalStore? store = null) =>
+        new(new PhaseTicketRenderer(), new EpicChildOrderer(), Recorder(store),
+            new EpicSliceRecordFiler(new PhaseTicketRenderer(), NullLogger<EpicSliceRecordFiler>.Instance),
+            NullLogger<EpicTicketFiler>.Instance);
 }
