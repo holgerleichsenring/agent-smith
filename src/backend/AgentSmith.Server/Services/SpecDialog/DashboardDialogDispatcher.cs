@@ -16,9 +16,13 @@ public sealed class DashboardDialogDispatcher(
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
+    // 2026-09-17-042ek: a plain string, never a ComposedReply, because this path exists only
+    // on the dashboard — so it is worded for the page directly. The page's affordances are the
+    // New conversation button, the control labelled Project above it, and the conversation
+    // list in the left column, which holds closed conversations as well as open ones.
     private const string NoOpenDialog =
-        "No spec dialog is open here. Start one with `/spec` — or `/spec <project>` when "
-        + "several projects are configured; `/spec list` shows your open sessions.";
+        "No spec dialog is open here. Start one with the New conversation button — pick a "
+        + "project first when several are configured. Your conversations are listed on the left.";
 
     public async Task DispatchAsync(
         string dialogId, string text, string userId, CancellationToken cancellationToken)

@@ -209,10 +209,13 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
 
         await Flow("reject").HandleAsync(state, Reviewed(), CancellationToken.None);
 
+        // 2026-09-17-042ek: on a PAGE the findings reach the operator on the push, which the
+        // approval card lists them from — so the question text beside that card is empty. That
+        // the sentence still exists in chat is
+        // SpecDialogDashboardWordingTests.OutcomeConfirmation_BoundForSlack_ListsTheReviewsFindings,
+        // where no flow has to run to prove it; this one stays about what the FLOW published.
         var question = _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogChannelQuestion>().Single();
-        question.Text.Should().Contain("The review of this proposal found:")
-            .And.Contain("false premise: the endpoint is already there")
-            .And.Contain("[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0");
+        question.Text.Should().BeEmpty();
         var push = _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogProposalPush>().Single();
         push.Findings.Single().Evidence.Should().Contain("[P2]");
     }
