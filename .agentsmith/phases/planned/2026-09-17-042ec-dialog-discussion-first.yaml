@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ec
+
+goal: "A conversation's first design turn answers with what it found, the edge cases and the open questions, and no proposal is admitted before the operator has replied to such an answer."
+
+applies_to: "backend (transcript turn kind, spec-dialog outcome gate, design prompt) + skills (design-partner master)"
+
+requires:
+  - 2026-09-17-c7aea
+
+scope:
+  in: >
+    A stored transcript turn records what the turn produced: an answer, a proposal of a kind, a failure
+    note, a notice or a filing. A turn may propose once the transcript holds an assistant turn recorded
+    as an answer, followed anywhere later by an operator message. The design master is told in the
+    framework prompt whether this turn may propose. A proposal from a turn that may not propose is
+    refused where the outcome is gated, before validation, with a nudge to discuss; if the retry still
+    proposes, the turn answers with its prose and the draft stripped. The design-partner master says
+    what a first answer contains and defines converged.
+  out: >
+    A MINIMUM NUMBER OF ROUNDS BEYOND ONE. After one answered discussion turn the operator decides.
+    ASK_HUMAN AS THE DISCUSSION CHANNEL. It is reserved for genuine ambiguity, and an answer given to it
+    during a turn does not unlock proposing, because the rule reads the transcript as the turn began.
+    ENFORCING WHAT THE ANSWER SAYS. The gate enforces that no proposal comes first; that the answer is
+    grounded in the code is asked for by the prompt and the skill, not checked.
+
+decisions:
+  - key: |
+      THE RULE IS STRUCTURAL BECAUSE THE PROMPT RULE WAS IGNORED LIVE. The master already says "Not yet
+      clear → keep discussing" (design-partner-master SKILL.md 95-96, pinned v5.4.0), yet the first reply
+      to "update all dependencies of all libraries" was a ready-to-file epic. "Converged" is never defined,
+      so a first turn qualifies, and the framework prompt only adds "draft … when the conversation has
+      converged" (SpecDialogPromptFactory.cs:32-37).
+  - key: |
+      THE KIND IS RECORDED, NOT READ BACK FROM THE TEXT. The only proposal detector scans text for a fenced
+      block (SpecDialogDraftBlocks.cs:30-31) and neither turn record has a kind (TranscriptTurn.cs:6;
+      SpecDialogTurn.cs:7). Read from text, a failed or timed-out turn's note (SpecDialogTurnRunner.cs:71,108),
+      the invalid-proposal notice (MasterOutcomes.cs:33-37) and the filing notice
+      (TicketFilingOutcomeSink.cs:56-57) would count as discussion, and an answer quoting a yaml file would
+      not. The router sets the kind where it appends the turn (SpecDialogRouter.cs:105) from the turn's
+      outcome, on the same line. A legacy turn with no kind counts as discussion: such a conversation was
+      already held.
+  - key: |
+      THE RULE IS EXISTENTIAL OVER THE WHOLE TRANSCRIPT. An edit note re-runs the turn over a transcript
+      ending in the proposal and the note, and that turn must re-emit the full block (SpecDialogRouter.cs:111-129;
+      SKILL.md 104-110). A rule reading only the latest assistant turn would break every edit.
+  - key: |
+      A REFUSAL IS NOT A VALIDATION FAILURE. The existing retry sends the schema nudge
+      (SpecDialogPromptFactory.cs:43-48), which asks for the block again, and a second failure replaces the
+      reply with "did not pass validation" (AgenticMasterHandler.cs:660-662), which would be false and throw
+      the discussion away. The refusal gets its own nudge, runs before validation, is bounded at one retry,
+      and a retry that still proposes answers with its prose; an empty prose is a notice, recorded as such.
+  - key: |
+      THE PROMPT SAYS IT FIRST SO THE GATE IS A BACKSTOP. A refusal re-runs the loop (AgenticMasterHandler.cs:640).
+  - key: |
+      THE HANDLER HAS ROOM FOR A CALL, NOT FOR THE RULE. 893 lines against a 922 baseline; the rule and the
+      refusal live in their own types.
+  - key: |
+      BUGS ARE HELD TO IT TOO. A bug files a ticket someone will run.
+  - key: |
+      ONE SKILL RELEASE. This skill change and 2026-09-17-042eb's merge before the held skills release; the
+      pin moves once, in 042eb.
+
+steps:
+  - id: turns-record-their-kind
+    action: "TranscriptTurn and SpecDialogTurn gain a nullable kind, set by the router from the turn outcome, by the runner's failure path and by the filing sink; seeds map it."
+  - id: the-rule
+    action: "A proposal rule: allowed once any assistant turn of kind answer (or a legacy turn) is followed by an operator message."
+  - id: the-prompt-says-it
+    action: "The design prompt states whether this turn may propose and what a first answer contains; a refusal nudge joins the prompt factory."
+  - id: the-gate-refuses
+    action: "Before validation, a proposal from a turn that may not propose gets the refusal nudge once; a second proposal answers with its prose, draft stripped."
+  - id: the-skill-says-it
+    action: "The design-partner master describes the first answer and defines converged, in the same skills change as 042eb."
+
+tests:
+  - "ProposalRule_FirstTurn_MayNotPropose"
+  - "ProposalRule_AfterAnAnswerAndAnOperatorReply_MayPropose"
+  - "ProposalRule_FailedTurnOrNotice_DoesNotCountAsDiscussion"
+  - "ProposalRule_AnswerQuotingYaml_CountsAsDiscussion"
+  - "ProposalRule_EditNoteAfterAProposal_MayPropose"
+  - "ProposalRule_LegacyTurnWithoutKind_CountsAsDiscussion"
+  - "DesignPrompt_TurnThatMayNotPropose_SaysSo"
+  - "Turn_FirstTurnProposes_IsRefusedAndAnswersInstead"
+  - "Turn_FirstTurnProposesTwice_AnswersWithItsProseNotAFailureNotice"
+  - "Turn_ChatPlatform_FollowsTheSameRule"
+
+done:
+  - "a new conversation's first reply is never a proposal"
+  - "a proposal arrives only after the operator has replied to an answer"
+  - "editing a proposal with a note still works"
+  - "build green, full suite green, file-length ratchet green"

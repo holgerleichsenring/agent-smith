@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ee
+
+goal: "While a design turn runs, its owner sees each file it reads, each search, each model call and a revision after a refused outcome, through an observer the turn sets for itself."
+
+applies_to: "backend (spec-dialog tool surface, turn activity observer, dashboard channel) + dashboard (activity lines)"
+
+requires:
+  - 2026-09-17-c7aec
+  - 2026-09-17-042ec
+  - 2026-09-17-042ed
+
+scope:
+  in: >
+    An ambient turn-activity observer, silent by default, set by the spec-dialog turn runner beside the
+    reading observer of 2026-09-17-c7aec. The spec-dialog tool surface is wrapped so each tool call reports
+    its tool and argument summary to the observer; the chat client reports each model call; the retry
+    after a refused or invalid outcome reports that the turn is revising. A dashboard channel pushes the
+    lines into the dialog's group, taking the dialog from the turn's state. The page shows them under the
+    working indicator, newest last, older ones folded, cleared as the reading lines are.
+  out: >
+    THE RUN EVENT STREAM. See decisions.
+    DESIGN TURNS ON THE RUN SURFACES. A design turn is an ordinary run: RunStarted adds it to the active set
+    (RedisEventPublisher.cs:57), and its persisted events are readable with runs.read (RunQueryEndpoints.cs:30)
+    and through the unchecked run subscription (JobsHub.cs:70-80). Named successor: design-turn runs are
+    kept off the run surfaces or scoped to their owner.
+    DIALOG PUSHES ACROSS REPLICAS. Named successor: a dialog push reaches its owner on every server replica.
+    STREAMING THE MODEL'S TEXT. Model calls are single responses (AgenticLoopRunner.cs:65).
+
+decisions:
+  - key: |
+      THE TOOL EVENTS A FIRST DRAFT MEANT TO RELAY ARE NEVER PUBLISHED. EventPublishingAIFunction is created only by
+      SkillCallRuntime.WrapTools (SkillCallRuntime.cs:151-157), and ISkillCallRuntime has had no production
+      caller since p0312; the design turn hands its tools to the loop unwrapped (AgenticMasterHandler.cs:675,
+      AgenticToolSurface.SpecDialog). Model calls are published (EventPublishingChatClient.cs:49-66).
+  - key: |
+      AN OBSERVER THE TURN SETS, NOT THE RUN STREAM. Wrapping every master's tools in the publishing function
+      would turn tool events on for every run and push each one through the router's normal path, which
+      persists it and nudges the runs list to re-read (RunEventRouter.cs:29-31; JobsHubFanout.cs:18-19).
+      Passing a run id from the runner marks the request a relaunch (ExecutePipelineUseCase.cs:291-292) and
+      can post an empty failed card (:364-372). An ambient observer, as c7aec's, needs no run id, no registry
+      and no router change, and reports nothing when unset.
+  - key: |
+      THE WRAP IS ON THE SPEC-DIALOG SURFACE ONLY. The handler returns that surface on one line
+      (AgenticMasterHandler.cs:675) and wraps it there; AgenticToolSurface is at the 120-line limit and is not
+      touched. Coding and scan surfaces are unchanged.
+  - key: |
+      SAME REACH AS EVERY DIALOG PUSH. The turn runs on the instance that took the post (SpecDialogEndpoints.cs:56)
+      and every dialog push goes to that instance's clients (DashboardReadingChannel.cs:52); there is no
+      backplane (DashboardApiExtensions.cs:29) and production runs two replicas. The activity lines inherit
+      that, and the successor above covers all dialog pushes at once.
+  - key: |
+      WHAT A LINE MAY CARRY. The tool name and the argument summary: whitelisted keys, first 120 characters
+      (ToolArgumentFacts.cs:25,27-28,44-54); paths are repository-prefixed or template-addressed. Every url
+      argument is reduced to its host, for http_request (FilesystemToolHost.cs:449-457) and web_fetch
+      (WebToolHost.cs:47) alike. The model's intent sentence is shown when the call scope holds it
+      (EventPublishingChatClient.cs:69): it is prose to the same owner who reads the reply.
+  - key: |
+      NO "CHECKING THE PROPOSAL" LINE; REVISING IS REPORTED WHERE EACH RETRY LIVES. Resolving the outcome is
+      synchronous parsing (AgenticMasterHandler.cs:625-659); only a re-prompt takes time. The refusal retry is
+      2026-09-17-042ec's own type; the invalid-outcome retry is in the handler (:637-643) and reports with one
+      line, budgeted against 042ed's use of the handler's 29 lines.
+  - key: |
+      A MODEL CALL IS REPORTED WHEN IT RETURNS. The intent is stored only after the response
+      (EventPublishingChatClient.cs:69); at call start it still holds the previous sentence. The line is
+      reported on return with the intent just read. The chat client has one construction site
+      (ChatClientFactory.cs:123), which takes the accessor; every model call inside a design turn reports,
+      the review's of 2026-09-17-042ed included, which is what the operator should see.
+  - key: |
+      THE REVIEW IS NOT DARK. 042ed's look tools come from the derivation tools, not the spec-dialog surface;
+      the look reports each of its reads and searches through the same observer, with a reviewing line when
+      the review starts.
+  - key: |
+      A TOOL THAT IS NOT A FUNCTION PASSES THROUGH. The surface returns AITools; the wrapper wraps AIFunctions
+      and passes others unchanged, as SkillCallRuntime.cs:151-157 does.
+
+steps:
+  - id: the-observer
+    action: "A turn-activity observer contract and ambient accessor, silent by default, registered like c7aec's."
+  - id: the-surface-reports
+    action: "The spec-dialog tool surface is wrapped so each call reports tool and summary, url reduced to host."
+  - id: model-calls-and-revision-report
+    action: "The chat client reports each model call on return with its intent; the refusal and invalid-outcome retries report revising; the review reports reviewing and its look reports its reads."
+  - id: the-turn-sets-it
+    action: "The turn runner sets the observer for dashboard sessions; a dashboard channel pushes lines to the dialog group."
+  - id: the-page-shows-them
+    action: "The working indicator lists activity lines under the reading lines, newest last, older ones folded; cleared with them."
+
+tests:
+  - "Activity_SpecDialogToolCall_ReportsToolAndSummary"
+  - "Activity_UrlArgument_IsReducedToItsHost"
+  - "Activity_NoObserverSet_ReportsNothing"
+  - "Activity_CodingSurface_IsNotWrapped"
+  - "DialogTurn_OnTheDashboard_PushesItsReadsAndModelCalls"
+  - "DialogTurn_OnSlack_PushesNoActivity"
+  - "DialogTurn_RefusedOutcome_ReportsRevising"
+  - "DialogTurn_InvalidOutcome_ReportsRevising"
+  - "DialogTurn_ModelCall_IsReportedOnReturnWithItsIntent"
+  - "DialogTurn_Review_ReportsReviewingAndItsReads"
+  - "Activity_NonFunctionTool_PassesThroughUnwrapped"
+  - "dashboard: a running turn lists what it reads, newest last"
+  - "dashboard: the answer clears the activity lines"
+
+done:
+  - "during a design turn the operator sees, within seconds of each step, which file or search the agent is on"
+  - "activity lines are sent only to the dialog's own group"
+  - "build green, full suite green, file-length ratchet green"
