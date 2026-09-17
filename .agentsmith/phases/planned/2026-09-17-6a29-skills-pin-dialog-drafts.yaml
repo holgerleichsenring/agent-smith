@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-6a29
+
+goal: "The embedded skills pin moves to the release whose design-partner master drafts in English, asks each epic child for a done list, and discusses before it proposes."
+
+applies_to: "backend (embedded skills pin)"
+
+requires:
+  - 2026-09-17-042eb
+  - 2026-09-17-042ec
+
+scope:
+  in: >
+    Once the skills pull requests carrying the three design-partner changes are merged and a release containing
+    them is cut, the embedded tarball, SkillsCatalogVersion and SkillsCatalogSha256 move to it, and tests read
+    the pinned master for each of the three rules.
+  out: >
+    THE SKILL TEXT ITSELF. It is changed in the skills repository by 2026-09-17-042eb and 2026-09-17-042ec.
+
+decisions:
+  - key: |
+      A NAMED PHASE, BECAUSE THE PIN WAITS ON SOMEONE ELSE. 2026-09-17-042eb and 042ec cannot move the pin: the
+      skills changes need a merge and a release the operator performs. A deferral without a named follow-up would
+      leave both phases marked done with an unmet criterion; this phase carries the step, its test and the done
+      line instead.
+  - key: |
+      ONE RELEASE, MERGED IN ORDER. The English-only rule is on skills main at design-partner-master 1.6.1; the epic
+      children's done list raises it to 1.6.2 and the discussion rule to 1.6.3, merged in that order so the skills
+      repository's version check passes for each. The held release is cut after both.
+  - key: |
+      THE BUILD VERIFIES THE PIN. The tarball, version and checksum move together (AgentSmith.Infrastructure.Core.csproj:44-55,88-89).
+
+steps:
+  - id: the-pin-moves
+    action: "The embedded tarball, SkillsCatalogVersion and SkillsCatalogSha256 move to the release carrying design-partner-master 1.6.3."
+  - id: the-pinned-rules-are-tested
+    action: "Tests read the pinned design-partner master for the English rule, the done list per epic child and discussion before a proposal."
+
+tests:
+  - "EmbeddedSkills_DesignPartnerMaster_DraftsInEnglish"
+  - "EmbeddedSkills_DesignPartnerMaster_AsksEachEpicChildForDone"
+  - "EmbeddedSkills_DesignPartnerMaster_DiscussesBeforeItProposes"
+
+done:
+  - "the embedded design-partner master requires English drafts, a done list per epic child and a discussion before a proposal"
+  - "build green, full suite green"
