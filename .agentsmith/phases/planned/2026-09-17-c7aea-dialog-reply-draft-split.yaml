@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-c7aea
+
+goal: "On the dashboard a reply's draft is shown as structure instead of prose, and the latest proposal and filing outlive a reload — while the stored transcript stays whole."
+
+applies_to: "backend (spec dialog: what a turn shows on the dashboard, what a session remembers) + dashboard (the types)"
+
+requires:
+  - 2026-09-15-6d9c
+
+scope:
+  in: >
+    The stored transcript is NOT changed: it is the design master's context. The turn result
+    carries two renderings of the master's reply — the whole reply, which is stored, and the reply
+    as SHOWN, which on the dashboard has its fenced draft removed and elsewhere is identical. The
+    router stores the first and sends the second. The view strips the same way when it rebuilds
+    ASSISTANT turns only; operator turns may hold pasted drafts and are shown as written. The
+    session durably keeps its LATEST proposal — including the draft's raw yaml, so the pane can show
+    it — and its LATEST filing report. The view returns both and places the card on the last
+    assistant turn that carried a draft.
+  out: >
+    SLACK AND TEAMS. They have no pane; their reply still carries the draft, which is the only place
+    a chat user reads steps, tests and done before approving.
+    THE CONFIRMED-OUTCOME STORE. Named, not fixed: it is written and cleared and never read, so a
+    "retry" after a failed filing is a fresh proposal that files every ticket again. A successor,
+    named by what it does: a failed filing retries from what was confirmed and creates only what is
+    missing.
+    A CARD FOR EVERY EARLIER PROPOSAL AFTER A RELOAD. Only the latest is kept; earlier cards exist
+    live and are gone after a reload.
+    THE LIST, THE READING LINES, THE SURFACE. 2026-09-17-c7aeb, -c7aec, -c7aed.
+
+decisions:
+  - key: |
+      THE TRANSCRIPT STAYS WHOLE, BECAUSE IT IS THE MASTER'S ONLY MEMORY. Every design turn is given
+      the stored transcript, one line per turn, and nothing else of the conversation; an edit note
+      re-runs the turn over it. Stripping the draft there would ask a master to revise what it can no
+      longer see. The draft is stripped where it is SHOWN, not where it is REMEMBERED.
+  - key: |
+      THE STRIP HAPPENS WHERE THE REPLY IS KNOWN TO BE THE REPLY. The dashboard adapter receives every
+      message sent to a dialog through one method: ask_human questions, turn-failed notices, dispatcher
+      errors, filing notices and command replies as well as the master's answer. Stripping there would
+      eat a draft quoted in a question or an error. The router is the one place that holds the reply as
+      the reply. A previous draft of this spec ruled the router out on a misreading: the ratchet refuses
+      growth, not change, so storing the whole reply and sending the shown one is an edit of the same
+      length.
+  - key: |
+      ONLY THE DASHBOARD LOSES THE DRAFT FROM THE PROSE, BECAUSE ONLY IT HAS A PANE. A Slack or Teams
+      confirmation shows a phase as id and goal and an epic as its children's ids and goals; the reply's
+      draft is their only view of steps, tests and done before approving a filing.
+  - key: |
+      STRIP ON PRESENCE, NOT VALIDITY. The two rules that find a draft — the resolver's outcome block
+      and the validator's yaml block — are private and separate, and both refuse more than one block.
+      An invalid draft is re-prompted once and then replaced by a notice, so a stored reply holds
+      exactly one valid block or none. A shared detector matching either shape is therefore safe. A
+      reply that is only a draft shows no prose line; the card carries it.
+  - key: |
+      NO TURN INDEX. Placing the card by an index would need the router to hand the flow a state read
+      after the append, and it hands over the state from before. It does not need to: live, the proposal
+      push always follows the reply push; after a reload, the transcript is whole, so the view places
+      the card on the last assistant turn that carried a draft.
+  - key: |
+      THE LATEST PROPOSAL IS THE ONE UNDER DISCUSSION. It is written where it is pushed, never for an
+      answer, and cleared when the proposal is rejected — otherwise a reload would show "not filed
+      yet" for something the operator turned down. It keeps the raw yaml the pane's disclosure shows.
+      The filing report is written where the sink holds it. Neither goes in the confirmed-outcome
+      column, which is dead and stays that way until its own successor.
+
+steps:
+  - id: one-draft-detector
+    action: "A shared detector finding a draft of either shape by presence, from the two existing rules."
+  - id: the-turn-carries-what-is-shown
+    action: "The turn result carries the whole reply and the reply as shown on its platform; the runner computes the second."
+  - id: the-router-stores-one-and-sends-the-other
+    action: "The router stores the whole reply and sends the shown one, within its baselined length."
+  - id: the-view-strips-assistant-turns
+    action: "Rebuilt assistant turns are shown stripped; operator turns are shown as written."
+  - id: the-latest-proposal-and-filing-are-kept
+    action: "Two nullable columns — latest proposal with its yaml, latest filing — written where each is known, cleared on rejection; migrations in both assemblies."
+  - id: the-view-returns-them
+    action: "The view carries both and names the assistant turn the card belongs on; the dashboard types follow."
+
+tests:
+  - "Transcript_AfterAReplyWithADraft_StillHoldsTheDraft"
+  - "EditNote_ReRun_TheMasterStillSeesItsDraft"
+  - "Router_OnTheDashboard_SendsTheReplyWithoutItsDraft"
+  - "Router_OnSlack_SendsTheReplyUnchanged"
+  - "QuestionPump_AQuestionQuotingYaml_IsSentUnchanged"
+  - "View_AnAssistantTurnWithADraft_ShowsItsProseWithoutIt"
+  - "View_AnOperatorTurnWithAPastedDraft_ShowsItAsWritten"
+  - "View_DraftOnlyReply_ShowsNoProseLine"
+  - "View_AfterFilingSucceeds_CarriesTheLatestProposalAndFiling"
+  - "View_AfterARejection_CarriesNoLatestProposal"
+  - "View_PlacesTheCardOnTheLastAssistantTurnWithADraft"
+  - "Router_StaysWithinItsBaselinedLength"
+
+done:
+  - "no draft lands in the dashboard exchange as prose, live or after a reload"
+  - "the design master can still revise its draft on an edit note"
+  - "a Slack or Teams user still sees the full draft before approving, and no question or error loses fenced content"
+  - "after a reload the pane shows the latest proposal, with its raw form, and what was filed"
+  - "build green, full suite green, file-length ratchet green; both migration heads compare equal"

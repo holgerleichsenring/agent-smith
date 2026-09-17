@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Work it out — surface mock (2026-09-17-f74e)</title>
+<title>Work it out — surface mock (2026-09-17-c7aed)</title>
 <!--
-  2026-09-17-f74e: the target for the surface, not a sketch of a direction.
+  2026-09-17-c7aed: the target for the surface, not a sketch of a direction.
 
   Every name in it is a sample. The conversation is invented and deliberately shows the
   shape the phase is FOR: the agent asks a question that changes the cut before it
@@ -160,9 +160,10 @@
     <div class="whoami">operator · <span class="mono">sample-portal</span></div>
   </header>
 
-  <p class="note"><strong>The target for 2026-09-17-f74e.</strong> Every name is a sample. The
+  <p class="note"><strong>The target for 2026-09-17-c7aed.</strong> Every name is a sample. The
     conversation is invented, and shows what the phase is for: the agent asks a question that
-    changes the cut before it proposes one.</p>
+    changes the cut before it proposes one. Layout, hierarchy and wording are the target; the
+    typefaces and colours are illustrative, and the dashboard's own tokens replace them.</p>
 
   <div class="cols">
 
@@ -174,32 +175,36 @@
         <div class="daygroup">
           <div class="eyebrow">Today</div>
           <button class="conv" aria-current="true">
-            <span class="t">Dependency update across three repositories</span>
-            <span class="m"><span class="chip">portal</span><span class="dot"></span>7 turns<span class="dot"></span>now</span>
+            <span class="t">update every dependency in the client, the server and the worker</span>
+            <span class="m"><span class="chip">sample-portal</span><span class="dot"></span>7 turns<span class="dot"></span>now</span>
           </button>
           <button class="conv">
-            <span class="t">Framework major upgrade — one slice or three?</span>
-            <span class="m"><span class="chip">portal</span><span class="dot"></span>12 turns<span class="dot"></span>09:14</span>
+            <span class="t">is the framework upgrade one slice or three?</span>
+            <span class="m"><span class="chip">sample-portal</span><span class="dot"></span>12 turns<span class="dot"></span>09:14</span>
           </button>
         </div>
 
         <div class="daygroup">
           <div class="eyebrow">Yesterday</div>
           <button class="conv">
-            <span class="t">Split the infrastructure state per environment</span>
+            <span class="t">split the infrastructure state per environment</span>
             <span class="m"><span class="chip">sample-fleet</span><span class="dot"></span>21 turns<span class="dot"></span><span class="chip filed">epic filed</span></span>
           </button>
           <button class="conv">
-            <span class="t">Why does the legacy client still ship its old toolkit?</span>
-            <span class="m"><span class="chip">sample-access</span><span class="dot"></span>4 turns<span class="dot"></span>answered</span>
+            <span class="t">why does the legacy client still ship its old toolkit?</span>
+            <span class="m"><span class="chip">sample-access</span><span class="dot"></span>4 turns</span>
           </button>
         </div>
 
         <div class="daygroup">
           <div class="eyebrow">Last week</div>
           <button class="conv">
-            <span class="t">Document rendering is slow at month end</span>
+            <span class="t">document rendering is slow at month end</span>
             <span class="m"><span class="chip">sample-billing</span><span class="dot"></span>9 turns<span class="dot"></span><span class="chip filed">bug filed</span></span>
+          </button>
+          <button class="conv">
+            <span class="t">move the reports to the new storage account</span>
+            <span class="m"><span class="chip">sample-billing</span><span class="dot"></span>14 turns<span class="dot"></span><span class="chip" style="color:var(--attention);border-color:var(--attention)">epic partly filed</span></span>
           </button>
         </div>
       </div>
@@ -207,7 +212,7 @@
 
     <section class="panel">
       <div class="phead">
-        <h2>Dependency update across three repositories</h2>
+        <h2>update every dependency in the client, the server and the worker</h2>
         <span class="eyebrow">session ab368da5</span>
       </div>
 
@@ -235,11 +240,11 @@
           <div class="who ag">AS</div>
           <div class="said">
             <div class="working"><span class="ring" aria-hidden="true"></span>
-              <span>Reading the repositories — about a minute.</span></div>
+              <span>Opening the repositories it needs…</span></div>
             <div class="reading">
-              <span class="done">Sample.Portal.Server — 38 direct packages</span>
-              <span class="done">Sample.Portal.Worker — 22 direct packages</span>
-              <span class="now">Sample.Portal.Client — the manifest and its lock file</span>
+              <span class="done">Sample.Portal.Server</span>
+              <span class="done">Sample.Portal.Worker</span>
+              <span class="now">Sample.Portal.Client</span>
             </div>
           </div>
         </div>
@@ -253,7 +258,7 @@
             <div class="card">
               <div class="row">
                 <span class="kind">epic</span>
-                <span class="ttl">Update dependencies to compatible supported versions</span>
+                <span class="ttl">Update client, server and worker dependencies to compatible supported versions</span>
                 <button class="look">Inspect &rarr;</button>
               </div>
               <div class="slices">
@@ -267,8 +272,7 @@
 
         <div class="decide">
           <div class="hd"><span class="eyebrow" style="color:var(--attention)">Waiting on you</span></div>
-          <div class="bd">File this epic? A parent record and three slices, created in that order —
-            the second waits for the first to leave its trigger status.</div>
+          <div class="bd">File this epic? A parent record and three slices.</div>
           <div class="acts">
             <button class="btn go">Approve &amp; file</button>
             <button class="btn no">Reject</button>
@@ -329,7 +333,7 @@
             <summary><span class="n">2 · c52e</span><span class="g">Worker packages, same families</span><span class="open">open</span></summary>
             <div class="inner">
               <div class="fieldset"><span class="eyebrow">Waits for</span>
-                <ul><li>Slice 1 — the shared families move once, and this proves they still meet</li></ul>
+                <ul><li>Slice 1 · b17c</li></ul>
               </div>
               <div class="fieldset"><span class="eyebrow">Tests</span>
                 <ul>
