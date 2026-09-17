@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { SelectField, TextField } from "./formFields";
 import type { useProjectContexts } from "./useProjectContexts";
 
@@ -34,7 +35,8 @@ export function Unreadable({
  * each can be bound to its own template.
  * <para>
  * A select emits one string and the stored context is a bare name, so the option value
- * encodes the pair and the handler decodes it and writes both fields. The TARGET context
+ * encodes the pair and the handler decodes it and writes both fields — on every pick, because
+ * choosing a pair is choosing a context OF that repository. The TARGET context
  * picker keeps the plain-string shape below: it asks about exactly one repository, so it
  * cannot collide.
  * </para>
@@ -60,6 +62,17 @@ export function LocalContextField({
   onChange: (name: string, repo: string | null) => void;
 }) {
   const subject = "this project's repositories";
+  // A stored name with no repository that exactly one repository declares has an origin,
+  // not a guess: fill it in once the list arrives, so the draft changes and one save places
+  // it. A name two repositories declare stays as stored for the operator to pick again.
+  const sole = contextRepo || !value ? null : state.origins.find((o) => o.name === value);
+  const fill = sole && sole.repos.length === 1 ? sole.repos[0] : null;
+  useEffect(() => {
+    if (fill) onChange(value, fill);
+    // onChange is a fresh closure on every render; the fill itself is what may trigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fill, value]);
+
   if (state.origins.length === 0)
     return (
       <TextField
@@ -78,11 +91,11 @@ export function LocalContextField({
       />
     );
 
-  // One option per pair. A name only one repository declares still names it, so the option
-  // reads the same either way and the stored value gains the repo only when it disambiguates.
+  // One option per pair, and every value carries its repository — the graph places a context
+  // by the repository stored with it, and draws from nothing else.
   const options = state.origins.flatMap((o) =>
     o.repos.map((repo) => ({
-      value: encode(o.name, o.repos.length > 1 ? repo : null),
+      value: encode(o.name, repo),
       label: `${o.name}  ·  ${repo}`,
     })),
   );
