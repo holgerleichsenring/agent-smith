@@ -45,10 +45,14 @@ public sealed record SpecSet(
         [.. Phases.TakeWhile(p => Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
 
     /// <summary>
-    /// Cap on the phases one ticket may split into. The pipeline executor allows a
-    /// bounded number of command executions per run and each phase splices its own
-    /// plan/master/verify block; beyond this cap a ticket is a programme and belongs
-    /// in the spec dialogue, not in one coding run.
+    /// Cap on the phases one ticket may split into. Beyond this cap a ticket is a
+    /// programme and belongs in the spec dialogue, not in one coding run.
+    /// <para>
+    /// 2026-09-17-0e79e: the executor's command-execution guard is no longer a fixed
+    /// number this cap has to fit under — the budget follows the phase count
+    /// (<see cref="Pipeline.StepBudget"/>), so raising the cap raises the guard with it.
+    /// What the cap still decides is how much work one run may be asked to do.
+    /// </para>
     /// </summary>
     public const int MaxPhases = 8;
 

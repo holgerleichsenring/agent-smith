@@ -269,6 +269,24 @@ public sealed class PipelineContextSerializerTests
             "2026-09-03-3c07: a resumed phase block came back belonging to no phase");
     }
 
+    /// <summary>
+    /// 2026-09-17-0e79e: the run's step budget is published mid-run by PhaseSequence, and a
+    /// resume splices no sequence of its own — so if the checkpoint drops it, the resumed
+    /// segment silently falls back to the number this phase exists to replace.
+    /// </summary>
+    [Fact]
+    public void PipelineContextSerializer_StepBudget_SurvivesARoundTrip()
+    {
+        var context = new PipelineContext();
+        context.Set(ContextKeys.StepBudget, AgentSmith.Contracts.Pipeline.StepBudget.ForPhases(8));
+
+        var restored = new PipelineContext();
+        _sut.Restore(_sut.Serialize(context), restored);
+
+        AgentSmith.Contracts.Pipeline.StepBudget.From(restored)
+            .Should().Be(AgentSmith.Contracts.Pipeline.StepBudget.ForPhases(8));
+    }
+
     /// <summary>p0478: several parameterised constructors and no parameterless one — what
     /// System.Text.Json refuses with NotSupportedException. The compiler-generated list that
     /// broke the live resume has the same shape; it cannot stand in here because
