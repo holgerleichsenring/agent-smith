@@ -100,6 +100,12 @@ public static partial class ContextKeys
     /// — a two-repo run may carry the feature branch in one clone and not the other.</summary>
     public const string PullRequestTargets = "PullRequestTargets";
 
+    /// <summary>2026-09-17-0e79e: <see cref="Pipeline.StepBudget"/> — how many command
+    /// executions this run's segment may spend before the executor calls it an insertion
+    /// loop. PhaseSequence publishes it for the tail it splices and nothing else publishes
+    /// one; with the key absent the executor uses the budget every preset always had.</summary>
+    public const string StepBudget = "StepBudget";
+
     /// <summary>2026-08-31-7097: dictionary keyed by sandbox key, holding the toolchain
     /// image the backend ACTUALLY pulled for that sandbox. An entry exists only when the
     /// sandbox named one, so the in-process backend — which runs on the host and pulls
