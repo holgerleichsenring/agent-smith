@@ -1,0 +1,186 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-0e79d
+
+goal: "An epic approved in the design conversation files one work ticket carrying the whole approved set, worked by one run as one sequence, plus one linked record ticket per slice."
+
+applies_to: "backend (the epic filer, the labels and links it stamps, what the work ticket and the records carry, the approved-set store for an epic)"
+
+requires:
+  - 2026-09-17-042ea
+  - 2026-09-17-0e79a
+
+scope:
+  in: >
+    Approving an epic files ONE work ticket from the parent draft — the framework's phase label, a
+    requirement body, its slice list — and stores the whole set of children under that ticket's spec
+    key (2026-09-17-0e79a). Each slice is filed as a RECORD ticket with the framework's record label,
+    linked to the work ticket through the tracker's own relation (2026-09-17-042ea), and carries no
+    stamps: nothing routes it and nothing reads it. The work ticket carries no parent stamp and no
+    predecessor stamps, so the base ladder falls through and one run cuts one branch. That run works
+    every phase — a commit and a verification each — and delivers one pull request per repository,
+    which is the epic's pull request. An epic whose set exceeds the phase cap is refused BEFORE any
+    ticket is created. The N-children filing shape goes with this change; the child orderer stays,
+    because the set is ordered and the proposal pane uses it; an epic child filed by the old shape,
+    which carries a parent stamp and no record, keeps deriving as it does today.
+  out: >
+    MOVING THE WORK TICKET INTO A TRIGGER STATUS. 2026-09-17-042eg.
+    FOLLOWING THE RUN IN THE CONVERSATION. 2026-09-17-042ej.
+    UPDATING A RECORD TICKET WHEN ITS PHASE IS DONE. A successor, named by what it does: a slice record
+    is closed when the phase it records is verified.
+    ORDERING TWO WORK TICKETS CUT FROM ONE PROGRAMME. Two approvals produce two tickets that run
+    concurrently from their own bases; the second approval is made after the first has delivered, and
+    the conversation says so when it refuses an over-cap cut.
+    THE TICKET-FIRST PATH, AND HAND-FILED LABELS. Untouched: a ticket someone wrote is derived, and a
+    hand-added parent stamp still cuts from its rung.
+
+decisions:
+  - key: |
+      ONE RUN ALREADY DOES THIS. PhaseSequence splices one master-verify-record block per unexecuted
+      phase, in order, with a commit before the gate that judges it (PhaseSequenceHandler.cs:32-56,
+      PipelinePresets.Parking.cs:42-53), and CommitAndPR opens one pull request per repository at the
+      end (CommitAndPRHandler.cs:18-27). The sequence is where termination comes from (SpecSet.cs:3-11).
+      What forced N runs was N tickets, not the executor.
+  - key: |
+      THE N-CHILDREN FILING SHAPE IS REPLACED, NOT KEPT BESIDE THIS ONE. EpicTicketFiler files the
+      parent and then each child (EpicTicketFiler.cs:31-49) and has exactly one caller
+      (OutcomeTicketFiler.cs:37), so "the old path stays reachable" would be untrue: nothing would
+      select it. It is replaced. EpicChildOrderer survives — the proposal pane runs the same orderer to
+      list the children (SpecDialogProposalComposer.cs:13, 48-54) and the set's phases are stored in
+      that order. 2026-09-17-042ei described the N-ticket delivery and has no path left to govern; it
+      is withdrawn, below.
+  - key: |
+      TODAY A CHILD DELIBERATELY CARRIES NO SPEC, AND THAT REASON IS ANSWERED ELSEWHERE NOW. b7ba left
+      the spec out so a child filed today and worked in three weeks re-derives against the repository as
+      it then is (PhaseTicketRenderer.cs:35-46, PhaseTicketBody.cs:6-14). With one run there is no
+      three-week gap between the cut and the work, the set is approved and stored (2026-09-17-0e79a), it
+      is not re-cut (2026-09-17-0e79b), and a stale premise is caught before each phase
+      (2026-09-17-0e79c).
+  - key: |
+      A RECORD MUST NOT ROUTE, AND "NO LABEL" IS NOT THE WAY TO SAY THAT. A ticket with no framework
+      label is routed by the project's own resolution and pipeline rules, so a bare record in a trigger
+      status would be claimed like any ticket. The record label is refused BEFORE every other rule
+      (ProjectResolver.cs:36-41); the phase label hard-binds to the code preset (:65-67) and is added to
+      the poller's own query (TrackerDiscoveryQueryBuilder.cs:57-58). So slice records carry the record
+      label and never the phase label, and the work ticket carries the phase label.
+  - key: |
+      THE LINK REPLACES THE STAMPS ON A RECORD. 2026-09-17-042ea links a filed child to its parent
+      through the tracker's own relation and takes the "Parent:" line out of the body; the label stamps
+      stayed because MACHINES read them (its decisions: the predecessor gate, the epic ground, the run's
+      parent branch). On this path no machine reads a record — it never routes, never runs, and is not a
+      rung — so a record carries the link and no stamp at all, and a link that fails is a note on the
+      filing report as 042ea already reports one.
+  - key: |
+      NO PARENT STAMP ON THE WORK TICKET EITHER, OR IT CUTS FROM A FEATURE BRANCH. A parent stamp makes
+      the run resolve the parent's rung as its base and publish it (FiledTicketLabels.cs:45-47,
+      SandboxBaseLadder.cs:36-59, 67-71, SandboxRungPublisher.cs:60). One run needs one branch from its
+      own base, which is what the ladder does when it falls through. The rung machinery (2026-09-13-35a4,
+      5cdf, a284) is untouched and simply unused here.
+  - key: |
+      NO PREDECESSOR STAMPS, SO THE GATE HAS NOTHING TO HOLD. PredecessorGate waits on the stamps of the
+      incoming envelope and is Ready when there are none (PredecessorGate.cs:44-45). Order inside one run
+      is the sequence's, phase by phase, which is stronger than a status gate: a successor cannot start
+      before its predecessor VERIFIED, rather than before its predecessor opened a pull request.
+  - key: |
+      THE WORK TICKET IS THE PARENT DRAFT. RenderEpicParent already titles the parent from its own draft
+      and lists the slices (PhaseTicketRenderer.cs:55-65, Title at :84); that renderer becomes the WORK
+      ticket's, with the phase label instead of the record label. The "## Slices" section stays — it is
+      what a reader opens the ticket for — and the filing comment adds each slice's ticket reference
+      once the records exist, as the parent comment does today (EpicTicketFiler.cs:48-49).
+  - key: |
+      WHAT EACH BODY CARRIES. Both bodies are requirement bodies: no fence, no steps
+      (PhaseTicketBody.cs:37-38, and 2026-09-17-0e79a takes the fence off a filed phase). A slice record
+      carries goal, why, scope and the done list 2026-09-17-042eb asks every child for — there for a
+      PERSON now, not for a deriver, because the run reads the approved set. Titles are cut to 255
+      characters by 042eb's rule.
+  - key: |
+      ONE APPROVAL, ONE RECORD, ONE KEY. The set is stored under the WORK ticket's spec key
+      (2026-09-17-0e79a), so the epic has one set, one branch, one pointer and one pull request per
+      repository; 2026-09-17-042eg stores it before anything moves the ticket.
+  - key: |
+      A LEGACY EPIC CHILD MUST NOT HIT THE LOUD MISS. Children filed by the old shape carry the phase
+      label and a fenceless requirement body, so 2026-09-17-0e79a's rule would fail them for want of a
+      record they never had. The discriminator is on the ticket: a phase ticket carrying a
+      phase-parent: stamp (FiledTicketLabels.cs:28, 46-47) and no record is a legacy child and DERIVES
+      as today — which is exactly what that shape was built to do (PhaseTicketBody.cs:6-14). A filed
+      ticket with no stamp and no record is the broken hand-off, and fails.
+  - key: |
+      THE CAP IS CHECKED BEFORE ANYTHING IS FILED. A refusal after the parent exists would leave a
+      half-filed epic on the tracker, so the count is checked on the proposal: over the cap, nothing is
+      created, and the conversation says to cut the programme into two approvals. The second is made
+      after the first has delivered, because two work tickets carry no ordering between them — each cuts
+      from its own base (SandboxBaseLadder.cs:36-59) and nothing holds one for the other once no
+      predecessor stamps are filed (PredecessorGate.cs:44-45).
+  - key: |
+      2026-09-17-042ei IS WITHDRAWN WITH THIS CHANGE, NOT LEFT PLANNED. Its subject is the N-ticket
+      delivery — each slice merged into an epic branch, one epic pull request held until every child is
+      accounted for — and this phase removes the filing shape that produces those slices, so its path is
+      gone before it was ever built. Its spec file is deleted here, and the three places that point at
+      it are corrected: 2026-09-17-042eh's line budget note and its shortfall note, and
+      2026-09-17-042ej's out-line.
+  - key: |
+      THE EPIC GROUND IS EMPTY FOR THIS RUN, AND NOTHING IS LOST. EpicGroundFetcher reads the parent
+      ticket's text when a child carries a parent stamp (EpicGroundFetcher.cs:43-48) so a DERIVATION can
+      see the whole cut its slice belongs to. This run carries no stamp and derives nothing: it works an
+      approved set that was cut with the whole programme in view, in the conversation. Ground for a cut
+      that is not being made is not a loss.
+  - key: |
+      THE RECORD LABEL KEEPS ITS VALUE. PhaseTicketRenderer.EpicLabel is "phase-epic"
+      (PhaseTicketRenderer.cs:26) and every epic parent already filed carries it; renaming the constant
+      would make each of them routable overnight, because the refusal reads the value
+      (ProjectResolver.cs:36-41). The value stays and its MEANING widens from "the record of a cut" to
+      "a record, not work": its doc (FiledTicketLabels.cs:5-11, PhaseTicketRenderer.cs:20-26) and the
+      resolver's log line (ProjectResolver.cs:38-40) say so.
+  - key: |
+      ROOM IN THE EPIC FILER, CUMULATIVE. EpicTicketFiler is 64 lines today. 2026-09-17-042ea adds the
+      link call, 2026-09-17-0e79a the store write and 2026-09-17-042eg the start-and-confirm call —
+      roughly three call lines and their collaborators' constructor parameters (+6), against what this
+      phase removes: the child ordering call and its error branch and the per-child stamp list
+      (:26-28, 55-63, about 12 lines). Whichever order they land in, the file ends near 58 of 120.
+
+steps:
+  - id: the-work-ticket
+    action: "Approving an epic files one phase-labelled work ticket from the parent draft, body and slice list included, and stores the whole set under its key."
+  - id: the-records
+    action: "Each slice is filed with the record label, its requirement body and no stamps."
+  - id: the-links
+    action: "Each record is linked to the work ticket through the tracker's relation; a failed link is a note on the filing report."
+  - id: the-listing
+    action: "The work ticket gets one comment naming each record in order."
+  - id: the-cut-base
+    action: "The work ticket carries no parent and no predecessor stamp, so the ladder falls through and the run cuts from its own base."
+  - id: the-old-shape-goes
+    action: "The N-children filing shape is removed; the child orderer stays for the stored order and the proposal pane."
+  - id: the-legacy-child-still-derives
+    action: "A phase ticket carrying a parent stamp and no approved record derives as today, ahead of the loud miss."
+  - id: the-label-widens
+    action: "The record label keeps its value; its documentation and the resolver's log line say record, not work."
+  - id: the-withdrawal
+    action: "The withdrawal of 2026-09-17-042ei is recorded: its spec file is removed and the references in 2026-09-17-042eh and 2026-09-17-042ej are corrected."
+
+tests:
+  - "EpicApproval_FilesOneWorkTicketWithThePhaseLabel"
+  - "EpicApproval_WorkTicketTitleAndBody_ComeFromTheParentDraft"
+  - "EpicApproval_WorkTicketBody_ListsTheSlicesInOrder"
+  - "EpicApproval_StoresTheWholeSetUnderTheWorkTicketsKey"
+  - "EpicApproval_SliceRecords_CarryTheRecordLabelAndNoPhaseLabel"
+  - "EpicApproval_SliceRecords_CarryNoParentOrPredecessorStamp"
+  - "EpicApproval_SliceRecords_AreLinkedToTheWorkTicket"
+  - "EpicApproval_LinkFails_IsANoteOnTheFilingReport"
+  - "EpicApproval_SliceRecordBody_CarriesItsDoneListAndNoFence"
+  - "EpicApproval_WorkTicket_CarriesNoParentStamp"
+  - "EpicApproval_WorkTicket_GetsOneCommentNamingEachRecord"
+  - "SliceRecord_FromTheFilersOwnOutput_IsRefusedByTheProjectResolver"
+  - "WorkTicket_FromTheFilersOwnOutput_RoutesToTheCodePreset"
+  - "EpicApproval_OverThePhaseCap_IsRefusedBeforeAnyTicketIsCreated"
+  - "LegacyEpicChild_WithParentStampAndNoRecord_StillDerives"
+  - "FiledTicketWithoutAStampOrARecord_StillFailsLoudly"
+  - "PhaseApproval_SinglePhase_StillFilesOneWorkTicket"
+  - "ProposalPane_Epic_StillListsTheChildrenInDependencyOrder"
+  - "RecordLabel_KeepsItsValue_SoAlreadyFiledParentsStayUnroutable"
+
+done:
+  - "an epic approved in the conversation produces one ticket a run can work and records a person can read and follow"
+  - "no record ticket is ever picked up by a poller or a webhook, and each is linked to the ticket that carries the work"
+  - "one run works every phase of the epic and leaves one pull request per repository"
+  - "no filing path files N phase tickets any more; an epic child filed by the old shape still derives, and the ticket-first path is unchanged"
+  - "build green, full suite green, file-length ratchet green"

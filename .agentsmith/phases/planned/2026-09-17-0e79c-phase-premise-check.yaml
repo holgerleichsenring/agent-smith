@@ -1,0 +1,197 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-0e79c
+
+goal: "A drafted phase states the premises it rests on, and before it is worked a fresh instance checks them against the repository and hands a false one back instead of re-cutting."
+
+applies_to: "backend (the code phase block: a premise-check step, its look, prompt and evidence, the hand-back and the phase row) + skills (the design-partner master's facts and assumptions, and the pin)"
+
+requires:
+  - 2026-09-15-ffa7
+  - 2026-09-17-6a29
+  - 2026-09-17-0e79b
+  - 2026-09-17-0e79e
+
+scope:
+  in: >
+    The design-partner master states, per drafted phase, a `facts:` block — each claim with where it was
+    seen — and an `assumptions:` list, and the embedded skills pin moves to a release carrying that
+    contract and everything 2026-09-17-6a29 pinned.
+    CheckPhasePremises follows SelectPhase in the code phase block: it takes the phase's facts, its
+    assumptions and its decisions text as they stand, and asks a fresh instance, on a look of its own
+    terms with its own allowance and evidence letter, whether each premise still holds in the
+    repositories the run has open. The prompt describes that look — the repositories it may name, how many looks it
+    has, how its ids are spelled and what a finding must cite. A FALSE PREMISE is admitted only on an
+    evidence id this look minted for a look that RAN; anything else is recorded unproven. A false
+    premise fails the step, records the phase as failed with the premise, the finding and its evidence
+    as the verdict, and comments on the ticket; the phases that verified are still delivered by the
+    finalizer tail, and the amendment goes through the conversation. A phase that states no premises,
+    and a run whose cost cap is exhausted, skip the check with a recorded reason.
+  out: >
+    RE-CUTTING, AMENDING OR REPAIRING THE SPEC IN THE RUN. The check reports; it never writes a spec.
+    A SECOND PASS OR A CONVERSATION WITH THE CHECKER. One call per phase.
+    FACTS ON A DERIVED SET. The deriver already states them (DerivedPhaseBuilder.cs:56-62); this phase
+    only adds them to what the design conversation drafts.
+    CHECKING THE DONE-LIST. PhaseEntryAccount already asks whether the criteria are satisfied
+    (PhaseEntryAccount.cs:34-47) and the accountant asks again at the end.
+    A SHELL OR A WRITE TOOL. The look is the three read-only tools ffa7's reviewer uses.
+    THE SKILL TEXT OF 2026-09-17-042eb AND 042ec, AND THE PIN MOVE OF 2026-09-17-6a29. Untouched; this
+    phase carries its own skill change and its own, later, pin move.
+    THE PHASE-DIFF REVIEW AFTER VERIFY. 2026-09-17-042eh; this is before the work, that is after it.
+
+decisions:
+  - key: |
+      A DIALOG-DRAFTED PHASE STATES NO PREMISES TODAY, SO THE CHECK WOULD SKIP EXACTLY WHERE IT MATTERS.
+      Facts and assumptions are produced only by the deriver (DerivedPhaseBuilder.cs:56-62,
+      DerivedPhaseYamlRenderer.cs:61-66) and read back by PhaseDraftReader (:32-33, 39-46). The pinned
+      design-partner master's drafting contract (v5.4.0 catalog, design-partner-master 1.6.0,
+      SKILL.md:112-145 for a phase and :162-192 for an epic's children) emits goal, steps, tests and
+      done and never facts or assumptions. So this phase changes that contract in the skills repository
+      and moves the pin itself — a second pin move after 2026-09-17-6a29, which is honest: each phase
+      that needs a skill change carries its own move, and 6a29 is not edited.
+  - key: |
+      THE TWO PIN MOVES MUST NOT UNDO EACH OTHER, SO THIS ONE IS SEQUENCED AND NUMBERED. 6a29 pins the
+      release carrying design-partner-master 1.6.3 (its decisions name the order 1.6.1 to 1.6.3); this
+      phase's skill change is 1.6.4 or later, cut AFTER that release, and the pin it moves to carries
+      both. Requiring 6a29 is what keeps a later pin from rolling its contract back
+      (AgentSmith.Infrastructure.Core.csproj:52-55, 88-89 move together).
+  - key: |
+      A PHASE DRAFTED BEFORE THE PIN MOVED IS SKIPPED, AND SAYS SO. Nothing back-fills premises; a spec
+      with no facts and no assumptions is checked against nothing, and the skip is recorded on the run
+      rather than being silent, so an operator can tell it from a check that passed.
+  - key: |
+      NOTHING CHECKS A PREMISE TODAY. Facts are resolved ONCE, at derivation, and afterwards only
+      rendered: into the phase yaml, into the ticket comment (SpecSetComment.cs:95-106) and into the
+      master's prompt as part of the raw yaml (PhaseExecutionPromptFactory.cs:36-41). The cut reviewer
+      lives inside the deriver (SpecDerivationRegistrations.cs:19, SpecSetDeriver.cs:34), so a set that
+      is not derived this run — an approved set, a branch artifact, an embedded spec — is never reviewed
+      again. At phase start only PhaseEntryAccount looks at the code, and only to ask whether the
+      criteria are already met (PhaseEntryAccount.cs:34-47, SelectPhaseHandler.cs:61-64).
+  - key: |
+      THIS IS THE STALENESS ANSWER, WHICH IS WHY IT MAY NOT BECOME A SECOND DERIVER. An approved set is
+      the truth (2026-09-17-0e79a) and may not be re-cut behind the operator (2026-09-17-0e79b); what
+      replaces re-cutting is checking the spec's own stated premises and handing a false one back. A
+      check that could rewrite the phase would put the deriver back inside the run under another name.
+  - key: |
+      THE LOOK, ITS PROMPT AND ITS ADMISSION ARE ffa7's. Evidence is minted by the framework with a RAN
+      flag saying whether the tool reached a verdict, and a look that did not run says so on its own line
+      (DerivationEvidence.cs:28-40); ids are resolved as the model spells them (:58-69). ffa7 makes the
+      actor, the allowance and the id prefix properties of a look and admits a FALSE PREMISE finding on
+      an id the reviewer itself minted. This check takes its own terms and keeps that admission. A
+      finding on a look that could not run is recorded UNPROVEN and stops nothing: a broken read proves
+      nothing in either direction.
+  - key: |
+      THE PROMPT MUST DESCRIBE THE LOOK, OR EVERY CALL IS REFUSED BEFORE IT COSTS ANYTHING. The tools
+      resolve a repository by name against the list the DERIVATION's prompt section renders
+      (DerivationLookPromptSection.cs:12-28), which states the derivation's allowance and its id
+      spelling; the review prompt renders its own instructions (SpecCutReviewPrompt.cs:50-58) and ffa7
+      makes that section read its allowance and prefix off the look it was given. This check renders the
+      same section for its own look, or it would hand a model tools whose names it never listed.
+  - key: |
+      ITS OWN EVIDENCE LETTER, MINTED HERE. L is the derivation's (DerivationEvidence.cs:18) and P is
+      2026-09-17-042eh's phase review. This check mints M. 2026-09-15-ffa7 gives the cut reviewer a
+      prefix of its own but never spells the letter, so ffa7's is whatever L, M and P leave free, and
+      this phase does not choose for it.
+  - key: |
+      A PREMISE IS WHAT THE SPEC STATES, AND THE DECISIONS GO AS PROSE. Facts and assumptions are read
+      off the draft (PhaseDraft.cs:39-51). Decisions are prose and PhaseDraft has no member for them, so
+      the collaborator re-parses the draft's own yaml for the decisions list (PhaseDraft.Yaml, the way
+      PhaseExecutionPromptBlocks does at :55-56) and hands that text to the checker AS PROSE. Collecting
+      "the paths a decision names" would need a token shape nothing in the product defines — a cite is
+      written as `File.cs:12-20`, as `(File.cs:12)`, or as a sentence — and a collector that guesses
+      would either miss cites or mint premises nobody stated. The checker reads the prose and looks
+      where it wants; the admission rule is what keeps its answer honest.
+  - key: |
+      AFTER SelectPhase, INSIDE THE WORK STEPS. The block is PipelinePresets.CodePhaseBlock
+      (PipelinePresets.Parking.cs:42-53) and membership puts a step into PhaseWorkSteps (:65-69), which
+      is what SelectPhase drops when the branch already satisfies the phase (SelectPhaseHandler.cs:82-95).
+      A phase that needs no work needs no premise check, and gets none without a rule of its own.
+  - key: |
+      A COMMAND IS NOT ONLY A HANDLER. A new name on CommandNames must have a step class
+      (CommandStepClassesCoverageTests.cs:17-31) and a beat (CommandBeatsCoverageTests.cs:30-44); every
+      step of an effective preset must be classified for model use, and a handler that can reach a chat
+      client must be declared as a model step (CommandModelUseCoverageTests.cs:18-32, 34-53). Display
+      names and progress labels follow the same shape. The command, its context, its builder, its
+      handler and those five tables land together.
+  - key: |
+      A FAILURE BEFORE THE MASTER RECORDS NOTHING UNLESS THIS STEP RECORDS IT. The phase row is written
+      at SelectPhase (SelectPhaseHandler.cs:54-55, 88-90) and at verification
+      (VerifyPhaseHandler.cs:205-218); a step failing between them leaves the row "in progress" forever.
+      The hand-back therefore records PhaseRunState.Failed through IPhaseProgressRecorder. The recorder
+      publishes failingCommand ?? note (PhaseProgressRecorder.cs:31), so passing both would drop the
+      note silently: the premise, the finding and its evidence line are composed into ONE string and
+      passed as failingCommand, which becomes the row's Verdict and is what 2026-09-17-042ej reads.
+  - key: |
+      HAND BACK BY FAILING THE STEP, WHICH IS ALSO HOW THE WORK SURVIVES. A failing step runs the
+      finalizer tail (PipelineExecutor.cs:152-163), so the phases that verified reach their pull request
+      as a shortfall instead of dying with the run, and the sequence's stop is already structural
+      (PhaseSequenceHandler.cs:14-19). Stated consequence: a run that is not a shortfall goes on through
+      HandleStepFailureAsync (:164-166) — a failure comment and a terminal ticket status, as for any
+      failed step.
+  - key: |
+      COST, STATED, AND ONE STEP MORE PER PHASE. One call per phase with its own allowance, each one
+      before ITS OWN phase's master rather than before all of them: at eight phases, eight calls, the
+      first of them before the first master pass. It is skipped, with a recorded reason, when the phase
+      states no premises and when the run's configured cost cap is exhausted
+      (PipelineCostTracker.cs:68). The step also lengthens the per-phase block, which is why
+      2026-09-17-0e79e sizes the executor's budget on the phases a run works.
+  - key: |
+      IT MUST NOT BECOME A SECOND ACCOUNTANT EITHER. The account asks whether the DONE-LIST is satisfied,
+      before and after the work (PhaseEntryAccount.cs:34-47, VerifyPhaseHandler.cs:140-159). This asks
+      whether what the spec CLAIMED ABOUT THE CODE is still true. A finding that merely repeats "the
+      criterion is not met yet" is not a false premise and is discarded.
+
+steps:
+  - id: the-drafter-states-premises
+    action: "In the skills repository, the design-partner master emits per drafted phase a facts block of claim and where it was seen, and an assumptions list."
+  - id: the-pin-moves
+    action: "The embedded tarball, SkillsCatalogVersion and SkillsCatalogSha256 move to a release carrying design-partner-master 1.6.4 or later, cut after 2026-09-17-6a29's, with a test reading the pinned master for the facts and assumptions contract."
+  - id: the-premises
+    action: "A collaborator reads the current phase's facts and assumptions from the draft and its decisions text by re-parsing the draft's yaml, and hands all three to the checker."
+  - id: the-terms
+    action: "Premise-check look terms — its own actor, allowance and the evidence letter M — built through ffa7's factory over the run's sandboxes."
+  - id: the-prompt-describes-the-look
+    action: "The prompt renders the look's own section: the repositories it may name, its allowance, its id spelling and what a finding must cite."
+  - id: the-checker
+    action: "A fresh instance is asked which premises no longer hold and answers as JSON naming the premise, the verdict and the evidence it cites."
+  - id: the-admission
+    action: "False is admitted only on an id this look minted for a look that ran; anything else is unproven; a restatement of an unmet criterion is discarded."
+  - id: the-step
+    action: "CheckPhasePremises joins the code phase block after SelectPhase with its command name, context, builder, handler, step class, beat, model use, display name and progress label."
+  - id: the-hand-back
+    action: "A false premise fails the step, records the phase failed with the premise, finding and evidence composed into the one argument the recorder publishes, and comments on the ticket; verified phases still deliver."
+  - id: the-skips
+    action: "No stated premises, or an exhausted cost cap, skips the check and records why."
+
+tests:
+  - "DesignPartnerMaster_DraftedPhase_StatesFactsAndAssumptions"
+  - "EmbeddedSkills_DesignPartnerMaster_EmitsFactsAndAssumptions"
+  - "EmbeddedSkills_Pin_StillCarriesTheContractsPinnedBefore"
+  - "PremiseCheck_PhaseDraftedBeforeThePin_IsSkippedWithAReason"
+  - "PremiseCheck_FactFalsifiedByItsOwnRead_FailsThePhaseWithTheEvidence"
+  - "PremiseCheck_FindingWithoutAnEvidenceId_IsRecordedUnprovenAndRunsOn"
+  - "PremiseCheck_FindingOnALookThatCouldNotRun_IsRecordedUnprovenAndRunsOn"
+  - "PremiseCheck_FindingCitingTheDeriversEvidenceId_IsNotAdmitted"
+  - "PremiseCheck_FindingRestatingAnUnmetCriterion_IsDiscarded"
+  - "PremiseCheck_DecisionsTextReachesTheCheckerAsProse"
+  - "PremiseCheck_ClaimInADecisionThatTheCodeContradicts_IsAFalsePremise"
+  - "PremiseCheck_Prompt_NamesTheRepositoriesAllowanceAndIdSpelling"
+  - "PremiseCheck_ToolCallOnAnUnlistedRepository_IsRefusedByName"
+  - "PremiseCheck_AllPremisesHold_SplicesNothingAndTheMasterRuns"
+  - "PremiseCheck_CostCapExhausted_IsSkippedWithAReason"
+  - "PremiseCheck_NeverWritesASpecSetRevision"
+  - "PremiseCheck_FalsePremise_RecordsThePhaseFailedWithTheVerdictInOneArgument"
+  - "PremiseCheck_FalsePremise_TheVerdictReachesTheRowNotJustTheLog"
+  - "PremiseCheck_FalsePremise_EarlierVerifiedPhasesStillDeliver"
+  - "PremiseCheck_FalsePremise_TicketCarriesTheFindingAndTheAmendmentPath"
+  - "PremiseCheck_PhaseAlreadySatisfiedOnEntry_IsDroppedWithTheWorkSteps"
+  - "CodePhaseBlock_PremiseCheckFollowsSelectPhaseAndPrecedesTheMaster"
+  - "CheckPhasePremises_HasAStepClassBeatModelUseDisplayNameAndProgressLabel"
+  - "PremiseCheck_OneCallPerPhase_NoSecondPass"
+
+done:
+  - "a phase the conversation drafted says what it rests on, and the embedded master emits it"
+  - "a phase whose stated premises no longer hold stops before it spends a master token, and says which premise and on what evidence"
+  - "no finding without a look this check took and that ran can stop a phase"
+  - "a stopped phase is recorded failed with its verdict, and the phases that verified are still delivered"
+  - "the run never rewrites the spec: an amendment goes through the conversation that approved it"
+  - "build green, full suite green, file-length ratchet green"
