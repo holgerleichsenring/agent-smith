@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-ce66
+
+goal: "The template picker always stores the repository the operator picked a context from, so the graph can place every context rather than only the ambiguous ones."
+
+applies_to: "dashboard (the context picker, the wiring graph)"
+
+requires:
+  - 2026-09-16-4b41
+
+scope:
+  in: >
+    The local context picker stores the chosen repository on every pick, not only when two
+    repositories declare the same name. A stored name with no repository that exactly one of
+    the project's repositories declares is filled in with that repository when the list
+    arrives, so the draft counts as changed and one save places it. The wiring graph's caption
+    counts the repositories the project declares rather than the rows it drew, and templates it
+    cannot place are split into one row per reason, so a template naming no repository is never
+    labelled or coloured as one naming an undeclared repository.
+  out: >
+    PLACING A STORED TEMPLATE THAT NAMES NO REPOSITORY WITHOUT OPENING IT. The graph reads only
+    the project's own templates and makes no call — 2026-09-16-942a — so it keeps its row until
+    the template is opened and saved.
+    A STORED NAME TWO REPOSITORIES DECLARE. Filling it in would be a guess; it stays as stored,
+    shows as its own option, and the operator picks again.
+    MIGRATING STORED TEMPLATES. Nothing rewrites declarations the editor never opens.
+
+decisions:
+  - key: |
+      TWO DECISIONS, EACH SOUND ALONE, BROKE EACH OTHER. 2026-09-16-4df5 stored a template's
+      local repository only when two repositories declare the same context name. 2026-09-16-942a
+      then drew the graph from stored templates alone, with no call — so on a project with
+      several repositories it had no repository for exactly the unambiguous names. Every
+      unambiguous context landed in a row labelled "repository not named", and only the
+      ambiguous ones placed: the opposite of what either phase meant.
+  - key: |
+      THE REPOSITORY IS STORED BECAUSE THE OPERATOR PICKED ONE. The picker offers repository-and-
+      name pairs; choosing "api · Sample.Api" is choosing a context OF THAT REPOSITORY. Discarding
+      the repository when no other repository shares the name was a storage economy that threw
+      away the one fact the graph needs. The option values are the project's own repo refs
+      (useProjectContexts passes them through unchanged), so a picked value always passes
+      ProjectTemplateRules.
+  - key: |
+      A STORED BARE NAME IS FILLED IN, NOT LEFT FOR A RE-PICK. Once every option carries a
+      repository a stored bare name matches none, the select adds it as an unlabelled extra
+      option, and saving writes nothing because the field reports only a pick. When exactly one
+      repository declares the name that repository is its origin, not a guess — the field that
+      was missing is the fix. Two declaring repositories is a guess, and is left to the operator.
+  - key: |
+      A NEWLY SAVED TEMPLATE HAS A QUALIFIED SCOPE ADDRESS. Scope selection matches on the
+      context NAME (ProjectTemplateScopes), every consumer builds the address through
+      TemplateScopeName.For, and the path router resolves the longest key followed by a slash,
+      so new runs open the same files. A waiting run or open spec-dialog session that already
+      used template:<context> loses that key once the template is re-saved; no code was found
+      relying on it across a save.
+  - key: |
+      REMOVING A REPOSITORY NOW REFUSES MORE SAVES. Every template picked from a repository names
+      it, so dropping that repository from the project refuses the save for those templates —
+      before, only for names two repositories share. That is the rule working: the template
+      would point at a repository the project no longer carries.
+  - key: |
+      THE CAPTION COUNTED ROWS AND CALLED THEM REPOSITORIES. A project with three repositories and
+      one unplaceable template said "its 4 repositories". The caption counts what the project
+      declares; the height still counts every drawn row. The unplaceable row took its label from
+      ANY stray naming a repository, relabelling templates that name none — one row per reason.
+
+steps:
+  - id: the-picker-always-stores-the-repository
+    action: "Choosing a context stores its repository whether or not another repository declares the same name."
+  - id: a-stored-bare-name-is-filled-in
+    action: "A stored name with no repository that exactly one repository declares is filled in with it when the list arrives."
+  - id: the-caption-counts-declared-repositories
+    action: "The caption states the number of repositories the project declares; unplaceable templates get one row per reason."
+  - id: stale-comments
+    action: "Comments at templateContextField.tsx, ProjectGraph.tsx, configApi.ts and MasterTemplateAttachment.cs stop saying the repository is named only on a collision."
+
+tests:
+  - "ContextPicker_UnambiguousName_StillStoresItsRepository"
+  - "ContextPicker_AmbiguousName_StoresTheRepositoryPicked"
+  - "ContextPicker_StoredBareNameOneRepositoryDeclares_IsFilledIn"
+  - "ContextPicker_StoredBareNameTwoRepositoriesDeclare_IsLeftAsStored"
+  - "ProjectGraph_UnambiguousContextWithItsRepository_IsPlacedUnderIt"
+  - "ProjectGraph_StoredTemplateNamingNoRepository_KeepsItsRow"
+  - "ProjectGraph_UnnamedAndUndeclaredStrays_GetSeparateRows"
+  - "ProjectGraph_Caption_CountsDeclaredRepositoriesNotRows"
+  - "amended: ProjectForm_ContextOption_NamesTheRepoItCameFrom (TemplateList.test.tsx) and ProjectForm_PicksTargetProjectRepoAndBothContexts (ProjectForm.test.tsx) assert the qualified option value"
+
+done:
+  - "a context picked from a repository no other repository shares is placed under that repository"
+  - "the caption names the number of repositories the project declares"
+  - "opening a stored template whose name one repository declares, then saving, places it"
+  - "dashboard tests and build green"

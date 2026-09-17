@@ -27,7 +27,7 @@ public sealed class MasterTemplateAttachment(
     public static MasterTemplateAttachment Empty =>
         new(new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal));
 
-    /// <summary>The addresses the master may read, each one <c>template:&lt;context&gt;</c>.</summary>
+    /// <summary>The addresses the master may read, each built by <see cref="Specs.TemplateScopeName"/>.</summary>
     public IReadOnlyList<string> Names { get; } = [.. scopes.Keys];
 
     /// <summary>

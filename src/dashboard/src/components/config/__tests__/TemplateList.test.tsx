@@ -44,7 +44,13 @@ const template = (over: Partial<TemplateReference> = {}): TemplateReference => (
   ...over,
 });
 
-function Harness({ templates }: { templates: TemplateReference[] }) {
+function Harness({
+  templates,
+  onSaved,
+}: {
+  templates: TemplateReference[];
+  onSaved?: (templates: TemplateReference[]) => void;
+}) {
   const [project, setProject] = useState<StudioProject>({
     id: "proj",
     agent: "",
@@ -61,7 +67,10 @@ function Harness({ templates }: { templates: TemplateReference[] }) {
     <TemplateBindings
       project={project}
       catalog={catalog}
-      onChange={(next) => setProject({ ...project, templates: next })}
+      onChange={(next) => {
+        onSaved?.(next);
+        setProject({ ...project, templates: next });
+      }}
     />
   );
 }
@@ -230,15 +239,14 @@ describe("TemplateList", () => {
 
     const option = async (value: string) =>
       await waitFor(() => {
-        const found = screen
-          .getByTestId("form-templates-0-context")
-          .querySelector(`option[value="${value}"]`);
-        expect(found).not.toBeNull();
+        const found = optionsOf("form-templates-0-context").find((o) => o.value === value);
+        expect(found).toBeDefined();
         return found!;
       });
 
-    expect(await option("frontend")).toHaveTextContent("web");
-    expect(await option("server")).toHaveTextContent("api");
+    // Every value names its repository, whether or not another repository shares the name.
+    expect(await option(pair("web", "frontend"))).toHaveTextContent("web");
+    expect(await option(pair("api", "server"))).toHaveTextContent("api");
   });
 
   it("ProjectForm_TwoReposDeclaringOneName_AreTwoSelectableOptions", async () => {
@@ -267,4 +275,89 @@ describe("TemplateList", () => {
     // Two DISTINCT values, or the browser would match the first for both.
     expect(labels[0].getAttribute("value")).not.toBe(labels[1].getAttribute("value"));
   });
+  it("ContextPicker_UnambiguousName_StillStoresItsRepository", async () => {
+    // 2026-09-17-ce66: the graph places a context by the repository stored with it, so a pick
+    // stores it even when no other repository declares the name.
+    mockedContexts.mockImplementation(async (_project, repoRef) =>
+      repoRef === "web"
+        ? { contexts: ["frontend"], unreadableReason: null }
+        : { contexts: ["server"], unreadableReason: null },
+    );
+    const saved = vi.fn();
+    render(<Harness templates={[template({ context: "", contextRepo: null })]} onSaved={saved} />);
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
+    await waitFor(() => expect(screen.getByTestId("form-templates-0-context").tagName).toBe("SELECT"));
+
+    fireEvent.change(screen.getByTestId("form-templates-0-context"), {
+      target: { value: pair("web", "frontend") },
+    });
+
+    expect(saved).toHaveBeenLastCalledWith([
+      expect.objectContaining({ context: "frontend", contextRepo: "web" }),
+    ]);
+  });
+
+  it("ContextPicker_AmbiguousName_StoresTheRepositoryPicked", async () => {
+    mockedContexts.mockResolvedValue({ contexts: ["default"], unreadableReason: null });
+    const saved = vi.fn();
+    render(<Harness templates={[template({ context: "", contextRepo: null })]} onSaved={saved} />);
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
+    await waitFor(() => expect(screen.getByTestId("form-templates-0-context").tagName).toBe("SELECT"));
+
+    fireEvent.change(screen.getByTestId("form-templates-0-context"), {
+      target: { value: pair("web", "default") },
+    });
+
+    expect(saved).toHaveBeenLastCalledWith([
+      expect.objectContaining({ context: "default", contextRepo: "web" }),
+    ]);
+  });
+
+  it("ContextPicker_StoredBareNameOneRepositoryDeclares_IsFilledIn", async () => {
+    // Once every option carries a repository a stored bare name matches none. Exactly one
+    // repository declaring it is its origin, so it is filled in and one save places it.
+    mockedContexts.mockImplementation(async (_project, repoRef) =>
+      repoRef === "web"
+        ? { contexts: ["frontend"], unreadableReason: null }
+        : { contexts: ["server"], unreadableReason: null },
+    );
+    const saved = vi.fn();
+    render(<Harness templates={[template({ context: "server", contextRepo: null })]} onSaved={saved} />);
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
+
+    await waitFor(() =>
+      expect(saved).toHaveBeenCalledWith([
+        expect.objectContaining({ context: "server", contextRepo: "api" }),
+      ]),
+    );
+    const select = screen.getByTestId("form-templates-0-context") as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe(pair("api", "server")));
+    // Filled in once: the qualified value is an option, not an extra bare one beside it.
+    expect(optionsOf("form-templates-0-context").some((o) => o.value === "server")).toBe(false);
+    expect(saved).toHaveBeenCalledTimes(1);
+  });
+
+  it("ContextPicker_StoredBareNameTwoRepositoriesDeclare_IsLeftAsStored", async () => {
+    // Two declaring repositories would make filling it in a guess.
+    mockedContexts.mockResolvedValue({ contexts: ["default"], unreadableReason: null });
+    const saved = vi.fn();
+    render(<Harness templates={[template({ context: "default", contextRepo: null })]} onSaved={saved} />);
+    fireEvent.click(screen.getByTestId("form-templates-0-open"));
+
+    await waitFor(() =>
+      expect(optionsOf("form-templates-0-context").filter((o) => o.value.includes("\u0000"))).toHaveLength(2),
+    );
+    expect(saved).not.toHaveBeenCalled();
+    // The stored name shows as its own option, still selected.
+    expect((screen.getByTestId("form-templates-0-context") as HTMLSelectElement).value).toBe("default");
+  });
 });
+
+/** The picker's option value for a (repository, context name) pair. */
+function pair(repo: string, name: string): string {
+  return `${repo}\u0000${name}`;
+}
+
+function optionsOf(testId: string): HTMLOptionElement[] {
+  return [...screen.getByTestId(testId).querySelectorAll("option")];
+}
