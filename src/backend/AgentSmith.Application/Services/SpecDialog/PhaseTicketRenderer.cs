@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
@@ -42,8 +43,9 @@ public sealed class PhaseTicketRenderer
     /// stamps it; a line in the body was a segment the deriver had to carry or discard.
     /// </para>
     /// </summary>
-    public PhaseTicketContent RenderChildRequirement(PhaseDraft draft) =>
-        new(Title(draft), PhaseTicketBody.Requirement(draft, _ => { }));
+    /// <param name="siblingIds">The phase ids of the epic's children; only these leave the body.</param>
+    public PhaseTicketContent RenderChildRequirement(PhaseDraft draft, IReadOnlySet<string> siblingIds) =>
+        new(Title(draft), PhaseTicketBody.Requirement(draft, siblingIds, _ => { }));
 
     /// <summary>The epic parent: the record of a cut, listing its slices in order.</summary>
     /// <param name="templates">
@@ -55,7 +57,7 @@ public sealed class PhaseTicketRenderer
     public PhaseTicketContent RenderEpicParent(
         PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
         IReadOnlyList<TemplateProvenance>? templates = null) =>
-        new(Title(parent), PhaseTicketBody.Requirement(parent, sb =>
+        new(Title(parent), PhaseTicketBody.Requirement(parent, new HashSet<string>(), sb =>
         {
             sb.AppendLine("## Slices");
             foreach (var child in children)
@@ -81,7 +83,8 @@ public sealed class PhaseTicketRenderer
             ? (template.Opened ? "read at its own default revision" : "declared with no revision, unread")
             : template.Opened ? $"read at `{template.Revision}`" : $"declared at `{template.Revision}`, unread";
 
-    private static string Title(PhaseDraft draft) => $"{draft.PhaseId}: {draft.Goal}";
+    // 2026-09-17-042eb: the goal is whole in the body; the title only has to be accepted.
+    private static string Title(PhaseDraft draft) => TicketTitle.Fit($"{draft.PhaseId}: {draft.Goal}");
 
     private static string FormatRequires(PhaseDraft draft) =>
         draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";

@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Application.Services.SpecDialog;
@@ -21,7 +22,7 @@ internal static class PhaseTicketBody
 {
     public static string WorkOrder(PhaseDraft draft, Action<StringBuilder> extraSections)
     {
-        var sb = Shared(draft, StepActions, extraSections);
+        var sb = Shared(draft, StepActions, (body, _) => AppendLines(body, "## Requires", draft.Requires), extraSections);
         sb.AppendLine("---");
         sb.AppendLine();
         sb.AppendLine("```yaml");
@@ -33,13 +34,27 @@ internal static class PhaseTicketBody
     /// <summary>
     /// What is wanted and why — and deliberately NOT the steps. Carrying the cut in prose
     /// would let the deriver anchor on it and reproduce the cut it was supposed to redo.
+    /// <para>
+    /// 2026-09-17-042eb: the done list travels as acceptance criteria — an outcome, not a cut —
+    /// one line per criterion. A SIBLING's phase id stays out (the order lives in the labels and
+    /// the parent's slice list); any other precondition, an outside phase id included, stays.
+    /// </para>
     /// </summary>
-    public static string Requirement(PhaseDraft draft, Action<StringBuilder> extraSections) =>
-        Done(Shared(draft, ScopeLines, extraSections));
+    public static string Requirement(
+        PhaseDraft draft, IReadOnlySet<string> siblingIds, Action<StringBuilder> extraSections) =>
+        Done(Shared(draft, ScopeLines, (body, map) =>
+        {
+            AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(map));
+            AppendLines(body, "## Preconditions", draft.Requires.Where(r => !siblingIds.Contains(r)));
+        }, extraSections));
+
+    private static IEnumerable<string> DoneLines(IReadOnlyDictionary<string, object?> map) =>
+        (OutcomeYamlReader.GetList(map, "done") ?? []).Select(line => CriterionLine.Collapse(line?.ToString() ?? string.Empty));
 
     private static StringBuilder Shared(
         PhaseDraft draft,
         Func<IReadOnlyDictionary<string, object?>, IEnumerable<string>> middle,
+        Action<StringBuilder, IReadOnlyDictionary<string, object?>> tail,
         Action<StringBuilder> extraSections)
     {
         var map = OutcomeYamlReader.ReadMap(draft.Yaml);
@@ -49,7 +64,7 @@ internal static class PhaseTicketBody
         sb.AppendLine();
         AppendLines(sb, "## Why", Decisions(map));
         AppendLines(sb, "## Scope", middle(map));
-        AppendLines(sb, "## Requires", draft.Requires);
+        tail(sb, map);
         extraSections(sb);
         return sb;
     }

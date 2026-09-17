@@ -212,7 +212,22 @@ public sealed class OutcomeProposalResolverTests
             .Which.Error.Should().Contain("child #2");
     }
 
-    private static string EpicReply(string? child1Requires = null, string? child2Requires = null) =>
+    /// <summary>
+    /// 2026-09-17-042eb: a child is worked weeks after it is filed, and its done list is what says
+    /// when it is finished — the refusal names the rule so the retry knows what to add.
+    /// </summary>
+    [Fact]
+    public void Resolve_EpicChildWithoutDone_InvalidNamingTheRule()
+    {
+        var resolution = _resolver.Resolve(EpicReply(child1Done: string.Empty));
+
+        resolution.Should().BeOfType<OutcomeInvalid>()
+            .Which.Error.Should().Contain("child #1").And.Contain("p9000a").And.Contain("'done:'");
+    }
+
+    private static string EpicReply(
+        string? child1Requires = null, string? child2Requires = null,
+        string child1Done = "done: [\"a widget is stored\"]") =>
         $"""
         ```outcome
         kind: epic
@@ -223,9 +238,11 @@ public sealed class OutcomeProposalResolverTests
           - phase: p9000a
             goal: "Widget storage layer"
             {child1Requires}
+            {child1Done}
           - phase: p9000b
             goal: "Widget API"
             {child2Requires}
+            done: ["the API returns a stored widget"]
         ```
         """;
 }

@@ -11,12 +11,12 @@ requires:
 
 scope:
   in: >
-    The design-partner master asks every epic child for a done list. The requirement body renders it as
+    The design-partner master asks every epic child for a done list, and the epic parser refuses a child without one. The requirement body renders it as
     an acceptance-criteria section, and the deriver's prompt and its fallback read that section when the
     tracker has no acceptance field. The requirement body drops sibling phase ids from its Requires
     section and keeps free-text preconditions. Every title the framework files is cut to 255 characters
-    at a word boundary; the goal stays whole in the body. The embedded skills pin moves to the release that carries this skill change and the
-    English-only draft rule.
+    at a word boundary; the goal stays whole in the body. Moving the embedded skills pin to the release that carries this skill change and the
+    English-only draft rule is phase 2026-09-17-6a29.
   out: >
     STEPS OR TEST NAMES IN A CHILD. See decisions.
     AZURE DEVOPS' ACCEPTANCE CRITERIA FIELD. See decisions.
@@ -58,15 +58,16 @@ decisions:
       tracker: the order lives in the phase-requires labels (EpicTicketFiler.cs:60-62) and on the parent's
       slice lines (PhaseTicketRenderer.cs:62,86-87). The master also allows free-text external
       preconditions in requires (design-partner-master SKILL.md v5.4.0 line 188), which no label carries;
-      they stay, as Preconditions. The change is in the requirement body only, because the shared section
-      builder also serves the single-phase work order (PhaseTicketBody.cs:52).
+      they stay, as Preconditions. Only a CHILD's sibling ids leave: the edge checker holds children to
+      siblings and not the parent, so a phase id outside the epic stays a precondition. The change is in the
+      requirement body only, because the shared section builder also serves the single-phase work order
+      (PhaseTicketBody.cs:52).
   - key: |
-      THE PIN MOVE CARRIES THE ENGLISH RULE TOO, SO THE RELEASE WAITS FOR THE SKILL. The pin is v5.4.0
-      (AgentSmith.Infrastructure.Core.csproj:54) and lacks the English-only rule that skills main already
-      holds (design-partner-master 1.6.1). Release PR 5.4.1 is open; it is held until this skill change
-      (design-partner-master 1.6.2, together with 2026-09-17-042ec's) merges, so one release carries both.
-      The pin move replaces the tarball and updates SkillsCatalogVersion and SkillsCatalogSha256, which the
-      build verifies (csproj:44-55,88-89).
+      THE PIN MOVE IS ITS OWN PHASE, 2026-09-17-6a29. The pin is v5.4.0 (AgentSmith.Infrastructure.Core.csproj:54)
+      and lacks the English-only rule skills main holds (design-partner-master 1.6.1). This skill change is
+      skills PR #190 (1.6.2) and merges first; 2026-09-17-042ec's is PR #191 (1.6.3); release PR 5.4.1 is held
+      until both merge, so one release carries all three. A phase cannot move a pin to a release that does
+      not exist yet.
 
 steps:
   - id: the-skill-asks
@@ -77,8 +78,8 @@ steps:
     action: "With no tracker acceptance field, the derivation prompt's criteria line and the spec fallback read the body's acceptance-criteria section."
   - id: titles-fit
     action: "One title helper cuts phase, epic, bug and intent titles to 255 characters at a word boundary."
-  - id: the-pin-moves
-    action: "After the skill PRs merge and the held release is cut, the tarball, SkillsCatalogVersion and SkillsCatalogSha256 move to it."
+  - id: the-parser-refuses
+    action: "The epic outcome parser refuses a child without a done list and names the rule."
 
 tests:
   - "RequirementTicket_ChildWithDone_RendersAcceptanceCriteria"
@@ -89,10 +90,27 @@ tests:
   - "SpecFallback_RequirementTicket_TakesDoneFromTheCriteriaSection"
   - "TicketTitle_LongGoal_IsCutAtAWordBoundaryAndTheBodyKeepsTheGoal"
   - "BugFiling_LongTitle_IsCut"
-  - "EmbeddedSkills_DesignPartnerMaster_AsksEachEpicChildForDone"
+  - "CreateTicketIntent_LongTitle_IsCut"
+  - "TicketTitle_ShortTitle_IsUnchanged"
+  - "TicketTitle_Exactly255_IsUnchanged_And256_IsCut"
+  - "TicketTitle_NoSpaces_IsHardCutToTheLimit"
+  - "TicketTitle_EarlyBoundaryOnly_IsHardCutNotCutToTheId"
+  - "TicketTitle_SurrogatePairAtTheCut_IsNotSplit"
+  - "TicketTitle_NewlineInAnIntentTitle_BecomesASpace"
+  - "AcceptanceCriteriaSection_HtmlBody_ReadsTheItems"
+  - "AcceptanceCriteriaSection_GitHubIssueFormPlaceholder_IsNoCriterion"
+  - "AcceptanceCriteriaSection_HtmlCommentAndProse_AreNoCriteria"
+  - "AcceptanceCriteriaSection_FencedBlock_NeitherEndsTheSectionNorCounts"
+  - "AcceptanceCriteriaSection_StripsExactlyOneMarker"
+  - "AcceptanceCriteriaSection_NestedAndWrappedLines_BelongToTheirItem"
+  - "SpecFallback_FieldCriteria_KeepLeadingDashesInsideTheText"
+  - "RequirementTicket_EpicParent_KeepsAnOutsidePhaseIdRequirement"
+  - "RequirementTicket_ChildOutsidePhaseId_StaysAPrecondition"
+  - "RequirementTicket_MultiLineDone_ReadsBackAsOneCriterion"
+  - "Resolve_EpicChildWithoutDone_InvalidNamingTheRule"
+  - "harness CreatePhase_EpicOutcome_FilesLinkedPhaseTicketsWithRequires: the filed child shows its acceptance criteria"
 
 done:
   - "an epic child filed from a conversation shows its acceptance criteria and no steps"
   - "a goal longer than a tracker's title limit still files"
-  - "the embedded design-partner master requires English drafts and a done list per epic child"
   - "build green, full suite green"

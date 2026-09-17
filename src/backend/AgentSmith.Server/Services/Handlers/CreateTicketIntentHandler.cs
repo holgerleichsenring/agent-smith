@@ -1,6 +1,7 @@
 using AgentSmith.Server.Contracts;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Models;
@@ -36,7 +37,7 @@ public sealed class CreateTicketIntentHandler(
 
             var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             var created = await ticketProvider.CreateAsync(
-                intent.Title,
+                TicketTitle.Fit(intent.Title),
                 intent.Description ?? string.Empty,
                 labels: [],
                 cancellationToken);

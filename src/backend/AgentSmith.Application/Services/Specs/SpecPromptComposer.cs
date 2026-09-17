@@ -43,9 +43,8 @@ internal static class SpecPromptComposer
         return sb.ToString();
     }
 
-    // p0413: the shape the scope classifier stated for this ticket — the input to
-    // the master's cut-sizing rule. Absent (no classification ran, or the model
-    // stated none) renders nothing, so the cut is the one it always was.
+    // p0413: the shape the scope classifier stated — the input to the master's cut-sizing
+    // rule. Absent (no classification ran, or none stated) renders nothing.
     private static void AppendWorkShape(StringBuilder sb, PipelineContext pipeline)
     {
         var shape = pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var s) ? s : null;
@@ -72,12 +71,13 @@ internal static class SpecPromptComposer
             sb.AppendLine(pin);
     }
 
-    // p0399: acceptance criteria arrive in the same transport encoding as the body —
-    // the derivation reads them verbatim, so they get the same one-time conversion.
+    // p0399: the field gets the body's one-time conversion. 2026-09-17-042eb: with no field
+    // (GitHub, GitLab, Jira) the body's own section is read, rather than "None specified" above it.
     private static string CriteriaOf(Ticket ticket) =>
-        string.IsNullOrWhiteSpace(ticket.AcceptanceCriteria)
-            ? "None specified"
-            : TicketHtmlConverter.ToText(ticket.AcceptanceCriteria);
+        !string.IsNullOrWhiteSpace(ticket.AcceptanceCriteria) ? TicketHtmlConverter.ToText(ticket.AcceptanceCriteria)
+        : AcceptanceCriteriaSection.Read(ticket.Description) is { Count: > 0 } section
+            ? "\n" + string.Join("\n", section.Select(line => $"- {line}"))
+            : "None specified";
 
     private static void AppendConversation(StringBuilder sb, PipelineContext pipeline)
     {

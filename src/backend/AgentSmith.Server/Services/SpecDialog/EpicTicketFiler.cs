@@ -43,10 +43,11 @@ public sealed class EpicTicketFiler(
         filed.Add(new FiledTicket(parent.Reference, parentContent.Title));
 
         var childRefs = new List<string>();
+        var siblingIds = order.Children.Select(c => c.PhaseId).ToHashSet(StringComparer.Ordinal);
         var ticketIdByPhaseId = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var child in order.Children)
         {
-            var content = renderer.RenderChildRequirement(child);
+            var content = renderer.RenderChildRequirement(child, siblingIds);
             var created = await provider.CreateAsync(
                 content.Title, content.Body, ChildLabels(child, parent, ticketIdByPhaseId), ct);
             ticketIdByPhaseId[child.PhaseId] = created.Id.Value;

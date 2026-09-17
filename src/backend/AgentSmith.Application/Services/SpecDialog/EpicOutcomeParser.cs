@@ -36,6 +36,13 @@ public sealed class EpicOutcomeParser(
             children.Add(child);
         }
 
+        // 2026-09-17-042eb: a child is filed and worked weeks later; its done list is what says
+        // when it is finished, so a child without one is refused here, not discovered on the ticket.
+        if (children.FindIndex(c => c.Done.Count == 0) is var missing and >= 0)
+            return new OutcomeInvalid(
+                $"epic child #{missing + 1} ('{children[missing].PhaseId}') has no 'done' list — every epic "
+                + "child needs 'done:' with at least one outcome that is true once the slice is finished");
+
         var edgeError = edgeChecker.Check(parent, children);
         return edgeError is null
             ? new OutcomeResolved(new EpicOutcome(parent, children))
