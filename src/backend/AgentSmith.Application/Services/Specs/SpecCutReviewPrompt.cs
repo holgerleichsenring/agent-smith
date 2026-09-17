@@ -17,6 +17,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// this" is the only one that needs the ticket, and it needs ALL of it — so it is only
 /// offered when the whole ticket is in front of the reviewer.
 /// </para>
+/// <para>
+/// 2026-09-15-ffa7: with a look, the reviewer is told what it may look into — its own
+/// allowance and its own id letter — and offered a fourth verdict, a FALSE PREMISE, which
+/// cites the id of a look it took instead of quoting alone.
+/// </para>
 /// </summary>
 public static class SpecCutReviewPrompt
 {
@@ -26,13 +31,14 @@ public static class SpecCutReviewPrompt
     // in part and the coverage verdict is withdrawn rather than guessed.
     private const int MaxTicketChars = 200_000;
 
-    public static string For(SpecSet set, string ticketText)
+    public static string For(SpecSet set, string ticketText, DerivationLook? look)
     {
         ArgumentNullException.ThrowIfNull(set);
         var phases = string.Join("\n\n", set.Phases.Select(Describe));
         var full = ticketText ?? string.Empty;
         var whole = full.Length <= MaxTicketChars;
         var ticket = whole ? full : full[..MaxTicketChars] + "\n… ticket truncated";
+        var offered = SpecCutVerdicts.Offered(whole, canLook: look is not null);
         return $$"""
             A ticket has been cut into phases. Each phase will be built by an agent and then
             judged against its completion criteria: after it runs, a reader is given those
@@ -40,15 +46,9 @@ public static class SpecCutReviewPrompt
             that ran. A criterion that cannot be satisfied, or cannot be checked, fails a
             phase that was executed perfectly.
 
-            Find the phases that CANNOT BE DELIVERED AS WRITTEN. There are {{(whole ? "three" : "two")}} ways:
+            Find the phases that CANNOT BE DELIVERED AS WRITTEN. There are {{SpecCutVerdicts.Count(offered.Count)}} ways:
 
-            1. CONTRADICTION — two criteria of the SAME phase cannot both hold in one branch
-               state. "No production source file is modified" and "the old library appears
-               nowhere in the sources" is the shape: they belong to two phases.
-            2. UNCHECKABLE — a criterion nobody can check against a repository or a command:
-               a statement about the PROCESS ("no push has been performed", "the work was
-               done in the agreed order") or about intent rather than result.
-            {{Coverage(whole)}}
+            {{SpecCutVerdicts.Describe(offered, whole)}}
 
             Say nothing about style, ordering or how many phases there are. A cut that is
             merely coarse is fine; a phase that cannot be delivered is not.
@@ -57,11 +57,11 @@ public static class SpecCutReviewPrompt
             a finding whose quote is not in that phase is discarded:
 
               [{"phase_id": "<id>", "criterion": "<verbatim>",
-                "problem": "{{(whole ? "contradiction|uncheckable|not-in-ticket" : "contradiction|uncheckable")}}",
-                "why": "<one sentence>", "conflicts_with": "<verbatim other criterion, or null>"}]
+                "problem": "{{string.Join("|", offered)}}",
+                "why": "<one sentence>", "conflicts_with": "<verbatim other criterion, or null>"{{Cites(look)}}}]
 
             An empty array means every phase can be delivered as written.
-
+            {{DerivationLookPromptSection.Render(look)}}
             PHASES
             {{phases}}
 
@@ -70,16 +70,11 @@ public static class SpecCutReviewPrompt
             """;
     }
 
-    /// <summary>
-    /// The coverage verdict, offered only against a complete ticket. Shown a fragment, a
-    /// reviewer cannot tell "the ticket never asked for this" from "I was not shown the
-    /// part that asks for it" — and it answers the first, confidently, every time.
-    /// </summary>
-    private static string Coverage(bool whole) => whole
-        ? "3. NOT IN THE TICKET — a criterion the ticket never asked for."
-        : "The ticket below is TOO LONG TO SHOW and has been cut off. Judge only the two\n"
-          + "            ways above. Never report that the ticket does not ask for something: the\n"
-          + "            part that asks for it may be in what you were not shown.";
+    /// <summary>The citation field, asked for only when there is a look to cite.</summary>
+    private static string Cites(DerivationLook? look) => look is null
+        ? string.Empty
+        : $",\n    \"cites\": \"<for a {SpecCutVerdicts.FalsePremise}: the evidence id of the look that "
+          + $"shows it, e.g. {look.Terms.EvidencePrefix}2; otherwise null>\"";
 
     private static string Describe(SpecPhase phase) =>
         $"phase_id: {phase.Draft.PhaseId}\ngoal: {phase.Draft.Goal}\ndone:\n"

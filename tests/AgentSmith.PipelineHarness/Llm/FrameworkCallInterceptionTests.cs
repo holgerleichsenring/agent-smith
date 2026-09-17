@@ -20,7 +20,7 @@ public sealed class FrameworkCallInterceptionTests
     [Fact]
     public void TheCutReviewPrompt_IsRecognisedAsAFrameworkCall()
     {
-        var prompt = SpecCutReviewPrompt.For(Set(), "the ticket");
+        var prompt = SpecCutReviewPrompt.For(Set(), "the ticket", look: null);
 
         SpecAccountReply.IsCutReviewCall(prompt).Should().BeTrue(
             "the harness recognises it by its own text — a marker that drifts steals a response");

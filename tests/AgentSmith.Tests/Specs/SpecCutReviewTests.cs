@@ -81,7 +81,7 @@ public sealed class SpecCutReviewTests
     {
         var client = new RecordingChatClient("[]");
         await Reviewer(client).ReviewAsync(
-            Set(), "Step 1 — Inventory (before touching any code)", new AgentConfig(),
+            Set(), "Step 1 — Inventory (before touching any code)", look: null, new AgentConfig(),
             PipelineCostTracker.GetOrCreate(new PipelineContext()), CancellationToken.None);
 
         var prompt = client.Prompts.Single();
@@ -93,7 +93,7 @@ public sealed class SpecCutReviewTests
 
     private static async Task<SpecCutReview> Review(string answer) =>
         await Reviewer(new RecordingChatClient(answer)).ReviewAsync(
-            Set(), "the ticket", new AgentConfig(),
+            Set(), "the ticket", look: null, new AgentConfig(),
             PipelineCostTracker.GetOrCreate(new PipelineContext()), CancellationToken.None);
 
     private static SpecCutReviewer Reviewer(IChatClient client) =>

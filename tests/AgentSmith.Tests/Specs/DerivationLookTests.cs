@@ -58,14 +58,15 @@ public sealed class DerivationLookTests
     public async Task Look_ACallOverTheBudget_IsRefusedAndTheDerivationCompletesWithoutIt()
     {
         var sandbox = new CountingSandbox(exitCode: 1);
-        var search = new RepositorySearchTool(Over(sandbox), Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+        var look = Over(sandbox);
+        var search = new RepositorySearchTool(look, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
 
         string last = string.Empty;
-        for (var i = 0; i <= DerivationLookBudget.Allowance + 2; i++)
+        for (var i = 0; i <= DerivationLookTerms.DerivationAllowance + 2; i++)
             last = await search.SearchRepository(Repo, $"pattern{i}");
 
-        sandbox.Ran.Should().HaveCount(DerivationLookBudget.Allowance);
-        last.Should().Be(DerivationLookBudget.Exhausted,
+        sandbox.Ran.Should().HaveCount(DerivationLookTerms.DerivationAllowance);
+        last.Should().Be(look.Budget.Exhausted,
             "the refusal is answered in text, so the loop ends on the model's reply, not on a cap");
     }
 
