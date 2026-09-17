@@ -17,6 +17,7 @@ using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -107,6 +108,7 @@ public sealed class DeriveSpecCommentRecutTests
                 new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
                 new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
             new SpecSetTicketCommenter(tickets.Object, NullLogger<SpecSetTicketCommenter>.Instance),
+            ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),

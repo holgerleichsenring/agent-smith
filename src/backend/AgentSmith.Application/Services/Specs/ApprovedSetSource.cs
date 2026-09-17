@@ -44,8 +44,12 @@ public sealed class ApprovedSetSource(ILogger<ApprovedSetSource> logger)
         logger.LogInformation(
             "Spec set {Key} comes from the approval given in conversation {Conversation} "
             + "({Phases} phase(s)); no derivation", key, Conversation(record), merged.Set!.Phases.Count);
+        // 2026-09-17-0e79b: the note travels beside the cause as well as inside it — the branch
+        // history gets it from the cause, and the person whose edit was discarded gets it from
+        // the ticket notice, which cannot parse it back out of a sentence.
         return new SpecSourceResolver.Decision(
-            SpecSource.Approved, merged.Set, NeedsModel: false, Cause: CauseOf(record, merged.Note));
+            SpecSource.Approved, merged.Set, NeedsModel: false, Cause: CauseOf(record, merged.Note),
+            Note: merged.Note);
     }
 
     /// <summary>The revision cause an approved set writes — it names the approval it came from,

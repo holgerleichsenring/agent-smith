@@ -59,6 +59,8 @@ public static class SpecDerivationRegistrations
     services.AddTransient<ApprovedSetSource>();
     services.AddTransient<FiledTicketSpecGate>();
     services.AddTransient<SpecCoverageRefusal>();
+    // 2026-09-17-0e79b: an approved set is never re-cut — the input is reported instead.
+    services.AddTransient<ApprovedSetKeptNotice>();
         return services;
     }
 }

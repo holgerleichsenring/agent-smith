@@ -1,0 +1,246 @@
+phase: 2026-09-17-0e79b
+decisions:
+  - id: the-rule-is-one-guard-in-one-place
+    chose: >
+      `SpecSourceResolver.NeedsAmendment` returns false the moment `set.Approval is not null`,
+      before the cause is looked at at all.
+    alternative: >
+      Branching per cause — "a comment does not amend, an edit still does" — or adding the guard
+      to each of the routes that can produce an approved set.
+    why: >
+      The spec named THREE causes that re-cut today and the phase's rule is about the SET, not the
+      input. NeedsAmendment is also the only place that can put the model back in front of a set
+      the run already holds: the carried record, the stored record and ApprovedSetSource's arm all
+      READ their set and already return NeedsModel: false. One guard, one place, and the three
+      routes stay as 2026-09-17-0e79a left them.
+  - id: the-wording-is-one-type-and-the-notice-reads-it
+    chose: >
+      `ApprovedSetKept` owns the whole answer to "did this run keep an approved set, and what does
+      it say about it" — the input phrase, the revision-cause suffix, the fingerprint question and
+      the notice body. `ApprovedSetKeptNotice` only DELIVERS it, to the ticket and to the run.
+    alternative: >
+      Putting the "was kept" wording on `ApprovedSetSource.CauseOf`, which 2026-09-17-0e79a's
+      author offered as its home.
+    why: >
+      CauseOf takes a RECORD, and the case this phase is about has no record — it is the branch
+      artifact carrying its own approval, read back from set.yaml. Hanging the wording there would
+      have meant passing a record that does not exist. The deciding fact is that the revision
+      cause, the ticket notice and the run decision are THE SAME SENTENCE about the same event; one
+      type that answers it once is what stops them drifting apart.
+  - id: the-suffix-does-not-touch-the-constants
+    chose: >
+      The cause constants keep their exact values; `CauseFor` appends " — the approved set was
+      kept" only when the set carries an approval AND the cause is Comment or TicketEdit.
+    alternative: >
+      A fourth and fifth cause constant for the kept variants.
+    why: >
+      Two readers compare the cause by VALUE. `SpecRecutNotice` renders "the ticket was commented
+      on after revision N was cut: ... the rest was cut again" on exact equality with Comment or
+      TicketEdit — and for a kept set that sentence is false. The suffix makes that switch fall
+      through to "render nothing", which is the correct behaviour and comes for free; new constants
+      would have had to be excluded from it by hand. The harness presets that pin today's re-cut
+      behaviour compare against the bare constants and stay green untouched.
+  - id: a-kept-edit-refreshes-the-fingerprint-a-kept-comment-does-not
+    chose: >
+      `SpecRevisionHeader.Fingerprint` refreshes to the text the run saw when `modelRan`, when
+      there is no previous set, or when an approved set saw a TICKET EDIT. A kept COMMENT changes
+      nothing.
+    alternative: >
+      Refreshing on every revision an approved set writes.
+    why: >
+      An edit does not clear itself: Finalize refreshed only when the model ran, and an approved
+      set never runs it, so the edited text would differ from the stored fingerprint on every later
+      run and re-fire the cause, the revision, the commit and the notice forever. A comment DOES
+      clear itself — the cut comment is posted on every run and moves the anchor the comment rule
+      measures from. Refreshing unconditionally would also swallow an edit made during a RESUME,
+      where the resume cause short-circuits the edit check and the run never reported it.
+  - id: the-handler-shrank-by-moving-the-revision-header-out
+    chose: >
+      Finalize left DeriveSpecHandler as `SpecRevisionHeader`. The handler ends at 140 lines
+      against its 143 baseline, having gained a constructor parameter, a notice call and a cause
+      argument on AnnounceAsync.
+    alternative: >
+      Growing the handler and raising the baseline row, or extracting the announce block instead.
+    why: >
+      A baselined file may only get shorter and 2026-09-17-0e79a spent the room it had. The
+      revision header was the block that grew a SECOND reason to change in this phase — the cause
+      now depends on the set and the fingerprint on the cause — while the announce block still has
+      exactly one. Extracting the one that grew is what keeps the handler readable rather than just
+      shorter.
+  - id: the-notice-carries-our-marker-and-not-the-cut-marker
+    chose: >
+      The notice is headed "## Agent Smith — the approved specification stands".
+    alternative: >
+      Reusing the cut comment's heading, or posting no ticket comment at all and leaving the run
+      decision to carry it.
+    why: >
+      A comment carrying an "Ours" marker is excluded from "someone else answered", so a notice
+      WITHOUT one would itself count as a foreign comment on the next run and report itself
+      forever. A notice carrying the CUT marker would be worse: that phrase is the anchor the
+      comment rule measures from, and a second comment carrying it would move the anchor past the
+      operator's real comment and hide it. The heading satisfies both — "Agent Smith —" is ours,
+      and nothing in it is the cut phrase.
+  - id: the-notice-is-a-decision-not-a-gate-event
+    chose: >
+      `IDecisionLogger.LogAsync(repoPath: null, ...)`, which mirrors to `DecisionLoggedEvent` and
+      writes no file.
+    alternative: >
+      `SpecCutGate`'s `GateCheckedEvent`, which is what the neighbouring spec reporting uses.
+    why: >
+      A gate event says something did not pass. Nothing failed here: the run kept the set a person
+      approved and continued. The spec asked for a run DECISION and that is the event the decision
+      logger already mirrors; a null repo path is the documented "event stream only" path.
+  - id: the-amendment-entry-is-the-recorder-reopened
+    chose: >
+      `ApprovedPhaseSetRecorder.LoadAsync(project, ticketId)` — the same type that writes the
+      record reads it back, by the same key, and re-approval is a second `RecordAsync`.
+    alternative: >
+      A separate amendment service in the dialog, or a dialog command of its own.
+    why: >
+      The key derivation is the fact that must not be duplicated: a loader that computed it
+      differently would show the operator a record no run would ever read. The store upserts by
+      key, so "approve it again" is already a save with a newer instant — there was no second
+      mechanism to build. What the dialog COMMAND looks like is a surface question this phase does
+      not claim.
+  - id: the-head-constraint-is-written-down-and-enforced-at-the-run
+    chose: >
+      The constraint — a re-approved set keeps every position at or before the executed head, may
+      only edit after it, may not be shorter — is documented on the amendment entry and PROVEN
+      against `ApprovedSetMerge`, which 2026-09-17-0e79a already built.
+    alternative: >
+      Checking it in the dialog when the amendment is approved.
+    why: >
+      Which phases have run lives on the branch and the dialog has no clone of it, so the dialog
+      cannot check it. The merge is positional, so the rule matters; it is enforced where the fact
+      is known. Named here because the spec's test reads "IsRefusedByTheRun" and the merge's answer
+      to a REORDER is to keep the head exactly as it ran and NAME what it discarded, not to fail
+      the step — failing would strand a run that is otherwise correct, and the discarded edit is
+      reported in the revision cause either way.
+  - id: no-near-duplicate-of-the-unapproved-path
+    chose: >
+      One test — `UnapprovedSet_RetriggerWithNoExecutedPhase_StillReCuts` — over the same harness,
+      and the existing preset and resolver tests left untouched.
+    alternative: >
+      Mirroring every new approved-set case with an unapproved twin.
+    why: >
+      The harness presets already exercise a comment re-cutting the tail and an edited description
+      doing the same, and the resolver's own precedence test covers the ordering. The one case
+      worth minting is the third cause the spec found — a bare re-trigger over a set with no
+      executed phase — because that is the arm the new guard sits closest to.
+  - id: the-texts-point-where-a-change-actually-works
+    chose: >
+      The cut comment and the notice both send an operator to the phase specs on the ticket
+      branch, open in the draft pull request. Neither mentions approving the set again in the
+      design conversation.
+    alternative: >
+      Keeping the "approve it again in that conversation" wording the first cut of this phase
+      shipped, or building the dialog command that would have made it true.
+    why: >
+      That wording named a route with no caller: LoadAsync had none outside tests, and
+      RecordAsync's one caller files a NEW ticket, so a conversation cannot re-approve an existing
+      one. Refusing comment, edit and re-trigger while pointing at an unreachable place would have
+      left NO way to change an approved set — strictly worse than the promise it replaced. A
+      reviewer's edit on the branch is read back by the next run and worked as it stands
+      (SpecSourceResolver returns the branch set with NeedsModel false), so it is true today and
+      it is what the texts name. Building the dialog half needs the filed work to carry its ticket
+      id, which is 2026-09-17-042eg's; the successor is named in the spec's scope.out and on the
+      recorder, not left implied.
+  - id: the-discarded-edit-is-reported-not-only-logged
+    chose: >
+      SpecSourceResolver.Decision carries the merge's Note beside the cause, and
+      ApprovedSetKeptNotice reports it to the ticket.
+    alternative: >
+      Leaving it in the cause string, where it already was, and having the notice parse it out.
+    why: >
+      The cause reached the log, the commit message and set.yaml — none of them where the person
+      whose edit was thrown away looks. This phase built a ticket notice for exactly that reader,
+      so not using it for the one input the run actively DISCARDS was the gap. Passing the note as
+      a field rather than re-parsing a sentence keeps one producer and one consumer.
+  - id: the-notice-runs-before-the-publish-and-answers
+    chose: >
+      The notice is posted BEFORE the set is published, returns whether the ticket was told, and
+      the fingerprint clears a kept edit only when it was. Failing afterwards means the next run
+      says it again.
+    alternative: >
+      Posting it after a successful publish (so it never repeats), or clearing the fingerprint
+      unconditionally as the first cut did.
+    why: >
+      Three bugs closed at once: a hand-back used to skip the whole announce block and swallow the
+      notice; a tracker that refused the comment used to clear the cause anyway and lose the edit
+      for good; and a run with no tracker did the same. The notice is therefore AT-LEAST-ONCE by
+      design. A repeated notice is noise; a cleared cause nobody received is an edit nobody will
+      ever be told about, and only one of those is recoverable.
+  - id: an-edit-and-a-comment-are-both-named
+    chose: >
+      SpecRevisionCause.IsCommented became public and the notice names a comment alongside an edit
+      when both arrived.
+    alternative: >
+      Letting the cause speak for itself, as it does for a set that gets re-cut.
+    why: >
+      SpecRevisionCause.For checks the edit first and returns ONE cause, which is right for a set
+      that is about to be re-cut from the current text — the comment is in view either way. For a
+      kept set nothing is acted on, so the cause is the whole report, and an operator whose
+      comment went unmentioned would reasonably conclude it was never seen.
+  - id: the-comment-anchor-has-a-mid-run-hole-and-it-is-recorded-not-closed
+    chose: >
+      Written down, not fixed: a comment posted between the run's ticket fetch and the cut comment
+      this run posts lands BEFORE the new anchor, so no run ever reads it as an answer.
+    alternative: >
+      Re-fetching the thread before posting the cut comment, or anchoring on the fetch instant.
+    why: >
+      It is inherited from 2026-09-08-4aa9's anchor and is not created here — it hides a comment
+      from a set that gets re-cut exactly as it hides one from a set that is kept. Closing it means
+      deciding what a run does with input that arrived while it was working, which is a question
+      about run boundaries and not about approval. Named so the next reader finds it: a successor
+      re-reads the thread at the moment it moves the anchor, and reports what arrived in between.
+  - id: an-unreadable-branch-artifact-drops-the-guard
+    chose: >
+      Enumerated, not defended: SpecSetReader returns null for a set.yaml listing a phase file that
+      does not read back, so the run sees NO branch artifact — the approval mark it would have read
+      is gone with it, and a ticket with no record derives.
+    alternative: >
+      Treating an unreadable artifact as an approved set to be preserved.
+    why: >
+      The reader cannot know what it could not parse, and a filed ticket is rescued anyway: the
+      carried or stored record wins, and FiledTicketSpecGate fails the step loudly when there is
+      none. What is left is a hand-written phase ticket whose branch artifact rotted, which has no
+      approval to protect in the first place. Recorded because "an approved set is never re-cut" is
+      a claim about a set the run can READ.
+  - id: the-conversation-id-is-provenance-not-a-destination
+    chose: >
+      The notice names the design conversation the approval came from, and separately names the
+      branch path and the pull request as where to act.
+    alternative: >
+      Dropping the conversation id, or rendering a dashboard link to it.
+    why: >
+      A session id is not navigable from a ticket, so it must not be the call to action — that is
+      what the branch path is for. It is still worth printing: it is the one identifier tying the
+      running spec back to the approval that produced it. A real link needs a dashboard base URL
+      the renderer does not have, which is the same bound 2026-09-17-0e79a recorded for the filed
+      body.
+  - id: the-rebase-onto-0e79a-changed-what-a-discard-means
+    chose: >
+      Kept the discarded-edit notice, and added a test for the merge's THIRD refusal — a
+      re-approval that edits the executed head and adds nothing after it is refused outright.
+      The amendment entry's doc now names all three outcomes, not two.
+    alternative: >
+      Deleting the discard reporting as superseded by the new refusal.
+    why: >
+      The refusal covers the EDIT-ONLY case; the discard path is still reached by a re-approval
+      that edits or reorders the head AND adds work past it, which is the shape an operator
+      amending a long set actually produces. Both must be visible to the person who made the
+      change, and they take different routes: a refusal fails the step loudly with Decision.Error
+      before the notice runs, a discard continues and is reported by the notice.
+  - id: the-amendment-entry-loads-by-tracker-and-key
+    chose: >
+      LoadAsync passes project.Tracker.Name beside the key, from the same derivation RecordAsync
+      saves with.
+    alternative: >
+      Keying the load on the spec key alone, which is what it did before the rebase.
+    why: >
+      2026-09-17-0e79a's amend made the record's identity (tracker connection, key), because the
+      key carries only the tracker TYPE and the ticket id — two Azure DevOps organizations
+      numbering a ticket alike collide. A load that guessed the instance would hand a conversation
+      somebody else's record to amend. One private KeyFor and one Tracker.Name read, in the one
+      type that writes them, is what keeps the pair honest. The test that built a record by hand
+      caught this by failing: an untracked record no longer resolves.

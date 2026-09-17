@@ -43,7 +43,24 @@ internal sealed class ApprovedSetHarness
 
     internal CountingDeriver Deriver { get; } = new();
 
+    /// <summary>2026-09-17-0e79b: the kept-set notices posted to the ticket.</summary>
+    internal RecordingTicketComments Notices { get; } = new();
+
+    /// <summary>2026-09-17-0e79b: the cut comments posted to the ticket, which is what moves the
+    /// anchor the comment rule measures from.</summary>
+    internal RecordingTicketComments Cuts { get; } = new();
+
+    /// <summary>2026-09-17-0e79b: the run decisions the notice wrote.</summary>
+    internal RecordingRunDecisions Decisions { get; } = new();
+
     internal string? PointerSha { get; set; }
+
+    /// <summary>Set to <see cref="RecordingTicketComments.Tracker"/> to give the run a tracker to
+    /// comment on; null (the default) is a run with none, which posts nothing.</summary>
+    internal TrackerConnection? Tracker { get; set; }
+
+    /// <summary>The thread the run carries, which is what the comment rule reads.</summary>
+    internal IReadOnlyList<TicketComment>? Comments { get; set; }
 
     internal DeriveSpecHandler Handler()
     {
@@ -57,7 +74,7 @@ internal sealed class ApprovedSetHarness
         if (PointerSha is { } sha)
             Pointers.SaveAsync(string.Empty, new SpecSetPointer(Branch.Key, Repo, sha, 1), default)
                 .GetAwaiter().GetResult();
-        var tickets = new Mock<ITicketProviderFactory>();
+        var cuts = Cuts.Factory();
         return new DeriveSpecHandler(
             Deriver,
             new SpecSetReader(
@@ -75,10 +92,12 @@ internal sealed class ApprovedSetHarness
             new SpecCoverageRefusal(
                 new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
                 new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
-            new SpecSetTicketCommenter(tickets.Object, NullLogger<SpecSetTicketCommenter>.Instance),
+            new SpecSetTicketCommenter(cuts, NullLogger<SpecSetTicketCommenter>.Instance),
+            new ApprovedSetKeptNotice(
+                Notices.Factory(), Decisions, NullLogger<ApprovedSetKeptNotice>.Instance),
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
-            new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
+            new UnansweredQuestionNotice(cuts, NullLogger<UnansweredQuestionNotice>.Instance),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -105,8 +124,9 @@ internal sealed class ApprovedSetHarness
             ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { [Repo] = sandbox.Object });
         pipeline.Set(ContextKeys.Ticket, ticket);
         if (carriedJson is not null) pipeline.Set(ContextKeys.ApprovedSpecSet, carriedJson);
+        if (Comments is not null) pipeline.Set(ContextKeys.TicketComments, Comments);
         return new DeriveSpecContext(
-            ticket, null, [new RepoConnection { Name = Repo }], new AgentConfig(), pipeline);
+            ticket, Tracker, [new RepoConnection { Name = Repo }], new AgentConfig(), pipeline);
     }
 
     internal sealed class RecordingSpecSetWriter : ISpecSetWriter
