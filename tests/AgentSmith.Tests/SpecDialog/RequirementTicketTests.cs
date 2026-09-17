@@ -32,7 +32,9 @@ public sealed class RequirementTicketTests
         """;
 
     private static readonly PhaseDraft Draft =
-        new("p9000a", "Widget storage layer", Yaml, ["p9000"]);
+        new("p9000a", "Widget storage layer", Yaml, ["p9000", "2026-09-17-042ea"]);
+
+    private static readonly IReadOnlySet<string> Siblings = new HashSet<string> { "p9000", "2026-09-17-042ea", "p9000a" };
 
     [Fact]
     public void RenderChildRequirement_Body_HasNoFencedBlock() =>
@@ -60,9 +62,82 @@ public sealed class RequirementTicketTests
             "every modern decision is a {key: '…'} map, which used to render as an empty "
             + "line and be filtered away — so no filed ticket has ever carried its reasoning");
 
+    /// <summary>2026-09-17-042eb: the done list is how the ticket says when it is finished.</summary>
     [Fact]
-    public void RenderChildRequirement_Body_NamesItsRequires() =>
-        Render().Should().Contain("## Requires").And.Contain("p9000");
+    public void RequirementTicket_ChildWithDone_RendersAcceptanceCriteria()
+    {
+        var body = Render();
+
+        body.Should().Contain("## Acceptance criteria\n- the table exists and the repository reads it");
+        AcceptanceCriteriaSection.Read(body).Should().Equal("the table exists and the repository reads it");
+    }
+
+    /// <summary>
+    /// 2026-09-17-042eb: a sibling's phase id means nothing in a tracker — the order lives in the
+    /// phase-requires labels and on the parent's slice list.
+    /// </summary>
+    [Fact]
+    public void RequirementTicket_SiblingRequires_AreNotInTheBody()
+    {
+        var body = Render();
+
+        body.Should().NotContain("## Requires").And.NotContain("## Preconditions");
+        body.Should().NotContain("p9000\n").And.NotContain("- p9000");
+        body.Should().NotContain("2026-09-17-042ea", "a dated sibling id is a sibling id too");
+    }
+
+    /// <summary>
+    /// The edge checker only holds CHILDREN to siblings. A parent may require a phase outside the
+    /// epic, and that precondition is still true of the whole cut.
+    /// </summary>
+    [Fact]
+    public void RequirementTicket_EpicParent_KeepsAnOutsidePhaseIdRequirement()
+    {
+        var parent = new PhaseDraft("p9000", "Widget platform", "phase: p9000\ngoal: Widget platform", ["p8000"]);
+
+        var body = new PhaseTicketRenderer().RenderEpicParent(parent, [Draft]).Body;
+
+        body.Should().Contain("## Preconditions\n- p8000");
+    }
+
+    [Fact]
+    public void RequirementTicket_ChildOutsidePhaseId_StaysAPrecondition() =>
+        new PhaseTicketRenderer().RenderChildRequirement(Draft with { Requires = ["p8000", "p9000"] }, Siblings).Body
+            .Should().Contain("## Preconditions\n- p8000").And.NotContain("- p9000");
+
+    /// <summary>A block-scalar done item is one criterion; its continuation must not read back as a second.</summary>
+    [Fact]
+    public void RequirementTicket_MultiLineDone_ReadsBackAsOneCriterion()
+    {
+        const string yaml = "phase: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
+
+        var body = new PhaseTicketRenderer()
+            .RenderChildRequirement(new PhaseDraft("p9000a", "Widget storage layer", yaml, []), Siblings).Body;
+
+        AcceptanceCriteriaSection.Read(body).Should().Equal("the table exists and the repository reads it");
+    }
+
+    [Fact]
+    public void RequirementTicket_ChildWithFreeTextRequires_KeepsThePrecondition()
+    {
+        var draft = Draft with { Requires = ["p9000", "the widget database exists in every environment"] };
+
+        var body = new PhaseTicketRenderer().RenderChildRequirement(draft, Siblings).Body;
+
+        body.Should().Contain("## Preconditions\n- the widget database exists in every environment",
+            "no label carries a free-text precondition, so the body is the only place it lives");
+        body.Should().NotContain("- p9000");
+    }
+
+    [Fact]
+    public void WorkOrderTicket_Requires_AreUnchanged()
+    {
+        var body = new PhaseTicketRenderer().RenderPhase(Draft).Body;
+
+        body.Should().Contain("## Requires\n- p9000",
+            "the section builder is shared, and the single-phase work order keeps its shape");
+        body.Should().NotContain(AcceptanceCriteriaSection.Heading);
+    }
 
     /// <summary>
     /// 2026-09-17-042ea: the tracker links the child to its parent and a label stamps it; a line in
@@ -96,5 +171,5 @@ public sealed class RequirementTicketTests
     }
 
     private static string Render() =>
-        new PhaseTicketRenderer().RenderChildRequirement(Draft).Body;
+        new PhaseTicketRenderer().RenderChildRequirement(Draft, Siblings).Body;
 }

@@ -52,13 +52,14 @@ public sealed class SpecFallback(
     /// <summary>
     /// The ticket's own acceptance criteria, one per line. Nothing is invented here: a
     /// ticket that states none leaves the phase with none, and the run says so rather
-    /// than scoring itself against a criterion no human wrote.
+    /// than scoring itself against a criterion no human wrote. 2026-09-17-042eb: with no
+    /// tracker field, the body's own section is the ticket's statement.
     /// </summary>
     private static IReadOnlyList<string> TicketCriteria(Ticket ticket) =>
         string.IsNullOrWhiteSpace(ticket.AcceptanceCriteria)
-            ? []
+            ? AcceptanceCriteriaSection.Read(ticket.Description)
             : [.. TicketHtmlConverter.ToText(ticket.AcceptanceCriteria)
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(line => line.TrimStart('-', '*', ' ').Trim())
-                .Where(line => line.Length > 0)];
+                .Select(CriterionLine.StripMarker)
+                .Where(line => !CriterionLine.IsPlaceholder(line))];
 }

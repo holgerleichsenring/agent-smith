@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-17-042eb
+
+decisions:
+  - category: Scope
+    chose: "The embedded pin move is phase 2026-09-17-6a29, not a step of this phase"
+    over: "A step that waits inside this phase for the skills PRs and the held release"
+    reason: |
+      The skill change is agent-smith-skills PR #190 (design-partner-master 1.6.2), which merges
+      first; 2026-09-17-042ec's change is PR #191 (1.6.3). Release PR #189 (5.4.1) is held until
+      both merge, and the pin can only move to a release that exists. The step `the-pin-moves` and
+      the done line about the embedded master left this spec, and
+      EmbeddedSkills_DesignPartnerMaster_AsksEachEpicChildForDone left its tests list: 2026-09-17-6a29
+      owns them.
+
+  - category: Architecture
+    chose: "One reader, AcceptanceCriteriaSection, serves the prompt and the fallback, in markdown and HTML"
+    over: "Reading the segmented text, or a markdown-only parser"
+    reason: |
+      Azure DevOps stores the markdown description as HTML, and TicketHtmlConverter turns a
+      heading and a list into indistinguishable plain lines, so on HTML the section ends at the next
+      heading tag and its criteria are its <li> elements, each converted on its own. The heading constant is the one the
+      requirement body writes, so writer and reader cannot drift. The field still wins where a
+      tracker has one; the section is read only when it is empty.
+
+  - category: Implementation
+    chose: "The filer passes the epic's child ids; only those leave a child's body"
+    over: "Dropping every phase-id-shaped requires entry"
+    reason: |
+      Found in review. The edge checker holds CHILDREN to siblings and never checks the parent,
+      and the parent is rendered by the same requirement body — so dropping every id-shaped entry
+      silently removed a parent's requirement on a phase outside the epic. The sibling set is a
+      fact the filer has; guessing from the id shape was a heuristic around it. Everything else
+      stays under "## Preconditions"; the work order keeps "## Requires" unchanged.
+
+  - category: Implementation
+    chose: "TicketTitle.Fit makes a title one line, cuts at whitespace in the last 40% of the limit, else hard-cuts off a surrogate pair"
+    over: "The last space anywhere inside 254 characters"
+    reason: |
+      Nothing parses a phase id back out of a title, so a cut is safe, and the ellipsis says it cut.
+      Found in review: a boundary anywhere turned "p9000a: <long url>" into "p9000a:…", a hard cut
+      could leave half an emoji, and tabs and line breaks were not boundaries. A chat intent's title
+      can carry a line break, and a title is one line on every tracker. It lives in Contracts
+      because the phase renderer (Application) and the bug filer and chat intent (Server) all file
+      titles.
+
+  - category: Architecture
+    chose: "Only list items are criteria; one marker comes off each, through one CriterionLine helper"
+    over: "Every non-empty line under the heading, with TrimStart of dashes and asterisks"
+    reason: |
+      Found in review. The section is also read from tickets people write: a GitHub issue form
+      leaves "_No response_", templates leave HTML comments, and a code block can hold a "# comment"
+      that ended the section. TrimStart ate every leading dash and asterisk, so "--dry-run" lost its
+      flag and "**bold**" its emphasis, while checkboxes and numbers stayed. The reader now takes
+      list items only, skips fenced blocks, joins an indented continuation or nested item to its
+      item, and drops placeholders; the fallback's field path strips markers through the same
+      helper. A multi-line done item is collapsed to one line when rendered, so it reads back as
+      one criterion.
+
+  - category: Architecture
+    chose: "EpicOutcomeParser refuses an epic child with no done list, naming the rule"
+    over: "Relying on the skill to ask for it"
+    reason: |
+      Found in review. The skill asks, but a model can still omit it, and a child filed without a
+      done list says what is wanted and never when it is finished. The refusal makes the design
+      master's invalid-outcome retry run, and its message says to add "done:" with at least one
+      outcome, so the retry knows what to add.

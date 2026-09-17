@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -82,12 +83,16 @@ public sealed partial class SpecDialogOutcomeTests
             steps:
               - id: store
                 action: "Add the widget store"
+            done:
+              - "a widget is stored and read back"
           - phase: p9000b
             goal: "Widget API on top of the storage layer"
             requires: [p9000a]
             steps:
               - id: api
                 action: "Add the widget endpoint"
+            done:
+              - "the endpoint returns a stored widget"
         ```
         """;
 
@@ -282,7 +287,7 @@ public sealed partial class SpecDialogOutcomeTests
                 "phase: p9000\ngoal: \"Widget platform end to end\"", []),
             [
                 new PhaseDraft("p9000a", "Widget storage layer",
-                    "phase: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"",
+                    "phase: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"\ndone:\n  - \"a widget is stored and read back\"",
                     []),
                 new PhaseDraft("p9000b", "Widget API on top of the storage layer",
                     "phase: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\nsteps:\n  - id: api\n    action: \"Add the widget endpoint\"",
@@ -309,7 +314,14 @@ public sealed partial class SpecDialogOutcomeTests
         // block and no step list, so the run that picks it up derives against the repository as
         // it then is instead of replaying a cut made weeks earlier. The order survives as prose.
         bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("```"));
-        bed.Tickets.Created[2].Body.Should().Contain("## Requires").And.Contain("p9000a");
+        // 2026-09-17-042eb: the order is the phase-requires label and the parent's slice list; a
+        // sibling's phase id in a tracker body means nothing, so it is not repeated there.
+        bed.Tickets.Created[2].Body.Should().NotContain("## Requires");
+        // 2026-09-17-042eb: the child's done list reaches the filed ticket as acceptance criteria,
+        // and reads back as exactly what was written.
+        AcceptanceCriteriaSection.Read(bed.Tickets.Created[1].Body).Should().Equal("a widget is stored and read back");
+        bed.Tickets.Created[1].Body.Should().NotContain("Add the widget store", "steps stay out of a requirement");
+        bed.Tickets.Created[2].Labels.Should().Contain(FiledTicketLabels.PredecessorStamp("2"));
         bed.Tickets.Comments.Should().ContainSingle(
             "the parent lists its children in order — the tracker's links carry no order"
             ).Which.Comment.Should()

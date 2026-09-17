@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
@@ -70,8 +71,9 @@ public sealed class OutcomeTicketFiler(
         // 2026-09-15-6d9c: rendered, not composed here — the proposal pane shows the same
         // body before this runs, and two copies of it would drift apart.
         var body = bugRenderer.RenderBody(ticket);
-        var created = await provider.CreateAsync(ticket.Title, body, labels: [], ct);
-        filed.Add(new FiledTicket(created.Reference, ticket.Title));
+        var title = TicketTitle.Fit(ticket.Title);
+        var created = await provider.CreateAsync(title, body, labels: [], ct);
+        filed.Add(new FiledTicket(created.Reference, title));
     }
 
     private async Task FilePhaseAsync(
