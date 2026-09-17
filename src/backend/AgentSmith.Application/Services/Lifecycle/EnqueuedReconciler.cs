@@ -23,6 +23,7 @@ public sealed class EnqueuedReconciler(
     ITicketProviderFactory ticketFactory,
     IConfigurationLoader configLoader,
     IEnvelopeProjectResolver envelopeResolver,
+    Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: an orphan is re-enqueued with its set
     TimeProvider timeProvider,
     string configPath,
     ILogger<EnqueuedReconciler> logger)
@@ -92,7 +93,8 @@ public sealed class EnqueuedReconciler(
             var request = new PipelineRequest(
                 projectName, match.Value.PipelineName,
                 TicketId: ticket.Id,
-                Headless: true);
+                Headless: true,
+                Context: await approvedSets.ContextForAsync(project.Tracker, ticket.Id.Value, ct));
             await jobQueue.EnqueueAsync(request, ct);
             logger.LogInformation(
                 "Reconciler re-enqueued orphan Enqueued ticket {Project}/{Ticket} (pipeline {Pipeline})",

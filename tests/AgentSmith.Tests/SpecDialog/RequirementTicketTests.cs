@@ -129,14 +129,18 @@ public sealed class RequirementTicketTests
         body.Should().NotContain("- p9000");
     }
 
+    /// <summary>
+    /// 2026-09-17-0e79a: a filed phase is a REQUIREMENT with its acceptance criteria and its
+    /// preconditions — no sibling set to subtract, so every requires: edge is a precondition.
+    /// </summary>
     [Fact]
-    public void WorkOrderTicket_Requires_AreUnchanged()
+    public void FiledPhaseBody_IsTheRequirementShape()
     {
         var body = new PhaseTicketRenderer().RenderPhase(Draft).Body;
 
-        body.Should().Contain("## Requires\n- p9000",
-            "the section builder is shared, and the single-phase work order keeps its shape");
-        body.Should().NotContain(AcceptanceCriteriaSection.Heading);
+        body.Should().Contain(AcceptanceCriteriaSection.Heading);
+        body.Should().Contain("## Preconditions\n- p9000");
+        body.Should().NotContain("## Requires");
     }
 
     /// <summary>
@@ -147,15 +151,43 @@ public sealed class RequirementTicketTests
     public void RequirementTicket_Body_CarriesNoParentLine() =>
         Render().Should().NotContain("Parent:");
 
+    /// <summary>
+    /// 2026-09-17-0e79a: the approved set is stored and carried, not embedded. A fence in the body
+    /// would be a second truth — one anyone with tracker access can edit, and one the source
+    /// precedence would take over the record a person actually approved.
+    /// </summary>
     [Fact]
-    public void RenderPhase_SinglePhaseOutcome_StillEmbedsTheSpec()
+    public void FiledPhaseBody_CarriesNoYamlFence()
     {
-        var body = new PhaseTicketRenderer().RenderPhase(Draft).Body;
+        var body = new PhaseTicketRenderer().RenderPhase(Draft, "session-7").Body;
 
-        body.Should().Contain("```yaml").And.Contain("phase: p9000a");
-        body.Should().Contain("Add the table and its migration",
-            "a work order is cut against the repository as it is and filed to be worked now");
+        body.Should().NotContain("```");
+        body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+            .And.Contain("session-7", "the body points at the conversation the set was approved in");
     }
+
+    /// <summary>
+    /// 2026-09-17-0e79a: the filed ticket carries the stamp that holds it to "the approved set
+    /// must have reached the run" — the bare phase label cannot say that, because a hand-written
+    /// phase ticket carries it too and its spec legitimately lives in its description.
+    /// </summary>
+    [Fact]
+    public void FiledPhase_Labels_CarryTheApprovedSetStamp()
+    {
+        FiledTicketLabels.CarriesApprovedSet(
+            [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp]).Should().BeTrue();
+        FiledTicketLabels.CarriesApprovedSet([PhaseTicketRenderer.PhaseLabel]).Should().BeFalse(
+            "a hand-written phase ticket is not held to a set nobody approved");
+    }
+
+    /// <summary>The extractor must read a filed body as ABSENT, never as malformed.</summary>
+    [Fact]
+    public void FiledPhaseBody_ReadsBackAsNoSpecAtAll() =>
+        new PhaseSpecFromTicket(
+                new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader())
+            .Extract(new PhaseTicketRenderer().RenderPhase(Draft).Body)
+            .Should().BeOfType<PhaseSpecInvalid>()
+            .Which.IsAbsent.Should().BeTrue();
 
     [Fact]
     public void SpecSource_RequirementTicket_LeavesTheDerivationToRun()

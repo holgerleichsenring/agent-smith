@@ -5,13 +5,15 @@ using AgentSmith.Contracts.Tickets;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// p0315c: composes a phase ticket from a schema-valid PhaseDraft. The body
-/// leads with a human-first markdown summary (goal / why / scope, read from
-/// the draft's own yaml) and ends with exactly ONE fenced ```yaml block
-/// holding the spec verbatim; the ticket carries the `phase` label. THIS IS
-/// THE p0315d CONTRACT: the phase-execution extractor inverts it by taking
-/// the single ```yaml block out of a phase-labelled ticket body — nothing
-/// else in the body may open a fenced block.
+/// p0315c: composes a phase ticket from a schema-valid PhaseDraft. The body leads with a
+/// human-first markdown summary (goal / why / scope, read from the draft's own yaml); the ticket
+/// carries the `phase` label.
+/// <para>
+/// 2026-09-17-0e79a: a filed phase carries NO fenced spec. The approved set is stored under the
+/// ticket's spec key and carried to the run, and a fence in the body would be a second truth —
+/// one that anyone with tracker access can edit, and one the source precedence would take. The
+/// body states what is wanted and points at the conversation the set was approved in.
+/// </para>
 /// </summary>
 public sealed class PhaseTicketRenderer
 {
@@ -27,11 +29,25 @@ public sealed class PhaseTicketRenderer
     public const string EpicLabel = "phase-epic";
 
     /// <summary>
-    /// A WORK ORDER: one phase, cut against the repository as it is, filed to be worked now.
-    /// Ends in the single fenced yaml block the phase-execution extractor inverts.
+    /// A filed phase: the requirement, plus the link back to the approved specification the run
+    /// works from. The spec itself is not in the body — it is the approved record.
     /// </summary>
-    public PhaseTicketContent RenderPhase(PhaseDraft draft) =>
-        new(Title(draft), PhaseTicketBody.WorkOrder(draft, _ => { }));
+    /// <param name="conversation">The design conversation the set was approved in.</param>
+    public PhaseTicketContent RenderPhase(PhaseDraft draft, string? conversation = null) =>
+        new(Title(draft), PhaseTicketBody.Requirement(draft, new HashSet<string>(), sb =>
+        {
+            sb.AppendLine(SpecificationHeading);
+            sb.AppendLine(
+                "The approved phase specification is what the run works from; it is published to "
+                + "the ticket branch under `" + Contracts.Specs.SpecSetKey.Root + "/`."
+                + (string.IsNullOrWhiteSpace(conversation)
+                    ? string.Empty
+                    : $" Approved in design conversation `{conversation}`, which is where a change to it is made."));
+            sb.AppendLine();
+        }));
+
+    /// <summary>The heading the specification pointer is filed under.</summary>
+    public const string SpecificationHeading = "## Specification";
 
     /// <summary>
     /// 2026-09-13-b7ba: an epic CHILD is a requirement, not a work order. It is filed today

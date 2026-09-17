@@ -145,13 +145,11 @@ public sealed class PhaseExecutionTests
             services.AddSingleton<ITicketProviderFactory>(new PhaseTicketProviderFactory(tickets));
         });
 
-    // The genuine p0315c artifact: title + markdown summary + ONE fenced yaml
-    // block, rendered by the production renderer (not a hand-built body).
+    // 2026-09-17-0e79a: a HAND-WRITTEN phase ticket — the shape the extractor still inverts.
+    // The framework's own filing carries no fence any more: its spec is the approved record.
     private static string PhaseTicketBody() =>
-        new PhaseTicketRenderer()
-            .RenderPhase(new PhaseDraft(
-                "p9999", "Add a widget endpoint to the sample service", ValidYaml, []))
-            .Body;
+        "## Goal\nAdd a widget endpoint to the sample service\n\n---\n\n```yaml\n"
+        + ValidYaml.Trim() + "\n```\n";
 
     private sealed class PhaseTicketProvider(
         string body, IReadOnlyList<TicketComment>? comments = null) : ITicketProvider

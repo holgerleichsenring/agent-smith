@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -42,6 +43,20 @@ public sealed class SpecCutGate(IEventPublisher events, ILogger<SpecCutGate> log
         return PublishAsync(
             pipeline, "spec-cut-review",
             $"{findings} — the cut is kept; these findings stand", ct);
+    }
+
+    /// <summary>
+    /// 2026-09-17-0e79a: the run has NO usable spec — a filed ticket whose approved set never
+    /// arrived, or a malformed one someone shipped. The step fails, and the same sentence is
+    /// published on the run's gate trail, which is where a person reads why a run stopped;
+    /// a failed step alone names the phase, not the reason.
+    /// </summary>
+    public async Task<CommandResult> RefuseSpecAsync(
+        PipelineContext pipeline, string ticketId, string reason, CancellationToken ct)
+    {
+        logger.LogError("Ticket {Ticket} has no usable phase spec: {Reason}", ticketId, reason);
+        await PublishAsync(pipeline, "spec-source", reason, ct);
+        return CommandResult.Fail($"Ticket {ticketId} has no usable phase spec: {reason}");
     }
 
     private async Task PublishAsync(

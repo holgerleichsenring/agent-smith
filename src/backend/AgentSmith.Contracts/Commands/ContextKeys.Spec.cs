@@ -92,4 +92,14 @@ public static partial class ContextKeys
     /// <summary>p0393a: the ticket segments the derivation was offered, kept so the
     /// accounting and the markdown companions can be rebuilt without re-segmenting.</summary>
     public const string TicketSegments = "TicketSegments";
+
+    /// <summary>
+    /// 2026-09-17-0e79a: the whole approved record (<see cref="Specs.SpecApprovalRecord"/>) as a
+    /// JSON STRING — the set a person approved in the design conversation, the approval it carries
+    /// and the repositories it named. The spawn funnel writes it onto both request shapes it emits,
+    /// the reconciler writes it when it re-enqueues an orphan, and ScopeRepos and DeriveSpec both
+    /// read it through the one resolver. A string, not an object, because the Redis job queue
+    /// re-materializes request values as JsonElement.
+    /// </summary>
+    public const string ApprovedSpecSet = "ApprovedSpecSet";
 }

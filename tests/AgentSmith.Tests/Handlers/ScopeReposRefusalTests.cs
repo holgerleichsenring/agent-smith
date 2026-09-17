@@ -111,6 +111,7 @@ public sealed class ScopeReposRefusalTests
         _chatClient = new StubChatClient(new Queue<string>([classifierReply]));
         var events = new Mock<AgentSmith.Contracts.Events.IEventPublisher>();
         return new ScopeReposHandler(
+            TestSupport.ApprovedSetDoubles.Scope(),
             new RemoteContextInventoryBuilder(resolver.Object, NullLogger<RemoteContextInventoryBuilder>.Instance),
             new RepoScopeClassifier(
                 new StubChatClientFactory(_chatClient), EventTestStubs.RunContext,

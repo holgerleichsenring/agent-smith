@@ -28,11 +28,26 @@ public static class FiledTicketLabels
     public const string ParentPrefix = "phase-parent:";
     public const string PredecessorPrefix = "phase-requires:";
 
+    /// <summary>
+    /// 2026-09-17-0e79a: the stamp that says THIS FRAMEWORK FILED THIS TICKET FROM AN APPROVED
+    /// SET. The bare phase label cannot say it — a hand-written phase ticket carries the label
+    /// too, and that ticket's spec legitimately lives in its description. Only a ticket carrying
+    /// this stamp is held to "the set must have reached the run".
+    /// </summary>
+    public const string ApprovedSetStamp = "phase-spec:approved";
+
     public static bool IsPhaseTicket(IncomingTicketEnvelope envelope) =>
         Carries(envelope, PhaseTicketRenderer.PhaseLabel);
 
     public static bool IsEpicRecord(IncomingTicketEnvelope envelope) =>
         Carries(envelope, PhaseTicketRenderer.EpicLabel);
+
+    /// <summary>True when the framework filed this ticket from a set a person approved.</summary>
+    public static bool CarriesApprovedSet(IEnumerable<string> labels)
+    {
+        ArgumentNullException.ThrowIfNull(labels);
+        return labels.Any(l => string.Equals(l, ApprovedSetStamp, StringComparison.OrdinalIgnoreCase));
+    }
 
     public static string ParentStamp(string ticketId) => ParentPrefix + ticketId;
 

@@ -69,6 +69,33 @@ public sealed class EnqueuedReconcilerTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>
+    /// 2026-09-17-0e79a: the reconciler re-enqueues an orphan as a PipelineRequest with no context
+    /// at all. It runs in the server, so it resolves the approved record and carries it — which is
+    /// why the store fallback is not the only repair.
+    /// </summary>
+    [Fact]
+    public async Task Reconciler_OrphanWithARecord_ReEnqueuesItWithTheRecord()
+    {
+        var harness = new Harness();
+        harness.SetupEnqueuedTicket("42");
+        var key = AgentSmith.Contracts.Specs.SpecSetKey.For("github", "42").Value;
+        // The reconciler resolves by the project's tracker CONNECTION, which this bed leaves unnamed.
+        await harness.Approvals.SaveAsync(
+            TestSupport.ApprovedSets.Record(key, TestSupport.ApprovedSets.Noon, tracker: string.Empty),
+            default);
+
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        await harness.BuildSut().RunAsync(cts.Token);
+
+        harness.JobQueue.Verify(q => q.EnqueueAsync(
+            It.Is<PipelineRequest>(r =>
+                r.Context != null
+                && r.Context.ContainsKey(AgentSmith.Contracts.Commands.ContextKeys.ApprovedSpecSet)),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
     private sealed class Harness
     {
         public Mock<IActiveRunLease> Lease { get; } = new();
@@ -77,6 +104,8 @@ public sealed class EnqueuedReconcilerTests
         public Mock<ITicketProvider> Provider { get; } = new();
         public Mock<IConfigurationLoader> ConfigLoader { get; } = new();
         public Mock<IEnvelopeProjectResolver> Resolver { get; } = new();
+        public AgentSmith.Contracts.Specs.ISpecApprovalStore Approvals { get; } =
+            AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Store();
 
         public Harness()
         {
@@ -98,7 +127,8 @@ public sealed class EnqueuedReconcilerTests
 
         public EnqueuedReconciler BuildSut() => new(
             Lease.Object, JobQueue.Object, TicketFactory.Object,
-            ConfigLoader.Object, Resolver.Object, TimeProvider.System, "config.yml",
+            ConfigLoader.Object, Resolver.Object, TestSupport.ApprovedSetDoubles.Carrier(Approvals),
+            TimeProvider.System, "config.yml",
             NullLogger<EnqueuedReconciler>.Instance);
     }
 }

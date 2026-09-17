@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -15,6 +16,12 @@ namespace AgentSmith.Tests.Specs;
 /// ticket DESCRIPTION, then derivation. A ticket COMMENT is never a source: after the
 /// first run the ticket carries the derived spec as a comment, so a rule reading "a
 /// ticket carrying a spec skips derivation" would feed the run its own echo.
+/// <para>
+/// 2026-09-17-0e79a: the APPROVED record joins above the description, and beats the branch
+/// artifact only when its approval is newer than the one the branch was published from. The
+/// resolver also computes the revision cause now, so each case builds the pointer and the
+/// pipeline the cause is read from.
+/// </para>
 /// </summary>
 public sealed class SpecSourceTests
 {
@@ -35,6 +42,8 @@ public sealed class SpecSourceTests
     private readonly SpecSourceResolver _sut = new(
         new PhaseSpecFromTicket(
             new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader()),
+        new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+        new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
         NullLogger<SpecSourceResolver>.Instance);
 
     [Fact]
@@ -42,9 +51,10 @@ public sealed class SpecSourceTests
     {
         var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
 
-        var decision = _sut.Decide(branch, Ticket(EmbeddedSpec), SpecRevisionCause.Resume, "azdo-1");
+        var decision = _sut.Decide(branch, Ticket(EmbeddedSpec), Pointer(), Resuming(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
+        decision.Cause.Should().Be(SpecRevisionCause.Resume);
         decision.Set.Should().BeSameAs(branch.Set);
         decision.NeedsModel.Should().BeFalse("a resume works from the artifact, unamended");
     }
@@ -57,9 +67,10 @@ public sealed class SpecSourceTests
         var ticket = Ticket("The endpoint returns 500 on empty payloads.");
         var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
 
-        var decision = _sut.Decide(branch, ticket, SpecRevisionCause.Retrigger, "azdo-1");
+        var decision = _sut.Decide(branch, ticket, Pointer(), new PipelineContext(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
+        decision.Cause.Should().Be(SpecRevisionCause.Retrigger);
         decision.NeedsModel.Should().BeTrue(
             "a re-trigger amends the existing set with the new comment instead of re-reading prose");
     }
@@ -67,11 +78,14 @@ public sealed class SpecSourceTests
     [Fact]
     public void SpecSource_ATicketEdit_AmendsTheSetWithTheModel()
     {
-        var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
+        var branch = new SpecSetReadResult(
+            SetOnBranch() with { TicketFingerprint = "cut-from-other-text" }, "sha-1");
 
-        var decision = _sut.Decide(branch, Ticket("The endpoint returns 500."), SpecRevisionCause.TicketEdit, "azdo-1");
+        var decision = _sut.Decide(
+            branch, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
+        decision.Cause.Should().Be(SpecRevisionCause.TicketEdit);
         decision.Set.Should().BeSameAs(branch.Set, "the branch set is what the model amends");
         decision.NeedsModel.Should().BeTrue("an edited ticket is input the model has not seen");
     }
@@ -81,9 +95,11 @@ public sealed class SpecSourceTests
     {
         var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
 
-        var decision = _sut.Decide(branch, Ticket("The endpoint returns 500."), SpecRevisionCause.Comment, "azdo-1");
+        var decision = _sut.Decide(
+            branch, Ticket("The endpoint returns 500."), Pointer(), Commented(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
+        decision.Cause.Should().Be(SpecRevisionCause.Comment);
         decision.Set.Should().BeSameAs(branch.Set, "the branch set is what the model amends");
         decision.NeedsModel.Should().BeTrue("a comment is input the model has not seen");
     }
@@ -94,7 +110,8 @@ public sealed class SpecSourceTests
         var cut = SetOnBranch();
         var inFlight = new SpecSetReadResult(cut with { Executed = [cut.Phases[0].PhaseId] }, "sha-1");
 
-        var decision = _sut.Decide(inFlight, Ticket("The endpoint returns 500."), SpecRevisionCause.Retrigger, "azdo-1");
+        var decision = _sut.Decide(
+            inFlight, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1");
 
         decision.Set.Should().BeSameAs(inFlight.Set);
         decision.NeedsModel.Should().BeFalse(
@@ -105,9 +122,10 @@ public sealed class SpecSourceTests
     public void SpecSource_TicketDescriptionCarriesASpec_SkipsDerivation()
     {
         var decision = _sut.Decide(
-            branchArtifact: null, Ticket(EmbeddedSpec), SpecRevisionCause.Initial, "azdo-1");
+            branchArtifact: null, Ticket(EmbeddedSpec), null, new PipelineContext(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.TicketDescription);
+        decision.Cause.Should().Be(SpecRevisionCause.Initial);
         decision.NeedsModel.Should().BeFalse("an authored spec is not re-derived");
         decision.Set!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
     }
@@ -116,7 +134,7 @@ public sealed class SpecSourceTests
     public void SpecSource_OrdinaryTicket_Derives()
     {
         var decision = _sut.Decide(
-            branchArtifact: null, Ticket("Fix the boundary check."), SpecRevisionCause.Initial, "azdo-1");
+            branchArtifact: null, Ticket("Fix the boundary check."), null, new PipelineContext(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.Derived);
         decision.NeedsModel.Should().BeTrue();
@@ -129,7 +147,7 @@ public sealed class SpecSourceTests
         var decision = _sut.Decide(
             branchArtifact: null,
             Ticket("```yaml\nphase: nope\ngoal: 3\n```"),
-            SpecRevisionCause.Initial, "azdo-1");
+            null, new PipelineContext(), "azdo-1");
 
         decision.Error.Should().NotBeNull(
             "shipping a spec and getting it wrong must not degrade into 'no spec, derive one'");
@@ -143,6 +161,24 @@ public sealed class SpecSourceTests
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
         SpecSource.BranchArtifact);
+
+    private static SpecSetPointer Pointer() => new("azdo-1", "sample", "sha-1", 1);
+
+    private static PipelineContext Resuming()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.ResumeCheckpoint, "{}");
+        return pipeline;
+    }
+
+    private static PipelineContext Commented()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyList<TicketComment>>(
+            ContextKeys.TicketComments,
+            [new TicketComment("a.reviewer", DateTimeOffset.UtcNow, "This misses the retry path.")]);
+        return pipeline;
+    }
 
     private static Ticket Ticket(string description) => new(
         new TicketId("1"), "A ticket", description, null, "open", "azdo", []);

@@ -50,7 +50,9 @@ public sealed class HousekeepingLeaderHostedService(
         var timeProvider = services.GetRequiredService<TimeProvider>();
         var reconciler = new EnqueuedReconciler(
             activeRunLease, queue, ticketFactory, configLoader,
-            services.GetRequiredService<IEnvelopeProjectResolver>(), timeProvider, serverContext.ConfigPath,
+            services.GetRequiredService<IEnvelopeProjectResolver>(),
+            services.GetRequiredService<AgentSmith.Application.Services.Specs.ApprovedSpecSetCarrier>(),
+            timeProvider, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<EnqueuedReconciler>>());
         var watchdog = BuildWatchdog();
         // p0330: the durable cancel guarantee — leader-elected like the rest of

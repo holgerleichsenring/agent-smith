@@ -15,6 +15,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// one `phase`-labelled ticket. Epic → EpicTicketFiler, which owns the whole
 /// parent-and-children shape. Sequential on purpose: a failure reports exactly
 /// what was created.
+/// <para>
+/// 2026-09-17-0e79a: filing a PHASE also stores the approved set under the created ticket's spec
+/// key. The ticket body carries no spec any more, so the record is what the run works from —
+/// storing it is part of filing, not a step after it.
+/// </para>
 /// </summary>
 public sealed class OutcomeTicketFiler(
     AgentSmithConfig config,
@@ -22,6 +27,7 @@ public sealed class OutcomeTicketFiler(
     PhaseTicketRenderer renderer,
     BugTicketRenderer bugRenderer,
     EpicTicketFiler epicFiler,
+    ApprovedPhaseSetRecorder approvals,
     ILogger<OutcomeTicketFiler> logger)
 {
     public async Task<FilingReport> FileAsync(
@@ -31,11 +37,13 @@ public sealed class OutcomeTicketFiler(
         var notes = new List<string>();
         try
         {
-            var provider = ResolveProvider(state);
+            var project = ResolveProject(state);
+            var provider = ticketFactory.Create(project.Tracker);
             await (proposal switch
             {
                 BugOutcome bug => FileBugAsync(provider, bug.Ticket, filed, cancellationToken),
-                PhaseOutcome phase => FilePhaseAsync(provider, phase.Draft, filed, cancellationToken),
+                PhaseOutcome phase => FilePhaseAsync(
+                    provider, state, project, phase.Draft, filed, cancellationToken),
                 EpicOutcome epic => epicFiler.FileAsync(provider, epic, filed, notes, cancellationToken),
                 _ => throw new InvalidOperationException(
                     $"Outcome kind '{proposal.GetType().Name}' cannot be filed."),
@@ -52,7 +60,7 @@ public sealed class OutcomeTicketFiler(
         }
     }
 
-    private ITicketProvider ResolveProvider(ConversationState state)
+    private ResolvedProject ResolveProject(ConversationState state)
     {
         var project = state.Scope?.Project ?? state.Project;
         if (string.IsNullOrWhiteSpace(project))
@@ -61,7 +69,7 @@ public sealed class OutcomeTicketFiler(
         if (!config.Projects.TryGetValue(project, out var resolved))
             throw new InvalidOperationException(
                 $"Active-scope project '{project}' is not in the configuration catalog.");
-        return ticketFactory.Create(resolved.Tracker);
+        return resolved;
     }
 
     private async Task FileBugAsync(
@@ -77,12 +85,14 @@ public sealed class OutcomeTicketFiler(
     }
 
     private async Task FilePhaseAsync(
-        ITicketProvider provider, PhaseDraft draft,
-        List<FiledTicket> filed, CancellationToken ct)
+        ITicketProvider provider, ConversationState state, ResolvedProject project,
+        PhaseDraft draft, List<FiledTicket> filed, CancellationToken ct)
     {
-        var content = renderer.RenderPhase(draft);
+        var content = renderer.RenderPhase(draft, state.JobId);
         var created = await provider.CreateAsync(
-            content.Title, content.Body, [PhaseTicketRenderer.PhaseLabel], ct);
+            content.Title, content.Body,
+            [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp], ct);
         filed.Add(new FiledTicket(created.Reference, content.Title));
+        await approvals.RecordAsync(state, project, created.Id.Value, [draft], ct);
     }
 }

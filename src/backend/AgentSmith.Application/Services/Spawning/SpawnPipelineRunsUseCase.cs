@@ -36,6 +36,7 @@ public sealed class SpawnPipelineRunsUseCase(
     ISandboxCorpseReaper corpseReaper,
     ISandboxCapacityProbe capacityProbe,
     IPredecessorGate predecessorGate,
+    Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: the run carries what was approved
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
     public async Task<SpawnResult> ExecuteAsync(
@@ -107,17 +108,12 @@ public sealed class SpawnPipelineRunsUseCase(
         Dictionary<string, string>? planAnswers, string runId, bool isHead, CancellationToken ct)
     {
         var request = SpawnRequestBuilder.BuildRequest(
-            project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: runId);
+            project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: runId,
+            approvedSetJson: await approvedSets.JsonForAsync(project.Tracker.Name, envelope.Platform, envelope.TicketId, ct));
         var result = await claimService.ClaimAsync(request, config, ct);
-        if (result.Outcome == ClaimOutcome.Claimed)
-        {
-            if (isHead) await capacityQueue.RemoveAsync(project.Name, envelope.TicketId!, ct);
-        }
-        else
-        {
-            // The run never started (already-claimed / error) — free the reservation.
-            await capacityBudget.ReleaseAsync(runId, ct);
-        }
+        // The run never started (already-claimed / error) — free the reservation.
+        if (result.Outcome != ClaimOutcome.Claimed) await capacityBudget.ReleaseAsync(runId, ct);
+        else if (isHead) await capacityQueue.RemoveAsync(project.Name, envelope.TicketId!, ct);
         logger.LogInformation(
             "Spawn for project={Project} pipeline={Pipeline} ticket={Ticket} → outcome={Outcome}",
             project.Name, pipelineName, envelope.TicketId, result.Outcome);
@@ -135,7 +131,8 @@ public sealed class SpawnPipelineRunsUseCase(
             : $"waiting for capacity — footprint {footprint.TotalMemLimit} / {footprint.TotalCpuLimit} cpu "
               + "exceeds the remaining budget";
         var candidate = SpawnRequestBuilder.BuildCandidate(
-            project, pipelineName, envelope, matchedTrigger, planAnswers, candidateRunId, reason);
+            project, pipelineName, envelope, matchedTrigger, planAnswers, candidateRunId, reason,
+            approvedSetJson: await approvedSets.JsonForAsync(project.Tracker.Name, envelope.Platform, envelope.TicketId, ct));
         var reservedRunId = await capacityQueue.EnqueueAsync(candidate, ct);
         await capacityBudget.RecordAsync(reservedRunId, footprint, ct);
 

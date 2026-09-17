@@ -115,10 +115,17 @@ public sealed class DeriveSpecHandlerTests
             Mock.Of<ISpecSetReader>(),
             publisher,
             new InMemorySpecSetPointerStore(),
+            new ApprovedSpecSetResolver(
+                new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new PhaseSpecFromTicket(validator, draftReader),
+                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecCoverageRefusal(
+                new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
+                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
             new SpecSetTicketCommenter(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<SpecSetTicketCommenter>.Instance),
             new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),

@@ -135,8 +135,17 @@ public sealed class DeriveSpecQuestionTests
             CancellationToken.None).GetAwaiter().GetResult();
         return new DeriveSpecHandler(
             deriver, reader.Object, publisher, pointers,
-            new SpecSourceResolver(new PhaseSpecFromTicket(validator, draftReader), NullLogger<SpecSourceResolver>.Instance),
+            new ApprovedSpecSetResolver(
+                new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
+            new SpecSourceResolver(
+                new PhaseSpecFromTicket(validator, draftReader),
+                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
+                NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecCoverageRefusal(
+                new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
+                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
             new SpecSetTicketCommenter(factory.Object, NullLogger<SpecSetTicketCommenter>.Instance),
             new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),

@@ -22,14 +22,21 @@ namespace AgentSmith.Application.Services.Handlers;
 /// falling back to a shape that is known to work, not partially applying one that
 /// is not.
 /// </para>
+/// <para>
+/// 2026-09-17-0e79a: a set a person APPROVED in the design conversation is resolved before the
+/// source is chosen, and a ticket the framework filed that arrives with no set from any route
+/// fails here instead of being derived a second time.
+/// </para>
 /// </summary>
 public sealed class DeriveSpecHandler(
     ISpecSetDeriver deriver,
     ISpecSetReader reader,
     ISpecSetPublisher publisher,
     ISpecSetPointerStore pointers,
+    ApprovedSpecSetResolver approvals,
     SpecSourceResolver sourceResolver,
     SpecFallback fallback,
+    SpecCoverageRefusal coverageRefusal,
     SpecSetTicketCommenter commenter,
     SpecCutGate gate,
     UnansweredQuestionPin questionPin,
@@ -54,19 +61,20 @@ public sealed class DeriveSpecHandler(
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
+        var approval = await approvals.ResolveAsync(context.Pipeline, key, cancellationToken);
         var previous = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
-        var cause = SpecRevisionCause.For(previous, pointer, context.Ticket, context.Pipeline);
-        var decision = sourceResolver.Decide(previous, context.Ticket, cause, key.Value);
+        var decision = sourceResolver.Decide(
+            previous, context.Ticket, pointer, context.Pipeline, key.Value, approval);
         if (decision.Error is not null)
-            return CommandResult.Fail(
-                $"Ticket {context.Ticket.Id.Value} carries a malformed phase spec: {decision.Error}");
+            return await gate.RefuseSpecAsync(
+                context.Pipeline, context.Ticket.Id.Value, decision.Error, cancellationToken);
 
         var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);
         var (set, ignored) = decision.NeedsModel
-            ? await DeriveAsync(context, decision, key.Value, segments, cause, cancellationToken)
+            ? await DeriveAsync(context, decision, key.Value, segments, cancellationToken)
             : (decision.Set!, (IReadOnlyList<IgnoredInstruction>)[]);
 
-        var finalized = Finalize(set, previous, cause, context.Ticket, decision.NeedsModel);
+        var finalized = Finalize(set, previous, decision.Cause!, context.Ticket, decision.NeedsModel);
         var result = await publisher.PublishAsync(
             context.Pipeline, project, repo, finalized, ignored, cancellationToken);
         if (!finalized.IsHandedBack)
@@ -76,10 +84,10 @@ public sealed class DeriveSpecHandler(
 
     private async Task<(SpecSet Set, IReadOnlyList<IgnoredInstruction> Ignored)> DeriveAsync(
         DeriveSpecContext context, SpecSourceResolver.Decision decision, string key,
-        IReadOnlyList<TicketSegment> segments, string cause, CancellationToken ct)
+        IReadOnlyList<TicketSegment> segments, CancellationToken ct)
     {
         var (derivation, error) = await deriver.DeriveAsync(
-            context.Ticket!, segments, decision.Set, cause, context.AgentConfig, context.Pipeline, ct);
+            context.Ticket!, segments, decision.Set, decision.Cause!, context.AgentConfig, context.Pipeline, ct);
 
         if (derivation is null)
         {
@@ -100,18 +108,9 @@ public sealed class DeriveSpecHandler(
         if (derivation.Set.IsHandedBack || derivation.Set.Accounting.IsComplete)
             return (derivation.Set, derivation.IgnoredInstructions);
 
-        await gate.RefusedAsync(
-            context.Pipeline, context.Ticket!.Id.Value,
-            "segment(s) " + string.Join(", ", derivation.Set.Accounting.Unaccounted)
-            + " were neither carried by a phase nor discarded with a reason", ct);
-        // The cut was refused for its COVERAGE, not for its criteria — carrying the
-        // done-list forward keeps the run's acceptance contract non-empty without
-        // inventing one.
         return (
-            fallback.Build(
-                key, context.Ticket!, segments,
-                [.. derivation.Set.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],
-                decision.Source),
+            await coverageRefusal.ApplyAsync(
+                context.Pipeline, context.Ticket!, key, segments, derivation.Set, decision.Source, ct),
             derivation.IgnoredInstructions);
     }
 
