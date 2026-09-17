@@ -26,4 +26,19 @@ public sealed class DerivationLookFactory(
             sandboxes.Count, sandboxes.Count == 1 ? "y" : "ies", string.Join(", ", sandboxes.Keys));
         return new DerivationLook(sandboxes, files, ecosystems, logger, templates.For(pipeline));
     }
+
+    /// <summary>
+    /// 2026-09-15-ffa7: the cut reviewer's look — the run's repositories on the reviewer's
+    /// own terms, and NO template scope. Neither template selection is called: each one
+    /// creates a scope per declaration, so a second look through either clones every template
+    /// again. A template says what a cut should FOLLOW; the reviewer checks what it ASSUMES.
+    /// Null when the run has no sandbox, and the review is the text-against-text one.
+    /// </summary>
+    public DerivationLook? ForCutReview(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
+        return new DerivationLook(
+            sandboxes, files, ecosystems, logger, templates: null, DerivationLookTerms.CutReview);
+    }
 }

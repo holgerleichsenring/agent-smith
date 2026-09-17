@@ -18,10 +18,10 @@ internal static class DerivationTools
         RepositorySearchTool search, RepositoryFileReadTool read, DependencyAuditTool audit) =>
         [
             BoundedResultTool.Wrap(AIFunctionFactory.Create(
-                search.SearchRepository, name: RepositorySearchTool.Name)),
+                search.SearchRepository, RepositorySearchTool.Name, search.Description)),
             BoundedResultTool.Wrap(AIFunctionFactory.Create(
-                read.ReadFile, name: RepositoryFileReadTool.Name)),
+                read.ReadFile, RepositoryFileReadTool.Name, read.Description)),
             BoundedResultTool.Wrap(AIFunctionFactory.Create(
-                audit.AuditDependencies, name: DependencyAuditTool.Name)),
+                audit.AuditDependencies, DependencyAuditTool.Name, audit.Description)),
         ];
 }

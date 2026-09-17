@@ -22,10 +22,12 @@ public sealed class RepositoryFileReadTool(
     private const int ReadExit = 0;
     private const int MissingExit = 1;
 
-    [Description("Reads one file of one repository, relative to the repository root, and "
-                 + "returns its content — a manifest, a lock file, a config. Read-only. The "
-                 + "result starts with an evidence id such as [L2]; a fact that rests on "
-                 + "this file cites that id.")]
+    /// <summary>2026-09-15-ffa7: per look, because the id it spells is the holder's.</summary>
+    public string Description =>
+        "Reads one file of one repository, relative to the repository root, and returns its "
+        + "content — a manifest, a lock file, a config. Read-only. The result starts with an "
+        + $"evidence id such as [{look.Terms.EvidencePrefix}2]; a fact that rests on this file cites that id.";
+
     public async Task<string> ReadFile(
         [Description("The repository the file is in. Use one of the names listed as in scope.")]
         string repository,
@@ -41,8 +43,8 @@ public sealed class RepositoryFileReadTool(
         var id = look.Evidence.Remember(
             repository, $"read {under}", content is null ? MissingExit : ReadExit, ran: true);
         logger.LogInformation(
-            "The derivation read {Repo}/{Path} — {Outcome} as {Id}",
-            repository, under, content is null ? "absent" : $"{content.Length} chars", id);
+            "The {Actor} read {Repo}/{Path} — {Outcome} as {Id}",
+            look.Terms.Actor, repository, under, content is null ? "absent" : $"{content.Length} chars", id);
         return content is null
             ? $"[{id}] {repository}/{under} does not exist."
             : $"[{id}] {repository}/{under}:\n" + BoundedResultTool.Bound(content, MaxChars);

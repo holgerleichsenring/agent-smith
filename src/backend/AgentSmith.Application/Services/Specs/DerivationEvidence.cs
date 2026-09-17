@@ -13,16 +13,25 @@ namespace AgentSmith.Application.Services.Specs;
 /// broken audit prove that nothing is vulnerable.
 /// </para>
 /// </summary>
-public sealed class DerivationEvidence
+/// <param name="idPrefix">2026-09-15-ffa7: the letter ids are minted under. Two holders in
+/// one conversation mint under two letters, or one id names two different looks.</param>
+/// <param name="actor">Who the minted sentence says took the look.</param>
+public sealed class DerivationEvidence(string idPrefix = "L", string actor = "the derivation")
 {
-    private const string IdPrefix = "L";
     private readonly Lock _sync = new();
-    private readonly List<string> _lines = [];
+    private readonly List<EvidenceLook> _looks = [];
     private readonly HashSet<string> _once = new(StringComparer.Ordinal);
 
     public IReadOnlyList<string> Lines
     {
-        get { lock (_sync) return [.. _lines]; }
+        get { lock (_sync) return [.. _looks.Select(l => l.Line)]; }
+    }
+
+    /// <summary>2026-09-15-ffa7: every look taken, structured — the id, what ran, and whether
+    /// it reached a verdict.</summary>
+    public IReadOnlyList<EvidenceLook> Looks
+    {
+        get { lock (_sync) return [.. _looks]; }
     }
 
     /// <summary>Mints the next id and remembers the look under it. <paramref name="ran"/>
@@ -33,8 +42,9 @@ public sealed class DerivationEvidence
         var clause = ran ? string.Empty : " and could not run, so it proves nothing";
         lock (_sync)
         {
-            var id = $"{IdPrefix}{_lines.Count + 1}";
-            _lines.Add($"[{id}] {repository}: the derivation ran '{what}' exited {exitCode}{clause}");
+            var id = $"{idPrefix}{_looks.Count + 1}";
+            _looks.Add(new EvidenceLook(id, repository, what, exitCode, ran,
+                $"[{id}] {repository}: {actor} ran '{what}' exited {exitCode}{clause}"));
             return id;
         }
     }
@@ -62,6 +72,26 @@ public sealed class DerivationEvidence
         var close = line.IndexOf(']', StringComparison.Ordinal);
         return line.StartsWith('[') && close > 1 ? line[1..close] : null;
     }
+
+    /// <summary>2026-09-15-ffa7: the one place an id is turned into the line it names — the
+    /// fact resolver, the cut-review admission and its rejection all read through it. The
+    /// first line minted under an id wins.</summary>
+    public static IReadOnlyDictionary<string, string> IndexById(IEnumerable<string>? evidence)
+    {
+        var byId = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var line in evidence ?? [])
+            if (IdOf(line) is { } id)
+                byId.TryAdd(id, line);
+        return byId;
+    }
+
+    /// <summary>2026-09-15-ffa7: every id a citation field names, in order — a model writes
+    /// <c>R1</c>, <c>[R1]</c>, <c>R1, R3</c> or a list, and each is a candidate.</summary>
+    public static IReadOnlyList<string> CitationsIn(string? cites) =>
+        [.. (cites ?? string.Empty)
+            .Split([',', ';', ' ', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeCitation)
+            .Where(id => id.Length > 0)];
 
     /// <summary>What a citation may look like in the model's own spelling — <c>L3</c>,
     /// <c>[L3]</c>, <c>l3</c> — folded to the id as minted.</summary>

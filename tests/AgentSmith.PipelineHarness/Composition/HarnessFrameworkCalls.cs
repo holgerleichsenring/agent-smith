@@ -24,7 +24,7 @@ namespace AgentSmith.PipelineHarness.Composition;
 internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
 {
     public Task<SpecCutReview> ReviewAsync(
-        SpecSet set, string ticketText, AgentConfig agent,
+        SpecSet set, string ticketText, DerivationLook? look, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
         Task.FromResult(SpecCutReview.Clean);
 }

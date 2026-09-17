@@ -11,10 +11,13 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
 {
     public const string Name = "search_repository";
 
-    [Description("Searches one repository as checked out now and returns the matching lines "
-                 + "with file and line number. Use it to settle whether something is present "
-                 + "or absent before you state it. Read-only. The result starts with an evidence "
-                 + "id such as [L3]; a fact that rests on this search cites that id.")]
+    /// <summary>2026-09-15-ffa7: per look, because the id it spells is the holder's.</summary>
+    public string Description =>
+        "Searches one repository as checked out now and returns the matching lines with file "
+        + "and line number. Use it to settle whether something is present or absent before you "
+        + $"state it. Read-only. The result starts with an evidence id such as [{look.Terms.EvidencePrefix}3]; "
+        + "a fact that rests on this search cites that id.";
+
     public async Task<string> SearchRepository(
         [Description("The repository to search. Use one of the names listed as in scope.")]
         string repository,
@@ -34,8 +37,8 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
             repository, $"grep -E '{pattern}' {under}", result.ExitCode,
             ran: result.ExitCode is 0 or 1);
         logger.LogInformation(
-            "The derivation searched {Repo} for {Pattern} under {Path} — exit {Exit} as {Id}",
-            repository, pattern, under, result.ExitCode, id);
+            "The {Actor} searched {Repo} for {Pattern} under {Path} — exit {Exit} as {Id}",
+            look.Terms.Actor, repository, pattern, under, result.ExitCode, id);
         return $"[{id}] " + SearchOutcome.Report(
             result, repository, under == "." ? null : under, pattern);
     }

@@ -42,7 +42,7 @@ public sealed class DerivationTemplateLookTests
     {
         var look = Build(out _);
 
-        for (var i = 0; i < DerivationLookBudget.Allowance; i++)
+        for (var i = 0; i < DerivationLookTerms.DerivationAllowance; i++)
             look.TryOpen(Template, out _, out _).Should().BeTrue();
 
         look.TryOpen(Target, out _, out var refusal).Should().BeTrue(
@@ -55,7 +55,7 @@ public sealed class DerivationTemplateLookTests
     {
         var look = Build(out _);
 
-        for (var i = 0; i < DerivationLookBudget.Allowance; i++) look.TryOpen(Template, out _, out _);
+        for (var i = 0; i < DerivationLookTerms.DerivationAllowance; i++) look.TryOpen(Template, out _, out _);
         look.TryOpen(Template, out _, out var refusal).Should().BeFalse();
 
         refusal.Should().Contain("No look left");
@@ -71,7 +71,7 @@ public sealed class DerivationTemplateLookTests
         look.TryOpen("nope", out _, out var refusal).Should().BeFalse();
 
         refusal.Should().Contain("No repository named 'nope'");
-        for (var i = 0; i < DerivationLookBudget.Allowance; i++)
+        for (var i = 0; i < DerivationLookTerms.DerivationAllowance; i++)
             look.TryOpen(Target, out _, out _).Should().BeTrue(
                 "resolution now happens before the charge, so a guess costs nothing");
     }
