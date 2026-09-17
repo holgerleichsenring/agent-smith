@@ -337,6 +337,53 @@ describe("SpecDialogSurface", () => {
     await waitFor(() => expect(screen.queryByTestId("dialog-composer")).toBeNull());
   });
 
+  // 2026-09-15-cb3e, found in use: a design turn materialises the scope's repositories and
+  // reads them — a minute of silence is normal, and the channel pushes no progress. The
+  // first question the page produced was "is anything happening?".
+  it("SpecDialog_WhileATurnRuns_ShowsThatItIsWorking", async () => {
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    expect(await screen.findByTestId("dialog-working")).toBeInTheDocument();
+  });
+
+  it("SpecDialog_WhenTheAnswerArrives_StopsShowingThatItIsWorking", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await screen.findByTestId("dialog-working");
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog",
+      text: "here is what I would build", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(screen.queryByTestId("dialog-working")).toBeNull());
+  });
+
+  // Writing with no session open reached the router as an ordinary message, and the router
+  // answered with the command tutorial a chat channel needs — on a page whose whole point
+  // is that nobody types a command.
+  it("SpecDialog_SendingWithNoSessionOpen_OpensOneOnThePickedProjectFirst", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+    render(<SpecDialogSurface />);
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() => expect(postSpecDialogMessage.mock.calls.map((c) => c[1]))
+      .toEqual(["/spec sample", "update every dependency"]));
+  });
+
   it("SpecDialog_APhaseProposal_RendersGoalStepsTestsAndDone", async () => {
     await renderSurface();
 

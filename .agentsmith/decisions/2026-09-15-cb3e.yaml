@@ -129,3 +129,28 @@ decisions:
       a session on an id nothing was watching while the page sat on another with no session and no
       explanation. Separately, every hub message triggers a read, so a slow answer could land after
       a newer one and roll the scope column back to a moment that had passed.
+
+  - category: Usability
+    chose: "The page shows that a turn is running, from what it already knows"
+    over: "Carrying progress on the channel, which is what SendProgressAsync is for"
+    reason: |
+      Found in use, on the first real conversation. A design turn materialises the scope's
+      repositories and reads them: sixty seconds of nothing is the normal case, and this channel
+      carries no progress — SendProgressAsync is a logged no-op here, which this phase decided
+      deliberately. On a chat platform that is right: the platform itself shows the message was
+      delivered and people expect an answer later. A browser page showing nothing at all reads as
+      broken, and the first question it produced was whether anything was happening.
+      No server change is needed for it. The page posted and has had no reply; every message is
+      answered — a reply, a refusal, or the turn-failed notice — so the waiting ends whatever the
+      answer turns out to be.
+  - category: Usability
+    chose: "Writing with no session open opens one on the page's project, then sends"
+    over: "Letting the message reach the router, which answers correctly for a chat channel"
+    reason: |
+      The empty state invited a message and the router answered it with the command tutorial a
+      Slack thread needs — on a page whose whole point is that nobody types a command. Watched
+      live: four attempts to reach a session, including a project name parsed out of a German
+      sentence. The picked project moved up from the controls to the surface, because SENDING
+      needs it as much as the button does; where several projects are configured and none is
+      picked, the composer says so itself rather than leaving the router to say it in chat
+      grammar.

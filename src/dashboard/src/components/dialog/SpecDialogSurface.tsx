@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { PageHead } from "@/components/system/PageHead";
@@ -16,6 +18,13 @@ import { DialogTranscript } from "./DialogTranscript";
 
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
+  // The picked project lives here rather than in the controls, because SENDING needs it
+  // too: a message typed with no session open has to open one, and the project is what
+  // opens it. With a single configured project there is no picker and no choice to make.
+  const projects = dialog.view?.projects ?? [];
+  const [picked, setPicked] = useState("");
+  const project = picked || (projects.length === 1 ? projects[0].name : "");
+  const mustPick = !dialog.view?.session && project === "";
 
   return (
     <div className="mock-shell mock-runs" data-testid="spec-dialog">
@@ -27,6 +36,8 @@ export function SpecDialogSurface() {
         <DialogSessionControls
           dialogId={dialog.dialogId}
           view={dialog.view}
+          picked={picked}
+          onPicked={setPicked}
           onStartNew={(project) => void dialog.startNew(project)}
           onResume={(sessionId) => void dialog.resume(sessionId)}
         />
@@ -36,15 +47,28 @@ export function SpecDialogSurface() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="flex flex-col gap-3">
             <DialogTranscript entries={dialog.entries} />
+            {dialog.awaiting && (
+              <div
+                data-testid="dialog-working"
+                className="flex items-center gap-2 dsh-body text-[var(--color-ink-mid)]"
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+                Reading the repositories and thinking — this takes a minute.
+              </div>
+            )}
             {dialog.question && (
               <DialogQuestionCard
                 question={dialog.question}
-                onAnswer={(answer) => void dialog.send(answer)}
+                onAnswer={(answer) => void dialog.send(answer, project)}
               />
             )}
             <DialogComposer
-              disabled={!dialog.dialogId}
-              onSend={(text) => void dialog.send(text)}
+              disabled={!dialog.dialogId || mustPick}
+              hint={mustPick ? "Pick a project first — that is what a conversation reads." : undefined}
+              onSend={(text) => void dialog.send(text, project)}
             />
           </section>
           <DialogColumn

@@ -9,9 +9,13 @@ import { useState } from "react";
 export function DialogComposer({
   onSend,
   disabled,
+  hint,
 }: {
   onSend: (text: string) => void;
   disabled?: boolean;
+  /** Why writing is not possible yet — said here rather than left for the router to
+   *  answer with the command tutorial a chat channel needs. */
+  hint?: string;
 }) {
   const [text, setText] = useState("");
 
@@ -23,7 +27,13 @@ export function DialogComposer({
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-col gap-1">
+      {hint && (
+        <p data-testid="dialog-composer-hint" className="dsh-body text-[var(--color-ink-mid)]">
+          {hint}
+        </p>
+      )}
+      <div className="flex gap-2">
       <textarea
         data-testid="dialog-composer-text"
         value={text}
@@ -50,6 +60,7 @@ export function DialogComposer({
       >
         Send
       </button>
+      </div>
     </div>
   );
 }

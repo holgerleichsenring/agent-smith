@@ -15,16 +15,19 @@ import type { SpecDialogView } from "@/types/spec-dialog";
 export function DialogSessionControls({
   dialogId,
   view,
+  picked,
+  onPicked,
   onStartNew,
   onResume,
 }: {
   dialogId: string | null;
   view: SpecDialogView | null;
+  picked: string;
+  onPicked: (project: string) => void;
   onStartNew: (project?: string) => void;
   onResume: (sessionId: string) => void;
 }) {
   const projects = view?.projects ?? [];
-  const [picked, setPicked] = useState("");
   // Minting a dialog id and opening a session on it are two steps, and a second click
   // between them mints a second id: the first session opens on an id nothing is watching
   // while the page sits on the second with no session and no explanation. One click per
@@ -46,7 +49,7 @@ export function DialogSessionControls({
         <select
           data-testid="dialog-project-picker"
           value={picked}
-          onChange={(event) => setPicked(event.target.value)}
+          onChange={(event) => onPicked(event.target.value)}
           className="rounded border border-stone-300 px-2 py-1 text-sm"
         >
           <option value="">pick a project…</option>
