@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -36,18 +36,18 @@ public sealed class SpecCutReviewer(
     public const int MaxIterations = DerivationLookTerms.CutReviewAllowance + 2;
 
     public async Task<SpecCutReview> ReviewAsync(
-        SpecSet set, string ticketText, DerivationLook? look, AgentConfig agent,
-        PipelineCostTracker costTracker, CancellationToken cancellationToken)
+        IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(set);
-        if (set.Phases.Count == 0) return SpecCutReview.Clean;
+        ArgumentNullException.ThrowIfNull(drafts);
+        if (drafts.Count == 0) return SpecCutReview.Clean;
 
-        var prompt = SpecCutReviewPrompt.For(set, ticketText, look);
-        var answer = await AskAsync(prompt, set.Key, look, agent, costTracker, cancellationToken);
+        var prompt = SpecCutReviewPrompt.For(drafts, ticketText, look);
+        var answer = await AskAsync(prompt, key, look, agent, costTracker, cancellationToken);
         if (answer is null)
             return new SpecCutReview([], "the cut review returned nothing readable");
 
-        var kept = new SpecCutAdmission(logger).Admit(set, answer, look);
+        var kept = new SpecCutAdmission(logger).Admit(drafts, answer, look);
         foreach (var finding in kept)
             logger.LogWarning("Cut review — {Phase} cannot be delivered: {Problem} — {Why}",
                 finding.PhaseId, finding.Problem, finding.Why);

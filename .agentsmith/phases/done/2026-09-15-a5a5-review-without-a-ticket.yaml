@@ -91,6 +91,14 @@ tests:
   - "Finding_QuotingNothingTheDraftStates_IsStillDiscarded"
   - "Finding_QuotingACriterion_IsKeptAsBefore"
   - "Review_CalledWithDraftsAlone_NeedsNoFabricatedSpecSet"
+  - "Finding_QuotingAFragmentOfACriterion_IsDiscarded"
+  - "Finding_QuotingMostOfACriterion_IsKept"
+  - "Finding_InventedSentenceContainingAShortCriterion_IsDiscarded"
+  - "Finding_QuotingAOneWordCriterion_IsKept"
+  - "Finding_QuotingTheGoalOfAPhaseWithCriteria_IsKept"
+  - "Prompt_ADoneLessDraft_IsNotJudgedAgainstCriteriaAlone"
+  - "TicketText_TitleDescriptionAndCriteria_AreOneTicket"
+  - "Review_AtTheDeriver_IsShownTheTicketsTitleToo"
 
 done:
   - "a review asked over a draft with no ticket never reports that the ticket did not ask for something"

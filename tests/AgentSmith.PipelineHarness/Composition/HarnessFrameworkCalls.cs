@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Scans;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 
@@ -24,8 +25,8 @@ namespace AgentSmith.PipelineHarness.Composition;
 internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
 {
     public Task<SpecCutReview> ReviewAsync(
-        SpecSet set, string ticketText, DerivationLook? look, AgentConfig agent,
-        PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
+        IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
         Task.FromResult(SpecCutReview.Clean);
 }
 

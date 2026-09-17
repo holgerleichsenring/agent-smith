@@ -86,7 +86,7 @@ public sealed class CutReviewFindingTests
     {
         var look = CutReviewLookTests.ReviewLook(new CountingSandbox(exitCode));
         var review = await Reviewer(new CappingFactory(new LookingProvider(answer, "NewBus"))).ReviewAsync(
-            Set(Criterion), "the ticket", look, new AgentConfig(), Tracker(), CancellationToken.None);
+            Drafts(Criterion), Key, "the ticket", look, new AgentConfig(), Tracker(), CancellationToken.None);
         look.Evidence.Lines.Should().ContainSingle().Which.Should().StartWith("[R1] ");
         return review;
     }
