@@ -177,6 +177,21 @@ new DashboardOutcomeChannel(
             .Should().Contain(["draft reply", "revised reply"]);
     }
 
+    // 2026-09-17-042ec: the router records what the turn produced on the kept turn.
+    [Fact]
+    public async Task Router_KeptTurn_RecordsTheKindTheTurnProduced()
+    {
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpecDialogTurnResult.On(Platform, "turn failed", new AnswerOutcome(), SpecDialogTurnKind.Failure));
+
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-kind", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("update it all", "U1", Channel, "th-kind", Platform, CancellationToken.None);
+
+        var state = await _sessions.GetOpenByThreadAsync(Platform, "th-kind", CancellationToken.None);
+        state!.Transcript.Select(t => (t.Role, t.Kind)).Should().Equal(
+            (TranscriptRole.User, (SpecDialogTurnKind?)null), (TranscriptRole.Assistant, SpecDialogTurnKind.Failure));
+    }
+
     [Fact]
     public async Task Router_NormalMessage_StillRoutesToRunTrigger()
     {

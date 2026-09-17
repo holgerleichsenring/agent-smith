@@ -28,6 +28,13 @@ public static partial class ContextKeys
     public const string SpecDialogOutcome = "SpecDialogOutcome";
 
     /// <summary>
+    /// <c>SpecDialogTurnKind</c> — set only when the reply the gate leaves is a notice in
+    /// place of what the master wrote (2026-09-17-042ec); absent, the outcome names the kind.
+    /// CollectSpecDialogReply copies it into the reply slot.
+    /// </summary>
+    public const string SpecDialogReplyKind = "SpecDialogReplyKind";
+
+    /// <summary>
     /// Job id the master's ask_human questions publish under on the dialogue
     /// transport (spec-dialog: the session id, so answers from the same chat
     /// thread reach the waiting loop). Absent → ask_human reports itself

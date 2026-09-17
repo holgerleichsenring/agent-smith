@@ -168,7 +168,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<BugOutcomeParser>();
         services.AddTransient<EpicOutcomeParser>();
         services.AddTransient<RequiresEdgeChecker>();
-        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>();
+        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();
         services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
         // p0315d: phase-execution — spec extraction gate (inverse of the p0315c

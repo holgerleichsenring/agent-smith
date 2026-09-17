@@ -1,0 +1,124 @@
+phase: 2026-09-17-042ec
+decisions:
+  - id: one-kind-per-turn
+    chose: >
+      SpecDialogTurnKind (Contracts): Answer, BugProposal, PhaseProposal, EpicProposal, Failure,
+      Notice, Filing. TranscriptTurn and SpecDialogTurn carry it as an optional trailing member, so
+      a stored row without it reads as null and 2026-09-17-042el can add its decision beside it.
+    alternative: >
+      A single Proposal member, or a boolean "is discussion".
+    why: >
+      The rule needs only answer-or-not, but the kind is a record of what the turn produced, and a
+      boolean named after one rule is a second copy of that rule in the store.
+  - id: the-notice-rides-a-context-key
+    chose: >
+      The gate marks a reply it replaced with a notice through ContextKeys.SpecDialogReplyKind; the
+      collect step copies it to the reply slot, the runner passes it and a failure note's own kind to
+      SpecDialogTurnResult.On, which otherwise takes the kind from the outcome. The router records
+      result.Kind on its existing append line; the filing sink records Filing.
+    alternative: >
+      A NoticeOutcome case in the OutcomeProposal union.
+    why: >
+      A notice and a failure note both route as an answer; a new union case would reach every switch
+      over the outcome, the flow, the composers and the stored proposal, for a fact only the transcript
+      reads.
+  - id: append-takes-the-kind
+    chose: >
+      SpecDialogSessionManager.AppendTurnAsync takes a required nullable kind before the token; every
+      caller passes one (null for an operator message).
+    alternative: >
+      An optional parameter after the CancellationToken, or an overload.
+    why: >
+      A defaulted kind is how a new append path would silently record nothing; the router line keeps
+      its length either way.
+  - id: rule-and-refusal-in-their-own-types
+    chose: >
+      SpecDialogProposalRule (static, pure, reads the seeded transcript) and SpecDialogProposalRefusal
+      (DI, owns the one re-prompt). The handler spends two lines: the constructor parameter and one call
+      at the top of GateSpecOutcomeAsync (893 -> 895 of 922). The registration joins the resolver's line.
+    alternative: >
+      The check inline in GateSpecOutcomeAsync.
+    why: >
+      The spec leaves the handler room for a call only, and 2026-09-17-042ee reports "revising" from the
+      refusal's retry, so the retry must be a type that phase can hand an observer.
+  - id: a-proposal-is-a-draft-block
+    chose: >
+      The refusal treats a reply as proposing when SpecDialogDraftBlocks.Contains finds a ```yaml or
+      ```outcome block, before resolution or validation.
+    alternative: >
+      Resolve first and refuse only a valid proposal.
+    why: >
+      Resolving first would send an invalid early draft down the validation retry, whose nudge asks for
+      the block again. The resolver treats the same blocks as proposals, so the two agree on what a
+      proposal is.
+  - id: a-failed-refusal-retry-answers-with-the-first-prose
+    chose: >
+      If the refusal re-prompt throws, the turn answers with the first reply's prose, or the notice when
+      there is none.
+    alternative: >
+      Fall through to validation with the draft still in the reply.
+    why: >
+      The draft would then be proposed on a turn that may not propose, which is what the gate exists to stop.
+  - id: existing-proposal-tests-hold-a-discussion
+    chose: >
+      Harness tests that expect a proposal seed a transcript with an answered, replied-to turn
+      (Discussed); tests of an answer keep their single opening turn.
+    alternative: >
+      Leave them on a first turn and expect refusals.
+    why: >
+      They prove resolution, confirmation and filing, which the rule now admits only after a discussion.
+  - id: the-skill-and-the-gate
+    chose: >
+      The design-partner master (1.6.1 -> 1.6.2) says what a first answer contains and defines converged:
+      https://github.com/holgerleichsenring/agent-smith-skills/pull/191 (not merged; the embedded pin moves
+      in 2026-09-17-042eb's follow-up).
+    alternative: >
+      Ship the framework gate alone, or wait for the pin.
+    why: >
+      The prompt rule already existed and was ignored live. The framework prompt states whether the turn may
+      propose and the gate refuses an early proposal whatever skill version is pinned, so the rule is enforced
+      now; the skill only makes the refusal rarer.
+  - id: the-refusal-retry-continues-the-thread
+    chose: >
+      The refusal takes the handler's MasterConversation and re-prompts with PriorMessages =
+      conversation.Thread(), recording the retry with Continued, as the apply, verdict and
+      re-engagement nudges do. GateSpecOutcomeAsync passes it through; the handler stays at 895.
+    alternative: >
+      Re-run the request with the nudge alone.
+    why: >
+      Adversarial review: the retry then had neither the files the first pass read nor an
+      ask_human answer given mid-turn, so it had to re-derive or answer blind.
+  - id: the-first-answer-shape-is-for-work
+    chose: >
+      The prompt and the refusal nudge ask for findings, edge cases and open questions when the
+      operator asks for work, and say a question is answered as it is asked.
+    alternative: >
+      The three-part answer for every turn that may not propose.
+    why: >
+      Adversarial review: a plain question ("how does dispatch work?") was padded into the shape
+      the design-partner master reserves for a request for work, against its terse-prose rule.
+  - id: a-failed-retry-logs-what-happened
+    chose: >
+      "proposed again after the refusal" is logged only on that branch; a thrown retry logs that
+      it failed and answers with the first reply's prose.
+    alternative: >
+      One log line inside AnswerWithProse for both paths.
+    why: >
+      Adversarial review: a thrown retry was logged as a second proposal, which it never made.
+  - id: an-unlisted-outcome-has-no-kind
+    chose: >
+      SpecDialogTurnResult.KindOf lists AnswerOutcome and throws on any other type.
+    alternative: >
+      A default arm mapping to Answer.
+    why: >
+      A default arm would count a future outcome type as a discussion and unlock proposals.
+  - id: an-unknown-stored-kind-reads-as-null
+    chose: >
+      A TolerantTurnKindConverter in the session mapper reads a kind this release does not know
+      as null (a legacy turn); known kinds read and write as before.
+    alternative: >
+      The stock JsonStringEnumConverter, or Sandbox.Wire's TolerantEnumConverter.
+    why: >
+      The stock converter throws, so a rollback past a release that adds a kind would make the
+      whole transcript unreadable. The wire converter needs a non-null fallback member, and
+      SpecDialogTurnKind has none; adding an Unknown member would put a second "no kind" in the store.

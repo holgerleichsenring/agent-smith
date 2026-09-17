@@ -16,12 +16,30 @@ namespace AgentSmith.Server.Models;
 /// out of the prose; Slack and Teams have no pane, and their confirmation names a phase by id
 /// and goal only, so there the reply is the one place its steps and done-list are read.
 /// </para>
+/// <para>
+/// 2026-09-17-042ec: <paramref name="Kind"/> is what the router records on the kept turn. It
+/// follows the outcome unless the turn says otherwise: a failure note and a notice carry an
+/// answer outcome, and neither is a discussion the operator could have replied to.
+/// </para>
 /// </summary>
-public sealed record SpecDialogTurnResult(string Reply, OutcomeProposal Outcome, string Shown)
+public sealed record SpecDialogTurnResult(
+    string Reply, OutcomeProposal Outcome, string Shown, SpecDialogTurnKind Kind)
 {
-    public static SpecDialogTurnResult On(string platform, string reply, OutcomeProposal outcome) =>
+    public static SpecDialogTurnResult On(
+        string platform, string reply, OutcomeProposal outcome, SpecDialogTurnKind? kind = null) =>
         new(reply, outcome,
             string.Equals(platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase)
                 ? SpecDialogDraftBlocks.Strip(reply)
-                : reply);
+                : reply,
+            kind ?? KindOf(outcome));
+
+    public static SpecDialogTurnKind KindOf(OutcomeProposal outcome) => outcome switch
+    {
+        BugOutcome => SpecDialogTurnKind.BugProposal,
+        PhaseOutcome => SpecDialogTurnKind.PhaseProposal,
+        EpicOutcome => SpecDialogTurnKind.EpicProposal,
+        AnswerOutcome => SpecDialogTurnKind.Answer,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(outcome), outcome.GetType().Name, "An outcome with no turn kind would count as a discussion."),
+    };
 }

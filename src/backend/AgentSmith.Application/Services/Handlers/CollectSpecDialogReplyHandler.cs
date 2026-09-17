@@ -38,6 +38,8 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
 
         slot.Reply = answer;
         slot.Outcome = outcome;
+        slot.Kind = context.Pipeline.TryGet<SpecDialogTurnKind>(ContextKeys.SpecDialogReplyKind, out var kind)
+            ? kind : null;
         return Task.FromResult(CommandResult.Ok("Spec-dialog reply collected"));
     }
 }

@@ -33,7 +33,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// resolution tests keep a recording sink at the p0315c seam.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
-public sealed class SpecDialogOutcomeTests
+public sealed partial class SpecDialogOutcomeTests
 {
     private const string Project = "fixture-spec-dialog";
     private const string Repo = "spec-dialog-fixture";
@@ -119,7 +119,7 @@ public sealed class SpecDialogOutcomeTests
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText(BugOutcomeReply);
-        var state = State("add a null check to AppendTurnAsync");
+        var state = Discussed("add a null check to AppendTurnAsync");
 
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
@@ -138,7 +138,7 @@ public sealed class SpecDialogOutcomeTests
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
-        var state = State("draft the widget phase now");
+        var state = Discussed("draft the widget phase now");
 
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
@@ -157,7 +157,7 @@ public sealed class SpecDialogOutcomeTests
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
 
-        var result = await RunTurnAsync(harness, State("draft the widget phase now") with { Platform = "dashboard" });
+        var result = await RunTurnAsync(harness, Discussed("draft the widget phase now") with { Platform = "dashboard" });
 
         result.Outcome.Should().BeOfType<PhaseOutcome>();
         result.Reply.Should().Contain("```yaml", "the transcript keeps what the master wrote");
@@ -171,7 +171,7 @@ public sealed class SpecDialogOutcomeTests
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText(EpicOutcomeReply);
-        var state = State("build the whole widget platform");
+        var state = Discussed("build the whole widget platform");
 
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
@@ -194,7 +194,7 @@ public sealed class SpecDialogOutcomeTests
             (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}");
-        var state = State("draft the widget phase now");
+        var state = Discussed("draft the widget phase now");
 
         var result = await RunTurnAsync(harness, state);
         var flow = RunFlowAsync(harness, state, result.Outcome);
@@ -441,6 +441,18 @@ public sealed class SpecDialogOutcomeTests
         ThreadId = "th-outcome",
         Transcript = [new TranscriptTurn(TranscriptRole.User, userTurn, DateTimeOffset.UtcNow)],
         Scope = new ActiveScope { Project = Project, Repos = [Repo] },
+    };
+
+    // 2026-09-17-042ec: a proposal is admitted only after the operator replied to an answer.
+    private static ConversationState Discussed(string userTurn) => State(userTurn) with
+    {
+        Transcript =
+        [
+            new TranscriptTurn(TranscriptRole.User, "we need widgets", DateTimeOffset.UtcNow),
+            new TranscriptTurn(TranscriptRole.Assistant, "Found the service; two open questions.",
+                DateTimeOffset.UtcNow, SpecDialogTurnKind.Answer),
+            new TranscriptTurn(TranscriptRole.User, userTurn, DateTimeOffset.UtcNow),
+        ],
     };
 
     private static ProjectMap CannedMap() => new(

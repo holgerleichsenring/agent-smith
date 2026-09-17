@@ -86,7 +86,7 @@ public sealed class SpecDialogTests
         await using var harness = BuildHarness();
         harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
 
-        var reply = await RunTurnAsync(harness, State("draft the widget phase now"));
+        var reply = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
 
         reply.Should().Contain("phase: p9999", "a schema-valid draft is shown as-is");
         harness.ChatClient.InvocationCount.Should().Be(1, "a valid draft needs no re-prompt");
@@ -100,7 +100,7 @@ public sealed class SpecDialogTests
             .EnqueueText("Draft:\n```yaml\nphase: not-a-valid-phase-id\n```")
             .EnqueueText($"Corrected:\n{ValidDraft}");
 
-        var reply = await RunTurnAsync(harness, State("draft the widget phase now"));
+        var reply = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
 
         harness.ChatClient.InvocationCount.Should().Be(2,
             "the invalid draft re-prompts the master exactly once with the schema error");
@@ -153,6 +153,18 @@ public sealed class SpecDialogTests
         ThreadId = "th-harness",
         Transcript = [new TranscriptTurn(TranscriptRole.User, userTurn, DateTimeOffset.UtcNow)],
         Scope = new ActiveScope { Project = Project, Repos = [Repo] },
+    };
+
+    // 2026-09-17-042ec: a proposal is admitted only after the operator replied to an answer.
+    private static ConversationState Discussed(string userTurn) => State(userTurn) with
+    {
+        Transcript =
+        [
+            new TranscriptTurn(TranscriptRole.User, "we need widgets", DateTimeOffset.UtcNow),
+            new TranscriptTurn(TranscriptRole.Assistant, "Found the service; two open questions.",
+                DateTimeOffset.UtcNow, SpecDialogTurnKind.Answer),
+            new TranscriptTurn(TranscriptRole.User, userTurn, DateTimeOffset.UtcNow),
+        ],
     };
 
     private static ProjectMap CannedMap() => new(

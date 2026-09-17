@@ -15,4 +15,9 @@ public sealed class SpecDialogReplySlot
     /// (answer / bug / phase / epic), written together with the reply.
     /// </summary>
     public OutcomeProposal? Outcome { get; set; }
+
+    /// <summary>
+    /// 2026-09-17-042ec: set when the reply is a notice rather than what the outcome says.
+    /// </summary>
+    public SpecDialogTurnKind? Kind { get; set; }
 }

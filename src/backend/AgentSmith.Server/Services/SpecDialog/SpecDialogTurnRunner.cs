@@ -66,9 +66,10 @@ public sealed class SpecDialogTurnRunner(
             // The stamp rides the outcome because the scopes below are gone by filing time.
             return slot is { Reply: not null, Outcome: not null }
                 ? SpecDialogTurnResult.On(
-                    state.Platform, slot.Reply, templateScopes.Stamp(slot.Outcome, project, templates))
+                    state.Platform, slot.Reply, templateScopes.Stamp(slot.Outcome, project, templates), slot.Kind)
                 : SpecDialogTurnResult.On(
-                    state.Platform, ComposeFailureReply(state, result), new AnswerOutcome());
+                    state.Platform, ComposeFailureReply(state, result), new AnswerOutcome(),
+                    SpecDialogTurnKind.Failure);
         }
         finally
         {

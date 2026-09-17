@@ -267,7 +267,7 @@ public sealed class DialogConversationListTests : IDisposable
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
 
     private Task SayAsync(string dialogId, string text) =>
-        _sessions.AppendTurnAsync(Platform, dialogId, TranscriptRole.User, text, CancellationToken.None);
+        _sessions.AppendTurnAsync(Platform, dialogId, TranscriptRole.User, text, null, CancellationToken.None);
 
     private Task<IReadOnlyList<SpecDialogSessionSummary>> ListAsync() =>
         new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)).ListAsync(Owner, CancellationToken.None);

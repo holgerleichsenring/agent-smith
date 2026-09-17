@@ -15,7 +15,7 @@ internal static class SpecDialogSessionMapper
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+        Converters = { new TolerantTurnKindConverter(), new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
     internal static ConversationState ToState(SpecDialogSession session) => new()

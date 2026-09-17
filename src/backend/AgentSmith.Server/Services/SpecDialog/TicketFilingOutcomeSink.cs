@@ -54,6 +54,7 @@ public sealed class TicketFilingOutcomeSink(
         await messenger.SendAsync(
             state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
         await sessions.AppendTurnAsync(
-            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, cancellationToken);
+            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice,
+            SpecDialogTurnKind.Filing, cancellationToken);
     }
 }
