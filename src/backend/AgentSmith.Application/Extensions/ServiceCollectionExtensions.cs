@@ -7,6 +7,7 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Application.Services.Preflight.Run;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddConfigurationValidation();
         services.AddTolerantJsonParser();
         services.AddPipelineHandlers();
+        services.AddSourceScopes();
         services.AddRunPreflight(); // p0428
         services.AddTargetProbe(); // 2026-09-01-379a
         services.AddSkillRunHandlers();

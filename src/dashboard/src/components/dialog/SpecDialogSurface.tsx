@@ -10,11 +10,18 @@ import { DialogColumn } from "./DialogColumn";
 import { DialogQuestionCard } from "./DialogQuestionCard";
 import { DialogSessionControls } from "./DialogSessionControls";
 import { DialogTranscript } from "./DialogTranscript";
+import type { SpecDialogReadingState } from "@/types/spec-dialog";
 
 // 2026-09-15-cb3e: the design conversation, in the dashboard. Two columns: the conversation
 // on the left, and on the right ONE column that changes with the conversation —
 // 2026-09-15-6d9c: what the agent may read, then the proposal under discussion, then the
 // tickets it was filed as.
+
+const READING_WORDS: Record<SpecDialogReadingState, string> = {
+  opening: "opening",
+  ready: "ready",
+  failed: "could not be opened",
+};
 
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
@@ -51,13 +58,24 @@ export function SpecDialogSurface() {
             {dialog.awaiting && (
               <div
                 data-testid="dialog-working"
-                className="flex items-center gap-2 dsh-body text-[var(--color-ink-mid)]"
+                className="flex flex-col gap-1 dsh-body text-[var(--color-ink-mid)]"
               >
-                <span
-                  aria-hidden="true"
-                  className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
-                />
-                Reading the repositories and thinking — this takes a minute.
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                  />
+                  Reading the repositories and thinking — this takes a minute.
+                </span>
+                {dialog.readings.length > 0 && (
+                  <ul data-testid="dialog-readings">
+                    {dialog.readings.map((reading) => (
+                      <li key={reading.repo} data-testid="dialog-reading" data-state={reading.state}>
+                        {reading.repo}: {READING_WORDS[reading.state]}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
             {dialog.question && (

@@ -99,6 +99,17 @@ export interface SpecDialogQuestionPush {
   expiresAt: string | null;
 }
 
+/** How far a design turn got with opening one repository. */
+export type SpecDialogReadingState = "opening" | "ready" | "failed";
+
+/** 2026-09-17-c7aec: one repository a running design turn opened, pushed as it happens. */
+export interface SpecDialogReadingPush {
+  dialogId: string;
+  repo: string;
+  state: SpecDialogReadingState;
+  at: string;
+}
+
 // 2026-09-15-6d9c: the turn's typed outcome, and what filing it actually created — the two
 // pushes the right-hand column changes state on. Plain payloads rather than hub events: the
 // event-type generator scans the events namespace by base type, and these derive from

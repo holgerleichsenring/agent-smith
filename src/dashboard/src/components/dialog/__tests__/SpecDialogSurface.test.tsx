@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
+import { render, renderHook, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SpecDialogSurface } from "../SpecDialogSurface";
+import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { __forgetDialogIdForTests } from "@/lib/specDialogSession";
 import type {
   SpecDialogFilingPush,
@@ -8,6 +9,7 @@ import type {
   SpecDialogPhaseProposal,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
+  SpecDialogReadingPush,
   SpecDialogSessionSummary,
   SpecDialogView,
 } from "@/types/spec-dialog";
@@ -35,6 +37,7 @@ const messages = makeSubject<SpecDialogMessagePush>();
 const questions = makeSubject<SpecDialogQuestionPush>();
 const proposals = makeSubject<SpecDialogProposalPush>();
 const filings = makeSubject<SpecDialogFilingPush>();
+const readings = makeSubject<SpecDialogReadingPush>();
 const subscribeSpecDialog = vi.fn(async () => async () => {});
 
 
@@ -44,6 +47,7 @@ vi.mock("@/lib/JobsHubClient", () => ({
     specDialogQuestions: questions,
     specDialogProposals: proposals,
     specDialogFilings: filings,
+    specDialogReadings: readings,
     subscribeSpecDialog,
   }),
 }));
@@ -485,6 +489,47 @@ describe("SpecDialogSurface", () => {
     }));
 
     await waitFor(() => expect(screen.queryByTestId("dialog-working")).toBeNull());
+  });
+
+  // 2026-09-17-c7aec: the working line names what the turn is reading — one line per
+  // repository at its latest state, a failure included, so no line spins forever.
+  it("SpecDialog_WhileATurnReads_ShowsEachOpenedRepositoryAndItsState", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await screen.findByTestId("dialog-working");
+
+    const at = new Date().toISOString();
+    act(() => {
+      readings.emit({ dialogId: heldDialogId(), repo: "repo-a", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), repo: "template-repo", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), repo: "repo-a", state: "ready", at });
+      readings.emit({ dialogId: heldDialogId(), repo: "template-repo", state: "failed", at });
+      readings.emit({ dialogId: "someone-else", repo: "foreign", state: "opening", at });
+    });
+
+    const lines = await screen.findAllByTestId("dialog-reading");
+    expect(lines.map((line) => [line.textContent, line.getAttribute("data-state")])).toEqual([
+      ["repo-a: ready", "ready"],
+      ["template-repo: could not be opened", "failed"],
+    ]);
+  });
+
+  // The indicator hides its lines once the turn is answered anyway, so only the hook's own
+  // state shows whether the answer let the turn's repositories go.
+  it("SpecDialog_WhenTheAnswerArrives_ForgetsTheTurnsRepositories", async () => {
+    const { result } = renderHook(() => useSpecDialog());
+    await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+    await act(() => result.current.send("update every dependency"));
+    const dialogId = result.current.dialogId!;
+    act(() => readings.emit({ dialogId, repo: "repo-a", state: "ready", at: new Date().toISOString() }));
+    expect(result.current.readings).toHaveLength(1);
+
+    act(() => messages.emit({ dialogId, title: "Spec dialog", text: "done", at: new Date().toISOString() }));
+
+    expect(result.current.readings).toEqual([]);
   });
 
   // Writing with no session open reached the router as an ordinary message, and the router

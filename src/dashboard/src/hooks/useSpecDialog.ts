@@ -13,6 +13,7 @@ import type {
   SpecDialogFilingPush,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
+  SpecDialogReadingPush,
   SpecDialogSessionSummary,
   SpecDialogView,
 } from "@/types/spec-dialog";
@@ -48,8 +49,11 @@ export interface SpecDialogState {
   /** What filing it actually created — the column's last state. */
   filed: SpecDialogFilingPush | null;
   failure: Error | null;
-  /** True between a post and the answer it will get — the page's only progress signal. */
+  /** True between a post and the answer it will get. */
   awaiting: boolean;
+  /** The repositories the running turn opened, one per repository at its latest state, in
+   *  the order they were first opened. Empty again when a new turn starts or the answer arrives. */
+  readings: SpecDialogReadingPush[];
   send: (text: string, project?: string) => Promise<void>;
   startNew: (project?: string) => Promise<void>;
   /** Continues a past conversation in this tab, on a dialog id of its own. */
@@ -66,13 +70,16 @@ export function useSpecDialog(): SpecDialogState {
   const [filed, setFiled] = useState<SpecDialogFilingPush | null>(null);
   const [failure, setFailure] = useState<Error | null>(null);
   // A design turn materialises the scope's repositories and reads them: a minute of
-  // nothing is normal. The channel pushes no progress — SendProgressAsync is a no-op
-  // here, and on a chat platform that is right, because the platform shows the message
-  // was delivered and people expect an answer later. A page that shows nothing at all
+  // nothing is normal. SendProgressAsync is a no-op on this channel, and on a chat platform
+  // that is right, because the platform shows the message was delivered and people expect
+  // an answer later. A page that shows nothing at all
   // for a minute reads as broken, and the first question it produced was "is anything
   // happening?". The page does not need the server for this: it posted, and it has had
   // no reply yet.
   const [awaiting, setAwaiting] = useState(false);
+  // 2026-09-17-c7aec: while awaiting, the server says which repositories the turn opened, so
+  // the minute names what is being read.
+  const [readings, setReadings] = useState<SpecDialogReadingPush[]>([]);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
   // durable transcript does not hold. A session id means "re-seed once the read shows THAT
@@ -127,6 +134,9 @@ export function useSpecDialog(): SpecDialogState {
   // did not say "/spec". What they typed themselves is echoed, because the channel
   // delivers replies and never a copy of the message just sent.
   const post = useCallback(async (id: string, text: string, echo: boolean) => {
+    // Cleared before the post: the turn starts on the server before the post returns, and its
+    // first repository may be announced before this line would otherwise run.
+    setReadings([]);
     try {
       await postSpecDialogMessage(id, text);
       if (echo) append("user", text, new Date().toISOString());
@@ -169,6 +179,7 @@ export function useSpecDialog(): SpecDialogState {
       // Every message is answered — a reply, a refusal, or the turn-failed notice — so
       // this is where the waiting ends, whatever the answer turned out to be.
       setAwaiting(false);
+      setReadings([]);
       // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
       if (message.text.trim().length > 0) append("agent", message.text, message.at);
       void load(dialogId);
@@ -182,6 +193,9 @@ export function useSpecDialog(): SpecDialogState {
       if (proposed.dialogId !== dialogId) return;
       setProposal(proposed);
       setFiled(null);
+    });
+    const offReading = client.specDialogReadings.add((reading) => {
+      if (reading.dialogId === dialogId) setReadings((held) => upsertReading(held, reading));
     });
     const offFiled = client.specDialogFilings.add((filing) => {
       if (filing.dialogId !== dialogId) return;
@@ -203,6 +217,7 @@ export function useSpecDialog(): SpecDialogState {
       offQuestion();
       offProposal();
       offFiled();
+      offReading();
       void stop?.();
     };
   }, [dialogId, append, load, post, loadConversations]);
@@ -235,6 +250,7 @@ export function useSpecDialog(): SpecDialogState {
     setFiled(null);
     setView(null);
     setAwaiting(false);
+    setReadings([]);
     pending.current = command;
     setDialogId(to ? returnToDialog(to) : startNewDialog());
   }, []);
@@ -268,8 +284,18 @@ export function useSpecDialog(): SpecDialogState {
 
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
-    send, startNew, open,
+    readings, send, startNew, open,
   };
+}
+
+/** A repository keeps its place; a later state replaces the earlier one. */
+function upsertReading(
+  held: SpecDialogReadingPush[],
+  reading: SpecDialogReadingPush,
+): SpecDialogReadingPush[] {
+  const at = held.findIndex((line) => line.repo === reading.repo);
+  if (at < 0) return [...held, reading];
+  return held.map((line, index) => (index === at ? reading : line));
 }
 
 function seed(view: SpecDialogView): DialogEntry[] {
