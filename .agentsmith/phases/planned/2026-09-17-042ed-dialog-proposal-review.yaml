@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ed
+
+goal: "A phase or epic proposal is reviewed inside its turn by a fresh instance reading the turn's repositories, and each finding reaches the operator with the proposal and its evidence."
+
+applies_to: "backend (review look over source scopes, evidence, outcome proposal) + dashboard (approval surface)"
+
+requires:
+  - 2026-09-15-ffa7
+  - 2026-09-15-a5a5
+  - 2026-09-17-042ec
+
+scope:
+  in: >
+    What 2026-09-15-1499 set out, corrected where its premises do not hold. The review's look is built
+    directly over the turn's repository sandboxes, without its templates. A step a read-only scope refuses,
+    or a scope that could not open, is recorded as could-not-run and is never evidence of absence; the
+    audit tool is not offered to this look. Findings cite evidence ids that the gate resolves to their
+    evidence lines, and they ride on the outcome proposal the way its templates do, so the confirmation,
+    the pane push, the saved proposal and a reload all carry them. An edit turn after a reviewed proposal
+    is shown those findings. The dashboard's approval surface lists each finding with its evidence line.
+  out: >
+    A REVIEWER-DRIVEN CORRECTION ROUND, A VETO, REVIEWING ANSWERS OR BUGS. Refused by 1499, for its reasons.
+    RENDERING THE MATCHED SOURCE LINE. Evidence records what was run and what came of it
+    (DerivationEvidence.cs:31-37); quoting the matched line is a successor, named here: a finding shows the
+    source line its evidence matched.
+
+decisions:
+  - key: |
+      THIS SUPERSEDES 1499, WHOSE REVIEW WOULD HAVE READ NOTHING. A look is created only when SandboxTargets
+      resolves (DerivationLookFactory.cs:23), which needs sandbox discoveries (SandboxTargets.cs:25-27) that
+      only the coordinator sets (PipelineSandboxCoordinator.cs:118); the spec-dialog preset starts no
+      coordinator (PipelinePresets.SpecDialog.cs:19-25 against SandboxRequiringCommands.cs:12-26) and its
+      seeds set none (SpecDialogTurnSeeds.cs:42-57). 1499 stays in planned as the record of that plan.
+  - key: |
+      THE LOOK TAKES THE REPOSITORY MAP, IT DOES NOT FORGE DISCOVERIES. The factory discards the discoveries
+      and builds the look from the sandbox map (DerivationLookFactory.cs:23; DerivationLook.cs:34-41). A
+      discovery is context metadata the look never reads (RemoteContextDiscovery.cs:43-48), and the dialog's
+      map holds templates too (SpecDialogTurnSeeds.cs:33,47), which the look subtracts only for its own
+      template list (DerivationLook.cs:49). A factory member takes the repository map with every key starting
+      with TemplateScopeName.Prefix removed, the only mark a template carries in that map
+      (SpecDialogTurnSeeds.cs:51-52; TemplatePromptSection.cs:28). The look's tool set becomes an input, since
+      DerivationLook is at 120 lines and hard-codes three tools (:42-45), and the prompt section lists the tools
+      the look carries instead of naming all three (DerivationLookPromptSection.cs:21).
+  - key: |
+      A REFUSED STEP IS NOT AN ANSWER. A source scope serves only ReadFile, ListFiles, Grep and DirectoryTree
+      and refuses the rest with exit 1 (SourceScopeRefusal.cs:12-18). The search runs a Run grep
+      (SearchCommands.cs:21-28,39-42), counts exit 1 as having run (RepositorySearchTool.cs:31-35) and
+      reports the pattern absent (SearchOutcome.cs:31); the audit is a Run step whose exit 1 counts as a
+      verdict (AuditCommands.cs:42-46); a read on a scope that could not clone records "does not exist"
+      (RepositoryFileReadTool.cs:40-47; SandboxFileReader.cs:24-27). The evidence rule lives in shared code,
+      so the derivation's template looks, which have the same defect, are fixed with it.
+  - key: |
+      NO RUN STEP REACHES A SOURCE SCOPE, AND OPENING IS PROVEN FIRST. A missing file, a refused step and a
+      failed materialisation all return exit 1 (FileStepHandler.cs:55-78; SourceScopeRefusal.cs:20-22;
+      SourceScopeSandbox.cs:46-49), and the file reader collapses them to null (SandboxFileReader.cs:24-25).
+      On a source scope the look calls MaterializeAsync first, which throws the typed failure
+      (ISourceScopeSandbox.cs:20-31), and mints could-not-run on a throw; a Run step (search by Run grep, the
+      audit) is never sent to it and mints could-not-run; the read tool reads the step result itself.
+  - key: |
+      A GREP STEP'S EXIT CODES MEAN THE OPPOSITE OF A RUN GREP'S. A Grep step returns exit 0 with a json array,
+      [] for no match, and exit 1 on failure (GrepStepHandler.cs:361-367), while a Run grep's exit 1 is "no
+      match". Over a source scope, exit 0 with [] is absent, any other exit is could-not-run, and matches are
+      rendered through GrepResultRenderer with an absolute path (ContainedPath.Absolute). The ripgrep path
+      ignores rg's exit code (GrepStepHandler.cs:82-92) and the managed fallback turns a missing directory
+      into [] (:318-319): the handler honours rg's exit (0 match, 1 none, 2 error), a missing path is
+      could-not-run, and rg runs with --hidden --no-ignore so dotfiles and ignored paths are searched; the
+      fixed directory and size exclusions (:25-30) are named in the tool description.
+  - key: |
+      FINDINGS RIDE ON THE PROPOSAL, AS ITS TEMPLATES DO. ed5a put templates on the proposal
+      (OutcomeProposal.cs:19) as a nullable tail of its stored json (OutcomeProposalJson.cs:38,47,55-61),
+      and one composer serves the live push and the reload (SpecDialogProposalComposer via
+      SpecDialogViewReader.cs:53). Findings take the same path: no four-signature fan-out, older rows read
+      as none, and the confirmation composer reads them from the proposal. The dashboard type is edited by
+      hand, because this payload is outside the hub-event generator (SpecDialogProposalPush.cs:7-11).
+  - key: |
+      THE GATE RESOLVES IDS BEFORE THE FINDINGS LEAVE IT. ffa7 resolves ids for the deriver inside its
+      rejection; here the gate resolves each cited id through the look's evidence index before setting the
+      findings, so nothing downstream sees an id the operator or the design master cannot read.
+  - key: |
+      AN EDIT TURN SEES THE FINDINGS, CARRIED BY THE ROUTER. The confirmation is posted, never appended to the
+      transcript (SpecDialogRouter.cs:105; TicketFilingOutcomeSink.cs:56), so a note saying "address the
+      finding" would reach a master that never saw it. The saved proposal cannot be the trigger: it is cleared
+      only on reject or timeout (SpecDialogOutcomeFlow.cs:51,57), so a later ordinary turn would see stale
+      findings. Only the router knows a turn is an edit (SpecDialogRouter.cs:112); the state it hands the
+      edit turn carries the proposal under revision on the line that already builds it (:129, no growth), a
+      seed key passes it, and the prompt factory renders its findings. No transcript turn is added, so
+      2026-09-17-042ec's rule is untouched.
+  - key: |
+      NOT EVERY FINDING CITES. Under ffa7 and a5a5 only a false premise carries evidence ids; a contradiction
+      or an uncheckable criterion quotes the draft. The surface shows the evidence line where there is one and
+      the quote otherwise.
+  - key: |
+      THE REVIEW RUNS AFTER THE GATE HAS DECIDED. The gate publishes at two points (AgenticMasterHandler.cs:631,653)
+      and 2026-09-17-042ec may strip a refused draft. The review reads the outcome at the single call site
+      after GateSpecOutcomeAsync returns (:452-454) and sets it back with findings.
+  - key: |
+      1499'S OWN DECISIONS STAND. The review runs inside the turn, because the sandboxes are disposed in the
+      runner's finally (SpecDialogTurnRunner.cs:73-80). Findings are put to the person, not routed as an
+      edit. The review mints under its own letter. A review that could not be taken blocks nothing.
+  - key: |
+      A SINGLE PHASE IS ONLY EVER REVIEWED HERE. Its ticket embeds the spec (PhaseTicketRenderer.cs:32-33),
+      which skips derivation and its cut review (SpecSourceResolver.cs:47-61).
+  - key: |
+      ROOM. AgenticMasterHandler has 29 lines to its baseline, SpecDialogRouter none; the review, the
+      resolution and the look construction are their own types.
+
+steps:
+  - id: a-look-over-the-scope
+    action: "A factory member builds the review look over the repository sandbox map, templates removed, without the audit tool."
+  - id: refusals-are-not-evidence
+    action: "On a source scope the look proves opening first, sends no Run step, searches with a Grep step whose exit codes and rg's are honoured, and mints could-not-run otherwise; the look's tool set is an input."
+  - id: the-turn-reviews-its-proposal
+    action: "A phase or epic outcome is reviewed where it is gated, charged to the turn's run; cited ids are resolved to evidence lines there."
+  - id: findings-on-the-proposal
+    action: "OutcomeProposal carries findings as a nullable stored tail; the confirmation, the pane push and the reload read them; the dashboard type is updated."
+  - id: the-edit-turn-sees-them
+    action: "The router hands the edit turn the proposal under revision on its existing line; a seed key carries it; the prompt renders its findings."
+  - id: the-surface-shows-them
+    action: "The approval surface lists each finding with its evidence line, or its quote where it cites nothing; a clean review shows nothing."
+
+tests:
+  - "Turn_PhaseProposal_IsReviewedBeforeItReturns"
+  - "Turn_AnswerOrBugOutcome_IsNotReviewed"
+  - "ReviewLook_ListsTheTurnsRepositories_NotItsTemplates"
+  - "ReviewLook_SearchOnReadOnlyScope_RunsAsAGrepStep"
+  - "ReviewLook_UnmaterialisableScope_MintsNothingAsProof"
+  - "ReviewLook_SearchWithInvalidPatternOrMissingPath_IsCouldNotRun"
+  - "ReviewLook_SearchFindsDotfiles"
+  - "DerivationLook_RefusedStepOnATemplate_IsNotEvidenceOfAbsence"
+  - "DerivationLook_AuditOnATemplate_IsCouldNotRun"
+  - "Turn_RefusedThenStrippedProposal_IsNotReviewed"
+  - "Turn_Review_IsChargedToTheTurnsRun"
+  - "Gate_CitedIds_AreResolvedToEvidenceLines"
+  - "OutcomeProposalJson_RowWithoutFindings_ReadsAsNone"
+  - "Flow_Findings_ReachTheConfirmationAndThePush"
+  - "View_AfterAReload_CarriesTheFindings"
+  - "EditTurn_AfterAReviewedProposal_IsShownItsFindings"
+  - "Turn_AfterAFiledProposal_IsShownNoFindings"
+  - "Flow_ReviewFailed_DoesNotBlockTheProposal"
+  - "dashboard: the approval surface lists each finding with its evidence line or its quote"
+
+done:
+  - "an operator asked to approve a proposal the repository contradicts sees the finding and its evidence, live and after a reload"
+  - "no finding rests on a step that could not run"
+  - "build green, full suite green, file-length ratchet green"
