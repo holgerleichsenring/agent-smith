@@ -41,24 +41,32 @@ public sealed class SpecDialogLatestOutcomeStore(
         UpdateOpenAsync(platform, threadId, session => session.LatestProposalJson = null, ct);
 
     public Task SetFilingAsync(
-        string platform, string threadId, FilingReport report, CancellationToken ct) =>
+        string platform, string threadId, FilingReport report, OutcomeProposal filed,
+        CancellationToken ct) =>
         UpdateOpenAsync(platform, threadId,
             session => session.LatestFilingJson = JsonSerializer.Serialize(
-                new SpecDialogFiling(report.Filed, report.Error, DateTimeOffset.UtcNow), JsonOptions),
+                new SpecDialogFiling(report.Filed, report.Error, DateTimeOffset.UtcNow,
+                    SpecDialogProposalComposer.KindOf(filed)), JsonOptions),
             ct);
 
     public async Task<SpecDialogLatestOutcome> ReadAsync(
         string platform, string threadId, CancellationToken ct)
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
-        if (session is null) return SpecDialogLatestOutcome.None;
-        return new SpecDialogLatestOutcome(
-            Readable(session.LatestProposalJson, OutcomeProposalJson.Read, threadId),
-            Readable(session.LatestFilingJson,
-                json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions), threadId));
+        return session is null ? SpecDialogLatestOutcome.None : Of(session);
     }
 
-    private T? Readable<T>(string? json, Func<string, T?> read, string threadId) where T : class
+    /// <summary>
+    /// What a session holds, open or closed — the one reading of the two columns, used by the
+    /// view and by the conversation list alike. Forgiving for both: one unreadable row shows as
+    /// absent rather than failing the whole dialog read, or the whole list.
+    /// </summary>
+    internal SpecDialogLatestOutcome Of(SpecDialogSession session) => new(
+        Readable(session.LatestProposalJson, OutcomeProposalJson.Read, session.ThreadId),
+        Readable(session.LatestFilingJson,
+            json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions), session.ThreadId));
+
+    private T? Readable<T>(string? json, Func<string, T?> read, string? threadId) where T : class
     {
         if (json is null) return null;
         try

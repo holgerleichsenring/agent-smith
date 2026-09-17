@@ -149,7 +149,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         await broken.DisposeAsync();
 
         var write = () => store.SetFilingAsync(
-            Platform, Dialog, new FilingReport([], null), CancellationToken.None);
+            Platform, Dialog, new FilingReport([], null), Proposal(), CancellationToken.None);
 
         await write.Should().NotThrowAsync("a display record is not worth a duplicate ticket");
     }
@@ -195,7 +195,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         (await new SpecDialogViewReader(
                 _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(),
                 new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer())
-            .ReadAsync(Dialog, Owner, CancellationToken.None)).Session!;
+            .ReadAsync(Dialog, CancellationToken.None)).Session!;
 
     private static PhaseOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));
 

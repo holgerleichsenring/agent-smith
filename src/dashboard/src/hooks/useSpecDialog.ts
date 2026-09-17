@@ -3,12 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HUB_URL } from "@/hooks/useJobsHub";
 import { getJobsHubClient } from "@/lib/JobsHubClient";
-import { fetchSpecDialog, postSpecDialogMessage } from "@/lib/specDialogApi";
-import { currentDialogId, startNewDialog } from "@/lib/specDialogSession";
+import {
+  fetchSpecDialog,
+  fetchSpecDialogConversations,
+  postSpecDialogMessage,
+} from "@/lib/specDialogApi";
+import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
 import type {
   SpecDialogFilingPush,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
+  SpecDialogSessionSummary,
   SpecDialogView,
 } from "@/types/spec-dialog";
 
@@ -33,6 +38,9 @@ export interface DialogEntry {
 export interface SpecDialogState {
   dialogId: string | null;
   view: SpecDialogView | null;
+  /** The caller's conversations, open and closed — read on mount, when the session here
+   *  changes, and after a filing; never after every message. */
+  conversations: SpecDialogSessionSummary[];
   entries: DialogEntry[];
   question: SpecDialogQuestionPush | null;
   /** What this turn would file, until a later turn supersedes it. */
@@ -44,12 +52,14 @@ export interface SpecDialogState {
   awaiting: boolean;
   send: (text: string, project?: string) => Promise<void>;
   startNew: (project?: string) => Promise<void>;
-  resume: (sessionId: string) => Promise<void>;
+  /** Continues a past conversation in this tab, on a dialog id of its own. */
+  open: (sessionId: string, openDialogId?: string | null) => Promise<void>;
 }
 
 export function useSpecDialog(): SpecDialogState {
   const [dialogId, setDialogId] = useState<string | null>(null);
   const [view, setView] = useState<SpecDialogView | null>(null);
+  const [conversations, setConversations] = useState<SpecDialogSessionSummary[]>([]);
   const [entries, setEntries] = useState<DialogEntry[]>([]);
   const [question, setQuestion] = useState<SpecDialogQuestionPush | null>(null);
   const [proposal, setProposal] = useState<SpecDialogProposalPush | null>(null);
@@ -65,8 +75,10 @@ export function useSpecDialog(): SpecDialogState {
   const [awaiting, setAwaiting] = useState(false);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
-  // durable transcript does not hold.
-  const reseed = useRef(true);
+  // durable transcript does not hold. A session id means "re-seed once the read shows THAT
+  // session": opening a past conversation reads its fresh dialog id before the resume has
+  // moved anything there, and a plain flag would be spent on that empty read.
+  const reseed = useRef<boolean | string>(true);
   // A command for a dialog id nobody is subscribed to yet would have its answer pushed
   // into a group this page has not joined, so it waits for the subscription.
   const pending = useRef<string | null>(null);
@@ -96,7 +108,9 @@ export function useSpecDialog(): SpecDialogState {
       // The question lives only in this state and in the server's in-memory wait, so a
       // reload has to take it back from the read or the approval gate loses its card.
       setQuestion(next.question);
-      if (!reseed.current) return;
+      const armed = reseed.current;
+      if (armed === false) return;
+      if (typeof armed === "string" && next.session?.sessionId !== armed) return;
       reseed.current = false;
       setEntries(seed(next));
       // The pane lived only in pushes, so a reload lost what was being decided and what was
@@ -128,6 +142,23 @@ export function useSpecDialog(): SpecDialogState {
     if (dialogId) void load(dialogId);
   }, [dialogId, load]);
 
+  const loadConversations = useCallback(async () => {
+    try {
+      setConversations(await fetchSpecDialogConversations());
+    } catch (thrown) {
+      // The list is beside the conversation, not the conversation: a failed read of it must not
+      // put the page-wide failure over a dialog that is working.
+      console.warn("the conversation list could not be read", thrown);
+    }
+  }, []);
+
+  // Not after every message: the list reads every listed transcript for its titles. A
+  // session opened, resumed or forked here changes what it holds, and so does a filing.
+  const sessionHere = view?.session?.sessionId ?? null;
+  useEffect(() => {
+    void loadConversations();
+  }, [sessionHere, loadConversations]);
+
   useEffect(() => {
     if (!dialogId) return;
     const client = getJobsHubClient(HUB_URL);
@@ -153,7 +184,9 @@ export function useSpecDialog(): SpecDialogState {
       setFiled(null);
     });
     const offFiled = client.specDialogFilings.add((filing) => {
-      if (filing.dialogId === dialogId) setFiled(filing);
+      if (filing.dialogId !== dialogId) return;
+      setFiled(filing);
+      void loadConversations();
     });
     client.subscribeSpecDialog(dialogId)
       .then((cancel) => {
@@ -172,7 +205,7 @@ export function useSpecDialog(): SpecDialogState {
       offFiled();
       void stop?.();
     };
-  }, [dialogId, append, load, post]);
+  }, [dialogId, append, load, post, loadConversations]);
 
   /// Sending with no session open used to reach the router as an ordinary message, and
   /// the router answered with the command tutorial a chat channel needs — on a page whose
@@ -192,36 +225,50 @@ export function useSpecDialog(): SpecDialogState {
     [dialogId, view, post],
   );
 
-  const startNew = useCallback(async (project?: string) => {
-    reseed.current = true;
+  // A fresh dialog id with a command queued for it: the command waits for the subscription,
+  // so its answer lands in a group this page has joined.
+  const switchTo = useCallback((command: string | null, awaited: boolean | string, to?: string) => {
+    reseed.current = awaited;
     setEntries([]);
     setQuestion(null);
     setProposal(null);
     setFiled(null);
     setView(null);
     setAwaiting(false);
-    // The router parses the same commands a chat channel types; the page is what spares
-    // the operator from typing them.
-    pending.current = project ? `/spec ${project}` : "/spec";
-    setDialogId(startNewDialog());
+    pending.current = command;
+    setDialogId(to ? returnToDialog(to) : startNewDialog());
   }, []);
 
-  const resume = useCallback(
-    async (sessionId: string) => {
-      // The resumed session brings its own transcript, so the next read re-seeds.
-      reseed.current = true;
-      // The resumed conversation has its own outcome; the column falls back to the scope
-      // rather than keeping the proposal of the one being left.
-      setProposal(null);
-      setFiled(null);
-      if (dialogId) await post(dialogId, `/spec resume ${sessionId}`, false);
+  // The router parses the same commands a chat channel types; the page is what spares the
+  // operator from typing them.
+  const startNew = useCallback(async (project?: string) => {
+    switchTo(project ? `/spec ${project}` : "/spec", true);
+  }, [switchTo]);
+
+  // A dialog id is a tab, not a conversation. Resuming onto the id this tab holds would
+  // close the conversation open on it; a fresh id has nothing open, so the resume closes
+  // nothing. A conversation open in another tab moves here, and that tab finds out on its
+  // next message.
+  //
+  // An OPEN conversation is already somewhere, so the page goes there and resumes nothing: a
+  // resume is refused while a turn runs, and a person who left a conversation mid-turn would
+  // otherwise be told to answer "there" with no way back to it — its reply and a waiting
+  // approval going to a group nobody listens to until the approval times out.
+  const open = useCallback(
+    async (sessionId: string, openDialogId?: string | null) => {
+      if (sessionId === view?.session?.sessionId) return;
+      if (openDialogId) {
+        switchTo(null, sessionId, openDialogId);
+        return;
+      }
+      switchTo(`/spec resume ${sessionId}`, sessionId);
     },
-    [dialogId, post],
+    [view, switchTo],
   );
 
   return {
-    dialogId, view, entries, question, proposal, filed, failure, awaiting,
-    send, startNew, resume,
+    dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
+    send, startNew, open,
   };
 }
 

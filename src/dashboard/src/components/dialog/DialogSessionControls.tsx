@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { SpecDialogView } from "@/types/spec-dialog";
+import type { SpecDialogSessionSummary, SpecDialogView } from "@/types/spec-dialog";
 
 // 2026-09-15-cb3e: the four chat commands as controls. "/spec" and "/spec new <project>"
-// are a project picker and a button, "/spec list" is the list below, and "/spec resume
-// <id>" is clicking one of its rows. The strings still travel through the ingestion
-// endpoint — the router parses them — but nobody has to type them.
+// are a project picker and a button, and the caller's conversations are the list below —
+// open and closed, each opened by clicking it. The strings still travel through the
+// ingestion endpoint — the router parses them — but nobody has to type them.
 //
 // The dialog id is shown because it IS the session key: a page that lost it would open a
 // second conversation beside one still running, and an operator comparing two tabs needs
@@ -15,17 +15,19 @@ import type { SpecDialogView } from "@/types/spec-dialog";
 export function DialogSessionControls({
   dialogId,
   view,
+  conversations,
   picked,
   onPicked,
   onStartNew,
-  onResume,
+  onOpen,
 }: {
   dialogId: string | null;
   view: SpecDialogView | null;
+  conversations: SpecDialogSessionSummary[];
   picked: string;
   onPicked: (project: string) => void;
   onStartNew: (project?: string) => void;
-  onResume: (sessionId: string) => void;
+  onOpen: (sessionId: string, openDialogId: string | null) => void;
 }) {
   const projects = view?.projects ?? [];
   // Minting a dialog id and opening a session on it are two steps, and a second click
@@ -34,9 +36,7 @@ export function DialogSessionControls({
   // dialog id, released when the page is looking at one.
   const [starting, setStarting] = useState(false);
   useEffect(() => setStarting(false), [dialogId]);
-  const resumable = (view?.openSessions ?? []).filter(
-    (session) => session.sessionId !== view?.session?.sessionId,
-  );
+  const here = view?.session?.sessionId;
 
   return (
     <div data-testid="dialog-controls" className="mb-3 flex flex-wrap items-center gap-2">
@@ -72,17 +72,35 @@ export function DialogSessionControls({
       >
         New conversation
       </button>
-      {resumable.map((session) => (
-        <button
-          key={session.sessionId}
-          type="button"
-          data-testid={`dialog-resume-${session.sessionId}`}
-          onClick={() => onResume(session.sessionId)}
-          className="rounded border border-stone-300 px-3 py-1 text-sm text-stone-700 hover:bg-stone-100"
-        >
-          {`resume ${session.sessionId} · ${session.project} · ${session.turns} turn(s)`}
-        </button>
-      ))}
+      {conversations.length > 0 && (
+        <ul data-testid="dialog-conversations" className="flex w-full flex-wrap gap-2">
+          {conversations.map((conversation) => (
+            <li key={conversation.sessionId}>
+              <button
+                type="button"
+                data-testid={`dialog-conversation-${conversation.sessionId}`}
+                aria-current={conversation.sessionId === here ? "true" : undefined}
+                onClick={() => onOpen(conversation.sessionId, conversation.openDialogId)}
+                className="rounded border border-stone-300 px-3 py-1 text-sm text-stone-700 hover:bg-stone-100 aria-[current=true]:bg-stone-100"
+              >
+                {label(conversation)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
+}
+
+function label(conversation: SpecDialogSessionSummary): string {
+  const title = conversation.title ?? `untitled ${conversation.sessionId}`;
+  return [title, conversation.project, outcome(conversation)].filter(Boolean).join(" · ");
+}
+
+function outcome({ outcome: filed }: SpecDialogSessionSummary): string | null {
+  if (!filed) return null;
+  const tickets = `${filed.tickets} ticket${filed.tickets === 1 ? "" : "s"} filed`;
+  const what = filed.kind ? `${filed.kind}, ${tickets}` : tickets;
+  return filed.partial ? `${what} (partial)` : what;
 }

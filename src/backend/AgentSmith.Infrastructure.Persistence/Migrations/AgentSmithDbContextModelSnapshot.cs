@@ -1155,6 +1155,8 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasIndex("SessionId")
                         .IsUnique();
 
+                    b.HasIndex("UserId");
+
                     b.HasIndex("Platform", "ThreadId");
 
                     b.ToTable("SpecDialogSessions");

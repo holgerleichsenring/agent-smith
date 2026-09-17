@@ -52,8 +52,13 @@ public sealed class SpecDialogRoutingTests : IDisposable
             repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
         var messenger = new SpecDialogMessenger(
             [_adapter.Object], NullLogger<SpecDialogMessenger>.Instance);
+        var turnGate = new SpecDialogTurnGate();
+        var pendingQuestions = new SpecDialogPendingQuestions();
         var commandHandler = new SpecDialogCommandHandler(
-            _sessions, new SpecDialogScopeResolver(SingleProjectLoader()),
+            _sessions,
+            new SpecDialogResumer(repository, turnGate, pendingQuestions, TimeProvider.System,
+                NullLogger<SpecDialogResumer>.Instance),
+            new SpecDialogScopeResolver(SingleProjectLoader()),
             new SpecDialogReplyComposer(), messenger);
         // p0315b: follow-up turns now run the design-partner master; the stub
         // returns a canned reply so these ROUTING tests stay about routing.
@@ -77,7 +82,7 @@ new DashboardOutcomeChannel(
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,
-            _turnRunner.Object, outcomeFlow, new SpecDialogTurnGate(), new SpecDialogPendingQuestions(),
+            _turnRunner.Object, outcomeFlow, turnGate, pendingQuestions,
             Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }

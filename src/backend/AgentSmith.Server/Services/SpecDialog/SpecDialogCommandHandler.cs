@@ -8,6 +8,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class SpecDialogCommandHandler(
     SpecDialogSessionManager sessions,
+    SpecDialogResumer resumer,
     SpecDialogScopeResolver scopeResolver,
     SpecDialogReplyComposer composer,
     SpecDialogMessenger messenger)
@@ -40,11 +41,13 @@ public sealed class SpecDialogCommandHandler(
             return;
         }
 
-        var state = await sessions.ResumeAsync(
-            resume.SessionId, userId, platform, channelId, threadId, ct);
-        var reply = state is null
-            ? composer.ComposeSessionNotFound(resume.SessionId)
-            : composer.ComposeResumed(state);
+        var reply = await resumer.ResumeAsync(
+                resume.SessionId, userId, platform, channelId, threadId, ct) switch
+        {
+            SpecDialogResumed resumed => composer.ComposeResumed(resumed.State),
+            SpecDialogResumeRefused refused => composer.ComposeResumeRefused(refused),
+            _ => composer.ComposeSessionNotFound(resume.SessionId),
+        };
         await messenger.SendAsync(platform, channelId, threadId, reply, ct);
     }
 

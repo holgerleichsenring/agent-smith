@@ -37,19 +37,34 @@ export interface SpecDialogSession {
   proposalTurn: number | null;
 }
 
+/** What a conversation's latest filing created. Only a filing produces one. */
+export interface SpecDialogConversationOutcome {
+  /** "bug", "phase" or "epic" from the latest proposal; null once that was rejected. */
+  kind: string | null;
+  tickets: number;
+  /** The filing stopped with an error after creating some of the tickets. */
+  partial: boolean;
+}
+
+/** One of the caller's conversations, open or closed, addressed by its session id. */
 export interface SpecDialogSessionSummary {
   sessionId: string;
   project: string;
   turns: number;
   lastActivityAt: string;
+  /** The first line the operator wrote; null before they wrote one. */
+  title: string | null;
+  outcome: SpecDialogConversationOutcome | null;
+  /** The dialog id an open conversation lives on; null once it is closed. */
+  openDialogId: string | null;
 }
 
-/** Everything the surface needs for one dialog id, in one read. */
+/** What the surface needs for one dialog id, re-read after every message. The caller's
+ *  conversation list is a read of its own, because it reads every listed transcript. */
 export interface SpecDialogView {
   dialogId: string;
   session: SpecDialogSession | null;
   projects: SpecDialogProject[];
-  openSessions: SpecDialogSessionSummary[];
   /** What the turn is blocked on, so a reload during the gate keeps the question. */
   question: SpecDialogQuestionPush | null;
 }
