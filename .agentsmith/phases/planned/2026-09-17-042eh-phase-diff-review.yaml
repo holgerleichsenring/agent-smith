@@ -7,6 +7,7 @@ applies_to: "backend (the code phase block: a review step after VerifyPhase, its
 
 requires:
   - 2026-09-15-ffa7
+  - 2026-09-17-0e79e
 
 scope:
   in: >
@@ -97,6 +98,11 @@ decisions:
       A REVERTED FIX PASS IS NOT REVIEWED AGAIN. The review at the end of its splice sees the flag and records the
       first review's findings marked reverted; it asks nothing.
   - key: |
+      THE BLOCK IT JOINS IS BUDGETED. This phase's review and fix pass are what take a phase to about
+      seventeen spliced steps, which the executor's fixed ceiling of 100 per segment cannot hold for a
+      long set; 2026-09-17-0e79e makes that budget follow the phase count and is required for that
+      reason, not for anything this phase calls.
+  - key: |
       COST, STATED. At most two review calls (none after a revert) and one master pass per phase, each call with an
       iteration ceiling of allowance + 2 as ffa7 pins. A configured cap that is exhausted skips the review and
       records why; with no cap IsBudgetExhausted is false (PipelineCostTracker.cs:67-78).
@@ -111,7 +117,7 @@ decisions:
       their own, upserted as artifact phase_review:<id> in the same RunArtifact table, which
       2026-09-17-042ej reads. Per-phase keys clear at SelectPhase, so the pull request, built once at the end,
       reads a run-level ledger kept like RunAccountLedger, rendered at CommitAndPRHandler.cs:321: one line,
-      431 to 432 of its 436 baseline. 2026-09-17-042ei starts from 432.
+      431 to 432 of its 436 baseline.
   - key: |
       ROOM. SelectPhaseHandler is 113: the head recording is a collaborator and one line. VerifyPhaseHandler is
       284 of a 335 baseline: the fix-pass hand-off is one call in RecordAsync. RunPhaseProjection (72) gains a
@@ -135,7 +141,8 @@ decisions:
       p0439 shortfall path (CommitAndPRHandler.cs:110-113,161-165). The fix commit and its revert show in the open
       draft pull request, and each push fires synchronize and a pr-review run (GitHubPrEventWebhookHandler.cs:20-24).
       A repository whose only code was a reverted fix still reads as changed (HasCheckpointedCode ORs,
-      RepoWorkPusher.cs:67); 2026-09-17-042ei checks for a non-empty diff before merging.
+      RepoWorkPusher.cs:67), so such a pull request carries no diff; nothing merges it automatically,
+      and a person reads it.
   - key: |
       TEST CALLERS AND PARKING. Tests calling Remember/RememberOnce directly (CutReviewEvidenceIdTests.cs:51,62;
       TemplateProofReportTests.cs:122-124) move to the structured record; the snapshot and fix-pass keys must survive
