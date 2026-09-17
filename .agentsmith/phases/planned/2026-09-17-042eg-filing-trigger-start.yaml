@@ -1,0 +1,163 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042eg
+
+goal: "Approving a phase or epic moves each filed child into a trigger status when the approver may start runs, and reports a child started only when routing would claim it."
+
+applies_to: "backend (spec-dialog filing, the permission carried from ingest to the filer, the Jira transitioner) + dashboard (the filed tab)"
+
+requires:
+  - 2026-09-17-042ea
+  - 2026-09-17-042el
+
+scope:
+  in: >
+    The dashboard ingest decides whether the caller holds runs.control and passes that bool down the
+    in-process chain to the filer; chat passes false. After each child is created the filer reads it back
+    and resolves the poller's envelope FIRST. Each child ends in one state with its reason: STARTED (routed
+    to phase-execution in the filing project and in a trigger status, or the project declares no
+    trigger_statuses), QUEUED BEHIND #pred (started, but a predecessor filed in this approval is still in a
+    trigger status), NOT STARTED (unroutable; no permission; not a native state; the status still held after
+    a move), or RECORD (the epic parent, which is not work). Only a routed child outside the trigger statuses
+    is moved to the first one, then read back. A child whose predecessor was not started is not moved.
+    FiledTicket carries the ticket id, the project and a nullable start state with its reason. Jira's
+    transition lookup takes an exact target-status match only when no transition name matches.
+  out: >
+    A "FILE WITHOUT STARTING" CHOICE. See decisions.
+    CHANGING GITHUB'S OR GITLAB'S TransitionToAsync. FinalizeAsync depends on it.
+    MAKING AN UNROUTABLE CHILD ROUTABLE. A successor, named by what it does: filing stamps the project's
+    resolution tag on the tickets it files.
+    PERSISTING THE PERMISSION ON A DIALOG ANSWER. See decisions.
+    BUG OUTCOMES. Filed with no label and routed by the project's own rules, as today.
+    THE FILED TICKET'S DISPLAY KEY. 2026-09-17-042em.
+    THE TRANSCRIPT'S CLOSING LINE AND WHAT THE FILED WORK BECAME. 2026-09-17-042ej.
+
+decisions:
+  - key: |
+      FILING STARTS NOTHING TODAY UNLESS THE TRACKER'S DEFAULT HAPPENS TO TRIGGER. CreateAsync takes no
+      status (ITicketProvider.cs:59-61) and the filers call nothing after it (EpicTicketFiler.cs:42-46,
+      OutcomeTicketFiler.cs:80-82). A created GitHub or GitLab issue is already open/opened
+      (GitHubFieldMapper.cs:23, GitLabFieldMapper.cs:21); a work item created in "New" on a project
+      triggering on "To Do" sits there.
+  - key: |
+      RESOLVE FIRST, MOVE ONLY WHAT ROUTES. Application/Services/Triggers/ProjectResolver.cs needs a
+      resolution match per trigger (:113-126) and skips a trigger a blocking startup finding disabled
+      (:94-103). The poller resolves an envelope of labels, ticket id and platform only
+      (TrackerPoller.cs:104-110, 188-193), so AreaPath, Repo and ToAddress strategies (ProjectResolver.cs:120-123)
+      never match it and the filers stamp no tag. Moving a child the resolver would not route starts nothing
+      and leaves it in a trigger status for a webhook to find later. Started means a match naming the filing
+      project with phase-execution (ProjectResolver.cs:65-67, ProjectMatch.cs:8).
+  - key: |
+      NO trigger_statuses MEANS EVERY STATUS TRIGGERS. TrackerPoller.cs:195-197 allows any status then; the
+      child counts as in a trigger status and nothing is moved.
+  - key: |
+      QUEUED IS NOT NOT-STARTED. PredecessorGate holds a successor while a predecessor is still in a trigger
+      status (PredecessorGate.cs:72-78). A child whose predecessor was filed in the same approval is routed
+      and will run, later; it reads "queued behind #pred".
+  - key: |
+      MOVING A TICKET INTO A TRIGGER STATUS STARTS A RUN, SO IT NEEDS runs.control. The retry that makes this
+      move is guarded by it (RunControlEndpoints.cs:41); posting to a dialog needs dialog.write only
+      (SpecDialogEndpoints.cs:18-19). IngestAsync computes
+      "holds = !auth.Enforce || identities.Resolve(ctx.User).Permissions.Contains(RunsControl)" — the
+      non-enforcing rule HubPermissionFilter.cs:35 applies, over CallerIdentityResolver.Resolve
+      (CallerIdentityResolver.cs:34-49). Without it the children are filed and reported "waiting for someone
+      who may start runs"; where the created status already triggers, the child starts as today — the
+      permission governs the MOVE, which is the only thing this phase adds.
+  - key: |
+      THE BOOL TRAVELS IN PROCESS, THROUGH THE TURN THAT FILES. Approval is asked and filed inside the turn
+      that produced the proposal (SpecDialogRouter.cs:85-111, SpecDialogOutcomeFlow.cs:24-46); the approving
+      message only answers the pending question (SpecDialogRouter.cs:58-65, 2026-09-17-042el's admission).
+      MayPostAsync lets only the session's owner post into the dialog (SpecDialogOwnership.cs:50-58), so the
+      principal that started the turn is the approver, and its bool is the one that counts. No DialogAnswer
+      field and no migration: the answer is persisted by DurableDialogueTransport.cs:29-35 and stays as it is.
+      Signatures gaining "bool mayStartRuns": SpecDialogEndpoints.Dispatch (:47) and its call (:41);
+      DashboardDialogDispatcher.DispatchAsync (:23-24); SpecDialogRouter.TryRouteAsync (:32-34),
+      TryContinueThreadAsync (:50-52) and RunTurnAsync (:85-87); SpecDialogOutcomeFlow.HandleAsync (:24-25);
+      IOutcomeSink.AcceptAsync (IOutcomeSink.cs:16) with TicketFilingOutcomeSink (:25) and the harness's
+      RecordingOutcomeSink (SpecDialogOutcomeTests.cs:527); OutcomeTicketFiler.FileAsync (:26-27). Slack and
+      Teams both reach the router through the one call at SlackMessageDispatcher.cs:38 (Teams via
+      TeamsEndpoints.cs:108-111) and pass false.
+  - key: |
+      ONE PATH: APPROVAL FILES AND, WITH THE PERMISSION, STARTS. "File only" cannot be offered where the
+      created status already triggers. Stated risks: a first trigger status that is a human triage gate is
+      skipped by approving; epic children with no predecessor start at once, in parallel.
+  - key: |
+      NO MOVE WHERE THE MOVE CANNOT WORK. GitHub adds a LABEL for any name but open/closed
+      (GitHubTicketProvider.cs:156-165); GitLab sends any other name as state_event
+      (GitLabTicketProvider.cs:165-167, 185-190), which throws through SendAsync
+      (TicketProviderHttpClient.cs:100-105). On those two the move is attempted only for open/opened/closed.
+  - key: |
+      JIRA: EXACT TARGET MATCH AFTER THE NAME MATCH, NOT INSTEAD. FindTransitionId matches a transition NAME by
+      substring (JiraTransitioner.cs:47-62) and serves close, finalize, lifecycle and retry
+      (JiraTicketProvider.cs:185-205, JiraNativeLifecycleTransitioner.cs:17-20,
+      ParkedTicketDialogue.cs:68-69, NotImplementableRetryService.cs:38-39). Every transition a name match
+      found is taken as before; only when none matches is the transition whose "to".name equals the status,
+      case-insensitively, taken. That newly found case also reaches the native lifecycle transitioner
+      (:19-20), which then records natively instead of by label; it is tested.
+  - key: |
+      THE EPIC PARENT IS A RECORD. ProjectResolver refuses the phase-epic label before every other rule
+      (ProjectResolver.cs:36-41); it is never moved and reads "record, not work".
+  - key: |
+      THE ID AND PROJECT ARE OWNED HERE. FiledTicket is Reference and Title (FilingReport.cs:4) and Reference is
+      a url when there is one (CreatedTicket.cs:9-12); a run is found by project and ticket id (Run.cs:11-13).
+      2026-09-17-042em formats the display key from this id. The start state is nullable: an older filing
+      deserializes with web defaults (SpecDialogLatestOutcomeStore.cs:31, 64-67) and reads as unknown; the
+      dashboard type gains optional fields (spec-dialog.ts:154-157).
+  - key: |
+      ROOM. The start-and-confirm logic is a collaborator; EpicTicketFiler (64) and OutcomeTicketFiler (84)
+      call it and stay under 120. SpecDialogRouter stands at its 132-line baseline
+      (file-length-baseline.tsv:138): the parameter is added on the existing signature and call lines, so it
+      does not grow; SpecDialogOutcomeFlow (65) and DashboardDialogDispatcher (57) have room.
+  - key: |
+      THIRD-ROUND REVIEW CORRECTIONS, BINDING ON THE STEPS BELOW. "Queued behind #pred" only where the project
+      declares trigger_statuses; without them the predecessor gate releases every successor at once
+      (PredecessorGate.cs:47-56), so a successor reports started, unordered. EpicTicketFiler.FileAsync
+      (EpicTicketFiler.cs:22-23, called at OutcomeTicketFiler.cs:37) carries the bool too. SpecDialogEndpoints.Dispatch
+      is at :51. The bool is sampled when the turn starts; an approval up to the confirmer's timeout later still moves
+      tickets if the role was removed in between.
+
+steps:
+  - id: the-report-names-the-ticket
+    action: "FiledTicket gains the ticket id, the project and a nullable start state (started, queued, not started, record) with its reason; the dashboard type follows with optional fields."
+  - id: the-permission-reaches-the-filer
+    action: "IngestAsync computes the runs.control bool and every signature named in decisions passes it; SlackMessageDispatcher and the harness sink pass false."
+  - id: start-and-confirm
+    action: "A collaborator reads the created ticket, resolves the poller's envelope, moves a routed child outside the trigger statuses when permitted and possible, reads back, and returns the state and reason."
+  - id: filers-start-in-order
+    action: "Both filers call it per child in filing order; a successor of a not-started child is not moved; a successor of a started one is queued; the parent is a record."
+  - id: jira-matches-the-target
+    action: "JiraTransitioner takes the exact target-status match only when no transition name matches."
+  - id: the-operator-is-told
+    action: "The filed tab and the filing notice say per ticket started, queued, not started or record, and why."
+
+tests:
+  - "FiledChild_CreatedInATriggerStatusAndRouted_ReportsStarted"
+  - "FiledChild_InTriggerStatusButUnrouted_ReportsNotStarted"
+  - "FiledChild_OutsideTheTriggerStatusesAndUnrouted_IsNotMoved"
+  - "FiledChild_TriggerDisabledByAStartupFinding_ReportsNotStarted"
+  - "FiledChild_ProjectWithoutTriggerStatuses_ReportsStartedAndMovesNothing"
+  - "FiledChild_OutsideTheTriggerStatusesWithRunsControl_IsMovedToTheFirstOne"
+  - "FiledChild_OutsideTheTriggerStatusesWithoutRunsControl_IsNotMovedAndWaits"
+  - "FiledChild_MoveReadsBackUnchanged_ReportsNotStartedWithTheHeldStatus"
+  - "FiledChild_MoveThrows_ReportsNotStartedAndTheFilingContinues"
+  - "FiledChild_GitHubTriggerStatusNotNative_IsNotMovedAndGetsNoLabel"
+  - "EpicFiling_PredecessorStarted_SuccessorReportsQueuedBehindIt"
+  - "EpicFiling_PredecessorNotStarted_SuccessorIsNotMoved"
+  - "EpicFiling_ParentRecord_IsNeverMovedAndReadsAsRecord"
+  - "Ingest_AuthorityNotEnforcing_CarriesMayStartRuns"
+  - "Ingest_EnforcingWithoutRunsControl_CarriesFalse"
+  - "ChatDispatch_NeverMovesATicket"
+  - "JiraTransition_NameMatch_StillWinsOverTarget"
+  - "JiraTransition_NoNameMatchButTargetMatches_IsFound"
+  - "JiraFinalize_DoneStatusByTransitionName_StillTransitions"
+  - "JiraLifecycle_StatusReachableOnlyByTarget_IsRecordedNatively"
+  - "FilingRecord_WrittenBeforeTheStartState_ReadsAsUnknown"
+  - "dashboard: the filed tab marks each ticket started, queued, not started or record with its reason"
+  - "dashboard: a filing without start states renders as before"
+
+  - "EpicFiling_ProjectWithoutTriggerStatuses_SuccessorReportsStartedNotQueued"
+done:
+  - "an approval by someone who may start runs moves each routed child into a trigger status in dependency order"
+  - "started is claimed only for a child the resolver would route to phase execution"
+  - "an approval without runs.control, from chat, or for a child that does not route or cannot be moved files and says why nothing moved"
+  - "every Jira transition a name match found is taken as before"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"
