@@ -77,8 +77,9 @@ export function ProjectGraph({
   catalog: ConfigCatalog;
 }) {
   const groups = layout(project, catalog);
-  // One ROW per (repository, context) pair, and one row for a repository no template
-  // names. The height follows that count — 942a's was a sum of block chrome.
+  // One ROW per (repository, context) pair, one for a repository no template names, and one
+  // per reason a template could not be placed. The height follows that count — 942a's was a
+  // sum of block chrome — and the caption counts what the project DECLARES, not rows.
   const rows = groups.reduce((n, g) => n + Math.max(1, g.contexts.length), 0);
   // The left stack is centred on the ROWS' own middle, not on the canvas: the last row
   // carries the drawing's bottom padding, so the two are not the same line and only the
@@ -90,8 +91,8 @@ export function ProjectGraph({
   const projY = midY - COL.projH / 2;
   const arrow = `arrow-${project.id}`;
   const claim =
-    `How ${project.id} is wired: its agent and tracker, its ${groups.length} ` +
-    `${groups.length === 1 ? "repository" : "repositories"}, the contexts its own ` +
+    `How ${project.id} is wired: its agent and tracker, its ${project.repos.length} ` +
+    `${project.repos.length === 1 ? "repository" : "repositories"}, the contexts its own ` +
     `templates name, and the template each of those is built after.`;
 
   let row = 0;
@@ -210,11 +211,11 @@ export function ProjectGraph({
  * name in it. A repository no template names still gets a row — that is a fact about the
  * configuration, not a gap in the drawing.
  *
- * A template whose contextRepo is unset names "wherever that name is" (4df5 asks for it
- * only when two repos declare one context name), so with a single repo it is unambiguous
- * and lands there. With several it lands in a group of its own that says the repository is
- * not named — uncoloured, because an unstated repo is allowed; what IS coloured is a
- * contextRepo naming a repository this project does not declare.
+ * The picker stores the repository on every pick, so a template whose contextRepo is unset
+ * was stored before it did. With a single repo it is unambiguous and lands there. With
+ * several it keeps a row that says the repository is not named until it is opened and saved
+ * — uncoloured, because an unstated repo is allowed. A contextRepo naming a repository this
+ * project does not declare is a different reason, gets its own row, and IS coloured.
  */
 function layout(project: StudioProject, catalog: ConfigCatalog): RepoGroup[] {
   const templates = project.templates ?? [];
@@ -230,15 +231,14 @@ function layout(project: StudioProject, catalog: ConfigCatalog): RepoGroup[] {
   }));
 
   const strays = templates.filter((t) => !declared.has(home(t)));
-  if (strays.length > 0) {
-    const named = strays.some((t) => !!t.contextRepo);
-    groups.push({
-      ref: "—",
-      label: named ? "repository not declared here" : "repository not named",
-      resolved: !named,
-      contexts: strays.map((t, i) => node(t, i, catalog)),
-    });
-  }
+  const unnamed = strays.filter((t) => !t.contextRepo);
+  const undeclared = strays.filter((t) => !!t.contextRepo);
+  const reasons = [
+    { ref: "—", label: "repository not named", resolved: true, of: unnamed },
+    { ref: "—undeclared", label: "repository not declared here", resolved: false, of: undeclared },
+  ];
+  for (const { of, ...group } of reasons)
+    if (of.length > 0) groups.push({ ...group, contexts: of.map((t, i) => node(t, i, catalog)) });
   return groups;
 }
 
