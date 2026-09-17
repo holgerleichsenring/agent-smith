@@ -13,6 +13,7 @@ import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
   SpecDialogProposalPush,
+  SpecDialogActivityPush,
   SpecDialogQuestionPush,
   SpecDialogReadingPush,
   SpecDialogSessionSummary,
@@ -35,6 +36,12 @@ import type {
 // The post is accepted before the message is routed, so a click is PENDING until a read issued after
 // it says what was stored: the entry then becomes that decision, or goes, and the question card comes
 // back from the same read when the question is still open.
+
+// 2026-09-17-042ee: how many of the turn's steps the page keeps. A turn that reads twenty
+// files reports twenty lines, and all but the last few are folded away; keeping every one of
+// an unbounded series would be a leak in a tab someone leaves open.
+const ACTIVITY_KEPT = 50;
+
 export type DialogEntryKind = "user" | "agent" | "decision";
 
 export interface DialogEntry {
@@ -81,6 +88,8 @@ export interface SpecDialogState {
   /** The repositories the running turn opened, one per repository at its latest state, in
    *  the order they were first opened. Empty again when a new turn starts or the answer arrives. */
   readings: SpecDialogReadingPush[];
+  /** What the running turn did, oldest first. Cleared with the readings. */
+  activity: SpecDialogActivityPush[];
   /** A decision is posted as its word and shown as a decision entry rather than echoed. */
   send: (text: string, project?: string, decision?: SpecDialogDecision) => Promise<void>;
   startNew: (project?: string) => Promise<void>;
@@ -108,6 +117,9 @@ export function useSpecDialog(): SpecDialogState {
   // 2026-09-17-c7aec: while awaiting, the server says which repositories the turn opened, so
   // the minute names what is being read.
   const [readings, setReadings] = useState<SpecDialogReadingPush[]>([]);
+  // 2026-09-17-042ee: and what it does with them. Kept in arrival order and bounded: a long
+  // turn calls a tool many times, and a page that grows without limit is its own defect.
+  const [activity, setActivity] = useState<SpecDialogActivityPush[]>([]);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
   // durable transcript does not hold. A session id means "re-seed once the read shows THAT
@@ -199,6 +211,7 @@ export function useSpecDialog(): SpecDialogState {
     // Cleared before the post: the turn starts on the server before the post returns, and its
     // first repository may be announced before this line would otherwise run.
     setReadings([]);
+    setActivity([]);
     try {
       await postSpecDialogMessage(id, text);
       if (echo === true) append("user", text, new Date().toISOString());
@@ -247,6 +260,7 @@ export function useSpecDialog(): SpecDialogState {
       // this is where the waiting ends, whatever the answer turned out to be.
       setAwaiting(false);
       setReadings([]);
+      setActivity([]);
       // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
       replyWasDraftOnly.current = message.text.trim().length === 0;
       if (!replyWasDraftOnly.current) append("agent", message.text, message.at);
@@ -270,6 +284,9 @@ export function useSpecDialog(): SpecDialogState {
     const offReading = client.specDialogReadings.add((reading) => {
       if (reading.dialogId === dialogId) setReadings((held) => upsertReading(held, reading));
     });
+    const offActivity = client.specDialogActivity.add((step) => {
+      if (step.dialogId === dialogId) setActivity((held) => [...held, step].slice(-ACTIVITY_KEPT));
+    });
     const offFiled = client.specDialogFilings.add((filing) => {
       if (filing.dialogId !== dialogId) return;
       setFiled(filing);
@@ -291,6 +308,7 @@ export function useSpecDialog(): SpecDialogState {
       offProposal();
       offFiled();
       offReading();
+      offActivity();
       void stop?.();
     };
   }, [dialogId, append, load, post, loadConversations]);
@@ -327,6 +345,7 @@ export function useSpecDialog(): SpecDialogState {
     setView(null);
     setAwaiting(false);
     setReadings([]);
+    setActivity([]);
     pending.current = command;
     setDialogId(to ? returnToDialog(to) : startNewDialog());
   }, []);
@@ -360,7 +379,7 @@ export function useSpecDialog(): SpecDialogState {
 
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
-    readings, send, startNew, open,
+    readings, activity, send, startNew, open,
   };
 }
 

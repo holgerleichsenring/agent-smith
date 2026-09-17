@@ -175,6 +175,7 @@ public sealed class ScoutContextWindowTests
                 NullLogger<AgentSmith.Infrastructure.Services.RateLimiting.LlmRateLimiterRegistry>.Instance),
             new AgentSmith.Infrastructure.Services.RateLimiting.ThrottleWaitReporter(),
             new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
             NullLoggerFactory.Instance);

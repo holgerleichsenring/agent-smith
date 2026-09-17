@@ -6,9 +6,12 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Turns;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Specs;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.SpecDialog;
@@ -176,9 +179,39 @@ public sealed class SpecDialogProposalReviewTests
         Outcome(pipeline).Should().BeOfType<PhaseOutcome>().Which.Findings.Should().BeEmpty();
     }
 
-    private static SpecDialogProposalReview Review(ISpecCutReviewer reviewer) =>
-        new(reviewer, DerivationTestLooks.Factory(),
+    private static SpecDialogProposalReview Review(
+        ISpecCutReviewer reviewer, ITurnActivityObserverAccessor? activity = null) =>
+        new(reviewer, DerivationTestLooks.Factory(activity: TurnActivityRecorder.Tools(activity)),
+            activity ?? TurnActivityRecorder.Silent(),
             NullLogger<SpecDialogProposalReview>.Instance);
+
+    [Fact]
+    public async Task DialogTurn_Review_ReportsReviewingAndItsReads()
+    {
+        var accessor = TurnActivityRecorder.Silent();
+        var recorder = new TurnActivityRecorder();
+        using var observing = accessor.Observe(recorder);
+        var reviewer = new RecordingReviewer(look =>
+        {
+            ReadThrough(look!).GetAwaiter().GetResult();
+            return SpecCutReview.Clean;
+        });
+        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+
+        await Review(reviewer, accessor)
+            .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+
+        recorder.Lines.Should().Equal(
+            ["reviewing", $"tool read_file {Repo}/src/Api.cs"],
+            "the review says it started, and its look says what it read");
+    }
+
+    private static Task<object?> ReadThrough(DerivationLook look) =>
+        look.Tools.OfType<AIFunction>().Single(t => t.Name == RepositoryFileReadTool.Name)
+            .InvokeAsync(
+                new AIFunctionArguments { ["repository"] = Repo, ["path"] = "src/Api.cs" },
+                CancellationToken.None)
+            .AsTask();
 
     private static PhaseDraft Draft(string phaseId) =>
         new(phaseId, $"goal of {phaseId}", $"phase: {phaseId}", []);

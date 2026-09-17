@@ -14,6 +14,7 @@ import type {
 } from "@/types/hub-events";
 import type { SystemEvent } from "@/types/system-events";
 import type {
+  SpecDialogActivityPush,
   SpecDialogFilingPush,
   SpecDialogMessagePush,
   SpecDialogProposalPush,
@@ -139,6 +140,10 @@ export class JobsHubClient {
   // 2026-09-17-c7aec: which repositories the running turn opened. A plain subject: a line
   // replayed to a later listener would put a finished turn's repository back on screen.
   readonly specDialogReadings = makeSubject<SpecDialogReadingPush>();
+  // 2026-09-17-042ee: what that turn is doing between the reads and the answer. A plain
+  // subject for the same reason: a step replayed to a later listener would put a finished
+  // turn's work back on screen.
+  readonly specDialogActivity = makeSubject<SpecDialogActivityPush>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -368,6 +373,8 @@ export class JobsHubClient {
       this.specDialogFilings.emit(filing));
     conn.on("SpecDialogReading", (reading: SpecDialogReadingPush) =>
       this.specDialogReadings.emit(reading));
+    conn.on("SpecDialogActivity", (activity: SpecDialogActivityPush) =>
+      this.specDialogActivity.emit(activity));
     conn.on("SandboxActivity", (rollup: SandboxActivityRollup) =>
       this.sandboxActivity.emit(rollup));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>

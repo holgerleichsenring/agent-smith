@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -15,6 +16,7 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class DerivationLookFactory(
     SandboxTargets targets, ISandboxFileReaderFactory files,
     IPackageEcosystemDetector ecosystems, ProjectTemplateScopes templates,
+    TurnActivityTools turnActivity, // 2026-09-17-042ee: what a look reads is a step
     ILogger<DerivationLook> logger)
 {
     public DerivationLook? Create(PipelineContext pipeline)
@@ -24,7 +26,8 @@ public sealed class DerivationLookFactory(
         logger.LogInformation(
             "The derivation may look into {Count} repositor{Plural}: {Repos}",
             sandboxes.Count, sandboxes.Count == 1 ? "y" : "ies", string.Join(", ", sandboxes.Keys));
-        return new DerivationLook(sandboxes, files, ecosystems, logger, templates.For(pipeline));
+        return new DerivationLook(
+            sandboxes, files, ecosystems, logger, templates.For(pipeline), activity: turnActivity);
     }
 
     /// <summary>
@@ -39,7 +42,8 @@ public sealed class DerivationLookFactory(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
         return new DerivationLook(
-            sandboxes, files, ecosystems, logger, templates: null, DerivationLookTerms.CutReview);
+            sandboxes, files, ecosystems, logger, templates: null, DerivationLookTerms.CutReview,
+            activity: turnActivity);
     }
 
     /// <summary>
@@ -62,6 +66,6 @@ public sealed class DerivationLookFactory(
         return repositories.Count == 0
             ? null
             : new DerivationLook(repositories, files, ecosystems, logger, templates: null,
-                DerivationLookTerms.ProposalReview, audits: false);
+                DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity);
     }
 }

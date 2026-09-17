@@ -74,6 +74,7 @@ public sealed class ExternalWorkerSelectionTests
             new LlmRateLimiterRegistry(NullLogger<LlmRateLimiterRegistry>.Instance),
             new ThrottleWaitReporter(),
             new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
             NullLoggerFactory.Instance);

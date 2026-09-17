@@ -67,6 +67,8 @@ internal static class SpecDialogExtensions
         services.AddSingleton<DashboardOutcomeChannel>();
         // 2026-09-17-c7aec: which repositories a dashboard design turn opens, as it opens them.
         services.AddSingleton<DashboardReadingChannel>();
+        // 2026-09-17-042ee: what that turn is doing between the reads and the answer.
+        services.AddSingleton<DashboardActivityChannel>();
         return services;
     }
 }

@@ -74,7 +74,7 @@ export function SpecDialogSurface() {
                   entries={dialog.entries}
                   onInspect={(proposal) => setFocus({ tab: "proposal", proposal })}
                 />
-                {dialog.awaiting && <DialogWorking readings={dialog.readings} />}
+                {dialog.awaiting && <DialogWorking readings={dialog.readings} activity={dialog.activity} />}
                 {dialog.question && (
                   <DialogQuestionCard
                     question={dialog.question}
