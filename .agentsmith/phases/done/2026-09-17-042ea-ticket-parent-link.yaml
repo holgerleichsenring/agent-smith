@@ -99,6 +99,16 @@ tests:
   - "EpicFiling_ALinkThatFails_FilesTheRemainingChildrenAndNotesIt_WithoutAnError"
   - "RequirementTicket_Body_CarriesNoParentLine"
   - "dashboard: a filing note is shown on the filed panel"
+  - "EpicFiling_ALinkThatTimesOut_FilesTheRemainingChildrenAndNotesIt"
+  - "EpicFiling_ALinkThatThrows_IsANoteNotAnError"
+  - "OutcomeTicketFiler_ATrackerTimeoutOnCreate_IsReportedNotThrown"
+  - "Jira_LinkToParent_TimedOut_IsAFailedLink"
+  - "Jira_LinkToParent_CallerCancelled_Throws"
+  - "GitHub_Created_CarriesTheDatabaseIdAsNativeId"
+  - "GitHub_LinkToParent_WithoutNativeId_IsAFailedLink"
+  - "AzureDevOps_LinkToParent_NotAWorkItemId_IsAFailedLink"
+  - "GitLab_LinkToParent_Refused_IsAFailedLink"
+  - "dashboard: a filing push without notes still shows the filed panel"
 
 done:
   - "on Azure DevOps each child's Related Work shows its parent"

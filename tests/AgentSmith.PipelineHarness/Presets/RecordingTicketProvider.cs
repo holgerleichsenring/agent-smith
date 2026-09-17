@@ -19,6 +19,7 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
 {
     private readonly List<(TicketId Id, string Comment, string? Status)> _finalized = [];
     private readonly List<(TicketId Id, string Comment)> _commented = [];
+    private int _lastId;
 
     public IReadOnlyList<(TicketId Id, string Comment, string? Status)> Finalized
     {
@@ -42,10 +43,18 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
             "Users are signed out mid-session. Expected: the session survives a refresh.",
             null, "Open", "recording"));
 
+    // Distinct ids, so a test can tell the tickets it created apart.
     public Task<CreatedTicket> CreateAsync(
         string title, string description, IReadOnlyList<string> labels,
-        CancellationToken cancellationToken) =>
-        Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
+        CancellationToken cancellationToken)
+    {
+        var id = Interlocked.Increment(ref _lastId);
+        return Task.FromResult(new CreatedTicket(new TicketId($"{id}"), $"https://tracker.test/{id}"));
+    }
+
+    public Task<ParentLinkResult> LinkToParentAsync(
+        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+        Task.FromResult(ParentLinkResult.Linked);
 
     public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>

@@ -178,6 +178,10 @@ public sealed class PhaseExecutionTests
             CancellationToken cancellationToken) =>
             Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
 
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            Task.FromResult(ParentLinkResult.Linked);
+
         public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
             TicketId ticketId, CancellationToken cancellationToken) =>
             Task.FromResult(comments ?? []);

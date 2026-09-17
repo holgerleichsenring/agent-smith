@@ -12,12 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
-/// <summary>
-/// p0147f: thin GitLab REST v4 orchestrator. Field mapping in
-/// <see cref="GitLabFieldMapper"/>; list/query in <see cref="GitLabIssueLister"/>;
-/// auth + send-or-throw in <see cref="TicketProviderHttpClient"/>;
-/// attachments in <see cref="GitLabAttachmentLoader"/>.
-/// </summary>
+/// <summary>Thin GitLab REST v4 orchestrator; mapping, listing, auth and attachments live in their own types.</summary>
 public sealed class GitLabTicketProvider : ITicketProvider
 {
     private readonly string _baseUrl;
@@ -30,6 +25,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly GitLabCommentMapper _commentMapper = new();
     private readonly GitLabIssueLister _lister;
     private readonly ILogger _logger;
+    private readonly TrackerParentLink _parentLink;
 
     public string ProviderType => "GitLab";
 
@@ -47,6 +43,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _mapper = mapper;
         _lister = new GitLabIssueLister(_http, mapper, connection, logger);
         _logger = logger;
+        _parentLink = new TrackerParentLink("GitLab", logger);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -80,16 +77,11 @@ public sealed class GitLabTicketProvider : ITicketProvider
         }
     }
 
-    // Open-state discovery for the poller + dashboard/chat listing. Without this
-    // GitLab fell back to ITicketProvider's empty default (see JiraTicketProvider).
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         => _lister.ListOpenAsync(cancellationToken);
 
-    // p0283b: GitLab issues are opened/closed only, so the status branch maps to "opened";
-    // narrow by the resolution tag (opened + labels=) when every branch is Tag-based, else broad.
-    // p0300c: the agent-smith trigger-label guard (query.TriggerLabels) stays in-process — the
-    // GitLab ?labels= param is AND-only with no prefix match, and issues are repo-scoped (bounded),
-    // so the in-process ProjectResolver drops non-trigger tickets without a server-side clause.
+    // Issues are opened/closed only: narrow by labels when every branch is tag-based, else stay broad.
+    // The trigger-label guard stays in-process — GitLab's ?labels= is AND-only with no prefix match.
     public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
         DiscoveryQuery query, CancellationToken cancellationToken)
         => query.AllTagLabelsOrNull() is { Count: > 0 } labels
@@ -133,6 +125,13 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _logger.LogInformation("GitLab created issue #{Iid} in {Project}", iid, _projectPath);
         return new CreatedTicket(new TicketId(iid.ToString()), webUrl);
     }
+
+    // relates_to is the one issue link the free tier offers; the body takes the decoded project path.
+    public Task<ParentLinkResult> LinkToParentAsync(
+        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+        _parentLink.AttemptAsync(() => _http.SendAsync(HttpMethod.Post, $"{IssueUrl(child.Id)}/links",
+            new { target_project_id = Uri.UnescapeDataString(_projectPath), target_issue_iid = parent.Value, link_type = "relates_to" },
+            cancellationToken), cancellationToken);
 
     public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>

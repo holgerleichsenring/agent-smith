@@ -92,6 +92,24 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         view.Filing.At.Should().BeOnOrAfter(view.Proposal.At, "the filing is of this proposal");
     }
 
+    /// <summary>2026-09-17-042ea: a filing note survives a reload like the tickets it is about.</summary>
+    [Fact]
+    public async Task View_AFilingWithANote_KeepsTheNote()
+    {
+        await ConversationAsync((TranscriptRole.Assistant, Draft));
+        var store = new SpecDialogLatestOutcomeStore(_repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+
+        await store.SetFilingAsync(Platform, Dialog,
+            new FilingReport([new("https://tracker.test/2", "p9999: widget goal")], null)
+            {
+                Notes = ["https://tracker.test/2 is not linked to its parent https://tracker.test/1: refused"],
+            },
+            Proposal(), CancellationToken.None);
+
+        (await ReadAsync()).Filing!.Notes.Should()
+            .Equal("https://tracker.test/2 is not linked to its parent https://tracker.test/1: refused");
+    }
+
     [Fact]
     public async Task View_AfterARejection_CarriesNoLatestProposal()
     {
@@ -233,7 +251,8 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
         var filer = new OutcomeTicketFiler(
             Loader().LoadConfig(string.Empty), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer()),
+            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
+                NullLogger<EpicTicketFiler>.Instance),
             NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),

@@ -102,7 +102,8 @@ internal static class ConfigCatalogMapper
             tracker.ExtraFields.Count > 0 ? tracker.ExtraFields : null,
             tracker.ZeroMatchComment,
             tracker.LifecycleStatusNames is { Count: > 0 } lifecycle ? lifecycle : null,
-            tracker.DefaultPipeline);
+            tracker.DefaultPipeline,
+            tracker.ParentLinkType);
 
     private static RepoEntity ToRepo(string id, RawRepoEntry repo) =>
         new(id, repo.Url ?? repo.Path ?? string.Empty, repo.DefaultBranch);

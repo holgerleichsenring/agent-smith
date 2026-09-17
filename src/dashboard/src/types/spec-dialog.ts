@@ -169,5 +169,7 @@ export interface SpecDialogFilingPush {
   dialogId: string;
   filed: SpecDialogFiledTicket[];
   error: string | null;
+  /** What went wrong without unfiling anything — a child the tracker would not link to its parent. */
+  notes?: string[];
   at: string;
 }

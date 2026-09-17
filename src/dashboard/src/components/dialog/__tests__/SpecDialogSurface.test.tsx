@@ -134,6 +134,7 @@ function filing(overrides: Partial<SpecDialogFilingPush> = {}): SpecDialogFiling
     filed: [{ reference: "https://tracker/7", title: "p9001: the phase" }],
     error: null,
     at: "2026-09-15T10:04:00Z",
+    notes: [],
     ...overrides,
   };
 }
@@ -793,6 +794,32 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-filed-error")).toHaveTextContent(
       "the tracker refused the second slice",
     );
+  });
+
+  // 2026-09-17-042ea: a filing that could not link a child to its parent says so.
+  it("SpecDialog_AFilingNote_IsShownOnTheFiledPanel", async () => {
+    await renderSurface();
+
+    act(() => filings.emit(filing({
+      notes: ["https://tracker/8 is not linked to its parent https://tracker/7: refused"],
+    })));
+
+    await screen.findByTestId("dialog-filed");
+    expect(screen.getByTestId("dialog-filed-notes")).toHaveTextContent(
+      "https://tracker/8 is not linked to its parent https://tracker/7: refused",
+    );
+    expect(screen.queryByTestId("dialog-filed-error")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialog_AFilingWithoutNotes_StillShowsTheFiledPanel", async () => {
+    await renderSurface();
+    const withoutNotes = filing();
+    delete withoutNotes.notes;
+
+    act(() => filings.emit(withoutNotes));
+
+    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the phase");
+    expect(screen.queryByTestId("dialog-filed-notes")).not.toBeInTheDocument();
   });
 
   it("SpecDialog_AProposalAfterAFiling_MovesTheColumnBackToWhatIsBeingDecided", async () => {

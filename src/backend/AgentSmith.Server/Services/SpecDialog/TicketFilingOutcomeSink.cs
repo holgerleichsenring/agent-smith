@@ -48,8 +48,8 @@ public sealed class TicketFilingOutcomeSink(
         // The notice is both sent and kept: the transcript is the master's own context, so
         // it holds the line in the dialect the reader of this conversation sees.
         var notice = (report.Succeeded
-            ? composer.ComposeFiled(proposal, report.Filed)
-            : composer.ComposeFilingFailure(report.Error!, report.Filed))
+            ? composer.ComposeFiled(proposal, report)
+            : composer.ComposeFilingFailure(report))
             .In(SpecDialogMarkup.For(state.Platform));
         await messenger.SendAsync(
             state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);

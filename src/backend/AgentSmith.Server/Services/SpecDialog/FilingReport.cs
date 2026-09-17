@@ -12,4 +12,8 @@ public sealed record FiledTicket(string Reference, string Title);
 public sealed record FilingReport(IReadOnlyList<FiledTicket> Filed, string? Error)
 {
     public bool Succeeded => Error is null;
+
+    /// <summary>What went wrong without unfiling anything — a child the tracker would not link to
+    /// its parent. Never an error: every ticket named in <see cref="Filed"/> exists.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = [];
 }

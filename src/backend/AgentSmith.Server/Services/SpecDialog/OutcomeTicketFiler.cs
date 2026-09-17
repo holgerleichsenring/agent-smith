@@ -27,6 +27,7 @@ public sealed class OutcomeTicketFiler(
         ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
     {
         var filed = new List<FiledTicket>();
+        var notes = new List<string>();
         try
         {
             var provider = ResolveProvider(state);
@@ -34,18 +35,19 @@ public sealed class OutcomeTicketFiler(
             {
                 BugOutcome bug => FileBugAsync(provider, bug.Ticket, filed, cancellationToken),
                 PhaseOutcome phase => FilePhaseAsync(provider, phase.Draft, filed, cancellationToken),
-                EpicOutcome epic => epicFiler.FileAsync(provider, epic, filed, cancellationToken),
+                EpicOutcome epic => epicFiler.FileAsync(provider, epic, filed, notes, cancellationToken),
                 _ => throw new InvalidOperationException(
                     $"Outcome kind '{proposal.GetType().Name}' cannot be filed."),
             });
-            return new FilingReport(filed, Error: null);
+            return new FilingReport(filed, Error: null) { Notes = notes };
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // A tracker timeout is a filing failure the report names; only the caller's cancellation escapes.
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             logger.LogError(ex,
                 "Ticket filing failed for spec-dialog session {SessionId} after {Count} ticket(s)",
                 state.JobId, filed.Count);
-            return new FilingReport(filed, ex.Message);
+            return new FilingReport(filed, ex.Message) { Notes = notes };
         }
     }
 

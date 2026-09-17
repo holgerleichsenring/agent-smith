@@ -84,6 +84,7 @@ Jira-specific things to notice:
 - **`label_mode: true`** — colons aren't allowed in Jira labels, so the framework lifecycle labels use dashes (`agent-smith-bug` instead of `agent-smith:bug`).
 - **`jira_trigger.secret`** — the webhook shared secret. Jira is the exception among the trackers: GitHub / GitLab / Azure DevOps verify webhooks from server environment variables, but for Jira the secret sits in config, per project, under `jira_trigger`.
 - **`lifecycle_status_names`** — by default the run lifecycle (pending / enqueued / in-progress / done / failed) is carried as labels. Add a `lifecycle_status_names:` map on the tracker to project it onto native Jira workflow statuses instead; labels remain the always-available carrier.
+- **`parent_link_type`** — a child ticket filed from a design conversation is linked to its parent with this issue link type; unset means `Relates`. If your site renamed or disabled that type, the link fails and the filing says so — the tickets are filed either way.
 - **`endpoints:`** — an override block on the tracker for individual REST paths, for the day Atlassian moves one. You should never need it until you do.
 - **`polling.enabled: false`** — Atlassian Cloud webhooks are reliable; use them. Polling is per-tracker and is the fallback for Jira Server / Data Center behind a firewall.
 

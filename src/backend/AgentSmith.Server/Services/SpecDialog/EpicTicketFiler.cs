@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -16,11 +17,18 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// carries its parent and its predecessors as labels — the only field the spawn funnel sees
 /// on both the polling and the webhook path.
 /// </para>
+/// <para>
+/// 2026-09-17-042ea: each child is also linked to its parent through the tracker, for the people
+/// reading it; the labels stay the stamp machines read. A link that does not land becomes a note,
+/// never the filing's error — the tickets exist, and an error would offer a retry that files them twice.
+/// </para>
 /// </summary>
-public sealed class EpicTicketFiler(PhaseTicketRenderer renderer, EpicChildOrderer orderer)
+public sealed class EpicTicketFiler(
+    PhaseTicketRenderer renderer, EpicChildOrderer orderer, ILogger<EpicTicketFiler> logger)
 {
     public async Task FileAsync(
-        ITicketProvider provider, EpicOutcome epic, List<FiledTicket> filed, CancellationToken ct)
+        ITicketProvider provider, EpicOutcome epic, List<FiledTicket> filed, List<string> notes,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(epic);
         var order = orderer.Order(epic.Children);
@@ -38,15 +46,32 @@ public sealed class EpicTicketFiler(PhaseTicketRenderer renderer, EpicChildOrder
         var ticketIdByPhaseId = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var child in order.Children)
         {
-            var content = renderer.RenderChildRequirement(child, parent.Reference);
+            var content = renderer.RenderChildRequirement(child);
             var created = await provider.CreateAsync(
                 content.Title, content.Body, ChildLabels(child, parent, ticketIdByPhaseId), ct);
             ticketIdByPhaseId[child.PhaseId] = created.Id.Value;
             filed.Add(new FiledTicket(created.Reference, content.Title));
+            if (await LinkAsync(provider, created, parent, ct) is { Outcome: not ParentLinkOutcome.Linked } link)
+                notes.Add($"{created.Reference} is not linked to its parent {parent.Reference}: {link.Reason}");
             childRefs.Add($"{created.Reference} — `{child.PhaseId}` {child.Goal}");
         }
         await provider.UpdateStatusAsync(
             parent.Id, $"Slices filed:\n{string.Join("\n", childRefs.Select(r => $"- {r}"))}", ct);
+    }
+
+    private async Task<ParentLinkResult> LinkAsync(
+        ITicketProvider provider, CreatedTicket child, CreatedTicket parent, CancellationToken ct)
+    {
+        try
+        {
+            return await provider.LinkToParentAsync(child, parent.Id, ct);
+        }
+        // A timeout is a failed link; only the caller's own cancellation stops the filing.
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Linking {Child} to its parent {Parent} threw", child.Reference, parent.Reference);
+            return ParentLinkResult.Failed(ex.Message);
+        }
     }
 
     // A sibling edge names a phase id; the label must name the TICKET the sibling was filed
