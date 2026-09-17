@@ -204,6 +204,64 @@ describe("ProjectGraph", () => {
       "graph-node-template-sample-web-client-0",
     ]);
   });
+  it("ProjectGraph_UnambiguousContextWithItsRepository_IsPlacedUnderIt", () => {
+    // 2026-09-17-ce66: on a project with several repositories, a context no other repository
+    // declares was stored without its repository and landed in the stray row.
+    draw(project({ templates: [template({ context: "client", contextRepo: "web" })] }));
+
+    expect(screen.getByTestId("graph-row-sample-web")).toContainElement(
+      screen.getByTestId("graph-node-context-sample-web-client-0"),
+    );
+    expect(screen.queryByTestId("graph-row-sample-—")).toBeNull();
+    expect(screen.queryByTestId("graph-row-sample-—undeclared")).toBeNull();
+  });
+
+  it("ProjectGraph_StoredTemplateNamingNoRepository_KeepsItsRow", () => {
+    // The graph makes no call, so a template stored before the picker named its repository
+    // stays unplaced until it is opened and saved — uncoloured, because that is allowed.
+    draw(project({ templates: [template({ contextRepo: null })] }));
+
+    const stray = screen.getByTestId("graph-node-repo-sample-—");
+    expect(stray.querySelector("title")!.textContent).toBe("repository: repository not named");
+    expect(stray).toHaveAttribute("data-coloured", "false");
+    expect(screen.getByTestId("graph-row-sample-—")).toContainElement(
+      screen.getByTestId("graph-node-context-sample--server-0"),
+    );
+  });
+
+  it("ProjectGraph_UnnamedAndUndeclaredStrays_GetSeparateRows", () => {
+    // One row per reason: a template naming no repository is never labelled or coloured as
+    // one naming a repository this project does not declare.
+    draw(
+      project({
+        templates: [template({ contextRepo: null }), template({ context: "client", contextRepo: "gone" })],
+      }),
+    );
+
+    const unnamed = screen.getByTestId("graph-node-repo-sample-—");
+    const undeclared = screen.getByTestId("graph-node-repo-sample-—undeclared");
+    expect(unnamed.querySelector("title")!.textContent).toBe("repository: repository not named");
+    expect(unnamed).toHaveAttribute("data-coloured", "false");
+    expect(undeclared.querySelector("title")!.textContent).toBe("repository: repository not declared here");
+    expect(undeclared).toHaveAttribute("data-coloured", "true");
+    expect(screen.getByTestId("graph-row-sample-—undeclared")).toContainElement(
+      screen.getByTestId("graph-node-context-sample-gone-client-0"),
+    );
+    // Every drawn row is counted in the height: api, web, and the two strays.
+    expect(viewHeight()).toBe(44 + 4 * 92);
+  });
+
+  it("ProjectGraph_Caption_CountsDeclaredRepositoriesNotRows", () => {
+    // Three repositories and one unplaceable template said "its 4 repositories".
+    draw(project({ repos: ["api", "web", "worker"], templates: [template({ contextRepo: null })] }));
+
+    const claim = screen.getByRole("img").getAttribute("aria-label")!;
+    expect(claim).toContain("its 3 repositories");
+    expect(screen.getByTestId("config-card-graph-sample").querySelector("figcaption")).toHaveTextContent(
+      "its 3 repositories",
+    );
+    expect(viewHeight()).toBe(44 + 4 * 92);
+  });
 });
 
 /** The row pitch, read back out of a drawing whose row count is known. */

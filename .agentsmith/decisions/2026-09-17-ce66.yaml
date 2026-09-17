@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-17-ce66
+
+decisions:
+  - category: Architecture
+    chose: "The picker stores the repository on every pick"
+    over: "Storing it only when two repositories declare the same context name (2026-09-16-4df5)"
+    reason: |
+      The graph draws from stored templates alone and makes no call (2026-09-16-942a), so on a
+      project with several repositories an unambiguous name had no repository to be placed
+      under and landed in the stray row. Choosing a repository-and-name pair is choosing a
+      context of that repository; discarding the repository was a storage economy that threw
+      away the one fact the graph needs.
+
+  - category: Implementation
+    chose: "A stored bare name exactly one repository declares is filled in by an effect keyed on the resolved repository and the name"
+    over: "Leaving it for the operator to re-pick, or filling in a name two repositories declare"
+    reason: |
+      Once every option is qualified a bare name matches none, SelectField adds it as an extra
+      option, and saving writes nothing because the field reports only a pick. One declaring
+      repository is the origin, not a guess, so the fill makes the draft change and one save
+      places it. The effect fires once: after the fill contextRepo is set and the resolved
+      repository becomes null. onChange is excluded from the dependencies because it is a
+      fresh closure every render. Two declaring repositories stay as stored.
+
+  - category: Implementation
+    chose: "One stray row per reason, each with its own group ref (— and —undeclared)"
+    over: "One stray row labelled by whether ANY stray names a repository"
+    reason: |
+      The single row relabelled and coloured templates that name no repository as undeclared
+      as soon as one undeclared stray joined them. Keeping the unnamed row's ref as — leaves
+      its existing test ids unchanged; the undeclared row gets its own ref so both can render.
+      The caption counts project.repos; the height still counts every drawn row.
+
+  - category: Scope
+    chose: "No migration of stored templates"
+    over: "Rewriting stored declarations to name their repository"
+    reason: |
+      Nothing rewrites declarations the editor never opens, and the graph cannot resolve a
+      name without a call. A stored unqualified template keeps its row until it is opened and
+      saved; a re-saved template gets a qualified scope address, which every consumer builds
+      through TemplateScopeName.For.

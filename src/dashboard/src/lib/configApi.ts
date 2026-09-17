@@ -440,8 +440,8 @@ export interface ProjectResolution {
  *  and `revision` is the one typed field — nothing in the product enumerates refs. */
 export interface TemplateReference {
   context: string;
-  /** 2026-09-16-4df5: which repo of THIS project `context` belongs to. Null means
-   *  "wherever that name is" — named only when two repos declare one context name. */
+  /** 2026-09-16-4df5: which repo of THIS project `context` belongs to — the picker stores
+   *  it on every pick. Null means "wherever that name is", as stored before it did. */
   contextRepo?: string | null;
   project: string;
   repo: string;

@@ -380,9 +380,9 @@ describe("ProjectForm", () => {
       expect(screen.getByTestId("form-templates-0-context").tagName).toBe("SELECT"),
     );
     expect(mockedContexts).toHaveBeenCalledWith("proj", "web", expect.anything());
-    expect(
-      screen.getByTestId("form-templates-0-context").querySelector('option[value="server"]'),
-    ).not.toBeNull();
+    // The option value names the repository the context came from (2026-09-17-ce66).
+    const local = [...screen.getByTestId("form-templates-0-context").querySelectorAll("option")];
+    expect(local.some((o) => o.value === "web\u0000server")).toBe(true);
 
     // The target project comes from the catalog.
     const target = screen.getByTestId("form-templates-0-project");
