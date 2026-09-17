@@ -44,6 +44,7 @@ internal static class SpecDialogExtensions
         services.AddTransient<EpicChildOrderer>();
         services.AddScoped<EpicTicketFiler>();
         services.AddScoped<SpecDialogOutcomeStore>();
+        services.AddScoped<SpecDialogLatestOutcomeStore>();
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();

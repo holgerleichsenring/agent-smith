@@ -17,8 +17,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// reply slot into the run via PipelineRequest.Context; pumps the master's
 /// questions into the thread while the run is live; owns the sandboxes'
 /// lifetime (disposed when the turn ends — a sandbox that served no read
-/// disposes to nothing). Returns the reply text; the router persists and
-/// delivers it.
+/// disposes to nothing). Returns the reply as kept and as shown on the session's platform;
+/// the router persists the first and delivers the second.
 /// <para>
 /// 2026-09-13-ed5a: the project's declared TEMPLATES join that set. The scope's repos come
 /// from the session row; the templates come off the resolved project — the two columns
@@ -61,9 +61,10 @@ public sealed class SpecDialogTurnRunner(
             // run left both empty and resolves to an answer-shaped failure note.
             // The stamp rides the outcome because the scopes below are gone by filing time.
             return slot is { Reply: not null, Outcome: not null }
-                ? new SpecDialogTurnResult(
-                    slot.Reply, templateScopes.Stamp(slot.Outcome, project, templates))
-                : new SpecDialogTurnResult(ComposeFailureReply(state, result), new AnswerOutcome());
+                ? SpecDialogTurnResult.On(
+                    state.Platform, slot.Reply, templateScopes.Stamp(slot.Outcome, project, templates))
+                : SpecDialogTurnResult.On(
+                    state.Platform, ComposeFailureReply(state, result), new AnswerOutcome());
         }
         finally
         {

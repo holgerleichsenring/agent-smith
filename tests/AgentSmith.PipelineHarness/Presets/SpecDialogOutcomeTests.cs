@@ -150,6 +150,21 @@ public sealed class SpecDialogOutcomeTests
     }
 
     [Fact]
+    public async Task Runner_OnTheDashboard_KeepsTheDraftAndShowsTheProseWithoutIt()
+    {
+        var (bridge, adapter, sink) =
+            (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
+        await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
+        harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
+
+        var result = await RunTurnAsync(harness, State("draft the widget phase now") with { Platform = "dashboard" });
+
+        result.Outcome.Should().BeOfType<PhaseOutcome>();
+        result.Reply.Should().Contain("```yaml", "the transcript keeps what the master wrote");
+        result.Shown.Should().Be("Here is the phase draft:", "the dashboard pane shows the draft");
+    }
+
+    [Fact]
     public async Task Outcome_LargeFeature_ProposesEpicWithLinkedRequires()
     {
         var (bridge, adapter, sink) = (new InMemoryDialogueBridge(),

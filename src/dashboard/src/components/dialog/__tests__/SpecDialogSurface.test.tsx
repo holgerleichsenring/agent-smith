@@ -70,6 +70,9 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
       scope: SAMPLE_SCOPE,
       transcript: [],
       lastActivityAt: "2026-09-15T10:00:00Z",
+      proposal: null,
+      filing: null,
+      proposalTurn: null,
     },
     projects: [SAMPLE_SCOPE],
     openSessions: [],
@@ -101,6 +104,7 @@ function phase(
     tests: [`Test_Of_${phaseId}`],
     done: [`done of ${phaseId}`],
     requires: [],
+    yaml: `phase: ${phaseId}`,
     ...overrides,
   };
 }
@@ -500,6 +504,60 @@ describe("SpecDialogSurface", () => {
 
     expect(await screen.findByTestId("dialog-proposal")).toHaveTextContent("goal of p9002");
     expect(screen.queryByTestId("dialog-filed")).not.toBeInTheDocument();
+  });
+
+  // 2026-09-17-c7aea: the pane's state is kept on the session, so a reload takes it back.
+  function reloadedWith(held: Partial<SpecDialogView["session"] & object>) {
+    const base = view();
+    fetchSpecDialog.mockResolvedValue({ ...base, session: { ...base.session!, ...held } });
+  }
+
+  it("SpecDialog_AReloadAfterAFiling_TakesTheFilingBackFromTheRead", async () => {
+    reloadedWith({
+      proposal: proposal({ at: "2026-09-15T10:03:00Z" }),
+      filing: filing({ at: "2026-09-15T10:04:00Z" }),
+    });
+
+    render(<SpecDialogSurface />);
+
+    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the phase");
+  });
+
+  it("SpecDialog_AReloadWithAProposal_OffersItsRawForm", async () => {
+    reloadedWith({ proposal: proposal({ phase: phase("p9001", { yaml: "phase: p9001\ngoal: g" }) }) });
+
+    render(<SpecDialogSurface />);
+
+    expect(await screen.findByTestId("dialog-proposal-raw-p9001")).toHaveTextContent("goal: g");
+  });
+
+  it("SpecDialog_AReloadWithAProposalNewerThanTheFiling_ShowsTheProposal", async () => {
+    reloadedWith({
+      proposal: proposal({ phase: phase("p9002"), at: "2026-09-15T10:05:00Z" }),
+      filing: filing({ at: "2026-09-15T10:04:00Z" }),
+    });
+
+    render(<SpecDialogSurface />);
+
+    expect(await screen.findByTestId("dialog-proposal")).toHaveTextContent("goal of p9002");
+    expect(screen.queryByTestId("dialog-filed")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialog_AReplyThatWasOnlyADraft_AddsNoEmptyTurn", async () => {
+    reloadedWith({
+      transcript: [
+        { role: "user", text: "draft it", at: "2026-09-15T10:01:00Z" },
+        { role: "assistant", text: "", at: "2026-09-15T10:02:00Z" },
+      ],
+    });
+    await renderSurface();
+    await screen.findByTestId("dialog-turn-user");
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString(),
+    }));
+
+    expect(screen.queryByTestId("dialog-turn-agent")).not.toBeInTheDocument();
   });
 
   it("SpecDialog_APushForAnotherDialog_ChangesNothing", async () => {

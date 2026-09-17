@@ -78,6 +78,13 @@ function Phase({ phase, label }: { phase: SpecDialogPhaseProposal; label?: strin
       <Lines label="Tests" items={phase.tests} />
       <Lines label="Done" items={phase.done} />
       <Lines label="Requires" items={phase.requires} />
+      {/* On this surface the reply no longer carries the draft, so its raw form lives here. */}
+      {phase.yaml && (
+        <details data-testid={`dialog-proposal-raw-${phase.phaseId}`} className="mt-1">
+          <summary className="dsh-label cursor-pointer text-[var(--color-ink-mid)]">Raw spec</summary>
+          <pre className="dsh-label mt-1 overflow-x-auto whitespace-pre text-stone-700">{phase.yaml}</pre>
+        </details>
+      )}
     </div>
   );
 }

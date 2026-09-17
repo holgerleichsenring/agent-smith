@@ -62,7 +62,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
         _turnRunner = new Mock<ISpecDialogTurnRunner>();
         _turnRunner
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SpecDialogTurnResult(CannedReply, new AnswerOutcome()));
+            .ReturnsAsync(SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome()));
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
@@ -73,6 +73,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
 new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
+            new SpecDialogLatestOutcomeStore(repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,
@@ -150,8 +151,8 @@ new DashboardOutcomeChannel(
         var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
         _turnRunner.SetupSequence(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SpecDialogTurnResult("draft reply", new PhaseOutcome(draft)))
-            .ReturnsAsync(new SpecDialogTurnResult("revised reply", new AnswerOutcome()));
+            .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft)))
+            .ReturnsAsync(SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
         _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AgentSmith.Contracts.Dialogue.DialogAnswer(
