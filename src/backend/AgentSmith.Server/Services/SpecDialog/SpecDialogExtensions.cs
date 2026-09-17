@@ -28,6 +28,7 @@ internal static class SpecDialogExtensions
         // runner shares that scope for the duration of its in-process run.
         services.AddScoped<SpecDialogSessionManager>();
         services.AddScoped<SpecDialogResumer>();
+        services.AddScoped<SpecDialogAnswerAdmission>();
         services.AddScoped<SpecDialogCommandHandler>();
         services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>();
         // 2026-09-13-ed5a: the declared templates the epic analysis may read, and the

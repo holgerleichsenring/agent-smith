@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 
@@ -15,7 +16,13 @@ internal static class SpecDialogSessionMapper
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new TolerantTurnKindConverter(), new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+        // 042ec, 042el: a kind or a decision this build cannot name reads as none, not as an unreadable transcript.
+        Converters =
+        {
+            new TolerantNullableEnumConverter<SpecDialogTurnKind>(),
+            new TolerantNullableEnumConverter<SpecDialogDecision>(),
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
+        },
     };
 
     internal static ConversationState ToState(SpecDialogSession session) => new()

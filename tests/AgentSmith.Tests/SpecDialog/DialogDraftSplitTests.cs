@@ -198,7 +198,8 @@ public sealed class DialogDraftSplitTests : IDisposable
                     NullLogger<SpecDialogResumer>.Instance),
                 new SpecDialogScopeResolver(Mock.Of<IConfigurationLoader>()),
                 new SpecDialogReplyComposer(), _messenger),
-            _turnRunner.Object, flow, gate, pending, _transport.Object,
+            _turnRunner.Object, flow, gate,
+            new SpecDialogAnswerAdmission(_sessions, pending, _transport.Object),
             new SpecDialogReplyComposer(), _messenger, NullLogger<SpecDialogRouter>.Instance);
     }
 

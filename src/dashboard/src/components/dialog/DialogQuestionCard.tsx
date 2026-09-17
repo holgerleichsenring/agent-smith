@@ -3,6 +3,7 @@
 import { Markdown } from "@/components/ui/Markdown";
 import type {
   SpecDialogChoice,
+  SpecDialogDecision,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
 } from "@/types/spec-dialog";
@@ -31,6 +32,8 @@ interface Control {
   label: string;
   answer: string;
   primary: boolean;
+  /** 2026-09-17-042el: the approval buttons are a decision, shown as one rather than echoed. */
+  decision?: SpecDialogDecision;
 }
 
 export function DialogQuestionCard({
@@ -40,7 +43,7 @@ export function DialogQuestionCard({
 }: {
   question: SpecDialogQuestionPush;
   proposal: SpecDialogProposalPush | null;
-  onAnswer: (answer: string) => void;
+  onAnswer: (answer: string, decision?: SpecDialogDecision) => void;
 }) {
   const expired = hasExpired(question);
   const controls = expired ? [] : controlsFor(question);
@@ -71,7 +74,7 @@ export function DialogQuestionCard({
             key={control.answer}
             type="button"
             data-testid={`dialog-answer-${control.answer}`}
-            onClick={() => onAnswer(control.answer)}
+            onClick={() => onAnswer(control.answer, control.decision)}
             className={
               control.primary
                 ? "rounded-md bg-primary-deep px-3 py-1.5 dsh-body font-semibold text-on-primary hover:bg-primary-pressed"
@@ -95,8 +98,8 @@ function controlsFor(question: SpecDialogQuestionPush): Control[] {
   if (question.choices.length > 0) return question.choices.map(asControl);
   if (question.kind === "approval")
     return [
-      { label: "Approve & file", answer: "approve", primary: true },
-      { label: "Reject", answer: "reject", primary: false },
+      { label: "Approve & file", answer: "approve", primary: true, decision: "approved" },
+      { label: "Reject", answer: "reject", primary: false, decision: "rejected" },
     ];
   if (question.kind === "confirmation")
     return [

@@ -53,18 +53,41 @@ public sealed class SpecDialogSessionManager(
     /// <summary>
     /// Appends a turn to the open session of the given thread and persists it.
     /// Returns the updated state, or null when the thread has no open session.
+    /// 2026-09-17-042el: the decision is required like the kind, null for any turn that is not
+    /// an approval answer.
     /// </summary>
     public async Task<ConversationState?> AppendTurnAsync(
         string platform, string threadId, TranscriptRole role, string text,
-        SpecDialogTurnKind? kind, CancellationToken ct)
+        SpecDialogTurnKind? kind, SpecDialogDecision? decision, CancellationToken ct)
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
         if (session is null) return null;
 
-        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind);
+        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision);
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         session.LastActivityAt = turn.At;
+        await repository.SaveAsync(ct);
+
+        return SpecDialogSessionMapper.ToState(session);
+    }
+
+    /// <summary>
+    /// 2026-09-17-042el: takes the decision back from a stored turn whose answer answered nothing —
+    /// the latest turn equal to <paramref name="turn"/>, so a message stored after it is not touched.
+    /// Returns the updated state, or null when the thread has no open session.
+    /// </summary>
+    public async Task<ConversationState?> ClearDecisionAsync(
+        string platform, string threadId, TranscriptTurn turn, CancellationToken ct)
+    {
+        var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
+        if (session is null) return null;
+
+        var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).ToList();
+        var index = transcript.LastIndexOf(turn);
+        if (index < 0) return SpecDialogSessionMapper.ToState(session);
+        transcript[index] = turn with { Decision = null };
+        session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript(transcript);
         await repository.SaveAsync(ct);
 
         return SpecDialogSessionMapper.ToState(session);

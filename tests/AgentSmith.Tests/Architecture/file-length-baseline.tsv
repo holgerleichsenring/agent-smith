@@ -135,7 +135,7 @@
 133	AgentSmith.Application/Services/Handlers/SecuritySnapshotWriter.cs
 133	AgentSmith.Cli/Commands/ConfigCommand.cs
 132	AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs
-132	AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs
+124	AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs
 131	AgentSmith.Server/Services/LlmIntentParser.cs
 128	AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs
 129	AgentSmith.Infrastructure/Services/SensitiveToolHistoryScrubChatClient.cs

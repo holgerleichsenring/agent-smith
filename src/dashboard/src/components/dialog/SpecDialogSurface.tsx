@@ -79,7 +79,7 @@ export function SpecDialogSurface() {
                   <DialogQuestionCard
                     question={dialog.question}
                     proposal={dialog.proposal}
-                    onAnswer={(answer) => void dialog.send(answer, project)}
+                    onAnswer={(answer, decision) => void dialog.send(answer, project, decision)}
                   />
                 )}
               </div>

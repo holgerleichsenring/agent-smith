@@ -16,11 +16,16 @@ export interface SpecDialogProject {
   templates: SpecDialogTemplate[];
 }
 
+/** 2026-09-17-042el: what an operator's answer to an approval question decided. */
+export type SpecDialogDecision = "approved" | "rejected";
+
 export interface SpecDialogTurn {
   /** "user" or "assistant" — the durable transcript's own word. */
   role: string;
   text: string;
   at: string;
+  /** Set on the operator turn that answered an approval question with approve or reject. */
+  decision?: SpecDialogDecision | null;
 }
 
 export interface SpecDialogSession {
