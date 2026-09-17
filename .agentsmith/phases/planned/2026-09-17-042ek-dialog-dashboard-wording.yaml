@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ek
+
+goal: "Replies the dashboard page can reach speak without slash commands or threads, and the dashboard's approval question carries no text the proposal card and its summary already show."
+
+applies_to: "backend (spec-dialog composers, markup selector, dashboard dispatcher) + dashboard (approval surface)"
+
+requires:
+  - 2026-09-17-042ed
+  - 2026-09-17-042el
+
+scope:
+  in: >
+    SpecDialogMarkup gains a selector so a composed reply can carry a dashboard wording, picked where it is
+    bound. The sentences the page can reach get one: opened, already open, choice required, question prompt,
+    session not found, timed out, filing failure, and the dashboard dispatcher's no-open-dialog line. On the
+    dashboard the approval question's text is empty: the card's client summary and 042ed's findings carry it.
+  out: >
+    REPLIES TO TYPED COMMANDS. The resume usage and the session list answer a command the operator typed
+    (SpecDialogReplyComposer.cs:31-32,47); they keep naming commands.
+    CHAT PLATFORMS' WORDING. Slack and Teams keep the commands they need.
+
+decisions:
+  - key: |
+      THE MARKUP PICKS THE WORDING. A ComposedReply is a function of the markup (ComposedReply.cs:13-16) and the
+      markup is CommonMark only for the dashboard (SpecDialogMarkup.cs:37-40), but it exposes no platform
+      identity (:25-34); it gains the selector. The confirmation is bound in the confirmer
+      (SpecDialogOutcomeConfirmer.cs:34) into the question text that feeds chat cards, the dashboard push and the
+      pending-question store; the filed and filing-failure notices are bound in the filing sink
+      (TicketFilingOutcomeSink.cs:50-53), which also appends them to the transcript (:56-57), so the dashboard
+      wording is what the design master reads back; every other reply is bound in the messenger. The dispatcher's
+      line is a plain string, never bound.
+  - key: |
+      THE SENTENCES, CITED. ComposeOpened and ComposeAlreadyOpen (SpecDialogReplyComposer.cs:17-20,26-29),
+      ComposeChoiceRequired (:55-57, reached by New conversation with several projects and none picked),
+      ComposeSessionNotFound (:42), ComposeQuestion (:71); ComposeTimeout (SpecDialogOutcomeComposer.cs:25) and the
+      filing failure (:39); DashboardDialogDispatcher's no-open-dialog line (DashboardDialogDispatcher.cs:19-21), a
+      plain string on a dashboard-only path, reworded in place. ComposeRejected (:21-22) names neither and is
+      unchanged; ComposeTurnInProgress stays true, because 2026-09-17-042el keeps appending a message sent mid-turn.
+  - key: |
+      THE DASHBOARD QUESTION TEXT IS EMPTY, NOT SHORTER. The card already renders a counted summary (summaryOf,
+      DialogQuestionCard.tsx:62-66,115-123) above the server text (:67), and 042ed lists the findings from the
+      proposal; a server line saying either would show it twice. The saved proposal can be missing after a reload,
+      because a failed save is logged and dropped (SpecDialogLatestOutcomeStore.cs:83-96), and the summary renders only
+      with a proposal (DialogQuestionCard.tsx:47-48); the card then shows a fallback line. Only the approval
+      confirmation is empty; design-turn questions keep their text. The slice list (SpecDialogOutcomeComposer.cs:56-64)
+      and the approve/reject sentence stay for chat.
+
+steps:
+  - id: the-selector
+    action: "SpecDialogMarkup gains a platform selector; composed replies carry dashboard variants for the cited sentences."
+  - id: the-dispatcher-line
+    action: "The dashboard dispatcher's no-open-dialog line names no command."
+  - id: an-empty-dashboard-question
+    action: "The confirmation bound for the dashboard is empty text; the card renders its summary and findings, or a fallback line without a proposal."
+
+tests:
+  - "SpecDialogReply_Opened_OnTheDashboard_NamesNoCommandOrThread"
+  - "SpecDialogReply_ChoiceRequired_OnTheDashboard_NamesNoCommand"
+  - "SpecDialogReply_Opened_OnSlack_IsUnchanged"
+  - "SpecDialogReply_FilingFailure_OnTheDashboard_NamesNoThread"
+  - "SpecDialogReplies_EveryPageReachableSentence_OnTheDashboard_NamesNoCommandOrThread"
+  - "dashboard: an approval question without a saved proposal shows a fallback line"
+  - "DashboardDialogDispatcher_NoOpenDialog_NamesNoCommand"
+  - "OutcomeConfirmation_BoundForTheDashboard_IsEmpty"
+  - "OutcomeConfirmation_BoundForSlack_ListsTheSlices"
+
+done:
+  - "no reply the dashboard page can reach mentions a slash command or a thread"
+  - "Slack and Teams replies are unchanged"
+  - "build green, full suite green, dashboard tests green"

@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ef
+
+goal: "Work it out takes the Projects page's cards, marks, field labels and buttons under a dialog shell of its own, so its line weights, fills and buttons match the page it sits beside."
+
+applies_to: "dashboard (dialog components, mock-parity styles)"
+
+requires:
+  - 2026-09-17-042ed
+  - 2026-09-17-042ee
+  - 2026-09-17-042ek
+  - 2026-09-17-042el
+  - 2026-09-17-042em
+  - 2026-09-17-042ej
+
+scope:
+  in: >
+    A dialog shell replaces mock-runs on the page and carries the rules the page needs from it: main padding and
+    width, page head. Config Studio's elements are taken as they render there: the panel card with light line and
+    shadow (the base and inert card rules, not the hover or button-card rules), the filled mark, the field label of
+    its entity cards, the mono entity name, and the config button rules, by adding the dialog selector to those rules
+    rather than copying them. Every dialog surface moves to them: section frames,
+    transcript, composer, question card, working lines, pane and tabs, proposal card, filed panel. The scope panel
+    lists repositories and templates as marks. Local Chip, Eyebrow, Facts and button strings go. This phase comes
+    last in the series and requires every phase that edits these components.
+  out: >
+    THE UI COMPONENTS ui/Card, ui/Button, ui/SectionLabel. They carry raw palette classes and the Projects page
+    does not use them.
+    WIRING CHIPS. The Projects page renders none; they belong to the system config view (mock-parity.css:867-871).
+
+decisions:
+  - key: |
+      THE REFERENCE IS WHAT CONFIG STUDIO RENDERS. Project cards are inert cards with marks (EntityCard.tsx:64-88,340-379);
+      the field labels belong to the other entity cards (:228); all run under mock-shell mock-config
+      (ConfigStudio.tsx:54,68), with the config button rules: 13px, radius 10, shadow, accent-ink text and a disabled
+      state (mock-parity.css:499-503). The dialog joins the base card rule and .inert (:512,515), not the hover border
+      (:516) or the button card (:709); a selector added to those lists leaves config pages unchanged. The
+      dialog runs under mock-runs with its own utility strings (SpecDialogSurface.tsx:39).
+  - key: |
+      A DIALOG SHELL, NOT THE CONFIG SHELL AND NOT MOCK-RUNS. .mock-config caps .main at 1000px (:494), below the
+      72rem width at which c7aed shows three columns. Under mock-runs, `section + section` gets a 26px top margin
+      (:729), which drops the exchange column below its neighbours. The dialog shell takes mock-runs' main and page
+      head rules (:133-137) and none of its section rules.
+  - key: |
+      THIS SUPERSEDES C7AED'S TOKEN DECISION WHOLE. c7aed chose theme utilities for everything visual
+      (decisions/2026-09-17-c7aed.yaml, the-tokens-the-mock-maps-to): border-mute, bg-canvas, primary-deep. Moving
+      only some surfaces would put the dark mute line beside the light card line, the assembled look c7aed meant to
+      avoid; every dialog surface moves. The button's near-white on the brand green is the Projects page's own,
+      taken deliberately.
+  - key: |
+      A TEMPLATE IS A MARK WITH ITS REVISION. The scope panel's facts line reads name, repository and revision
+      (DialogScopePanel.tsx:53-54); a mark carries the name and a mono "repo@revision" beside it, plain "repo" where the
+      revision is absent (:54).
+  - key: |
+      THE PALETTE SCAN STILL HOLDS, AND THE LOOK IS CHECKED BY EYE. Mock classes are token-based; the scan reads only
+      components/dialog (dialog-palette.test.ts:10-26). No test can measure that two pages look alike.
+
+steps:
+  - id: the-dialog-shell
+    action: "A dialog shell class with main and page-head rules; the dialog selector joins the config card, mark, field-label and button rules."
+  - id: surfaces-move
+    action: "Every dialog surface uses those classes; local Chip, Eyebrow, Facts and button strings go."
+  - id: scope-as-marks
+    action: "The scope panel lists repositories and templates as marks, templates with repo@revision."
+
+tests:
+  - "dashboard: the page renders under the dialog shell, not mock-runs"
+  - "dashboard: the scope panel shows each repository and template as a mark"
+  - "dashboard: the dialog components declare no local Chip, Eyebrow or button class string"
+
+done:
+  - "at wide widths the three column tops align"
+  - "placed side by side, the Work it out page and the Projects page use the same cards, marks, labels and buttons, checked by eye"
+  - "dashboard build and tests green"
