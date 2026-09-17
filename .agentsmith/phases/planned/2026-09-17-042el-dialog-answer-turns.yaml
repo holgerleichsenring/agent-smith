@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042el
+
+goal: "An approve or reject answer to a proposal is recorded on its transcript turn as a decision, and the dashboard shows that decision instead of the word as an operator message, live and after a reload."
+
+applies_to: "backend (spec-dialog answer admission, transcript turn) + dashboard (decision entries)"
+
+requires:
+  - 2026-09-17-042ec
+
+scope:
+  in: >
+    An answer admission type, beside the resumer, peeks the pending question, classifies the message, appends
+    it with what it answered, then takes the question and publishes the answer; the approval answer it builds
+    is the one 2026-09-17-042eg extends. An
+    approve or reject answer to an approval question is appended with its decision; free-text answers and edit
+    notes are ordinary messages. The approve/reject vocabulary is shared by the admission and the confirmer.
+    The dashboard's approval buttons add a local decision entry instead of echoing a message; the turn view, the
+    shown transcript and the dashboard turn type carry the optional decision, and the seed maps it to the same
+    entry.
+  out: >
+    THE TURN GATE ORDER. A message sent while a turn runs is still appended, as 2026-09-17-c7aeb decided; the
+    race it named is renamed to what is possible: a message arriving while a resume holds the gate is not appended.
+    CHAT BUTTON ANSWERS IN THE TRANSCRIPT. Slack and Teams button clicks are relayed by the confirmer and never
+    reach the router (SpecDialogOutcomeConfirmer.cs:62-70), so they are not in the transcript today; named
+    successor: a chat button answer is recorded in the transcript.
+
+decisions:
+  - key: |
+      PEEK, APPEND, TAKE; THE GATE IS NOT TOUCHED. A pending question exists only while a turn holds the gate: the
+      confirmer waits inside the turn (SpecDialogRouter.cs:76,111; SpecDialogQuestionPump.cs:30). Taking the gate
+      first would refuse every answer until the confirmer times out (SpecDialogOutcomeConfirmer.cs:23). Taking the
+      question before the append would strand it when the append throws: the registry is in memory
+      (SpecDialogPendingQuestions.cs:29), a resend would find no question, and a reload shows no card
+      (SpecDialogViewReader.cs:37). TryPeek returns the whole question (:47-48), so the admission peeks and
+      classifies, appends, then takes and publishes; if the take then fails, the stored message goes the gate path
+      without a second append.
+  - key: |
+      PUBLISH STAYS AFTER THE APPEND. An edit note re-runs the turn over a re-read session that must already
+      hold the note (SpecDialogRouter.cs:114-118).
+  - key: |
+      THE TAKE RETURNS THE QUESTION, AND ONE VOCABULARY DECIDES. TryTake returns only the id
+      (SpecDialogPendingQuestions.cs:50-55), and telling an approval from a free-text question needs its type;
+      the approve and reject words are private to the confirmer (SpecDialogOutcomeConfirmer.cs:24-27). TryTake
+      returns the pending question, and one shared classifier owns the word lists and their normalisation (trim,
+      lower-case, :93-96), applied to approval questions only; a design turn's question is free text
+      (SpecDialogPendingQuestions.cs:42), where "yes" stays a message.
+  - key: |
+      ITS OWN TYPE, AS THE RESUMER IS. c7aeb kept the gate and the pending registry out of the scoped session
+      manager and gave the resume its own type (decisions/2026-09-17-c7aeb.yaml, the-resume-is-its-own-type).
+      The router is 132 lines against a 132 baseline; the admission returns answered or not, the router calls it.
+  - key: |
+      THE LIVE PAGE NEEDS ITS OWN ENTRY. Reads re-seed entries only when the conversation changes
+      (useSpecDialog.ts:131-141), so a server-side decision never appears live. The buttons append a decision
+      entry locally; seed() maps a recorded decision to the same kind (:352-363). A typed "approve" is echoed as
+      typed and shows as a decision after a reload, which is what the server recorded.
+  - key: |
+      OLD ROWS READ, AND A DECISION IS AN OPERATOR MESSAGE FOR 042EC. TranscriptTurn is stored with
+      System.Text.Json (SpecDialogSessionMapper.cs:41-45); the decision is optional, and 042ec's rule counts a
+      decision turn as the operator's reply.
+
+steps:
+  - id: take-returns-the-question
+    action: "SpecDialogPendingQuestions.TryTake returns the pending question; the approve/reject classifier is shared with the confirmer."
+  - id: the-admission
+    action: "An answer admission type looks the session up, peeks and classifies, appends with the decision, takes and publishes; the router calls it."
+  - id: the-view-carries-it
+    action: "SpecDialogTurnView, SpecDialogShownTranscript.Turns and the dashboard SpecDialogTurn carry the optional decision."
+  - id: decision-entries
+    action: "The approval buttons add a local decision entry without echo; the transcript seed maps recorded decisions to it."
+
+tests:
+  - "Admission_ApprovalAnswer_IsAppendedWithItsDecision"
+  - "Admission_EditNoteToAConfirmation_IsAnOrdinaryMessage"
+  - "Admission_FreeTextAskHumanAnswer_IsAppendedOnce"
+  - "Admission_EditNote_IsAppendedBeforeTheAnswerIsPublished"
+  - "Admission_AppendFails_QuestionStaysAnswerable"
+  - "Classifier_YesToAFreeTextQuestion_IsNotADecision"
+  - "Router_AnswerWhileATurnHoldsTheGate_IsStillAnAnswer"
+  - "TranscriptTurn_RowWithoutDecision_ReadsAsAMessage"
+  - "dashboard: approving shows a decision entry, not an operator message"
+  - "dashboard: after a reload a recorded decision shows as a decision entry"
+
+done:
+  - "clicking Approve & file shows a decision, not the word approve as a message, live and after a reload"
+  - "every existing answer, edit-note and question test still passes"
+  - "build green, full suite green, file-length ratchet green"
