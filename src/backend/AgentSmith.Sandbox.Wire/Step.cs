@@ -1,5 +1,10 @@
 namespace AgentSmith.Sandbox.Wire;
 
+// 2026-09-17-042ed: SearchHidden asks a Grep step to search DOTFILES AND IGNORED PATHS as well.
+// Off by default, because a repository's ignore rules are what its own readers see: a grep that
+// reads .env, .npmrc and a checked-out .venv floods every master's result head with what the
+// repository deliberately does not track. The proposal review turns it on, because an absence it
+// states must hold over the whole checkout.
 public sealed record Step(
     int SchemaVersion,
     Guid StepId,
@@ -23,7 +28,8 @@ public sealed record Step(
     GrepOutputMode OutputMode = GrepOutputMode.Content,
     bool WithSizes = false,
     DirectorySortBy SortBy = DirectorySortBy.Name,
-    IReadOnlyList<string>? ExcludeGlobs = null)
+    IReadOnlyList<string>? ExcludeGlobs = null,
+    bool SearchHidden = false)
 {
     /// <summary>The protocol version stamped on every step this build sends. Stated once in
     /// <see cref="WireProtocol"/> so three records cannot disagree about what "current" is.</summary>

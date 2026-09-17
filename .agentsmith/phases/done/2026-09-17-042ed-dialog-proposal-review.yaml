@@ -64,8 +64,10 @@ decisions:
       rendered through GrepResultRenderer with an absolute path (ContainedPath.Absolute). The ripgrep path
       ignores rg's exit code (GrepStepHandler.cs:82-92) and the managed fallback turns a missing directory
       into [] (:318-319): the handler honours rg's exit (0 match, 1 none, 2 error), a missing path is
-      could-not-run, and rg runs with --hidden --no-ignore so dotfiles and ignored paths are searched; the
-      fixed directory and size exclusions (:25-30) are named in the tool description.
+      could-not-run, and THIS look's Grep step asks rg for --hidden --no-ignore so dotfiles and ignored
+      paths are searched — a step-level option, because every other grep in the product reads what the
+      repository's own readers read; the fixed directory and size exclusions (:25-30) are named in this
+      tool's description and in grep_in_tree's.
   - key: |
       FINDINGS RIDE ON THE PROPOSAL, AS ITS TEMPLATES DO. ed5a put templates on the proposal
       (OutcomeProposal.cs:19) as a nullable tail of its stored json (OutcomeProposalJson.cs:38,47,55-61),
@@ -126,10 +128,24 @@ tests:
   - "ReviewLook_SearchOnReadOnlyScope_RunsAsAGrepStep"
   - "ReviewLook_UnmaterialisableScope_MintsNothingAsProof"
   - "ReviewLook_SearchWithInvalidPatternOrMissingPath_IsCouldNotRun"
-  - "ReviewLook_SearchFindsDotfiles"
+  - "ReviewLook_Search_AsksForHiddenAndIgnoredPaths"
+  - "Ripgrep_SearchesHiddenAndIgnoredPaths_OnlyWhenTheStepAsks"
+  - "GrepInTree_DoesNotAskForHiddenOrIgnoredPaths"
+  - "ManagedFallback_ReadsADotfile"
+  - "ReviewLook_SearchDescription_NamesWhatIsNotSearched"
+  - "GrepInTree_Description_NamesWhatItDoesNotSearch"
+  - "ReviewLook_TheEvidenceLine_NamesTheEngineThatActuallyRan"
+  - "Ripgrep_PartialError_KeepsTheMatchesAndTellsTheError"
+  - "Ripgrep_ErrorExit_IsAFailureNotAnEmptyMatchList"
+  - "Ripgrep_Timeout_StaysATimeout"
+  - "NamedFileInsideAnExcludedDirectory_IsSearchedByBothPaths"
+  - "ExcludedDirectory_UnderASearchedTree_IsStillSkipped"
+  - "ReadFile_MissingFile_ReturnsExitCodeOne (pins the producer's wording)"
+  - "ReviewLook_AFailureThatMerelyMentionsNotFound_IsNotAnAbsence"
   - "DerivationLook_RefusedStepOnATemplate_IsNotEvidenceOfAbsence"
   - "DerivationLook_AuditOnATemplate_IsCouldNotRun"
   - "Turn_RefusedThenStrippedProposal_IsNotReviewed"
+  - "Harness_AFindingOnOnePhase_DoesNotFollowAReviewOfAnother"
   - "Turn_Review_IsChargedToTheTurnsRun"
   - "Gate_CitedIds_AreResolvedToEvidenceLines"
   - "OutcomeProposalJson_RowWithoutFindings_ReadsAsNone"
@@ -138,6 +154,12 @@ tests:
   - "EditTurn_AfterAReviewedProposal_IsShownItsFindings"
   - "Turn_AfterAFiledProposal_IsShownNoFindings"
   - "Flow_ReviewFailed_DoesNotBlockTheProposal"
+  - "Flow_ReviewTimedOutOnAnUncancelledToken_DoesNotBlockTheProposal"
+  - "Flow_ReviewOnACancelledRun_Propagates"
+  - "Review_WhoseModelCallTimesOut_IsNotDeliverableAndDoesNotThrow"
+  - "Review_OnACancelledRun_Propagates"
+  - "Gate_AFindingCitingSeveralIds_ShowsTheOneThatRan"
+  - "dashboard: a proposal with no findings field still renders"
   - "dashboard: the approval surface lists each finding with its evidence line or its quote"
 
 done:

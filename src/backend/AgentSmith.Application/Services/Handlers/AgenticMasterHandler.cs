@@ -45,6 +45,7 @@ public sealed class AgenticMasterHandler(
     IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
     SpecDialogProposalRefusal proposalRefusal, // 2026-09-17-042ec: no proposal before a discussion
+    SpecDialogProposalReview proposalReview, // 2026-09-17-042ed: the turn reviews what it proposes
     ISubAgentRunner subAgentRunner,
     SubAgentBudget subAgentBudget,
     SubAgentNameValidator subAgentNameValidator,
@@ -453,6 +454,9 @@ public sealed class AgenticMasterHandler(
         if (isSpecDialog)
             loopResult = await GateSpecOutcomeAsync(
                 context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
+        // 2026-09-17-042ed: a phase or epic the gate ADMITTED is reviewed against the turn's repositories.
+        if (isSpecDialog)
+            await proposalReview.ReviewAsync(context.Pipeline, context.AgentConfig, costTracker, cancellationToken);
 
         var changes = fs.GetChanges();
 

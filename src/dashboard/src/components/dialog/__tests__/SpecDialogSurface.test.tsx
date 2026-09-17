@@ -124,6 +124,7 @@ function proposal(overrides: Partial<SpecDialogProposalPush> = {}): SpecDialogPr
     parent: null,
     children: [],
     at: "2026-09-15T10:03:00Z",
+    findings: [],
     ...overrides,
   };
 }
@@ -977,6 +978,60 @@ describe("SpecDialogSurface", () => {
 
     expect(await screen.findByTestId("dialog-answer-yes")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
+  });
+
+  // 2026-09-17-042ed: the review of the proposal is read where the approval is given, with the
+  // evidence line the framework minted for the look it rests on.
+  it("SpecDialog_TheApprovalSurface_ListsEachFindingWithItsEvidence", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      findings: [
+        {
+          phaseId: "p9001", problem: "false premise", why: "the endpoint already exists",
+          quote: null, evidence: "[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0",
+        },
+        {
+          phaseId: "p9001", problem: "contradiction", why: "it also forbids touching source",
+          quote: "done of p9001", evidence: null,
+        },
+      ],
+    })));
+
+    act(() => questions.emit(question({ text: "Proposed outcome: **one phase** p9001" })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    const findings = within(surface).getAllByTestId("dialog-proposal-finding");
+    expect(findings).toHaveLength(2);
+    expect(findings[0]).toHaveTextContent("p9001 — false premise: the endpoint already exists");
+    expect(within(surface).getByTestId("dialog-finding-evidence"))
+      .toHaveTextContent("[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0");
+    expect(within(surface).getByTestId("dialog-finding-quote")).toHaveTextContent("done of p9001");
+  });
+
+  it("SpecDialog_ACleanReview_ShowsNoFindings", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => questions.emit(question({ text: "Proposed outcome: **one phase** p9001" })));
+
+    await screen.findByTestId("dialog-question");
+    expect(screen.queryByTestId("dialog-proposal-findings")).toBeNull();
+  });
+
+  // A proposal stored before the review shipped, and every push from a server a version behind,
+  // carries no findings field at all. Reading .length off it would throw and blank the whole
+  // approval card — the surface on which the operator decides.
+  it("SpecDialog_AProposalWithoutAFindingsField_StillRenders", async () => {
+    await renderSurface();
+    const older = proposal();
+    delete (older as Partial<SpecDialogProposalPush>).findings;
+    act(() => proposals.emit(older));
+
+    act(() => questions.emit(question({ text: "Proposed outcome: **one phase** p9001" })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(surface).toHaveTextContent("Proposed outcome");
+    expect(screen.queryByTestId("dialog-proposal-findings")).toBeNull();
   });
 
   it("SpecDialog_ATabWithNothingToShow_IsNotOffered", async () => {

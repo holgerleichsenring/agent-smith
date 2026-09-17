@@ -81,6 +81,54 @@ public sealed class CutReviewLookTests
             .And.NotContain(d => d.Contains("[L"));
     }
 
+    // 2026-09-17-042ed: the LLM layer's own NetworkTimeout arrives as a TaskCanceledException
+    // while the RUN's token is untouched. Guarding on the exception's TYPE let it escape and take
+    // the caller's whole turn with it — here the derivation's cut, and in a design turn the reply
+    // the operator was about to be shown.
+    [Fact]
+    public async Task Review_WhoseModelCallTimesOut_IsNotDeliverableAndDoesNotThrow()
+    {
+        var review = await Reviewer(new CappingFactory(new ThrowingProvider(
+            new TaskCanceledException("A task was canceled.")))).ReviewAsync(
+            Drafts("every sender uses the new bus"), Key, "the ticket", look: null,
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        review.Findings.Should().BeEmpty();
+        review.Deliverable.Should().BeTrue("a review that could not be taken blocks nothing");
+    }
+
+    [Fact]
+    public async Task Review_OnACancelledRun_Propagates()
+    {
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        var reviewer = Reviewer(new CappingFactory(new ThrowingProvider(new OperationCanceledException())));
+
+        var review = async () => await reviewer.ReviewAsync(
+            Drafts("every sender uses the new bus"), Key, "the ticket", look: null,
+            new AgentConfig(), Tracker(), cancelled.Token);
+
+        await review.Should().ThrowAsync<OperationCanceledException>(
+            "an operator cancel is the run ending, not a call to swallow");
+    }
+
+    private sealed class ThrowingProvider(Exception failure) : Microsoft.Extensions.AI.IChatClient
+    {
+        public Task<Microsoft.Extensions.AI.ChatResponse> GetResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
+            Microsoft.Extensions.AI.ChatOptions? options = null, CancellationToken ct = default) =>
+            throw failure;
+
+        public IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages,
+            Microsoft.Extensions.AI.ChatOptions? options = null,
+            CancellationToken ct = default) => throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
+    }
+
     private static async Task<string> PromptOf(DerivationLook look)
     {
         var provider = new LookingProvider("[]");

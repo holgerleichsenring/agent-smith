@@ -41,4 +41,27 @@ public sealed class DerivationLookFactory(
         return new DerivationLook(
             sandboxes, files, ecosystems, logger, templates: null, DerivationLookTerms.CutReview);
     }
+
+    /// <summary>
+    /// 2026-09-17-042ed: the look a design turn's proposal is reviewed with — the turn's own
+    /// repository sandboxes, read off <see cref="ContextKeys.Sandboxes"/> directly, because a
+    /// design turn starts no coordinator and so carries no discoveries for
+    /// <see cref="SandboxTargets"/> to resolve. The dialog's map holds its templates too; a key
+    /// under <see cref="TemplateScopeName.Prefix"/> is the only mark one carries there, so those
+    /// are dropped. No audit: every entry is a read-only source scope that runs no command.
+    /// Null when the turn has no repository, and the review is the text-against-text one.
+    /// </summary>
+    public DerivationLook? ForProposalReview(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map)
+            || map is null) return null;
+        var repositories = map
+            .Where(entry => !entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal))
+            .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
+        return repositories.Count == 0
+            ? null
+            : new DerivationLook(repositories, files, ecosystems, logger, templates: null,
+                DerivationLookTerms.ProposalReview, audits: false);
+    }
 }

@@ -75,7 +75,11 @@ public sealed class SpecCutReviewer(
             return SpecCutAnswerReader.Read(
                 response.Messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.Text))?.Text ?? response.Text);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // 2026-09-17-042ed: guarded on the RUN's token, never on the exception's type. The LLM
+        // layer's own NetworkTimeout surfaces as a TaskCanceledException with this token NOT
+        // cancelled, and letting that escape kills the caller's turn over a review that is only
+        // ever advisory. An operator cancel does leave the token cancelled — that still propagates.
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "The cut review call failed");
             return null;

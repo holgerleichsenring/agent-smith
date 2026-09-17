@@ -39,7 +39,7 @@ internal static class SpecDialogTurnSeeds
         Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot)
     {
         var primary = scopeRepos[0];
-        return new Dictionary<string, object>
+        var seeds = new Dictionary<string, object>
         {
             [ContextKeys.SpecDialogTranscript] = MapTranscript(state.Transcript),
             [ContextKeys.SpecDialogReplySlot] = slot,
@@ -55,6 +55,9 @@ internal static class SpecDialogTurnSeeds
             [ContextKeys.Repository] = new Repository(
                 new BranchName(primary.DefaultBranch ?? "main"), primary.Url ?? string.Empty),
         };
+        // 2026-09-17-042ed: only an edit turn carries one, and the prompt renders its findings.
+        if (state.Revising is { } revising) seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
+        return seeds;
     }
 
     private static IReadOnlyList<SpecDialogTurn> MapTranscript(IReadOnlyList<TranscriptTurn> transcript) =>

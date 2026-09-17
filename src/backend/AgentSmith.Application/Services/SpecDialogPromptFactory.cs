@@ -40,6 +40,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             LAST user turn; earlier turns are context you already produced or received.
 
             {RenderTranscript(transcript)}
+            {SpecDialogRevisionSection.Render(pipeline)}
 
             ## Your reply
             Write the reply text now — it is delivered verbatim to the chat thread.

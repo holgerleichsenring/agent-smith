@@ -15,8 +15,27 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogOutcomeComposer
 {
     public ComposedReply ComposeConfirmation(OutcomeProposal proposal) => new(m =>
-        $"{Describe(proposal, m)}\nApprove to file this outcome, Reject to drop it — "
+        $"{Describe(proposal, m)}\n{Findings(proposal, m)}"
+        + "Approve to file this outcome, Reject to drop it — "
         + "any other reply is an edit note I will revise the proposal with.");
+
+    /// <summary>
+    /// 2026-09-17-042ed: what the turn's own review found, above the question it is asked with —
+    /// the person approving reads the objection and the line that proves it, not a summary.
+    /// </summary>
+    private static string Findings(OutcomeProposal proposal, SpecDialogMarkup m)
+    {
+        if (proposal.Findings.Count == 0) return string.Empty;
+        var sb = new StringBuilder();
+        sb.AppendLine($"{m.Bold("The review of this proposal found:")}");
+        foreach (var finding in proposal.Findings)
+            sb.AppendLine(
+                $"- {finding.PhaseId} — {finding.Problem}: {finding.Why}"
+                + (finding.Evidence is null
+                    ? finding.Quote is null ? string.Empty : $" (\"{finding.Quote}\")"
+                    : $" (evidence: {finding.Evidence})"));
+        return sb.ToString();
+    }
 
     public ComposedReply ComposeRejected() => new(_ =>
         "Rejected — nothing was filed. Keep discussing; I will re-propose when the shape changes.");

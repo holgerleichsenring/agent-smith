@@ -1,5 +1,6 @@
 "use client";
 
+import { DialogProposalFindings } from "@/components/dialog/DialogProposalFindings";
 import { Markdown } from "@/components/ui/Markdown";
 import type {
   SpecDialogChoice,
@@ -67,6 +68,7 @@ export function DialogQuestionCard({
           {summary}
         </p>
       )}
+      {decision && proposal && <DialogProposalFindings findings={proposal.findings} />}
       <Markdown>{question.text}</Markdown>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {controls.map((control) => (

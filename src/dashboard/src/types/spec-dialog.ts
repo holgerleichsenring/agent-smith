@@ -140,6 +140,19 @@ export interface SpecDialogBugProposal {
 }
 
 /**
+ * 2026-09-17-042ed: one thing the turn's own review found against the proposal. `evidence` is the
+ * framework-minted line of the look it rests on, already resolved from the id it cited; `quote` is
+ * what the phase states, for a finding that cites nothing. Hand-written, as the push it rides on is.
+ */
+export interface SpecDialogProposalFinding {
+  phaseId: string;
+  problem: string;
+  why: string;
+  quote: string | null;
+  evidence: string | null;
+}
+
+/**
  * What this turn would file. An answer proposes nothing and is never pushed, so the pane
  * keeps whatever is still under discussion.
  */
@@ -153,6 +166,9 @@ export interface SpecDialogProposalPush {
   /** An epic's children IN THE ORDER THEY WILL BE FILED. */
   children: SpecDialogPhaseProposal[];
   at: string;
+  /** What the turn's review found; empty for a clean review and for one that could not be taken,
+   * and absent altogether on a proposal stored before the review shipped. */
+  findings?: SpecDialogProposalFinding[];
 }
 
 /** One ticket that was actually created. `reference` is a web URL where the provider gives one. */

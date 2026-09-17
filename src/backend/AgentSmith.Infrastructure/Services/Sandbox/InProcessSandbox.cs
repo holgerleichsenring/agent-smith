@@ -190,7 +190,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
     private StepResult ReadFile(Step step)
     {
         var path = ResolvePath(step.Path!);
-        if (!File.Exists(path)) return Failure(step, 0, $"file not found: {path}");
+        if (!File.Exists(path)) return Failure(step, 0, StepErrors.FileNotFound(path));
         var info = new FileInfo(path);
         if (info.Length > SizeLimits.ReadFileMaxBytes) return Failure(step, 0, "file exceeds 1 MB limit");
         var bytes = File.ReadAllBytes(path);

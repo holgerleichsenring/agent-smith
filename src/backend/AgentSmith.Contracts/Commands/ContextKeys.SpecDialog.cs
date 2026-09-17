@@ -35,6 +35,13 @@ public static partial class ContextKeys
     public const string SpecDialogReplyKind = "SpecDialogReplyKind";
 
     /// <summary>
+    /// <c>OutcomeProposal</c> — 2026-09-17-042ed: the proposal an EDIT turn is revising, seeded
+    /// by the router that knows the turn is an edit. Absent on every other turn, so a turn after
+    /// a filed or rejected proposal is shown no findings.
+    /// </summary>
+    public const string SpecDialogRevisedProposal = "SpecDialogRevisedProposal";
+
+    /// <summary>
     /// Job id the master's ask_human questions publish under on the dialogue
     /// transport (spec-dialog: the session id, so answers from the same chat
     /// thread reach the waiting loop). Absent → ask_human reports itself
