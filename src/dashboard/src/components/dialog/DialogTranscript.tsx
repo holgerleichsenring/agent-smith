@@ -10,12 +10,34 @@ import type { DialogEntry } from "@/hooks/useSpecDialog";
 
 export function DialogTranscript({ entries }: { entries: DialogEntry[] }) {
   if (entries.length === 0) {
+    // Nobody arrives wanting an epic. They arrive wanting something to be true of the
+    // system, and the spec is the TRANSITION to it — so the question comes first and the
+    // shapes it can end in are a footnote, not the headline. What is offered is the shape
+    // of a good opening, not invented examples: this page does not know the work, and a
+    // plausible-sounding suggestion about somebody's own estate is worse than none.
     return (
-      <p data-testid="dialog-transcript-empty" className="text-sm text-[var(--color-ink-mid)]">
-        Nothing said yet. Describe what you want built, and the design partner answers here.
-      </p>
+      <div data-testid="dialog-transcript-empty" className="dsh-body text-[var(--color-ink-mid)]">
+        <p className="dsh-h3">What do you want to be true, and where?</p>
+        <p className="mt-2">
+          Say the outcome you are after, the part of the system it touches, and anything
+          that has to stay true while getting there. You do not need to know the steps —
+          working those out is what this conversation is for.
+        </p>
+        <p className="mt-2">
+          The design partner reads the repositories on the right before it answers, so the
+          first reply takes about a minute. It will ask when something is ambiguous.
+        </p>
+        <p className="mt-3 dsh-label uppercase tracking-wide">Where it leads</p>
+        <p className="mt-1">
+          When you have converged, it proposes what to file — an answer and nothing filed,
+          one bug, one phase, or an epic with its slices in the order they run. You approve
+          it or you keep talking. Filing is where this ends: the run starts when the tracker
+          picks the ticket up.
+        </p>
+      </div>
     );
   }
+
   return (
     <div data-testid="dialog-transcript" className="flex flex-col gap-3">
       {entries.map((entry) => (

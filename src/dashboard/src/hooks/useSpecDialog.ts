@@ -40,7 +40,9 @@ export interface SpecDialogState {
   /** What filing it actually created — the column's last state. */
   filed: SpecDialogFilingPush | null;
   failure: Error | null;
-  send: (text: string) => Promise<void>;
+  /** True between a post and the answer it will get — the page's only progress signal. */
+  awaiting: boolean;
+  send: (text: string, project?: string) => Promise<void>;
   startNew: (project?: string) => Promise<void>;
   resume: (sessionId: string) => Promise<void>;
 }
@@ -53,6 +55,14 @@ export function useSpecDialog(): SpecDialogState {
   const [proposal, setProposal] = useState<SpecDialogProposalPush | null>(null);
   const [filed, setFiled] = useState<SpecDialogFilingPush | null>(null);
   const [failure, setFailure] = useState<Error | null>(null);
+  // A design turn materialises the scope's repositories and reads them: a minute of
+  // nothing is normal. The channel pushes no progress — SendProgressAsync is a no-op
+  // here, and on a chat platform that is right, because the platform shows the message
+  // was delivered and people expect an answer later. A page that shows nothing at all
+  // for a minute reads as broken, and the first question it produced was "is anything
+  // happening?". The page does not need the server for this: it posted, and it has had
+  // no reply yet.
+  const [awaiting, setAwaiting] = useState(false);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
   // durable transcript does not hold.
@@ -102,7 +112,9 @@ export function useSpecDialog(): SpecDialogState {
       await postSpecDialogMessage(id, text);
       if (echo) append("user", text, new Date().toISOString());
       setQuestion(null);
+      setAwaiting(true);
     } catch (thrown) {
+      setAwaiting(false);
       setFailure(asError(thrown));
     }
   }, [append]);
@@ -118,6 +130,9 @@ export function useSpecDialog(): SpecDialogState {
     let stop: (() => Promise<void>) | null = null;
     const offMessage = client.specDialogMessages.add((message) => {
       if (message.dialogId !== dialogId) return;
+      // Every message is answered — a reply, a refusal, or the turn-failed notice — so
+      // this is where the waiting ends, whatever the answer turned out to be.
+      setAwaiting(false);
       append("agent", message.text, message.at);
       void load(dialogId);
     });
@@ -153,12 +168,22 @@ export function useSpecDialog(): SpecDialogState {
     };
   }, [dialogId, append, load, post]);
 
+  /// Sending with no session open used to reach the router as an ordinary message, and
+  /// the router answered with the command tutorial a chat channel needs — on a page whose
+  /// whole point is that nobody types a command. So the session is opened first, on the
+  /// project the page already knows, and the message follows it.
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, project?: string) => {
       const said = text.trim();
-      if (dialogId && said.length > 0) await post(dialogId, said, true);
+      if (!dialogId || said.length === 0) return;
+      if (!view?.session) {
+        if (!project) return;
+        reseed.current = true;
+        await post(dialogId, `/spec ${project}`, false);
+      }
+      await post(dialogId, said, true);
     },
-    [dialogId, post],
+    [dialogId, view, post],
   );
 
   const startNew = useCallback(async (project?: string) => {
@@ -168,6 +193,7 @@ export function useSpecDialog(): SpecDialogState {
     setProposal(null);
     setFiled(null);
     setView(null);
+    setAwaiting(false);
     // The router parses the same commands a chat channel types; the page is what spares
     // the operator from typing them.
     pending.current = project ? `/spec ${project}` : "/spec";
@@ -188,7 +214,8 @@ export function useSpecDialog(): SpecDialogState {
   );
 
   return {
-    dialogId, view, entries, question, proposal, filed, failure, send, startNew, resume,
+    dialogId, view, entries, question, proposal, filed, failure, awaiting,
+    send, startNew, resume,
   };
 }
 
