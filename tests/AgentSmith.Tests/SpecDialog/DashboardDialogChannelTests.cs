@@ -417,6 +417,20 @@ public sealed class DashboardDialogChannelTests : IDisposable
             It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // 2026-09-17-042ek: this path exists only on the dashboard, so the one thing it must not
+    // do is answer a page with the three slash commands that page has no way to type.
+    [Fact]
+    public async Task DashboardDialogDispatcher_NoOpenDialog_NamesNoCommand()
+    {
+        await SendAsync("just thinking out loud");
+
+        var answer = LastText();
+        answer.Should().NotContain("/spec");
+        answer.Should().Contain("New conversation",
+            "the button that starts one is what the page actually offers");
+        answer.Should().Contain("project", "the picker decides the scope when there are several");
+    }
+
     [Fact]
     public async Task Ingest_PublishesTheChatIngestionSystemEvent()
     {

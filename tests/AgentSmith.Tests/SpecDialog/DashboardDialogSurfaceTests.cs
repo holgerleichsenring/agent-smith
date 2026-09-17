@@ -63,7 +63,9 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         opened.Should().Contain("**sample**", "a browser reads double asterisks as bold");
         question.Should().NotContain(":question:",
             "a shortcode nobody expands is the text of another channel showing through");
-        question.Should().Contain("*Reply in this thread to answer.*");
+        // 2026-09-17-042ek: the dialect still binds the italics; the sentence inside them is
+        // the page's, because the page has no thread to reply in.
+        question.Should().Contain("*Write your answer below.*");
     }
 
     [Fact]

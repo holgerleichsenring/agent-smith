@@ -21,6 +21,16 @@ import type {
 // 2026-09-17-c7aed: the approval is the decision, so it gets a surface of its own — what
 // will be filed, counted from the proposal, above the confirmation text as sent. Nothing is
 // said about the order the slices run in: that depends on the project, not on the proposal.
+//
+// 2026-09-17-042ek: and the confirmation the server sends a PAGE now carries no text at all,
+// because this card already says all of it — the counted summary, 042ed's findings, and the
+// two buttons that are the approve/reject sentence. What the card cannot say by itself is
+// what would be filed when the proposal did not reach it, and the two ways that happens are
+// not the same thing, so they do not get the same sentence. With NO proposal the draft is
+// nowhere on this page — the shown transcript strips every draft block and the seed drops the
+// agent entry that leaves empty — so the honest advice is to reject and ask again. With a
+// proposal this build cannot count, the findings below still come from it and the operator
+// can read it in the pane; only the one-line count is missing.
 
 // The server pushes nothing when a wait expires — the confirmer simply stops waiting and
 // clears its pending entry. So the deadline is what the card has, and a click past it is
@@ -50,6 +60,9 @@ export function DialogQuestionCard({
   const controls = expired ? [] : controlsFor(question);
   const decision = question.kind === "approval" && !expired;
   const summary = decision && proposal ? summaryOf(proposal) : null;
+  // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
+  // confirmation that still carries its text keeps that text, and shows no second line.
+  const unsummarised = decision && !summary && question.text.trim().length === 0;
   return (
     <div
       data-testid="dialog-question"
@@ -68,8 +81,15 @@ export function DialogQuestionCard({
           {summary}
         </p>
       )}
+      {unsummarised && (
+        <p data-testid="dialog-approval-unsummarised" className="dsh-body font-semibold text-ink">
+          {proposal
+            ? "A proposal is waiting for your decision; this page cannot count what it would file. The Proposal tab has it in full."
+            : "Nothing was saved about this proposal, so this page cannot show it. Reject it and ask for a fresh one."}
+        </p>
+      )}
       {decision && proposal && <DialogProposalFindings findings={proposal.findings} />}
-      <Markdown>{question.text}</Markdown>
+      {question.text.trim().length > 0 && <Markdown>{question.text}</Markdown>}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {controls.map((control) => (
           <button
@@ -86,10 +106,16 @@ export function DialogQuestionCard({
             {control.label}
           </button>
         ))}
+        {/* 2026-09-17-042ek: an EXPIRED card promised a revision it cannot deliver — the
+            confirmer has stopped waiting and the timeout cleared the stored proposal, so the
+            next message buys a whole design turn instead. That was survivable while the server
+            text was still on the card; with the text now empty it was the only sentence left. */}
         <span className="min-w-44 flex-1 dsh-label text-body">
-          {decision
-            ? "Anything you write below is a note, and the proposal is revised with it."
-            : "Anything else you write below is a note — the proposal is revised with it."}
+          {expired
+            ? "The wait is over — anything you write below starts a new turn."
+            : decision
+              ? "Anything you write below is a note, and the proposal is revised with it."
+              : "Anything else you write below is a note — the proposal is revised with it."}
         </span>
       </div>
     </div>

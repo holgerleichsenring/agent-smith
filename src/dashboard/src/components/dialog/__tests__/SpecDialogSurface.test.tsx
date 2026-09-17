@@ -1084,6 +1084,98 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-proposal-findings")).toBeNull();
   });
 
+  // 2026-09-17-042ek: the server sends this page an approval with NO text — the card already
+  // carries the counted summary, the findings and the two buttons, and a server sentence
+  // saying any of it would show it twice.
+  it("SpecDialog_AnApprovalWithNoServerText_StillSaysWhatIsBeingApproved", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      kind: "epic", phase: null, parent: phase("p9000"),
+      children: [phase("p9000a"), phase("p9000b")],
+      findings: [{
+        phaseId: "p9000a", problem: "false premise", why: "the endpoint already exists",
+        quote: null, evidence: "[P2] repo-a: read src/Api.cs exited 0",
+      }],
+    })));
+
+    act(() => questions.emit(question({ text: "" })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getByTestId("dialog-approval-summary"))
+      .toHaveTextContent(/^File this epic\? A parent record and 2 slices\.$/);
+    expect(within(surface).getAllByTestId("dialog-proposal-finding")).toHaveLength(1);
+    expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
+    expect(within(surface).queryByTestId("markdown")).toBeNull();
+  });
+
+  // The proposal reaches the page as a live push, and the saved copy is dropped when its write
+  // fails. A reload can therefore land on an approval with nothing to summarise — and with the
+  // server text now empty, an unexplained pair of buttons unless the card says so itself.
+  //
+  // Found by review: the draft is not "in the conversation above" in this case. The shown
+  // transcript strips every draft block and the seed drops the agent entry that leaves empty,
+  // so the page holds nothing about it at all — and telling the operator to look up the page
+  // for something that was never rendered is worse than saying nothing.
+  it("SpecDialog_AnApprovalWithoutASavedProposal_SaysNothingWasSavedAndPointsAtReject", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      question: {
+        dialogId: "any", questionId: "q-9", kind: "approval", text: "", choices: [],
+        at: "2026-09-15T10:01:00Z",
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      },
+    }));
+
+    render(<SpecDialogSurface />);
+
+    const surface = await screen.findByTestId("dialog-question");
+    const line = within(surface).getByTestId("dialog-approval-unsummarised");
+    expect(line).toHaveTextContent("Nothing was saved about this proposal");
+    expect(line).toHaveTextContent("Reject it and ask for a fresh one");
+    expect(line).not.toHaveTextContent("above");
+    expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
+  });
+
+  // The other way the summary goes missing: a proposal DID arrive, of a kind this build cannot
+  // count. Its findings render from it and the pane has it in full, so the two cases must not
+  // share a sentence — one says the page has nothing, and here the page has almost everything.
+  it("SpecDialog_AnApprovalWhoseProposalCannotBeCounted_SaysSoWithoutClaimingItIsLost", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      kind: "phase", phase: null, bug: null, parent: null, children: [],
+      findings: [{
+        phaseId: "p9001", problem: "contradiction", why: "it also forbids touching source",
+        quote: "done of p9001", evidence: null,
+      }],
+    })));
+
+    act(() => questions.emit(question({ text: "" })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    const line = within(surface).getByTestId("dialog-approval-unsummarised");
+    expect(line).toHaveTextContent("cannot count what it would file");
+    expect(line).not.toHaveTextContent("Nothing was saved");
+    expect(within(surface).getAllByTestId("dialog-proposal-finding")).toHaveLength(1);
+  });
+
+  // An expired approval has no summary, no findings and — since the server text went empty —
+  // nothing at all but the eyebrow. The line beside its (absent) buttons promised a revision
+  // the confirmer had already stopped waiting to make.
+  it("SpecDialog_AnExpiredQuestion_PromisesATurnNotARevision", async () => {
+    await renderSurface();
+
+    act(() => questions.emit(question({
+      text: "", expiresAt: new Date(Date.now() - 1000).toISOString(),
+    })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(surface).toHaveTextContent("no longer waiting");
+    expect(surface).toHaveTextContent("anything you write below starts a new turn");
+    expect(surface).not.toHaveTextContent("the proposal is revised with it");
+    expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
+  });
+
   it("SpecDialog_ATabWithNothingToShow_IsNotOffered", async () => {
     await renderSurface();
 
