@@ -57,13 +57,9 @@ public sealed class SpecCutReviewEvidenceTests
         prompt.Should().Contain("NOT IN THE TICKET");
     }
 
-    private static SpecSet Cut() =>
-        new("azuredevops-1",
-            [new SpecPhase(
-                new PhaseDraft("p1a", "migrate the senders", "phase: p1a", [])
-                {
-                    Done = ["every sender uses the new bus"],
-                },
-                "migrate-the-senders", "# p1a", [])],
-            SpecAccounting.Empty, [], SpecSource.Derived);
+    private static IReadOnlyList<PhaseDraft> Cut() =>
+        [new PhaseDraft("p1a", "migrate the senders", "phase: p1a", [])
+        {
+            Done = ["every sender uses the new bus"],
+        }];
 }

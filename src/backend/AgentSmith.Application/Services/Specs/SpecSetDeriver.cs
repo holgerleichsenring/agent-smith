@@ -84,8 +84,9 @@ public sealed class SpecSetDeriver(
             // be DELIVERED. Rejected here, the deriver answers instead of a run finding out.
             // 2026-09-15-ffa7: the reviewer keeps nothing between calls, so its look is per attempt.
             await using var reviewLook = looks.ForCutReview(pipeline);
+            var set = parsed.Derivation.Set;
             var review = await reviewer.ReviewAsync(
-                parsed.Derivation.Set, ticket.Description ?? string.Empty, reviewLook,
+                [.. set.Phases.Select(p => p.Draft)], set.Key, SpecCutReviewTicketText.Of(ticket), reviewLook,
                 agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
             if (!review.Deliverable)
             {

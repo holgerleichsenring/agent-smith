@@ -81,7 +81,7 @@ public sealed class SpecCutReviewTests
     {
         var client = new RecordingChatClient("[]");
         await Reviewer(client).ReviewAsync(
-            Set(), "Step 1 — Inventory (before touching any code)", look: null, new AgentConfig(),
+            Drafts(), "azuredevops-19106", "Step 1 — Inventory (before touching any code)", look: null, new AgentConfig(),
             PipelineCostTracker.GetOrCreate(new PipelineContext()), CancellationToken.None);
 
         var prompt = client.Prompts.Single();
@@ -93,7 +93,7 @@ public sealed class SpecCutReviewTests
 
     private static async Task<SpecCutReview> Review(string answer) =>
         await Reviewer(new RecordingChatClient(answer)).ReviewAsync(
-            Set(), "the ticket", look: null, new AgentConfig(),
+            Drafts(), "azuredevops-19106", "the ticket", look: null, new AgentConfig(),
             PipelineCostTracker.GetOrCreate(new PipelineContext()), CancellationToken.None);
 
     private static SpecCutReviewer Reviewer(IChatClient client) =>
@@ -101,18 +101,14 @@ public sealed class SpecCutReviewTests
             new AsyncLocalRunContextAccessor(),
             NullLogger<SpecCutReviewer>.Instance);
 
-    private static SpecSet Set() =>
-        new("azuredevops-19106",
-            [new SpecPhase(
-                new PhaseDraft("p19106a", "migrate the libraries", "goal: migrate", [])
-                {
-                    Done = [
-                        "No production source file has been modified",
-                        "MediatR appears nowhere in the sources",
-                    ],
-                },
-                "migrate", "# migrate", [])],
-            SpecAccounting.Empty, [], SpecSource.Derived);
+    private static IReadOnlyList<PhaseDraft> Drafts() =>
+        [new PhaseDraft("p19106a", "migrate the libraries", "goal: migrate", [])
+        {
+            Done = [
+                "No production source file has been modified",
+                "MediatR appears nowhere in the sources",
+            ],
+        }];
 
     private sealed class SingleClientFactory(IChatClient client) : IChatClientFactory
     {

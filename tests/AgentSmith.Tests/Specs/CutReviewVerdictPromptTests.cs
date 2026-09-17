@@ -14,7 +14,7 @@ public sealed class CutReviewVerdictPromptTests
     [Fact]
     public void Prompt_WithoutALook_OffersThreeVerdictsAndNoCitesField()
     {
-        var prompt = SpecCutReviewPrompt.For(Set("a criterion"), "the ticket", look: null);
+        var prompt = SpecCutReviewPrompt.For(Drafts("a criterion"), "the ticket", look: null);
 
         prompt.Should().Contain("There are three ways:")
             .And.Contain("3. NOT IN THE TICKET")
@@ -28,7 +28,7 @@ public sealed class CutReviewVerdictPromptTests
     {
         var look = CutReviewLookTests.ReviewLook(new CountingSandbox(0));
 
-        var prompt = SpecCutReviewPrompt.For(Set("a criterion"), new string('x', 400_000), look);
+        var prompt = SpecCutReviewPrompt.For(Drafts("a criterion"), new string('x', 400_000), look);
 
         prompt.Should().Contain("There are three ways:")
             .And.Contain("3. FALSE PREMISE")
@@ -43,10 +43,10 @@ public sealed class CutReviewVerdictPromptTests
     {
         var look = CutReviewLookTests.ReviewLook(new CountingSandbox(0));
 
-        var prompt = SpecCutReviewPrompt.For(Set("a criterion"), "the ticket", look);
+        var prompt = SpecCutReviewPrompt.For(Drafts("a criterion"), "the ticket", look);
 
         prompt.Should().Contain("There are four ways:").And.Contain("4. FALSE PREMISE");
-        SpecCutVerdicts.Offered(wholeTicket: true, canLook: true).Should().Equal(
+        SpecCutVerdicts.Offered(CutReviewTicket.Whole, canLook: true).Should().Equal(
             SpecCutVerdicts.Contradiction, SpecCutVerdicts.Uncheckable,
             SpecCutVerdicts.NotInTicket, SpecCutVerdicts.FalsePremise);
     }

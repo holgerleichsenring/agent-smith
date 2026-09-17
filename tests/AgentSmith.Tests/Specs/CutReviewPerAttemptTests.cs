@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -66,6 +67,24 @@ public sealed class CutReviewPerAttemptTests
             "the deriver is answered with the line the reviewer's own look minted");
     }
 
+    [Fact]
+    public async Task Review_AtTheDeriver_IsShownTheTicketsTitleToo()
+    {
+        var reviewer = new SpendingReviewer();
+        var deriver = new SpecSetDeriver(
+            reviewer,
+            new SpecDerivationCall(new CappingFactory(new LookingProvider(Cut())), new AsyncLocalRunContextAccessor(), Proof()),
+            Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
+            NullLogger<SpecSetDeriver>.Instance);
+
+        await deriver.DeriveAsync(
+            new Ticket(new TicketId("1"), "Raise the package floors", Ticket, "The audit is clean", "open", "test"),
+            TicketSegmenter.Segment(Ticket), previous: null, cause: "initial derivation",
+            new AgentConfig(), Pipeline(), CancellationToken.None);
+
+        reviewer.Tickets[0].Should().Be($"Raise the package floors\n\n{Ticket}\n\nThe audit is clean");
+    }
+
     private static PipelineContext Pipeline()
     {
         var pipeline = new PipelineContext();
@@ -96,17 +115,19 @@ public sealed class CutReviewPerAttemptTests
     {
         public List<DerivationLook> Looks { get; } = [];
         public List<int> Taken { get; } = [];
+        public List<string?> Tickets { get; } = [];
 
         public Task<SpecCutReview> ReviewAsync(
-            SpecSet set, string ticketText, DerivationLook? look, AgentConfig agent,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken)
+            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
         {
             Looks.Add(look!);
+            Tickets.Add(ticketText);
             var taken = 0;
             while (look!.Budget.TryTake()) taken++;
             Taken.Add(taken);
             return Task.FromResult(new SpecCutReview([new CutFinding(
-                set.Phases[0].Draft.PhaseId, set.Phases[0].Draft.Done[0], SpecCutVerdicts.Uncheckable, "objection")]));
+                drafts[0].PhaseId, drafts[0].Done[0], SpecCutVerdicts.Uncheckable, "objection")]));
         }
     }
 
@@ -114,12 +135,12 @@ public sealed class CutReviewPerAttemptTests
     private sealed class CitingReviewer : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            SpecSet set, string ticketText, DerivationLook? look, AgentConfig agent,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken)
+            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
         {
             var id = look!.Evidence.Remember(Repo, "read src/Bus.cs", 1, ran: true);
             return Task.FromResult(new SpecCutReview([new CutFinding(
-                set.Phases[0].Draft.PhaseId, "the bus is registered", SpecCutVerdicts.FalsePremise, "it is not", Cites: id)]));
+                drafts[0].PhaseId, "the bus is registered", SpecCutVerdicts.FalsePremise, "it is not", Cites: id)]));
         }
     }
 

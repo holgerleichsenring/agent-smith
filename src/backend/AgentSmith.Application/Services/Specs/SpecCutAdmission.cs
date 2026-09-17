@@ -1,4 +1,4 @@
-using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -15,33 +15,39 @@ namespace AgentSmith.Application.Services.Specs;
 /// fact when the framework minted the id it cites, never because the model labelled it. A
 /// path would not do: a reviewer asked for one produces a plausible path it never opened.
 /// </para>
+/// <para>
+/// 2026-09-15-a5a5: a quote is matched against <see cref="PhaseQuotableText"/> — the done-list,
+/// or the goal and step actions of a phase that states none — under a floor that a blank
+/// string and a bare step id cannot satisfy.
+/// </para>
 /// </summary>
 internal sealed class SpecCutAdmission(ILogger logger)
 {
     public IReadOnlyList<CutFinding> Admit(
-        SpecSet set, IReadOnlyList<CutFinding> answer, DerivationLook? look)
+        IReadOnlyList<PhaseDraft> drafts, IReadOnlyList<CutFinding> answer, DerivationLook? look)
     {
         // Only a look that reached a verdict can prove a premise false; one that could not run
         // keeps its id and its line, and proves nothing.
         var ran = new HashSet<string>(
             (look?.Evidence.Looks ?? []).Where(l => l.Ran).Select(l => l.Id), StringComparer.Ordinal);
-        return [.. answer.Where(finding => Admitted(set, finding, ran))];
+        return [.. answer.Where(finding => Admitted(drafts, finding, ran))];
     }
 
-    private bool Admitted(SpecSet set, CutFinding finding, IReadOnlySet<string> ran)
+    private bool Admitted(
+        IReadOnlyList<PhaseDraft> drafts, CutFinding finding, IReadOnlySet<string> ran)
     {
-        var phase = set.Phases.FirstOrDefault(p =>
-            string.Equals(p.Draft.PhaseId, finding.PhaseId, StringComparison.OrdinalIgnoreCase));
+        var phase = drafts.FirstOrDefault(d =>
+            string.Equals(d.PhaseId, finding.PhaseId, StringComparison.OrdinalIgnoreCase));
         if (IsFalsePremise(finding)) return Cited(finding, phase, ran);
-        if (phase is not null && phase.Draft.Done.Any(d => Matches(d, finding.Criterion))) return true;
+        if (phase is not null && PhaseQuotableText.Contains(phase, finding.Criterion)) return true;
 
         logger.LogWarning(
-            "Cut review quoted a criterion that is not in {Phase} — discarding the finding: {Criterion}",
-            finding.PhaseId, Shorten(finding.Criterion));
+            "Cut review quoted nothing {Phase} states — discarding the finding: {Criterion}",
+            finding.PhaseId, Shorten(finding.Criterion ?? string.Empty));
         return false;
     }
 
-    private bool Cited(CutFinding finding, SpecPhase? phase, IReadOnlySet<string> ran)
+    private bool Cited(CutFinding finding, PhaseDraft? phase, IReadOnlySet<string> ran)
     {
         if (phase is not null && DerivationEvidence.CitationsIn(finding.Cites).Any(ran.Contains))
             return true;
@@ -53,10 +59,6 @@ internal sealed class SpecCutAdmission(ILogger logger)
 
     public static bool IsFalsePremise(CutFinding finding) =>
         string.Equals(finding.Problem?.Trim(), SpecCutVerdicts.FalsePremise, StringComparison.OrdinalIgnoreCase);
-
-    private static bool Matches(string stated, string quoted) =>
-        stated.Contains(quoted.Trim(), StringComparison.OrdinalIgnoreCase)
-        || quoted.Contains(stated.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private static string Shorten(string text) => text.Length <= 80 ? text : text[..80] + "…";
 }

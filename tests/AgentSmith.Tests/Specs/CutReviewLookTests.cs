@@ -22,7 +22,7 @@ public sealed class CutReviewLookTests
         var look = ReviewLook(sandbox);
 
         await Reviewer(factory).ReviewAsync(
-            Set("every sender uses the new bus"), "the ticket", look, new AgentConfig(), Tracker(), CancellationToken.None);
+            Drafts("every sender uses the new bus"), Key, "the ticket", look, new AgentConfig(), Tracker(), CancellationToken.None);
 
         factory.Caps.Should().Equal(SpecCutReviewer.MaxIterations);
         SpecCutReviewer.MaxIterations.Should().Be(DerivationLookTerms.CutReviewAllowance + 2);
@@ -63,7 +63,7 @@ public sealed class CutReviewLookTests
         var factory = new CappingFactory(provider);
 
         var review = await Reviewer(factory).ReviewAsync(
-            Set("every sender uses the new bus"), "the ticket", look: null, new AgentConfig(), Tracker(), CancellationToken.None);
+            Drafts("every sender uses the new bus"), Key, "the ticket", look: null, new AgentConfig(), Tracker(), CancellationToken.None);
 
         review.Deliverable.Should().BeTrue();
         factory.Caps.Should().Equal([null], "the call is the one it was: the factory default");
@@ -85,7 +85,7 @@ public sealed class CutReviewLookTests
     {
         var provider = new LookingProvider("[]");
         await Reviewer(new CappingFactory(provider)).ReviewAsync(
-            Set("every sender uses the new bus"), "the ticket", look, new AgentConfig(), Tracker(), CancellationToken.None);
+            Drafts("every sender uses the new bus"), Key, "the ticket", look, new AgentConfig(), Tracker(), CancellationToken.None);
         return provider.Prompts.Single();
     }
 

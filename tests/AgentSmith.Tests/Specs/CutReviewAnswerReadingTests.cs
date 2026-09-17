@@ -48,7 +48,7 @@ public sealed class CutReviewAnswerReadingTests
 
     private static Task<SpecCutReview> Review(params ChatMessage[] reply) =>
         Reviewer(new CappingFactory(new FixedReply(reply))).ReviewAsync(
-            Set("every sender uses the new bus"), "the ticket", look: null,
+            Drafts("every sender uses the new bus"), Key, "the ticket", look: null,
             new AgentConfig(), Tracker(), CancellationToken.None);
 
     private sealed class FixedReply(ChatMessage[] reply) : IChatClient

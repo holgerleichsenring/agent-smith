@@ -22,12 +22,10 @@ internal static class CutReviewTestDoubles
 
     public static PipelineCostTracker Tracker() => PipelineCostTracker.GetOrCreate(new PipelineContext());
 
-    public static SpecSet Set(params string[] done) =>
-        new("azuredevops-1",
-            [new SpecPhase(
-                new PhaseDraft("p1a", "migrate the senders", "phase: p1a", []) { Done = done },
-                "migrate-the-senders", "# p1a", [])],
-            SpecAccounting.Empty, [], SpecSource.Derived);
+    public const string Key = "azuredevops-1";
+
+    public static IReadOnlyList<PhaseDraft> Drafts(params string[] done) =>
+        [new PhaseDraft("p1a", "migrate the senders", "phase: p1a", []) { Done = done }];
 
     /// <summary>Takes the scripted searches one per turn, then answers.</summary>
     public sealed class LookingProvider(string answer, params string[] searches) : IChatClient

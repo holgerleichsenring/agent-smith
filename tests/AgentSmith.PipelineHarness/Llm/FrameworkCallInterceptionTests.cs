@@ -51,8 +51,6 @@ public sealed class FrameworkCallInterceptionTests
                 + "shifts the whole sequence by one");
     }
 
-    private static SpecSet Set() =>
-        new("harness", [new SpecPhase(
-            new PhaseDraft("p1", "goal", "goal: g", []) { Done = ["a criterion"] },
-            "slug", "# md", [])], SpecAccounting.Empty, [], SpecSource.Derived);
+    private static IReadOnlyList<PhaseDraft> Set() =>
+        [new PhaseDraft("p1", "goal", "goal: g", []) { Done = ["a criterion"] }];
 }

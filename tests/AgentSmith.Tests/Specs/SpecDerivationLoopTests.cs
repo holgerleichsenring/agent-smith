@@ -3,6 +3,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -164,8 +165,8 @@ public sealed class SpecDerivationLoopTests
     private sealed class CleanReviewer : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            SpecSet set, string ticketText, DerivationLook? look, AgentConfig agent,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken)
+            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(SpecCutReview.Clean);
     }
 

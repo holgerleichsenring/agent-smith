@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -122,8 +123,8 @@ public sealed class SpecCutSurvivesReviewTests
     private sealed class FixedReviewer(SpecCutReview verdict) : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            SpecSet set, string ticketText, DerivationLook? look, AgentConfig agent,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken)
+            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(verdict);
     }
 
