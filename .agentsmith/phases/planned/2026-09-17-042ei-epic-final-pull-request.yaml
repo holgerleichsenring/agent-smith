@@ -1,0 +1,200 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ei
+
+goal: "A green, reviewed slice merges into its epic branch before its ticket is done, and the epic keeps one pull request to the default branch that a human reviews and merges."
+
+applies_to: "backend (CommitAndPR's slice tail, a pull-request facts read on the source providers, the epic filing comment and ledger, an epic pull-request step, the epic consent text) + dashboard (the approval card's epic summary)"
+
+requires:
+  - 2026-09-17-042eg
+  - 2026-09-17-042eh
+  - 2026-09-17-042ek
+
+scope:
+  in: >
+    The source providers gain a read of a pull request's facts: state (open, draft, merged, closed, unknown),
+    base branch and head branch. A slice run whose delivery is green — keystone satisfied, not half-migrated,
+    not a shortfall, code changed — whose parent carries phase-epic AND lists this ticket in its first marked
+    filing comment, reads each repository's pull-request facts and completes it with CompletePullRequestAsync
+    only when it is open and not draft, its base is the epic branch and its head is this ticket's branch,
+    before the ticket is finalized. The slice appends one plain-text ledger line per repository of its
+    project: its pull request, or "none". An EpicPullRequest step after PrCrossLink finds or creates a draft
+    pull request per repository from the epic branch to the default branch, renders the ledger, and marks it
+    ready only when every child of the filing comment has, for that repository, a "none" line or a pull
+    request the provider reports merged with that base and that child's head branch. The epic consent — merge
+    into the epic branch, one human review, Azure's self-approval — is stated in the chat confirmation and on
+    the dashboard card.
+  out: >
+    MERGING THE EPIC BRANCH INTO THE DEFAULT BRANCH. A human's merge.
+    A LOCAL REPOSITORY. Refused; see decisions.
+    NOTICING A MERGE AFTER THE LAST SLICE RAN. No merge webhook exists; see decisions.
+    HOLDING A SUCCESSOR UNTIL ITS PREDECESSOR IS MERGED. A successor, named by what it does: the predecessor
+    gate waits for the predecessor's merge into the epic branch rather than its ticket status.
+    KEEPING THE EPIC BRANCH CURRENT WITH THE DEFAULT BRANCH. 2026-09-13-35a4 names it separate.
+    CLOSING THE EPIC RECORD.
+
+decisions:
+  - key: |
+      THIS OVERRULES TWO EARLIER LINES, ON PURPOSE. 2026-09-13-35a4 left merging a slice into the rung to the
+      estate's review policy (its lines 26-27); 2026-09-13-a284 made a slice's pull request the place a slice
+      is reviewed (its lines 37-42). For epic children both are replaced: each slice is reviewed by
+      2026-09-17-042eh and its accountant, merged by the framework into the epic branch, and the ONE human
+      review is the epic pull request to the default branch.
+  - key: |
+      A DEPENDENT SLICE IS CUT WITHOUT ITS PREDECESSOR'S WORK TODAY, AND ON AZURE IT MAY STAY SO.
+      PredecessorGate releases a successor once the predecessor left trigger_statuses — a pull request was
+      opened (PredecessorGate.cs:17-21) — and the successor is cut from the epic branch
+      (SandboxBaseLadder.cs:39-59). Merging before FinalizeTicketAsync (CommitAndPRHandler.cs:196, 394-410)
+      closes that gap only where the platform merges at once. Azure Repos reports merged only when completion
+      happened immediately (AzureReposAutoComplete.cs:72-80); with any build policy it arms and the successor
+      may start without the work — possibly on every slice. A Jira project whose lifecycle_status_names maps
+      the running state natively leaves the trigger statuses at claim (JiraNativeLifecycleTransitioner.cs:8-20).
+      Both are the named successor.
+  - key: |
+      ONE READ OF THE PULL REQUEST'S FACTS, FROM THE PROVIDER. RefreshAsync ignores a failed retarget
+      (CommitAndPRHandler.cs:363-370) and discards MarkPullRequestReadyAsync's answer except in a log line
+      (:375-379); GitHub's base read returns null on any error (GitHubPullRequestTarget.cs:20-33); NeedsMove
+      treats an unreadable base as fine (PullRequestTargets.cs:52-55). So the tail reads state, base and head
+      itself and completes only an open, non-draft pull request whose base is the epic branch and whose head
+      is TicketBranchNamer.Compose(this ticket) (TicketBranchNamer.cs:24-25, RunBranchResolver.cs:27-29).
+      Anything else, unreadable included, is recorded refused. The member is implemented on the four providers
+      and the four test doubles: StubSourceProvider, LocalGitSourceProvider, ShortfallDeliveryTests'
+      RecordingSourceProvider and MultiContextSourceProvider (MultiContextSourceProvider.cs:23).
+  - key: |
+      THE PARENT MUST BE AN EPIC RECORD THAT FILED THIS CHILD. Epic and work branches share
+      agent-smith/{ticket id} (TicketBranchNamer.cs:24-25), so a hand-added parent stamp naming an ordinary
+      ticket names that ticket's work branch. The tail reads the parent, requires phase-epic
+      (PhaseTicketRenderer.cs:26; Jira labels from 2026-09-17-042ea), and requires this ticket's id in the
+      parent's first marked filing comment. A label alone is not consent; the approval that filed the child is.
+  - key: |
+      CONSENT IS THE EPIC'S APPROVAL, STATED WHERE IT IS GIVEN. "Auto-accept PRs" is a per-launch checkbox on
+      project init (ProjectInitAction.tsx:179, InitLaunchRequest.cs:3-14) and InitCompleteHandler the only
+      caller of CompletePullRequestAsync (InitCompleteHandler.cs:76-79; ISourceProvider.cs:107-118). Chat
+      approves on the confirmation text (SpecDialogOutcomeComposer.cs:17-19). 2026-09-17-042ek empties the
+      dashboard's question text and the card shows summaryOf (DialogQuestionCard.tsx:115-120), so the epic
+      consent goes into both: the chat confirmation for an epic and the card's epic summary.
+  - key: |
+      AZURE REPOS SELF-APPROVES, SAID PLAINLY. Its completion casts an approval vote as the pull request's
+      creator and arms auto-complete (AzureReposAutoComplete.cs:39-61, 63-70). The consent text names it.
+  - key: |
+      READY COUNTS THE FILING COMMENT'S CHILDREN, NOT THE LINES THAT HAPPEN TO EXIST. A slice that changed one
+      repository opened no pull request in another (CommitAndPRHandler.cs:125-130), and ScopeRepos may drop a
+      repository from its run altogether — it overwrites ContextKeys.Repos with the subset
+      (PipelinePresets.Code.cs:41, ScopeReposHandler.cs:58, 92). So each slice writes a line for every
+      configured repository of its project — its pull request, or "none" — and a repository is ready only when every
+      child listed in the first filing comment has one there. A child that never ran leaves the epic draft.
+  - key: |
+      A FORGED LINE CAN MARK READY EARLY; IT CANNOT MERGE. A pull-request line counts only when the provider
+      reports that pull request merged, based on the epic branch, with that child's head branch. A forged
+      "none" line for a child that did open a pull request is not checkable and can make the epic pull request
+      ready before that child is merged. Ready is not merged: a human still reviews and merges, and the body
+      lists every child's line. Latest line per child and repository wins, which lets a real later run
+      overwrite a forgery. Author filtering is not possible: TicketComment carries a name
+      (TicketComment.cs:3-6) and the framework knows no identity of its own; markers are how it recognises its
+      comments today (OwnTicketComment.cs:24-32).
+  - key: |
+      THE LEDGER IS PLAIN TEXT, READ AS TEXT. Azure turns comment markdown into HTML with Markdig's advanced
+      extensions, which autolink urls (AzureDevOpsTicketProvider.cs:169, 210-217), and returns comment text as
+      delivered (AzureDevOpsCommentMapper.cs:3-18). Every comment is passed through
+      TicketHtmlConverter.ToText (TicketHtmlConverter.cs:15-23) before parsing. A line is
+      "agent-smith:slice <ticket id> <repository> <pull request url | none>"; lines are capped at 400
+      characters and a parent is read to its first 200 lines, both measured on the converted text.
+  - key: |
+      NO CODE, NO MERGE; THE RUN RECORD TRAVELS WITH THE CODE. A record-carrier pull request holding only
+      .agentsmith/runs (CommitAndPRHandler.cs:125-130, 240-248) is not completed and its line reads "none". A
+      code pull request carries its force-staged run record into the epic branch and on to the default branch.
+  - key: |
+      GITHUB MERGES WITH A MERGE COMMIT, AND EACH MERGE RE-REVIEWS THE EPIC PULL REQUEST. The completion sends a
+      default MergePullRequest (GitHubPullRequestUpdater.cs:70). Each merge moves the epic branch and fires
+      synchronize on the epic pull request, routing pr-review (GitHubPrEventWebhookHandler.cs:8-24). Accepted
+      as today's behaviour for any push; an estate opts out through pipeline_from_label.
+  - key: |
+      LOCAL IS REFUSED. Its completion fast-forwards the configured default branch (LocalSourceProvider.cs:40-44,
+      99-104); a local slice records "not completed: no pull request server".
+  - key: |
+      EVERY RUN RE-CHECKS, NOTHING AFTER THE LAST. Unordered siblings run concurrently (2026-09-13-35a4, its
+      lines 43-45), so no run knows it is last; each finds or creates by head branch as CommitAndPR does
+      (CommitAndPRHandler.cs:326-340), retries a refused concurrent create once as a find, and re-reads every
+      listed pull request. Pull-request webhooks react to opened and synchronize only
+      (GitHubPrEventWebhookHandler.cs:20-24): a merge that lands after the last slice ran is not seen, and the
+      operator marks the epic pull request ready. An epic branch still equal to the default branch may be
+      refused as empty; recorded, retried by the next slice.
+  - key: |
+      ROOM. CommitAndPRHandler stands at 432 after 2026-09-17-042eh against a 436 baseline; the slice tail is a
+      collaborator and one call line, 433. The epic pull request is its own command and handler;
+      PipelinePresets.Code.cs (70) gains one entry.
+  - key: |
+      THIRD-ROUND REVIEW CORRECTIONS, BINDING ON THE STEPS BELOW. "Every configured repository" is
+      ResolvedProject.Repos from ContextKeys.ProjectConfig, never ContextKeys.Repos, which scoping narrows
+      (CommitAndPRContextBuilder.cs:56,65; ScopeReposHandler.cs:92); the EpicPullRequest loop uses the same list.
+      Comments are ordered by CreatedAt before parsing (as OwnTicketComment.cs:51 does); a parent whose filing
+      comment is outside the provider's read window (GitLab reads one page of 100, GitLabTicketProvider.cs:149) is
+      refused, and the refusal says so.
+  - key: |
+      THE CONSENT NEVER DISAPPEARS FROM THE DASHBOARD. For an epic, the dashboard-bound confirmation keeps the
+      consent sentence, overriding 2026-09-17-042ek's empty text for that one case, because the card's summary renders
+      only with a saved proposal (DialogQuestionCard.tsx:48).
+  - key: |
+      LINES ARE CHECKED AGAINST THEIR REPOSITORY, AND "NONE" IS MARKED. A pull request URL must parse to the
+      repository its line names. The epic pull request body marks every "none" line as not checkable by the provider.
+      A repository whose diff against the epic branch is empty is merged as "none" (a reverted fix still reads as
+      checkpointed, RepoWorkPusher.cs:67). EpicPullRequest does nothing on Local; a local slice writes "none", and lines
+      are parsed from both ends because Local's reference is a sentence (LocalSourceProvider.cs:52). The slice-tail
+      collaborator costs two lines of CommitAndPRHandler: 434 of 436.
+
+steps:
+  - id: the-pull-request-facts
+    action: "ISourceProvider gains a read of a pull request's state, base and head on GitHub, GitLab, Azure Repos and Local (unknown), and on the four test doubles."
+  - id: the-filing-comment-names-ids
+    action: "The epic filing comment carries each child's ticket id on a marked plain-text line."
+  - id: the-slice-tail
+    action: "A collaborator before FinalizeTicketAsync: refuse unless green, code changed, parent is phase-epic and lists this ticket, provider not local, and the read facts are open, not draft, base the epic branch, head this ticket's branch; else complete and record the outcome per repository."
+  - id: the-ledger-line
+    action: "The slice appends a plain-text line per repository of its project: its pull request, or none."
+  - id: the-epic-pull-request
+    action: "EpicPullRequest after PrCrossLink: per repository, find or create a draft from the epic branch to the default branch and render the ledger, read through TicketHtmlConverter."
+  - id: ready-from-the-provider
+    action: "Mark ready only when every child of the filing comment has a none line or a pull request the provider reports merged with the epic branch as base and that child's branch as head."
+  - id: the-consent
+    action: "The chat confirmation for an epic and the dashboard card's epic summary state the merge into the epic branch, the single human review and Azure's self-approval."
+
+tests:
+  - "SliceTail_GreenSliceOnTheEpicBranch_CompletesBeforeFinalize"
+  - "SliceTail_PullRequestBaseNotTheRung_CompletesNothing"
+  - "SliceTail_PullRequestHeadNotThisTicketsBranch_CompletesNothing"
+  - "SliceTail_PullRequestStillDraft_CompletesNothing"
+  - "SliceTail_FactsUnreadable_CompletesNothing"
+  - "SliceTail_ParentWithoutPhaseEpic_CompletesNothing"
+  - "SliceTail_ChildNotInTheParentsFilingComment_CompletesNothing"
+  - "SliceTail_RecordCarrierWithoutCode_WritesNoneAndCompletesNothing"
+  - "SliceTail_LocalProvider_RecordsNotCompleted"
+  - "SliceTail_AzureArmed_TicketFinalizedAndArmedRecorded"
+  - "SliceTail_CompletionThrows_RunIsNotFailed"
+  - "SliceTail_RepositoryScopedOut_GetsANoneLine"
+  - "EpicFiling_Comment_CarriesEveryChildTicketIdInPlainText"
+  - "Ledger_AzureShapedHtmlComment_ParsesAfterConversion"
+  - "Ledger_LatestLinePerChildAndRepository_Wins"
+  - "Ledger_OverlongLine_IsIgnored"
+  - "EpicPullRequest_FirstSlice_CreatesADraftFromTheEpicBranch"
+  - "EpicPullRequest_ConcurrentCreateRefused_FallsBackToFind"
+  - "EpicPullRequest_ChildWithoutALineForThisRepository_StaysDraft"
+  - "EpicPullRequest_EveryChildMergedOrNone_IsMarkedReady"
+  - "EpicPullRequest_LineSaysMergedButProviderSaysOpen_StaysDraft"
+  - "EpicPullRequest_LinePointingAtAnotherChildsBranch_IsNotCounted"
+  - "EpicPullRequest_NotASlice_DoesNothing"
+  - "PullRequestFacts_EachProvider_ReadsStateBaseAndHead"
+  - "Confirmation_Epic_StatesTheMergeTheSingleReviewAndAzureSelfApproval"
+  - "dashboard: the approval card for an epic states the merge into the epic branch, the single human review and Azure's self-approval"
+
+  - "Ledger_ProviderReturnsNewestFirst_ParsesTheFilingCommentFirst"
+  - "Ledger_FilingCommentOutsideTheReadWindow_RefusesTheSlice"
+  - "Ready_ScopedOutRepository_StillNeedsItsLine"
+  - "Ready_LineWhoseUrlIsAnotherRepository_DoesNotCount"
+  - "dashboard: an epic approval without a saved proposal still states the consent"
+done:
+  - "a green, reviewed slice is merged into its epic branch before its ticket is finalized, where the platform merges at once"
+  - "nothing is merged unless the provider reports an open, non-draft pull request from this ticket's branch into the epic branch of the epic record that filed it"
+  - "no path merges anything into the default branch"
+  - "one pull request per repository carries the epic to the default branch and leaves draft only when every filed child is accounted for there, merged as the provider reports it — on Azure Repos as on GitHub"
+  - "the operator reads the consent, Azure's self-approval included, in chat and on the dashboard card before approving"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"
