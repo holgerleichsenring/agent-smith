@@ -36,6 +36,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 {
     private const string Platform = "dashboard";
     private const string Dialog = "d-2f19";
+    private const string FreshDialog = "d-fresh";
     private const string Owner = "person-a";
     private const string Intruder = "person-b";
     private const string CannedReply = "canned design answer";
@@ -45,6 +46,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogSessionRepository _repository;
     private readonly SpecDialogPendingQuestions _pendingQuestions = new();
+    private readonly SpecDialogTurnGate _turnGate = new();
+    private readonly SpecDialogResumer _resumer;
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner = new();
     private readonly Mock<IDialogueTransport> _dialogueTransport = new();
     private readonly RecordingDialogHub _hub = new();
@@ -63,6 +66,9 @@ public sealed class DashboardDialogChannelTests : IDisposable
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+        _resumer = new SpecDialogResumer(
+            _repository, _turnGate, _pendingQuestions, TimeProvider.System,
+            NullLogger<SpecDialogResumer>.Instance);
         _turnRunner
             .Setup(runner => runner.RunTurnAsync(
                 It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
@@ -172,11 +178,12 @@ public sealed class DashboardDialogChannelTests : IDisposable
         await SendAsync("/spec");
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
-        var taken = await _sessions.ResumeAsync(
+        var taken = await _resumer.ResumeAsync(
             opened!.JobId, "U-slack-stranger", "slack", "C-public", "1726500000.0001",
             CancellationToken.None);
 
-        taken.Should().BeNull("an unowned session answers 'not found', which is also no id oracle");
+        taken.Should().BeOfType<SpecDialogResumeNotFound>(
+            "an unowned session answers 'not found', which is also no id oracle");
         var row = await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None);
         row!.Platform.Should().Be(Platform);
         row.ThreadId.Should().Be(Dialog);
@@ -189,12 +196,128 @@ public sealed class DashboardDialogChannelTests : IDisposable
         await SendAsync("/spec");
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
-        var resumed = await _sessions.ResumeAsync(
+        var resumed = await _resumer.ResumeAsync(
             opened!.JobId, Owner, Platform, "channel", "d-second-tab", CancellationToken.None);
 
-        resumed.Should().NotBeNull();
+        resumed.Should().BeOfType<SpecDialogResumed>();
         (await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None))!
             .ThreadId.Should().Be("d-second-tab");
+    }
+
+    /// <summary>
+    /// A running turn holds the old thread. Moved under it, its reply would find no open
+    /// session and never be stored, and its approval would be accepted in the new tab and
+    /// then fail to file — after the operator approved.
+    /// </summary>
+    [Fact]
+    public async Task Resume_WhileATurnIsRunning_IsRefusedWithAReason()
+    {
+        await SendAsync("/spec");
+        var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        var release = new TaskCompletionSource();
+        var entered = new TaskCompletionSource();
+        _turnRunner
+            .Setup(runner => runner.RunTurnAsync(
+                It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+                return SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome());
+            });
+        await Ingest("design the widget", Owner);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var before = _hub.Pushes.Count;
+        await Ingest($"/spec resume {opened!.JobId}", Owner, FreshDialog);
+        await Settle(before + 1);
+
+        LastText().Should().Contain("in the middle of a turn");
+        _hub.Pushes.Last().Group.Should().Be(HubGroups.SpecDialog(FreshDialog));
+        release.SetResult();
+        await Settle(before + 2);
+        var row = await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None);
+        row!.ThreadId.Should().Be(Dialog, "the conversation stays where its turn is running");
+        (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!
+            .Transcript.Select(turn => turn.Text).Should().Contain(CannedReply,
+                "the running turn's reply still finds its session");
+    }
+
+    [Fact]
+    public async Task Resume_WhileAQuestionIsPending_IsRefusedWithAReason()
+    {
+        await SendAsync("/spec");
+        var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        _pendingQuestions.Set(opened!.JobId, "q-approval", "file these tickets?");
+
+        await SendAsync($"/spec resume {opened.JobId}", FreshDialog);
+
+        LastText().Should().Contain("waiting for an answer");
+        (await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None))!
+            .ThreadId.Should().Be(Dialog);
+        _pendingQuestions.TryPeek(opened.JobId, out _).Should().BeTrue(
+            "the question still waits where it was asked");
+    }
+
+    /// <summary>
+    /// Opening a past conversation on the dashboard is a resume onto a freshly minted dialog
+    /// id. Nothing is open there, so the resume closes nothing — not the conversation that
+    /// replaced it on its old tab.
+    /// </summary>
+    [Fact]
+    public async Task Resume_OntoAFreshDialogId_ClosesNothingElse()
+    {
+        await SendAsync("/spec");
+        var past = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        await SendAsync("/spec new");
+        ForgetTracked();
+        var current = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+
+        await SendAsync($"/spec resume {past!.JobId}", FreshDialog);
+
+        LastText().Should().Contain("resumed");
+        (await _sessions.GetOpenByThreadAsync(Platform, FreshDialog, CancellationToken.None))!
+            .JobId.Should().Be(past.JobId);
+        (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!
+            .JobId.Should().Be(current!.JobId, "the conversation on the other tab stays open");
+    }
+
+    /// <summary>
+    /// Found by review, and older than this phase: the resume closed the target thread with a bulk
+    /// update the tracked session did not see, then set the session open again — which, to the
+    /// change tracker, was no change. So a resume into the thread a session already lived in
+    /// silently closed it while replying "resumed". The tracker is deliberately NOT cleared here:
+    /// clearing it is exactly what hid the bug from the tests beside this one.
+    /// </summary>
+    [Fact]
+    public async Task Resume_IntoTheThreadItAlreadyLivesIn_LeavesItOpen()
+    {
+        await SendAsync("/spec");
+        var here = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+
+        await SendAsync($"/spec resume {here!.JobId}");
+
+        LastText().Should().Contain("resumed");
+        _context.ChangeTracker.Clear();
+        (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
+            .Should().NotBeNull("resuming a conversation where it already is must not close it");
+    }
+
+    [Fact]
+    public async Task Resume_AnotherPrincipalsConversation_IsRefused()
+    {
+        await SendAsync("/spec");
+        var past = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        await SendAsync("/spec new");
+        ForgetTracked();
+
+        var taken = await _resumer.ResumeAsync(
+            past!.JobId, Intruder, Platform, FreshDialog, FreshDialog, CancellationToken.None);
+
+        taken.Should().BeOfType<SpecDialogResumeNotFound>();
+        var row = await _repository.GetBySessionIdAsync(past.JobId, CancellationToken.None);
+        row!.ThreadId.Should().Be(Dialog);
+        row.IsOpen.Should().BeFalse("a closed conversation is reopened by its owner or by nobody");
     }
 
     /// <summary>
@@ -326,9 +449,9 @@ new DashboardOutcomeChannel(
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
             new SpecDialogCommandHandler(
-                _sessions, new SpecDialogScopeResolver(SingleProjectLoader()),
+                _sessions, _resumer, new SpecDialogScopeResolver(SingleProjectLoader()),
                 composer, messenger),
-            _turnRunner.Object, outcomeFlow, new SpecDialogTurnGate(), _pendingQuestions,
+            _turnRunner.Object, outcomeFlow, _turnGate, _pendingQuestions,
             _dialogueTransport.Object, composer, messenger,
             NullLogger<SpecDialogRouter>.Instance);
     }
@@ -352,10 +475,15 @@ new DashboardOutcomeChannel(
             Groups = _hub,
         };
 
-    private async Task<IResult> SendAsync(string text)
+    // Every dispatched message runs in a scope of its own in the server, with a fresh unit of
+    // work. Here one context serves them all, and the close is a bulk update its tracker never
+    // sees — so a closed row would still read as open from an earlier load.
+    private void ForgetTracked() => _context.ChangeTracker.Clear();
+
+    private async Task<IResult> SendAsync(string text, string dialogId = Dialog)
     {
         var before = _hub.Pushes.Count;
-        var result = await Ingest(text, Owner);
+        var result = await Ingest(text, Owner, dialogId);
         await Settle(before + 1);
         return result;
     }

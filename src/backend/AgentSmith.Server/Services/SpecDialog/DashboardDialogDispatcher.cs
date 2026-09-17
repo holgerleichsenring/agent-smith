@@ -18,7 +18,7 @@ public sealed class DashboardDialogDispatcher(
 
     private const string NoOpenDialog =
         "No spec dialog is open here. Start one with `/spec` — or `/spec <project>` when "
-        + "several projects are configured; `/spec list` shows the sessions you can resume.";
+        + "several projects are configured; `/spec list` shows your open sessions.";
 
     public async Task DispatchAsync(
         string dialogId, string text, string userId, CancellationToken cancellationToken)

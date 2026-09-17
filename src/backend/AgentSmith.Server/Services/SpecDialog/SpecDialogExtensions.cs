@@ -27,6 +27,7 @@ internal static class SpecDialogExtensions
         // work (SpecDialogSessionRepository -> AgentSmithDbContext); the turn
         // runner shares that scope for the duration of its in-process run.
         services.AddScoped<SpecDialogSessionManager>();
+        services.AddScoped<SpecDialogResumer>();
         services.AddScoped<SpecDialogCommandHandler>();
         services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>();
         // 2026-09-13-ed5a: the declared templates the epic analysis may read, and the
@@ -58,6 +59,7 @@ internal static class SpecDialogExtensions
         // work; the catalog is transient because it re-reads the configuration per call.
         services.AddTransient<SpecDialogProjectCatalog>();
         services.AddScoped<SpecDialogViewReader>();
+        services.AddScoped<SpecDialogConversationList>();
         // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
         // what filing it actually created.
         services.AddTransient<SpecDialogProposalComposer>();

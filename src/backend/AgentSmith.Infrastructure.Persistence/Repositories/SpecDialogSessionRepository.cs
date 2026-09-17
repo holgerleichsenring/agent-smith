@@ -43,6 +43,21 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
                 .ToListAsync(ct))
             .OrderByDescending(s => s.LastActivityAt)];
 
+    /// <summary>
+    /// One owner's sessions on one platform, open or closed: the most recently CREATED ones,
+    /// sorted by last activity. The cap is taken by id in the query and the sort is done in
+    /// memory, for the same SQLite reason as above — so a conversation created long ago and
+    /// resumed today can fall outside the cap.
+    /// </summary>
+    public async Task<IReadOnlyList<SpecDialogSession>> ListByOwnerAsync(
+        string platform, string userId, int limit, CancellationToken ct) =>
+        [.. (await unitOfWork.Set<SpecDialogSession>()
+                .Where(s => s.Platform == platform && s.UserId == userId)
+                .OrderByDescending(s => s.Id)
+                .Take(limit)
+                .ToListAsync(ct))
+            .OrderByDescending(s => s.LastActivityAt)];
+
     /// <summary>Persists changes staged on a tracked session entity.</summary>
     public Task SaveAsync(CancellationToken ct) => unitOfWork.SaveChangesAsync(ct);
 

@@ -38,7 +38,8 @@ public sealed class TicketFilingOutcomeSink(
                 string.Join(", ", report.Filed.Select(t => t.Reference)));
         }
 
-        await latestOutcome.SetFilingAsync(state.Platform, state.ThreadId!, report, cancellationToken);
+        await latestOutcome.SetFilingAsync(
+            state.Platform, state.ThreadId!, report, proposal, cancellationToken);
 
         // Published before the notice is composed: the pane is the record of what was
         // created, and a chat API that cannot be reached must not take it down with it.

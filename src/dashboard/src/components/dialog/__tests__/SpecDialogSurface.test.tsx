@@ -8,6 +8,7 @@ import type {
   SpecDialogPhaseProposal,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
+  SpecDialogSessionSummary,
   SpecDialogView,
 } from "@/types/spec-dialog";
 
@@ -48,9 +49,11 @@ vi.mock("@/lib/JobsHubClient", () => ({
 }));
 
 const fetchSpecDialog = vi.fn();
-const postSpecDialogMessage = vi.fn(async () => {});
+const postSpecDialogMessage = vi.fn<(dialogId: string, text: string) => Promise<void>>(async () => {});
+const fetchSpecDialogConversations = vi.fn();
 vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
+  fetchSpecDialogConversations: () => fetchSpecDialogConversations(),
   postSpecDialogMessage: (dialogId: string, text: string) =>
     postSpecDialogMessage(dialogId, text),
 }));
@@ -75,7 +78,6 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
       proposalTurn: null,
     },
     projects: [SAMPLE_SCOPE],
-    openSessions: [],
     ...overrides,
   };
 }
@@ -163,7 +165,9 @@ beforeEach(() => {
   __forgetDialogIdForTests();
   fetchSpecDialog.mockReset();
   fetchSpecDialog.mockResolvedValue(view());
-  postSpecDialogMessage.mockClear();
+  fetchSpecDialogConversations.mockReset();
+  fetchSpecDialogConversations.mockResolvedValue([]);
+  postSpecDialogMessage.mockReset();
   subscribeSpecDialog.mockClear();
 });
 
@@ -273,19 +277,131 @@ describe("SpecDialogSurface", () => {
       expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "/spec other"));
   });
 
-  it("SpecDialog_AnOpenSessionElsewhere_IsResumedByClickingIt", async () => {
-    fetchSpecDialog.mockResolvedValue(view({
-      session: null,
-      openSessions: [
-        { sessionId: "s-9", project: "sample", turns: 3, lastActivityAt: "2026-09-15T09:00:00Z" },
-      ],
-    }));
+  function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
+    return {
+      sessionId: "s-9", project: "sample", turns: 3, lastActivityAt: "2026-09-15T09:00:00Z",
+      title: "a widget that reads the ledger", outcome: null, openDialogId: null,
+      ...overrides,
+    };
+  }
+
+  it("SpecDialog_TheConversationList_NamesEachByTitleAndWhatItFiled", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ outcome: { kind: "epic", tickets: 3, partial: true } }),
+    ]);
     await renderSurface();
 
-    fireEvent.click(screen.getByTestId("dialog-resume-s-9"));
+    expect(await screen.findByTestId("dialog-conversation-s-9")).toHaveTextContent(
+      "a widget that reads the ledger · sample · epic, 3 tickets filed (partial)",
+    );
+  });
+
+  // 2026-09-17-c7aeb: a dialog id is a tab, not a conversation. Opening a past one mints a
+  // fresh id and resumes onto it, and that id's first read comes BEFORE the resume has moved
+  // anything there — a re-seed spent on it left the page with no transcript at all.
+  // Found by review: a conversation left mid-turn could not be reopened. The click was a resume,
+  // a resume is refused while a turn runs, and the page had already left the tab the reply and a
+  // waiting approval were going to. An open conversation is somewhere; the page goes there.
+  it("SpecDialog_OpeningAnOpenConversation_ReturnsToItsDialogAndResumesNothing", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ openDialogId: "d-where-it-lives" })]);
+    await renderSurface();
+
+    fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
+
+    await waitFor(() => expect(heldDialogId()).toBe("d-where-it-lives"));
+    expect(postSpecDialogMessage.mock.calls.map((call) => call[1]))
+      .not.toContainEqual(expect.stringMatching(/^\/spec resume/));
+  });
+
+  // The list stands beside the conversation. A failed read of it used to put the page-wide
+  // failure over a dialog that was working.
+  it("SpecDialog_AFailedListRead_LeavesTheDialogWorking", async () => {
+    fetchSpecDialogConversations.mockRejectedValue(new Error("list unavailable"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+    expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
+    warn.mockRestore();
+  });
+
+  it("SpecDialog_OpeningAPastConversation_ShowsItsTranscriptAfterTheResume", async () => {
+    let resumed = false;
+    postSpecDialogMessage.mockImplementation(async (...[, text]) => {
+      if (text.startsWith("/spec resume")) resumed = true;
+    });
+    fetchSpecDialogConversations.mockResolvedValue([conversation()]);
+    await renderSurface();
+    const first = heldDialogId();
+    fetchSpecDialog.mockImplementation(async (dialogId: string) => {
+      if (dialogId === first) return view();
+      if (!resumed) return view({ dialogId, session: null });
+      const base = view({ dialogId });
+      return {
+        ...base,
+        session: {
+          ...base.session!, sessionId: "s-9",
+          transcript: [{ role: "user", text: "a widget that reads the ledger", at: "2026-09-15T09:00:00Z" }],
+        },
+      };
+    });
+
+    fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
+    await waitFor(() => expect(heldDialogId()).not.toBe(first));
+    const fresh = heldDialogId();
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(fresh, "/spec resume s-9"));
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalledWith(fresh));
+    act(() => messages.emit({
+      dialogId: fresh, title: "Spec dialog",
+      text: "Spec dialog `s-9` resumed — scope **sample**, 1 turn(s) so far.",
+      at: "2026-09-15T10:06:00Z",
+    }));
+
+    expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent(
+      "a widget that reads the ledger",
+    );
+    expect(postSpecDialogMessage).not.toHaveBeenCalledWith(first, expect.anything());
+  });
+
+  it("SpecDialog_ClickingTheConversationAlreadyOpen_DoesNothing", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-1" })]);
+    await renderSurface();
+    const first = heldDialogId();
+
+    fireEvent.click(await screen.findByTestId("dialog-conversation-s-1"));
+    await act(async () => {});
+
+    expect(heldDialogId()).toBe(first);
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
+    expect(screen.getByTestId("dialog-conversation-s-1")).toHaveAttribute("aria-current", "true");
+  });
+
+  it("SpecDialog_TheConversationList_IsNotReadOnEveryMessage", async () => {
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+    const read = fetchSpecDialog.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(fetchSpecDialog.mock.calls.length).toBeGreaterThan(read));
+    expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
+  });
+
+  it("SpecDialog_AFiling_RereadsTheConversationList", async () => {
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+
+    act(() => filings.emit(filing()));
 
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "/spec resume s-9"));
+      expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
   });
 
   // 2026-09-15-cb3e, found by review: nothing is pushed when a wait expires — the confirmer

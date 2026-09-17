@@ -36,10 +36,11 @@ export function SpecDialogSurface() {
         <DialogSessionControls
           dialogId={dialog.dialogId}
           view={dialog.view}
+          conversations={dialog.conversations}
           picked={picked}
           onPicked={setPicked}
           onStartNew={(project) => void dialog.startNew(project)}
-          onResume={(sessionId) => void dialog.resume(sessionId)}
+          onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
         />
         {/* A refusal reads as one here: FailedSurface branches on it, so a caller who
             may not hold spec dialogs is told that rather than shown a stack. */}
