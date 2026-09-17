@@ -34,6 +34,7 @@ internal static class MasterOutcomes
         PipelineContext pipeline, AgenticLoopResult result, string error)
     {
         pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)new AnswerOutcome());
+        pipeline.Set(ContextKeys.SpecDialogReplyKind, SpecDialogTurnKind.Notice);
         return WithReplyText(result, OutcomeFailureNotice(error));
     }
 

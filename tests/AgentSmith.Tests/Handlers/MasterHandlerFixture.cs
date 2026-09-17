@@ -42,6 +42,9 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
             BuildOutcomeResolver(),
+            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
+                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
             new StubSubAgentRunner(),
             new SubAgentBudget(20),
             new SubAgentNameValidator(),

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
@@ -55,12 +56,12 @@ public sealed class SpecDialogSessionManager(
     /// </summary>
     public async Task<ConversationState?> AppendTurnAsync(
         string platform, string threadId, TranscriptRole role, string text,
-        CancellationToken ct)
+        SpecDialogTurnKind? kind, CancellationToken ct)
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
         if (session is null) return null;
 
-        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow());
+        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind);
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         session.LastActivityAt = turn.At;

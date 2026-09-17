@@ -138,7 +138,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         await OpenAsync(Owner);
         await _sessions.AppendTurnAsync(
             Platform, Dialog, TranscriptRole.User, "a widget that reads the ledger",
-            CancellationToken.None);
+            null, CancellationToken.None);
 
         var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
 

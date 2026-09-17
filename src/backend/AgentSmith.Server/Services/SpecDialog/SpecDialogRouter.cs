@@ -53,7 +53,7 @@ public sealed class SpecDialogRouter(
     {
         if (threadId is null) return false;
 
-        var state = await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.User, text, ct);
+        var state = await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.User, text, null, ct);
         if (state is null) return false;
 
         // A live ask_human question wins: the running master is blocked on it,
@@ -102,7 +102,7 @@ public sealed class SpecDialogRouter(
                 return;
             }
 
-            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, ct);
+            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, ct);
             await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
             // p0315e: a non-answer outcome is proposed + confirmed in-thread,
             // then handed to the outcome sink (p0315c: ticket filing). Runs

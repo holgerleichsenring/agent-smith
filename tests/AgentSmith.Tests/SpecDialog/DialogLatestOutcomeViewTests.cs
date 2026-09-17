@@ -187,7 +187,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         await _sessions.OpenAsync(Platform, Dialog, Dialog, Owner,
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
         foreach (var (role, text) in turns)
-            await _sessions.AppendTurnAsync(Platform, Dialog, role, text, CancellationToken.None);
+            await _sessions.AppendTurnAsync(Platform, Dialog, role, text, null, CancellationToken.None);
         return (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!;
     }
 

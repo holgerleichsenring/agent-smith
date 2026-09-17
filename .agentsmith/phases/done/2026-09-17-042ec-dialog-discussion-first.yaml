@@ -84,6 +84,11 @@ tests:
   - "Turn_FirstTurnProposes_IsRefusedAndAnswersInstead"
   - "Turn_FirstTurnProposesTwice_AnswersWithItsProseNotAFailureNotice"
   - "Turn_ChatPlatform_FollowsTheSameRule"
+  - "Turn_RefusalRetry_ContinuesTheFirstPassThread"
+  - "Turn_RefusalRetryThrows_AnswersWithTheFirstProse"
+  - "Turn_RefusalRetryThrowsAfterABareDraft_IsANotice"
+  - "TurnResult_KindOf_AnOutcomeWithNoKind_Throws"
+  - "TranscriptTurn_RowWithAnUnknownKind_ReadsAsNull"
 
 done:
   - "a new conversation's first reply is never a proposal"

@@ -44,6 +44,7 @@ public sealed class AgenticMasterHandler(
     ISpecDialogPromptFactory specDialogPromptFactory,
     IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
+    SpecDialogProposalRefusal proposalRefusal, // 2026-09-17-042ec: no proposal before a discussion
     ISubAgentRunner subAgentRunner,
     SubAgentBudget subAgentBudget,
     SubAgentNameValidator subAgentNameValidator,
@@ -451,7 +452,7 @@ public sealed class AgenticMasterHandler(
         // invalid output never reaches the thread.
         if (isSpecDialog)
             loopResult = await GateSpecOutcomeAsync(
-                context.Pipeline, request, userPrompt, loopResult, costTracker, cancellationToken);
+                context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
 
         var changes = fs.GetChanges();
 
@@ -624,8 +625,9 @@ public sealed class AgenticMasterHandler(
     // invalid output is never surfaced.
     private async Task<AgenticLoopResult> GateSpecOutcomeAsync(
         PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
-        AgenticLoopResult loopResult, PipelineCostTracker costTracker, CancellationToken ct)
+        AgenticLoopResult loopResult, MasterConversation conversation, PipelineCostTracker costTracker, CancellationToken ct)
     {
+        loopResult = await proposalRefusal.RefuseEarlyProposalAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
         var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty);
         if (resolution is OutcomeResolved first)
             return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
