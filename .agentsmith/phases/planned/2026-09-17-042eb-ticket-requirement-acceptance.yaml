@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042eb
+
+goal: "An epic child ticket states what must be true when it is done, its title fits every tracker, and the steps stay out so the run still re-cuts the work against the code."
+
+applies_to: "backend (requirement ticket body, titles) + skills (design-partner master epic contract, pin)"
+
+requires:
+  - 2026-09-17-042ea
+  - 2026-09-13-b7ba
+
+scope:
+  in: >
+    The design-partner master asks every epic child for a done list. The requirement body renders it as
+    an acceptance-criteria section, and the deriver's prompt and its fallback read that section when the
+    tracker has no acceptance field. The requirement body drops sibling phase ids from its Requires
+    section and keeps free-text preconditions. Every title the framework files is cut to 255 characters
+    at a word boundary; the goal stays whole in the body. The embedded skills pin moves to the release that carries this skill change and the
+    English-only draft rule.
+  out: >
+    STEPS OR TEST NAMES IN A CHILD. See decisions.
+    AZURE DEVOPS' ACCEPTANCE CRITERIA FIELD. See decisions.
+    SINGLE PHASE WORK ORDERS. They embed their spec and are unchanged.
+
+decisions:
+  - key: |
+      DONE CRITERIA GO IN; STEPS AND TEST NAMES STAY OUT. b7ba leaves steps out because a deriver
+      reading them reproduces the cut it should redo (decisions/2026-09-13-b7ba.yaml:28-34). A done
+      criterion states an outcome, not a cut. A test name is method-shaped, and procedure in a ticket
+      becomes an acceptance criterion the run is held to.
+  - key: |
+      THE CRITERIA ARE CARRIED, NOT AUTHORITATIVE, AND BOTH DERIVER PATHS SEE THEM. The body is split into
+      segments the derivation master must carry or discard (TicketSegmenter.cs:21-57), and the deriver
+      still writes the phase's own done list against the repository. But the prompt's criteria line reads
+      the ticket field (SpecPromptComposer.cs:27), which is null on GitHub, GitLab and Jira, and would say
+      none were specified above the section; and the fallback builds its done list from the same field
+      (DeriveSpecHandler.cs:90; SpecFallback.cs:30,57-63). Both read the body's section when the field is
+      empty.
+  - key: |
+      THE SKILL HAS TO ASK FOR THEM, OR BODIES STAY GOAL-ONLY. The master says add done "only when the
+      conversation produced real content" and its epic example gives children phase, goal, steps and
+      requires only (design-partner-master SKILL.md, pinned v5.4.0). The requirement body renders what
+      the draft carries (PhaseTicketBody.cs:37-55), and today that is the goal.
+  - key: |
+      A BODY SECTION, NOT A TRACKER FIELD. Only Azure DevOps maps an acceptance field
+      (AzureDevOpsFieldMapper.cs:28), the Task type the filer creates does not normally carry it, and
+      the other three providers pass null. A section reads the same on all four, as the bug ticket
+      already does (BugTicketRenderer.cs:18-20).
+  - key: |
+      TITLES ARE CUT WHERE EVERY FILED TITLE PASSES, GOALS ARE NOT. A phase or epic title is
+      "{phase}: {goal}" (PhaseTicketRenderer.cs:84), a bug title comes straight from the master
+      (OutcomeTicketFiler.cs:71) and a chat intent passes its own (CreateTicketIntentHandler.cs:39). The
+      schema allows a 2000-character goal, nothing bounds a title, and the trackers cap it near 255, so a
+      create fails. One title helper serves all three. Nothing parses a phase id back out of a title
+      (SpecFallback.cs:27 uses the whole title), so the cut is safe.
+  - key: |
+      SIBLING IDS LEAVE THE BODY; FREE-TEXT PRECONDITIONS STAY. A sibling phase id means nothing in a
+      tracker: the order lives in the phase-requires labels (EpicTicketFiler.cs:60-62) and on the parent's
+      slice lines (PhaseTicketRenderer.cs:62,86-87). The master also allows free-text external
+      preconditions in requires (design-partner-master SKILL.md v5.4.0 line 188), which no label carries;
+      they stay, as Preconditions. The change is in the requirement body only, because the shared section
+      builder also serves the single-phase work order (PhaseTicketBody.cs:52).
+  - key: |
+      THE PIN MOVE CARRIES THE ENGLISH RULE TOO, SO THE RELEASE WAITS FOR THE SKILL. The pin is v5.4.0
+      (AgentSmith.Infrastructure.Core.csproj:54) and lacks the English-only rule that skills main already
+      holds (design-partner-master 1.6.1). Release PR 5.4.1 is open; it is held until this skill change
+      (design-partner-master 1.6.2, together with 2026-09-17-042ec's) merges, so one release carries both.
+      The pin move replaces the tarball and updates SkillsCatalogVersion and SkillsCatalogSha256, which the
+      build verifies (csproj:44-55,88-89).
+
+steps:
+  - id: the-skill-asks
+    action: "In the skills repository, the design-partner master requires done per epic child and its epic example shows it; version 1.6.2."
+  - id: the-body-renders-it
+    action: "The requirement body renders the done list as acceptance criteria, drops sibling phase ids and keeps free-text preconditions."
+  - id: the-deriver-reads-it
+    action: "With no tracker acceptance field, the derivation prompt's criteria line and the spec fallback read the body's acceptance-criteria section."
+  - id: titles-fit
+    action: "One title helper cuts phase, epic, bug and intent titles to 255 characters at a word boundary."
+  - id: the-pin-moves
+    action: "After the skill PRs merge and the held release is cut, the tarball, SkillsCatalogVersion and SkillsCatalogSha256 move to it."
+
+tests:
+  - "RequirementTicket_ChildWithDone_RendersAcceptanceCriteria"
+  - "RequirementTicket_SiblingRequires_AreNotInTheBody"
+  - "RequirementTicket_ChildWithFreeTextRequires_KeepsThePrecondition"
+  - "WorkOrderTicket_Requires_AreUnchanged"
+  - "SpecPrompt_TicketWithoutAcceptanceField_ReadsTheBodySection"
+  - "SpecFallback_RequirementTicket_TakesDoneFromTheCriteriaSection"
+  - "TicketTitle_LongGoal_IsCutAtAWordBoundaryAndTheBodyKeepsTheGoal"
+  - "BugFiling_LongTitle_IsCut"
+  - "EmbeddedSkills_DesignPartnerMaster_AsksEachEpicChildForDone"
+
+done:
+  - "an epic child filed from a conversation shows its acceptance criteria and no steps"
+  - "a goal longer than a tracker's title limit still files"
+  - "the embedded design-partner master requires English drafts and a done list per epic child"
+  - "build green, full suite green"
