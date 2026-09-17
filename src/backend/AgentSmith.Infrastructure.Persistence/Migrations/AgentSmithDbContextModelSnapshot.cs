@@ -1108,6 +1108,12 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("LastActivityAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("LatestFilingJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LatestProposalJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Platform")
                         .IsRequired()
                         .HasMaxLength(191)

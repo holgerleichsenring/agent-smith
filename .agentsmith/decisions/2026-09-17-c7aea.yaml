@@ -1,0 +1,91 @@
+phase: 2026-09-17-c7aea
+decisions:
+  - id: one-draft-rule
+    chose: >
+      SpecDialogDraftBlocks holds the ```yaml and ```outcome rules; the resolver and the validator
+      now read their blocks through it, and the strip matches either shape by presence.
+    alternative: >
+      A third regex for the strip beside the two private ones.
+    why: >
+      Three copies of "what is a draft" drift. Validity is not re-checked: an invalid draft is
+      re-prompted once and then replaced by a notice, so a stored reply holds one valid block or none.
+  - id: the-result-carries-both-renderings
+    chose: >
+      SpecDialogTurnResult carries Reply and Shown; SpecDialogTurnResult.On(platform, reply, outcome)
+      computes Shown, and the runner builds every result through it. The router stores Reply and
+      sends Shown on the lines that already stored and sent, so it stays at 132 lines.
+    alternative: >
+      Strip in DashboardAdapter.SendInfoAsync, or in a private runner method.
+    why: >
+      The adapter receives questions, failure notices and filing notices through the same method,
+      and would eat a draft quoted in any of them. The factory is on the record rather than private
+      to the runner so the router tests build their scripted turns the way the runner does.
+  - id: latest-outcome-in-its-own-store
+    chose: >
+      SpecDialogLatestOutcomeStore writes LatestProposalJson (via OutcomeProposalJson) from the flow
+      and LatestFilingJson from the sink; a write for a thread with no open session changes nothing.
+    alternative: >
+      Add the methods to SpecDialogOutcomeStore, which throws when no session is open.
+    why: >
+      The confirmed-outcome store is the filing handoff and failing loudly is right there; the pane
+      record must not fail a turn. Keeping it apart also leaves the dead ConfirmedOutcomeJson untouched.
+  - id: the-filing-keeps-its-moment
+    chose: >
+      The filing column stores filed, error and the moment it was written; the view dates the
+      proposal by the turn that carried it; a reload shows a filing only if it is not older than
+      the proposal.
+    alternative: >
+      Clear the latest filing when a new proposal is written.
+    why: >
+      Live, a new proposal clears the pane's filing, and a reload must agree. Clearing the column
+      would also erase what the conversation did file, which the successor's listing reads.
+  - id: an-empty-reply-still-arrives
+    chose: >
+      A reply that is only a draft is sent as an empty message on the dashboard; the page skips
+      empty agent entries, live and when re-seeding.
+    alternative: >
+      Send nothing when the shown reply is empty.
+    why: >
+      The page ends its "working" state and refetches on every message. Sending nothing would leave
+      it waiting although the proposal has arrived.
+  - id: the-dashboard-beyond-the-types
+    chose: >
+      Beyond the types, the hook seeds the pane from the view, and the phase card discloses its raw
+      yaml behind a details element.
+    alternative: >
+      Change the types only and leave all rendering to 2026-09-17-c7aed.
+    why: >
+      The spec's done-list needs a reload to show the latest proposal with its raw form, which the
+      types alone cannot do. c7aed still owns the layout; this is the minimum that makes the claim true.
+  - id: the-router-length-is-the-ratchets
+    chose: >
+      The spec's Router_StaysWithinItsBaselinedLength is proven by
+      FileLengthRatchetTests.NoBaselineFile_GrewSinceTheRatchetWasInstalled, which reads the router's
+      132-line baseline; no second test is added.
+    alternative: >
+      A dedicated test asserting the router is at most 132 lines.
+    why: >
+      It asserted exactly what the ratchet already refuses, with the number copied out of the baseline,
+      so the two could only ever disagree when one of them is stale.
+
+  - category: Correctness
+    chose: "The pane's store never fails its caller: a failed write is logged and dropped, an unreadable row reads as absent"
+    over: "Letting a database error from the new writes propagate, which is what the first version did"
+    reason: |
+      Found by an adversarial review of this phase's code. The store's callers are the approval
+      question and the filing notice, and the filing write runs AFTER the tickets exist. A transient
+      database error there propagated past the notice that tells the master and the transcript what
+      was filed — so the master could not see the filing, and an operator seeing no confirmation asks
+      again and files everything a second time. The proposal write sat before the approval question
+      the same way, and its exception escaped the router, whose catch wraps only the turn runner. This
+      was on every platform's path, not only the dashboard's. A record the pane uses for display is
+      not worth a duplicate ticket or a lost approval. Likewise a malformed or old-shape stored row
+      used to throw from the reader and take the whole dialog read down; it now shows as absent.
+  - category: Correctness
+    chose: "A timed-out approval clears the proposal, as a rejection does; an edit note keeps it"
+    over: "Clearing only on an explicit rejection, as the spec's own wording said"
+    reason: |
+      The spec's decision was that a reload must not offer something the operator is no longer being
+      asked about; it named rejection and missed the timeout. After a timeout the question is gone
+      from memory, so a reload showed "one phase would be filed" beside nothing to approve. An edit
+      note is different: the proposal is still under discussion while it is revised, so it stays.

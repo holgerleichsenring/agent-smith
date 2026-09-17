@@ -26,8 +26,15 @@ export interface SpecDialogTurn {
 export interface SpecDialogSession {
   sessionId: string;
   scope: SpecDialogProject;
+  /** Assistant turns come without their draft — the pane shows it; operator turns as written. */
   transcript: SpecDialogTurn[];
   lastActivityAt: string;
+  /** The proposal under discussion; null when nothing is, including after a rejection. */
+  proposal: SpecDialogProposalPush | null;
+  /** What the latest filing created. Older than `proposal` means it filed an earlier one. */
+  filing: SpecDialogFilingPush | null;
+  /** The index in `transcript` of the turn the proposal card belongs on. */
+  proposalTurn: number | null;
 }
 
 export interface SpecDialogSessionSummary {
@@ -91,6 +98,8 @@ export interface SpecDialogPhaseProposal {
   tests: string[];
   done: string[];
   requires: string[];
+  /** The spec as the master wrote it — the raw form the reply no longer carries. */
+  yaml: string;
 }
 
 /** The fix-bug ticket a bug outcome would file — body exactly as the filer composes it. */

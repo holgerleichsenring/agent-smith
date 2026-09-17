@@ -157,6 +157,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
+            new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<TicketFilingOutcomeSink>.Instance);
     }
 

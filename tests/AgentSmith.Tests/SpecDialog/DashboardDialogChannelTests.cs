@@ -66,7 +66,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         _turnRunner
             .Setup(runner => runner.RunTurnAsync(
                 It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SpecDialogTurnResult(CannedReply, new AnswerOutcome()));
+            .ReturnsAsync(SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome()));
 
         var messenger = new SpecDialogMessenger(
             [new DashboardAdapter(NullLogger<DashboardAdapter>.Instance, _hub)],
@@ -117,7 +117,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
             {
                 entered.TrySetResult();
                 await release.Task;
-                return new SpecDialogTurnResult(CannedReply, new AnswerOutcome());
+                return SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome());
             });
 
         var opened = _hub.Pushes.Count;
@@ -266,7 +266,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
             {
                 entered.TrySetResult();
                 await release.Task;
-                return new SpecDialogTurnResult(CannedReply, new AnswerOutcome());
+                return SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome());
             });
         var opened = _hub.Pushes.Count;
         await Ingest("the first thought", Owner);
@@ -321,6 +321,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance, _hub),
+            new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,

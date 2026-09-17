@@ -19,6 +19,7 @@ public sealed class TicketFilingOutcomeSink(
     SpecDialogMessenger messenger,
     SpecDialogOutcomeComposer composer,
     DashboardOutcomeChannel outcomeChannel,
+    SpecDialogLatestOutcomeStore latestOutcome,
     ILogger<TicketFilingOutcomeSink> logger) : IOutcomeSink
 {
     public async Task AcceptAsync(
@@ -36,6 +37,8 @@ public sealed class TicketFilingOutcomeSink(
                 report.Filed.Count, state.JobId,
                 string.Join(", ", report.Filed.Select(t => t.Reference)));
         }
+
+        await latestOutcome.SetFilingAsync(state.Platform, state.ThreadId!, report, cancellationToken);
 
         // Published before the notice is composed: the pane is the record of what was
         // created, and a chat API that cannot be reached must not take it down with it.

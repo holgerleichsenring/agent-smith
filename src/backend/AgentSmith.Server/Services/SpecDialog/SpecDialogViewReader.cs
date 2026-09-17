@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
-    SpecDialogPendingQuestions pendingQuestions)
+    SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
+    SpecDialogProposalComposer proposalComposer)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -23,9 +24,12 @@ public sealed class SpecDialogViewReader(
     {
         var state = await sessions.GetOpenByThreadAsync(Platform, dialogId, cancellationToken);
         var open = await sessions.ListOpenAsync(owner, Platform, cancellationToken);
+        var latest = state is null
+            ? SpecDialogLatestOutcome.None
+            : await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
         return new SpecDialogView(
             dialogId,
-            state is null ? null : Session(state),
+            state is null ? null : Session(dialogId, state, latest),
             projects.All(),
             [.. open.Select(Summary)],
             state is null ? null : Asked(dialogId, state));
@@ -42,12 +46,24 @@ public sealed class SpecDialogViewReader(
                 dialogId, pending.Question, state.LastActivityAt, pending.ExpiresAt)
             : null;
 
-    private SpecDialogSessionView Session(ConversationState state) =>
-        new(state.JobId,
+    private SpecDialogSessionView Session(
+        string dialogId, ConversationState state, SpecDialogLatestOutcome latest)
+    {
+        var card = latest.Proposal is null ? null : SpecDialogShownTranscript.CardTurn(state.Transcript);
+        return new(state.JobId,
             projects.Of(state.Project, state.Scope?.Repos ?? []),
-            [.. state.Transcript.Select(turn => new SpecDialogTurnView(
-                turn.Role.ToString().ToLowerInvariant(), turn.Text, turn.At))],
-            state.LastActivityAt);
+            SpecDialogShownTranscript.Turns(state.Transcript),
+            state.LastActivityAt,
+            latest.Proposal is null
+                ? null
+                // The proposal was made by the turn that carried it, so that turn's moment is its own.
+                : proposalComposer.Compose(dialogId, latest.Proposal,
+                    card is { } turn ? state.Transcript[turn].At : state.LastActivityAt),
+            latest.Filing is null
+                ? null
+                : new SpecDialogFilingPush(dialogId, latest.Filing.Filed, latest.Filing.Error, latest.Filing.At),
+            card);
+    }
 
     private static SpecDialogSessionSummary Summary(ConversationState state) =>
         new(state.JobId, state.Project, state.Transcript.Count, state.LastActivityAt);

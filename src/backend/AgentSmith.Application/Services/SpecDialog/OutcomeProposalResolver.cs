@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using YamlDotNet.Core;
 
@@ -10,19 +9,16 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// is a plain answer (never an error), a present-but-malformed marker fails
 /// with the exact reason so the master can fix it on the one re-prompt.
 /// </summary>
-public sealed partial class OutcomeProposalResolver(
+public sealed class OutcomeProposalResolver(
     ISpecDraftValidator draftValidator,
     PhaseDraftReader draftReader,
     BugOutcomeParser bugParser,
     EpicOutcomeParser epicParser) : IOutcomeProposalResolver
 {
-    [GeneratedRegex("```outcome\\s*\\n(.*?)```", RegexOptions.Singleline)]
-    private static partial Regex OutcomeBlockRegex();
-
     public OutcomeResolution Resolve(string reply)
     {
         var text = reply ?? string.Empty;
-        var blocks = OutcomeBlockRegex().Matches(text);
+        var blocks = SpecDialogDraftBlocks.OutcomeBlock().Matches(text);
         if (blocks.Count == 0) return ResolveFromDraft(text);
         if (blocks.Count > 1)
             return new OutcomeInvalid(

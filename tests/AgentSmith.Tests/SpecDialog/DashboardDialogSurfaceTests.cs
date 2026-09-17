@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.SpecDialog;
 using System.Security.Claims;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
@@ -226,7 +227,9 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
     private readonly SpecDialogPendingQuestions _pending = new();
 
     private SpecDialogViewReader Reader() =>
-        new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending);
+        new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending,
+            new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
+            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()));
 
     private SpecDialogMessenger Messenger() =>
         new([Adapter()], NullLogger<SpecDialogMessenger>.Instance);

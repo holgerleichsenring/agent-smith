@@ -99,6 +99,11 @@ export function useSpecDialog(): SpecDialogState {
       if (!reseed.current) return;
       reseed.current = false;
       setEntries(seed(next));
+      // The pane lived only in pushes, so a reload lost what was being decided and what was
+      // filed. The session keeps both; the column takes them back the way the pushes set it.
+      const held = heldOutcome(next);
+      setProposal(held.proposal);
+      setFiled(held.filed);
     } catch (thrown) {
       if (issued === reads.current) setFailure(asError(thrown));
     }
@@ -133,7 +138,8 @@ export function useSpecDialog(): SpecDialogState {
       // Every message is answered — a reply, a refusal, or the turn-failed notice — so
       // this is where the waiting ends, whatever the answer turned out to be.
       setAwaiting(false);
-      append("agent", message.text, message.at);
+      // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
+      if (message.text.trim().length > 0) append("agent", message.text, message.at);
       void load(dialogId);
     });
     const offQuestion = client.specDialogQuestions.add((asked) => {
@@ -220,12 +226,26 @@ export function useSpecDialog(): SpecDialogState {
 }
 
 function seed(view: SpecDialogView): DialogEntry[] {
-  return (view.session?.transcript ?? []).map((turn, index) => ({
-    key: `held-${index}`,
-    kind: turn.role === "user" ? "user" : "agent",
-    text: turn.text,
-    at: turn.at,
-  }));
+  return (view.session?.transcript ?? [])
+    .map((turn, index) => ({
+      key: `held-${index}`,
+      kind: (turn.role === "user" ? "user" : "agent") as DialogEntryKind,
+      text: turn.text,
+      at: turn.at,
+    }))
+    .filter((entry) => entry.kind === "user" || entry.text.trim().length > 0);
+}
+
+/** A filing older than the proposal filed an earlier one, and the proposal outranks it —
+ *  the same move a live proposal push makes when it clears the filing. */
+function heldOutcome(view: SpecDialogView): {
+  proposal: SpecDialogProposalPush | null;
+  filed: SpecDialogFilingPush | null;
+} {
+  const proposal = view.session?.proposal ?? null;
+  const filing = view.session?.filing ?? null;
+  const superseded = proposal !== null && filing !== null && Date.parse(filing.at) < Date.parse(proposal.at);
+  return { proposal, filed: superseded ? null : filing };
 }
 
 function asError(thrown: unknown): Error {
