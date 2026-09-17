@@ -1,0 +1,89 @@
+phase: 2026-09-17-c7aec
+decisions:
+  - id: the-observer-is-ambient
+    chose: >
+      ISourceScopeObserverAccessor (Contracts) with an AsyncLocal implementation registered as a
+      singleton. SpecDialogTurnRunner sets an observer before the pipeline runs; every scope created
+      below it, through the factory or the shared template selection, reads it when it materialises.
+    alternative: >
+      Pass an observer to ISourceScopeSandboxFactory.Create and through ProjectTemplateScopes.
+    why: >
+      The factory and the template selection are shared with the derivation and the coding master.
+      The run id already crosses this boundary ambiently, and no signature changes for any caller.
+  - id: the-default-is-silent
+    chose: >
+      With no observer set the scope reports nothing. Only a dashboard design turn sets one; the
+      spec-dialog channel returns no handle for any other platform.
+    alternative: >
+      A run event published from the scope for every run.
+    why: >
+      A run event would fire into the trail of every coding run that opens a template. The harness
+      proves a coding run with a template opens it and finds no observer.
+  - id: the-dialog-is-resolved-per-push
+    chose: >
+      The observer holds the session id. DashboardReadingChannel looks the session up in a DI scope
+      of its own at every push and sends to spec-dialog:{thread}, or to nothing when the session is
+      gone or no longer on the dashboard.
+    alternative: >
+      Capture the thread id when the turn starts, or read the session through the turn's own scoped
+      unit of work.
+    why: >
+      A conversation can be resumed onto another dialog id. The master may read two repositories at
+      once, and two scopes reporting at once must not share one DbContext.
+  - id: room-by-two-extractions
+    chose: >
+      SourceScopeRefusal takes the step refusals, the read-kind check included. SourceScopeOpener
+      takes spawning the sandbox and landing it on its revision; the scope keeps the guard, the
+      lifetime and the reports. Both scope registrations move to AddSourceScopes.
+    alternative: >
+      Extract only the refusal and add the reports inline.
+    why: >
+      With only the refusal moved the file was 128 lines, and "failed" missed a spawn that throws
+      before preparation starts. With the opener moved, one try around it reports every failure
+      and the file is 110 lines. PipelineHandlersExtensions sits at its ratchet baseline, so the
+      new accessor registration could not go there.
+  - id: a-push-never-fails-the-read
+    chose: >
+      DashboardReadingChannel.PushAsync catches and logs every failure except cancellation. The
+      scope reports "failed" with no cancellation token so the report still goes out.
+    alternative: >
+      Let an observer failure reach the scope.
+    why: >
+      The scope awaits the report on the path that serves a read. A broken progress line must not
+      turn into a refused read the model then has to work around.
+  - id: the-page-keeps-one-line-per-repository
+    chose: >
+      The hook keeps the latest state per repository in first-opened order, clears it before a post
+      and when the answer arrives, and the working indicator lists "repo: state". Placement and
+      styling are left to 2026-09-17-c7aed.
+    alternative: >
+      Append every push as its own line.
+    why: >
+      Opening and ready for one repository are one fact that changes. Clearing before the post
+      matters because the turn can announce its first repository before the post returns.
+  - id: the-dialog-is-the-turns
+    chose: >
+      The observer is bound to the dialog in the turn's state, as the outcome channel binds its pushes.
+    alternative: >
+      Look the session up in a scope of its own at every push, so a conversation resumed onto another
+      dialog mid-turn is followed.
+    why: >
+      Found in review. A resume is refused while a turn runs, so the case the lookup served cannot
+      happen, and the lookup cost a DI scope and a query per report inside the scope's materialise
+      lock, plus a failure mode where a store outage silently hid all progress.
+  - id: the-line-names-the-revision
+    chose: >
+      A scope at a revision reports "repository@revision"; the page keeps one line per such name.
+    alternative: >
+      Report the repository name alone.
+    why: >
+      Found in review. Two templates may pin one repository at two revisions; under one name their
+      lines collapsed and showed whichever report landed last, so a failed template could read ready.
+  - id: only-the-callers-cancellation-ends-the-read
+    chose: >
+      The push swallows every failure unless the caller's own token was cancelled.
+    alternative: >
+      Letting any OperationCanceledException through.
+    why: >
+      Found in review. A cancellation the caller did not ask for, such as an internal timeout, is a
+      failed progress line, and the read it announces must not end because of it.

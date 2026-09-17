@@ -64,6 +64,8 @@ internal static class SpecDialogExtensions
         // what filing it actually created.
         services.AddTransient<SpecDialogProposalComposer>();
         services.AddSingleton<DashboardOutcomeChannel>();
+        // 2026-09-17-c7aec: which repositories a dashboard design turn opens, as it opens them.
+        services.AddSingleton<DashboardReadingChannel>();
         return services;
     }
 }

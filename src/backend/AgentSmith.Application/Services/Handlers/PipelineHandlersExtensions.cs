@@ -197,8 +197,6 @@ public static class PipelineHandlersExtensions
         services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddPhaseExecution(); // 2026-08-26-31e5
-        services.AddTransient<AgentSmith.Application.Services.Sandbox.SourceScopeMaterialiser>()
-            .AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddSingleton<HttpProbeRunner>();
         return services.AddScanPipelines(); // p0429
     }

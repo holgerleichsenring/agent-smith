@@ -1,5 +1,3 @@
-using AgentSmith.Application.Services.Builders;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
@@ -18,15 +16,11 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </para>
 /// </summary>
 public sealed class SourceScopeSandboxFactory(
-    SourceScopeMaterialiser materialiser,
-    ISandboxFactory sandboxFactory,
-    SandboxSpecBuilder specBuilder,
-    IRunContextAccessor runContext,
+    SourceScopeOpener opener,
+    ISourceScopeObserverAccessor observers,
     ILogger<SourceScopeSandbox> sandboxLogger) : ISourceScopeSandboxFactory
 {
     public ISourceScopeSandbox Create(
         ResolvedProject project, RepoConnection repo, string? revision = null) =>
-        new SourceScopeSandbox(
-            project, repo, revision, materialiser, sandboxFactory, specBuilder,
-            runContext, sandboxLogger);
+        new SourceScopeSandbox(project, repo, revision, opener, observers, sandboxLogger);
 }

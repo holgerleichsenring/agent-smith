@@ -34,6 +34,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogTemplateScopes templateScopes,
     SpecDialogQuestionPump questionPump,
     SpecDialogPendingQuestions pendingQuestions,
+    DashboardReadingChannel reading,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
 {
     public async Task<SpecDialogTurnResult> RunTurnAsync(
@@ -54,6 +55,9 @@ public sealed class SpecDialogTurnRunner(
 
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pump = questionPump.PumpAsync(state, pumpCts.Token);
+        // Set before the pipeline runs, so both the scope repos and the templates it opens
+        // report through the flow; any run that sets none reports nothing.
+        using var observing = reading.Observe(state);
         try
         {
             var result = await pipelineUseCase.ExecuteAsync(request, serverContext.ConfigPath, cancellationToken);
