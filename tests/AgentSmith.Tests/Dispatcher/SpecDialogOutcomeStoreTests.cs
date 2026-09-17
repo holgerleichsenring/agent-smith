@@ -151,6 +151,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
                 NullLogger<EpicTicketFiler>.Instance),
+            TestSupport.ApprovedSetDoubles.Recorder(),
             NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),

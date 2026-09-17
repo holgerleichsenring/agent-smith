@@ -51,6 +51,14 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecParkStatusResolver>();
     services.AddTransient<IPhaseProgressRecorder, PhaseProgressRecorder>(); // p0466
     services.TryAddSingleton<ISpecSetPointerStore, Persistence.InMemorySpecSetPointerStore>();
+    // 2026-09-17-0e79a: what a person approved in the design conversation — its store, the one
+    // resolver both ScopeRepos and DeriveSpec ask, and the pieces that decide and merge it.
+    services.TryAddSingleton<ISpecApprovalStore, Persistence.InMemorySpecApprovalStore>();
+    services.AddTransient<ApprovedSpecSetResolver>();
+    services.AddTransient<ApprovedSpecSetCarrier>();
+    services.AddTransient<ApprovedSetSource>();
+    services.AddTransient<FiledTicketSpecGate>();
+    services.AddTransient<SpecCoverageRefusal>();
         return services;
     }
 }

@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -259,7 +260,7 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task CreatePhase_PhaseOutcome_FilesOnePhaseTicketWithYamlBlock()
+    public async Task CreatePhase_PhaseOutcome_FilesOneRequirementAndStoresTheApprovedSet()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-phase");
@@ -271,9 +272,20 @@ public sealed partial class SpecDialogOutcomeTests
         var created = bed.Tickets.Created.Should().ContainSingle().Subject;
         created.Title.Should().Be("p9999: Add a widget endpoint to the sample service");
         created.Labels.Should().Contain(PhaseTicketRenderer.PhaseLabel);
-        var extracted = ExtractYaml(bed.Harness, created.Body);
-        extracted.Should().Be(ValidDraftYaml.Trim(),
-            "the body's single ```yaml block carries the schema-valid spec verbatim");
+        // 2026-09-17-0e79a: the spec is the approved RECORD, stored under the created ticket's
+        // spec key; the body carries no fence for anyone with tracker access to edit.
+        created.Body.Should().NotContain("```");
+        // The record is identified by the tracker CONNECTION and the spec key — the same pair
+        // SpecSetKeyFactory and ExecutePipelineUseCase hand the run.
+        var tracker = bed.Harness.Services.GetRequiredService<AgentSmithConfig>()
+            .Projects[Project].Tracker;
+        var record = await bed.Harness.Services.GetRequiredService<ISpecApprovalStore>()
+            .GetAsync(tracker.Name, SpecSetKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
+                CancellationToken.None);
+        record.Should().NotBeNull("the run that works this ticket resolves the set by exactly this key");
+        record!.Set.Phases.Should().ContainSingle().Which.Draft.Yaml.Should().Be(ValidDraftYaml.Trim(),
+            "the stored set carries the schema-valid spec verbatim");
+        record.Approval.Should().NotBeNull();
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("https://tracker.test/1"));
     }
 
@@ -332,22 +344,22 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task PhaseTicketRenderer_YamlBlock_SchemaValidAndExtractable()
+    public async Task PhaseTicketRenderer_FiledBody_IsAReadableRequirementAndCarriesNoSpec()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: null);
         var draft = new PhaseDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
-        var content = new PhaseTicketRenderer().RenderPhase(draft);
+        var content = new PhaseTicketRenderer().RenderPhase(draft, "sess-outcome");
 
         content.Title.Should().Be("p9999: Add a widget endpoint to the sample service");
-        content.Body.Should().Contain("## Goal").And.Contain("## Scope",
-            "humans read the summary before the machine block");
+        content.Body.Should().Contain("## Goal").And.Contain(AcceptanceCriteriaSection.Heading,
+            "a person reads what is wanted and what makes it finished");
+        content.Body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+            .And.Contain("sess-outcome", "the body points at the conversation it was approved in");
         var validator = bed.Harness.Services.GetRequiredService<ISpecDraftValidator>();
-        var outcome = validator.Validate(content.Body);
-        var valid = outcome.Should().BeOfType<SpecDraftValid>(
-            "the body holds exactly one ```yaml block and it is schema-valid").Subject;
-        valid.Yaml.Should().Be(ValidDraftYaml.Trim(), "the extractor's inverse restores the spec verbatim");
+        validator.Validate(content.Body).Should().BeOfType<SpecDraftAbsent>(
+            "a fence in the body would be a second truth the source precedence would take");
     }
 
     [Fact]
@@ -435,12 +447,6 @@ public sealed partial class SpecDialogOutcomeTests
     // The p0315d inverse: the ticket body must hold exactly ONE ```yaml block
     // and it must be schema-valid — proven by the same validator the draft
     // gate uses.
-    private static string ExtractYaml(RealCompositionHarness harness, string body)
-    {
-        var validator = harness.Services.GetRequiredService<ISpecDraftValidator>();
-        return validator.Validate(body).Should().BeOfType<SpecDraftValid>().Subject.Yaml;
-    }
-
     private static ConversationState State(string userTurn) => new()
     {
         JobId = "sess-outcome",

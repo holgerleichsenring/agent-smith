@@ -33,6 +33,8 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
 
     // p0393a: pointer at the spec set that lives in git on the ticket branch.
     public DbSet<TicketSpecSet> TicketSpecSets => Set<TicketSpecSet>();
+    // 2026-09-17-0e79a: the set a person approved in the design conversation, before any branch.
+    public DbSet<ApprovedSpecSet> ApprovedSpecSets => Set<ApprovedSpecSet>();
     // p0327: durable dialogue — parked runs + the answer inbox.
     public DbSet<RunCheckpoint> RunCheckpoints => Set<RunCheckpoint>();
     public DbSet<DialogueAnswerEntry> DialogueAnswers => Set<DialogueAnswerEntry>();
@@ -57,6 +59,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
         modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
         modelBuilder.ApplyConfiguration(new TicketSpecSetConfiguration()); // p0390
+        modelBuilder.ApplyConfiguration(new ApprovedSpecSetConfiguration()); // 2026-09-17-0e79a
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328
@@ -93,7 +96,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     /// <summary>
     /// 2026-08-28-2af6: stops the audit stamping for the life of the returned scope, so a
     /// writer that already knows a row's CreatedAt/UpdatedAt keeps them. Without it a data
-    /// archive import gives all twenty-two tables the wall-clock of the import while every
+    /// archive import gives all twenty-three tables the wall-clock of the import while every
     /// row count still matches — a loss no count check can see.
     /// </summary>
     public IDisposable SuspendAuditStamping() => new AuditStampingSuspension(this);

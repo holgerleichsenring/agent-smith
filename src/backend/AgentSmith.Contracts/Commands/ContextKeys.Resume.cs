@@ -55,4 +55,9 @@ public static partial class ContextKeys
     /// checkpoint so the resume queue entry carries the same platform the
     /// original claim did.</summary>
     public const string TrackerPlatform = "TrackerPlatform";
+
+    /// <summary>2026-09-17-0e79a: the tracker CONNECTION's catalog name, seeded beside the
+    /// platform. The platform is a type; two instances of that type number their tickets
+    /// independently, so the approved-set store is keyed by this as well.</summary>
+    public const string TrackerConnection = "TrackerConnection";
 }

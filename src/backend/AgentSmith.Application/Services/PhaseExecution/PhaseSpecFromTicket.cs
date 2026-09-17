@@ -14,6 +14,12 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 /// <c>&lt;pre&gt;&lt;code class="language-yaml"&gt;</c> block. Validation is
 /// the production SpecDraftValidator — the same schema gate the draft passed
 /// before filing.
+/// <para>
+/// 2026-09-17-0e79a: THIS IS THE p0315d CONTRACT, and it now lives here alone. The framework no
+/// longer FILES that shape — an approved set is stored and carried, not embedded — so what this
+/// extractor inverts is a HAND-WRITTEN phase ticket: a body whose single fenced ```yaml block is
+/// the spec, with nothing else in it opening a fence.
+/// </para>
 /// </summary>
 public sealed partial class PhaseSpecFromTicket(
     ISpecDraftValidator validator,

@@ -47,6 +47,8 @@ internal static class SpecDialogExtensions
         services.AddScoped<EpicTicketFiler>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
+        // 2026-09-17-0e79a: filing a phase stores the approved set under the ticket's spec key.
+        services.AddScoped<ApprovedPhaseSetRecorder>();
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();

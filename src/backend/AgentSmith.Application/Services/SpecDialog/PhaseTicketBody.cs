@@ -5,32 +5,17 @@ using AgentSmith.Contracts.Models;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// 2026-09-13-b7ba: the two body shapes a filed ticket can take.
+/// 2026-09-13-b7ba: the body shape a filed ticket takes. A REQUIREMENT states what is wanted
+/// and why and carries no fenced block at all.
 /// <para>
-/// A WORK ORDER ends in exactly one fenced yaml block holding the spec verbatim — the
-/// p0315d contract the phase-execution extractor inverts. A REQUIREMENT states what is
-/// wanted and why and carries no block at all, so the run that picks it up derives its
-/// phases against the repository as it then is, rather than replaying a cut made weeks
-/// earlier against a repository that has since moved.
-/// </para>
-/// <para>
-/// Carved out of the renderer because there are now two shapes and one of them must NOT
-/// open a fence — a rule that is easier to keep when the two are written side by side.
+/// 2026-09-17-0e79a: the WORK ORDER shape is gone with its last caller. It ended in one fenced
+/// yaml block, which the source precedence would take as the spec — a second truth beside the
+/// approved record, editable by anyone with tracker access. The extractor still inverts that
+/// shape for HAND-WRITTEN phase tickets, and the p0315d contract note lives there now.
 /// </para>
 /// </summary>
 internal static class PhaseTicketBody
 {
-    public static string WorkOrder(PhaseDraft draft, Action<StringBuilder> extraSections)
-    {
-        var sb = Shared(draft, StepActions, (body, _) => AppendLines(body, "## Requires", draft.Requires), extraSections);
-        sb.AppendLine("---");
-        sb.AppendLine();
-        sb.AppendLine("```yaml");
-        sb.AppendLine(draft.Yaml.Trim());
-        sb.AppendLine("```");
-        return Done(sb);
-    }
-
     /// <summary>
     /// What is wanted and why — and deliberately NOT the steps. Carrying the cut in prose
     /// would let the deriver anchor on it and reproduce the cut it was supposed to redo.
@@ -107,14 +92,4 @@ internal static class PhaseTicketBody
             yield return $"Out: {outScope.Trim()}";
     }
 
-    private static IEnumerable<string> StepActions(IReadOnlyDictionary<string, object?> map) =>
-        (OutcomeYamlReader.GetList(map, "steps") ?? []).Select(StepAction);
-
-    private static string StepAction(object? step)
-    {
-        if (step is not Dictionary<object, object?> map) return step?.ToString() ?? string.Empty;
-        var action = map.TryGetValue("action", out var a) ? a as string : null;
-        var id = map.TryGetValue("id", out var i) ? i as string : null;
-        return action ?? id ?? string.Empty;
-    }
 }

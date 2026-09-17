@@ -14,6 +14,12 @@ namespace AgentSmith.Application.Services.Spawning;
 /// would carry, so the pump can re-claim later without a fresh envelope (the
 /// JSON round-trip matches the Redis job queue's, keeping value semantics
 /// identical to a normally enqueued PipelineRequest).
+/// <para>
+/// 2026-09-17-0e79a: both shapes carry the APPROVED RECORD when the ticket has one, so a run
+/// launched now and a run the pump launches later work from the same approved set. Stated
+/// consequence: it travels through the queue row and the Redis job payload — tens of kilobytes
+/// per phase.
+/// </para>
 /// </summary>
 internal static class SpawnRequestBuilder
 {
@@ -23,13 +29,14 @@ internal static class SpawnRequestBuilder
         IncomingTicketEnvelope envelope,
         WebhookTriggerConfig matchedTrigger,
         Dictionary<string, string>? planAnswers,
-        string? existingRunId)
+        string? existingRunId,
+        string? approvedSetJson = null)
         => new(
             Platform: envelope.Platform!,
             ProjectName: project.Name,
             TicketId: new TicketId(envelope.TicketId!),
             PipelineName: pipelineName,
-            InitialContext: BuildInitialContext(matchedTrigger),
+            InitialContext: BuildInitialContext(matchedTrigger, approvedSetJson),
             PlanAnswers: planAnswers,
             ExistingRunId: existingRunId);
 
@@ -40,7 +47,8 @@ internal static class SpawnRequestBuilder
         WebhookTriggerConfig matchedTrigger,
         Dictionary<string, string>? planAnswers,
         string candidateRunId,
-        string reason)
+        string reason,
+        string? approvedSetJson = null)
         => new(
             Project: project.Name,
             TicketId: envelope.TicketId!,
@@ -52,12 +60,16 @@ internal static class SpawnRequestBuilder
             // Never null for a funnel entry — the pump launches only entries that
             // carry an envelope (null marks the projector's TOCTOU backstop ones).
             InitialContextJson: JsonSerializer.Serialize(
-                BuildInitialContext(matchedTrigger) ?? new Dictionary<string, object>()),
+                BuildInitialContext(matchedTrigger, approvedSetJson) ?? new Dictionary<string, object>()),
             PlanAnswersJson: planAnswers is null ? null : JsonSerializer.Serialize(planAnswers));
 
-    private static Dictionary<string, object>? BuildInitialContext(WebhookTriggerConfig trigger)
+    private static Dictionary<string, object>? BuildInitialContext(
+        WebhookTriggerConfig trigger, string? approvedSetJson)
     {
         var ctx = new Dictionary<string, object>();
+        // 2026-09-17-0e79a: the set a person approved, whole, under one key.
+        if (!string.IsNullOrEmpty(approvedSetJson))
+            ctx[ContextKeys.ApprovedSpecSet] = approvedSetJson;
         if (!string.IsNullOrEmpty(trigger.DoneStatus))
             ctx[ContextKeys.DoneStatus] = trigger.DoneStatus;
         // p0261: seed failed_status so a FAILED run terminalizes the native ticket

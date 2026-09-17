@@ -33,6 +33,11 @@ public static class SpecRevisionCause
     public const string Comment = "comment on the ticket";
     public const string TicketEdit = "ticket text edited since the previous revision";
 
+    /// <summary>2026-09-17-0e79a: the set was approved in the design conversation. The cause names
+    /// the conversation it was approved in, so the revision history says which approval this
+    /// revision is.</summary>
+    public const string Approval = "approved in design conversation";
+
     /// <summary>
     /// A previous revision whose last commit is NOT the sha this system recorded was
     /// touched by someone else — that edit is the input, and the cause says so. An

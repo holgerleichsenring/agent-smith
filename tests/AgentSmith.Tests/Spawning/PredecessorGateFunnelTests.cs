@@ -152,6 +152,7 @@ public sealed class PredecessorGateFunnelTests
                 claimService.Object, CapacityTestDoubles.StubCalculator(), budget.Object,
                 queue.Object, CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
                 new PredecessorGate(factory.Object, NullLogger<PredecessorGate>.Instance),
+                TestSupport.ApprovedSetDoubles.Carrier(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 

@@ -211,6 +211,7 @@ public sealed class EpicFilingOrderTests
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
                 NullLogger<EpicTicketFiler>.Instance),
+            TestSupport.ApprovedSetDoubles.Recorder(),
             NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, CancellationToken.None);
     }
