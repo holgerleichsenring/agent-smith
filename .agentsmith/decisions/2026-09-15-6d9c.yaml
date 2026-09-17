@@ -111,3 +111,18 @@ decisions:
       That needs a ticket-to-run lookup which does not exist on this path, and this phase is
       about what the conversation produced. Named as a successor in the spec's out: rather than
       left silent.
+
+  - category: Usability
+    chose: "The empty surface asks what the operator wants to be true, and names the outcomes as a footnote"
+    over: "Leading with the four shapes a conversation can end in, which is what it said first"
+    reason: |
+      Written after watching the page in use. Nobody arrives wanting an epic; they arrive wanting
+      something to be true of the system, and the spec is the TRANSITION to it. Leading with the
+      output format puts the destination where the question belongs and asks the operator to
+      choose a shape before they have said what they want.
+      It offers the SHAPE of a good opening — the outcome, the part of the system it touches, what
+      must stay true — and deliberately no invented examples: this page does not know the work,
+      and a plausible-sounding suggestion about somebody's own estate is worse than none.
+      It belongs to THIS phase rather than to 2026-09-15-cb3e, which wrote the first version of
+      that text, because the paragraph about a proposal and about what was filed only became true
+      when this phase made the column able to show them.
