@@ -9,11 +9,11 @@ import type { SpecDialogFilingPush } from "@/types/spec-dialog";
 export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
   const partial = filed.error !== null && filed.filed.length > 0;
   return (
-    <aside data-testid="dialog-filed" className="rounded border border-stone-200 p-3">
-      <h2 className="dsh-h3 mb-1 font-semibold text-stone-800">
+    <div data-testid="dialog-filed">
+      <h2 className="dsh-h3 mb-1 font-semibold text-ink">
         {filed.error === null ? "Filed" : "Filing failed"}
       </h2>
-      <p className="mb-2 text-xs text-[var(--color-ink-mid)]">
+      <p className="mb-2 dsh-label text-body">
         {filed.error === null
           ? "These tickets now exist."
           : partial
@@ -25,7 +25,7 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
           {filed.filed.map((ticket) => (
             <li key={ticket.reference} data-testid={`dialog-filed-${ticket.reference}`}>
               <Reference reference={ticket.reference} />
-              <div className="text-stone-700">{ticket.title}</div>
+              <div className="text-ink">{ticket.title}</div>
             </li>
           ))}
         </ul>
@@ -33,26 +33,26 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
       {filed.error !== null && (
         <p
           data-testid="dialog-filed-error"
-          className="mt-2 dsh-label whitespace-pre-wrap text-stone-700"
+          className="mt-2 dsh-label whitespace-pre-wrap text-ink"
         >
           {filed.error}
         </p>
       )}
-    </aside>
+    </div>
   );
 }
 
 // A reference is a web URL wherever the tracker gives one, and a bare key where it does not.
 function Reference({ reference }: { reference: string }) {
   if (!/^https?:\/\//.test(reference)) {
-    return <div className="dsh-label font-semibold text-stone-800">{reference}</div>;
+    return <div className="font-mono dsh-label font-semibold text-ink">{reference}</div>;
   }
   return (
     <a
       href={reference}
       target="_blank"
       rel="noreferrer"
-      className="dsh-label font-semibold text-emerald-700 underline hover:text-emerald-800"
+      className="font-mono dsh-label font-semibold text-primary-deep underline hover:text-primary-pressed"
     >
       {reference}
     </a>

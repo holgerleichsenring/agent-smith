@@ -1,4 +1,4 @@
-import { render, renderHook, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
+import { render, renderHook, screen, fireEvent, waitFor, cleanup, act, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SpecDialogSurface } from "../SpecDialogSurface";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
@@ -295,9 +295,66 @@ describe("SpecDialogSurface", () => {
     ]);
     await renderSurface();
 
-    expect(await screen.findByTestId("dialog-conversation-s-9")).toHaveTextContent(
-      "a widget that reads the ledger · sample · epic, 3 tickets filed (partial)",
-    );
+    const row = await screen.findByTestId("dialog-conversation-s-9");
+    expect(row).toHaveTextContent("a widget that reads the ledger");
+    expect(row).toHaveTextContent("sample");
+    expect(within(row).getByTestId("dialog-conversation-outcome")).toHaveTextContent(/^epic partly filed · 3 tickets$/);
+  });
+
+  // 2026-09-17-c7aed: the list reads as a history, by the calendar day of the last thing said.
+  it("SpecDialog_TheConversations_GroupByDayAndMarkTheCurrentOne", async () => {
+    const now = new Date();
+    const daysAgo = (days: number) =>
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 12).toISOString();
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", lastActivityAt: now.toISOString() }),
+      conversation({ sessionId: "s-2", lastActivityAt: daysAgo(1) }),
+      conversation({ sessionId: "s-3", lastActivityAt: daysAgo(3) }),
+      conversation({ sessionId: "s-4", lastActivityAt: daysAgo(30) }),
+    ]);
+    await renderSurface();
+
+    await screen.findByTestId("dialog-conversation-s-4");
+    const days = screen.getAllByTestId("dialog-conversation-day");
+    expect(days.map((day) => [
+      day.querySelector(":scope > h3")?.textContent,
+      [...day.querySelectorAll("button")].map((row) => row.dataset.testid),
+    ])).toEqual([
+      ["Today", ["dialog-conversation-s-1"]],
+      ["Yesterday", ["dialog-conversation-s-2"]],
+      ["Last week", ["dialog-conversation-s-3"]],
+      ["Earlier", ["dialog-conversation-s-4"]],
+    ]);
+    expect(screen.getByTestId("dialog-conversation-s-1")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("dialog-conversation-s-2")).not.toHaveAttribute("aria-current");
+  });
+
+  it("SpecDialog_AConversationWithAnOutcome_ShowsIt_OneWithoutShowsNone", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-7", outcome: { kind: "bug", tickets: 1, partial: false } }),
+      conversation({ sessionId: "s-8", outcome: null }),
+    ]);
+    await renderSurface();
+
+    const filed = await screen.findByTestId("dialog-conversation-s-7");
+    expect(within(filed).getByTestId("dialog-conversation-outcome")).toHaveTextContent("bug filed");
+    expect(within(screen.getByTestId("dialog-conversation-s-8"))
+      .queryByTestId("dialog-conversation-outcome")).toBeNull();
+  });
+
+  // The spec said every opening resumes onto a fresh dialog id; since 2026-09-17-c7aeb's review
+  // only a CLOSED conversation does — an open one is returned to (the test below this one).
+  it("SpecDialog_OpeningAClosedConversation_ResumesOntoAFreshDialogIdAndClosesNothing", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ openDialogId: null })]);
+    await renderSurface();
+    const first = heldDialogId();
+
+    fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
+
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    const fresh = heldDialogId();
+    expect(fresh).not.toBe(first);
+    expect(postSpecDialogMessage.mock.calls).toEqual([[fresh, "/spec resume s-9"]]);
   });
 
   // 2026-09-17-c7aeb: a dialog id is a tab, not a conversation. Opening a past one mints a
@@ -604,6 +661,8 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
     await screen.findByTestId("dialog-proposal");
+    // The server keeps the proposal beside the push, so the read after the answer still holds it.
+    reloadedWith({ proposal: proposal() });
 
     // An answer turn delivers a reply and no proposal — it proposes nothing.
     act(() => messages.emit({
@@ -719,6 +778,260 @@ describe("SpecDialogSurface", () => {
     }));
 
     expect(screen.queryByTestId("dialog-turn-agent")).not.toBeInTheDocument();
+  });
+
+  // 2026-09-17-c7aed: the draft is not prose in the exchange; the turn that proposed it
+  // carries a card. Live every proposing turn does; after a reload the latest does.
+  it("SpecDialog_AProposingTurn_ShowsACard_LiveAndAfterAReload", async () => {
+    await renderSurface();
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString(),
+    }));
+    act(() => proposals.emit(proposal({
+      kind: "epic", phase: null, parent: phase("p9000"), children: [phase("p9000a"), phase("p9000b")],
+    })));
+
+    const live = await screen.findByTestId("dialog-turn-card");
+    const card = within(live).getByTestId("dialog-card");
+    expect(card).toHaveAttribute("data-kind", "epic");
+    expect(card).toHaveTextContent("goal of p9000");
+    expect(card).toHaveTextContent("p9000a");
+    expect(card).toHaveTextContent("p9000b");
+    expect(card).not.toHaveTextContent("step of p9000a");
+
+    cleanup();
+    __forgetDialogIdForTests();
+    reloadedWith({
+      transcript: [
+        { role: "user", text: "update every dependency", at: "2026-09-15T10:01:00Z" },
+        { role: "assistant", text: "Server first.", at: "2026-09-15T10:02:00Z" },
+        { role: "user", text: "then draft it", at: "2026-09-15T10:03:00Z" },
+        { role: "assistant", text: "", at: "2026-09-15T10:04:00Z" },
+      ],
+      proposal: proposal({ phase: phase("p9001") }),
+      proposalTurn: 3,
+    });
+    render(<SpecDialogSurface />);
+
+    const reloaded = await screen.findByTestId("dialog-turn-card");
+    expect(within(reloaded).getByTestId("dialog-card")).toHaveTextContent("goal of p9001");
+    expect(within(screen.getByTestId("dialog-turn-agent")).queryByTestId("dialog-card")).toBeNull();
+  });
+
+  it("SpecDialog_TheCard_MovesThePaneToTheProposal", async () => {
+    await renderSurface();
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
+    }));
+    act(() => proposals.emit(proposal()));
+    act(() => filings.emit(filing()));
+    await screen.findByTestId("dialog-filed");
+
+    fireEvent.click(within(screen.getByTestId("dialog-turn-agent")).getByTestId("dialog-card-inspect"));
+
+    expect(await screen.findByTestId("dialog-proposal")).toHaveTextContent("goal of p9001");
+    expect(screen.queryByTestId("dialog-filed")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("SpecDialog_ARunningTurn_NamesEachRepositoryItOpensAndNoDuration", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    const working = await screen.findByTestId("dialog-working");
+
+    act(() => readings.emit({
+      dialogId: heldDialogId(), repo: "repo-a@v2", state: "opening", at: new Date().toISOString(),
+    }));
+
+    expect(working).toHaveTextContent("Opening the repositories it needs");
+    expect(within(working).getByTestId("dialog-reading")).toHaveTextContent("repo-a@v2");
+    expect(working).not.toHaveTextContent(/minute/);
+  });
+
+  it("SpecDialog_TheApprovalSurface_StatesOnlyWhatTheProposalCarries", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      kind: "epic", phase: null, parent: phase("p9000"),
+      children: [phase("p9000a"), phase("p9000b", { requires: ["p9000a"] })],
+    })));
+
+    act(() => questions.emit(question({ text: "Proposed outcome: **epic** p9000" })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getByTestId("dialog-approval-summary"))
+      .toHaveTextContent(/^File this epic\? A parent record and 2 slices\.$/);
+    expect(surface).toHaveTextContent("Proposed outcome: epic p9000");
+    expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
+
+    act(() => questions.emit(question({ kind: "confirmation", text: "Keep the scope?" })));
+
+    expect(await screen.findByTestId("dialog-answer-yes")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
+  });
+
+  it("SpecDialog_ATabWithNothingToShow_IsNotOffered", async () => {
+    await renderSurface();
+
+    expect(screen.getByTestId("dialog-tab-scope")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-tab-proposal")).toBeNull();
+    expect(screen.queryByTestId("dialog-tab-filed")).toBeNull();
+
+    act(() => proposals.emit(proposal()));
+
+    expect(await screen.findByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByTestId("dialog-tab-filed")).toBeNull();
+  });
+
+  // Found by review: the server lets a proposal go on a rejection and on a timed-out approval,
+  // and a reload showed it gone while the live page kept its tab and an inspectable card. The
+  // page sees only the notice and the read after it; the two notices are told apart by nothing
+  // but their words, so each is proven the same way.
+  async function proposalLetGoBy(notice: string) {
+    await renderSurface();
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString() }));
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+    await screen.findByTestId("dialog-card-inspect");
+    expect(screen.getByTestId("dialog-tab-proposal")).toBeInTheDocument();
+
+    reloadedWith({ proposal: null, proposalTurn: null });
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: notice, at: new Date().toISOString() }));
+
+    await waitFor(() => expect(screen.queryByTestId("dialog-tab-proposal")).toBeNull());
+    expect(screen.queryByTestId("dialog-card-inspect")).toBeNull();
+    expect(screen.queryByTestId("dialog-turn-card")).toBeNull();
+
+    cleanup();
+    __forgetDialogIdForTests();
+    render(<SpecDialogSurface />);
+    await screen.findByTestId("dialog-transcript-empty");
+    expect(screen.queryByTestId("dialog-tab-proposal")).toBeNull();
+    expect(screen.queryByTestId("dialog-card-inspect")).toBeNull();
+  }
+
+  it("SpecDialog_ARejectedProposal_LeavesNoTabAndNoCard_LiveAsAfterAReload", async () => {
+    await proposalLetGoBy("Rejected — nothing was filed.");
+  });
+
+  it("SpecDialog_ATimedOutApproval_LeavesNoTabAndNoCard_LiveAsAfterAReload", async () => {
+    await proposalLetGoBy("Nobody answered in time — nothing was filed.");
+  });
+
+  // Found by review: the first read could come back after a live proposal and put the one it
+  // had read — or none — back over it, taking the card with it and leaving the approval
+  // summary counting the wrong draft.
+  it("SpecDialog_AProposalPushedWhileTheFirstReadIsOut_SurvivesTheRead", async () => {
+    let answer: (value: SpecDialogView) => void = () => {};
+    fetchSpecDialog.mockImplementationOnce(() => new Promise<SpecDialogView>((resolve) => { answer = resolve; }));
+    render(<SpecDialogSurface />);
+    await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+    const dialogId = heldDialogId();
+
+    act(() => proposals.emit(proposal({
+      dialogId, kind: "epic", phase: null, parent: phase("p9000"),
+      children: [phase("p9000a"), phase("p9000b")],
+    })));
+    act(() => questions.emit(question({ dialogId })));
+    const base = view({ dialogId });
+    await act(async () => answer({
+      ...base,
+      session: {
+        ...base.session!,
+        transcript: [{ role: "user", text: "draft it", at: "2026-09-15T10:01:00Z" }],
+        proposal: proposal({ dialogId, phase: phase("p8000") }),
+        proposalTurn: null,
+      },
+    }));
+
+    expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent("draft it");
+    expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("dialog-card")).toHaveAttribute("data-kind", "epic");
+    expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
+    expect(screen.getByTestId("dialog-approval-summary"))
+      .toHaveTextContent(/^File this epic\? A parent record and 2 slices\.$/);
+  });
+
+  // The read that raced the push may still have caught the draft stored, stamped with a moment
+  // of its own; the card is the live one, once.
+  it("SpecDialog_AReadThatCaughtTheLiveProposalStored_ShowsItsCardOnce", async () => {
+    let answer: (value: SpecDialogView) => void = () => {};
+    fetchSpecDialog.mockImplementationOnce(() => new Promise<SpecDialogView>((resolve) => { answer = resolve; }));
+    render(<SpecDialogSurface />);
+    await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+    const dialogId = heldDialogId();
+
+    act(() => proposals.emit(proposal({ dialogId, at: "2026-09-15T10:03:00Z" })));
+    const base = view({ dialogId });
+    await act(async () => answer({
+      ...base,
+      session: {
+        ...base.session!,
+        transcript: [
+          { role: "user", text: "draft it", at: "2026-09-15T10:01:00Z" },
+          { role: "assistant", text: "", at: "2026-09-15T10:02:00Z" },
+        ],
+        proposal: proposal({ dialogId, at: "2026-09-15T10:02:00Z" }),
+        proposalTurn: 1,
+      },
+    }));
+
+    await screen.findByTestId("dialog-turn-user");
+    expect(screen.getAllByTestId("dialog-card")).toHaveLength(1);
+  });
+
+  // Found by review: the draft-only flag outlived the conversation it was set in, so a card on
+  // the next conversation took a turn of its own instead of the reply it followed.
+  it("SpecDialog_ANewConversation_ForgetsThatTheLastReplyWasOnlyADraft", async () => {
+    await renderSurface();
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString() }));
+    const first = heldDialogId();
+    reloadedWith({ transcript: [{ role: "assistant", text: "Server first.", at: "2026-09-15T10:02:00Z" }] });
+
+    fireEvent.click(screen.getByTestId("dialog-new"));
+    await waitFor(() => expect(heldDialogId()).not.toBe(first));
+    await screen.findByTestId("dialog-turn-agent");
+    act(() => proposals.emit(proposal()));
+
+    expect(within(await screen.findByTestId("dialog-turn-agent")).getByTestId("dialog-card")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-turn-card")).toBeNull();
+  });
+
+  // Live every proposing turn keeps its card, and an earlier card shows its own draft, marked.
+  it("SpecDialog_InspectingAnEarlierCard_ShowsItsDraftMarkedSuperseded", async () => {
+    await renderSurface();
+    reloadedWith({ proposal: proposal() });
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a first cut", at: new Date().toISOString() }));
+    act(() => proposals.emit(proposal()));
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a second cut", at: new Date().toISOString() }));
+    act(() => proposals.emit(proposal({ phase: phase("p9002") })));
+
+    await waitFor(() => expect(screen.getAllByTestId("dialog-card-inspect")).toHaveLength(2));
+    expect(screen.getByTestId("dialog-pane")).toHaveTextContent("not filed yet");
+
+    fireEvent.click(screen.getAllByTestId("dialog-card-inspect")[0]);
+
+    const pane = screen.getByTestId("dialog-pane");
+    expect(within(pane).getByTestId("dialog-proposal")).toHaveTextContent("goal of p9001");
+    expect(pane).toHaveTextContent("superseded");
+  });
+
+  // Found by review: the speaker was an aria-label on a div with no role, every card's link read
+  // "Inspect →", and the pane's tabs pointed at no panel.
+  it("SpecDialog_SpeakersCardsAndTabs_AreNamedForAssistiveTechnology", async () => {
+    await renderSurface();
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString() }));
+    act(() => proposals.emit(proposal()));
+
+    const turn = await screen.findByTestId("dialog-turn-agent");
+    expect(turn.querySelector(".sr-only")).toHaveTextContent("agent-smith:");
+    expect(turn.querySelector("[aria-hidden='true']")).toHaveTextContent("AS");
+    expect(screen.getByRole("button", { name: "Inspect the phase proposal: goal of p9001" })).toBeInTheDocument();
+    const selected = screen.getByRole("tab", { selected: true });
+    const panel = screen.getByRole("tabpanel");
+    expect(selected).toHaveAttribute("aria-controls", panel.id);
+    expect(panel).toHaveAttribute("aria-labelledby", selected.id);
   });
 
   it("SpecDialog_APushForAnotherDialog_ChangesNothing", async () => {
