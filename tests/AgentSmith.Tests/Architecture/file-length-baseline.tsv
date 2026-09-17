@@ -13,7 +13,7 @@
 417	AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs
 376	AgentSmith.Application/Services/PipelineCostTracker.cs
 374	AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs
-368	AgentSmith.Sandbox.Agent/Services/GrepStepHandler.cs
+332	AgentSmith.Sandbox.Agent/Services/GrepStepHandler.cs
 345	AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs
 343	AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs
 335	AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs

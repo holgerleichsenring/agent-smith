@@ -500,7 +500,7 @@ public sealed class FilesystemToolHost : IToolHost
         return runner!.GrepAsync(pattern, bare, glob: null, head_limit, before, after, mode, ct);
     }
 
-    [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. context_before / context_after / context include adjacent lines. output_mode: 'content' (default), 'files_with_matches', or 'count'.")]
+    [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. context_before / context_after / context include adjacent lines. output_mode: 'content' (default), 'files_with_matches', or 'count'. NOT exhaustive: it skips " + GrepScope.Summary + ", and it honours the repository's own ignore rules, so no result here proves a string is absent from the checkout.")]
     public Task<string> GrepInTree(
         [Description("Regular expression pattern to search for.")] string pattern,
         [Description("Repository-relative directory to search under (default '.').")] string root = ".",

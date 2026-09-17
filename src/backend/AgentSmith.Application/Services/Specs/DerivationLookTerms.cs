@@ -32,4 +32,9 @@ public sealed record DerivationLookTerms(
         "cut review", CutReviewAllowance, "R",
         "Judge the cut on what you have; report no false premise you did not look at.",
         "a false premise you report cites that id in \"cites\", and one that cites none is discarded.");
+
+    /// <summary>2026-09-17-042ed: a design turn's proposal, reviewed inside the turn. The cut
+    /// review's allowance and rules, under its own name and letter.</summary>
+    public static DerivationLookTerms ProposalReview { get; } =
+        CutReview with { Actor = "proposal review", EvidencePrefix = "P" };
 }

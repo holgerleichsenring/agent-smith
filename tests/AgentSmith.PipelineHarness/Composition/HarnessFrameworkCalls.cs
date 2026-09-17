@@ -21,14 +21,47 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// over a real git repository, SpecCutReviewTests over a real contradiction — so nothing
 /// is left unproven by standing them down here.
 /// </para>
+/// <para>
+/// 2026-09-17-042ed: a design turn reviews its own proposal through this same port, so a case
+/// says what the review finds (<see cref="Finds"/>) and reads back what it was asked about. The
+/// real reviewer is still the one under test in SpecCutReviewTests.
+/// </para>
 /// </summary>
 internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
 {
+    private readonly List<CutFinding> _findings = [];
+
+    /// <summary>What the review asked about, in call order.</summary>
+    internal List<ReviewAsked> Asked { get; } = [];
+
+    /// <summary>Every later review reports these findings, each against the phase it names —
+    /// a review of OTHER drafts is clean. A design session proposes several phases across its
+    /// turns, and findings that followed every later draft would report the first turn's fault
+    /// against a phase nobody reviewed.</summary>
+    internal HarnessSpecCutReviewer Finds(params CutFinding[] findings)
+    {
+        lock (_findings) _findings.AddRange(findings);
+        return this;
+    }
+
     public Task<SpecCutReview> ReviewAsync(
         IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
-        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
-        Task.FromResult(SpecCutReview.Clean);
+        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(drafts);
+        lock (Asked) Asked.Add(new ReviewAsked(drafts, key, ticketText, look?.Repositories ?? []));
+        List<CutFinding> against;
+        lock (_findings)
+            against = [.. _findings.Where(f => drafts.Any(d =>
+                string.Equals(d.PhaseId, f.PhaseId, StringComparison.OrdinalIgnoreCase)))];
+        return Task.FromResult(against.Count == 0 ? SpecCutReview.Clean : new SpecCutReview(against));
+    }
 }
+
+/// <summary>One review the framework asked for: the drafts, the key it was charged under, the
+/// ticket behind them (none, for a design turn) and the repositories its look could name.</summary>
+internal sealed record ReviewAsked(
+    IReadOnlyList<PhaseDraft> Drafts, string Key, string? TicketText, IReadOnlyList<string> Repositories);
 
 /// <summary>
 /// p0429: the finding refutation is the same kind of call and gets the same treatment.

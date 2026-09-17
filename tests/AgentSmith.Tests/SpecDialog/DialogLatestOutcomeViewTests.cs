@@ -200,6 +200,61 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             .Should().Be(SpecDialogLatestOutcome.None, "a turn must not fail for want of a record");
     }
 
+    // 2026-09-17-042ed: the findings ride the proposal, so the confirmation the operator approves,
+    // the pane push and a reload after it all carry what the turn's own review found.
+    [Fact]
+    public async Task Flow_Findings_ReachTheConfirmationAndThePush()
+    {
+        var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
+
+        await Flow("reject").HandleAsync(state, Reviewed(), CancellationToken.None);
+
+        var question = _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogChannelQuestion>().Single();
+        question.Text.Should().Contain("The review of this proposal found:")
+            .And.Contain("false premise: the endpoint is already there")
+            .And.Contain("[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0");
+        var push = _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogProposalPush>().Single();
+        push.Findings.Single().Evidence.Should().Contain("[P2]");
+    }
+
+    [Fact]
+    public async Task View_AfterAReload_CarriesTheFindings()
+    {
+        var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
+
+        await Flow("split it").HandleAsync(state, Reviewed(), CancellationToken.None);
+
+        var finding = (await ReadAsync()).Proposal!.Findings.Should().ContainSingle().Subject;
+        finding.PhaseId.Should().Be("p9999");
+        finding.Evidence.Should().Contain("the proposal review ran");
+        finding.Quote.Should().BeNull("a false premise cites a look, it quotes nothing");
+    }
+
+    [Fact]
+    public async Task OutcomeProposalJson_RowWithoutFindings_ReadsAsNone()
+    {
+        await ConversationAsync((TranscriptRole.Assistant, Draft));
+        // A row as releases before this one wrote it: a kind and its payload, no findings field.
+        var session = await _repository.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        session!.LatestProposalJson =
+            "{\"kind\":\"phase\",\"phase\":{\"phaseId\":\"p9999\",\"goal\":\"widget goal\","
+            + "\"yaml\":\"phase: p9999\",\"requires\":[]}}";
+        await _repository.SaveAsync(CancellationToken.None);
+
+        (await ReadAsync()).Proposal!.Findings.Should().BeEmpty(
+            "a row nobody reviewed is not a review that found nothing wrong");
+    }
+
+    private static PhaseOutcome Reviewed() => Proposal() with
+    {
+        Findings =
+        [
+            new ProposalFinding(
+                "p9999", "false premise", "the endpoint is already there", Quote: null,
+                Evidence: "[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0"),
+        ],
+    };
+
     private async Task<ConversationState> ConversationAsync(params (TranscriptRole Role, string Text)[] turns)
     {
         await _sessions.OpenAsync(Platform, Dialog, Dialog, Owner,

@@ -45,6 +45,11 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
                 loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
+            // 2026-09-17-042ed: the review of a proposal — no reviewer call unless a test proposes.
+            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
+                Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
+                AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
             new StubSubAgentRunner(),
             new SubAgentBudget(20),
             new SubAgentNameValidator(),

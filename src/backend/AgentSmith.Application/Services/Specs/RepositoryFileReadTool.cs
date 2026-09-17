@@ -39,14 +39,27 @@ public sealed class RepositoryFileReadTool(
             return ContainedPath.Refusal;
         if (!look.TryOpen(repository, out var sandbox, out var refusal)) return refusal;
 
-        var content = await files.Create(sandbox).TryReadAsync(ContainedPath.Absolute(under), ct);
+        // 2026-09-17-042ed: on a read-only source scope the reader's null means any of "missing",
+        // "refused" and "could not clone". The scope is opened first and the step result read
+        // itself, so an absence the reviewer may state is told apart from a read that failed.
+        var opened = sandbox is ISourceScopeSandbox scope ? new SourceScopeLook(scope) : null;
+        var read = opened is null
+            ? new SourceScopeRead(
+                await files.Create(sandbox).TryReadAsync(ContainedPath.Absolute(under), ct), Ran: true)
+            : await opened.TryOpenAsync(ct) is { } failure
+                ? new SourceScopeRead(Content: null, Ran: false, failure)
+                : await opened.ReadAsync(under, ct);
         var id = look.Evidence.Remember(
-            repository, $"read {under}", content is null ? MissingExit : ReadExit, ran: true);
+            repository, $"read {under}",
+            read.Ran ? read.Content is null ? MissingExit : ReadExit : SourceScopeLook.NotRunExit,
+            read.Ran);
         logger.LogInformation(
             "The {Actor} read {Repo}/{Path} — {Outcome} as {Id}",
-            look.Terms.Actor, repository, under, content is null ? "absent" : $"{content.Length} chars", id);
-        return content is null
+            look.Terms.Actor, repository, under,
+            read.Ran ? read.Content is null ? "absent" : $"{read.Content.Length} chars" : "could not run", id);
+        if (!read.Ran) return $"[{id}] {repository}/{under} could not be read ({read.Error}), so this proves nothing.";
+        return read.Content is null
             ? $"[{id}] {repository}/{under} does not exist."
-            : $"[{id}] {repository}/{under}:\n" + BoundedResultTool.Bound(content, MaxChars);
+            : $"[{id}] {repository}/{under}:\n" + BoundedResultTool.Bound(read.Content, MaxChars);
     }
 }

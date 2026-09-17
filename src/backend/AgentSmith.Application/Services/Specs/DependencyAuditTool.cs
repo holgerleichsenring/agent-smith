@@ -43,6 +43,16 @@ public sealed class DependencyAuditTool(
     {
         if (!look.TryOpen(repository, out var sandbox, out var refusal)) return refusal;
 
+        // 2026-09-17-042ed: a read-only source scope refuses a Run step with exit 1, which this
+        // tool's own convention reads as "findings: none". Nothing is sent to one.
+        if (sandbox is ISourceScopeSandbox)
+        {
+            var refused = look.Evidence.Remember(
+                repository, Name, SourceScopeLook.NotRunExit, ran: false);
+            return $"[{refused}] {repository} is a read-only reference checkout that runs no "
+                   + "command, so no audit was taken and this proves nothing.";
+        }
+
         var ecosystem = await ecosystems.DetectAsync(
             files.Create(sandbox), Repository.SandboxWorkPath, ct);
         var step = ecosystem is null ? null : AuditCommands.For(ecosystem);

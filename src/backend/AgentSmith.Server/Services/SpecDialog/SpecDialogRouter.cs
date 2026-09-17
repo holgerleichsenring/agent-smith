@@ -118,7 +118,7 @@ public sealed class SpecDialogRouter(
             logger.LogInformation(
                 "Re-running design turn for session {SessionId} with the operator's edit note",
                 current.JobId);
-            current = refreshed;
+            current = refreshed with { Revising = result.Outcome };
         }
     }
 }

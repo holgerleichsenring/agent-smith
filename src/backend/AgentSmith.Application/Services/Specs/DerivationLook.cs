@@ -37,7 +37,7 @@ public sealed class DerivationLook : IAsyncDisposable
         IReadOnlyDictionary<string, ISandbox> sandboxes, ISandboxFileReaderFactory files,
         IPackageEcosystemDetector ecosystems, ILogger logger,
         IReadOnlyDictionary<string, ISourceScopeSandbox>? templates = null,
-        DerivationLookTerms? terms = null)
+        DerivationLookTerms? terms = null, bool audits = true)
     {
         ArgumentNullException.ThrowIfNull(sandboxes);
         _templates = templates ?? new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal);
@@ -47,7 +47,7 @@ public sealed class DerivationLook : IAsyncDisposable
         Tools = DerivationTools.Over(
             new RepositorySearchTool(this, logger),
             new RepositoryFileReadTool(this, files, logger),
-            new DependencyAuditTool(this, files, ecosystems, logger));
+            audits ? new DependencyAuditTool(this, files, ecosystems, logger) : null);
     }
 
     /// <summary>2026-09-15-ffa7: whose look this is — its allowance, its id letter, its name.</summary>
@@ -73,7 +73,8 @@ public sealed class DerivationLook : IAsyncDisposable
     /// <summary>Every look taken, one framework-minted line with an id each.</summary>
     public DerivationEvidence Evidence { get; }
 
-    /// <summary>The named read-only tools, each bounded in what it may return.</summary>
+    /// <summary>The named read-only tools, each bounded in what it may return. 2026-09-17-042ed:
+    /// the audit is an input — a proposal review over read-only scopes cannot run one.</summary>
     public IList<AITool> Tools { get; }
 
     /// <summary>Resolves the repository, THEN takes from the allowance that name belongs to;

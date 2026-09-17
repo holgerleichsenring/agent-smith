@@ -22,7 +22,7 @@ internal static class DerivationLookPromptSection
         sb.AppendLine("## Repositories you may look into");
         sb.AppendLine(
             $"You may take up to {look.Terms.Allowance} looks with the tools offered — "
-            + "a search, a file read, the ecosystem's own dependency audit — before you write. "
+            + DerivationTools.Named(look) + " — before you write. "
             + $"Every result starts with an evidence id such as [{look.Terms.EvidencePrefix}3]; "
             + look.Terms.CiteRule);
         foreach (var repository in look.Repositories) sb.AppendLine($"- {repository}");

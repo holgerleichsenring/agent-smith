@@ -35,7 +35,7 @@ internal static class OutcomeProposalJson
         EpicOutcome epic => new Dto("epic", null, null, epic.Parent, epic.Children),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' cannot be stored on a session."),
-    }) with { Templates = proposal.Templates };
+    }) with { Templates = proposal.Templates, Findings = proposal.Findings };
 
     private static OutcomeProposal FromDto(Dto dto) => (OutcomeProposal)(dto.Kind switch
     {
@@ -44,8 +44,13 @@ internal static class OutcomeProposalJson
         "epic" => new EpicOutcome(dto.Parent!, dto.Children!),
         _ => throw new InvalidOperationException(
             $"Stored outcome JSON carries unknown kind '{dto.Kind}'."),
-    }) with { Templates = dto.Templates ?? [] };
+    }) with { Templates = dto.Templates ?? [], Findings = dto.Findings ?? [] };
 
+    /// <param name="Findings">
+    /// 2026-09-17-042ed: what the review of this proposal found, on the same column and for the
+    /// same reason as the templates — a row written before this release carries none, and reads
+    /// as a proposal nobody reviewed rather than as one reviewed clean.
+    /// </param>
     /// <param name="Templates">
     /// 2026-09-13-ed5a: what the analysis had open while it produced this outcome. It rides
     /// the EXISTING column because the filer runs after the turn's scopes are disposed and
@@ -58,5 +63,6 @@ internal static class OutcomeProposalJson
         PhaseDraft? Phase,
         PhaseDraft? Parent,
         IReadOnlyList<PhaseDraft>? Children,
-        IReadOnlyList<TemplateProvenance>? Templates = null);
+        IReadOnlyList<TemplateProvenance>? Templates = null,
+        IReadOnlyList<ProposalFinding>? Findings = null);
 }

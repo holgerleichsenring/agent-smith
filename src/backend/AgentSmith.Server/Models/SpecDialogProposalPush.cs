@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models;
+
 namespace AgentSmith.Server.Models;
 
 /// <summary>
@@ -27,4 +29,13 @@ public sealed record SpecDialogProposalPush(
     SpecDialogPhaseView? Phase,
     SpecDialogPhaseView? Parent,
     IReadOnlyList<SpecDialogPhaseView> Children,
-    DateTimeOffset At);
+    DateTimeOffset At)
+{
+    /// <summary>
+    /// 2026-09-17-042ed: what the turn's own review found against this proposal, each finding
+    /// with the evidence line it rests on where it cites one. Empty is a clean review or one that
+    /// could not be taken; the pane says nothing either way. Not a constructor parameter, so the
+    /// composer's three shapes are unchanged and the dashboard type gains one optional field.
+    /// </summary>
+    public IReadOnlyList<ProposalFinding> Findings { get; init; } = [];
+}
