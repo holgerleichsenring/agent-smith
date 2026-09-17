@@ -12,8 +12,11 @@ import type {
 //
 // An epic's children are listed IN THE ORDER THEY WILL BE FILED: the backend orders them
 // with the orderer the filer itself runs, so this column cannot show a plan other than the
-// one about to be created. Whether a slice waits is what its requires ids say, and nothing
-// more — the proposal carries no reason and no promise about when it runs.
+// one about to be created.
+//
+// 2026-09-17-0e79d: that order is also the order ONE run works them in — the parent draft is
+// the work ticket carrying the whole approved set, and each slice is a record beside it. So
+// "waits for" names the edge the cut declared, not a ticket held in a queue behind another.
 //
 // There is deliberately no "what it had to assume" section: the design-partner master's
 // phase template emits neither facts nor assumptions, so one would be blank on every draft
@@ -35,7 +38,7 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
         </div>
       )}
       {proposal.phase && <Phase phase={proposal.phase} label="One phase" />}
-      {proposal.parent && <Phase phase={proposal.parent} label="Parent — a record, not work" />}
+      {proposal.parent && <Phase phase={proposal.parent} label="The work ticket — one run works every slice" />}
       {proposal.children.length > 0 && (
         <div>
           <Eyebrow>Slices, in the order they will be filed</Eyebrow>

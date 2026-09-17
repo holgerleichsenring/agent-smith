@@ -41,9 +41,10 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddTransient<PhaseTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
-        // 2026-09-13-a72a: an epic's children are filed in dependency order, so a child's
-        // predecessor stamp can name a ticket that already exists.
+        // 2026-09-17-0e79d: the order is the approved SET's — one run works the slices in it, and
+        // the records are filed in the same order so the tracker reads as the run runs.
         services.AddTransient<EpicChildOrderer>();
+        services.AddScoped<EpicSliceRecordFiler>();
         services.AddScoped<EpicTicketFiler>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();

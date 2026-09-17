@@ -13,12 +13,14 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// existing provider factory. Bug → the fix-bug ticket shape (title + body,
 /// no label — the same shape the create-ticket chat intent files). Phase →
 /// one `phase`-labelled ticket. Epic → EpicTicketFiler, which owns the whole
-/// parent-and-children shape. Sequential on purpose: a failure reports exactly
+/// work-ticket-and-records shape. Sequential on purpose: a failure reports exactly
 /// what was created.
 /// <para>
 /// 2026-09-17-0e79a: filing a PHASE also stores the approved set under the created ticket's spec
 /// key. The ticket body carries no spec any more, so the record is what the run works from —
-/// storing it is part of filing, not a step after it.
+/// storing it is part of filing, not a step after it. 2026-09-17-0e79d: an epic stores its whole
+/// set the same way, under the WORK ticket it files, which is why the epic filer is handed the
+/// session and the resolved project too.
 /// </para>
 /// </summary>
 public sealed class OutcomeTicketFiler(
@@ -44,7 +46,8 @@ public sealed class OutcomeTicketFiler(
                 BugOutcome bug => FileBugAsync(provider, bug.Ticket, filed, cancellationToken),
                 PhaseOutcome phase => FilePhaseAsync(
                     provider, state, project, phase.Draft, filed, cancellationToken),
-                EpicOutcome epic => epicFiler.FileAsync(provider, epic, filed, notes, cancellationToken),
+                EpicOutcome epic => epicFiler.FileAsync(
+                    provider, state, project, epic, filed, notes, cancellationToken),
                 _ => throw new InvalidOperationException(
                     $"Outcome kind '{proposal.GetType().Name}' cannot be filed."),
             });

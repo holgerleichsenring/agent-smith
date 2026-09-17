@@ -23,6 +23,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// an epic child of the N-children shape, which deliberately carries no spec, and still derives.
 /// Every other ticket derives as before.
 /// </para>
+/// <para>
+/// 2026-09-17-0e79d removed the shape that files those children, so the PARENT stamp is now a
+/// LEGACY DISCRIMINATOR: nothing the framework files carries one any more — an epic's work ticket
+/// cuts from its own base and its slice records carry no stamp at all — and the children already
+/// on a tracker keep deriving. What an epic's work ticket DOES carry is the approved-set stamp,
+/// exactly as a filed phase does, so it is held to the same rule. A slice record carries neither,
+/// and is never held to anything: nothing routes it and no run works one.
+/// </para>
 /// </summary>
 public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
 {

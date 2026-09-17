@@ -778,9 +778,12 @@ describe("SpecDialogSurface", () => {
       children: [phase("p9000b"), phase("p9000a", { requires: ["p9000b"] })],
     })));
 
-    expect(await screen.findByTestId("dialog-proposal-phase-p9000")).toHaveTextContent(
-      "goal of p9000",
-    );
+    const parent = await screen.findByTestId("dialog-proposal-phase-p9000");
+    expect(parent).toHaveTextContent("goal of p9000");
+    // 2026-09-17-0e79d: the parent draft is filed as the phase-labelled WORK ticket carrying the
+    // whole approved set; calling it a record said the opposite of what the filer does.
+    expect(parent).toHaveTextContent("The work ticket — one run works every slice");
+    expect(parent).not.toHaveTextContent("a record, not work");
     // ":scope > li" is the slice list itself; a plain "li" would also collect the steps
     // and tests rendered inside each slice.
     const listed = [
@@ -1020,7 +1023,7 @@ describe("SpecDialogSurface", () => {
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? A parent record and 2 slices\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
     expect(surface).toHaveTextContent("Proposed outcome: epic p9000");
     expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
 
@@ -1102,7 +1105,7 @@ describe("SpecDialogSurface", () => {
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? A parent record and 2 slices\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
     expect(within(surface).getAllByTestId("dialog-proposal-finding")).toHaveLength(1);
     expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
@@ -1254,7 +1257,7 @@ describe("SpecDialogSurface", () => {
     expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("dialog-card")).toHaveAttribute("data-kind", "epic");
     expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
     expect(screen.getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? A parent record and 2 slices\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
   });
 
   // The read that raced the push may still have caught the draft stored, stamped with a moment

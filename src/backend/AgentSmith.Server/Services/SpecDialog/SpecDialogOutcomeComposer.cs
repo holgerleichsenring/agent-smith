@@ -105,8 +105,12 @@ public sealed class SpecDialogOutcomeComposer
     {
         BugOutcome bug => $"a fix-bug ticket ('{bug.Ticket.Title}') for the fix-bug pipeline",
         PhaseOutcome phase => $"one phase (`{phase.Draft.PhaseId}`)",
+        // 2026-09-17-0e79d: an epic is ONE work ticket. The slices are records a person reads,
+        // not children a run picks up, and counting them as runnable phases said the opposite
+        // of what was filed.
         EpicOutcome epic =>
-            $"an epic (`{epic.Parent.PhaseId}` + {epic.Children.Count} linked child phases)",
+            $"an epic as one work ticket (`{epic.Parent.PhaseId}`) and "
+            + $"{epic.Children.Count} linked slice record(s)",
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no summary shape."),
     };

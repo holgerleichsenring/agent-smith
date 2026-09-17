@@ -129,7 +129,7 @@ public sealed class TicketTitleTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         return new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(), NullLogger<EpicTicketFiler>.Instance),
+            TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
             NullLogger<OutcomeTicketFiler>.Instance);
     }

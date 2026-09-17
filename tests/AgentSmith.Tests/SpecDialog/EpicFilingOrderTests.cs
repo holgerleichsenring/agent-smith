@@ -13,10 +13,12 @@ using Moq;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-09-13-a72a: an epic is filed in DEPENDENCY order and every child says, in its
-/// labels, which epic it belongs to and which slices it follows. A child filed before its
-/// predecessor could not name that predecessor's ticket id, and there is no repair pass —
-/// ITicketProvider has no member that edits a description or adds a label afterwards.
+/// 2026-09-13-a72a: an epic is filed in DEPENDENCY order.
+/// <para>
+/// 2026-09-17-0e79d: the order is now the SET's — one run works the slices in it, phase by
+/// phase — and the records are filed in the same order so the tracker reads as the run runs.
+/// The label stamps that used to carry the order are gone with the N-children shape.
+/// </para>
 /// </summary>
 public sealed class EpicFilingOrderTests
 {
@@ -32,7 +34,7 @@ public sealed class EpicFilingOrderTests
         report.Error.Should().BeNull();
         provider.Created.Select(c => c.Title).Should().Equal(
             ["p9000: Widget platform", "p9000b: slice p9000b", "p9000a: slice p9000a"],
-            "the cut listed the slices in the wrong order; filing follows the edges, not the list");
+            "the cut listed the slices in the wrong order; the stored set and its records follow the edges");
     }
 
     [Fact]
@@ -50,36 +52,21 @@ public sealed class EpicFilingOrderTests
             "an epic that cannot be ordered is refused at filing, not discovered at run time");
     }
 
+    /// <summary>
+    /// 2026-09-17-0e79d: the stamps are gone from the filing shape. A record carries the record
+    /// label and nothing a machine reads; a stamp on the work ticket would cut its branch from
+    /// another ticket's rung instead of from its own base.
+    /// </summary>
     [Fact]
-    public async Task FileEpic_Child_CarriesPredecessorAndParentLabels()
+    public async Task FileEpic_NothingItFiles_CarriesAStamp()
     {
         var provider = new RecordingProvider();
 
         await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
 
-        // Created ids are 1 (parent), 2 (p9000a), 3 (p9000b).
-        provider.Created[1].Labels.Should().Equal(
-            PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ParentStamp("1"));
-        provider.Created[2].Labels.Should().Equal(
-            [PhaseTicketRenderer.PhaseLabel,
-             FiledTicketLabels.ParentStamp("1"),
-             FiledTicketLabels.PredecessorStamp("2")],
-            "the stamp names the sibling's TICKET id — a phase id means nothing to the funnel");
-    }
-
-    [Fact]
-    public async Task FileEpic_Child_ParentAndPredecessorStampsAreDistinguishable()
-    {
-        var provider = new RecordingProvider();
-
-        await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
-        var labels = provider.Created[2].Labels;
-
-        FiledTicketLabels.ParentId(labels).Should().Be("1");
-        FiledTicketLabels.PredecessorIds(labels).Should().Equal("2");
-        FiledTicketLabels.ParentId(labels).Should().NotBe(
-            FiledTicketLabels.PredecessorIds(labels)[0],
-            "a reader must tell the parent from a predecessor — a branch is cut from the PARENT's rung");
+        provider.Created.Should().OnlyContain(
+            c => FiledTicketLabels.ParentId(c.Labels) == null
+                && FiledTicketLabels.PredecessorIds(c.Labels).Count == 0);
     }
 
     /// <summary>2026-09-17-042ea: the tracker shows each child under its parent.</summary>
@@ -95,8 +82,11 @@ public sealed class EpicFilingOrderTests
     }
 
     /// <summary>
-    /// 2026-09-17-042ea: the tickets exist and the labels still order them. Were a refused link the
-    /// filing's error, the notice would offer a retry that files every ticket a second time.
+    /// 2026-09-17-042ea: the tickets exist and the work ticket already carries the approved set.
+    /// Were a refused link the filing's error, the notice would offer a retry — and the retry
+    /// files a SECOND work ticket with a second stored set, which is two runs and two pull
+    /// requests per repository. (2026-09-17-0e79d: the label stamps that used to order the
+    /// children are gone; the order is the set's, inside one run.)
     /// </summary>
     [Fact]
     public async Task EpicFiling_ALinkThatFails_FilesTheRemainingChildrenAndNotesIt_WithoutAnError()
@@ -209,8 +199,7 @@ public sealed class EpicFilingOrderTests
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer(),
-                NullLogger<EpicTicketFiler>.Instance),
+            TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
             NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, CancellationToken.None);
