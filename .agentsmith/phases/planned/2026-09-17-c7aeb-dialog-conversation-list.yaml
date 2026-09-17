@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-c7aeb
+
+goal: "The caller's conversations are listed whole, closed ones included, by what they said and what was filed, and opening one continues it without closing another."
+
+applies_to: "backend (spec dialog: the conversation listing, resume while a turn runs) + dashboard (opening a past conversation)"
+
+requires:
+  - 2026-09-17-c7aea
+
+scope:
+  in: >
+    A conversation is addressed by its SESSION ID. A listing of its own — not the per-dialog view,
+    which is refetched after every message — returns the caller's dashboard sessions, open or closed,
+    filtered by owner in the query and capped. Each summary carries a title read from the transcript
+    and the outcome derived from 2026-09-17-c7aea's latest filing. Opening a past conversation mints a
+    fresh dialog id and resumes the session onto it; the resume is already refused to anyone but the
+    owner, and is now also refused while that session has a turn running or a question pending. The
+    page re-seeds its transcript after the resume, not before it.
+  out: >
+    AN OUTCOME COLUMN. See decisions — it would be a second copy of c7aea's filing.
+    A NEW READ ROUTE OR OWNERSHIP RULE FOR CLOSED SESSIONS. Not needed.
+    TELLING ANOTHER TAB ITS CONVERSATION MOVED. Stated below; a successor, named by what it does:
+    a tab whose conversation was opened elsewhere is told so instead of starting a new one.
+    RENAMING, SEARCH, ARCHIVING. A successor, named by what it does.
+    SLACK AND TEAMS. Their listing renders from conversation state and is unchanged.
+
+decisions:
+  - key: |
+      A DIALOG ID IS A TAB, NOT A CONVERSATION. A resume moves a session onto the current dialog id and
+      closes whatever was open there, so one dialog id can have held several sessions. The session id
+      is the conversation.
+  - key: |
+      OPENING IS A RESUME ONTO A FRESH DIALOG ID. A fresh id has nothing open on it, so the resume
+      closes nothing, and every existing read, push and ownership check then applies. A read route for
+      closed sessions would have needed a new ownership rule, because the existing check treats a
+      dialog id with no open session as free to take.
+  - key: |
+      NO RESUME WHILE A TURN RUNS OR A QUESTION WAITS. A resume moves the session's thread with no
+      regard for a turn in progress. That turn still holds the old thread: its reply append finds no
+      open session and the reply is never stored; its pending approval is shown in the new tab and
+      accepted there; and filing then throws for want of an open session — after the operator
+      approved. Leaving a conversation during its minute-long turn and reopening it from the list is an
+      ordinary thing to do, so the resume is refused, with a reason, while the turn gate holds the
+      session or a question is pending.
+  - key: |
+      THE OUTCOME IS DERIVED, NOT STORED TWICE. 2026-09-17-c7aea keeps the latest filing report durably.
+      The kind comes from the latest proposal and partial from a report that did not succeed but created
+      tickets. A second column would be a second record of one fact that could disagree with the first.
+      Only filings produce an outcome, so an answer after a filing changes nothing and a conversation
+      that filed nothing shows none.
+  - key: |
+      THE LIST HAS ITS OWN READ, OFF THE HOT PATH. It used to ride inside the per-dialog view, which the
+      page refetches after every hub message; with transcripts read for titles, that would reload every
+      listed conversation on every reply. It is fetched on mount and after a filing.
+  - key: |
+      CAPPED BY CREATION ORDER, SORTED BY ACTIVITY. The default provider cannot order by the timestamp's
+      type, so the query takes the caller's most recently created sessions by id and the rows are
+      sorted by last activity in memory. An old conversation resumed today may fall outside the cap —
+      stated, not hidden. The owner column gains an index.
+  - key: |
+      A CONVERSATION LIVES IN ONE PLACE, AND ANOTHER TAB FINDS OUT LATE. Opening a conversation open in
+      another tab moves it here. That tab's next message finds nothing open and, through the auto-open
+      the page already has, starts a new empty conversation on its old id. Nothing is lost — the moved
+      conversation is intact — and telling that tab is a named successor rather than this phase.
+  - key: |
+      THE TITLE IS READ, NOT STORED: the first design message's first prose line, skipping leading
+      fences and blank lines. A column would leave every older conversation with a null title that
+      meant two things.
+
+steps:
+  - id: the-listing
+    action: "Its own read: the caller's dashboard sessions, owner-filtered in the query with an index, capped by id, sorted by activity in memory."
+  - id: the-title-and-outcome
+    action: "Title read from the transcript; outcome derived from c7aea's latest filing and proposal."
+  - id: no-resume-while-busy
+    action: "A resume is refused while the turn gate holds the session or a question is pending, and says why."
+  - id: opening-is-a-resume-onto-a-fresh-id
+    action: "The dashboard mints a dialog id, sends the resume, and re-seeds after it; the conversation already open here does nothing."
+
+tests:
+  - "List_IncludesTheCallersClosedConversations"
+  - "List_ExcludesAnotherPrincipalsConversations"
+  - "List_IsCappedAndSortedByActivity"
+  - "List_IsNotReadOnEveryDialogViewRefetch"
+  - "Title_IsTheFirstDesignMessagesFirstProseLine"
+  - "Title_SkipsALeadingCodeFence"
+  - "Outcome_DerivedFromTheLatestFiling"
+  - "Outcome_AnAnswerAfterAFiling_DoesNotChangeIt"
+  - "Resume_WhileATurnIsRunning_IsRefusedWithAReason"
+  - "Resume_WhileAQuestionIsPending_IsRefusedWithAReason"
+  - "Resume_OntoAFreshDialogId_ClosesNothingElse"
+  - "Resume_AnotherPrincipalsConversation_IsRefused"
+  - "dashboard: opening a past conversation shows its transcript after the resume"
+  - "dashboard: clicking the conversation already open does nothing"
+
+done:
+  - "an operator's conversations stay in the list after they click away, and reopen with their transcript"
+  - "each is titled by what they said and marked by what it filed, from one record of the filing"
+  - "reopening a conversation mid-turn is refused rather than losing its reply or throwing on approval"
+  - "another principal still cannot open it"
+  - "build green, full suite green, file-length ratchet green"

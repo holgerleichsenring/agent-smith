@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-c7aec
+
+goal: "While a design turn runs, the dashboard is told which repositories it opens and how each fared, so progress names what the agent is actually reading."
+
+applies_to: "backend (source scope materialisation, the spec-dialog turn) + dashboard (the reading lines' data)"
+
+requires:
+  - 2026-09-17-c7aea
+
+scope:
+  in: >
+    A source scope reports to an OBSERVER when it begins opening a repository and when that opening
+    succeeds or fails. The observer is carried ambiently for the duration of a turn — the pattern the
+    run context already uses — with a silent default, so every run that does not set one behaves
+    exactly as today. The spec-dialog turn runner sets one for dashboard sessions before the pipeline
+    runs; it resolves the dialog to push to from the session at push time. The page renders a line per
+    repository: opening, ready, or failed.
+  out: >
+    A RUN ID ANNOUNCEMENT OR JOINING A RUN GROUP.
+    A CHANGE TO THE SCOPE FACTORY'S SIGNATURE OR TO THE SHARED TEMPLATE SCOPES.
+    PACKAGE COUNTS OR ANY READING OF A MANIFEST.
+    PER-FILE PROGRESS.
+    PLACING THE LINES. 2026-09-17-c7aed.
+
+decisions:
+  - key: |
+      AMBIENT, BECAUSE THE SCOPES ARE CREATED DOWN TWO ROUTES. A design turn opens repository scopes
+      through the factory directly and template scopes through the shared template-scopes class, which
+      the derivation and the coding master also use. Passing an observer explicitly would change the
+      factory's signature and that shared class for every caller. The run context is already carried
+      ambiently across exactly this boundary — the scope reads the current run id at the moment it
+      materialises — so an observer carried the same way reaches both routes without touching either.
+  - key: |
+      A SILENT DEFAULT, NOT A NEW RUN EVENT. The scope class is shared, and a run event published from
+      it would fire into the trail of every coding and derivation run that opens a template. With no
+      observer set, nothing is told; only the design turn sets one.
+  - key: |
+      THE DIALOG IS RESOLVED AT PUSH TIME. A conversation can be resumed onto another dialog id; an
+      observer that captured the thread at turn start would push into a group the operator has left.
+      2026-09-17-c7aeb refuses a resume while a turn runs, and resolving late costs nothing either way.
+  - key: |
+      FAILED IS A STATE. If preparing a scope throws, the scope is not marked open, and the next read
+      would report "opening" again with "ready" never arriving — a line that spins forever. A failure is
+      reported as such, from the same place.
+  - key: |
+      ONE METHOD, BOTH PATHS. The lazy first-read path and the eager template path meet in a single
+      materialising method; reporting inside its gate, after the second emptiness check, fires once. The
+      eager path does not run in a design turn — it is the coding master's — so its test proves the
+      silent default, not a dialog push.
+  - key: |
+      ROOM FIRST. The scope class stands at the line cap. The refusal it builds is a separable seam of
+      several lines, more than the constructor dependency and three reports need.
+
+steps:
+  - id: room-in-the-scope
+    action: "Move the refusal construction out of SourceScopeSandbox."
+  - id: the-ambient-observer
+    action: "An accessor for a turn-scoped observer with a silent default, carried the way the run context is."
+  - id: the-scope-reports
+    action: "Opening, ready and failed are reported from the one materialising method, once each."
+  - id: the-turn-sets-it
+    action: "The spec-dialog turn runner sets a dashboard observer for dashboard sessions, resolving the dialog at push time."
+  - id: the-types
+    action: "The dashboard types carry the push."
+
+tests:
+  - "Scope_OnMaterialise_ReportsOpeningThenReady"
+  - "Scope_WhenPreparationFails_ReportsFailed"
+  - "Scope_OpenedTwice_ReportsOnce"
+  - "Scope_WithNoObserverSet_BehavesAsBefore"
+  - "CodingRun_WithTemplates_ReportsNothing"
+  - "DialogTurn_OnTheDashboard_PushesEachOpenedRepositoryToItsGroup"
+  - "DialogTurn_TemplateScopes_AreReportedToo"
+  - "DialogTurn_OnSlack_PushesNothing"
+
+done:
+  - "an operator watching a design turn sees which repositories it opened, which are ready and which failed"
+  - "no line spins forever"
+  - "coding and derivation runs emit nothing they did not emit before"
+  - "build green, full suite green, file-length ratchet green"

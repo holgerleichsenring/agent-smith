@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-c7aed
+
+goal: "The design surface becomes Work it out and is rebuilt to the layout of the mock beside it, on the data its three siblings supply and in the dashboard's own tokens."
+
+applies_to: "dashboard (the spec-dialog surface, its place and its rail entry)"
+
+requires:
+  - 2026-09-17-c7aea
+  - 2026-09-17-c7aeb
+  - 2026-09-17-c7aec
+
+scope:
+  in: >
+    The mock beside this file is the target for LAYOUT, HIERARCHY AND WORDING, and for nothing else.
+    The place is renamed Work it out in the place table, the rail entry and its section label, the
+    page head and the failure surface; the route stays /spec-dialog. Three columns: the caller's
+    conversations from 2026-09-17-c7aeb, grouped by day, opened by switching dialog id; the exchange,
+    where a turn that produced a proposal shows a card naming its kind and slices with a way into
+    the pane; and the pane, with proposal, scope and filed tabs each offered only when it has
+    content, the raw form behind a disclosure. A running turn lists the repositories it opened from
+    2026-09-17-c7aec. Opening a past conversation follows 2026-09-17-c7aeb: a fresh dialog id and a
+    resume onto it. The approval question gets a surface of its own, and every other question kind
+    keeps its current controls. The dialog id and the project picker stay.
+  out: >
+    THE MOCK'S TYPEFACES, PALETTE, TYPE SIZES AND DARK THEME. See decisions.
+    A DASHBOARD-WIDE RESTYLE. If the mock's look is wanted, it is a change to the design system
+    for every surface, named here as that successor rather than smuggled onto one page.
+    REVIEWER FINDINGS ON THE DECISION SURFACE. 2026-09-15-1499 puts them into the confirmation
+    text, which this surface renders; this phase leaves room for them and does not invent them.
+
+decisions:
+  - key: |
+      THE MOCK WINS ON LAYOUT, HIERARCHY AND WORDING; THE TOKENS WIN ON EVERYTHING VISUAL. The mock
+      loads its own typefaces and palette. The dashboard's primary typeface is Inter, loaded through
+      next/font, its primary colour is a different green, its type sizes are six fixed rungs, and it
+      is deliberately always light. "The mock is right" and "use the tokens" cannot both be obeyed,
+      and a page in a different face and palette from every surface around it would look assembled
+      from parts — which is the complaint that started this redesign. The mock says where things go
+      and what they are called; the tokens say what they look like.
+  - key: |
+      THE MOCK IS A FILE BESIDE THE SPEC BECAUSE LAYOUT IN PROSE DOES NOT SURVIVE AN IMPLEMENTER.
+      This surface was described three times in sentences and built three different ways. Within
+      the limits above, where the mock and this text disagree, the mock is right.
+  - key: |
+      THE CARD IS POSSIBLE BECAUSE THE DASHBOARD NO LONGER SHOWS THE DRAFT AS PROSE. 2026-09-17-c7aea
+      keeps the stored transcript whole and removes the draft only where the dashboard shows a reply;
+      it keeps the latest proposal with its raw yaml and names the assistant turn it belongs on. Live,
+      every proposing turn gets a card. After a reload only the latest does, because only the latest
+      is kept — stated, not promised otherwise.
+  - key: |
+      THE DECISION SURFACE RENDERS WHAT THE PROPOSAL SAYS, IT DOES NOT HARD-CODE A PROMISE. The mock
+      says "the second waits for the first". Whether a slice waits depends on its predecessors and on
+      the project's trigger statuses, so the surface states what the proposal and the confirmation
+      text actually carry, and nothing about ordering that the data does not say.
+  - key: |
+      THE COLUMNS ARE SIZED FOR THE SPACE THE SHELL LEAVES, NOT THE MOCK'S WINDOW. The mock is a
+      standalone page; the real surface sits beside a fixed rail inside the page's padding, which
+      leaves the exchange a few hundred pixels at the mock's breakpoints. The surface is a size
+      container and collapses by its own width — the conversations column folds away first, then the
+      pane stacks under the exchange. The dashboard uses no container query yet; its Tailwind version
+      supports them natively. The test environment cannot measure layout, so the collapse is checked
+      by eye, and no test claims it.
+  - key: |
+      THE NAME APPEARS ONCE IN THE RAIL. The rail groups this entry under a section label. Renaming
+      both would print "Work it out" twice; the entry takes the name.
+  - key: |
+      THIS BUILDS ON #637. That change already touches the hook, the surface, the controls, the
+      transcript and the composer. The series is cut on top of it.
+  - key: |
+      THE RAIL TEST MUST READ THE LABEL. The existing place-and-rail parity test compares hrefs only,
+      so a rail still reading "Design dialog" passes it. The test for the rename renders the link text.
+  - key: |
+      A SCOPED PALETTE TEST, AND THE CLAIM IT REPLACES WAS WRONG. An earlier draft said other
+      components use no raw palette at all; they use it hundreds of times. The new test covers
+      components/dialog only, and is named as a class-name scan — raw colour arriving through a
+      stylesheet would pass it.
+  - key: |
+      THE MOCK SHOWS WHAT THE DATA CARRIES AND NOTHING MORE. A slice that waits shows the slice it
+      waits for, because the proposal carries requires ids and no reason. The approval surface names
+      what will be filed and makes no promise about the order it runs in. A conversation that filed
+      part of an epic is marked so. The progress line says it is opening repositories, and gives no
+      duration, because nothing measures one.
+  - key: |
+      THE MOCK DROPPED THINGS THAT STAY. It shows no dialog id and no project picker, and only the
+      approval question. The dialog id is pinned by an existing test and shown on purpose; the picker
+      opens a session on a project; the choice, confirmation, free-text and expired states all have
+      tests. Following the mock does not delete them.
+
+steps:
+  - id: the-place-is-renamed
+    action: "Work it out in the place table, rail entry, page head and failure surface, once in the rail; route unchanged."
+  - id: the-three-columns
+    action: "Conversations, exchange, pane — to the mock's layout, collapsing by the width the shell leaves, in the dashboard's tokens."
+  - id: the-conversation-list
+    action: "c7aeb's summaries grouped by day, titled, marked with their outcome; opening one resumes it onto a fresh dialog id."
+  - id: the-card-in-the-exchange
+    action: "A turn that produced a proposal shows its kind and slices and moves the pane to it."
+  - id: the-reading-lines
+    action: "A running turn lists c7aec's opened repositories, each resolving when ready."
+  - id: the-decision-surface
+    action: "The approval question on its own surface, stating what the proposal and confirmation text carry; other question kinds unchanged."
+  - id: the-pane-tabs
+    action: "Proposal, scope and filed, each only with content; the raw form behind a disclosure."
+  - id: the-palette-in-the-dialog-components
+    action: "No raw palette class remains under components/dialog."
+
+tests:
+  - "Places_WorkItOut_TheRailRendersTheSameLabel"
+  - "dashboard: conversations group by day and mark the current one"
+  - "dashboard: a conversation with an outcome shows it; one without shows none"
+  - "dashboard: opening a past conversation resumes it onto a fresh dialog id and closes nothing"
+  - "dashboard: a turn that produced a proposal shows a card, live and after a reload"
+  - "dashboard: the card moves the pane to the proposal"
+  - "dashboard: a running turn names each repository it opened"
+  - "dashboard: the approval surface states only what the proposal carries"
+  - "dashboard: a tab with nothing to show is not offered"
+  - "dashboard: the dialog components contain no raw palette class"
+
+done:
+  - "the rail, the header and the place table all say Work it out"
+  - "a reviewer comparing the page to the mock finds the same layout, hierarchy and wording, in the dashboard's own look"
+  - "no draft floods the exchange, live or after a reload"
+  - "an operator can see which repositories a turn is reading"
+  - "every existing question state and the reload, ownership and approval behaviour still pass their tests"
+  - "dashboard build and tests green, backend build green, full suite green"
