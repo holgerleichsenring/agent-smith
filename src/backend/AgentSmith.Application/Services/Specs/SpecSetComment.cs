@@ -30,11 +30,7 @@ public static class SpecSetComment
         sb.AppendLine(Marker);
         sb.AppendLine($"## Agent Smith — {CutMarker}");
         sb.AppendLine();
-        sb.AppendLine(
-            "I split it into the phases below and started working. This is NOT a question and "
-            + "the run is not waiting: comment if the cut is wrong and the next run amends an "
-            + "unstarted phase or re-cuts the unstarted tail. A phase that already ran is never "
-            + "edited — a correction to it becomes a new phase.");
+        sb.AppendLine(SpecSetCommentPreamble.For(set));
         sb.AppendLine();
         sb.Append(SpecRecutNotice.Render(set));
         sb.Append(RenderPhases(set));

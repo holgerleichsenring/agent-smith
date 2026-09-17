@@ -38,8 +38,11 @@ public sealed class SpecSourceResolver(
     /// <param name="Error">Set when a present spec is MALFORMED or a required one is MISSING,
     /// which fails loudly.</param>
     /// <param name="Cause">The cause the next revision names.</param>
+    /// <param name="Note">2026-09-17-0e79b: what the source DISCARDED to reach this set, reported
+    /// to the ticket rather than only logged.</param>
     public sealed record Decision(
-        SpecSource Source, SpecSet? Set, bool NeedsModel, string? Error = null, string? Cause = null);
+        SpecSource Source, SpecSet? Set, bool NeedsModel, string? Error = null, string? Cause = null,
+        string? Note = null);
 
     public Decision Decide(
         SpecSetReadResult? branchArtifact, Ticket ticket, SpecSetPointer? pointer,
@@ -96,15 +99,22 @@ public sealed class SpecSourceResolver(
 
     // A comment or an edited ticket is input the model has not seen, whatever the branch
     // carries — amend the SAME set rather than produce a fresh reading of the prose. A
-    // reviewer's edit is already the correction and needs no model at all. A bare
-    // re-trigger re-cuts a set nothing has run yet (the previous run ended before the cut
-    // was worked, and a fallback cut is not meant to be permanent) but continues a set in
-    // flight: an executed head is work on the branch, and the inputs that re-cut its tail
-    // are read as their own causes (2026-09-08-4aa9).
-    private static bool NeedsAmendment(string cause, SpecSet set) => cause switch
+    // reviewer's edit is already the correction and needs no model at all. A bare re-trigger
+    // re-cuts a set nothing has run yet (the previous run ended before the cut was worked, and a
+    // fallback cut is not meant to be permanent) but continues a set in flight: an executed head
+    // is work on the branch, and the inputs that re-cut its tail are read as their own causes.
+    //
+    // 2026-09-17-0e79b: an APPROVED set is never re-cut, for ANY of those causes. It is the only
+    // place that can set NeedsModel over a set the run already holds — the other routes into an
+    // approved set all READ their set rather than generate it.
+    private static bool NeedsAmendment(string cause, SpecSet set)
     {
-        SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit => true,
-        SpecRevisionCause.Retrigger => set.Executed.Count == 0,
-        _ => false,
-    };
+        if (set.Approval is not null) return false;
+        return cause switch
+        {
+            SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit => true,
+            SpecRevisionCause.Retrigger => set.Executed.Count == 0,
+            _ => false,
+        };
+    }
 }

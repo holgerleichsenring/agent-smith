@@ -31,6 +31,20 @@ scope:
     approved set reuses that path.
     THE TICKET-FIRST PATH. A set nobody approved keeps today's amendment behaviour exactly.
     EDITING AN EXECUTED PHASE. Refused by the merge: an executed phase is append-only (SpecSet.cs:27-45).
+    THE CONVERSATION HALF OF THE AMENDMENT ENTRY. This phase ships the STORE side — load a filed
+    ticket's record by its spec key, save a newer approval over it. Nothing in the dialog calls it:
+    RecordAsync's only caller files a NEW ticket (OutcomeTicketFiler.cs:92-95), and resolving which
+    ticket a session filed needs the filed work to carry its ticket id, which is 2026-09-17-042eg's.
+    A successor does the conversation half — a design conversation re-opens the approved record of a
+    ticket it already filed and approves a new set over it. Until then the operator's route is the
+    one the cut comment names: edit the specs on the branch, which the next run reads back and works
+    as they stand (a reviewer edit, unchanged by this phase).
+    A LEGACY EPIC CHILD. 2026-09-17-0e79d gives an epic ONE work ticket carrying its own approved
+    record and the approved-set stamp, so an epic cut today is guarded exactly as a directly-filed
+    phase is. What stays unguarded is the OLD shape only: a child ticket carrying a phase-parent
+    stamp, which FiledTicketSpecGate deliberately exempts so tickets filed before that change still
+    derive rather than failing. Such a child has no approved record to protect, and a comment or an
+    edit on it re-cuts its tail exactly as it does today.
 
 decisions:
   - key: |

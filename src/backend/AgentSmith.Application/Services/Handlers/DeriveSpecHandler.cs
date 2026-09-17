@@ -27,6 +27,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// source is chosen, and a ticket the framework filed that arrives with no set from any route
 /// fails here instead of being derived a second time.
 /// </para>
+/// <para>
+/// 2026-09-17-0e79b: such a set is never re-cut. A comment, a ticket edit or a re-trigger is
+/// recorded in the revision it publishes and reported once — on the ticket and on the run — and
+/// the run continues on the set that was approved.
+/// </para>
 /// </summary>
 public sealed class DeriveSpecHandler(
     ISpecSetDeriver deriver,
@@ -38,6 +43,7 @@ public sealed class DeriveSpecHandler(
     SpecFallback fallback,
     SpecCoverageRefusal coverageRefusal,
     SpecSetTicketCommenter commenter,
+    ApprovedSetKeptNotice keptNotice,
     SpecCutGate gate,
     UnansweredQuestionPin questionPin,
     UnansweredQuestionNotice questionNotice,
@@ -74,7 +80,12 @@ public sealed class DeriveSpecHandler(
             ? await DeriveAsync(context, decision, key.Value, segments, cancellationToken)
             : (decision.Set!, (IReadOnlyList<IgnoredInstruction>)[]);
 
-        var finalized = Finalize(set, previous, decision.Cause!, context.Ticket, decision.NeedsModel);
+        // Reported BEFORE the publish, because the publish is what clears the input: a hand-back
+        // must not suppress it, and an unreported input must not be marked as dealt with.
+        var reported = await keptNotice.PostAsync(
+            context.Pipeline, context.Tracker, set, decision.Cause!, decision.Note, cancellationToken);
+        var finalized = SpecRevisionHeader.Finalize(
+            set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported);
         var result = await publisher.PublishAsync(
             context.Pipeline, project, repo, finalized, ignored, cancellationToken);
         if (!finalized.IsHandedBack)
@@ -122,18 +133,6 @@ public sealed class DeriveSpecHandler(
         if (unanswered is not null)
             await questionNotice.PostAsync(context.Pipeline, context.Tracker, unanswered, ct);
         await commenter.PostAsync(context.Pipeline, context.Tracker, finalized, ct);
-    }
-
-    // The revision header is OURS, never the model's: numbering and cause are how a
-    // reviewer follows the artifact. The fingerprint names the ticket text the model last
-    // saw — carried forward, not refreshed, on a revision written without it.
-    private static SpecSet Finalize(
-        SpecSet set, SpecSetReadResult? previous, string cause, Ticket ticket, bool modelRan)
-    {
-        var history = previous?.Set.Revisions ?? [];
-        var next = new SpecRevision(history.Count + 1, cause, DateTimeOffset.UtcNow);
-        var fingerprint = modelRan || previous is null ? TicketTextFingerprint.Of(ticket) : previous.Set.TicketFingerprint;
-        return set with { Revisions = [.. history, next], TicketFingerprint = fingerprint };
     }
 
     private static string ProjectOf(PipelineContext pipeline) =>

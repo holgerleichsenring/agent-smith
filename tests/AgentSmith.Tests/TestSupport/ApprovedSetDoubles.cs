@@ -25,6 +25,12 @@ internal static class ApprovedSetDoubles
     internal static ApprovedRepoScope Scope(ISpecApprovalStore? store = null) =>
         new(Resolver(store), NullLogger<ApprovedRepoScope>.Instance);
 
+    /// <summary>2026-09-17-0e79b: the kept-set notice over doubles that record nothing — what a
+    /// test wants when nothing was approved, so no notice can be posted at all.</summary>
+    internal static ApprovedSetKeptNotice KeptNotice() => new(
+        new RecordingTicketComments().Factory(), new RecordingRunDecisions(),
+        NullLogger<ApprovedSetKeptNotice>.Instance);
+
     internal static ApprovedPhaseSetRecorder Recorder(ISpecApprovalStore? store = null) =>
         new(store ?? Store(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 }

@@ -62,8 +62,17 @@ public static class SpecRevisionCause
         previous.TicketFingerprint is { } cutFrom
         && !string.Equals(cutFrom, TicketTextFingerprint.Of(ticket), StringComparison.Ordinal);
 
-    private static bool IsCommented(PipelineContext pipeline) =>
-        OwnTicketComment.IsAnswered(
+    /// <summary>
+    /// 2026-09-17-0e79b: whether anyone but us commented after our last cut comment — the same
+    /// question <see cref="For"/> asks, made public because an EDIT outranks a comment here and
+    /// would otherwise hide it. A run that keeps an approved set reports both, since neither was
+    /// acted on and the cause can only name one.
+    /// </summary>
+    public static bool IsCommented(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        return OwnTicketComment.IsAnswered(
             pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var c) ? c : null,
             SpecSetComment.CutMarker);
+    }
 }
