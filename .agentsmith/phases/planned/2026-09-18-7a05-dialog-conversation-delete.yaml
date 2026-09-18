@@ -8,15 +8,19 @@ applies_to: "backend (a delete keyed on the session id, its own owner check) + d
 requires:
   - 2026-09-17-c7aeb
   - 2026-09-17-042em
+  - 2026-09-18-2f8b
 
 scope:
   in: >
     A delete of one conversation, addressed by its session id, scoped to the dashboard platform as
-    every other read on this surface is, behind an owner check written for a SESSION id and for which
-    an absent row is not a pass. Not-yours, not-there and already-deleted answer identically, so the
-    route cannot be used to learn which ids exist. The conversation list offers it per row, removes
+    every other read on this surface is, behind an owner check written for a SESSION id, scoped to the
+    platform, and for which an absent row is not a pass. The owner check runs FIRST, so the distinct
+    answer a running conversation gives is reachable only by its owner. Success and all three
+    refusals answer alike, so a second delete is not an error and the route cannot be used to learn
+    which ids exist. The conversation list offers it per row, removes
     the row without a reload, and a list read still in flight cannot bring it back. Deleting the
-    conversation open here clears the surface. A conversation whose latest filing created work is
+    conversation open here clears the surface. The operator's own answers, stored durably against this
+    session id, go with it. A conversation whose latest filing created work is
     confirmed first, in the words of what survives: the tickets stay, and what stops resolving is the
     map from this conversation to them — plus, for a filed phase or an epic parent, the sentence in
     the ticket body naming this conversation as where the specification was approved.
@@ -45,22 +49,40 @@ decisions:
       forces the answer to be the same terminal one for all three — so the page asserts that the row
       survives a refused delete, never that a status code differed.
   - key: |
-      A RUNNING TURN IS REFUSED, BECAUSE THE INTERLEAVING FILES REAL TICKETS. The turn's state is
-      in-memory and keyed by session; a row delete touches none of it. Mid-turn, the transcript append
-      and the outcome store both become silent no-ops, and the filing path throws a message the operator
-      reads verbatim. The worst window files tracker tickets for a conversation that no longer exists
-      and records what was filed nowhere. The delete is refused while a turn is computing, with that as
-      its own stated case, not a generic failure.
+      THE SPAN IS THE GATE'S HOLD, NOT ITS COMPUTING FLAG — AND THE DIFFERENCE IS THE WHOLE HAZARD.
+      The turn gate carries two spans. The computing flag opens and closes inside the turn runner, and
+      the router calls the outcome flow AFTER that returns — which is where the approval wait and the
+      filing live. A refusal keyed on computing would therefore permit the delete during exactly the
+      window this decision names. It is keyed on the gate's hold, the span the router opens and closes
+      around the whole exchange; the gate exposes no read of it today and gains one.
+  - key: |
+      WHAT THE INTERLEAVING ACTUALLY COSTS. Mid-turn the transcript append and the latest-filing store
+      become silent no-ops; the confirmed-outcome store THROWS, which prevents the filing rather than
+      accompanying it, and its message reaches the group of a dialog id the page has already left. The
+      window that hurts is narrower: a delete landing inside the filing itself, where tickets are
+      created and then nothing records what was filed.
+  - key: |
+      TWO REPLICAS: THE GUARD FAILS OPEN, AND THAT IS STATED. The gate is in-memory and per process, so
+      a delete served by the replica that is not running the turn is not refused. This phase does not
+      solve that — a design conversation that spans replicas needs a shared channel — but it must not
+      be read as a guarantee.
+  - key: |
+      THE ANSWERS THE OPERATOR TYPED GO WITH THE ROW. Every answer to a question, and the approve or
+      reject itself, is written durably against this session id in the dialogue answer table. Nothing
+      reaches those rows once the session is gone, and no route resolves that id — so leaving them is
+      an undeletable copy of operator prose keyed to nothing. They are swept in the same transaction,
+      which is the shape the run deletion already uses for its satellites.
   - key: |
       THE APPROVED SET STAYS, AND THAT IS NOT AN OVERSIGHT. The approved specification set carries the
       session id and is what a RUN reads to execute the approved work. Sweeping it with the session —
       the shape the run deletion uses for its satellites — would make the next run of an already filed
       ticket derive its own specification instead, silently, visible only in the wrong work.
   - key: |
-      THE CONFIRMATION SAYS WHAT IS TRUE OF THIS FILING'S KIND. Only a filed phase and an epic parent
-      carry the sentence naming the conversation; a slice record never did and a bug ticket's body has
-      no such reference at all. A confirmation that promised otherwise would be false for two of the
-      three shapes. The latest filing's kind is already on the row the list reads.
+      THE CONFIRMATION SAYS WHAT IS TRUE OF THIS FILING'S KIND. A filed phase and an epic parent carry
+      the sentence naming the conversation; a bug ticket's body has none, so the promise would be false
+      for one of the three kinds. The kind is on the row the list reads, but it is nullable and falls
+      back to the latest proposal — so a conversation whose proposal was discarded has no kind, and that
+      branch says only what is true of every filing.
   - key: |
       WHAT THE OPERATOR ACTUALLY LOSES IS THE LIST. The filed work is read off the session's latest
       filing, and only while the conversation is open. After the delete nothing maps those tickets back
@@ -75,14 +97,20 @@ decisions:
       open session changes — which deleting the open conversation is. Its sequence guard only drops a
       read superseded by a newer read, not one issued before the delete and landing after it.
   - key: |
-      THE ROW IS A BUTTON TODAY, SO THE CONTROL CANNOT BE INSIDE IT. A control nested in a button is
-      invalid, warns, and without stopping propagation the delete click also opens the conversation it
-      just deleted. The control is its own file beside the row, as the run list's delete already is.
+      THE ROW IS A BUTTON TODAY, SO THE ROW STOPS BEING ONE. A control nested in a button is invalid
+      and warns. The run list's delete is cited as a file-level precedent only: it sits INSIDE its row's
+      link and survives by stopping propagation, which is the shape to avoid here, not to copy.
   - key: |
-      THE CONFIRMATION MECHANISM IS NAMED, BECAUSE THE DASHBOARD HAS NONE. There is no modal primitive;
-      the run delete arms on a first click and the two prose confirmations in the tree use the browser's
-      own. The shape decides the dashboard test, so the phase states it rather than leaving it to be
-      discovered.
+      THE CONFIRMATION IS THE BROWSER'S OWN, BECAUSE PROSE NEEDS SOMEWHERE TO GO. There is no modal
+      primitive. The run delete's arm-on-first-click carries nothing but a button label, so the
+      sentences this phase exists to show would have nowhere to appear and two of its own tests could
+      not be written. The two prose confirmations already in the tree use the browser's confirm, and a
+      test asserts the string passed to it.
+  - key: |
+      THE PERMISSION IS THE SURFACE'S OWN WRITE PERMISSION, AND THE PRECEDENT SAYS SO. Most destructive
+      routes here reuse their surface's write permission — people, config entities, secrets — and only
+      the run delete names one of its own. Reusing the dialog write permission is the dominant shape,
+      and it is stated rather than assumed by a test.
 
 steps:
   - id: the-owner-check
