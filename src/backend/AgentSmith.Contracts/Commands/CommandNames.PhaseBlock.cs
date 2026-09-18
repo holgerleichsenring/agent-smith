@@ -21,4 +21,10 @@ public static partial class CommandNames
     public const string VerifyPhase = "VerifyPhaseCommand";
     public const string WriteRunResult = "WriteRunResultCommand";
     public const string CommitPhaseWork = "CommitPhaseWorkCommand"; // p0437: before the gate
+
+    /// <summary>2026-09-17-042eh: after the verification, a fresh instance reads the phase's
+    /// own diff against the phase spec and the loaded principles. VerifyPhase asks whether the
+    /// done-list is satisfied; nothing asked whether what was written is sound. Findings that
+    /// rest on a read the reviewer took get ONE fix pass and are recorded either way.</summary>
+    public const string ReviewPhaseDiff = "ReviewPhaseDiffCommand";
 }

@@ -26,7 +26,7 @@ public sealed partial class SpecDialogOutcomeTests
         string.Join("\n", harness.ChatClient.CallMessages[0].Select(m => m.Text)).Should()
             .Contain("MAY NOT propose", "the prompt says it before the gate has to");
         harness.ChatClient.InvocationCount.Should().Be(2, "the refusal re-prompts exactly once");
-        string.Join("\n", harness.ChatClient.LastMessages.Select(m => m.Text)).Should()
+        string.Join("\n", harness.ChatClient.LastScriptedMessages.Select(m => m.Text)).Should()
             .Contain("proposed work before the operator had replied");
         result.Outcome.Should().BeOfType<AnswerOutcome>();
         result.Reply.Should().Be(Answer);

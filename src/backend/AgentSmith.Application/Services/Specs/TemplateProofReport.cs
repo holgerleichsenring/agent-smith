@@ -54,8 +54,9 @@ public sealed class TemplateProofReport(
             // the second was never proven while the report read as covered.
             var name = TemplateScopeName.For(declared);
             if (!look.Templates.TryGetValue(name, out var scope) || !scope.IsMaterialized) continue;
-            var (what, exit) = await ReadAsync(declared, scope, cancellationToken);
-            var id = look.Evidence.RememberOnce(name, what, exit, ran: exit == Read);
+            var (what, exit, path) = await ReadAsync(declared, scope, cancellationToken);
+            var id = look.Evidence.RememberOnce(new EvidenceRecord(
+                name, EvidenceRecord.TemplateProof, what, exit, Ran: exit == Read, path));
             if (id is not null) logger.LogInformation("[{Id}] {Name}: {What}", id, name, what);
         }
     }
@@ -63,7 +64,7 @@ public sealed class TemplateProofReport(
     // The sentence is the report: the evidence line carries the id and the repository, so
     // WHAT was found has to live in the clause, or the count is a list of reads with no
     // outcome attached to any of them.
-    private async Task<(string What, int Exit)> ReadAsync(
+    private async Task<(string What, int Exit, string Path)> ReadAsync(
         ProjectTemplate declared, ISourceScopeSandbox scope, CancellationToken cancellationToken)
     {
         var path = $"{ProjectMetaPaths.Contexts}/{declared.TemplateContext}"
@@ -79,11 +80,12 @@ public sealed class TemplateProofReport(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "The template at {Path} could not be read", path);
-            return ($"{read}: the template could not be read — {ex.Message}", Unread);
+            return ($"{read}: the template could not be read — {ex.Message}", Unread, path);
         }
-        return content is null
+        var (what, exit) = content is null
             ? ($"{read}: the template carries no context under that name", Unread)
             : Declared(read, content);
+        return (what, exit, path);
     }
 
     private (string What, int Exit) Declared(string read, string content)

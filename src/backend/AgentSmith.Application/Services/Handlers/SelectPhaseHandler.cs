@@ -21,6 +21,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class SelectPhaseHandler(
     PhaseEntryAccount entryAccount,
+    PhaseStartHeads startHeads,
     IPhaseProgressRecorder progress,
     ILogger<SelectPhaseHandler> logger)
     : ICommandHandler<SelectPhaseContext>
@@ -51,6 +52,8 @@ public sealed class SelectPhaseHandler(
         // flag saying its single repair is spent.
         PhaseRepairScope.Reset(context.Pipeline);
         PhaseCommandScope.Reset(context.Pipeline);
+        // 2026-09-17-042eh: and where the phase BEGINS, so its review reads its own diff.
+        await startHeads.RecordAsync(context.Pipeline, cancellationToken);
         await progress.RecordAsync(
             context.Pipeline, phase.PhaseId, PhaseRunState.InProgress, cancellationToken: cancellationToken);
 

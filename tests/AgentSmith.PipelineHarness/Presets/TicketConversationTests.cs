@@ -53,7 +53,7 @@ public sealed class TicketConversationTests
         // p0341f: a re-driven master CONTINUES its conversation, so the last call carries
         // the opening user message plus the nudge that re-drove it. The ticket conversation
         // and the screenshot ride the OPENING message — which is what this test is about.
-        var openingUserMessage = harness.ChatClient.LastMessages
+        var openingUserMessage = harness.ChatClient.LastScriptedMessages
             .First(m => m.Role == ChatRole.User);
         var userText = openingUserMessage.Text;
 

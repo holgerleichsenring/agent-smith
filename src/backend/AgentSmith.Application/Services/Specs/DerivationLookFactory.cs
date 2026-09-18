@@ -37,13 +37,22 @@ public sealed class DerivationLookFactory(
     /// again. A template says what a cut should FOLLOW; the reviewer checks what it ASSUMES.
     /// Null when the run has no sandbox, and the review is the text-against-text one.
     /// </summary>
-    public DerivationLook? ForCutReview(PipelineContext pipeline)
+    public DerivationLook? ForCutReview(PipelineContext pipeline) =>
+        OnTerms(pipeline, DerivationLookTerms.CutReview);
+
+    /// <summary>
+    /// 2026-09-17-042eh: the run's repositories on any holder's own terms, with NO template
+    /// scope — the member <see cref="ForCutReview"/> is now one caller of. A second holder
+    /// wanting a template-free look over the same sandboxes was a copy of this method with one
+    /// constant changed; the terms ARE the difference, so they are the parameter.
+    /// Null when the run has no sandbox.
+    /// </summary>
+    public DerivationLook? OnTerms(PipelineContext pipeline, DerivationLookTerms terms)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
         return new DerivationLook(
-            sandboxes, files, ecosystems, logger, templates: null, DerivationLookTerms.CutReview,
-            activity: turnActivity);
+            sandboxes, files, ecosystems, logger, templates: null, terms, activity: turnActivity);
     }
 
     /// <summary>

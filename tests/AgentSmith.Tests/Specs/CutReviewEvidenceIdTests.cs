@@ -48,7 +48,7 @@ public sealed class CutReviewEvidenceIdTests
         var deriver = new DerivationEvidence();
         var reviewer = new DerivationEvidence("R", "the cut review");
 
-        var ids = new[] { deriver.Remember(Repo, "read a", 0, true), reviewer.Remember(Repo, "read a", 0, true) };
+        var ids = new[] { deriver.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read a", 0, true)), reviewer.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read a", 0, true)) };
 
         ids.Should().Equal("L1", "R1");
         DerivationEvidence.IndexById([.. deriver.Lines, .. reviewer.Lines]).Keys.Should().HaveCount(2);
@@ -59,7 +59,7 @@ public sealed class CutReviewEvidenceIdTests
     {
         var reviewer = new DerivationEvidence("R", "the cut review");
 
-        reviewer.Remember(Repo, "read a", 1, ran: true);
+        reviewer.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read a", 1, Ran: true));
 
         reviewer.Lines.Single().Should().Be($"[R1] {Repo}: the cut review ran 'read a' exited 1");
     }

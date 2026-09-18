@@ -60,7 +60,7 @@ public sealed class EveryContextLoadedTests
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue(result.Message);
-        var masterPrompt = harness.ChatClient.LastMessages.First(m => m.Role == ChatRole.System).Text!;
+        var masterPrompt = harness.ChatClient.LastScriptedMessages.First(m => m.Role == ChatRole.System).Text!;
         masterPrompt.Should().Contain("## Context: backend (workdir: backend)")
             .And.Contain(BackendPrinciples)
             .And.Contain("## Context: frontend (workdir: frontend)")

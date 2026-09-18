@@ -27,6 +27,7 @@ public static partial class CommandStepClasses
         [CommandNames.AgenticMaster] = Milestone,
         [CommandNames.CommitPhaseWork] = Milestone, // p0437
         [CommandNames.VerifyPhase] = Milestone,
+        [CommandNames.ReviewPhaseDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
         [CommandNames.CommitAndPR] = Milestone,
         [CommandNames.InitCommit] = Milestone,
         [CommandNames.GenerateTests] = Milestone,

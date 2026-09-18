@@ -34,17 +34,20 @@ public sealed class DerivationEvidence(string idPrefix = "L", string actor = "th
         get { lock (_sync) return [.. _looks]; }
     }
 
-    /// <summary>Mints the next id and remembers the look under it. <paramref name="ran"/>
-    /// is whether the exit code means the tool reached a verdict; a look that did not
-    /// says so on its own line.</summary>
-    public string Remember(string repository, string what, int exitCode, bool ran)
+    /// <summary>Mints the next id and remembers the look under it. 2026-09-17-042eh: the
+    /// caller hands a structured <see cref="EvidenceRecord"/>, because an admission rule that
+    /// checks the repository, the path and the lines returned cannot read them off prose.</summary>
+    public string Remember(EvidenceRecord record)
     {
-        var clause = ran ? string.Empty : " and could not run, so it proves nothing";
+        ArgumentNullException.ThrowIfNull(record);
+        var clause = record.Ran ? string.Empty : " and could not run, so it proves nothing";
         lock (_sync)
         {
             var id = $"{idPrefix}{_looks.Count + 1}";
-            _looks.Add(new EvidenceLook(id, repository, what, exitCode, ran,
-                $"[{id}] {repository}: {actor} ran '{what}' exited {exitCode}{clause}"));
+            _looks.Add(new EvidenceLook(
+                id, record.Repository, record.What, record.ExitCode, record.Ran,
+                $"[{id}] {record.Repository}: {actor} ran '{record.What}' exited {record.ExitCode}{clause}",
+                record.Kind, record.Path, record.LinesReturned));
             return id;
         }
     }
@@ -56,13 +59,14 @@ public sealed class DerivationEvidence(string idPrefix = "L", string actor = "th
     /// ids for one unchanged file would be four facts where the run only measured one.
     /// Null when that look is already on the record.
     /// </summary>
-    public string? RememberOnce(string repository, string what, int exitCode, bool ran)
+    public string? RememberOnce(EvidenceRecord record)
     {
+        ArgumentNullException.ThrowIfNull(record);
         lock (_sync)
         {
-            if (!_once.Add($"{repository}|{what}")) return null;
+            if (!_once.Add($"{record.Repository}|{record.What}")) return null;
         }
-        return Remember(repository, what, exitCode, ran);
+        return Remember(record);
     }
 
     /// <summary>The id a line carries, or null for a line minted by nobody.</summary>

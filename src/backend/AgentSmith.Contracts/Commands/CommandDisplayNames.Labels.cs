@@ -74,6 +74,7 @@ public static partial class CommandDisplayNames
         [CommandNames.RunVerifyPhase] = "Run verify phase",
         [CommandNames.CommitPhaseWork] = "Commit the phase's work",
         [CommandNames.VerifyPhase] = "Build and test", // p0393
+        [CommandNames.ReviewPhaseDiff] = "Review the phase's diff", // 2026-09-17-042eh
         [CommandNames.BootstrapGate] = "Verify bootstrap files",
         [CommandNames.PublishProjectLanguage] = "Publish project language",
         [CommandNames.BootstrapDispatch] = "Dispatch bootstrap skill",

@@ -94,7 +94,7 @@ public sealed class QuestionHandbackTests
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         await runner.RunAsync("code");
 
-        var shown = harness.ChatClient.LastMessages.First(m => m.Role == ChatRole.User).Text;
+        var shown = harness.ChatClient.LastScriptedMessages.First(m => m.Role == ChatRole.User).Text;
         shown.Should().Contain(answer, "the answer reaches the derivation through the conversation");
         shown.Should().NotContain("was left unanswered", "an answered question is not pinned");
         tickets.Finalized.Should().ContainSingle().Which.Status.Should().Be("needs-info",
@@ -113,7 +113,7 @@ public sealed class QuestionHandbackTests
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         await runner.RunAsync("code");
 
-        var shown = harness.ChatClient.LastMessages.First(m => m.Role == ChatRole.User).Text;
+        var shown = harness.ChatClient.LastScriptedMessages.First(m => m.Role == ChatRole.User).Text;
         shown.Should().Contain("## The question from the last run was left unanswered");
         shown.Should().Contain("Reading (a) is").And.Contain("(b) " + ReadingB);
         tickets.Finalized.Should().ContainSingle().Which.Status.Should().Be("needs-info");

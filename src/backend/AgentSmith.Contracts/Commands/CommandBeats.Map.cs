@@ -96,6 +96,7 @@ public static partial class CommandBeats
             [CommandNames.RunVerifyPhase] = RunBeat.Verify,
             [CommandNames.CommitPhaseWork] = RunBeat.Verify, // p0437
             [CommandNames.VerifyPhase] = RunBeat.Verify, // p0393
+            [CommandNames.ReviewPhaseDiff] = RunBeat.Verify, // 2026-09-17-042eh
             [CommandNames.ConvergenceCheck] = RunBeat.Verify,
             [CommandNames.CompileFindings] = RunBeat.Verify,
             [CommandNames.CollectMasterFindings] = RunBeat.Verify,

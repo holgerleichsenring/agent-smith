@@ -47,8 +47,8 @@ public sealed class DependencyAuditTool(
         // tool's own convention reads as "findings: none". Nothing is sent to one.
         if (sandbox is ISourceScopeSandbox)
         {
-            var refused = look.Evidence.Remember(
-                repository, Name, SourceScopeLook.NotRunExit, ran: false);
+            var refused = look.Evidence.Remember(new EvidenceRecord(
+                repository, EvidenceRecord.Audit, Name, SourceScopeLook.NotRunExit, Ran: false));
             return $"[{refused}] {repository} is a read-only reference checkout that runs no "
                    + "command, so no audit was taken and this proves nothing.";
         }
@@ -62,7 +62,8 @@ public sealed class DependencyAuditTool(
 
         var result = await sandbox.RunStepAsync(step, progress: null, ct);
         var ran = AuditCommands.ReachedAVerdict(result.ExitCode) && !result.TimedOut;
-        var id = look.Evidence.Remember(repository, AuditCommands.Describe(step), result.ExitCode, ran);
+        var id = look.Evidence.Remember(new EvidenceRecord(
+            repository, EvidenceRecord.Audit, AuditCommands.Describe(step), result.ExitCode, ran));
         logger.LogInformation(
             "The {Actor} audited {Repo} ({Ecosystem}) — exit {Exit} as {Id}",
             look.Terms.Actor, repository, ecosystem!.Kind, result.ExitCode, id);

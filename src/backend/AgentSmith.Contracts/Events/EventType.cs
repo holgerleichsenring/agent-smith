@@ -102,4 +102,8 @@ public enum EventType
     // working tree. Mirrored into the artifact store so the server can serve
     // the record of a phase whose sandbox and branch are long gone.
     PhaseRecorded = 80,
+    // 2026-09-17-042eh: what a fresh reviewer found in the phase's own diff, as JSON.
+    // Its own event and its own artifact row: the record body carries the findings as
+    // prose for a reader, and 2026-09-17-042ej reads them back as data.
+    PhaseReviewed = 81,
 }

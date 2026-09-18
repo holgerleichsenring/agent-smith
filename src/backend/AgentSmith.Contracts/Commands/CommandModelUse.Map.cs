@@ -32,6 +32,10 @@ public static partial class CommandModelUse
         // its answer decides whether the phase is worked at all.
         [CommandNames.SelectPhase] = new(
             ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
+        // 2026-09-17-042eh: a fresh instance reads the verified diff against the phase
+        // spec and the principles, with the read-only look of its own terms.
+        [CommandNames.ReviewPhaseDiff] = new(
+            ModelUse.Call, "phase-review prompt", "findings on a file the reviewer read, cited"),
         [CommandNames.DeriveSpec] = new(
             ModelUse.Call, "spec-derivation-master", "an ordered set of phase specs, as anchors"),
         [CommandNames.BootstrapDocument] = new(

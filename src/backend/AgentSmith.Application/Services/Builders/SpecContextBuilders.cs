@@ -58,3 +58,14 @@ public sealed class SelectPhaseContextBuilder : IContextBuilder
         return new SelectPhaseContext(command.PhaseId ?? string.Empty, pipeline);
     }
 }
+
+/// <summary>
+/// 2026-09-17-042eh: the phase review needs the agent config its call is made under; the
+/// phase, its start heads, its diff and its principles are all already in the bag.
+/// </summary>
+public sealed class ReviewPhaseDiffContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(
+        PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
+        new ReviewPhaseDiffContext(pipeline.Resolved().Agent, pipeline);
+}
