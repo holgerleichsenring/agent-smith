@@ -46,6 +46,8 @@ internal static class SpecDialogExtensions
         services.AddTransient<EpicChildOrderer>();
         services.AddScoped<EpicSliceRecordFiler>();
         services.AddScoped<EpicTicketFiler>();
+        // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
+        services.AddScoped<FiledWorkStarter>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
         // 2026-09-17-0e79a: filing a phase stores the approved set under the ticket's spec key.

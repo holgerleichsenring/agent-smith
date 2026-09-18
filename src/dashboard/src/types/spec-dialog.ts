@@ -185,10 +185,26 @@ export interface SpecDialogProposalPush {
   findings?: SpecDialogProposalFinding[];
 }
 
+/**
+ * 2026-09-17-042eg: what a filed ticket became. `Started` means a run will pick it up — the
+ * poller's own envelope resolves it to the filing project and it sits in a trigger status.
+ * `NotStarted` says why nothing will, and `Record` is a slice record, which is not work at all.
+ */
+export interface SpecDialogFiledStart {
+  state: "Started" | "NotStarted" | "Record";
+  reason: string;
+}
+
 /** One ticket that was actually created. `reference` is a web URL where the provider gives one. */
 export interface SpecDialogFiledTicket {
   reference: string;
   title: string;
+  /** The tracker-native id and the project it was filed into. Absent on a filing written
+   * before 2026-09-17-042eg, which reads as unknown rather than as a wrong answer. */
+  ticketId?: string | null;
+  project?: string | null;
+  /** Absent on a filing written before this phase — the panel then says nothing about it. */
+  start?: SpecDialogFiledStart | null;
 }
 
 /**

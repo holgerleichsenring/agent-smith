@@ -10,11 +10,14 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -82,7 +85,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("approve").HandleAsync(state, Proposal(), CancellationToken.None);
+        await Flow("approve").HandleAsync(state, Proposal(), false, CancellationToken.None);
 
         var view = await ReadAsync();
         view.Proposal!.Phase!.PhaseId.Should().Be("p9999");
@@ -115,7 +118,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("reject").HandleAsync(state, Proposal(), CancellationToken.None);
+        await Flow("reject").HandleAsync(state, Proposal(), false, CancellationToken.None);
 
         var view = await ReadAsync();
         view.Proposal.Should().BeNull("a reload must not offer what the operator turned down");
@@ -148,7 +151,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow(timeout: true).HandleAsync(state, Proposal(), CancellationToken.None);
+        await Flow(timeout: true).HandleAsync(state, Proposal(), false, CancellationToken.None);
 
         (await ReadAsync()).Proposal.Should().BeNull("nothing is waiting for that approval any more");
     }
@@ -207,7 +210,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("reject").HandleAsync(state, Reviewed(), CancellationToken.None);
+        await Flow("reject").HandleAsync(state, Reviewed(), false, CancellationToken.None);
 
         // 2026-09-17-042ek: on a PAGE the findings reach the operator on the push, which the
         // approval card lists them from — so the question text beside that card is empty. That
@@ -225,7 +228,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("split it").HandleAsync(state, Reviewed(), CancellationToken.None);
+        await Flow("split it").HandleAsync(state, Reviewed(), false, CancellationToken.None);
 
         var finding = (await ReadAsync()).Proposal!.Findings.Should().ContainSingle().Subject;
         finding.PhaseId.Should().Be("p9999");
@@ -311,7 +314,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             Loader().LoadConfig(string.Empty), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
-            NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
             filer, _sessions, messenger, composer, channel, latest,

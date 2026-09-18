@@ -1,7 +1,24 @@
 namespace AgentSmith.Server.Services.SpecDialog;
 
-/// <summary>One tracker ticket created while filing a confirmed outcome.</summary>
-public sealed record FiledTicket(string Reference, string Title);
+/// <summary>
+/// One tracker ticket created while filing a confirmed outcome. <see cref="Reference"/> is the
+/// display form — a web url where the tracker gives one — so the ID is carried beside it:
+/// 2026-09-17-042em formats the display key from it, 2026-09-17-042ej reads the ticket's runs by
+/// it, and 2026-09-17-0e79a keys the approved set by it, and none of the three can recover it
+/// from a url without a parser per provider.
+/// </summary>
+public sealed record FiledTicket(string Reference, string Title)
+{
+    /// <summary>The tracker-native id, and the project it was filed into. Both null on a filing
+    /// written before 2026-09-17-042eg, which reads as unknown rather than as a wrong answer.</summary>
+    public string? TicketId { get; init; }
+
+    /// <inheritdoc cref="TicketId"/>
+    public string? Project { get; init; }
+
+    /// <summary>What the ticket became — started, not started with its reason, or a record.</summary>
+    public FiledWorkStart? Start { get; init; }
+}
 
 /// <summary>
 /// p0315c: exactly what a filing attempt did. Filed lists every ticket that

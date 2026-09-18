@@ -865,6 +865,59 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-filed-error")).not.toBeInTheDocument();
   });
 
+  // 2026-09-17-042eg: the filed tab says what each ticket BECAME, not only that it exists.
+  it("SpecDialog_TheFiledTab_MarksEachTicketStartedNotStartedOrRecord", async () => {
+    await renderSurface();
+
+    act(() => filings.emit(filing({
+      filed: [
+        {
+          reference: "https://tracker/7",
+          title: "p9000: the work",
+          ticketId: "7",
+          project: "proj",
+          start: { state: "Started", reason: "moved into the trigger status 'To Do'." },
+        },
+        {
+          reference: "https://tracker/8",
+          title: "p9001: a bug",
+          ticketId: "8",
+          project: "proj",
+          start: { state: "NotStarted", reason: "nothing would route it: project 'proj' ..." },
+        },
+        {
+          reference: "https://tracker/9",
+          title: "p9000a: a slice",
+          ticketId: "9",
+          project: "proj",
+          start: { state: "Record", reason: "a record of a slice, not work" },
+        },
+      ],
+    })));
+
+    await screen.findByTestId("dialog-filed");
+    expect(screen.getByTestId("dialog-filed-start-https://tracker/7")).toHaveTextContent(
+      "started — moved into the trigger status 'To Do'.",
+    );
+    expect(screen.getByTestId("dialog-filed-start-https://tracker/8")).toHaveTextContent(
+      "not started — nothing would route it",
+    );
+    expect(screen.getByTestId("dialog-filed-start-https://tracker/9")).toHaveTextContent(
+      "record — a record of a slice, not work",
+    );
+  });
+
+  // A filing written before that phase carries no start state; the panel says nothing about it
+  // rather than guessing, which is the claim the state exists to stop.
+  it("SpecDialog_AFilingWithoutStartStates_RendersAsBefore", async () => {
+    await renderSurface();
+
+    act(() => filings.emit(filing()));
+
+    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the phase");
+    expect(screen.queryByTestId("dialog-filed-start-https://tracker/7")).not.toBeInTheDocument();
+  });
+
   it("SpecDialog_AFilingWithoutNotes_StillShowsTheFiledPanel", async () => {
     await renderSurface();
     const withoutNotes = filing();

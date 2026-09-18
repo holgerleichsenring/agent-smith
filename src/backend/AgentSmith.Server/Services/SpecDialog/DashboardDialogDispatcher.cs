@@ -24,15 +24,19 @@ public sealed class DashboardDialogDispatcher(
         "No spec dialog is open here. Start one with the New conversation button — pick a "
         + "project first when several are configured. Your conversations are listed on the left.";
 
+    /// <summary>2026-09-17-042eg: <paramref name="mayStartRuns"/> is whether the signed-in
+    /// principal holds runs.control — the permission that moves a filed ticket into a trigger
+    /// status, which is the one thing approving here does beyond filing.</summary>
     public async Task DispatchAsync(
-        string dialogId, string text, string userId, CancellationToken cancellationToken)
+        string dialogId, string text, string userId, bool mayStartRuns,
+        CancellationToken cancellationToken)
     {
         try
         {
             // The dialog id is both channel and thread: a browser page holds exactly one
             // conversation and has no channel above it to group them by.
             if (await router.TryRouteAsync(
-                    text, userId, dialogId, dialogId, Platform, cancellationToken))
+                    text, userId, dialogId, dialogId, Platform, mayStartRuns, cancellationToken))
                 return;
             await TellAsync(dialogId, NoOpenDialog, cancellationToken);
         }

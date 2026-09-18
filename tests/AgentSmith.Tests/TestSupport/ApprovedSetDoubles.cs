@@ -39,8 +39,9 @@ internal static class ApprovedSetDoubles
     /// 2026-09-17-0e79d: the epic filer stores the approved set under the WORK ticket it files,
     /// so it needs a recorder of its own. A test that reads the stored set passes its own store.
     /// </summary>
-    internal static EpicTicketFiler EpicFiler(ISpecApprovalStore? store = null) =>
+    internal static EpicTicketFiler EpicFiler(
+        ISpecApprovalStore? store = null, FiledWorkStarter? starter = null) =>
         new(new PhaseTicketRenderer(), new EpicChildOrderer(), Recorder(store),
             new EpicSliceRecordFiler(new PhaseTicketRenderer(), NullLogger<EpicSliceRecordFiler>.Instance),
-            NullLogger<EpicTicketFiler>.Instance);
+            starter ?? FiledWorkDoubles.Starter(), NullLogger<EpicTicketFiler>.Instance);
 }
