@@ -43,6 +43,17 @@ public sealed record DerivationLookTerms(
     public static DerivationLookTerms ProposalReview { get; } =
         CutReview with { Actor = "proposal review", EvidencePrefix = "P" };
 
+    /// <summary>2026-09-17-0e79c: the check a phase's own stated premises are put to before
+    /// its work starts. Its own letter M — L is the derivation's and P is the proposal
+    /// review's — and the cut review's allowance, for the same reason: it checks the premises
+    /// of a spec that exists rather than deciding what to build. Its rule differs in what a
+    /// citation BUYS: there is no quote to fall back on, so a premise reported without an id
+    /// the framework minted is recorded unproven rather than discarded.</summary>
+    public static DerivationLookTerms PremiseCheck { get; } = new(
+        "premise check", CutReviewAllowance, "M",
+        "Judge the premises on what you have; report as unproven any you could not look at.",
+        "a premise you report as no longer holding cites that id in \"cites\", and one that cites none is recorded unproven.");
+
     /// <summary>2026-09-17-042eh: looks one phase review may take. Eight against the cut
     /// review's six: it judges a DIFF, so every file it reports on is a file it must open,
     /// and a phase touching a handful of files exhausts six before it has read them all.</summary>

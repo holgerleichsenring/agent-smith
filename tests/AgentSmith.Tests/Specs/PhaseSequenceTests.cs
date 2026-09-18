@@ -118,6 +118,22 @@ public sealed class PhaseSequenceTests
     }
 
     [Fact]
+    public void PhaseSequence_PhaseHandedBackOnAFalsePremise_ReadsUnlikeARedBuildInTheTable()
+    {
+        // 2026-09-17-0e79c: this switch's default arm is "⬜ not started", so a standing it does
+        // not name is rendered as a phase nobody entered.
+        var progress = SpecSequenceProgress.ForSet(ThreePhaseSet())
+            .With("p0001a", PhaseRunState.Failed, "dotnet build exited 1")
+            .With("p0001b", PhaseRunState.HandedBack, "False premise in p0001b: \"…\" — [M1] …");
+
+        var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress);
+
+        table.Should().Contain("handed back, never built")
+            .And.Contain("False premise in p0001b")
+            .And.NotContain("❌ failed — False premise", "a false premise is not a red build");
+    }
+
+    [Fact]
     public void PhaseSequence_EveryPhaseDone_IsNotPartial()
     {
         var progress = SpecSequenceProgress.ForSet(TwoPhaseSet())

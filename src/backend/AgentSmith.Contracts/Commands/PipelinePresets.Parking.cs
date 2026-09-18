@@ -42,6 +42,10 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyList<string> CodePhaseBlock =
     [
         CommandNames.SelectPhase,
+        // 2026-09-17-0e79c: what the phase says it RESTS ON is checked against the code before
+        // a master token is spent on it. After SelectPhase, so a phase the branch already
+        // satisfies drops it with the rest of the work steps.
+        CommandNames.CheckPhasePremises,
         CommandNames.AgenticMaster,
         CommandNames.MasterOpenQuestions,
         // p0437: the work reaches the branch BEFORE the gate reads it. Live on ticket

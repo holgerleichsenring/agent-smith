@@ -216,6 +216,30 @@ public sealed class RunPhasesServedTests : IDisposable
     public async Task RunPhasesEndpoint_RunWithoutPhases_ReturnsEmpty() =>
         (await ReadPhasesAsync()).Should().BeEmpty();
 
+    [Fact]
+    public async Task RunPhase_HandedBackOnAFalsePremise_DoesNotReadLikeARedBuild()
+    {
+        // 2026-09-17-0e79c: the two ask opposite things of the operator — a red build is fixed
+        // by working the code, a false premise by amending the specification. A reader telling
+        // them apart by the shape of the verdict string would be deriving what the producer
+        // already knows, so the distinction is the STATUS itself.
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            Failed("p19213a", "Make the thing exist", "dotnet test exited 1"),
+            Selected("p19213b", 2, "Make the thing readable"),
+            HandedBack("p19213b", "Make the thing readable",
+                "False premise in p19213b: \"the bus client is a singleton\" — [M1] …"));
+
+        var phases = await ReadPhasesAsync();
+
+        phases[1].Status.Should().Be("handed_back")
+            .And.NotBe(phases[0].Status, "a phase never built does not read like one built red");
+        new[] { "done", "in_progress", "not_started", "failed" }
+            .Should().NotContain(phases[1].Status, "no existing status value may absorb it");
+        phases[1].EndedAt.Should().NotBeNull("the phase is over — terminal, not still running");
+        phases[1].Verdict.Should().Contain("False premise");
+    }
+
     private static PhaseStateChangedEvent Selected(string phaseId, int ordinal, string title) =>
         new(RunId, phaseId, ordinal, title, PhaseRunState.InProgress, null, T);
 
@@ -224,6 +248,9 @@ public sealed class RunPhasesServedTests : IDisposable
 
     private static PhaseStateChangedEvent Failed(string phaseId, string title, string verdict) =>
         new(RunId, phaseId, 2, title, PhaseRunState.Failed, verdict, T.AddMinutes(9));
+
+    private static PhaseStateChangedEvent HandedBack(string phaseId, string title, string verdict) =>
+        new(RunId, phaseId, 2, title, PhaseRunState.HandedBack, verdict, T.AddMinutes(9));
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;

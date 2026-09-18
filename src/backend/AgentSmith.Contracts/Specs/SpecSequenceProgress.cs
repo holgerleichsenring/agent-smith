@@ -41,11 +41,25 @@ public sealed record PhaseProgress(
     string? FailingCommand = null,
     string? Note = null);
 
-/// <summary>p0393a: the three states a reviewer must be able to tell apart.</summary>
+/// <summary>p0393a: the states a reviewer must be able to tell apart.</summary>
 public enum PhaseRunState
 {
     NotStarted = 0,
     InProgress = 1,
     Done = 2,
+
+    /// <summary>The phase ran and its verification came back red.</summary>
     Failed = 3,
+
+    /// <summary>
+    /// 2026-09-17-0e79c: the phase did NOT run — it was handed back before its work started,
+    /// because what the specification says it rests on is no longer so.
+    /// <para>
+    /// A separate state, not a flavour of <see cref="Failed"/>, because the two ask opposite
+    /// things of the operator: a red build is fixed by working the code, and a false premise is
+    /// fixed by amending the specification. A reader that had to tell them apart by parsing the
+    /// verdict string would be deriving a fact the producer already knows.
+    /// </para>
+    /// </summary>
+    HandedBack = 4,
 }

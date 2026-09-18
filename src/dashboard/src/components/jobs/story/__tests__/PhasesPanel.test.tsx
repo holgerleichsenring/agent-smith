@@ -92,4 +92,23 @@ describe("PhasesPanel", () => {
     const meta = await screen.findByTestId("phase-meta-p19213a");
     expect(meta.textContent).toContain("dotnet test exited 1");
   });
+
+  // 2026-09-17-0e79c: a phase handed back on a false premise was never built. The badge map
+  // falls back to "not started" for a status it does not know, which of a phase the run
+  // stopped on would be plainly false.
+  it("PhasesPanel_HandedBackPhase_DoesNotReadAsNotStartedOrAsFailed", async () => {
+    respond([
+      phase({
+        status: "handed_back",
+        verdict: 'False premise in p19213a: "the bus client is a singleton"',
+        decisions: [],
+      }),
+    ]);
+    render(<PhasesPanel runId="r1" revision={0} />);
+
+    const row = await screen.findByTestId("phase-p19213a");
+    expect(row.textContent).toContain("handed back");
+    expect(row.textContent).not.toContain("not started");
+    expect(row.textContent).not.toContain("failed");
+  });
 });

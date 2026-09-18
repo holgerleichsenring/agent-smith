@@ -143,8 +143,6 @@ decisions:
 steps:
   - id: the-drafter-states-premises
     action: "In the skills repository, the design-partner master emits per drafted phase a facts block of claim and where it was seen, and an assumptions list."
-  - id: the-pin-moves
-    action: "The embedded tarball, SkillsCatalogVersion and SkillsCatalogSha256 move to a release carrying design-partner-master 1.6.4 or later, cut after 2026-09-17-6a29's, with a test reading the pinned master for the facts and assumptions contract."
   - id: the-premises
     action: "A collaborator reads the current phase's facts and assumptions from the draft and its decisions text by re-parsing the draft's yaml, and hands all three to the checker."
   - id: the-terms
@@ -162,10 +160,11 @@ steps:
   - id: the-skips
     action: "No stated premises, or an exhausted cost cap, skips the check and records why."
 
+# The step `the-pin-moves` and the three pin tests left this spec, as they did 2026-09-17-042eb's: the release carrying design-partner-master 1.6.5 does not exist yet, and
+# only the operator can cut it (see decisions/2026-09-17-0e79c.yaml, the-pin-move-waits).
+# The framework side works with the phases it has today — a phase that states no premises is
+# skipped with a reason.
 tests:
-  - "DesignPartnerMaster_DraftedPhase_StatesFactsAndAssumptions"
-  - "EmbeddedSkills_DesignPartnerMaster_EmitsFactsAndAssumptions"
-  - "EmbeddedSkills_Pin_StillCarriesTheContractsPinnedBefore"
   - "PremiseCheck_PhaseDraftedBeforeThePin_IsSkippedWithAReason"
   - "PremiseCheck_FactFalsifiedByItsOwnRead_FailsThePhaseWithTheEvidence"
   - "PremiseCheck_FindingWithoutAnEvidenceId_IsRecordedUnprovenAndRunsOn"
@@ -187,11 +186,38 @@ tests:
   - "CodePhaseBlock_PremiseCheckFollowsSelectPhaseAndPrecedesTheMaster"
   - "CheckPhasePremises_HasAStepClassBeatModelUseDisplayNameAndProgressLabel"
   - "PremiseCheck_OneCallPerPhase_NoSecondPass"
+  - "PremiseCheck_FalsePremise_ATrackerThatRefusesStillFailsTheStep"
+  - "PremiseCheck_Verdict_IsOneLineEvenWhenThePremiseIsProse"
+  - "PremiseCheck_TermsAndTheirLetter_AreItsOwn"
+  - "PremiseCheckLook_OverARunWithNoSandbox_IsNull"
+  # Added by the adversarial review of the first cut: this step can FAIL an honest phase, and
+  # every one of these is a false positive it would have produced.
+  - "PremiseCheck_PremiseThePhaseNeverStated_IsNotAdmittedHoweverItIsCited"
+  - "PremiseCheck_PremiseParaphrased_IsResolvedToTheSpecsOwnWording"
+  - "PremiseCheck_PremiseSharingWordingWithACriterion_IsStillReportable"
+  - "PremiseCheck_DerivedPhaseWhoseOnlyDecisionIsTheDerivers_IsSkippedAndCostsNothing"
+  - "PremiseCheck_AnswerThatCouldNotBeRead_SaysSoInsteadOfSayingSkipped"
+  - "PremiseCheck_Prompt_CarriesNoEvidenceIdMintedByTheDerivation"
+  - "PremiseCheck_Prompt_NamesThePhasesOfThisSetThatAlreadyRan"
+  - "PremiseCheck_Prompt_FirstPhaseOfASet_NamesNoPredecessor"
+  - "PremiseCheck_FalsePremiseBeforeAnyPullRequest_DoesNotSendTheReaderToOne"
+  - "PremiseCheck_FalsePremiseAfterAPullRequest_NamesIt"
+  - "PremiseCheck_RetriggerWithTheSameFinding_DoesNotSayItAgain"
+  - "PremiseCheck_RetriggerAfterSomebodyReplied_SaysItAgain"
+  - "PremiseCheck_Beat_IsNotAheadOfTheStepsItPrecedes"
+  - "Harness_EachDerivedPhase_IsAskedAboutItsOwnPremisesBeforeItsMaster"
+  - "Harness_FalsePremiseOnTheSecondPhase_StopsItAndTheFirstIsStillDelivered"
+  # The standing a hand-back records is its own, so a reader never has to parse the verdict.
+  - "RunPhase_HandedBackOnAFalsePremise_DoesNotReadLikeARedBuild"
+  - "Build_PhaseHandedBackOnAFalsePremise_IsNotDescribedAsNotStartedOrAsFailed"
+  - "PhaseSequence_PhaseHandedBackOnAFalsePremise_ReadsUnlikeARedBuildInTheTable"
+  - "PhasesPanel_HandedBackPhase_DoesNotReadAsNotStartedOrAsFailed"
 
 done:
-  - "a phase the conversation drafted says what it rests on, and the embedded master emits it"
+  - "a phase the conversation drafted says what it rests on: the design-partner master emits facts and assumptions (skills PR 192, design-partner-master 1.6.5); the embedded pin moves once the operator cuts the release"
   - "a phase whose stated premises no longer hold stops before it spends a master token, and says which premise and on what evidence"
   - "no finding without a look this check took and that ran can stop a phase"
-  - "a stopped phase is recorded failed with its verdict, and the phases that verified are still delivered"
+  - "a stopped phase is recorded with its verdict, and the phases that verified are still delivered"
+  - "a phase handed back on a false premise is told apart from one whose build went red by its STANDING (PhaseRunState.HandedBack, status handed_back), not by the shape of its verdict text"
   - "the run never rewrites the spec: an amendment goes through the conversation that approved it"
   - "build green, full suite green, file-length ratchet green"
