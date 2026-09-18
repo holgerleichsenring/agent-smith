@@ -170,7 +170,7 @@ public sealed class DialogConversationListTests : IDisposable
             new FilingReport([new("https://tracker.test/1", "p1: the phase")], null), Phase(), CancellationToken.None);
         var before = (await ListAsync()).Single().Outcome;
 
-        await Flow(store).HandleAsync(state, new AnswerOutcome(), CancellationToken.None);
+        await Flow(store).HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
 
         before.Should().Be(new SpecDialogConversationOutcome("phase", Tickets: 1, Partial: false));
         (await ListAsync()).Single().Outcome.Should().Be(before);

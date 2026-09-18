@@ -1,12 +1,16 @@
 "use client";
 
-import type { SpecDialogFilingPush } from "@/types/spec-dialog";
+import type { SpecDialogFiledStart, SpecDialogFilingPush } from "@/types/spec-dialog";
 
 // 2026-09-15-6d9c: WHAT WAS FILED — the tickets that now exist, by reference and title. The
 // report behind it is honest about a partial failure, and so is this: the tickets that WERE
 // created are listed above the error that stopped the rest, because they exist either way.
 // 2026-09-17-042ea: a note says what went wrong without unfiling anything, such as a child the
 // tracker would not link to its parent; it sits under the tickets it is about.
+// 2026-09-17-042eg: each ticket says what it BECAME — started, not started with the reason
+// nothing will pick it up, or a record, which is not work. A filing written before that phase
+// carries no start state at all and renders exactly as it did, because an absent state is
+// unknown and a panel that guessed would be making the claim the state exists to stop.
 
 export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
   const partial = filed.error !== null && filed.filed.length > 0;
@@ -30,6 +34,7 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
             <li key={ticket.reference} data-testid={`dialog-filed-${ticket.reference}`}>
               <Reference reference={ticket.reference} />
               <div className="text-ink">{ticket.title}</div>
+              {ticket.start && <Start start={ticket.start} reference={ticket.reference} />}
             </li>
           ))}
         </ul>
@@ -49,6 +54,30 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
           {filed.error}
         </p>
       )}
+    </div>
+  );
+}
+
+const STARTED_LABEL: Record<SpecDialogFiledStart["state"], string> = {
+  Started: "started",
+  NotStarted: "not started",
+  Record: "record",
+};
+
+// The state first, then why — a person scanning the list reads the verdicts, and only stops on
+// the one that did not start.
+function Start({ start, reference }: { start: SpecDialogFiledStart; reference: string }) {
+  const tone =
+    start.state === "Started"
+      ? "text-primary-deep"
+      : start.state === "NotStarted"
+        ? "text-ink"
+        : "text-body";
+  return (
+    <div data-testid={`dialog-filed-start-${reference}`} className="dsh-label text-body">
+      <span className={`font-semibold ${tone}`}>{STARTED_LABEL[start.state]}</span>
+      {" — "}
+      {start.reason}
     </div>
   );
 }

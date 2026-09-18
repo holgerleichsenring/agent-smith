@@ -93,7 +93,7 @@ new DashboardOutcomeChannel(
     public async Task Router_SpecCommand_OpensScopedThread()
     {
         var handled = await _router.TryRouteAsync(
-            "/spec", "U1", Channel, "1111.0001", Platform, CancellationToken.None);
+            "/spec", "U1", Channel, "1111.0001", Platform, false, CancellationToken.None);
 
         handled.Should().BeTrue();
         var state = await _sessions.GetOpenByThreadAsync(Platform, "1111.0001", CancellationToken.None);
@@ -110,12 +110,12 @@ new DashboardOutcomeChannel(
     [Fact]
     public async Task Router_TwoThreads_KeepIndependentTranscripts()
     {
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-A", Platform, CancellationToken.None);
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-B", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-A", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-B", Platform, false, CancellationToken.None);
 
-        await _router.TryRouteAsync("first thought in A", "U1", Channel, "th-A", Platform, CancellationToken.None);
-        await _router.TryRouteAsync("only thought in B", "U1", Channel, "th-B", Platform, CancellationToken.None);
-        await _router.TryRouteAsync("second thought in A", "U1", Channel, "th-A", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("first thought in A", "U1", Channel, "th-A", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("only thought in B", "U1", Channel, "th-B", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("second thought in A", "U1", Channel, "th-A", Platform, false, CancellationToken.None);
 
         var stateA = await _sessions.GetOpenByThreadAsync(Platform, "th-A", CancellationToken.None);
         var stateB = await _sessions.GetOpenByThreadAsync(Platform, "th-B", CancellationToken.None);
@@ -132,13 +132,13 @@ new DashboardOutcomeChannel(
     [Fact]
     public async Task Router_ResumeThread_ContinuesWhereLeftOff()
     {
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-old", Platform, CancellationToken.None);
-        await _router.TryRouteAsync("first thought", "U1", Channel, "th-old", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-old", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("first thought", "U1", Channel, "th-old", Platform, false, CancellationToken.None);
         var opened = await _sessions.GetOpenByThreadAsync(Platform, "th-old", CancellationToken.None);
 
         var handled = await _router.TryRouteAsync(
-            $"/spec resume {opened!.JobId}", "U1", Channel, "th-new", Platform, CancellationToken.None);
-        await _router.TryRouteAsync("second thought", "U1", Channel, "th-new", Platform, CancellationToken.None);
+            $"/spec resume {opened!.JobId}", "U1", Channel, "th-new", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("second thought", "U1", Channel, "th-new", Platform, false, CancellationToken.None);
 
         handled.Should().BeTrue();
         var resumed = await _sessions.GetOpenByThreadAsync(Platform, "th-new", CancellationToken.None);
@@ -165,14 +165,14 @@ new DashboardOutcomeChannel(
             .ReturnsAsync(new AgentSmith.Contracts.Dialogue.DialogAnswer(
                 "q1", "split it into two slices", null, DateTimeOffset.UtcNow, "U1"));
 
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-edit", Platform, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-edit", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
 
         _turnRunner.Verify(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2), "the edit note re-prompts the master with a fresh turn");
         _outcomeSink.Verify(s2 => s2.AcceptAsync(
-                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<CancellationToken>()),
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false, It.IsAny<CancellationToken>()),
             Times.Never, "an edited proposal is never filed");
         var state = await _sessions.GetOpenByThreadAsync(Platform, "th-edit", CancellationToken.None);
         state!.Transcript.Where(t => t.Role == TranscriptRole.Assistant).Select(t => t.Text)
@@ -186,8 +186,8 @@ new DashboardOutcomeChannel(
         _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "turn failed", new AnswerOutcome(), SpecDialogTurnKind.Failure));
 
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-kind", Platform, CancellationToken.None);
-        await _router.TryRouteAsync("update it all", "U1", Channel, "th-kind", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-kind", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("update it all", "U1", Channel, "th-kind", Platform, false, CancellationToken.None);
 
         var state = await _sessions.GetOpenByThreadAsync(Platform, "th-kind", CancellationToken.None);
         state!.Transcript.Select(t => (t.Role, t.Kind)).Should().Equal(
@@ -228,17 +228,17 @@ new DashboardOutcomeChannel(
                 reRun.Task.Wait(TimeSpan.FromSeconds(10));
                 return Task.CompletedTask;
             });
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-note", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None);
         var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-note", CancellationToken.None))!.JobId;
         var proposing = Task.Run(() => _router.TryRouteAsync(
-            "draft the phase", "U1", Channel, "th-note", Platform, CancellationToken.None));
+            "draft the phase", "U1", Channel, "th-note", Platform, false, CancellationToken.None));
         for (var waited = 0; !_pendingQuestions.TryPeek(sessionId, out _); waited++)
         {
             waited.Should().BeLessThan(1000, "the proposal reaches the approval gate");
             await Task.Delay(10);
         }
 
-        (await _router.TryRouteAsync(note, "U1", Channel, "th-note", Platform, CancellationToken.None))
+        (await _router.TryRouteAsync(note, "U1", Channel, "th-note", Platform, false, CancellationToken.None))
             .Should().BeTrue();
 
         var reRunState = await reRun.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -252,7 +252,7 @@ new DashboardOutcomeChannel(
     [Fact]
     public async Task Router_AnswerWhileATurnHoldsTheGate_IsStillAnAnswer()
     {
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-gate", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-gate", Platform, false, CancellationToken.None);
         var opened = await _sessions.GetOpenByThreadAsync(Platform, "th-gate", CancellationToken.None);
         _turnGate.TryEnter(opened!.JobId).Should().BeTrue();
         _pendingQuestions.Set(opened.JobId, new AgentSmith.Contracts.Dialogue.DialogQuestion(
@@ -260,7 +260,7 @@ new DashboardOutcomeChannel(
             null, null, "", TimeSpan.FromMinutes(15)), expiresAt: null);
         var sentBefore = _adapter.Invocations.Count;
 
-        var handled = await _router.TryRouteAsync("approve", "U1", Channel, "th-gate", Platform, CancellationToken.None);
+        var handled = await _router.TryRouteAsync("approve", "U1", Channel, "th-gate", Platform, false, CancellationToken.None);
 
         handled.Should().BeTrue();
         _adapter.Invocations.Count.Should().Be(sentBefore, "an answer is not told a turn is in progress");
@@ -277,7 +277,7 @@ new DashboardOutcomeChannel(
     public async Task Router_NormalMessage_StillRoutesToRunTrigger()
     {
         var handled = await _router.TryRouteAsync(
-            "fix #42 in sample", "U1", Channel, "3333.0003", Platform, CancellationToken.None);
+            "fix #42 in sample", "U1", Channel, "3333.0003", Platform, false, CancellationToken.None);
 
         handled.Should().BeFalse("without an open spec thread the message goes to the intent path");
         var intent = new ChatIntentParser(NullLogger<ChatIntentParser>.Instance)

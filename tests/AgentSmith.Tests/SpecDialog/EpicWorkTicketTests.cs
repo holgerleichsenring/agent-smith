@@ -393,8 +393,8 @@ public sealed class EpicWorkTicketTests
         var filer = new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             ApprovedSetDoubles.EpicFiler(store), ApprovedSetDoubles.Recorder(store),
-            NullLogger<OutcomeTicketFiler>.Instance);
-        return await filer.FileAsync(State(), proposal, CancellationToken.None);
+            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+        return await filer.FileAsync(State(), proposal, false, CancellationToken.None);
     }
 
     private static AgentSmithConfig Config() => new()

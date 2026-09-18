@@ -23,12 +23,13 @@ public sealed class TicketFilingOutcomeSink(
     ILogger<TicketFilingOutcomeSink> logger) : IOutcomeSink
 {
     public async Task AcceptAsync(
-        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
+        ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
+        CancellationToken cancellationToken)
     {
         await outcomeStore.SetConfirmedAsync(
             state.Platform, state.ThreadId!, proposal, cancellationToken);
 
-        var report = await filer.FileAsync(state, proposal, cancellationToken);
+        var report = await filer.FileAsync(state, proposal, mayStartRuns, cancellationToken);
         if (report.Succeeded)
         {
             await outcomeStore.ClearConfirmedAsync(state.Platform, state.ThreadId!, cancellationToken);

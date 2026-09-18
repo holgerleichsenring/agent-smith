@@ -22,7 +22,8 @@ public sealed class SpecDialogOutcomeFlow(
     ILogger<SpecDialogOutcomeFlow> logger)
 {
     public async Task<OutcomeFlowResult> HandleAsync(
-        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
+        ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
+        CancellationToken cancellationToken)
     {
         // The pane shows what would be filed BEFORE the approval is asked, so the person
         // holding the question reads the proposal itself rather than a summary of it. An
@@ -42,7 +43,7 @@ public sealed class SpecDialogOutcomeFlow(
         switch (confirmation)
         {
             case OutcomeConfirmed:
-                await outcomeSink.AcceptAsync(state, proposal, cancellationToken);
+                await outcomeSink.AcceptAsync(state, proposal, mayStartRuns, cancellationToken);
                 return new OutcomeFlowCompleted();
             case OutcomeEditRequested edit:
                 await SendAsync(state, composer.ComposeEditAck(edit.Note), cancellationToken);

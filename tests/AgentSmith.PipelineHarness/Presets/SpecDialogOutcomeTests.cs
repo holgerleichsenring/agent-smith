@@ -457,7 +457,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var scope = harness.Services.CreateAsyncScope();
         var flow = scope.ServiceProvider.GetRequiredService<SpecDialogOutcomeFlow>();
-        return await flow.HandleAsync(state, outcome, CancellationToken.None);
+        return await flow.HandleAsync(state, outcome, false, CancellationToken.None);
     }
 
     // The p0315d inverse: the ticket body must hold exactly ONE ```yaml block
@@ -577,7 +577,8 @@ public sealed partial class SpecDialogOutcomeTests
         public IReadOnlyList<OutcomeProposal> Accepted => _accepted;
 
         public Task AcceptAsync(
-            ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
+            ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
+            CancellationToken cancellationToken)
         {
             lock (_accepted) _accepted.Add(proposal);
             return Task.CompletedTask;

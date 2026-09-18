@@ -48,7 +48,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), CancellationToken.None);
+        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
 
         var push = Proposals().Single();
         push.Kind.Should().Be(SpecDialogProposalComposer.PhaseKind);
@@ -64,7 +64,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new AnswerOutcome(), CancellationToken.None);
+        await flow.HandleAsync(State(), new AnswerOutcome(), false, CancellationToken.None);
 
         Proposals().Should().BeEmpty(
             "an answer proposes nothing, so the pane keeps whatever is still under discussion");
@@ -77,8 +77,8 @@ public sealed class DialogProposalPaneTests : IDisposable
         var state = State();
 
         var first = await flow.HandleAsync(
-            state, new PhaseOutcome(Draft("p9001")), CancellationToken.None);
-        await flow.HandleAsync(state, new PhaseOutcome(Draft("p9002")), CancellationToken.None);
+            state, new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
+        await flow.HandleAsync(state, new PhaseOutcome(Draft("p9002")), false, CancellationToken.None);
 
         first.Should().BeOfType<OutcomeFlowEditRequested>();
         Proposals().Select(push => push.Phase!.PhaseId).Should().Equal(["p9001", "p9002"],
@@ -90,7 +90,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), CancellationToken.None);
+        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
 
         _hub.Pushes.Should().OnlyContain(push => push.Group == HubGroups.SpecDialog(Dialog),
             "a design conversation is addressed to the one person holding it");

@@ -42,17 +42,25 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// is a NOTE: an error there would offer a retry, and the retry files a second work ticket with a
 /// second stored set, which is two runs and two pull requests per repository.
 /// </para>
+/// <para>
+/// 2026-09-17-042eg: the work ticket is started LAST, after the set is stored and the records are
+/// filed. A ticket moved into a trigger status before its set exists can be claimed by the poller,
+/// and the run would derive its own spec — the one outcome this set of phases exists to prevent.
+/// Only the work ticket is ever moved; a record is not work and is reported as one.
+/// </para>
 /// </summary>
 public sealed class EpicTicketFiler(
     PhaseTicketRenderer renderer,
     EpicChildOrderer orderer,
     ApprovedPhaseSetRecorder approvals,
     EpicSliceRecordFiler records,
+    FiledWorkStarter starter,
     ILogger<EpicTicketFiler> logger)
 {
     public async Task FileAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
-        EpicOutcome epic, List<FiledTicket> filed, List<string> notes, CancellationToken ct)
+        EpicOutcome epic, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(epic);
         // The order is the SET's: the run works the slices in it, and the proposal pane ran the
@@ -64,16 +72,16 @@ public sealed class EpicTicketFiler(
         // 2026-09-13-ed5a: the work ticket records what the analysis read while it cut.
         var content = renderer.RenderEpicParent(
             epic.Parent, order.Children, epic.Templates, state.JobId);
-        var work = await provider.CreateAsync(
-            content.Title, content.Body,
-            [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp], ct);
-        filed.Add(new FiledTicket(work.Reference, content.Title));
+        string[] labels = [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp];
+        var work = await provider.CreateAsync(content.Title, content.Body, labels, ct);
+        filed.Add(OutcomeTicketFiler.Entry(work, content.Title, project));
         await StoreAsync(state, project, work, order.Children, ct);
 
-        var recordRefs = await records.FileAsync(provider, order.Children, work, filed, notes, ct);
+        var recordRefs = await records.FileAsync(provider, project, order.Children, work, filed, notes, ct);
         if (recordRefs.Count > 0)
             await provider.UpdateStatusAsync(
                 work.Id, $"Slices filed:\n{string.Join("\n", recordRefs.Select(r => $"- {r}"))}", ct);
+        await starter.StampAsync(provider, project, work, labels, mayStartRuns, filed, ct);
     }
 
     // BEFORE any record is filed, and fatal when it fails. A work ticket with no stored set is

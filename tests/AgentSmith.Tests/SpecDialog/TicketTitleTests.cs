@@ -9,9 +9,12 @@ using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -83,7 +86,7 @@ public sealed class TicketTitleTests
             .ReturnsAsync(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
 
         var report = await Filer(provider.Object).FileAsync(
-            State(), new BugOutcome(new BugTicketDraft(LongGoal, "The widget is lost.", null)), CancellationToken.None);
+            State(), new BugOutcome(new BugTicketDraft(LongGoal, "The widget is lost.", null)), false, CancellationToken.None);
 
         report.Error.Should().BeNull("a title over the tracker's limit no longer fails the create");
         provider.Verify(p => p.CreateAsync(
@@ -131,7 +134,7 @@ public sealed class TicketTitleTests
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
-            NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
     }
 
     private static ConversationState State() => new()

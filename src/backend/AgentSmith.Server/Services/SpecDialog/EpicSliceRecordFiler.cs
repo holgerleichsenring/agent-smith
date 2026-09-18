@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
@@ -19,6 +20,10 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// pull requests per repository. A record that could not be created, and a link that did not
 /// land, are therefore NOTES on the filing report, naming the slice that has no ticket.
 /// </para>
+/// <para>
+/// 2026-09-17-042eg: each record is reported as a RECORD, decided by the label this filer used
+/// rather than by asking the resolver. Nothing here is ever resolved and nothing is ever moved.
+/// </para>
 /// </summary>
 public sealed class EpicSliceRecordFiler(
     PhaseTicketRenderer renderer,
@@ -26,8 +31,8 @@ public sealed class EpicSliceRecordFiler(
 {
     /// <summary>One reference line per record that was created, in the set's order.</summary>
     public async Task<IReadOnlyList<string>> FileAsync(
-        ITicketProvider provider, IReadOnlyList<PhaseDraft> slices, CreatedTicket work,
-        List<FiledTicket> filed, List<string> notes, CancellationToken ct)
+        ITicketProvider provider, ResolvedProject project, IReadOnlyList<PhaseDraft> slices,
+        CreatedTicket work, List<FiledTicket> filed, List<string> notes, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(slices);
@@ -37,7 +42,10 @@ public sealed class EpicSliceRecordFiler(
         {
             var content = renderer.RenderChildRequirement(slice, siblingIds);
             if (await CreateAsync(provider, content, slice, notes, ct) is not { } record) continue;
-            filed.Add(new FiledTicket(record.Reference, content.Title));
+            filed.Add(OutcomeTicketFiler.Entry(record, content.Title, project) with
+            {
+                Start = new FiledWorkStart(FiledStartState.Record, FiledWorkReasons.Record),
+            });
             if (await LinkAsync(provider, record, work, ct) is { Outcome: not ParentLinkOutcome.Linked } link)
                 notes.Add($"{record.Reference} is not linked to its work ticket {work.Reference}: {link.Reason}");
             refs.Add($"{record.Reference} — `{slice.PhaseId}` {slice.Goal}");

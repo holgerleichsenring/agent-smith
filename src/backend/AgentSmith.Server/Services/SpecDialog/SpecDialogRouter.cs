@@ -29,11 +29,11 @@ public sealed class SpecDialogRouter(
     /// </summary>
     public async Task<bool> TryRouteAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, CancellationToken ct)
+        string platform, bool mayStartRuns, CancellationToken ct)
     {
         var command = parser.Parse(text);
         if (command is null)
-            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform, ct);
+            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform, mayStartRuns, ct);
 
         if (threadId is null)
         {
@@ -47,7 +47,7 @@ public sealed class SpecDialogRouter(
 
     private async Task<bool> TryContinueThreadAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, CancellationToken ct)
+        string platform, bool mayStartRuns, CancellationToken ct)
     {
         if (threadId is null) return false;
 
@@ -65,7 +65,7 @@ public sealed class SpecDialogRouter(
         }
         try
         {
-            await RunTurnAsync(state, channelId, threadId, platform, ct);
+            await RunTurnAsync(state, channelId, threadId, platform, mayStartRuns, ct);
         }
         finally
         {
@@ -76,7 +76,7 @@ public sealed class SpecDialogRouter(
 
     private async Task RunTurnAsync(
         ConversationState state, string channelId, string threadId,
-        string platform, CancellationToken ct)
+        string platform, bool mayStartRuns, CancellationToken ct)
     {
         var current = state;
         while (true)
@@ -100,7 +100,7 @@ public sealed class SpecDialogRouter(
             // then handed to the outcome sink (p0315c: ticket filing). Runs
             // inside the turn gate; the pending-question branch above routes
             // the approval answer.
-            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, ct);
+            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, mayStartRuns, ct);
             if (flowResult is not OutcomeFlowEditRequested edit) return;
 
             // p0315c edit: the operator's note arrived as a thread message and

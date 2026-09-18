@@ -6,9 +6,12 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -201,8 +204,8 @@ public sealed class EpicFilingOrderTests
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
-            NullLogger<OutcomeTicketFiler>.Instance);
-        return await filer.FileAsync(State(), epic, CancellationToken.None);
+            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+        return await filer.FileAsync(State(), epic, false, CancellationToken.None);
     }
 
     private static EpicOutcome Epic(params PhaseDraft[] children) =>

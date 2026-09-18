@@ -72,7 +72,7 @@ public sealed class SpecDialogOutcomeComposer
     });
 
     private static string FormatTickets(IReadOnlyList<FiledTicket> filed) =>
-        string.Join("\n", filed.Select(t => $"- {t.Reference} — {t.Title}"));
+        string.Join("\n", filed.Select(t => $"- {t.Reference} — {t.Title}{t.Start?.Note}"));
 
     private static string FormatNotes(IReadOnlyList<string> notes) =>
         notes.Count == 0 ? string.Empty : $"\nNotes:\n{string.Join("\n", notes.Select(n => $"- {n}"))}";

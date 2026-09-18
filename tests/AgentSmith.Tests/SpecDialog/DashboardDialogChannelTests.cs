@@ -477,6 +477,10 @@ new DashboardOutcomeChannel(
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
         services.AddSingleton(dispatcher);
         services.AddSingleton(_ownership);
+        // 2026-09-17-042eg: the endpoint reads whether this caller may start runs before it
+        // dispatches. A non-enforcing authority answers without touching the identity resolver,
+        // which is the installation these routing tests are about.
+        services.AddSingleton(new TokenAuthorityConfig());
         services.AddSingleton<ISystemEventPublisher>(_events);
         return services.BuildServiceProvider();
     }

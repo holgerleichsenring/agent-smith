@@ -154,7 +154,7 @@ public sealed class DialogDraftSplitTests : IDisposable
                 new DialogAnswer(questionId, "approve", null, DateTimeOffset.UtcNow, "U1"));
 
         await TurnAsync(Dashboard);
-        await _router.TryRouteAsync("now the next thing", "U1", "C1", Thread, Dashboard, CancellationToken.None);
+        await _router.TryRouteAsync("now the next thing", "U1", "C1", Thread, Dashboard, false, CancellationToken.None);
 
         _turns.Should().HaveCount(2, "the approved proposal was filed; this is an ordinary next turn");
         PromptOf(_turns[1]).Should().NotContain("the review of your last proposal",
@@ -184,7 +184,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     {
         await _sessions.OpenAsync(platform, "C1", Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", "C1", Thread, platform, CancellationToken.None);
+        await _router.TryRouteAsync("draft the phase", "U1", "C1", Thread, platform, false, CancellationToken.None);
     }
 
     private void Replies(params (string Reply, OutcomeProposal Outcome)[] replies)
