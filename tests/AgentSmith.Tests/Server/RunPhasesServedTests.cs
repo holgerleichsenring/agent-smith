@@ -139,6 +139,48 @@ public sealed class RunPhasesServedTests : IDisposable
         detail.Phase.PhaseId.Should().Be("p19213a");
     }
 
+    /// <summary>
+    /// 2026-09-17-042eh: the phase review's own artifact row, on the real engine and through
+    /// the real applier — upserted under <c>phase_review:&lt;id&gt;</c>, one row per phase,
+    /// replaced when a second review of the same phase reports.
+    /// </summary>
+    [Fact]
+    public async Task PhaseReviewArtifact_IsUpsertedAsJsonUnderItsOwnKind()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new PhaseReviewedEvent(
+                RunId, "p19213a",
+                """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4}]}""", T),
+            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":true,"findings":[]}""", T.AddMinutes(3)));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        var rows = ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
+            .Where(a => a.RunId == RunId && a.Kind.StartsWith("phase_review:"))
+            .ToList();
+
+        rows.Should().ContainSingle("a phase has one review row, replaced and never appended")
+            .Which.Kind.Should().Be("phase_review:p19213a");
+        rows[0].Content.Should().Be("""{"reviewed":true,"findings":[]}""",
+            "the second review of a phase replaces the first, as the record artifact does");
+    }
+
+    /// <summary>The review row is its own kind, beside the record's — one phase, two artifacts,
+    /// neither overwriting the other.</summary>
+    [Fact]
+    public async Task PhaseReviewArtifact_StandsBesideTheRecordArtifact()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new PhaseRecordedEvent(RunId, "p19213a", "phase: p19213a\n", T),
+            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":false,"findings":[],"why":"x"}""", T));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
+            .Where(a => a.RunId == RunId).Select(a => a.Kind).ToList()
+            .Should().BeEquivalentTo(["phase_record:p19213a", "phase_review:p19213a"]);
+    }
+
     [Fact]
     public async Task RunPhaseEndpoint_UnknownPhase_IsNotFound() =>
         (await RunPhaseQueryEndpoints.GetRunPhaseAsync(

@@ -160,7 +160,7 @@ public sealed class PhaseEntryAccountTests
 
     private static Task<CommandResult> Select(ISpecAccountant accountant, PipelineContext pipeline) =>
         new SelectPhaseHandler(
-                Entry(accountant), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                Entry(accountant), StartHeads(), new PhaseProgressRecorder(new NoOpEventPublisher()),
                 NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p1", pipeline), CancellationToken.None);
 
@@ -251,4 +251,9 @@ public sealed class PhaseEntryAccountTests
             PipelineCostTracker costTracker, CancellationToken cancellationToken, int windowBudgetChars) =>
             throw new InvalidOperationException("429 Too Many Requests");
     }
+
+    /// <summary>2026-09-17-042eh: a start-head recorder with no sandbox to resolve — it
+    /// records an empty map, which is what a test pipeline without sandboxes has.</summary>
+    private static Application.Services.Specs.PhaseStartHeads StartHeads() =>
+        AgentSmith.Tests.TestHelpers.TestPhaseReview.StartHeads();
 }

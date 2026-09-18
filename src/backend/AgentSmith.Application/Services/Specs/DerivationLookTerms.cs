@@ -13,8 +13,13 @@ namespace AgentSmith.Application.Services.Specs;
 /// <param name="EvidencePrefix">The letter its evidence ids start with.</param>
 /// <param name="Settle">What a look past the allowance is told to do instead.</param>
 /// <param name="CiteRule">How a statement resting on a look cites it.</param>
+/// <param name="NumberedReads">2026-09-17-042eh: whether a file read comes back with a line
+/// number in front of every line. A holder that reports a LINE needs them — the read tool
+/// returns raw content, so an unnumbered line number is a figure nobody can check — and a
+/// holder that only quotes text does not, and pays no tokens for them.</param>
 public sealed record DerivationLookTerms(
-    string Actor, int Allowance, string EvidencePrefix, string Settle, string CiteRule)
+    string Actor, int Allowance, string EvidencePrefix, string Settle, string CiteRule,
+    bool NumberedReads = false)
 {
     /// <summary>Looks one derivation may take, across every attempt of its retry loop.</summary>
     public const int DerivationAllowance = 12;
@@ -37,4 +42,22 @@ public sealed record DerivationLookTerms(
     /// review's allowance and rules, under its own name and letter.</summary>
     public static DerivationLookTerms ProposalReview { get; } =
         CutReview with { Actor = "proposal review", EvidencePrefix = "P" };
+
+    /// <summary>2026-09-17-042eh: looks one phase review may take. Eight against the cut
+    /// review's six: it judges a DIFF, so every file it reports on is a file it must open,
+    /// and a phase touching a handful of files exhausts six before it has read them all.</summary>
+    public const int PhaseReviewAllowance = 8;
+
+    /// <summary>
+    /// 2026-09-17-042eh: the look a verified phase's own diff is reviewed with. Its own name,
+    /// and the letter <see cref="ProposalReview"/> also mints under — which is safe only because
+    /// no conversation holds both: a proposal is reviewed inside a design turn and a phase diff
+    /// inside a code run. What it must not share is the DERIVER's "L", whose ids travel back
+    /// into the deriver's own history. Its reads are numbered, because a finding names a line.
+    /// </summary>
+    public static DerivationLookTerms PhaseReview { get; } = new(
+        "phase review", PhaseReviewAllowance, "P",
+        "Report only on the files you did read; say nothing about the rest.",
+        "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
+        NumberedReads: true);
 }

@@ -55,6 +55,7 @@ public sealed class VerifyPhaseHandler(
     PhaseAccounting accounting,
     IPhaseProgressRecorder progress,
     VerifiedHeads verifiedHeads,
+    PhaseReviewRevert reviewRevert,
     ILogger<VerifyPhaseHandler> logger)
     : ICommandHandler<VerifyPhaseContext>
 {
@@ -206,6 +207,11 @@ public sealed class VerifyPhaseHandler(
     private async Task<CommandResult> RecordAsync(
         VerifyPhaseContext context, CommandResult result, CancellationToken ct)
     {
+        // 2026-09-17-042eh: a verification that judges the REVIEW's one fix pass is not a
+        // verdict on the phase. Anything but success there is undone and the phase stands as
+        // its first verification left it — or, where the undo fails, fails saying which tree.
+        if (await reviewRevert.TryRevertAsync(context.Pipeline, result, ct) is { } reverted)
+            result = reverted;
         if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft) || draft is null)
             return result;
         if (result.IsSuccess)

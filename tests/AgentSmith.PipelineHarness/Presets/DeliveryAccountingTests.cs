@@ -46,7 +46,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
 
         account.Delivered.Should().BeTrue();
         account.Criteria.Single().Citation.Should().Be("src/Program.cs");
-        scripted.LastMessages.Single().Text.Should().Contain("Hallo",
+        scripted.LastScriptedMessages.Single().Text.Should().Contain("Hallo",
             "the account is taken against what the branch really changed, not a summary of it");
     }
 
@@ -109,7 +109,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
 
         await AccountAsync(scripted, ["the inventory exists"]);
 
-        var prompt = scripted.LastMessages.Single().Text!;
+        var prompt = scripted.LastScriptedMessages.Single().Text!;
         prompt.Should().Contain("EVERY FILE THIS BRANCH CHANGED");
         prompt.Should().Contain("docs/inventory.md",
             "a file past the body's budget is still named in the list");

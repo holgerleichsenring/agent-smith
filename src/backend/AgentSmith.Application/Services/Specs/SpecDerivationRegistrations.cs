@@ -61,6 +61,12 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecCoverageRefusal>();
     // 2026-09-17-0e79b: an approved set is never re-cut — the input is reported instead.
     services.AddTransient<ApprovedSetKeptNotice>();
+    // 2026-09-17-042eh: the phase review's own collaborators — where a phase began, its
+    // diff, the instance that reads it, and the undo of a fix pass that was not green.
+    services.AddTransient<PhaseStartHeads>();
+    services.AddTransient<PhaseDiffs>();
+    services.AddTransient<PhaseDiffReviewer>();
+    services.AddTransient<PhaseReviewRevert>();
         return services;
     }
 }

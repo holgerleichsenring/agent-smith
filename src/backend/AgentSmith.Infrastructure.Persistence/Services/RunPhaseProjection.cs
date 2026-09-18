@@ -20,6 +20,10 @@ public sealed class RunPhaseProjection
     /// <summary>The artifact kind a phase record is stored under, one row per phase.</summary>
     public const string RecordKindPrefix = "phase_record:";
 
+    /// <summary>2026-09-17-042eh: the artifact kind the phase's review findings are stored
+    /// under, one row per phase, in the same table and read the same way.</summary>
+    public const string ReviewKindPrefix = "phase_review:";
+
     public async Task ApplyStateAsync(IUnitOfWork uow, PhaseStateChangedEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);
@@ -52,6 +56,23 @@ public sealed class RunPhaseProjection
             .FirstOrDefaultAsync(a => a.RunId == e.RunId && a.Kind == kind, ct);
         if (row is null) uow.Add(new RunArtifact { RunId = e.RunId, Kind = kind, Content = e.Body });
         else row.Content = e.Body;
+        await uow.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// 2026-09-17-042eh: the findings a fresh instance reported against the phase's diff, as
+    /// JSON. A sibling of <see cref="ApplyRecordAsync"/>, not a field on it: the record body is
+    /// prose for a person, and a reader that wants the findings AS DATA would otherwise have to
+    /// parse markdown back out of a YAML body.
+    /// </summary>
+    public async Task ApplyReviewAsync(IUnitOfWork uow, PhaseReviewedEvent e, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        var kind = ReviewKindPrefix + e.PhaseId;
+        var row = await uow.Set<RunArtifact>()
+            .FirstOrDefaultAsync(a => a.RunId == e.RunId && a.Kind == kind, ct);
+        if (row is null) uow.Add(new RunArtifact { RunId = e.RunId, Kind = kind, Content = e.FindingsJson });
+        else row.Content = e.FindingsJson;
         await uow.SaveChangesAsync(ct);
     }
 

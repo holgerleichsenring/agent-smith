@@ -53,7 +53,7 @@ public sealed class PhaseSequenceTests
         pipeline.Set(ContextKeys.SpecSet, TwoPhaseSet());
 
         var result = await new SelectPhaseHandler(
-                NoEntryAccount(), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new PhaseProgressRecorder(new NoOpEventPublisher()),
                 NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
@@ -78,7 +78,7 @@ public sealed class PhaseSequenceTests
             .Record("api", "grep -rn 'Sample' src", "exit_code: 0\n");
 
         await new SelectPhaseHandler(
-                NoEntryAccount(), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new PhaseProgressRecorder(new NoOpEventPublisher()),
                 NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
@@ -154,4 +154,9 @@ public sealed class PhaseSequenceTests
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],
         SpecSource.Derived);
+
+    /// <summary>2026-09-17-042eh: a start-head recorder with no sandbox to resolve — it
+    /// records an empty map, which is what a test pipeline without sandboxes has.</summary>
+    private static Application.Services.Specs.PhaseStartHeads StartHeads() =>
+        AgentSmith.Tests.TestHelpers.TestPhaseReview.StartHeads();
 }

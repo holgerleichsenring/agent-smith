@@ -86,14 +86,14 @@ public sealed class RunEventApplier(
                     r.PlannedFirstStepIndex = e.FirstStepIndex;
                 }, ct);
                 break;
-            // p0357/p0413: what the scope classifier decided about the ticket —
-            // its size (budget) and its shape (the cut it earned).
+            // p0357/p0413: the ticket's size (budget) and its shape (the cut it earned).
             case RunBudgetResolvedEvent e: await classification.ApplyBudgetAsync(uow, e, ct); break;
             case RunWorkShapeResolvedEvent e: await classification.ApplyShapeAsync(uow, e, ct); break;
-            // p0466: the phase's own row and the spec it executed — the phase used to
-            // survive only as a prefix on a step name, addressable by nothing.
+            // p0466: the phase's own row, the spec it executed and (2026-09-17-042eh) its
+            // review — the phase used to survive only as a prefix on a step name.
             case PhaseStateChangedEvent e: await phases.ApplyStateAsync(uow, e, ct); break;
             case PhaseRecordedEvent e: await phases.ApplyRecordAsync(uow, e, ct); break;
+            case PhaseReviewedEvent e: await phases.ApplyReviewAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }

@@ -12,5 +12,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// <param name="ExitCode">The exit the tool reported.</param>
 /// <param name="Ran">Whether that exit means the tool reached a verdict.</param>
 /// <param name="Line">The minted line, id first.</param>
+/// <param name="Kind">2026-09-17-042eh: which tool looked (<see cref="EvidenceRecord"/>).</param>
+/// <param name="Path">2026-09-17-042eh: the path the look was scoped to, or null.</param>
+/// <param name="LinesReturned">2026-09-17-042eh: numbered lines the result carried, or 0.</param>
 public sealed record EvidenceLook(
-    string Id, string Repository, string What, int ExitCode, bool Ran, string Line);
+    string Id, string Repository, string What, int ExitCode, bool Ran, string Line,
+    string Kind = "", string? Path = null, int LinesReturned = 0);

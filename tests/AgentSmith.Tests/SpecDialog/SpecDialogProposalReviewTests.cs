@@ -29,7 +29,7 @@ public sealed class SpecDialogProposalReviewTests
     {
         var reviewer = new RecordingReviewer(look =>
         {
-            var id = look!.Evidence.Remember(Repo, "read src/Api.cs", 0, ran: true);
+            var id = look!.Evidence.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read src/Api.cs", 0, Ran: true));
             return new SpecCutReview(
                 [new CutFinding("p9999", string.Empty, SpecCutVerdicts.FalsePremise, "the endpoint is already there", Cites: id)]);
         });
@@ -77,7 +77,7 @@ public sealed class SpecDialogProposalReviewTests
     {
         var reviewer = new RecordingReviewer(look =>
         {
-            look!.Evidence.Remember(Repo, "grep -E 'MapGet' .", 1, ran: true);
+            look!.Evidence.Remember(new EvidenceRecord(Repo, EvidenceRecord.Search, "grep -E 'MapGet' .", 1, Ran: true));
             return new SpecCutReview(
             [
                 new CutFinding("p9999", "goal of p9999", "contradiction", "it forbids what it asks for"),
@@ -153,8 +153,8 @@ public sealed class SpecDialogProposalReviewTests
     {
         var reviewer = new RecordingReviewer(look =>
         {
-            look!.Evidence.Remember(Repo, "read src/Gone.cs", -1, ran: false);
-            look.Evidence.Remember(Repo, "grep -E 'MapGet' .", 0, ran: true);
+            look!.Evidence.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read src/Gone.cs", -1, Ran: false));
+            look.Evidence.Remember(new EvidenceRecord(Repo, EvidenceRecord.Search, "grep -E 'MapGet' .", 0, Ran: true));
             return new SpecCutReview(
                 [new CutFinding("p9999", "goal of p9999", SpecCutVerdicts.FalsePremise, "not so", Cites: "P1, P2")]);
         });

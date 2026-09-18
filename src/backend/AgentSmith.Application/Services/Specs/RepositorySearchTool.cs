@@ -50,8 +50,9 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
         var result = opened is null
             ? await sandbox.RunStepAsync(SearchCommands.OverTree(pattern, under), progress: null, ct)
             : await opened.SearchAsync(pattern, under, ct);
-        var id = look.Evidence.Remember(
-            repository, what, result.ExitCode, ran: result.ExitCode is 0 or 1);
+        var id = look.Evidence.Remember(new EvidenceRecord(
+            repository, EvidenceRecord.Search, what, result.ExitCode,
+            Ran: result.ExitCode is 0 or 1, under));
         logger.LogInformation(
             "The {Actor} searched {Repo} for {Pattern} under {Path} — exit {Exit} as {Id}",
             look.Terms.Actor, repository, pattern, under, result.ExitCode, id);
@@ -63,7 +64,8 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
     /// nothing, so a statement citing it is not admitted as a fact.</summary>
     private string NothingRan(string repository, string what, string why)
     {
-        var id = look.Evidence.Remember(repository, what, SourceScopeLook.NotRunExit, ran: false);
+        var id = look.Evidence.Remember(new EvidenceRecord(
+            repository, EvidenceRecord.Search, what, SourceScopeLook.NotRunExit, Ran: false));
         logger.LogInformation(
             "The {Actor} could not open {Repo} — {Why} as {Id}", look.Terms.Actor, repository, why, id);
         return $"[{id}] {repository} could not be opened ({why}), so this search proves nothing.";

@@ -137,7 +137,7 @@ public sealed class SpecDialogTemplateTests
     };
 
     private static string FlattenPrompt(RealCompositionHarness harness) =>
-        string.Join("\n", harness.ChatClient.LastMessages.Select(m => m.Text));
+        string.Join("\n", harness.ChatClient.LastScriptedMessages.Select(m => m.Text));
 
     private sealed class StubSkillsCatalogResolver : ISkillsCatalogResolver
     {

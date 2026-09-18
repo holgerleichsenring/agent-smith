@@ -81,6 +81,7 @@ public static class ContextBuildersExtensions
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
         AddBuilder<PhaseSpecGateContextBuilder>(services, CommandNames.PhaseSpecGate);
         AddBuilder<VerifyPhaseContextBuilder>(services, CommandNames.VerifyPhase); // p0393
+        AddBuilder<ReviewPhaseDiffContextBuilder>(services, CommandNames.ReviewPhaseDiff); // 2026-09-17-042eh
         AddBuilder<MasterOpenQuestionsContextBuilder>(services, CommandNames.MasterOpenQuestions);
         AddBuilder<CommitPhaseWorkContextBuilder>(services, CommandNames.CommitPhaseWork); // p0437
         AddBuilder<WritePhaseRecordContextBuilder>(services, CommandNames.WritePhaseRecord);

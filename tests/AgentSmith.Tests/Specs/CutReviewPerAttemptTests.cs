@@ -138,7 +138,7 @@ public sealed class CutReviewPerAttemptTests
             IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
         {
-            var id = look!.Evidence.Remember(Repo, "read src/Bus.cs", 1, ran: true);
+            var id = look!.Evidence.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read src/Bus.cs", 1, Ran: true));
             return Task.FromResult(new SpecCutReview([new CutFinding(
                 drafts[0].PhaseId, "the bus is registered", SpecCutVerdicts.FalsePremise, "it is not", Cites: id)]));
         }
