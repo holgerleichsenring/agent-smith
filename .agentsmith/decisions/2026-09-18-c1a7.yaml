@@ -1,0 +1,167 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-18-c1a7
+
+decisions:
+  - category: Architecture
+    chose: "FinalizeAsync returns a TicketFinalizeResult saying whether the status moved"
+    over: "Catching the exception two of the four providers throw"
+    reason: |
+      GitHub turns any unknown status into a label and succeeds with the issue open, and Jira's
+      transitioner returns false with a warning. A phase built on catching an exception would
+      have fixed half the providers while reading as universal. The result is a readonly record
+      STRUCT whose zero value is Moved, so a loose test double answers what the old void
+      signature meant instead of a null a nullable reference would hand back.
+
+  - category: Implementation
+    chose: "Each provider's finalize moved into a per-tracker collaborator that takes the
+      provider's own comment/close/transition operations as delegates"
+    over: "Classifying inside the provider, or a shared finalizer parameterised by vocabulary"
+    reason: |
+      All four providers sat at or within one line of their ratchet baselines, and two build
+      their client internally so the status write had no test seam at all. Handing the
+      collaborator the three operations as delegates creates that seam (a lambda replaces
+      Octokit and HTTP) and shrinks every provider: GitHub 189 -> 183, GitLab 190 -> 184,
+      Jira 206 -> 201, Azure DevOps 218 -> 217. One collaborator per tracker, because what each
+      owns differs: GitHub and GitLab answer from a fixed state vocabulary, Jira from the
+      transition list, Azure DevOps from the rejection.
+
+  - category: Implementation
+    chose: "Azure DevOps classifies on RuleValidationException, the rule engine's own type"
+    over: "VssServiceException (the whole SDK family), or matching TF-numbers in the message"
+    reason: |
+      The principles forbid classifying on Exception.Message by name, but the first draft's
+      answer — catch the SDK's base exception — was no better: VssServiceResponseException
+      derives from it and carries 429/500/503, and a rotated token lands in the same family. A
+      five-second throttle would have recorded the ticket and refused every later claim over a
+      status name that is perfectly correct. RuleValidationException is the narrowest type that
+      fits (principles.md: catch by the narrowest type that fits) and needs no new dependency.
+      Everything else propagates into the error handler's outer catch, which writes no record —
+      which is exactly right for a failure that may pass. The detail is the TYPE name, so the
+      wording can never change the answer.
+
+  - category: Implementation
+    chose: "Jira also answers a 400 on the transition as 'the ticket did not move'"
+    over: "Letting it throw, so the commonest Jira failure records nothing"
+    reason: |
+      Jira's usual finalize failure is a transition screen demanding a field the run cannot
+      fill: the POST answers 400 and the transitioner never returns false. Without this the
+      claim gate never engages on Jira and the loop it exists to stop continues there. The
+      classification is the exception type plus its status code — never its text — and only 400
+      counts: a 500 or a throttle propagates, for the reason Azure DevOps's narrow catch has.
+
+  - category: Architecture
+    chose: "The refusal lives in TicketClaimService, as a new ClaimRejectionReason"
+    over: "A gate in the spawn funnel, or a new concept beside the claim result"
+    reason: |
+      The poller, the webhook dispatcher and the capacity pump all pass through the claim
+      service; the pump claims its head directly, so a funnel gate would leave it open. The
+      rejection vocabulary already means "this will never succeed as-is — an operator must fix
+      configuration; not retried by the reconciler", which is this stop exactly. The pump's
+      RESUME returns before the claim, so a parked run still comes back — a property of the
+      placement, not a condition to remember.
+
+  - category: Implementation
+    chose: "One fact per (project, ticket) in its own table, released by the config document version"
+    over: "A column on the run, or releasing when the ticket leaves its trigger statuses"
+    reason: |
+      The run event applier and the run snapshot are both at their ratchet baseline and a
+      snapshot field would owe a TypeScript mirror. Releasing on the ticket leaving its trigger
+      statuses is unreachable: only a run moves it, and the stop prevents the run. The
+      configuration document's version is monotonic per entity, and the configured status can
+      sit on the tracker or be overridden on the project, so the record stamps both and stands
+      only while both still hold. A project re-pointed at another tracker is a change too.
+
+  - category: Implementation
+    chose: "The version comparison lives in UnmovedTicketRepository"
+    over: "A second port that reads config document versions into the Application gate"
+    reason: |
+      The versions are rows of the same DbContext, so the adapter reads them without a second
+      port, a second no-op and a second registration. The rule is tested against the real schema
+      (UnmovedTicketRecordTests) and end to end through the claim service, which is where its
+      meaning is visible. A file-configured server has no document rows; every version reads 0,
+      the record stands, and the operator's retry clears it.
+
+  - category: Implementation
+    chose: "The operator's retry endpoint clears the record"
+    over: "Treating a manual trigger as a distinct door the gate can tell apart"
+    reason: |
+      There is no manual trigger of a ticket in this system: the retry moves the ticket back to
+      a trigger status and the ordinary poller claims it, indistinguishable at the gate. So the
+      clear belongs to the retry itself, beside the hand-back state it already clears.
+
+  - category: Scope
+    chose: "Only the failure path is gated"
+    over: "Gating the success path's finalize in the same phase"
+    reason: |
+      The done-status write can fail the same way and now reports it from the provider, but the
+      stop is scoped to the failure path the measurement showed burning a run per poll cycle.
+      The successor is named in prose as the phase that stops a ticket whose DONE status never
+      took. The work-item type and whether the configured statuses exist for it is 2026-09-18-b4f0.
+
+  - category: Implementation
+    chose: "A REJECTED head is dropped from the capacity queue, not left at its head"
+    over: "Leaving the entry queued, as every other non-claimed outcome is"
+    reason: |
+      Review found the first draft strictly worse than the defect it fixed. The pump peeks the
+      HEAD and nothing behind it, and every rejection reachable there used to be unreachable by
+      construction; this phase introduced the first permanent one. A failed run leaves its
+      ticket in a trigger status — the phase's own premise — the poller claims it, a busy system
+      queues it, and from then on every tick reserved, was refused, released and left the entry
+      in place: the whole project's queue stopped behind a run that could never start, while the
+      operator read 'waiting for capacity' with capacity free. A refusal is permanent by
+      definition, which is what the existing DropAsync is for. It also finishes the reserved run
+      row with the refusal text, which is the only operator-visible surface this stop has.
+
+  - category: Implementation
+    chose: "The comment is posted before the status is classified"
+    over: "Answering from the vocabulary before any write, as the first draft did"
+    reason: |
+      The failure comment is the ticket's ONE word to a human about a failed run, and returning
+      before it took it away on GitHub and GitLab — and with it the open questions
+      PlanOpenQuestionsPoster sends in the same call, and SpecHandbackHandler's hand-back. On
+      GitHub the label is applied as before too: a label is not the issue's state, so it never
+      moved the ticket, but it is the mark an operator configured and nothing is gained by
+      dropping it. GitLab's state_event is the one write still skipped, because a value outside
+      close/reopen can only answer 400.
+
+  - category: Implementation
+    chose: "The refusal names the two configuration homes and no retry affordance"
+    over: "Telling the operator to retry the run from the run view"
+    reason: |
+      The retry endpoint exists but no dashboard code calls it, so the first draft's message
+      sent a person looking for a button that is not there. What is true is that saving the
+      tracker or the project releases the ticket, and the pump's drop now puts the refusal on
+      the run row. A dashboard affordance for the retry endpoint is named in prose as its own
+      phase.
+
+  - category: Implementation
+    chose: "A record that no longer stands is deleted, and a finalize that moved the ticket clears one"
+    over: "Leaving a released record in place until something overwrites it"
+    reason: |
+      A released record left lying would stand again the day an export and re-import rewound the
+      version it names, and nothing else would ever remove it. Reading it is therefore also what
+      drops it, and a later finalize that moved the ticket clears it — so a refusal never
+      outlives the configuration that caused it. Moved is the zero value of the persisted column
+      as well as of the enum, so a defaulted row is treated as no record rather than as a
+      refusal of an empty status.
+
+  - category: Scope
+    chose: "Three gaps left open and named, rather than half-closed here"
+    over: "Widening the phase to cover them"
+    reason: |
+      A tracker-side repair (the operator fixes the workflow, changing nothing in agent-smith)
+      does not release the record: the remedy today is the retry endpoint, and the phase that
+      lets a tracker-side fix release the stop is named here in prose. EnqueuedReconciler
+      enqueues directly and is the fifth door the gate does not cover; it is reachable only by a
+      ticket already labelled Enqueued, which the gate now prevents a ticket from becoming, and
+      closing it needs a file that has one line of room — its own phase. The rejection detail is
+      not persisted, because with the narrow Azure DevOps and Jira catches a transient no longer
+      writes a record at all, so the column would separate nothing.
+
+  - category: Implementation
+    chose: "Three registration lines compacted in RelationalPersistenceExtensions"
+    over: "Adding the store's registration on top of the file"
+    reason: |
+      The file sits exactly at its ratchet baseline of 225 lines. Chaining two pairs of
+      AddScoped calls that were already adjacent paid for the two lines the new repository and
+      store registration needs, leaving the file at 225.

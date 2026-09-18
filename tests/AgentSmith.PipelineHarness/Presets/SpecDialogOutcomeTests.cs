@@ -640,9 +640,9 @@ public sealed partial class SpecDialogOutcomeTests
             return Task.CompletedTask;
         }
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+            Task.FromResult(TicketFinalizeResult.Moved());
     }
 
     private sealed class RecordingTicketProviderFactory(RecordingTicketProvider provider)

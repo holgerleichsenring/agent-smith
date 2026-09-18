@@ -78,8 +78,7 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
         services.RemoveAll<IConfigStore>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
-        services.AddScoped<ActiveRunRepository>();
-        services.AddScoped<ActiveRunLivenessRepository>();
+        services.AddScoped<ActiveRunRepository>().AddScoped<ActiveRunLivenessRepository>();
         services.AddScoped<RunArtifactRepository>();
         // p0315a: spec-dialog sessions are DB-authoritative (volatile Redis must
         // never be the only holder of a design transcript).
@@ -125,9 +124,10 @@ internal static class RelationalPersistenceExtensions
         services.RemoveAll<ISpecSetPointerStore>().RemoveAll<ISpecApprovalStore>();
         services.AddSingleton<ISpecSetPointerStore, DbSpecSetPointerStore>();
         services.AddSingleton<ISpecApprovalStore, DbSpecApprovalStore>();
+        services.AddScoped<UnmovedTicketRepository>().RemoveAll<IUnmovedTicketStore>(); // c1a7
+        services.AddSingleton<IUnmovedTicketStore, DbUnmovedTicketStore>();
         services.AddScoped<Services.Lifecycle.NotImplementableRetryService>();
-        services.AddScoped<RunCheckpointRepository>();
-        services.AddScoped<DialogueAnswerRepository>();
+        services.AddScoped<RunCheckpointRepository>().AddScoped<DialogueAnswerRepository>();
         services.RemoveAll<IRunCheckpointStore>();
         services.AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
         services.RemoveAll<IDialogueAnswerInbox>();

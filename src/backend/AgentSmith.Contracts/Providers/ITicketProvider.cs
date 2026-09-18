@@ -80,19 +80,20 @@ public interface ITicketProvider : ITypedProvider
     /// <summary>
     /// Post-PR finalize: in one provider-native step, post the summary comment
     /// AND move the ticket to <paramref name="doneStatus"/> (or close it when
-    /// <paramref name="doneStatus"/> is null/empty).
+    /// <paramref name="doneStatus"/> is null/empty). Reports whether the status
+    /// actually MOVED — a value the tracker refuses, offers no transition to, or
+    /// this provider cannot express is not a success, and a caller that reads it
+    /// as one leaves the ticket in the status the next poll claims again.
     /// </summary>
     /// <remarks>
-    /// On Azure DevOps the two changes MUST land in the same WIT PATCH —
-    /// AzDO bumps <c>System.Rev</c> after every write and any concurrent
-    /// observer (other agent-smith run, operator UI edit, server-side
-    /// automation rule) between two sequential PATCHes produces
-    /// <c>TF26071: This work item has been changed by someone else</c>
-    /// and the second call aborts. Other providers (GitHub/GitLab/Jira)
-    /// have no equivalent rev guard, so the default body's two sequential
-    /// calls are safe — they implement this method by delegation.
+    /// On Azure DevOps the two changes MUST land in the same WIT PATCH — AzDO bumps
+    /// <c>System.Rev</c> after every write and any concurrent observer (other
+    /// agent-smith run, operator UI edit, server-side automation rule) between two
+    /// sequential PATCHes produces <c>TF26071: This work item has been changed by
+    /// someone else</c> and the second call aborts. Other providers have no
+    /// equivalent rev guard, so two sequential calls are safe there.
     /// </remarks>
-    Task FinalizeAsync(
+    Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken);
 
     /// <summary>

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
@@ -88,7 +89,7 @@ public sealed class SpecHandbackRepeatTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string, CancellationToken>((_, comment, _, _) =>
                 thread.Add(new TicketComment("agent-smith", DateTimeOffset.UtcNow, comment)))
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
         return tickets;
     }
 

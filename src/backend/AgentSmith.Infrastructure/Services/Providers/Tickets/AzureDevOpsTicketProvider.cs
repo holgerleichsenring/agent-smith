@@ -30,6 +30,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private readonly AzureDevOpsWorkItemLister _lister;
     private readonly ILogger _logger;
     private readonly TrackerParentLink _parentLink;
+    private readonly AzureDevOpsTicketFinalizer _finalizer;
 
     public string ProviderType => "AzureDevOps";
 
@@ -51,6 +52,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         _lister = new AzureDevOpsWorkItemLister(_connections, mapper, connection.Project, openStates, extraFields, logger);
         _logger = logger;
         _parentLink = new TrackerParentLink("Azure DevOps", logger);
+        _finalizer = new AzureDevOpsTicketFinalizer(_doneStatus, WriteFinalizeAsync, logger);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -177,27 +179,24 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         => PatchAsync(ticketId, [Op("/fields/System.History", ToHtml(comment))], cancellationToken);
 
     public Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
-        => PatchAsync(ticketId,
-            [Op("/fields/System.History", ToHtml(resolution)), Op("/fields/System.State", _doneStatus)],
-            cancellationToken);
+        => WriteFinalizeAsync(ticketId, resolution, _doneStatus, cancellationToken);
 
     public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => PatchAsync(ticketId, [Op("/fields/System.State", statusName)], cancellationToken);
 
     // One PATCH: AzDO bumps System.Rev on every write, so a comment and a transition sent
     // apart race any concurrent observer and the second fails with TF26071.
-    public Task FinalizeAsync(
+    public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
-    {
-        var state = string.IsNullOrWhiteSpace(doneStatus) ? _doneStatus : doneStatus;
-        return PatchAsync(ticketId,
-            [Op("/fields/System.History", ToHtml(comment)), Op("/fields/System.State", state)],
-            cancellationToken);
-    }
+        => _finalizer.FinalizeAsync(ticketId, comment, doneStatus, cancellationToken);
+
+    private Task WriteFinalizeAsync(TicketId ticketId, string comment, string state, CancellationToken ct)
+        => PatchAsync(ticketId,
+            [Op("/fields/System.History", ToHtml(comment)), Op("/fields/System.State", state)], ct);
 
     private async Task PatchAsync(TicketId ticketId, JsonPatchDocument patch, CancellationToken cancellationToken)
     {
-        if (!int.TryParse(ticketId.Value, out var id)) return;
+        if (!int.TryParse(ticketId.Value, out var id)) throw new TicketNotFoundException(ticketId);
         // Writes that bypass the lifecycle transitioner are logged through the same lens.
         _logger.LogInformation(
             "TICKET WRITE #{Ticket}: fields[{Paths}] <- {Caller}",

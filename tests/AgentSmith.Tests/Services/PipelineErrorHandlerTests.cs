@@ -1,3 +1,6 @@
+using AgentSmith.Contracts.Models;
+using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -22,6 +25,7 @@ public sealed class PipelineErrorHandlerTests
     private readonly Mock<ICommandContextFactory> _factoryMock = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
     private readonly Mock<IAsyncPipelineLifecycle> _lifecycleMock = new();
+    private readonly InMemoryUnmovedTicketStore _unmovedTickets = new();
     private readonly PipelineErrorHandler _sut;
 
     public PipelineErrorHandlerTests()
@@ -31,7 +35,61 @@ public sealed class PipelineErrorHandlerTests
             _factoryMock.Object,
             _ticketFactoryMock.Object,
             new FailureTicketComment(),
+            new UnmovedTicketReport(_unmovedTickets, NullLogger<UnmovedTicketReport>.Instance),
             NullLogger<PipelineErrorHandler>.Instance);
+    }
+
+    // 2026-09-18-c1a7: a finalize that did not move the ticket leaves the record the claim
+    // service reads; one that moved it leaves nothing, so the next trigger is claimed normally.
+    [Fact]
+    public async Task HandleStepFailureAsync_FinalizeReportsTheTicketUnmoved_RecordsIt()
+    {
+        await FailWithFinalizeAsync(TicketFinalizeResult.NotExpressible("Blocked"));
+
+        var standing = await _unmovedTickets.FindStandingAsync(
+            "p1", "99", "tracker-a", CancellationToken.None);
+        standing.Should().NotBeNull();
+        standing!.ConfiguredStatus.Should().Be("Blocked");
+        standing.Outcome.Should().Be(TicketFinalizeOutcome.StatusNotExpressible);
+    }
+
+    [Fact]
+    public async Task HandleStepFailureAsync_FinalizeMovedTheTicket_RecordsNothing()
+    {
+        await FailWithFinalizeAsync(TicketFinalizeResult.Moved());
+
+        (await _unmovedTickets.FindStandingAsync("p1", "99", "tracker-a", CancellationToken.None))
+            .Should().BeNull();
+    }
+
+    // A later finalize that DID move the ticket clears the record an earlier one left, so a
+    // standing refusal never outlives the configuration that caused it.
+    [Fact]
+    public async Task HandleStepFailureAsync_FinalizeMovedTheTicket_ClearsAnEarlierRecord()
+    {
+        await FailWithFinalizeAsync(TicketFinalizeResult.NotExpressible("Blocked"));
+
+        await FailWithFinalizeAsync(TicketFinalizeResult.Moved());
+
+        (await _unmovedTickets.FindStandingAsync("p1", "99", "tracker-a", CancellationToken.None))
+            .Should().BeNull();
+    }
+
+    private async Task FailWithFinalizeAsync(TicketFinalizeResult finalize)
+    {
+        var ticketProvider = new Mock<ITicketProvider>();
+        ticketProvider.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(finalize);
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+        context.Set(ContextKeys.FailedStatus, "Blocked");
+
+        await _sut.HandleStepFailureAsync(
+            Array.Empty<string>(),
+            new ResolvedProject { Name = "p1", Tracker = new TrackerConnection { Name = "tracker-a" } },
+            context, _lifecycleMock.Object, CommandResult.Fail("boom"), CancellationToken.None);
     }
 
     [Fact]

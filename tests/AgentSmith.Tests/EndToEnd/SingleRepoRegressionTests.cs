@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Spawning;
@@ -227,7 +229,7 @@ public sealed class SingleRepoRegressionTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
 
         var claimService = new TicketClaimService(
-            claimLock.Object, factory.Object, queue.Object,
+            claimLock.Object, new InMemoryUnmovedTicketStore(), factory.Object, queue.Object,
             new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService,

@@ -192,8 +192,8 @@ public sealed class PredecessorGateFunnelTests
             CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
             Task.FromResult(ParentLinkResult.Unsupported("this fake has no relations"));
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+            Task.FromResult(TicketFinalizeResult.Moved());
     }
 }

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Contracts.Services;
@@ -87,7 +88,7 @@ public sealed class InitCommitHandlerLifecycleTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -117,7 +118,7 @@ public sealed class InitCommitHandlerLifecycleTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -184,7 +185,7 @@ public sealed class InitCommitHandlerLifecycleTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -212,7 +213,7 @@ public sealed class InitCommitHandlerLifecycleTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -243,7 +244,7 @@ public sealed class InitCommitHandlerLifecycleTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
