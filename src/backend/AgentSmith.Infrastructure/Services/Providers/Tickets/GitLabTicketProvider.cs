@@ -26,6 +26,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly GitLabIssueLister _lister;
     private readonly ILogger _logger;
     private readonly TrackerParentLink _parentLink;
+    private readonly GitLabTicketFinalizer _finalizer;
 
     public string ProviderType => "GitLab";
 
@@ -44,6 +45,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _lister = new GitLabIssueLister(_http, mapper, connection, logger);
         _logger = logger;
         _parentLink = new TrackerParentLink("GitLab", logger);
+        _finalizer = new GitLabTicketFinalizer(UpdateStatusAsync, CloseTicketAsync, TransitionToAsync);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -166,17 +168,9 @@ public sealed class GitLabTicketProvider : ITicketProvider
             new { state_event = ToStateEvent(statusName) }, cancellationToken);
 
     // GitLab issues have no rev-guard; sequential note + state change is safe.
-    public async Task FinalizeAsync(
+    public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(doneStatus))
-            await CloseTicketAsync(ticketId, comment, cancellationToken);
-        else
-        {
-            await UpdateStatusAsync(ticketId, comment, cancellationToken);
-            await TransitionToAsync(ticketId, doneStatus, cancellationToken);
-        }
-    }
+        => _finalizer.FinalizeAsync(ticketId, comment, doneStatus, cancellationToken);
 
     private string IssueUrl(TicketId ticketId) =>
         $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}";

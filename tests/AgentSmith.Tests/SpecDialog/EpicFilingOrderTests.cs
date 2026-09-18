@@ -267,8 +267,8 @@ public sealed class EpicFilingOrderTests
             return Task.FromResult(ParentLinkResult.Linked);
         }
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+            Task.FromResult(TicketFinalizeResult.Moved());
     }
 }

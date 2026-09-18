@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -18,6 +19,7 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// </summary>
 public sealed class NotImplementableRetryService(
     ISpecSetPointerStore pointers,
+    IUnmovedTicketStore unmovedTickets,
     ITicketProviderFactory ticketFactory,
     ILogger<NotImplementableRetryService> logger)
 {
@@ -35,6 +37,10 @@ public sealed class NotImplementableRetryService(
             return false;
         }
         await ClearHandbackAsync(project, ticketId, cancellationToken);
+        // 2026-09-18-c1a7: the retry moves the ticket back to a trigger status, where the
+        // ordinary poller claims it — indistinguishable at the gate from any other claim, so
+        // the record the gate reads has to go with it.
+        await unmovedTickets.ClearAsync(project.Name, ticketId, cancellationToken);
         await ticketFactory.Create(project.Tracker)
             .TransitionToAsync(new TicketId(ticketId), target!, cancellationToken);
         logger.LogInformation(

@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -174,7 +176,7 @@ public sealed class TicketClaimServiceTests
     {
         var h = new Harness();
         var sut = new TicketClaimService(
-            h.ClaimLock.Object, h.Factory.Object, h.JobQueue.Object,
+            h.ClaimLock.Object, h.UnmovedTickets, h.Factory.Object, h.JobQueue.Object,
             h.Lease.Object, NullLogger<TicketClaimService>.Instance);
         return (sut, h);
     }
@@ -200,6 +202,7 @@ public sealed class TicketClaimServiceTests
         public Mock<ITicketStatusTransitioner> Transitioner { get; } = new();
         public Mock<IRedisJobQueue> JobQueue { get; } = new();
         public Mock<IActiveRunLease> Lease { get; } = new();
+        public InMemoryUnmovedTicketStore UnmovedTickets { get; } = new();
 
         public Harness()
         {

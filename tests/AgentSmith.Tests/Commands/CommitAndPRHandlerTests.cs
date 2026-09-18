@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Expectations;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Services;
@@ -172,7 +173,7 @@ public class CommitAndPRHandlerTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string?, CancellationToken>((_, summary, _, _) => postedSummary = summary)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
 
         var context = CreateContext();
         await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -194,7 +195,7 @@ public class CommitAndPRHandlerTests
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .Callback<TicketId, string, string?, CancellationToken>((_, summary, _, _) => postedSummary = summary)
-            .Returns(Task.CompletedTask);
+            .Returns(Task.FromResult(TicketFinalizeResult.Moved()));
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandbox, _sandboxMock.Object);

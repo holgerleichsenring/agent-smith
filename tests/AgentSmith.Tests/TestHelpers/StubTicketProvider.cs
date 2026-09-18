@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
@@ -24,9 +25,9 @@ internal sealed class StubTicketProvider : ITicketProvider
         CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
         Task.FromResult(ParentLinkResult.Linked);
 
-    public Task FinalizeAsync(
+    public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
-        Task.CompletedTask;
+        Task.FromResult(TicketFinalizeResult.Moved());
 }
 
 internal sealed class StubTicketProviderFactory : ITicketProviderFactory

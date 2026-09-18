@@ -523,9 +523,9 @@ public sealed class FiledWorkStartTests
             return Task.CompletedTask;
         }
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken ct) =>
-            Task.CompletedTask;
+            Task.FromResult(TicketFinalizeResult.Moved());
     }
 
     /// <summary>Records how many moves had been made at the moment the set was written.</summary>

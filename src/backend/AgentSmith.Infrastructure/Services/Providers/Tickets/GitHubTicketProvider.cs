@@ -24,6 +24,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly GitHubIssueLister _lister;
     private readonly ILogger _logger;
     private readonly TrackerParentLink _parentLink;
+    private readonly GitHubTicketFinalizer _finalizer;
 
     public string ProviderType => "GitHub";
 
@@ -39,6 +40,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
         _lister = new GitHubIssueLister(_client, connection, _mapper, logger);
         _logger = logger;
         _parentLink = new TrackerParentLink("GitHub", logger);
+        _finalizer = new GitHubTicketFinalizer(UpdateStatusAsync, CloseTicketAsync, TransitionToAsync);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -166,17 +168,9 @@ public sealed class GitHubTicketProvider : ITicketProvider
             await _client.Issue.Labels.AddToIssue(_owner, _repo, n, [statusName]);
     }
 
-    public async Task FinalizeAsync(
+    public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(doneStatus))
-            await CloseTicketAsync(ticketId, comment, cancellationToken);
-        else
-        {
-            await UpdateStatusAsync(ticketId, comment, cancellationToken);
-            await TransitionToAsync(ticketId, doneStatus, cancellationToken);
-        }
-    }
+        => _finalizer.FinalizeAsync(ticketId, comment, doneStatus, cancellationToken);
 
     private static bool TryParseIssueNumber(TicketId id, out int n) => int.TryParse(id.Value, out n);
 
