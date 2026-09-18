@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-3ba9
+
+goal: "The concurrent-sandbox cap bounds the runs that actually start, and a footprint larger than the cap is refused as unmeetable rather than queued behind slots that would never be enough."
+
+applies_to: "backend (the capacity queue pump, the Docker and Kubernetes capacity probes, the capacity decision)"
+
+scope:
+  in: >
+    The pump that dequeues a waiting run consults the same capacity probe the spawn path consulted,
+    so the cap bounds what starts and not merely what is admitted first time. The capacity answer
+    gains a third case beside admit and wait: a footprint that cannot fit the configured bound however
+    empty the host is. That case does not queue, because a queue position promises an end; it is
+    reported with the bound, the footprint and what would admit it. The Kubernetes probe answers the
+    same way for every quota key it compares, not only the counted ones, and evaluates all keys before
+    answering so an unmeetable key is not masked by a key that is merely busy.
+  out: >
+    RAISING THE BOUND AUTOMATICALLY. The bound is deliberate; exceeding it silently is what it exists
+    to prevent.
+    WHERE THE BOUND IS CONFIGURED AND WHAT IT IS CALLED. 2026-09-18-0f27.
+    NARROWING THE FOOTPRINT. See decisions — the count is an over-estimate by design and this phase
+    does not change what it counts.
+    THE DB CAPACITY BUDGET. It is a second, independent bound and stays exactly as it is.
+
+decisions:
+  - key: |
+      THE BOUND IS NOT ENFORCED WHERE IT MATTERS, MEASURED. The probe is consulted once, on the spawn
+      path. The pump that later claims the head of the queue does not consult it — it reaps, then
+      reserves against the database capacity budget, which is unbounded unless cpu and memory limits
+      are configured. On a host with no budget configured, a run denied for exceeding the sandbox cap
+      is claimed on the next tick and runs over it. For Docker there is no create-time signal, so the
+      cap was the only guard; unconsulted, it guards nothing on that path.
+  - key: |
+      TWO REFUSALS ARE MERGED INTO ONE SENTENCE. The probe admits while running plus needed fits the
+      bound and otherwise denies with "waiting for slots to free". When needed alone exceeds the
+      bound that is unsatisfiable at zero running, so the sentence describes a wait that cannot end.
+      Observed live: a three-sandbox footprint against a bound of two reported "(0 running + 3 needed
+      > 2); waiting for slots to free."
+  - key: |
+      THE RULE THAT PRODUCED IT WAS RIGHT. p0320b replaced "admit while fewer than the bound are
+      running" with the full-footprint test because admitting on a single free slot let multi-repo
+      runs crash into the bound mid-run. That trade is kept. What it did not carry is that there are
+      three answers, not two, and the third was folded into the second.
+  - key: |
+      THE FOOTPRINT IS AN OVER-ESTIMATE, SO UNMEETABLE MUST SAY WHAT IT MEASURED. The count is one
+      sandbox per repository and toolchain over every configured repository, computed before the run
+      is narrowed to the repositories the ticket touches. A five-repository project whose ticket
+      touches one is counted as five. Refusing on that number without saying so would turn a
+      deliberate over-estimate into a permanent refusal of work that would have fitted, so the refusal
+      names what it counted and that the run was not yet narrowed.
+  - key: |
+      A THIRD CASE, NOT A FLAG. The decision type carries a bool today and four callers test it, so a
+      new factory or an enum member would compile unchanged and every one of them would read
+      unmeetable as a wait. The bool goes, so each of the four is made to answer for the new case —
+      including the tool host that answers a model in text, and the init path that already refuses
+      synchronously and only needs its wording corrected.
+  - key: |
+      THE INIT PATH IS ALREADY WHERE THIS PHASE WANTS IT. It refuses synchronously and answers with
+      the reason, which is where the observation came from. On that path only the sentence changes.
+      The spawn path is the one that queues, and the pump is the one that ignores the bound.
+  - key: |
+      ROOM. The spawn use case and the tool host are both baselined and may only shrink, so the
+      capacity answer's new shape is read through a collaborator each of them calls rather than
+      through branching added in place; the probes themselves have room.
+
+steps:
+  - id: the-pump-asks
+    action: "The capacity queue pump consults the sandbox capacity probe before claiming the head of the queue, as the spawn path does."
+  - id: the-third-case
+    action: "The capacity decision loses its bool for three cases; every caller answers for all three."
+  - id: the-probes-split
+    action: "The Docker probe answers unmeetable when the footprint cannot fit the bound however empty the host is; the Kubernetes probe does the same per quota key, evaluating every key before answering, with unmeetable winning over wait."
+  - id: the-refusal-says-enough
+    action: "An unmeetable refusal names the bound, the footprint it counted, that the run was not yet narrowed, and what would admit it; it does not take a queue position."
+
+tests:
+  - "Pump_HeadOfQueueThatWouldExceedTheBound_IsNotClaimed"
+  - "Pump_HeadOfQueueThatFits_IsClaimed"
+  - "Pump_ProbeDenies_LeavesTheRunQueuedWithoutSpawning"
+  - "Capacity_FootprintLargerThanTheBound_IsUnmeetableNotAWait"
+  - "Capacity_FootprintLargerThanTheBound_WithNothingRunning_IsStillUnmeetable"
+  - "Capacity_FootprintThatFitsButNotNow_IsStillAWait"
+  - "Capacity_UnboundedBound_AdmitsAnyFootprint"
+  - "Capacity_UnmeetableRefusal_NamesTheBoundTheCountAndThatItIsNotNarrowed"
+  - "Capacity_UnmeetableRun_TakesNoQueuePosition"
+  - "Capacity_DaemonReadFailure_WithAFittingFootprint_StillAdmits"
+  - "Capacity_DaemonReadFailure_WithAnUnmeetableFootprint_IsStillUnmeetable"
+  - "Kubernetes_CpuHardValueBelowTheRequirement_IsUnmeetable"
+  - "Kubernetes_PodQuotaBelowTheFootprint_IsUnmeetable"
+  - "Kubernetes_OneKeyBusyAndAnotherUnmeetable_AnswersUnmeetable"
+  - "InitPath_UnmeetableFootprint_RefusesWithTheNewSentence"
+
+done:
+  - "a run that exceeds the sandbox bound does not start, on either path"
+  - "a footprint that can never fit is refused, not queued, and the refusal says what would admit it"
+  - "a run that would fit but does not fit now still waits, with its position, as before"
+  - "build green, full suite green, file-length ratchet green"

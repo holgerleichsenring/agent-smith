@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-d518
+
+goal: "A ticket the framework files says which labels it set, what each one decides, and that editing them changes what happens — where the operator reads the ticket."
+
+applies_to: "backend (the filers and the ticket body composer)"
+
+requires:
+  - 2026-09-17-0e79d
+
+scope:
+  in: >
+    A filed work ticket carries a short closing section naming each label the filer put on it, what
+    that label decides, and that removing or renaming it changes routing rather than stopping it. The
+    set named is the set actually applied, reaching the composer from the filer that applies it, so
+    the ticket cannot describe labels it does not carry. A slice record names its own label and says
+    that it is what makes the record not work. The section is the last thing in the body and is marked
+    as the framework's own bookkeeping, so a reader — human or model — can tell it from the
+    requirement above it.
+  out: >
+    MAKING THE LABEL NAMES CONFIGURABLE. The adversarial review of the withdrawn 2026-09-18-9c4e made
+    the case against it and 2026-09-17-0e79d had already refused a rename for the same reason: the
+    approved-set stamp fails OPEN, so a spelling nobody recognises turns "refuse loudly" into "derive
+    a spec from a description anyone can edit". Naming the labels is the goal; configuring them is not
+    required by it.
+    A COMMENT INSTEAD OF THE BODY. See decisions.
+    LABELS ON TICKETS ALREADY FILED. The section is written when a ticket is created.
+    THE TRACKER'S OWN LABELS. Only the ones the framework applies are described.
+
+decisions:
+  - key: |
+      THE LABELS DECIDE AND SAY NOTHING. The phase label binds the pipeline before any operator
+      mapping is consulted, and the approved-set stamp decides whether the ticket's description is
+      read as its specification at all. Both are editable by anyone with tracker access. The operator
+      who met them today said it plainly: they are volatile, and one does not know what they mean.
+  - key: |
+      THE DANGEROUS ONE FAILS OPEN, WHICH IS WHY THE SENTENCE MATTERS. Removing the stamp does not
+      stop the run. It removes the guard, and the run then derives a specification from the ticket
+      description — replacing a ratified specification with a guess, which is the sentence the spec
+      gate itself carries. "Deleting this label does not cancel anything" is the single most useful
+      thing the ticket can say.
+  - key: |
+      IN THE BODY, MARKED AS BOOKKEEPING. The body already carries the goal, the slices, the templates
+      the cut was made against and where the specification lives; it is the format the reader is
+      already in. But a body is also derivation input, and a phase one day earlier removed a parent
+      line from it precisely because prose in the body is something a deriver has to carry or discard.
+      So the section is last, and it is marked as the framework's own note rather than part of the
+      requirement — the distinction the deriver needs.
+  - key: |
+      THE SET COMES FROM THE FILER, NOT FROM A SECOND LIST. Three filers decide the labels: the
+      outcome filer and the epic filer apply the phase label with the approved-set stamp, the slice
+      filer applies the record label. A section that restated those sets in the composer would be a
+      second truth about which labels get applied, which is the defect this phase is about.
+  - key: |
+      A RECORD IS NOT WORK, AND ITS LABEL IS WHY. The slice record carries no stamp and nothing routes
+      it. Its section says that in one sentence, because a reader looking at three tickets from one
+      approval needs to know why two of them will never run.
+  - key: |
+      ROOM. The composer and both filers sit close to the limit, and the renderer is baselined; the
+      section is composed by a type of its own that the composer calls with the applied set.
+
+steps:
+  - id: the-section
+    action: "A composer for the framework's label note, taking the set actually applied and naming what each decides."
+  - id: the-filers-pass-what-they-applied
+    action: "Each filer hands the label set it applies to the body composer; no list is restated."
+  - id: the-record-says-why-it-is-not-work
+    action: "A slice record's section names its label and says that it is what keeps the record from being routed or run."
+
+tests:
+  - "Body_WorkTicket_NamesThePhaseLabelAndWhatItDecides"
+  - "Body_WorkTicket_NamesTheApprovedSetStampAndThatRemovingItDoesNotCancelAnything"
+  - "Body_WorkTicket_SaysEditingALabelChangesRoutingRatherThanStoppingIt"
+  - "Body_SliceRecord_NamesItsLabelAndWhyNothingRunsIt"
+  - "Body_TheSectionNamesTheSetTheFilerApplied_NotAListOfItsOwn"
+  - "Body_TheSection_IsLastAndMarkedAsFrameworkBookkeeping"
+  - "Body_ATicketWithNoFrameworkLabels_CarriesNoSection"
+
+done:
+  - "an operator reading a filed ticket can tell what its labels do before deciding to change one"
+  - "the ticket names the labels it actually carries"
+  - "a slice record says why nothing will run it"
+  - "build green, full suite green, file-length ratchet green"

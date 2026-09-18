@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-f19c
+
+goal: "A test may not decide whether the product works by waiting on the wall clock, and a guard over the test sources says so, because a clock-bound assertion passes locally and fails where it is slower."
+
+applies_to: "backend tests (a source guard over the test assemblies) + the waits that guard finds"
+
+scope:
+  in: >
+    A guard reads the test sources and refuses an assertion whose truth depends on elapsed time: a
+    poll-until-deadline helper whose result is asserted, a delay placed before an assertion to let
+    something happen, a timeout constant standing in for a signal. The waits it finds are converted to
+    wait on the thing itself — the event, the completion, the signal the producer already raises — or,
+    where a test genuinely measures a duration, marked as measuring one so the guard can tell a
+    measurement from a hope. A constant whose name claims a property it does not have is renamed to
+    what it is.
+  out: >
+    POLLING INSIDE PRODUCTION CODE. A reaper or a poller waits on a clock because the world does; this
+    is about tests deciding whether the product is correct.
+    TEST TIMEOUTS AS A BACKSTOP. A test framework's overall timeout stops a hang; it is not an
+    assertion and is not in scope.
+    THE DASHBOARD SUITE. Its waiting is the testing library's own find-by, which already waits on the
+    DOM rather than on a duration; a guard there is a phase of its own if it is ever wanted.
+    THE FLAKY TEST THAT PROMPTED THIS. It is one of the waits the guard finds, and it is fixed as part
+    of the conversion rather than being the point.
+
+decisions:
+  - key: |
+      THE FAILURE MODE, MEASURED. A drain test asserts that a helper returned true within a sixty
+      second budget. On a developer machine it passes in four seconds, five times out of five. In
+      continuous integration it failed in two of four runs at sixty to eighty seconds, on an unchanged
+      product. The assertion is not about the product; it is about how much machine the test got.
+  - key: |
+      THE CONSTANT NAMES A PROPERTY IT DOES NOT HAVE. The budget is called a CI-safe wait. It is
+      demonstrably not CI-safe, and a name that asserts a guarantee is worse than a number, because it
+      stops the next reader asking. Whatever survives the conversion is named for what it is.
+  - key: |
+      RAISING THE NUMBER IS NOT THE FIX. A larger budget makes the same test flake less often and take
+      longer when it does, and it leaves the assertion measuring the same thing. This is the heuristic
+      around a missing signal that this repository refuses by name: the signal exists, because
+      something completed for the poll to observe.
+  - key: |
+      A GUARD, BECAUSE A RULE NOBODY ENFORCES IS A PREFERENCE. The operator's own point: the coding
+      rules that matter are the ones a machine applies. The architecture test assembly already reads
+      sources for rules of this shape — file length, phase naming, record length — so this guard sits
+      beside them and is read the same way.
+  - key: |
+      THE GUARD MUST BE ABLE TO SAY "THIS ONE IS FINE". Some tests legitimately measure a duration —
+      a backoff, a timeout's own behaviour, a budget. The guard therefore recognises an explicit
+      marking rather than trying to infer intent, and an unmarked clock-bound assertion is the
+      failure. A guard that cannot be satisfied honestly gets disabled.
+  - key: |
+      THE BASELINE IS THE HONEST START. There will be waits the conversion does not reach in one
+      phase. The guard carries a baseline of what exists, refuses anything new, and the baseline only
+      shrinks — the same shape as the file-length ratchet, which is how this repository has already
+      solved "a rule arriving after the code".
+
+steps:
+  - id: the-guard
+    action: "A test-source guard that refuses a clock-bound assertion: a delay before an assertion, a poll-until-deadline whose result is asserted, a duration constant used as a gate; with an explicit marking for a test that genuinely measures a duration."
+  - id: the-baseline
+    action: "A baseline of the waits that exist, which may only shrink, so the rule binds new code immediately."
+  - id: the-conversion
+    action: "The waits the guard finds in the run-drain and dialog areas wait on the signal the producer already raises; the constant that claims to be CI-safe is renamed to what it is."
+
+tests:
+  - "Guard_ADelayBeforeAnAssertion_IsRefused"
+  - "Guard_APollUntilDeadlineWhoseResultIsAsserted_IsRefused"
+  - "Guard_ATestMarkedAsMeasuringADuration_IsAllowed"
+  - "Guard_ABaselinedWait_IsAllowedAndCannotBeAddedTo"
+  - "Guard_ANewWaitInABaselinedFile_IsRefused"
+  - "Drain_TheConvertedWaits_AssertOnTheSignalNotTheClock"
+
+done:
+  - "a new test cannot decide correctness by waiting"
+  - "the waits that remain are listed, and the list only shrinks"
+  - "the run-drain test that failed in continuous integration and passed locally asserts on a signal"
+  - "full suite green, including under a deliberately slowed run"

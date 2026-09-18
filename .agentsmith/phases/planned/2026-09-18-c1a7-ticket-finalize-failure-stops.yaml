@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-c1a7
+
+goal: "Finalizing a ticket reports whether its status actually moved, and a ticket whose last run left it unmoved is refused at the one place every claim passes through."
+
+applies_to: "backend (the four ticket providers' finalize, the claim service, the tracker configuration's change marker)"
+
+scope:
+  in: >
+    FinalizeAsync stops being a call whose success says nothing: it reports whether the status moved
+    and, where it did not, which of three things happened — the tracker rejected the value, it offers
+    no transition to it, or the provider cannot express it at all. Three of the four decide that
+    BEFORE the call, from what they know about their own vocabulary; only one learns it from a
+    rejection. The answer is recorded against the ticket, and the claim service — the single point the
+    poller, the webhook dispatcher and the capacity pump all pass through — refuses a claim whose
+    ticket was last left unmoved, with the refusal vocabulary that already means "this will never
+    succeed as-is; an operator must fix configuration". The refusal lifts when the tracker's or the
+    project's configuration document changes, which is what an operator does to fix it.
+  out: >
+    THE WORK-ITEM TYPE AND WHETHER THE CONFIGURED STATUSES EXIST FOR IT. 2026-09-18-b4f0.
+    RETRYING A TRANSIENT FAILURE. A timeout is a different problem from a value the tracker will never
+    accept, and mixing them puts a retry policy inside a phase about honesty. Named in prose as the
+    phase that retries a finalize that failed for a reason that may pass.
+    RE-SENDING A LOST FAILURE COMMENT. On one provider the comment travels in the same write as the
+    status and is lost with it; sending it again is a second phase, named in prose as the phase that
+    puts a failed finalize's comment on the ticket when the status write carried it away.
+    THE SUCCESS PATH'S OWN FINALIZE. The done-status write can fail the same way; this phase reports
+    it from the provider but gates only the failure path, and the successor is named in prose as the
+    phase that stops a ticket whose DONE status never took.
+    REAPING RUNS A LOOP ALREADY SPAWNED.
+
+decisions:
+  - key: |
+      THE LOOP, MEASURED. One ticket, three poll cycles, 2026-09-18: claimed at 13:42:51; at 13:43:49
+      "Failed to finalize ticket to failed_status — run/PR unaffected", the tracker rejecting the
+      configured value; skipped at 13:43:55 while the lease was held; claimed again at 13:44:54. Two
+      identical failing runs 124 seconds apart, with nothing bounding it.
+  - key: |
+      THE MISSING FIELD IS THE RETURN VALUE. Two of four providers throw on a status they cannot apply
+      and two do not: one turns any unknown status into a label and succeeds with the issue still open,
+      another matches a transition by name and returns false with a warning. So a phase built on
+      catching an exception would fix half the providers while reading as universal. Reporting whether
+      the status moved covers all four in one shape.
+  - key: |
+      THREE OF THE FOUR DECIDE BEFORE THE CALL, NOT FROM AN EXCEPTION. Two providers know their own
+      status vocabulary and can say "I cannot express this" without a round trip; a third knows whether
+      a transition to the configured name exists. Only the fourth learns it from a rejection, and its
+      rejection type is in scope where it is caught. Nothing classifies by matching message text.
+  - key: |
+      ONE DOOR, NOT FOUR — AND THE VOCABULARY FOR IT ALREADY EXISTS. The poller, the webhook dispatcher
+      and the capacity pump all reach the claim service; a gate in the funnel would still leave the
+      pump, which claims its head directly. The claim service's rejection reason is documented as
+      "rejected claims will never succeed as-is — the operator must fix configuration or change the
+      trigger label; not retried by the reconciler", which is this stop's meaning exactly. Placing it
+      anywhere else means inventing a parallel concept and wiring an event publisher into two layers.
+  - key: |
+      THE RESUME IS NOT A CLAIM AND MUST NOT BE GATED. The capacity pump resumes a parked run before it
+      claims anything; a run that asked the operator a question legitimately sits mid-run with its
+      ticket in a trigger status. The stop lives in the claim service, which the resume path does not
+      enter, so this is a property of the placement rather than a condition to remember.
+  - key: |
+      THE RELEASE IS A CONFIGURATION CHANGE, AND IT HAS TWO HOMES. Releasing when the ticket leaves the
+      trigger statuses would be unreachable: the only thing that moves it out is a run, which the stop
+      prevents. The observable is the configuration document's own version, which is monotonic per
+      entity — and the configured status can live on the tracker or be overridden on the project, so
+      the release watches both. There is no manual trigger of a ticket in this system to escape
+      through: the operator's retry endpoint moves the ticket back to a trigger status and the ordinary
+      poller claims it, indistinguishable at the gate. So the configuration change is the only release,
+      and the retry endpoint clears the record itself.
+  - key: |
+      THE RECORD IS AGAINST THE TICKET, NOT A NEW COLUMN ON THE RUN. The run's event applier and its
+      snapshot are both at their ratchet baseline and may only shrink, and a snapshot field would owe a
+      TypeScript mirror the gate builds first. What the claim service needs is one fact keyed by
+      project and ticket, which is the shape the claim path already reads.
+  - key: |
+      ROOM, COUNTED AGAINST EVERY FILE THE STEPS TOUCH. The last draft counted five files and missed
+      four. Measured now: all four ticket providers sit at or within one line of their baselines and
+      may not grow, the claim service and its pre-checker have room, and the error handler has twelve
+      lines. So each provider's finalize moves into a collaborator that owns the classification for
+      that tracker — the providers shrink — and the gate is a collaborator the claim service calls on
+      one line.
+  - key: |
+      THE PROVIDERS HAVE NO INJECTION SEAM FOR TWO OF THE FOUR. Two construct their client internally,
+      so their payload builders are the only testable surface today and the status write is not part of
+      it. Moving each finalize into its own collaborator is what creates the seam, which is why the
+      extraction is a step rather than a cleanup.
+
+steps:
+  - id: finalize-reports-the-move
+    action: "FinalizeAsync reports whether the status moved and why it did not; each provider's finalize moves into a collaborator that owns its own classification and creates the seam to test it."
+  - id: the-record
+    action: "A run that ended with its ticket unmoved records that fact against the project and ticket, readable by the claim path."
+  - id: the-claim-service-refuses
+    action: "The claim service refuses a claim whose ticket was last left unmoved, as a new rejection reason carrying the configured value; the resume path is untouched."
+  - id: the-release
+    action: "The refusal lifts when the tracker's or the project's configuration document version changes, and the operator's retry endpoint clears the record."
+
+tests:
+  - "Finalize_ProviderThatCannotExpressTheStatus_SaysSoWithoutCallingTheTracker"
+  - "Finalize_ProviderWithNoTransitionToTheConfiguredName_ReportsTheTicketUnmoved"
+  - "Finalize_TrackerRejectsTheValue_ReportsTheTicketUnmoved"
+  - "Finalize_StatusMoved_ReportsItMoved"
+  - "Finalize_Classification_NeverMatchesOnMessageText"
+  - "Record_RunEndedWithItsTicketUnmoved_IsReadableByProjectAndTicket"
+  - "Claim_TicketLastLeftUnmoved_IsRejectedWithTheNewReason"
+  - "Claim_RejectionDetail_CarriesTheConfiguredValue"
+  - "Claim_SameTicketThroughTheWebhookDispatcher_IsRejectedToo"
+  - "Claim_SameTicketThroughTheCapacityPump_IsRejectedToo"
+  - "Claim_ResumeOfAParkedRun_IsNotRejected"
+  - "Claim_AfterTheTrackerDocumentChanged_IsAllowedAgain"
+  - "Claim_AfterTheProjectDocumentChanged_IsAllowedAgain"
+  - "Claim_AfterTheOperatorRetriedFromTheRunView_IsAllowedAgain"
+  - "Claim_TicketWhoseLatestRunMovedIt_IsAllowed"
+
+done:
+  - "a ticket whose status could not be moved is claimed once, through any door, not once per poll cycle"
+  - "all four providers report the same fact, including the two that report success today"
+  - "correcting the configured status, on the tracker or on the project, is enough to proceed"
+  - "a parked run still resumes"
+  - "build green, full suite green, file-length ratchet green"
