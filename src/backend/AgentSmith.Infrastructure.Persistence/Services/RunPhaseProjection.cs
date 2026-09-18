@@ -71,8 +71,8 @@ public sealed class RunPhaseProjection
         var kind = ReviewKindPrefix + e.PhaseId;
         var row = await uow.Set<RunArtifact>()
             .FirstOrDefaultAsync(a => a.RunId == e.RunId && a.Kind == kind, ct);
-        if (row is null) uow.Add(new RunArtifact { RunId = e.RunId, Kind = kind, Content = e.FindingsJson });
-        else row.Content = e.FindingsJson;
+        if (row is null) uow.Add(new RunArtifact { RunId = e.RunId, Kind = kind, Content = e.ReportJson });
+        else row.Content = e.ReportJson;
         await uow.SaveChangesAsync(ct);
     }
 

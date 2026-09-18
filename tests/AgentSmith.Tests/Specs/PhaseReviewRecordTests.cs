@@ -73,15 +73,15 @@ public sealed class PhaseReviewRecordTests
         var published = events.Events.OfType<PhaseReviewedEvent>().ToList();
         published.Should().HaveCount(2);
         published[0].PhaseId.Should().Be(PhaseId);
-        var skipped = Read(published[0].FindingsJson);
+        var skipped = Read(published[0].ReportJson);
         skipped.Reviewed.Should().BeFalse();
         skipped.Why.Should().Be("the review call failed");
         skipped.Findings.Should().BeEmpty();
-        var taken = Read(published[1].FindingsJson);
+        var taken = Read(published[1].ReportJson);
         taken.Reviewed.Should().BeTrue();
         taken.Why.Should().BeNull();
         taken.Findings.Should().ContainSingle().Which.Path.Should().Be("src/Api/Handler.cs");
-        published[1].FindingsJson.Should().Contain("\"repository\"").And.Contain("\"line\":4");
+        published[1].ReportJson.Should().Contain("\"repository\"").And.Contain("\"line\":4");
     }
 
     [Fact]

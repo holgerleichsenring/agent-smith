@@ -43,14 +43,15 @@ public sealed record PhaseRecordedEvent(
     : RunEvent(RunId, EventType.PhaseRecorded, Timestamp);
 
 /// <summary>
-/// 2026-09-17-042eh: the findings a fresh instance reported against the phase's own diff,
-/// as JSON. The record body states them in prose for whoever opens the phase; this row is
-/// what a reader asks for them BY PHASE, without parsing a markdown body back apart.
+/// 2026-09-17-042eh: what a fresh instance reported against the phase's own diff, as JSON.
+/// The record body states it in prose for whoever opens the phase; this row is what a reader
+/// asks for it BY PHASE, without parsing a markdown body back apart.
 /// </summary>
-/// <param name="FindingsJson">A JSON array of the kept findings, "[]" when there are none.</param>
+/// <param name="ReportJson">A serialised PhaseReviewReport. An OBJECT, not a bare array:
+/// `reviewed` false says nobody was asked and `why` names which reason it was.</param>
 public sealed record PhaseReviewedEvent(
     string RunId,
     string PhaseId,
-    string FindingsJson,
+    string ReportJson,
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.PhaseReviewed, Timestamp);
