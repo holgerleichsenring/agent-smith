@@ -10,16 +10,20 @@ scope:
     The kind of work item a filing creates becomes a field of the tracker's configuration for the two
     providers that actually send one, defaulting per provider to the literal each sends today, so an
     installation that sets nothing behaves exactly as it does now. The create for both moves into a
-    collaborator that owns the kind and the payload — which is what gives them a test seam, because
-    both build their clients internally and their kind is an argument to a call, not part of the
-    payload builder their tests pin today. The config studio descriptor and the tracker form carry
+    collaborator that owns the kind and the payload, for two different reasons: the Azure DevOps kind is
+    an argument to a call on a client the provider builds itself, so no test can see it today, while
+    the Jira kind is already in its payload and already asserted — there the reason is the ratchet. The config studio descriptor and the tracker form carry
     the field for those two provider types only.
   out: >
-    GITHUB AND GITLAB. Neither sends a type on create and neither client exposes one; a field on their
-    forms would be read by nothing. They declare none rather than declaring one that answers "cannot".
-    WHETHER THE CONFIGURED LIFECYCLE STATUSES EXIST FOR THE CHOSEN KIND. That is 2026-09-18-6c8d, and
-    it is the half that actually prevents the incident below — this phase only makes the kind a choice.
-    CHOOSING THE KIND FROM THE WORK. Letting the model propose it needs 6c8d's check underneath it;
+    GITHUB AND GITLAB. Neither has a kind whose state list this choice would change — one carries
+    lifecycle as labels, the other as three state events. They declare no field rather than one that
+    answers "cannot".
+    WHETHER THE CONFIGURED LIFECYCLE STATUSES EXIST FOR THE CHOSEN KIND. Named in prose as the phase
+    that checks a configured lifecycle status against the kinds a tracker can claim. It does not, on
+    its own, prevent the incident below: a status a Task lacks is usually carried by some other kind in
+    the same project, so a check that only reports a status no kind accepts would stay silent on it.
+    What prevents the incident is choosing the right kind, which is this phase.
+    CHOOSING THE KIND FROM THE WORK. Letting the model propose it needs the status check underneath;
     named in prose as the phase that proposes a work-item kind from the outcome and holds the proposal
     to that check.
     HIERARCHY RULES. Whether a kind may parent another is the tracker's own process rule; a filing
@@ -37,18 +41,31 @@ decisions:
       Task, the configured failed status was one a Task does not have, and every run on that ticket
       ended with a rejected status write. But a Task is also the wrong shape for a work ticket that
       carries slice records beneath it — hierarchy in the default processes runs through the levels
-      above it. Making the kind a choice is the smaller half of that; the check is 6c8d.
+      above it. Making the kind a choice is the half this phase does.
   - key: |
-      TWO PROVIDERS HAVE NO SUCH CONCEPT, AND A FIELD THAT ANSWERS "CANNOT" IS WORSE THAN NO FIELD.
-      GitHub's create builds an issue with no type and its client exposes none; GitLab's posts title,
-      description and labels. The config studio declares its workflow fields identically for every
-      tracker type today, so a kind field would render on their forms and be read by nothing. The
-      descriptor gains it for the two provider types that send one.
+      THE OTHER TWO CARRY LIFECYCLE AS LABELS OR OPEN-AND-CLOSED, WHICH IS THE DURABLE REASON. GitHub
+      applies any status that is not open or closed as a label, and GitLab accepts three state events;
+      neither has a kind whose state list this choice would change. Saying instead that their clients
+      expose no type would rest on a pinned library version rather than on a design. The descriptor
+      gains the field for the two provider types whose kind decides a state list.
   - key: |
-      THE COLLABORATOR IS THE SEAM, WHICH IS WHY THE EXTRACTION IS A STEP. Both providers construct
-      their SDK client internally, and their tests pin the payload builders as the only pure surface.
-      The kind is an argument to the call, not part of the payload — so today no test can assert what
-      kind is created. Moving the create out is what makes the phase's own headline test writable.
+      THE DESCRIPTOR ALREADY CARRIES TWO PROVIDER-SPECIFIC FIELDS, SO THE RULE MUST SAY WHICH WINS. Its
+      workflow fields include a parent link type and lifecycle status names, both Jira-only, rendered on
+      every tracker form today. This phase declares its field per provider type, which the coverage test
+      permits because it unions across types; moving the existing two is named in prose as the phase
+      that makes every provider-specific tracker field declare the types it applies to.
+  - key: |
+      TWO PROVIDERS, TWO REASONS TO EXTRACT. Azure DevOps passes the kind as an argument to a call on a
+      client its provider constructs internally, so nothing today can assert what kind it creates —
+      there the extraction is what makes the test writable. Jira builds its issue type into the payload
+      and a test already asserts it; there the extraction buys only the line the ratchet refuses to
+      give. Saying both is what stops a reader believing the second is the first.
+  - key: |
+      ROOM, INCLUDING THE DESCRIPTOR. The two provider files have one line each against their
+      baselines, and the config studio capability descriptor has one against 259 while this phase adds
+      a field declaration and two arms — so its field list moves out with it. The configuration thread
+      is nine files, and the tracker entity's constructor takes the new parameter APPENDED, never
+      inserted, because its mapping is positional and a shift is silent.
   - key: |
       TODAY'S LITERAL IS THE DEFAULT, PER PROVIDER. Every existing installation has a configuration
       written against what its provider creates now. The default is that literal, so this phase alone
@@ -68,10 +85,10 @@ tests:
   - "Create_NoConfiguredKind_IsTheLiteralEachProviderSendsToday"
   - "Create_GitHubAndGitLab_SendNoKindAndDeclareNoField"
   - "Descriptor_TheKindField_IsDeclaredOnlyForTheProvidersThatSendOne"
-  - "dashboard: the tracker form shows the kind for those provider types and not for the others"
+  - "Capabilities_TheRealDescriptorPayload_DeclaresTheKindForTwoTypesAndNotTheOthers"
 
 done:
   - "an operator chooses the kind of work item a filing creates, per tracker, on the two trackers that have one"
   - "an installation that configures nothing creates exactly what it creates today"
-  - "a test can assert what kind is created, which it cannot today"
+  - "a test can assert the kind Azure DevOps creates, which it cannot today"
   - "build green, full suite green, dashboard tests green, file-length ratchet green"

@@ -13,9 +13,8 @@ scope:
     empty; zero keeps meaning unbounded, which it already means to the probe. The settings form
     carries the field and says which sandbox settings apply to the next decision and which need a
     restart, because after this phase they differ and a form that does not say so is a new way to be
-    misled. The resolved value and where it came from reach the operator where the question is
-    actually asked — in the refusal text of a run that is waiting — and once more whenever the
-    resolution changes. The documentation names the key that is read, in all three spellings it has.
+    misled. The resolved value and where it came from are logged once whenever the
+    resolution changes, so a value that did not take effect is answerable from the log. The documentation names the key that is read and all four spellings it has.
   out: >
     MAKING THE WHOLE SANDBOX BLOCK APPLY WITHOUT A RESTART. Six consumers read the frozen options
     instance; moving them is a phase of its own, named in prose as the phase that makes every sandbox
@@ -59,16 +58,19 @@ decisions:
       which replaces "nothing applies until a restart" — uniform, learnable — with a rule that differs
       per row of one form. The form states it per field. Making them all live is the named successor.
   - key: |
-      THE VALUE REACHES THE OPERATOR WHERE THEY ASK. A line per decision would be four a minute once
-      the pump consults the probe, restating a number that changes twice a year. The resolution and
-      its source go into the refusal text of a waiting run — which is the surface an operator already
-      reads when a run is not starting — and one line when the resolution changes from the one last
-      used.
+      THE REFUSAL TEXT IS NOT A SURFACE THIS PHASE CAN REACH, SO IT DOES NOT CLAIM IT. The probe's
+      reason is logged and dropped on the spawn path; what a waiting operator reads is a sentence
+      composed separately at the enqueue, and the pump writes none at all and has no room to. Putting
+      the bound there means changing the reservation's return type and the queued reason — named in
+      prose as the phase that makes a waiting run say what is actually holding it. Here the resolution
+      and its source are logged once on change, which answers "I set it and nothing happened" without
+      promising a surface that does not exist.
   - key: |
-      THREE SPELLINGS, ALL NAMED. The YAML key is underscored by the loader's convention, the property
-      is Pascal-cased, and the stored document and the dashboard use camel case. The documentation
+      FOUR SPELLINGS, ALL NAMED. The YAML key is underscored by the loader's convention, the property
+      is Pascal-cased, the stored document is Pascal-cased too because its serializer sets no policy,
+      and only the wire and the dashboard are camel-cased. The documentation
       names the YAML key today and nothing reads it; the phase makes that key real and says what the
-      other two are, so a reader of any one of them can find the others.
+      other three are, so a reader of any one of them can find the others.
   - key: |
       INERT ON KUBERNETES, AND THE FIELD SAYS WHICH BACKEND IT BOUNDS. A Kubernetes installation
       bounds sandboxes through its quota. A number in a global form that does nothing for half the
@@ -85,10 +87,10 @@ steps:
     action: "The process-wide sandbox configuration gains the nullable bound under the documented name; the probe resolves it through the loader at decision time, then the environment variable, then the built-in default."
   - id: the-form-shows-it-and-says-when-it-applies
     action: "The sandbox settings form carries the field as optional, writes null when empty, says which backend it bounds, and marks per field which sandbox settings apply to the next decision and which need a restart."
-  - id: the-value-reaches-the-operator
-    action: "A refusal for the bound names the resolved value and its source; a change of resolution is reported once."
+  - id: the-value-is-answerable
+    action: "The resolved value and its source are logged once whenever the resolution changes from the one last used."
   - id: the-docs-name-what-is-read
-    action: "The capacity, compose and Kubernetes pages and the field reference name the key that is read, its three spellings, and the environment variable as the empty-store fallback."
+    action: "The capacity, compose and Kubernetes pages and the field reference name the key that is read, its four spellings, and the environment variable as the empty-store fallback."
 
 tests:
   - "Bound_SetInTheCatalog_IsWhatTheProbeUses"
@@ -97,7 +99,7 @@ tests:
   - "Bound_NullAndNoEnvironmentVariable_IsTheBuiltInDefault"
   - "Bound_ZeroInTheCatalog_StillMeansUnbounded"
   - "Bound_ASaveThatDidNotTouchIt_LeavesTheFallbackStanding"
-  - "Bound_RefusalText_NamesTheValueAndItsSource"
+  - "Bound_ResolutionChanged_IsReportedOnceWithItsSource"
   - "Bound_ResolutionUnchanged_IsNotReportedAgain"
   - "dashboard: the sandbox form carries the bound, writes null when cleared, and names the backend it bounds"
   - "dashboard: the sandbox form says which of its settings need a restart"
@@ -105,6 +107,6 @@ tests:
 done:
   - "the bound is set where the other sandbox settings are set, under the documented name"
   - "changing it applies to the next admission decision with no restart, and clearing it restores the fallback"
-  - "an operator whose run is waiting reads the bound and where it came from in the refusal"
+  - "a bound that did not take effect is answerable from one log line naming its source"
   - "nobody is misled about which sandbox settings apply immediately"
   - "build green, full suite green, dashboard tests green, file-length ratchet green"
