@@ -1,94 +1,110 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-09-18-0f27
 
-goal: "The concurrent-sandbox bound is set where every other sandbox setting is set, under the name the documentation already uses, and a change to it applies without a restart."
+goal: "The concurrent-sandbox bound is set where the other sandbox settings are set, under the name the documentation uses, and a change to it applies to the next admission decision."
 
-applies_to: "backend (the global sandbox configuration and the capacity probe) + dashboard (the sandbox settings form) + docs"
+applies_to: "backend (the global sandbox configuration and the Docker capacity probe) + dashboard (the sandbox settings form) + docs"
 
 scope:
   in: >
-    The bound becomes a field of the process-wide sandbox configuration, read through the
-    configuration loader at the moment a capacity decision is made, so a change applies to the next
-    admission rather than to the next restart. The environment variable stays as the fallback for an
-    installation whose store carries no value — the empty-store boot that is already a supported
-    state — and the built-in default stays beneath it. The resolved value and where it came from are
-    reported when a decision uses them, so "I set it and nothing happened" is answerable. The sandbox
-    settings form and the configuration schema gain the field, because a setting the operator cannot
-    see is not configured, and the field says plainly that it bounds the Docker backend.
+    The bound becomes a NULLABLE field of the process-wide sandbox configuration, read by the probe
+    through the configuration loader at the moment it decides. Null means nobody configured it, which
+    is what lets the environment variable remain the fallback for an installation whose store is
+    empty; zero keeps meaning unbounded, which it already means to the probe. The settings form
+    carries the field and says which sandbox settings apply to the next decision and which need a
+    restart, because after this phase they differ and a form that does not say so is a new way to be
+    misled. The resolved value and where it came from reach the operator where the question is
+    actually asked — in the refusal text of a run that is waiting — and once more whenever the
+    resolution changes. The documentation names the key that is read, in all three spellings it has.
   out: >
-    WHAT THE BOUND MEANS WHEN IT IS EXCEEDED. 2026-09-18-3ba9.
-    A SWEEP OF EVERY OTHER ENVIRONMENT VARIABLE. One knob was measured to bite; a sweep needs a rule
-    before it needs edits, and is named in prose as the phase that decides which settings may live
-    outside the catalog at all.
-    THE DASHBOARD'S OWN BUILD-TIME PROXY TARGET. Its comment claims the standalone build does not
-    snapshot a default and the route manifest shows it does, while the Kubernetes manifest sets it at
-    runtime where it has no effect. Same class, different subsystem, named in prose as the phase that
-    makes the dashboard's backend target a runtime setting or says it is not one.
-    PER-PROJECT BOUNDS. See decisions.
+    MAKING THE WHOLE SANDBOX BLOCK APPLY WITHOUT A RESTART. Six consumers read the frozen options
+    instance; moving them is a phase of its own, named in prose as the phase that makes every sandbox
+    setting apply to the next run rather than the next restart.
+    WHAT THE BOUND MEANS WHEN IT IS EXCEEDED. 2026-09-18-3ba9, which this phase must land before.
+    A SWEEP OF EVERY OTHER ENVIRONMENT VARIABLE. Named in prose as the phase that decides which
+    settings may live outside the catalog at all.
+    THE DASHBOARD'S OWN BUILD-TIME PROXY TARGET. Same class, different subsystem; named in prose as
+    the phase that makes the dashboard's backend target a runtime setting or says it is not one.
 
 decisions:
   - key: |
-      THE BOUND IS NOWHERE THE OPERATOR LOOKS, MEASURED. It is read from an environment variable at
-      composition and falls back to a built-in default of two. The per-project sandbox configuration
-      carries toolchain image, resources, registry, version, two timeouts, images and secrets — and no
-      concurrency field. The documentation names it as a configuration key in three places and nothing
-      reads that key. An operator following the documentation cannot set it at all, because the
-      documentation never says where.
+      NULLABLE, OR THE FALLBACK IS UNREACHABLE AND ZERO CHANGES MEANING. The typed model is assembled
+      whether or not a sandbox document was ever stored, so a plain integer defaulting to two reads
+      the same for "never configured" and "deliberately two" — the environment variable could never be
+      reached and its test could not pass. Using zero as the absent marker is worse: zero already
+      means unbounded to the probe and is pinned by a test, so an operator disabling the bound would
+      silently get two. Null is the shape the per-project block already uses for every one of its
+      fields, and the global block already uses for the one setting with the same unset-is-not-default
+      problem.
   - key: |
-      IT IS GLOBAL, NOT PER PROJECT. The probe counts every sandbox running on the host and the
-      footprint it compares against carries no project identity, so a per-project bound would have no
-      answer when two projects disagree. It belongs with the other process-wide sandbox defaults,
-      beside the one already marked "global and never per-project".
+      THE FIRST SAVE MUST NOT EAT THE VARIABLE. A settings save persists the whole normalised
+      document, so an operator changing an unrelated timeout would otherwise write the bound into the
+      catalog at a value nobody chose and kill the environment variable on that installation with no
+      message. The field is optional on the form and an empty field writes null back, so a save that
+      did not touch it leaves the fallback standing.
   - key: |
-      READ AT THE DECISION, NOT AT COMPOSITION. The options object is built eagerly and registered as
-      a singleton, so a value read there is fixed for the process — and configuration in this system
-      reloads live on an epoch, which is what makes a settings change apply at all. The probe is
-      registered through a lazy factory, so the loader is fully available at the moment it decides.
-      Reading there is what makes the done criterion true rather than nominally satisfied.
+      THE LOADER IS LIVE BY CONSTRUCTION; THE EPOCH IS NOT PART OF THIS. The configuration loader
+      re-reads the document store on every call, so a probe holding the loader sees a new value on its
+      next decision with no watcher and no invalidation. What is frozen is the options instance built
+      eagerly at composition — that, and not the loader, is why the value cannot be changed today.
+      Building an epoch subscription here would be work nothing needs.
   - key: |
-      THE ENVIRONMENT VARIABLE IS A FALLBACK, AND ITS REASON IS NAMED. An empty store boots the server
-      unconfigured by design. That, and not unreachability, is why the variable stays: it is how an
-      installation with nothing in its catalog still has a bound. Catalog first, environment second,
-      built-in default last.
+      IT IS GLOBAL, AND THE PROBE COUNTS A HOST. The probe counts every sandbox running on the
+      daemon and the footprint it compares carries no project identity, so a per-project bound has no
+      answer when two projects disagree. It belongs with the process-wide defaults, beside the one
+      already marked global and never per-project.
   - key: |
-      REPORTED WHERE IT IS USED, NOT AT STARTUP. A line at startup would be I/O before the listener
-      binds, which a planned phase forbids, and it would state a number that the next epoch can change
-      three seconds later. The value and its source are reported with the decision that used them.
+      ONE FIELD LIVE AND THE REST NOT IS A SPLIT, SO THE FORM SAYS SO. Every other sandbox setting is
+      read from an instance built once at composition. Making one field live without saying which is
+      which replaces "nothing applies until a restart" — uniform, learnable — with a rule that differs
+      per row of one form. The form states it per field. Making them all live is the named successor.
   - key: |
-      THE FORM IS PART OF THE FIX, NOT A FOLLOW-UP. The sandbox settings form renders a fixed set of
-      fields and three settings that already exist on the global configuration are invisible in it.
-      Adding a field to a model and stopping would leave the bound exactly as unfindable as it is
-      today, with a green build to say otherwise.
+      THE VALUE REACHES THE OPERATOR WHERE THEY ASK. A line per decision would be four a minute once
+      the pump consults the probe, restating a number that changes twice a year. The resolution and
+      its source go into the refusal text of a waiting run — which is the surface an operator already
+      reads when a run is not starting — and one line when the resolution changes from the one last
+      used.
   - key: |
-      IT IS INERT ON KUBERNETES, AND THE FIELD SAYS SO. The bound is the Docker backend's; a
-      Kubernetes installation bounds sandboxes through its quota. A field in a global form that does
-      nothing for half the installations is a new way to be misled unless it says which backend it is
-      for.
+      THREE SPELLINGS, ALL NAMED. The YAML key is underscored by the loader's convention, the property
+      is Pascal-cased, and the stored document and the dashboard use camel case. The documentation
+      names the YAML key today and nothing reads it; the phase makes that key real and says what the
+      other two are, so a reader of any one of them can find the others.
   - key: |
-      ROOM. The sandbox registrations, the ticket filers and the renderer are each within a few lines
-      of the limit or baselined at it; the read moves out of the registrations into the probe's own
-      resolution rather than growing the file it leaves.
+      INERT ON KUBERNETES, AND THE FIELD SAYS WHICH BACKEND IT BOUNDS. A Kubernetes installation
+      bounds sandboxes through its quota. A number in a global form that does nothing for half the
+      installations is a new way to be misled unless it says so; naming the backend is the floor, and
+      telling this installation which backend it runs needs plumbing this phase does not scope.
+  - key: |
+      ROOM. The registrations file is three lines under the hard limit and the global configuration
+      has twenty-one, and a doc comment in that file's register runs long. So the read leaves the
+      registrations entirely: the probe resolves the bound itself, which is also what makes it live.
+      Five existing probe tests construct the options directly and change with it.
 
 steps:
   - id: the-bound-joins-the-global-config
-    action: "The process-wide sandbox configuration gains the bound under the documented name; the probe resolves it through the loader at decision time, then the environment variable, then the default, reporting the value and its source with the decision."
-  - id: the-form-shows-it
-    action: "The sandbox settings form and the configuration schema carry the field, saying which backend it bounds."
+    action: "The process-wide sandbox configuration gains the nullable bound under the documented name; the probe resolves it through the loader at decision time, then the environment variable, then the built-in default."
+  - id: the-form-shows-it-and-says-when-it-applies
+    action: "The sandbox settings form carries the field as optional, writes null when empty, says which backend it bounds, and marks per field which sandbox settings apply to the next decision and which need a restart."
+  - id: the-value-reaches-the-operator
+    action: "A refusal for the bound names the resolved value and its source; a change of resolution is reported once."
   - id: the-docs-name-what-is-read
-    action: "The capacity, compose and Kubernetes pages name the key that is read and describe the environment variable as the unconfigured-boot fallback."
+    action: "The capacity, compose and Kubernetes pages and the field reference name the key that is read, its three spellings, and the environment variable as the empty-store fallback."
 
 tests:
   - "Bound_SetInTheCatalog_IsWhatTheProbeUses"
   - "Bound_ChangedInTheCatalog_AppliesToTheNextDecisionWithoutARestart"
-  - "Bound_AbsentFromTheCatalog_FallsBackToTheEnvironmentVariable"
-  - "Bound_AbsentFromBoth_IsTheBuiltInDefault"
-  - "Bound_UsedInADecision_IsReportedWithItsSource"
-  - "Bound_IsGlobal_AndNotReadFromAProjectsSandboxOverrides"
-  - "dashboard: the sandbox settings form carries the bound and says which backend it bounds"
-  - "Schema_TheSandboxBlock_DeclaresTheBound"
+  - "Bound_NullInTheCatalog_FallsBackToTheEnvironmentVariable"
+  - "Bound_NullAndNoEnvironmentVariable_IsTheBuiltInDefault"
+  - "Bound_ZeroInTheCatalog_StillMeansUnbounded"
+  - "Bound_ASaveThatDidNotTouchIt_LeavesTheFallbackStanding"
+  - "Bound_RefusalText_NamesTheValueAndItsSource"
+  - "Bound_ResolutionUnchanged_IsNotReportedAgain"
+  - "dashboard: the sandbox form carries the bound, writes null when cleared, and names the backend it bounds"
+  - "dashboard: the sandbox form says which of its settings need a restart"
 
 done:
   - "the bound is set where the other sandbox settings are set, under the documented name"
-  - "changing it applies to the next admission decision, with no restart"
-  - "an operator can see and change it without editing a compose file"
+  - "changing it applies to the next admission decision with no restart, and clearing it restores the fallback"
+  - "an operator whose run is waiting reads the bound and where it came from in the refusal"
+  - "nobody is misled about which sandbox settings apply immediately"
   - "build green, full suite green, dashboard tests green, file-length ratchet green"
