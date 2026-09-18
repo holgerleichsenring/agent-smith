@@ -26,6 +26,9 @@ import { DialogFiledRuns } from "./DialogFiledRuns";
 // per run, a row per PHASE with its pull requests and what the review still finds. The filing
 // push arrives first and alone; the work is a read of its own and appears beneath it.
 
+// 2026-09-17-042ef: the head, the key and the tracker link are the studio's entity name, field
+// value and this page's own link.
+
 export function DialogFiledPanel({
   filed,
   work,
@@ -38,10 +41,10 @@ export function DialogFiledPanel({
   const notes = filed.notes ?? [];
   return (
     <div data-testid="dialog-filed">
-      <h2 className="dsh-h3 mb-1 font-semibold text-ink">
-        {filed.error === null ? "Filed" : "Filing failed"}
-      </h2>
-      <p className="mb-2 dsh-label text-body">
+      {/* 2026-09-17-042ef: the heading said "Filed" directly under a tab reading Filed and an
+          eyebrow reading filed. The tab names the pane; this line, which the heading never
+          said, is what is left. */}
+      <p className={filed.error === null ? "ec-sub mb-2" : "dsh-body mb-2 font-semibold text-ink"}>
         {filed.error === null
           ? "These tickets now exist."
           : partial
@@ -118,7 +121,7 @@ function Named({ ticket }: { ticket: SpecDialogFiledTicket }) {
   const name = ticket.key ?? ticket.reference;
   const body = (
     <>
-      <span className="font-mono dsh-label font-semibold">{name}</span>
+      <span className="fv">{name}</span>
       <span className="ml-2 dsh-body">{ticket.title}</span>
     </>
   );
@@ -128,7 +131,7 @@ function Named({ ticket }: { ticket: SpecDialogFiledTicket }) {
       href={ticket.reference}
       target="_blank"
       rel="noreferrer"
-      className="text-primary-deep underline hover:text-primary-pressed"
+      className="d-link"
     >
       {body}
     </a>

@@ -31,6 +31,11 @@ import type {
 // agent entry that leaves empty — so the honest advice is to reject and ask again. With a
 // proposal this build cannot count, the findings below still come from it and the operator
 // can read it in the pane; only the one-line count is missing.
+//
+// 2026-09-17-042ef: the card is the Projects page's panel card, and the accent line around it
+// is this page's own modifier — it says the conversation is waiting on a person, which is a
+// state the studio's cards never have. An expired card keeps the plain card line, because
+// nothing is waiting any more. The two controls are the studio's buttons.
 
 // The server pushes nothing when a wait expires — the confirmer simply stops waiting and
 // clears its pending entry. So the deadline is what the card has, and a click past it is
@@ -67,13 +72,9 @@ export function DialogQuestionCard({
     <div
       data-testid="dialog-question"
       data-kind={question.kind}
-      className={
-        expired
-          ? "rounded-md border border-mute bg-canvas-soft px-3 py-2.5 text-body"
-          : "rounded-md border border-primary-deep bg-canvas-soft px-3 py-2.5"
-      }
+      className={expired ? "ecard inert d-body text-body" : "ecard inert waiting d-body"}
     >
-      <div className={expired ? "mb-1 eyebrow-uppercase text-body" : "mb-1 eyebrow-uppercase text-primary-deep"}>
+      <div className={expired ? "fl mb-1" : "fl on mb-1"}>
         {expired ? "no longer waiting — nothing was filed" : "waiting on you"}
       </div>
       {summary && (
@@ -97,11 +98,7 @@ export function DialogQuestionCard({
             type="button"
             data-testid={`dialog-answer-${control.answer}`}
             onClick={() => onAnswer(control.answer, control.decision)}
-            className={
-              control.primary
-                ? "rounded-md bg-primary-deep px-3 py-1.5 dsh-body font-semibold text-on-primary hover:bg-primary-pressed"
-                : "rounded-md border border-mute bg-canvas px-3 py-1.5 dsh-body font-semibold text-ink hover:bg-canvas-soft"
-            }
+            className={control.primary ? "btn primary" : "btn"}
           >
             {control.label}
           </button>
@@ -110,7 +107,7 @@ export function DialogQuestionCard({
             confirmer has stopped waiting and the timeout cleared the stored proposal, so the
             next message buys a whole design turn instead. That was survivable while the server
             text was still on the card; with the text now empty it was the only sentence left. */}
-        <span className="min-w-44 flex-1 dsh-label text-body">
+        <span className="ec-sub min-w-44 flex-1">
           {expired
             ? "The wait is over — anything you write below starts a new turn."
             : decision

@@ -130,11 +130,11 @@
 /* =========================================================================
    RUNS HOME — runs-list.html
    ========================================================================= */
-.mock-runs .main { padding: 24px 34px 60px; max-width: 1500px; }
-@media (max-width: 640px) { .mock-runs .main { padding: 18px 16px 40px; } }
-.mock-runs .m-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-.mock-runs .m-head h1 { font-size: 23px; margin: 0; font-weight: 680; letter-spacing: -0.02em; }
-.mock-runs .m-head .msub { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+.mock-runs .main, .mock-dialog .main { padding: 24px 34px 60px; max-width: 1500px; }
+@media (max-width: 640px) { .mock-runs .main, .mock-dialog .main { padding: 18px 16px 40px; } }
+.mock-runs .m-head, .mock-dialog .m-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.mock-runs .m-head h1, .mock-dialog .m-head h1 { font-size: 23px; margin: 0; font-weight: 680; letter-spacing: -0.02em; }
+.mock-runs .m-head .msub, .mock-dialog .m-head .msub { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
 .mock-runs .inflow { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 6px 13px; }
 .mock-runs .inflow .id { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: mock-pulse 2.4s infinite; color: var(--ok); }
 .mock-runs .inflow b { color: var(--ink-2); font-weight: 600; }
@@ -496,11 +496,11 @@
 .mock-config .m-head .mt { flex: 1; }
 .mock-config .m-head h1 { font-size: 23px; margin: 0; font-weight: 680; letter-spacing: -0.02em; }
 .mock-config .m-head .msub { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
-.mock-config .btn { font: inherit; font-size: 13px; font-weight: 600; border-radius: 10px; padding: 9px 15px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--shadow); }
-.mock-config .btn:hover { border-color: var(--ink-3); }
-.mock-config .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.mock-config .btn.primary:hover { filter: brightness(1.05); }
-.mock-config .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mock-config .btn, .mock-dialog .btn { font: inherit; font-size: 13px; font-weight: 600; border-radius: 10px; padding: 9px 15px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--shadow); }
+.mock-config .btn:hover, .mock-dialog .btn:hover { border-color: var(--ink-3); }
+.mock-config .btn.primary, .mock-dialog .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.mock-config .btn.primary:hover, .mock-dialog .btn.primary:hover { filter: brightness(1.05); }
+.mock-config .btn:disabled, .mock-dialog .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .mock-config .yaml-note { display: flex; align-items: center; gap: 10px; margin: 16px 0 20px; padding: 11px 14px; border: 1px dashed var(--line); border-radius: 10px; font-size: 12.5px; color: var(--ink-3); background: var(--panel); }
 .mock-config .yaml-note b { color: var(--ink-2); font-weight: 600; }
@@ -509,10 +509,10 @@
 .mock-config .list { display: flex; flex-direction: column; gap: 12px; }
 
 /* entity card */
-.mock-config .ecard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.14s; }
+.mock-config .ecard, .mock-dialog .ecard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.14s; }
 /* 2026-09-16-5451: a project card's root is inert — 2026-09-16-d7c3 moved its click onto
    the row — so the surface between the controls stops offering a pointer it ignores. */
-.mock-config .ecard.inert { cursor: default; }
+.mock-config .ecard.inert, .mock-dialog .ecard.inert { cursor: default; }
 .mock-config .ecard:hover { border-color: var(--ink-3); }
 /* 2026-09-16-942a: the card clips its box, which would cut the wiring drawing off. The
    clipping is lifted only while the card is expanded. */
@@ -522,15 +522,15 @@
 .mock-config .pgraph-cap { margin-top: 9px; font-size: 11.5px; color: var(--ink-3); }
 .mock-config .ecard .ec-top { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .mock-config .ecard .ec-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; font-size: 15px; flex: none; }
-.mock-config .ecard .ec-name { font-size: 14.5px; font-weight: 640; letter-spacing: -0.01em; font-family: var(--mono); }
-.mock-config .ecard .ec-name.sans { font-family: var(--sans); font-size: 13.5px; }
-.mock-config .ecard .ec-sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+.mock-config .ecard .ec-name, .mock-dialog .ec-name { font-size: 14.5px; font-weight: 640; letter-spacing: -0.01em; font-family: var(--mono); }
+.mock-config .ecard .ec-name.sans, .mock-dialog .ec-name.sans { font-family: var(--sans); font-size: 13.5px; }
+.mock-config .ecard .ec-sub, .mock-dialog .ec-sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
 /* 2026-09-16-bedc: the project card's summary is a row of MARKS, not a sentence. Its own
    class, because .ec-sub above is shared by all seven kinds and a secret's summary is prose. */
-.mock-config .ecard .ec-marks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.mock-config .ec-mark { font-size: 11px; font-family: var(--mono, ui-monospace, monospace); padding: 3px 7px; border-radius: 4px; background: var(--panel-2); color: var(--ink-2); white-space: nowrap; }
-.mock-config .ec-mark.warn { color: var(--warn, #a8571c); background: color-mix(in srgb, var(--warn, #a8571c) 12%, transparent); }
-.mock-config .ec-mark.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.mock-config .ecard .ec-marks, .mock-dialog .ec-marks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.mock-config .ec-mark, .mock-dialog .ec-mark { font-size: 11px; font-family: var(--mono, ui-monospace, monospace); padding: 3px 7px; border-radius: 4px; background: var(--panel-2); color: var(--ink-2); white-space: nowrap; }
+.mock-config .ec-mark.warn, .mock-dialog .ec-mark.warn { color: var(--warn, #a8571c); background: color-mix(in srgb, var(--warn, #a8571c) 12%, transparent); }
+.mock-config .ec-mark.bad, .mock-dialog .ec-mark.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
 /* 2026-09-16-bedc: the controls never shrink and never wrap. The summary became a row of
    marks, whose min-content width is the widest mark — so the middle block claimed the space
    and the buttons on the right broke across three lines. The middle block yields instead. */
@@ -551,9 +551,9 @@
 /* form-like field blocks inside cards */
 .mock-config .fields { display: flex; flex-wrap: wrap; border-top: 1px solid var(--line-2); }
 .mock-config .fields .f { padding: 9px 16px; border-right: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mock-config .fields .fl { font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
-.mock-config .fields .fv { font-size: 12.5px; font-weight: 560; font-family: var(--mono); }
-.mock-config .fields .fv.link { color: var(--accent); }
+.mock-config .fields .fl, .mock-dialog .fl { font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.mock-config .fields .fv, .mock-dialog .fv { font-size: 12.5px; font-weight: 560; font-family: var(--mono); }
+.mock-config .fields .fv.link, .mock-dialog .fv.link { color: var(--accent); }
 
 /* wiring row (relational) */
 .mock-config .wchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line-2); font-family: var(--mono); font-size: 11.5px; }
@@ -572,9 +572,9 @@
    MODIFIER. A secret is one field and stays at 520. */
 .mock-config .drawer.wide-project { width: min(560px, 96vw); }
 .mock-config .dtabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-.mock-config .dtab { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-.mock-config .dtab:hover { color: var(--ink-2); }
-.mock-config .dtab.on { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
+.mock-config .dtab, .mock-dialog .dtab { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--ink-3); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.mock-config .dtab:hover, .mock-dialog .dtab:hover { color: var(--ink-2); }
+.mock-config .dtab.on, .mock-dialog .dtab[aria-selected="true"] { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
 .mock-config .dtab[data-marked="true"] { color: var(--run); }
 .mock-config .dtab .dtab-mark { font-size: 9.5px; }
 @media (prefers-reduced-motion: reduce) { .mock-config .drawer, .mock-config .dbg { transition: none; } }
@@ -587,8 +587,8 @@
 .mock-config .field > label { font-size: 12px; font-weight: 600; color: var(--ink-2); display: flex; align-items: center; gap: 7px; }
 .mock-config .field .req { color: var(--bad); font-size: 11px; }
 .mock-config .field .help { font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
-.mock-config .field input, .mock-config .field select { font: inherit; font-size: 13.5px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--ink); width: 100%; }
-.mock-config .field input:focus, .mock-config .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.mock-config .field input, .mock-config .field select, .mock-dialog .d-input { font: inherit; font-size: 13.5px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--ink); width: 100%; }
+.mock-config .field input:focus, .mock-config .field select:focus, .mock-dialog .d-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
 .mock-config .field input.mono { font-family: var(--mono); }
 .mock-config .picks { display: flex; flex-wrap: wrap; gap: 7px; }
 .mock-config .pick { font: inherit; font-size: 12.5px; font-family: var(--mono); padding: 7px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
@@ -1013,3 +1013,88 @@
   .mock-overview .ov-cards { grid-template-columns: 1fr; }
   .mock-overview .ov-panels { grid-template-columns: 1fr; }
 }
+
+/* ===== Work it out surface (2026-09-17-042ef) ============================== */
+/* No mock exists for this page. It is assembled from the ratified vocabulary
+   rather than given a second copy of it: the shell takes runs-list.html's
+   .main and .m-head, and every surface on it is config-studio.html's panel
+   card, filled mark, field label, entity name, tab and button — each joined to
+   the rule above rather than restated here, so the Projects page and this page
+   cannot drift apart. Deliberately NOT joined: .mock-config .main (its 1000px
+   cap is narrower than the width the third column appears at), the .ecard
+   hover border (nothing on this page is clickable as a whole card) and the
+   .mock-runs section rules (their 26px inter-section margin would drop the
+   middle column below its neighbours).
+   Only this page's OWN structure is declared below. */
+.mock-dialog {
+  /* The accent at text contrast — the one token the shell does not carry.
+     Aliased to the theme's own value rather than re-typed, so the two can
+     never disagree. (.mock-access declares its own; that is a mockup port.) */
+  --primary-deep: var(--color-primary-deep);
+}
+
+/* a card's head bar and body. The studio's card head (.ec-top) carries no
+   divider because a fields block draws the line under it; the bodies here are
+   prose, so the line belongs to the head. */
+.mock-dialog .d-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 3px 12px; padding: 10px 14px; border-bottom: 1px solid var(--line-2); }
+.mock-dialog .d-head .d-head-t { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.mock-dialog .d-body { padding: 14px 16px; }
+.mock-dialog .d-foot { padding: 12px 14px; border-top: 1px solid var(--line-2); }
+
+/* a block nested INSIDE a card sits one step deeper than the card's own fill,
+   which is what --panel-2 is for; the card is already --panel. */
+.mock-dialog .d-block { background: var(--panel-2); border-radius: var(--r-s); padding: 8px 10px; }
+
+/* who said it. The studio's .ec-ic is 34px and leads a card; this leads a line. */
+.mock-dialog .d-who { width: 24px; height: 24px; border-radius: var(--r-s); display: grid; place-items: center; font-family: var(--mono); font-size: 10px; font-weight: 600; background: var(--panel-2); color: var(--ink-2); flex: none; }
+.mock-dialog .d-who.agent { background: var(--accent-wash); color: var(--primary-deep); }
+
+/* an inline link, and a button that reads as one. Found by looking at the rendered page: these
+   were underlined and the reference underlines NOTHING — a config entity's link is colour alone
+   (.fv.link at :556) — so a pane of three links read busier than the page it sits beside. The
+   rule moves to hover AND to focus-visible, which is the cue a keyboard gets and a hover never
+   reaches.
+   THE FONT IS NOT TOUCHED HERE. `font: inherit` is a shorthand — it resets family, size, weight
+   and line-height — and this file is unlayered, so on `.d-link .fv` and on `.d-link font-mono
+   dsh-label` it silently won every one of them and the link rendered 14px proportional sans in
+   a column of 12.5px mono. A UA reset belongs on the element that needs one, and that element
+   is a button, which is what the third selector names. */
+.mock-dialog .d-link { border: 0; background: none; padding: 0; color: var(--primary-deep); text-decoration: none; text-underline-offset: 2px; cursor: pointer; }
+.mock-dialog .d-link:hover, .mock-dialog .d-link:focus-visible { color: var(--accent); text-decoration: underline; }
+.mock-dialog button.d-link { font: inherit; }
+
+/* one conversation in the list */
+.mock-dialog button.d-conv { display: block; width: 100%; font: inherit; text-align: left; background: none; border: 0; border-left: 2px solid transparent; padding: 6px 8px; border-radius: var(--r-s); cursor: pointer; }
+.mock-dialog .d-conv:hover { background: var(--panel-2); }
+.mock-dialog .d-conv[aria-current="true"] { background: var(--panel-2); border-left-color: var(--accent); }
+
+/* the card the conversation is waiting on. The accent line says "you are the
+   one holding this up"; an expired card keeps the plain card line. */
+.mock-dialog .ecard.waiting { border-color: var(--accent); }
+
+/* an outcome the accent claims, beside the neutral marks of the same row */
+.mock-dialog .ec-mark.filed { color: var(--primary-deep); background: var(--accent-wash); }
+/* a mark that names a thing and then says where it comes from: the name is
+   read as a word, the source as an address. */
+.mock-dialog .ec-mark .mn { font-family: var(--sans); font-weight: 600; color: var(--ink); margin-right: 5px; }
+
+/* the field label of the thing that is waiting on a person, rather than merely
+   naming a field. The studio has no such state; its labels never call. */
+.mock-dialog .fl.on { color: var(--primary-deep); }
+/* and the one that failed. Dropping the panel's heading was right for a filing that worked and
+   wrong for one that did not: it left "filing failed" as 9.5px of --ink-3, the lightest ink on
+   the page, at 2.92:1. The label keeps its size and takes the colour the studio gives a broken
+   thing, which clears AA on the panel fill. */
+.mock-dialog .fl.bad { color: var(--bad); }
+
+/* one review finding per row. They arrived as an unbroken block of two addresses, two
+   sentences and a trailing revert note; this is the densest text on the page and was the
+   hardest to read on it. The rule between rows is what makes two findings two. */
+.mock-dialog .d-finding { padding: 5px 0; border-top: 1px solid var(--line); }
+.mock-dialog .d-finding:first-child { border-top: 0; padding-top: 0; }
+
+/* a strip across the foot of a card, under its own divider */
+.mock-dialog .d-strip { border-top: 1px solid var(--line-2); background: var(--panel-2); padding: 8px 12px; }
+
+/* the text the operator writes: the studio's control, sized for several lines */
+.mock-dialog textarea.d-input { resize: vertical; min-height: 66px; }

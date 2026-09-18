@@ -16,6 +16,7 @@ import { DialogMessage } from "./DialogTranscript";
 // model call that returned, the review of its own proposal and each re-prompt. Newest last,
 // so the eye stays at the bottom where the next line arrives; the older ones fold away,
 // because the step the turn is on now is the one being waited for.
+// 2026-09-17-042ef: the disclosure over the folded steps is the studio's field label.
 
 const READING_WORDS: Record<SpecDialogReadingState, string> = {
   opening: "opening",
@@ -95,7 +96,7 @@ export function DialogWorking({
         )}
         {folded.length > 0 && (
           <details data-testid="dialog-activity-folded">
-            <summary className="cursor-pointer dsh-label eyebrow-uppercase text-mute">
+            <summary className="fl cursor-pointer">
               {folded.length} earlier {folded.length === 1 ? "step" : "steps"}
             </summary>
             <ActivityLines steps={folded} testId="dialog-activity-earlier" />

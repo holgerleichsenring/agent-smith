@@ -18,6 +18,9 @@ import { DialogScopePanel } from "./DialogScopePanel";
 // 2026-09-17-c7aed: the three are tabs, and a tab is offered only when it has something to
 // show. The current one still follows the conversation: a new proposal or filing moves the
 // pane to it, and a card in the exchange moves it to the proposal that card belongs to.
+// 2026-09-17-042ef: the pane is the Projects page's panel card and its tabs are the studio's
+// own drawer tabs — the selected state is read off aria-selected, which the tablist already
+// carries, so nothing on this page has to maintain a second flag for it.
 
 export type DialogPaneTab = "proposal" | "scope" | "filed";
 
@@ -62,10 +65,10 @@ export function DialogPane({
     <aside
       data-testid="dialog-pane"
       data-tab={tab}
-      className="rounded-md border border-mute bg-canvas"
+      className="ecard inert"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-mute px-3 py-2">
-        <div role="tablist" className="flex gap-0.5">
+      <div className="d-head items-center">
+        <div role="tablist" className="flex flex-wrap gap-1">
           {offered.map((offer) => (
             <button
               key={offer}
@@ -76,19 +79,24 @@ export function DialogPane({
               aria-selected={offer === tab}
               aria-controls={offer === tab ? panelId : undefined}
               onClick={() => onFocus({ tab: offer })}
-              className="rounded-sm px-2 py-0.5 dsh-label font-semibold text-body aria-selected:bg-canvas-soft aria-selected:text-primary-deep"
+              className="dtab"
             >
               {TAB_LABEL[offer]}
             </button>
           ))}
         </div>
-        <span className="eyebrow-uppercase text-body">{statusOf(tab, shownProposal, proposal, filed)}</span>
+        {/* 2026-09-17-042ef: "Filed" stood three times in one corner — the selected tab, this
+            eyebrow and the panel's own heading. The tab is the name, so this says only what the
+            name cannot: a state, and nothing at all when there is no state to say. */}
+        <span className={tab === "filed" && filed?.error ? "fl bad" : "fl"}>
+          {statusOf(tab, shownProposal, proposal, filed)}
+        </span>
       </div>
       <div
         role="tabpanel"
         id={panelId}
         aria-labelledby={offered.includes(tab) ? tabId(tab) : undefined}
-        className="p-3"
+        className="d-body"
       >
         {tab === "filed" && filed && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "proposal" && shownProposal && <DialogProposalPanel proposal={shownProposal} />}
@@ -110,8 +118,11 @@ function statusOf(
   latest: SpecDialogProposalPush | null,
   filed: SpecDialogFilingPush | null,
 ): string {
-  if (tab === "filed") return filed?.error ? "filing failed" : "filed";
-  if (tab === "scope") return "what it may read";
+  if (tab === "filed") return filed?.error ? "filing failed" : "";
+  // The scope pane has no state to report — it is a list of what a conversation may read, and
+  // the panel says that in a sentence of its own. An eyebrow repeating it was the same noise
+  // the heading was, one tab over.
+  if (tab === "scope") return "";
   if (shown !== latest) return "superseded";
   return filed ? "filed" : "not filed yet";
 }
