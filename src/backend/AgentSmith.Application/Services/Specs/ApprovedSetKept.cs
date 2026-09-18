@@ -42,11 +42,19 @@ public static class ApprovedSetKept
     /// <summary>Where a change to an approved set is actually made TODAY. Not the design
     /// conversation: nothing re-opens an approved record from one yet, and a wording that sent an
     /// operator there would be the promise this phase deleted, pointing somewhere else.</summary>
-    public const string WhereToChangeIt =
-        "The specs are on the ticket branch under `.agentsmith/specs/` and open in the pull "
-        + "request this run linked. Edit a phase that has NOT started there and the next run works "
-        + "your edit; a phase that already ran is never edited, so a correction to one becomes a "
-        + "new phase.";
+    public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run "
+        + "linked. " + TheEditRule;
+
+    /// <summary>2026-09-17-0e79c: the same place, for a run that has NOT opened a pull request
+    /// yet. A hand-back on the FIRST phase of a set happens before any delivery, so naming a
+    /// pull request there would send an operator to something that does not exist.</summary>
+    public const string WhereToChangeItWithNoPullRequest = OnTheBranch + ". " + TheEditRule;
+
+    private const string OnTheBranch = "The specs are on the ticket branch under `.agentsmith/specs/`";
+
+    private const string TheEditRule =
+        "Edit a phase that has NOT started there and the next run works your edit; a phase that "
+        + "already ran is never edited, so a correction to one becomes a new phase.";
 
     // The input this run saw and kept, or null when nothing arrived that would have re-cut a set
     // nobody approved. Not public: the three questions callers actually ask are below.

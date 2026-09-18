@@ -35,6 +35,7 @@ public static class ContextBuildersExtensions
         AddBuilder<SpecHandbackContextBuilder>(services, CommandNames.SpecHandback); // p0393a
         AddBuilder<PhaseSequenceContextBuilder>(services, CommandNames.PhaseSequence); // p0393a
         AddBuilder<SelectPhaseContextBuilder>(services, CommandNames.SelectPhase); // p0393a
+        AddBuilder<CheckPhasePremisesContextBuilder>(services, CommandNames.CheckPhasePremises); // 0e79c
         AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);

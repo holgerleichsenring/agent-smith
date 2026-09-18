@@ -60,6 +60,20 @@ public sealed class SelectPhaseContextBuilder : IContextBuilder
 }
 
 /// <summary>
+/// 2026-09-17-0e79c: the premise check reads the CURRENT phase off the pipeline, so all it
+/// needs from the project is the agent that asks and the tracker the hand-back tells.
+/// </summary>
+public sealed class CheckPhasePremisesContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(
+        PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        return new CheckPhasePremisesContext(project.Agent, project.Tracker, pipeline);
+    }
+}
+
+/// <summary>
 /// 2026-09-17-042eh: the phase review needs the agent config its call is made under; the
 /// phase, its start heads, its diff and its principles are all already in the bag.
 /// </summary>

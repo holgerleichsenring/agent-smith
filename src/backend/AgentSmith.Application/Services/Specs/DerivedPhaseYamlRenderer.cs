@@ -41,12 +41,9 @@ public sealed class DerivedPhaseYamlRenderer
         {
             new Dictionary<string, object?>
             {
-                // The companion is named IN the spec: a phase whose constraints live in
-                // a file nobody is told to open is a phase that drops them.
-                ["key"] =
-                    $"Derived from ticket {ticketId} by agent-smith. The verbatim naming rules, "
-                    + $"forbidden APIs and code templates this phase must honour are carried "
-                    + $"byte-identical in {markdownFileName} — read it, never a summary of it.",
+                // 2026-09-17-0e79c: written by ONE producer, so the premise check can exclude
+                // the one decision the phase did not state.
+                ["key"] = DerivedPhaseDecision.For(ticketId, markdownFileName),
             },
         };
         if (steps.Count > 0)

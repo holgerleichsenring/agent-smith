@@ -17,6 +17,9 @@ public static class SpecDerivationRegistrations
     public static IServiceCollection AddSpecDerivation(this IServiceCollection services)
     {
     services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the cut is reviewed before it is built
+        // 2026-09-17-0e79c: and each phase's stated premises are checked before it is worked
+        services.AddTransient<IPhasePremiseChecker, PhasePremiseChecker>();
+        services.AddTransient<PremiseHandbackNotice>();
         services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
     services.AddTransient<ISpecSetReader, SpecSetReader>();
     services.AddTransient<ISpecSetWriter, SpecSetWriter>();

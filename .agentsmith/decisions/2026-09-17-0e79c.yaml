@@ -1,0 +1,358 @@
+phase: 2026-09-17-0e79c
+decisions:
+  - id: the-pin-move-waits-on-the-operator
+    chose: >
+      The skills half shipped as agent-smith-skills PR
+      https://github.com/holgerleichsenring/agent-smith-skills/pull/192 (design-partner-master
+      1.6.3 -> 1.6.5, cut from origin/main at v5.5.0, which is the release 2026-09-17-6a29
+      pinned). The embedded pin does NOT move in this phase: the step `the-pin-moves` and the
+      three tests that read a pinned master — DesignPartnerMaster_DraftedPhase_StatesFactsAndAssumptions,
+      EmbeddedSkills_DesignPartnerMaster_EmitsFactsAndAssumptions and
+      EmbeddedSkills_Pin_StillCarriesTheContractsPinnedBefore — left the spec, and the first done
+      line names the PR instead.
+    alternative: >
+      Holding the whole phase until the operator merges and releases, or pinning a
+      pre-release the build would then verify against a checksum nobody published.
+    why: >
+      A phase cannot move a pin to a release that does not exist, and only the operator merges
+      and cuts one. 2026-09-17-042eb did exactly this for its own skill change and named
+      2026-09-17-6a29 as the phase that carried the move; the same shape applies here, except
+      that the successor has no id yet — a random suffix cannot be reserved in advance, so it
+      is named in prose: the phase that moves the embedded pin to the release carrying
+      design-partner-master 1.6.5 is cut after PR 192 is merged and that release exists.
+      The framework half does not wait on it: a phase that states no premises is SKIPPED with a
+      recorded reason, which is exactly what every phase drafted before the new contract does,
+      so the step is honest on the tree it ships into.
+  - id: the-letter-is-m-and-the-terms-are-the-cut-reviews
+    chose: >
+      DerivationLookTerms.PremiseCheck — actor "premise check", allowance
+      DerivationLookTerms.CutReviewAllowance (6), evidence letter "M" — built through
+      DerivationLookFactory.ForPremiseCheck, which is ForCutReview's resolution over a shared
+      private OverTheRun.
+    alternative: >
+      An allowance of its own number, or reusing the cut review's terms outright.
+    why: >
+      L is the derivation's and P is the proposal review's; M is what those leave free, and
+      2026-09-15-ffa7 never spelled its own reviewer's letter, so R stays where ffa7 put it.
+      The allowance is the cut review's for the cut review's stated reason — it checks the
+      premises of something that exists rather than deciding what to build. The COST is then
+      stated rather than discovered: one call per phase, capped at CutReviewAllowance + 2
+      iterations, so a set at the eight-phase cap is eight calls and at most 48 looks, each one
+      before its own phase's master rather than before all of them. Only the SETTLE and CITE
+      sentences differ, because a premise reported without an admissible id is recorded
+      unproven here rather than discarded.
+  - id: an-inadmissible-finding-is-unproven-not-discarded
+    chose: >
+      PremiseCheckAdmission keeps ffa7's admission rule — false only on an id this look minted
+      for a look whose Ran flag is true — but routes everything else into PremiseCheck.Unproven,
+      which is reported in the step's message and stops nothing. Exactly one kind is DISCARDED:
+      a finding whose premise matches what the phase states (PhaseQuotableText.Contains).
+    alternative: >
+      Discarding an inadmissible finding as the cut review does, or admitting on any minted id.
+    why: >
+      A cut review has a second shape to fall back on — a verbatim quote of a criterion — so a
+      finding that fails the citation test is not thereby unverifiable, it is the wrong shape.
+      Here every verdict rests on a look, so an uncitable finding is the only thing a checker
+      that could not settle a premise can honestly say, and dropping it silently would hide the
+      one signal an operator can act on. The discard is the opposite case and is not a
+      judgement call: the account already asks whether the done-list is satisfied, before the
+      work (PhaseEntryAccount) and after it (VerifyPhase), and "this criterion is not met yet"
+      is true of every phase that has work to do.
+  - id: the-verdict-is-one-string-because-the-recorder-publishes-one
+    chose: >
+      PremiseHandback.Verdict composes the premise, the why and the resolved evidence line into
+      ONE string, passed to IPhaseProgressRecorder as failingCommand; newlines are flattened so
+      a row and a log line stay one line.
+    alternative: >
+      Passing the premise as failingCommand and the evidence as note.
+    why: >
+      PhaseProgressRecorder publishes `failingCommand ?? note`, so a second argument would be
+      dropped silently — the row would carry half a verdict and nobody would see the half that
+      proves it. The row is also the only thing written between SelectPhase's "in progress" and
+      verification's verdict, so a step failing in between leaves the row in progress forever
+      unless it records: that is why the hand-back records at all.
+  - id: the-hand-back-is-a-failing-step-and-posts-its-own-comment
+    chose: >
+      CommandResult.Fail, plus PremiseHandbackNotice posting the finding to the ticket and to
+      the run's decisions before the result is returned. The notice reuses
+      ApprovedSetKept.WhereToChangeIt verbatim for where a correction is made.
+    alternative: >
+      Leaving the ticket comment to the pipeline's error handler, or parking the run.
+    why: >
+      A failing step runs the finalizer tail (PipelineStepFailure), and when that tail DELIVERS
+      the verified phases as a shortfall the error handler never runs — no failure comment, no
+      terminal status. So a hand-back that relied on the error path would be silent on exactly
+      the runs that matter most, the ones that delivered something. Parking is wrong for a
+      different reason: nothing here is a question to a person, it is a statement about the
+      code, and the phases that verified must still reach their pull request. The amendment
+      wording is 2026-09-17-0e79b's because that phase already decided where a change to a
+      specification actually works today (the specs on the ticket branch, open in the pull
+      request) — the spec's "an amendment goes through the conversation" names a route with no
+      caller yet, and two texts pointing at two places would be worse than one true one.
+  - id: no-look-no-question
+    chose: >
+      A run whose sandboxes do not resolve gets a null look and the check is SKIPPED with a
+      recorded reason, alongside the two skips the spec named (no stated premises, cost cap
+      exhausted).
+    alternative: >
+      ffa7's answer for the cut review — a review that could not look still reviews.
+    why: >
+      The cut review has three verdicts answerable from the phases and the ticket alone, so a
+      text-only review still produces something. Every verdict THIS check can reach is admitted
+      only on a look that ran, so a text-only call could not stop anything whatever it said —
+      it would be a paid call with a predetermined outcome. Recorded as a third skip rather
+      than left implied, because a silent skip is indistinguishable from a check that passed.
+  - id: the-decisions-are-prose-and-the-yaml-is-re-parsed
+    chose: >
+      PhasePremises reads Facts and Assumptions off PhaseDraft and re-parses the draft's own
+      yaml for `decisions`, rendering every entry — a bare line, a `key:` map, or a
+      slug-keyed map — as prose under a DECISIONS heading.
+    alternative: >
+      Adding a Decisions member to PhaseDraft, or collecting "the paths a decision names".
+    why: >
+      PhaseDraft has no member for decisions and giving it one would make every consumer of the
+      draft parse a field only this check reads; PhaseExecutionPromptBlocks already re-reads the
+      same yaml for the done-list, so the pattern exists. A path collector was refused outright:
+      a cite is written as `File.cs:12-20`, as `(File.cs:12)` or as a sentence, and a collector
+      that guessed would either miss cites or mint premises nobody stated. The checker reads the
+      prose and looks where it wants; the admission rule is what keeps the answer honest.
+  - id: one-json-scan-serves-both-readers
+    chose: >
+      JsonAnswerArrayReader carries ffa7's bracket scan generically over a wire type;
+      SpecCutAnswerReader is now the two lines that name CutFindingWire, and
+      PhasePremiseChecker names PremiseFindingWire.
+    alternative: >
+      A second copy of the scan in the premise reader.
+    why: >
+      The scan is not a cut-review fact: it exists because any prompt that teaches ids written
+      [R3] puts brackets in the model's prose, which the premise prompt does too. A copy is how
+      the second one drifts — ffa7 already paid for that lesson twice in one phase (an array
+      `cites` throwing, a bracketed id making the span unparseable). The existing
+      CutReviewAnswerReadingTests stayed green untouched and were re-proven by mutation.
+  - id: the-step-is-a-work-step-by-membership
+    chose: >
+      CheckPhasePremises sits in PipelinePresets.CodePhaseBlock directly after SelectPhase, so
+      PhaseWorkSteps contains it by construction, so SelectPhase's OkAndDropAhead retires it
+      with everything else when the branch already satisfies the phase.
+    alternative: >
+      A rule of its own in SelectPhaseHandler, or placing it before SelectPhase.
+    why: >
+      Before SelectPhase there is no current phase, so there are no premises to read. After it,
+      membership answers "a phase that needs no work needs no premise check" without a second
+      place that has to agree with the first. The five coverage tables (step class, beat, model
+      use, display name, progress label) landed in the same edit, because a name on CommandNames
+      with no entry in them fails the suite by design.
+  - id: the-checker-is-a-port-because-the-harness-must-stand-it-down
+    chose: >
+      IPhasePremiseChecker beside ISpecCutReviewer, with HarnessPhasePremiseChecker registered in
+      RealCompositionHarness reporting every premise as holding unless a case says otherwise.
+      The committed control-flow SVG was regenerated with AGENTSMITH_WRITE_DIAGRAM=1.
+    alternative: >
+      A concrete checker the handler news up or takes directly, as the first cut had it.
+    why: >
+      Found by the harness: nineteen preset cases went red at once, all of them saying the branch
+      changed no source. HarnessFrameworkCalls states the reason exactly — a preset's script
+      describes the MASTER, and a framework call that draws from it hands the master an answer
+      meant for something else, shifting the whole sequence by one. The cut review, the account
+      and the finding refuter are all ports for that reason; the premise check is the fourth call
+      of that kind and had to become the fourth port. The diagram is generated from the presets
+      and a preset edit nobody redrew is a red build by design, which is what it was.
+
+  # --- the adversarial review of the first cut (0fa47f8f), amended in ---
+  - id: a-premise-must-be-one-the-phase-actually-states
+    chose: >
+      PremiseCheckAdmission resolves the reported premise against PhasePremises.Claims — the fact
+      claims, the assumptions, and each decision entry whole and sentence by sentence — through
+      the same word-run matcher the cut review uses (PhaseQuotableText.IsOneOf/Resolve), and
+      REPLACES the model's wording with the spec's. A premise that resolves to nothing is recorded
+      unproven, never admitted.
+    alternative: >
+      Admitting on the citation alone, as the first cut did.
+    why: >
+      Found in review, and it was the worst hole in the phase: admission asked only whether SOME
+      look had run, so a checker that grepped once for anything and then reported a premise it had
+      invented would fail an honest phase. This step can stop real work, so the premise itself has
+      to be checked as hard as the citation. Resolving to the SPEC'S wording matters as much as
+      resolving at all: a hand-back quoting the model's paraphrase reads as though the spec had
+      said it, and the operator then edits a sentence that is not there.
+  - id: the-look-is-shown-not-scored
+    chose: >
+      The finding carries what the cited look actually did (PremiseFinding.Looked, from
+      EvidenceLook.Repository and .What) and the verdict, the phase row and the ticket notice all
+      render it beside the premise and the minted line.
+    alternative: >
+      Requiring the cited look to have RETURNED SOMETHING, as the review suggested, or matching
+      the look's pattern against the premise's words.
+    why: >
+      Requiring output would forbid the commonest true finding there is. A grep that matches
+      NOTHING is how an absence is proven, and "the type/method/package this phase assumes is
+      gone" is the premise most likely to have stopped holding — so that rule would have blinded
+      the check to exactly what it exists for while doing nothing about invented premises.
+      Matching pattern against premise is a heuristic around a semantic step, which is the shape
+      this repository refuses. The honest mechanism is: prove the premise is real, prove the look
+      is ours and reached a verdict, and then SHOW the look so the person judging the hand-back
+      can see the step from one to the other.
+  - id: the-derivers-own-decision-is-not-a-premise
+    chose: >
+      DerivedPhaseDecision owns the sentence the deriver writes; DerivedPhaseYamlRenderer composes
+      it and PhasePremisesReader excludes it. PhasePremises.None is then true for a derived phase
+      that states nothing of its own, and the step costs no call at all.
+    alternative: >
+      Gating None on facts and assumptions only, and passing all decisions prose as context.
+    why: >
+      Found in review. The deriver writes that decision UNCONDITIONALLY, so "this phase states no
+      premises" could never be true on the derivation path — every derived run would have paid for
+      a call. Worse, the sentence points at "{phaseId}-{slug}.md", which is a RUN ARTIFACT handed
+      to IRunArtifactStore and present in no sandbox: a checker asked whether it still holds would
+      look for that file, not find it, and hand an honest phase back. Excluding the one sentence
+      the FRAMEWORK wrote keeps every decision the PHASE wrote as a premise, which is what the
+      spec asked for; gating None on facts and assumptions alone would have left a phase whose
+      only premises are in its decisions unchecked.
+  - id: the-predecessors-are-named-or-every-later-slice-is-a-false-positive
+    chose: >
+      PrecedingPhases reads the phases of this set ordered before the current one that are Done in
+      this run's sequence table or listed in SpecSet.Executed, and the prompt names them with the
+      instruction that their work is committed and expected. The skills contract says the same
+      thing to the drafter (PR 192, 1.6.5).
+    alternative: >
+      Leaving the prompt's "as they are now" to stand.
+    why: >
+      Found in review, and it is the case this whole series is about. CommitPhaseWork runs inside
+      each phase's block, so by the time slice 3 is entered slices 1 and 2 are committed in the
+      very sandbox the checker looks into — and slice 3's facts were written about the state they
+      LEAVE. Without this the check reports a correct phase as resting on something that is no
+      longer so, which is the most likely false hand-back there is. Both halves were needed: the
+      framework tells the checker what ran, and the skill tells the drafter what to write facts
+      against.
+  - id: a-call-that-produced-nothing-is-not-a-skip
+    chose: >
+      PremiseCheck.NotTaken beside PremiseCheck.Skipped, and the handler says "the premise check
+      could not be taken: … The phase runs unchecked."
+    alternative: >
+      One word for both, as the first cut had it.
+    why: >
+      Found in review. Failing open is right in both cases and the phase runs either way, but an
+      operator reading a run must be able to tell "we decided not to ask" from "we paid for a call
+      and could not read the answer" — the second is a defect to chase and the first is not.
+  - id: the-notice-is-said-once-and-a-second-look-is-refused
+    chose: >
+      PremiseHandbackNotice carries a per-phase marker and does not post again while that marker
+      is on the thread and nobody has replied after it — bd7a's and 0e79b's rule. No second model
+      call confirms a verdict.
+    alternative: >
+      Posting on every run; or asking a second, independent instance before failing the phase.
+    why: >
+      A phase is marked executed only at WritePhaseRecord, so every re-trigger re-enters it and
+      re-asks; five re-triggers left five identical comments, and a signal that fires forever
+      teaches the operator to ignore it. The run decision is still written every run, because the
+      run view is a fresh reader each time. A CONFIRMING second look was considered and refused:
+      the spec scopes it out by name ("A SECOND PASS OR A CONVERSATION WITH THE CHECKER. One call
+      per phase"), it doubles the cost of the common case to insure against the rare one, and two
+      instances sharing a prompt and a look correlate — the guards that actually reduce false
+      positives here are the premise resolution, the minted-and-ran citation and the skip on a
+      phase that states nothing, all of which cost nothing per run.
+  - id: the-beat-is-plan-not-verify
+    chose: >
+      CommandBeats maps CheckPhasePremises to RunBeat.Plan, beside Approval.
+    alternative: >
+      Verify, as the first cut had it, on the grounds that it checks something.
+    why: >
+      Found in review. The rail is ORDERED. The step runs between SelectPhase (Plan) and
+      AgenticMaster (Building), so a Verify beat lights the rail's last working stage and finishes
+      it before Building begins, and a hand-back renders as Verify=Failed — which every reader
+      understands as "the build or the tests failed". It agrees the WHAT before the work, which is
+      what Plan means.
+  - id: the-restatement-discard-is-bounded-to-verbatim
+    chose: >
+      A finding is discarded as the accountant's question only when its premise is a VERBATIM
+      restatement of what the phase claims and its verdict is the contradiction one; anything else
+      falls through to premise resolution and, failing that, to unproven.
+    alternative: >
+      The first cut's word-run match over the goal, done-list and steps.
+    why: >
+      Found in review. The word-run match admits a substantial phrase of the GOAL, and a premise
+      phrased that way could then never be reported — not even as unproven, which is a blind spot
+      with no way to see into it. Verbatim keeps the case the spec named (a checker repeating "the
+      criterion is not met yet") and gives up nothing else, because a near-restatement is not a
+      stated premise and is recorded unproven anyway.
+  - id: the-notice-names-a-pull-request-only-where-there-is-one
+    chose: >
+      ApprovedSetKept's sentence was split into its two composable halves, keeping WhereToChangeIt
+      byte-identical, and PremiseHandback picks WhereToChangeItWithNoPullRequest when the run has
+      published none.
+    alternative: >
+      Always using 0e79b's wording, or writing a second sentence in this phase's own words.
+    why: >
+      Found in review. A hand-back on the FIRST phase of a set happens before any delivery, so
+      "open in the pull request this run linked" is false on exactly that path — the one where an
+      operator has least else to go on. Two independently written sentences about the same place
+      drift; one producer with two endings does not. Stated consequence, not fixed here: on a run
+      with no shortfall the pipeline's error handler posts its own failure comment on top of this
+      notice. The failure comment carries this step's verdict verbatim (the step returns it as its
+      message), so nothing is lost and nothing disagrees — and suppressing one of them would mean
+      deciding, before the finalizer tail has run, whether the run will deliver.
+  - id: the-harness-port-is-exercised-not-just-registered
+    chose: >
+      PremiseCheckPhaseBlockTests: one preset run proving each derived phase is asked about its
+      own premises before its master and told which phases already ran, and one proving a false
+      premise on phase 2 stops it while phase 1 is delivered as a shortfall with the verdict on
+      its row and the notice on the ticket. HarnessPhasePremiseChecker keys its answers by CALL,
+      because a derived set's phase ids are minted in the run, and RealCompositionHarness now
+      RemoveAll's the port as its three siblings do.
+    alternative: >
+      Leaving the mocked-executor test as the only proof of the failure path.
+    why: >
+      Found in review: the stand-in was registered and never driven, and the shortfall test mocked
+      BOTH steps, so nothing proved the step is reached at all. The preset run is what proves the
+      wiring — and it is what showed that a derived phase stating nothing of its own costs no call,
+      which is the cost claim this phase makes.
+  - id: no-foreign-evidence-id-reaches-the-prompt
+    chose: >
+      PhasePremises.Render strips a leading bracketed id from a fact's stored evidence and keeps
+      the rest; the prompt test asserts that the ONLY letter in any bracketed id anywhere in the
+      prompt is this check's own.
+    alternative: >
+      Leaving the derivation's line whole, with a test asserting the prompt does not contain [L3].
+    why: >
+      Found in review. A fact's evidence was minted by the DERIVATION under the derivation's
+      letter, and an id in the prompt that the reader cannot cite is an invitation to cite it —
+      whereupon the citation resolves to nothing and a true finding is recorded unproven. The old
+      assertion passed only because the fixture happened to say [L2]: it tested the fixture.
+  - id: this-spec-was-edited-in-place-deliberately
+    chose: >
+      The pin step and three pin tests were removed from this phase's own spec, and the tests list
+      was extended with what the review added, rather than a successor phase being minted.
+    alternative: >
+      Leaving the spec as written and recording the divergence only here.
+    why: >
+      It is a deliberate exception to "never mutate an existing phase spec", taken twice for the
+      same reason and named so nobody reads it as the rule. 2026-09-17-042eb set the precedent for
+      the pin half: a spec that still names a step nobody performed reads as a phase with an unmet
+      criterion forever. The spec had not yet been executed by anyone else, nothing cites it, and
+      the removal is recorded here and in a comment in the file itself. A phase whose spec is
+      already DONE and referenced gets a successor instead.
+
+  # --- added after the adversarial review of 2026-09-17-042ej, the phase that reads this ---
+  - id: the-hand-back-is-its-own-standing-not-a-flavour-of-failed
+    chose: >
+      PhaseRunState.HandedBack (Contracts/Specs/SpecSequenceProgress.cs), recorded by
+      CheckPhasePremisesHandler in place of Failed and projected to RunPhase.Status
+      "handed_back" (Infrastructure.Persistence/Services/RunPhaseProjection.cs). Every reader
+      of the standing was extended with it: ShortfallSection, SpecPrBody, the projection's
+      terminal test, and the dashboard's badge map.
+    alternative: >
+      A discriminator column on RunPhase, or a field on PhaseStateChangedEvent, keeping the
+      standing Failed.
+    why: >
+      A downstream phase has to tell "the build went red" from "the specification rests on
+      something that is no longer so", because the instruction it gives the operator differs:
+      an amendment moves a handed-back phase on and does nothing for a red build. Until now
+      Status "failed" had exactly one producer (VerifyPhaseHandler), which always writes a
+      verdict, so a second producer writing failed-with-a-verdict would have left the reader
+      parsing the verdict text — derivation, which this repository refuses. A new enum value
+      costs no migration in either persistence assembly, because Status is already a string
+      column and the value is appended, so no stored ordinal moves. The price is that the
+      default arm of every switch over the standing now means "a value I do not know", and
+      both backend switches and the dashboard's badge map defaulted to NOT STARTED — which of
+      a phase the run stopped on is plainly false. All three were extended, and each has a
+      test that fails when the distinction collapses.

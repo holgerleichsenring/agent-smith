@@ -34,10 +34,39 @@ public static class PhaseQuotableText
         [draft.Goal, .. Statements(draft)];
 
     /// <summary>True when the quote is, or is most of, one of the phase's quotable texts.</summary>
-    public static bool Contains(PhaseDraft draft, string? quoted)
+    public static bool Contains(PhaseDraft draft, string? quoted) => IsOneOf(Of(draft), quoted);
+
+    /// <summary>
+    /// 2026-09-17-0e79c: the same match against ANY corpus of stated texts. The premise check
+    /// resolves a reported premise against what the phase says it RESTS ON, which is a different
+    /// corpus from what it CLAIMS — one matcher, two corpora, so a paraphrase is admitted the
+    /// same way in both and an invention in neither.
+    /// </summary>
+    public static bool IsOneOf(IReadOnlyList<string> stated, string? quoted)
     {
+        ArgumentNullException.ThrowIfNull(stated);
         var quote = Words(quoted);
-        return quote.Length > 0 && Of(draft).Any(stated => Matches(Words(stated), quote));
+        return quote.Length > 0 && stated.Any(text => Matches(Words(text), quote));
+    }
+
+    /// <summary>The stated text the quote resolves to, or null — so a caller can replace a
+    /// model's paraphrase with the wording the spec actually carries.</summary>
+    public static string? Resolve(IReadOnlyList<string> stated, string? quoted)
+    {
+        ArgumentNullException.ThrowIfNull(stated);
+        var quote = Words(quoted);
+        return quote.Length == 0
+            ? null
+            : stated.FirstOrDefault(text => Matches(Words(text), quote));
+    }
+
+    /// <summary>True when the quote IS one of the stated texts, word for word — no partial
+    /// run, whatever its length.</summary>
+    public static bool IsVerbatim(IReadOnlyList<string> stated, string? quoted)
+    {
+        ArgumentNullException.ThrowIfNull(stated);
+        var quote = Words(quoted);
+        return quote.Length > 0 && stated.Any(text => Words(text).SequenceEqual(quote));
     }
 
     /// <summary>The phase as the reviewer is shown it, with no heading over nothing.</summary>

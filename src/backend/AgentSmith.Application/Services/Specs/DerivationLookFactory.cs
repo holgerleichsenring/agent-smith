@@ -41,6 +41,16 @@ public sealed class DerivationLookFactory(
         OnTerms(pipeline, DerivationLookTerms.CutReview);
 
     /// <summary>
+    /// 2026-09-17-0e79c: the look a phase's stated premises are checked with, before its work
+    /// starts. The run's repositories on the premise check's own terms and, for the cut
+    /// review's reason, no template scope: a template says what work should FOLLOW, and a
+    /// premise is what the spec ASSUMES about the target. Null when the run has no sandbox —
+    /// every verdict this check can reach needs a look that ran, so there is nothing to ask.
+    /// </summary>
+    public DerivationLook? ForPremiseCheck(PipelineContext pipeline) =>
+        OnTerms(pipeline, DerivationLookTerms.PremiseCheck);
+
+    /// <summary>
     /// 2026-09-17-042eh: the run's repositories on any holder's own terms, with NO template
     /// scope — the member <see cref="ForCutReview"/> is now one caller of. A second holder
     /// wanting a template-free look over the same sandboxes was a copy of this method with one

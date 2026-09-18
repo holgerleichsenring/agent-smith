@@ -22,6 +22,11 @@ public static partial class CommandNames
     public const string WriteRunResult = "WriteRunResultCommand";
     public const string CommitPhaseWork = "CommitPhaseWorkCommand"; // p0437: before the gate
 
+    /// <summary>2026-09-17-0e79c: asks a fresh instance whether the premises the phase STATES
+    /// still hold in the repositories, before its work starts. A false one fails the step and
+    /// hands the phase back; the check reports and never rewrites the spec.</summary>
+    public const string CheckPhasePremises = "CheckPhasePremisesCommand";
+
     /// <summary>2026-09-17-042eh: after the verification, a fresh instance reads the phase's
     /// own diff against the phase spec and the loaded principles. VerifyPhase asks whether the
     /// done-list is satisfied; nothing asked whether what was written is sound. Findings that

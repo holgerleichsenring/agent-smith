@@ -64,6 +64,60 @@ internal sealed record ReviewAsked(
     IReadOnlyList<PhaseDraft> Drafts, string Key, string? TicketText, IReadOnlyList<string> Repositories);
 
 /// <summary>
+/// 2026-09-17-0e79c: the premise check is the same kind of call and gets the same treatment —
+/// the framework asks it on its own behalf, and letting it draw from the master's script would
+/// shift the whole sequence by one. It reports every premise as holding unless a case says
+/// otherwise; the real checker is exercised by PremiseCheckTests over a real look.
+/// </summary>
+internal sealed class HarnessPhasePremiseChecker : IPhasePremiseChecker
+{
+    private readonly List<PremiseFinding> _findings = [];
+
+    private readonly Dictionary<int, PremiseFinding[]> _perCall = [];
+
+    /// <summary>What the check was asked about, in call order — the phase, the premises it was
+    /// handed and the phases it was told had already run.</summary>
+    internal List<PremiseAsked> Asked { get; } = [];
+
+    /// <summary>The Nth check (1-based) reports these; every other phase's premises hold. Keyed
+    /// by call rather than by phase id, because a derived set's ids are minted in the run.</summary>
+    internal HarnessPhasePremiseChecker FindsOnCall(int call, params PremiseFinding[] findings)
+    {
+        lock (_perCall) _perCall[call] = findings;
+        return this;
+    }
+
+    public Task<PremiseCheck> CheckAsync(
+        PhaseDraft draft, PhasePremises premises, DerivationLook look,
+        IReadOnlyList<PhaseProgress> alreadyRan, string key, AgentConfig agent,
+        PipelineCostTracker costTracker, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        ArgumentNullException.ThrowIfNull(premises);
+        ArgumentNullException.ThrowIfNull(alreadyRan);
+        int call;
+        lock (Asked)
+        {
+            Asked.Add(new PremiseAsked(
+                draft.PhaseId, premises.Claims, [.. alreadyRan.Select(p => p.PhaseId)],
+                look?.Repositories ?? []));
+            call = Asked.Count;
+        }
+        PremiseFinding[]? against;
+        lock (_perCall) _perCall.TryGetValue(call, out against);
+        return Task.FromResult(against is null or { Length: 0 }
+            ? PremiseCheck.Held
+            : new PremiseCheck(against, []));
+    }
+}
+
+/// <summary>2026-09-17-0e79c: one premise check the framework asked for — the phase, the claims
+/// it was handed, the phases it was told had already run, and the repositories its look names.</summary>
+internal sealed record PremiseAsked(
+    string PhaseId, IReadOnlyList<string> Claims, IReadOnlyList<string> AlreadyRan,
+    IReadOnlyList<string> Repositories);
+
+/// <summary>
 /// p0429: the finding refutation is the same kind of call and gets the same treatment.
 /// <para>
 /// It returns null — "could not be asked" — because that is the answer the production

@@ -81,13 +81,16 @@ public sealed class RunPhaseProjection
         uow.Set<RunPhase>().FirstOrDefaultAsync(p => p.RunId == runId && p.PhaseId == phaseId, ct);
 
     private static bool IsTerminal(PhaseRunState state) =>
-        state is PhaseRunState.Done or PhaseRunState.Failed;
+        state is PhaseRunState.Done or PhaseRunState.Failed or PhaseRunState.HandedBack;
 
     private static string StatusOf(PhaseRunState state) => state switch
     {
         PhaseRunState.InProgress => "in_progress",
         PhaseRunState.Done => "done",
         PhaseRunState.Failed => "failed",
+        // 2026-09-17-0e79c: its own status, so a reader can tell a phase that was never built
+        // from one whose build went red without parsing the verdict.
+        PhaseRunState.HandedBack => "handed_back",
         _ => "not_started",
     };
 }

@@ -32,6 +32,10 @@ public static partial class CommandModelUse
         // its answer decides whether the phase is worked at all.
         [CommandNames.SelectPhase] = new(
             ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
+        // 2026-09-17-0e79c: one call per phase, on a look of its own, before the master runs.
+        [CommandNames.CheckPhasePremises] = new(
+            ModelUse.Call, "phase premise-check prompt",
+            "per stated premise that no longer holds: the premise, the verdict and the evidence id"),
         // 2026-09-17-042eh: a fresh instance reads the verified diff against the phase
         // spec and the principles, with the read-only look of its own terms.
         [CommandNames.ReviewPhaseDiff] = new(
