@@ -24,4 +24,17 @@ public sealed record CatalogResolution(
     SkillsSourceMode Source,
     string SourceUrl,
     bool FromCache,
-    string? Overlay = null);
+    string? Overlay = null)
+{
+    /// <summary>
+    /// 2026-09-18-84be: what this binding IS, in one operator-checkable phrase — source
+    /// mode, version or path, the overlay fingerprint when one is layered, and the root.
+    /// Minted on the record so the singleton that publishes it
+    /// (<c>SkillsCatalogPath</c>) and a caller holding the resolution itself cannot say
+    /// the same fact two different ways.
+    /// </summary>
+    public string Origin =>
+        $"{Source.ToString().ToLowerInvariant()} {Version}"
+        + (Overlay is null ? string.Empty : $" + overlay {Overlay}")
+        + $" at {Root}";
+}

@@ -16,8 +16,21 @@ export interface CatalogConcept {
   description: string;
 }
 
+// 2026-09-18-84be: the binding these contents came from. `phrase` is the sentence the
+// server's resolution mints for itself — source mode, version or path, and the overlay
+// fingerprint when one is layered. `overlayPath` is the CONFIGURED overlay directory,
+// present only when this binding layered one: the fingerprint and the union root in the
+// phrase are things no operator ever typed. `readAt` is when the server read the catalog,
+// which is not now — the contents are cached.
+export interface CatalogOrigin {
+  phrase: string;
+  overlayPath: string | null;
+  readAt: string;
+}
+
 export interface CatalogContents {
   ready: boolean;
+  origin: CatalogOrigin | null;
   masters: CatalogEntry[];
   skills: CatalogEntry[];
   concepts: CatalogConcept[];

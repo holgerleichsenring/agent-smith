@@ -803,6 +803,11 @@
 .mock-system .tybadge.ok { background: var(--ok-wash); color: var(--ok); }
 .mock-system .tybadge.bad { background: var(--bad-wash); color: var(--bad); }
 .mock-system .edit-hint { font-size: 11.5px; color: var(--ink-3); }
+/* 2026-09-18-84be: the catalog's expand control is not an edit affordance, so it
+   carries its own class; the origin line states what the page is showing. */
+.mock-system .ec-open { font-size: 11.5px; color: var(--ink-3); }
+.mock-system .originline { font-size: 12.5px; color: var(--ink-3); padding: 12px 2px 4px; display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.mock-system .originline .mono { color: var(--ink-2); font-family: var(--mono); }
 /* expandable cards (catalog) render the whole top row as a real <button> */
 .mock-system button.ec-top { font: inherit; width: 100%; border: 0; background: transparent; cursor: pointer; text-align: left; }
 .mock-system button.ec-top:hover { background: var(--panel-2); }
