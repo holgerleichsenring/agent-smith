@@ -152,6 +152,7 @@ public sealed class PredecessorGateFunnelTests
                 claimService.Object, CapacityTestDoubles.StubCalculator(), budget.Object,
                 queue.Object, CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
                 new PredecessorGate(factory.Object, NullLogger<PredecessorGate>.Instance),
+                TestSupport.ApprovedSetDoubles.Carrier(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 
@@ -186,6 +187,10 @@ public sealed class PredecessorGateFunnelTests
         public Task<CreatedTicket> CreateAsync(
             string title, string description, IReadOnlyList<string> labels,
             CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            Task.FromResult(ParentLinkResult.Unsupported("this fake has no relations"));
 
         public Task FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>

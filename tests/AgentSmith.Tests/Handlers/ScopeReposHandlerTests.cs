@@ -348,6 +348,7 @@ public sealed class ScopeReposHandlerTests
             .Callback<AgentSmith.Contracts.Events.RunEvent, CancellationToken>((ev, _) => _published.Add(ev))
             .Returns(Task.CompletedTask);
         return new ScopeReposHandler(
+            TestSupport.ApprovedSetDoubles.Scope(),
             new RemoteContextInventoryBuilder(
                 _resolverMock.Object, NullLogger<RemoteContextInventoryBuilder>.Instance),
             classifier,

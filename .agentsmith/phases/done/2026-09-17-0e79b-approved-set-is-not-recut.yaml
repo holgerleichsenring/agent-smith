@@ -1,0 +1,184 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-0e79b
+
+goal: "A run never re-cuts an approved spec set: a comment, an edit or a re-trigger is recorded and reported, and a change to the set is made by approving it again in the conversation."
+
+applies_to: "backend (the amendment rule, the revision that records the input, the cut comment's wording, the notice on the ticket and on the run) + the dialog's amendment entry"
+
+requires:
+  - 2026-09-17-0e79a
+
+scope:
+  in: >
+    An approved set — carried onto a run, read from the store, or read back from the branch with its
+    approval — never sets NeedsModel, for any cause. The cause is still named: the revision the run
+    publishes says a comment arrived, or the ticket was edited, and that the approved set was kept. The
+    cut comment stops promising an amendment for such a set and says instead where a change is made,
+    keeping its cut marker. The run records one notice per run: a ticket comment carrying our own marker
+    but NOT the cut marker, and a run decision with the same text. The conversation re-opens the
+    approved record for its ticket, reviews the change and approves it again; that writes a record with
+    a newer approval, and the next run publishes it over the branch's executed head by
+    2026-09-17-0e79a's precedence and merge. The re-approved set may not remove or reorder anything at
+    or before that head.
+  out: >
+    THE PRECEDENCE AND THE MERGE THEMSELVES. 2026-09-17-0e79a specifies both; this phase uses them.
+    PARKING OR FAILING THE RUN ON A COMMENT. A comment is not evidence that the spec is wrong; stopping
+    on a false premise is 2026-09-17-0e79c.
+    SHOWING THE NOTICE IN THE CONVERSATION. 2026-09-17-042ej's read carries run state, not run events;
+    the notice lives on the ticket and in the run view.
+    A PUSH PATH FROM A SPAWNED RUN INTO A DIALOG.
+    THE DIALOG'S REVIEW ITSELF. 2026-09-15-1499 reviews a proposal before it is approved; re-opening an
+    approved set reuses that path.
+    THE TICKET-FIRST PATH. A set nobody approved keeps today's amendment behaviour exactly.
+    EDITING AN EXECUTED PHASE. Refused by the merge: an executed phase is append-only (SpecSet.cs:27-45).
+    THE CONVERSATION HALF OF THE AMENDMENT ENTRY. This phase ships the STORE side — load a filed
+    ticket's record by its spec key, save a newer approval over it. Nothing in the dialog calls it:
+    RecordAsync's only caller files a NEW ticket (OutcomeTicketFiler.cs:92-95), and resolving which
+    ticket a session filed needs the filed work to carry its ticket id, which is 2026-09-17-042eg's.
+    A successor does the conversation half — a design conversation re-opens the approved record of a
+    ticket it already filed and approves a new set over it. Until then the operator's route is the
+    one the cut comment names: edit the specs on the branch, which the next run reads back and works
+    as they stand (a reviewer edit, unchanged by this phase).
+    A LEGACY EPIC CHILD. 2026-09-17-0e79d gives an epic ONE work ticket carrying its own approved
+    record and the approved-set stamp, so an epic cut today is guarded exactly as a directly-filed
+    phase is. What stays unguarded is the OLD shape only: a child ticket carrying a phase-parent
+    stamp, which FiledTicketSpecGate deliberately exempts so tickets filed before that change still
+    derive rather than failing. Such a child has no approved record to protect, and a comment or an
+    edit on it re-cuts its tail exactly as it does today.
+
+decisions:
+  - key: |
+      THREE CAUSES RE-CUT TODAY, NOT TWO. NeedsAmendment is true for a comment, for a ticket edit AND
+      for a bare re-trigger whose set has no executed phase (SpecSourceResolver.cs:80-85) — exactly the
+      state after a run that died before its first phase, the most likely re-trigger there is. So the
+      rule is not "a comment does not amend" but "an approved set never sets NeedsModel", for every
+      cause. Nothing else can produce a model call on that path: a branch artifact, a carried record and
+      a stored record are all read, not generated.
+  - key: |
+      A COMMENT COUNTS FROM THE WHOLE THREAD ON THE FIRST RUN, AND FROM THE LAST CUT COMMENT AFTER IT.
+      IsCommented asks whether anyone but us commented after our last CUT comment
+      (SpecRevisionCause.cs:60-63 over OwnTicketComment.cs:48-55). The commenter posts that comment for
+      an approved set too (SpecSetTicketCommenter.cs:29-45), so from run two there IS an anchor; on run
+      one there is none and the whole thread counts. Either way the answer feeds NeedsAmendment, which
+      is what this phase stops. An edit is any change to title, description or acceptance criteria as a
+      reader would see them (TicketTextFingerprint.cs:18-24, SpecRevisionCause.cs:56-58), including the
+      pull-request link a thin record is meant to collect.
+  - key: |
+      THE CUT COMMENT CURRENTLY PROMISES THE OPPOSITE. It tells the operator "comment if the cut is
+      wrong and the next run amends an unstarted phase or re-cuts the unstarted tail"
+      (SpecSetComment.cs:33-37), posted on every run (SpecSetTicketCommenter.cs:29-45). For an approved
+      set that sentence is false and contradicts the notice this phase adds, so it branches on the
+      approval mark: the approved wording says the set was approved in a conversation and that a change
+      is made by approving it again there. The CUT MARKER stays in both (SpecSetComment.cs:24) — it is
+      the anchor the comment rule measures from.
+  - key: |
+      THE GUARD IS THE SET'S OWN MARK, NOT A LIST OF TICKETS. The approval travels in set.yaml and on
+      the record (2026-09-17-0e79a) and is read back with the set (SpecSetReader.cs:58-67), so the rule
+      is asked of the artifact the run holds. Nothing has to remember which tickets came from a
+      conversation.
+  - key: |
+      THE KEPT REVISION IS WRITTEN, AND IT COMMITS. Finalize ALWAYS appends a revision
+      (DeriveSpecHandler.cs:131-137) and revisions are serialized into set.yaml (SpecSetIndex.cs:38-43),
+      so every run changes the file and the writer commits it (SpecSetWriter.cs:57-69). That is the
+      intended outcome and not a cost of this phase: the branch's history is where an operator reads
+      what arrived and what was done about it. This phase only decides what that revision SAYS.
+  - key: |
+      A KEPT EDIT MUST CLEAR ITS CAUSE, OR IT FIRES FOREVER. Finalize refreshes TicketFingerprint only
+      when the model RAN (DeriveSpecHandler.cs:136), and an approved set never runs it — so the edited
+      text would differ from the stored fingerprint on every later run (SpecRevisionCause.cs:56-58) and
+      re-fire the cause, the revision, the commit and the notice, run after run. A run that SAW an edit
+      and kept the set therefore refreshes the fingerprint to the text it saw: the input has been
+      recorded and reported, and it is no longer new. The COMMENT cause clears itself, because the cut
+      comment is posted on every run (SpecSetTicketCommenter.cs:29-45) and moves the anchor the rule
+      measures from (OwnTicketComment.cs:48-55).
+  - key: |
+      THE "WAS KEPT" TEXT IS FORMED IN Finalize, AFTER THE DECISION. The cause constants
+      (SpecRevisionCause.cs:29-34) keep their exact values for unapproved sets, where the same causes
+      still mean the model ran; the approved suffix is added where the revision header is built, the one
+      place that already knows both the cause and the set.
+  - key: |
+      THE NOTICE IS OUR COMMENT, AND MUST NOT BE A CUT COMMENT. A comment carrying an Ours marker is
+      excluded from "someone else answered" (OwnTicketComment.cs:26-32, 43, 48-55), so the notice must
+      carry one or it would itself count as a foreign comment next run. It must NOT carry the cut marker
+      (SpecSetComment.cs:24), which is the anchor the comment rule measures from: a second comment
+      carrying it would move the anchor past the operator's real comment.
+  - key: |
+      ONE NOTICE PER RUN, ON THE TICKET AND ON THE RUN. A run may be spawned in its own container and
+      has a ticket provider, not a dialog connection. It comments once, whatever arrived, and appends a
+      run decision so the run view carries it; 2026-09-17-042ej shows the conversation which run is
+      working the ticket and where it stands.
+  - key: |
+      THE AMENDMENT ENTRY: THE DIALOG LOADS THE RECORD, THE OPERATOR NAMES THE TICKET. The conversation
+      resolves the ticket the way its filing already names it — the filed work carries the ticket id and
+      project (2026-09-17-042eg) and the filed tab lists them — and loads that ticket's approved record
+      from the store by its spec key (2026-09-17-0e79a). The record is the editable artifact; the branch
+      is not read by the dialog.
+  - key: |
+      THE DIALOG CANNOT READ THE EXECUTED HEAD, SO THE CONSTRAINT IS WRITTEN DOWN INSTEAD. Which phases
+      have run lives on the branch (SpecSetIndex.cs:37, read at SpecSetReader.cs:58-67), where the
+      dialog has no clone. The merge at publish is POSITIONAL (2026-09-17-0e79a), so "the dialog need
+      not care" would be false: a re-approval that dropped or reordered an early phase would silently
+      change which spec an executed position claims to hold. The constraint therefore binds the
+      amendment: a re-approved set keeps every position at or before the executed head as it is, may
+      only edit positions after it, and may not be shorter — and the run refuses a record that breaks
+      it, naming what it would drop. Showing the operator which phases already ran is a SURFACE
+      question and belongs where run state is already read (2026-09-17-042ej), not here; this phase
+      claims no reader of its own.
+  - key: |
+      A COMMENT THE RUN MUST STILL READ. The question pin reads an unanswered derivation question from
+      the previous set and pins it as the answer (DeriveSpecHandler.cs:64); that path is about a
+      question this framework asked and is left alone. What stops is the model being asked to cut again.
+  - key: |
+      THE UNAPPROVED PATH IS ALREADY COVERED, AND STAYS GREEN. The harness presets exercise exactly the
+      behaviour this phase must not touch — a comment re-cutting the tail
+      (CommentRecutTests.cs:44, 70), an edited description doing the same (TicketEditRecutTests.cs:43) —
+      and the resolver's own precedence test (SpecSourceTests.cs:80). They stay green unchanged; no
+      near-duplicates of them are minted here.
+  - key: |
+      NOT A PARK, AND NOT A REFUSAL. The run continues on the approved set. An operator who wanted the
+      run stopped has cancel; an operator who found the spec WRONG approves a new one, and the phases
+      that already verified are delivered either way.
+
+steps:
+  - id: the-rule
+    action: "An approved set never sets NeedsModel, for a comment, a ticket edit or a re-trigger; every other set is unchanged."
+  - id: the-record-of-the-input
+    action: "Finalize names the real cause and adds that the approved set was kept."
+  - id: the-cut-comment-tells-the-truth
+    action: "The cut comment's amendment sentence branches on the approval mark and points at the conversation; the cut marker stays in both wordings."
+  - id: the-notice
+    action: "One ticket comment per run, carrying our marker and not the cut marker, plus a run decision with the same text."
+  - id: the-amendment-entry
+    action: "The dialog loads a ticket's approved record by its spec key; approving writes a record with a newer approval that keeps every position at or before the executed head."
+  - id: the-kept-edit-clears
+    action: "A run that kept an edit refreshes the ticket fingerprint, so the same edit is not reported again."
+
+tests:
+  - "ApprovedSet_CommentOnTheTicket_IsNotRecut"
+  - "ApprovedSet_TicketDescriptionEdited_IsNotRecut"
+  - "ApprovedSet_RetriggerWithNoExecutedPhase_IsNotRecut"
+  - "ApprovedSet_FirstRunWithNoCutCommentAndAThread_IsStillNotRecut"
+  - "UnapprovedSet_RetriggerWithNoExecutedPhase_StillReCuts"
+  - "ApprovedSet_Comment_RevisionNamesTheCauseAndSaysItWasKept"
+  - "ApprovedSet_TicketEditedOnce_PostsOneNoticeAndNotAgainOnTheNextRun"
+  - "ApprovedSet_TicketEditedAgain_ReportsTheNewEdit"
+  - "CutComment_ApprovedSet_PointsAtTheConversationInsteadOfAnAmendment"
+  - "CutComment_UnapprovedSet_KeepsTodaysWording"
+  - "CutComment_BothWordings_CarryTheCutMarker"
+  - "ApprovedSetNotice_IsOurComment_AndIsNotACutComment"
+  - "ApprovedSetNotice_NextRun_DoesNotReadItAsAForeignComment"
+  - "ApprovedSet_Comment_PostsOneTicketNoticeAndOneRunDecision"
+  - "ApprovedSet_TwoCommentsInOneRun_PostsOneNotice"
+  - "ApprovedSet_Comment_RunContinuesAndIsNotParked"
+  - "ApprovedSet_UnansweredQuestionPin_StillPins"
+  - "AmendmentEntry_LoadsTheRecordByTheTicketsSpecKey"
+  - "AmendmentEntry_ReorderingAPositionBeforeTheHead_IsRefusedByTheRun"
+  - "Reapproval_WritesARecordWithANewerApproval"
+
+done:
+  - "no comment, edit or re-trigger makes a run re-cut a set a person approved"
+  - "the ticket never promises an amendment that will not happen, and the branch's history says what arrived and that the set was kept"
+  - "a change to an approved set is made by approving it again, and may not touch a position that already ran"
+  - "an edit that was kept is reported once, not on every later run"
+  - "a ticket nobody approved amends exactly as it does today"
+  - "build green, full suite green, file-length ratchet green"

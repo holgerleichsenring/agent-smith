@@ -139,6 +139,48 @@ public sealed class RunPhasesServedTests : IDisposable
         detail.Phase.PhaseId.Should().Be("p19213a");
     }
 
+    /// <summary>
+    /// 2026-09-17-042eh: the phase review's own artifact row, on the real engine and through
+    /// the real applier — upserted under <c>phase_review:&lt;id&gt;</c>, one row per phase,
+    /// replaced when a second review of the same phase reports.
+    /// </summary>
+    [Fact]
+    public async Task PhaseReviewArtifact_IsUpsertedAsJsonUnderItsOwnKind()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new PhaseReviewedEvent(
+                RunId, "p19213a",
+                """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4}]}""", T),
+            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":true,"findings":[]}""", T.AddMinutes(3)));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        var rows = ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
+            .Where(a => a.RunId == RunId && a.Kind.StartsWith("phase_review:"))
+            .ToList();
+
+        rows.Should().ContainSingle("a phase has one review row, replaced and never appended")
+            .Which.Kind.Should().Be("phase_review:p19213a");
+        rows[0].Content.Should().Be("""{"reviewed":true,"findings":[]}""",
+            "the second review of a phase replaces the first, as the record artifact does");
+    }
+
+    /// <summary>The review row is its own kind, beside the record's — one phase, two artifacts,
+    /// neither overwriting the other.</summary>
+    [Fact]
+    public async Task PhaseReviewArtifact_StandsBesideTheRecordArtifact()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new PhaseRecordedEvent(RunId, "p19213a", "phase: p19213a\n", T),
+            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":false,"findings":[],"why":"x"}""", T));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
+            .Where(a => a.RunId == RunId).Select(a => a.Kind).ToList()
+            .Should().BeEquivalentTo(["phase_record:p19213a", "phase_review:p19213a"]);
+    }
+
     [Fact]
     public async Task RunPhaseEndpoint_UnknownPhase_IsNotFound() =>
         (await RunPhaseQueryEndpoints.GetRunPhaseAsync(
@@ -174,6 +216,30 @@ public sealed class RunPhasesServedTests : IDisposable
     public async Task RunPhasesEndpoint_RunWithoutPhases_ReturnsEmpty() =>
         (await ReadPhasesAsync()).Should().BeEmpty();
 
+    [Fact]
+    public async Task RunPhase_HandedBackOnAFalsePremise_DoesNotReadLikeARedBuild()
+    {
+        // 2026-09-17-0e79c: the two ask opposite things of the operator — a red build is fixed
+        // by working the code, a false premise by amending the specification. A reader telling
+        // them apart by the shape of the verdict string would be deriving what the producer
+        // already knows, so the distinction is the STATUS itself.
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            Failed("p19213a", "Make the thing exist", "dotnet test exited 1"),
+            Selected("p19213b", 2, "Make the thing readable"),
+            HandedBack("p19213b", "Make the thing readable",
+                "False premise in p19213b: \"the bus client is a singleton\" — [M1] …"));
+
+        var phases = await ReadPhasesAsync();
+
+        phases[1].Status.Should().Be("handed_back")
+            .And.NotBe(phases[0].Status, "a phase never built does not read like one built red");
+        new[] { "done", "in_progress", "not_started", "failed" }
+            .Should().NotContain(phases[1].Status, "no existing status value may absorb it");
+        phases[1].EndedAt.Should().NotBeNull("the phase is over — terminal, not still running");
+        phases[1].Verdict.Should().Contain("False premise");
+    }
+
     private static PhaseStateChangedEvent Selected(string phaseId, int ordinal, string title) =>
         new(RunId, phaseId, ordinal, title, PhaseRunState.InProgress, null, T);
 
@@ -182,6 +248,9 @@ public sealed class RunPhasesServedTests : IDisposable
 
     private static PhaseStateChangedEvent Failed(string phaseId, string title, string verdict) =>
         new(RunId, phaseId, 2, title, PhaseRunState.Failed, verdict, T.AddMinutes(9));
+
+    private static PhaseStateChangedEvent HandedBack(string phaseId, string title, string verdict) =>
+        new(RunId, phaseId, 2, title, PhaseRunState.HandedBack, verdict, T.AddMinutes(9));
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;

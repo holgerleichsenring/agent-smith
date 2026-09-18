@@ -12,6 +12,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -115,12 +116,20 @@ public sealed class DeriveSpecHandlerTests
             Mock.Of<ISpecSetReader>(),
             publisher,
             new InMemorySpecSetPointerStore(),
+            new ApprovedSpecSetResolver(
+                new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new PhaseSpecFromTicket(validator, draftReader),
+                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecCoverageRefusal(
+                new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
+                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
             new SpecSetTicketCommenter(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<SpecSetTicketCommenter>.Instance),
+            ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(

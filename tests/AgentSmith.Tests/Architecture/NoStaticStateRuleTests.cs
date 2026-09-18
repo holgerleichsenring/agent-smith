@@ -46,6 +46,10 @@ public sealed class NoStaticStateRuleTests
         // fixed list of literals, so a tool call reads "read_file src/Foo.cs" without the
         // arg blob ever leaving the process.
         typeof(AgentSmith.Application.Services.Events.ToolArgumentFacts),
+        // 2026-09-17-042ee: the same kind of table, for the line a PERSON is shown while a
+        // design turn runs — which keys name a path, which mark a query, which key is a
+        // pattern. Fixed literals, read only to reword a value the whitelist already chose.
+        typeof(AgentSmith.Application.Services.Events.OperatorToolSummary),
         typeof(PromptOwnership),
         typeof(TicketBranchNamer),
         typeof(ApiScanFindingsCompressor),

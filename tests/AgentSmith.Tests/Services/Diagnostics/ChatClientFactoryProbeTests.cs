@@ -61,6 +61,7 @@ public sealed class ChatClientFactoryProbeTests
             Mock.Of<ILlmRateLimiterRegistry>(),
             new AgentSmith.Infrastructure.Services.RateLimiting.ThrottleWaitReporter(),
             new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
             NullLoggerFactory.Instance);

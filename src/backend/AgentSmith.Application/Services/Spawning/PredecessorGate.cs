@@ -11,8 +11,15 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Spawning;
 
 /// <summary>
-/// 2026-09-13-a72a: holds an epic's child back while a slice it follows is still in the
-/// working set, so the order the cut decided is the order the runs happen in.
+/// 2026-09-13-a72a: holds a ticket back while a ticket it follows is still in the working set,
+/// so the order the cut decided is the order the runs happen in.
+/// <para>
+/// 2026-09-17-0e79d: nothing the framework files carries a predecessor stamp any more. An
+/// approved epic is ONE work ticket, and the order inside it is the sequence's — phase by phase,
+/// a successor held until its predecessor VERIFIED, which is stronger than any status gate. What
+/// reaches this gate now is a legacy epic child already on a tracker or a hand-stamped ticket,
+/// and both are still ordered exactly as they were.
+/// </para>
 /// <para>
 /// The done-signal is "OUTSIDE the project's trigger_statuses", NOT "equals DoneStatus":
 /// DoneStatus defaults to "In Review", which means a pull request was opened, and an

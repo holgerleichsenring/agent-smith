@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-7b31
+
+goal: "The phase gate runs the generated-mirror checks the dashboard workflow runs, so a C# contract that outgrew its TypeScript mirror blocks the commit rather than the pull request."
+
+applies_to: "the phase gate hook (.claude/hooks/phase-gate.sh) + its marker tests"
+
+requires:
+  - 2026-09-17-042eh
+
+scope:
+  in: >
+    The gate's dashboard block gains the three generator steps the dashboard workflow runs before
+    lint and test: the token build, the API types and the hub-events drift check. Each is run the way
+    the workflow runs it and a non-zero exit BLOCKS, with the generator's own output carried into the
+    block message so the committer reads what drifted rather than that something did. The ledger
+    line's check list gains a name for them, so a passed line states that they were run. A tree with
+    no src/dashboard/package.json has nothing to check and says so, as the existing dashboard block
+    already does; a tree that has one and no pnpm blocks, for the reason it already blocks.
+  out: >
+    THE GENERATORS THEMSELVES. build-hub-event-types.mjs is a checker that leaves curated TypeScript
+    alone by design; this phase runs it, it does not make it write.
+    THE BACKEND'S OWN DRIFT CHECKS. The migration-head comparison and the route-permission baseline
+    are ordinary tests and the gate already runs the suite.
+    LINT. The workflow runs it with continue-on-error, so it is not a gate.
+
+decisions:
+  - key: |
+      THE HOLE THIS CLOSES, MEASURED. 2026-09-17-042eh added EventType.PhaseReviewed = 81
+      (EventType.cs:108) and PhaseReviewedEvent (PhaseLifecycleEvents.cs:51) and no mirror in
+      src/dashboard/src/types/hub-events.ts. The phase gate passed on that commit, twice, and on
+      every one of the five phases stacked above it. CI failed on the pull request, 26 commits later.
+      The gate's dashboard block runs install, test and build (phase-gate.sh, the dashboard section)
+      and none of the three generator steps dashboard.yml:48-55 runs before them.
+  - key: |
+      A GATE THAT IS WEAKER THAN CI IS THE WORST SHAPE. It is not that the check was missing — CI had
+      it. It is that the gate said "passed" and the ledger recorded it, which is the sentence an agent
+      and an operator both read as "this tree is good". A check CI owns and the gate does not turns
+      every gated commit into a claim nobody verified, discovered at the end of a series rather than
+      at the commit that broke it.
+  - key: |
+      RUN THEM WHERE THE DASHBOARD BLOCK ALREADY IS. The block already resolves pnpm, already decides
+      what a tree with no dashboard means, and already runs before the .NET checks. Adding the steps
+      there rather than in a block of their own means one answer to "is there a dashboard here", and
+      the generators need the install that block already did.
+  - key: |
+      THE OUTPUT IS THE POINT. build-hub-event-types.mjs prints what drifted, by name
+      ("missing in TS: PhaseReviewed"). A block message that says only "generated mirrors drifted"
+      would send the committer to run the command by hand to learn what the gate already knew.
+
+steps:
+  - id: the-three-steps
+    action: "The gate's dashboard block runs the token build, gen:types and gen:hub-events after install and before test; a non-zero exit blocks and carries the generator's own output."
+  - id: the-ledger-says-so
+    action: "The ledger line's check list names the mirror check, so a passed line states it ran."
+  - id: the-marker-tests
+    action: "test_phase_gate_marker.py covers: a drifted mirror blocks; a clean one passes; a tree with no dashboard says so rather than skipping silently."
+
+tests:
+  - "Gate_HubEventsDrift_BlocksTheCommit"
+  - "Gate_HubEventsDrift_TheBlockMessageNamesWhatDrifted"
+  - "Gate_MirrorsInStep_PassesAndTheLedgerLineSaysTheyWereChecked"
+  - "Gate_TreeWithoutADashboard_SaysSoRatherThanSkippingSilently"
+  - "Gate_DashboardWithoutPnpm_StillBlocks"
+
+done:
+  - "a commit that adds a C# RunEvent without its TypeScript mirror is blocked by the gate, naming the event"
+  - "the ledger line of a passed commit states that the generated mirrors were checked"
+  - "the dashboard workflow and the gate no longer disagree about what makes a tree good"
+  - "full suite green, gate marker tests green"

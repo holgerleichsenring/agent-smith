@@ -1,7 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,11 +24,10 @@ public sealed class PipelineExecutor(
     IRunCancellationRegistry cancellationRegistry,
     PipelineExecutorPolicy parkPolicy,
     Pipeline.PipelineFinalizerTail finalizerTail,
+    Pipeline.PipelineStepFailure stepFailure,
     Pipeline.PlannedStepsAnnouncer plannedSteps,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
-    private const int MaxCommandExecutions = 100;
-
     public Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames, ResolvedProject projectConfig,
         PipelineContext context, CancellationToken cancellationToken) =>
@@ -48,7 +47,8 @@ public sealed class PipelineExecutor(
         IReadOnlyList<PipelineCommand> commandList, ResolvedProject projectConfig,
         PipelineContext context, int startExecutionCount, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Starting pipeline with {Count} commands", commandList.Count);
+        logger.LogInformation(
+            "Starting pipeline with {Count} commands, {Budget}", commandList.Count, StepBudget.From(context));
         for (var i = 0; i < commandList.Count; i++)
             logger.LogInformation("  [{Index}/{Total}] {Command}", i + 1, commandList.Count, commandList[i].DisplayName);
 
@@ -93,9 +93,18 @@ public sealed class PipelineExecutor(
         // p0405: the last sequence announced, so the run detail can say what is
         // still coming. Re-announced only when a handler splices into the list.
         string? announced = null;
+        // 2026-09-17-0e79e: PhaseSequence publishes a budget MID-RUN, so the number the
+        // guard works to is not the number the start line named. Say so when it changes.
+        var logged = StepBudget.From(context);
 
         while (current is not null)
         {
+            var budget = StepBudget.From(context);
+            if (budget != logged)
+            {
+                logged = budget;
+                logger.LogInformation("Pipeline now works to {Budget}", budget);
+            }
             // p0327: publish the live step cursor (current node → end, spliced
             // follow-ups included) so a checkpoint taken INSIDE a handler can
             // serialize exactly the remaining work, starting with itself.
@@ -107,12 +116,12 @@ public sealed class PipelineExecutor(
             if (sandbox.IsSandboxRequiring(current.Value.Name))
                 await sandbox.EnsureSandboxesAsync(projectConfig, context, ct);
 
-            if (executionCount - startExecutionCount + 1 > MaxCommandExecutions)
-            {
-                lifecycle.MarkFailed();
-                return CommandResult.Fail($"Pipeline exceeded maximum of {MaxCommandExecutions} command executions. " +
-                                          "Possible infinite loop in command insertion.");
-            }
+            // 2026-09-17-0e79e: exhaustion is reported the way a failing step is, so the
+            // finalizer tail runs and the phases that verified are still delivered.
+            if (executionCount - startExecutionCount + 1 > budget.Limit)
+                return await stepFailure.ReportExhaustedAsync(
+                    current, commands, commandList, projectConfig, context, lifecycle,
+                    budget, executionCount, ct);
 
             StepExecutionResult stepResult;
             try
@@ -150,21 +159,9 @@ public sealed class PipelineExecutor(
             }
 
             if (!stepResult.Result.IsSuccess)
-            {
-                // p0237: a failed step still runs the finalizer tail (WriteRunResult,
-                // CommitAndPR, …) so the run records WHY and keeps its work; the reason
-                // is classified by TYPE at the catch site, never parsed from text here.
-                // p0439: the tail may DELIVER the verified phases as a shortfall — then
-                // the run is a done that says what it lacks, and the error path never
-                // runs (no failure comment, no failed status, no WIP persist).
-                context.Set(ContextKeys.FailureReason, stepResult.Result.Message ?? "unknown");
-                await finalizerTail.RunAsync(current, commands, projectConfig, context, executionCount, ct);
-                if (RunShortfall.DeliveredOn(context) is { } shortfall)
-                    return CommandResult.Ok(shortfall.Summary);
-                await errorHandler.HandleStepFailureAsync(
-                    commandList.Select(c => c.Name).ToList(), projectConfig, context, lifecycle, stepResult.Result, ct);
-                return stepResult.Result;
-            }
+                return await stepFailure.ReportAsync(
+                    current, commands, commandList, projectConfig, context, lifecycle,
+                    stepResult.Result, executionCount, ct);
             if (parkPolicy.TryGetParkedReason(context, out var parked)) return CommandResult.Ok(parked);
             current = stepResult.AdvanceTo ?? current.Next;
         }

@@ -119,9 +119,9 @@ public sealed class TemplateProofReportTests
     {
         var evidence = new DerivationEvidence();
 
-        evidence.RememberOnce(Address, "read context.yaml", 0, ran: true).Should().Be("L1");
-        evidence.RememberOnce(Address, "read context.yaml", 0, ran: true).Should().BeNull();
-        evidence.Remember(Address, "read context.yaml", 0, ran: true).Should().Be("L2",
+        evidence.RememberOnce(new EvidenceRecord(Address, EvidenceRecord.TemplateProof, "read context.yaml", 0, Ran: true)).Should().Be("L1");
+        evidence.RememberOnce(new EvidenceRecord(Address, EvidenceRecord.TemplateProof, "read context.yaml", 0, Ran: true)).Should().BeNull();
+        evidence.Remember(new EvidenceRecord(Address, EvidenceRecord.TemplateProof, "read context.yaml", 0, Ran: true)).Should().Be("L2",
             "a look the MODEL asked for twice is still two looks; this guard is the framework's");
     }
 

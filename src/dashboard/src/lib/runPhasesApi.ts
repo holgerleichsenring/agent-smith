@@ -19,7 +19,7 @@ export interface RunPhaseRow {
   phaseId: string;
   ordinal: number;
   title: string;
-  /** "not_started" | "in_progress" | "done" | "failed". */
+  /** "not_started" | "in_progress" | "done" | "failed" | "handed_back". */
   status: string;
   startedAt: string;
   endedAt: string | null;

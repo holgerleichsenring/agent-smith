@@ -319,6 +319,7 @@ public sealed class CommitAndPRHandler(
             + $"{ExpectationPrBodySection.Build(context.Pipeline)}"
             + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
             + $"{RunAccountSection.Build(context.Pipeline)}"
+            + $"{PhaseReviewSection.Build(context.Pipeline)}"
             + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{SiblingMarker}";
         try
         {

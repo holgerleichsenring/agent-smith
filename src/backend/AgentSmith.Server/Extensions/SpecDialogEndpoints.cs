@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Services.SpecDialog;
 
 namespace AgentSmith.Server.Extensions;
@@ -38,8 +39,23 @@ internal static class SpecDialogEndpoints
         }
 
         await EmitChatAsync(ctx, body.DialogId, actioned: true, skipReason: null);
-        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner);
+        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx));
         return Results.Accepted();
+    }
+
+    /// <summary>
+    /// 2026-09-17-042eg: posting here needs dialog.write only, but approving MOVES the filed work
+    /// ticket into a trigger status, and that starts a run — which is runs.control everywhere else
+    /// in this server. It is sampled when the turn starts, on the principal that started it: the
+    /// dialog's owner is the only one who may post into it, so that principal is the approver.
+    /// A non-enforcing installation holds everyone to nothing, exactly as the hub filter reads it.
+    /// </summary>
+    internal static bool MayStartRuns(HttpContext ctx)
+    {
+        var auth = ctx.RequestServices.GetRequiredService<TokenAuthorityConfig>();
+        if (!auth.Enforce) return true;
+        return ctx.RequestServices.GetRequiredService<Security.CallerIdentityResolver>()
+            .Resolve(ctx.User).Permissions.Contains(Security.Permissions.RunsControl);
     }
 
     /// <summary>
@@ -48,7 +64,8 @@ internal static class SpecDialogEndpoints
     /// here would hold the connection for the whole turn, and passing the request's token
     /// would abort the conversation the moment the tab closed.
     /// </summary>
-    private static void Dispatch(HttpContext ctx, string dialogId, string text, string owner)
+    private static void Dispatch(
+        HttpContext ctx, string dialogId, string text, string owner, bool mayStartRuns)
     {
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
@@ -59,7 +76,7 @@ internal static class SpecDialogEndpoints
             {
                 using var scope = scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>()
-                    .DispatchAsync(dialogId, text, owner, CancellationToken.None);
+                    .DispatchAsync(dialogId, text, owner, mayStartRuns, CancellationToken.None);
             }
             catch (Exception ex)
             {

@@ -54,13 +54,7 @@ public sealed class SpecSetDeriver(
         await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
 
         var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, RenderSystemPrompt()),
-            new(ChatRole.User,
-                SpecPromptComposer.Compose(ticket, segments, previous, cause, pipeline)
-                + DerivationLookPromptSection.Render(look)),
-        };
+        var messages = SpecDerivationMessages.Opening(RenderSystemPrompt(), ticket, segments, previous, cause, pipeline, look);
 
         string? lastError = null;
         var kept = new LeastObjectedCut();
@@ -83,20 +77,23 @@ public sealed class SpecSetDeriver(
             {
                 lastError = parsed.Error;
                 logger.LogWarning("Spec derivation attempt {Attempt} rejected: {Error}", attempt, parsed.Error);
-                messages.Add(Again("Your cut was rejected", parsed.Error));
+                messages.Add(SpecDerivationMessages.Again("Your cut was rejected", parsed.Error));
                 continue;
             }
             // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut can
             // be DELIVERED. Rejected here, the deriver answers instead of a run finding out.
+            // 2026-09-15-ffa7: the reviewer keeps nothing between calls, so its look is per attempt.
+            await using var reviewLook = looks.ForCutReview(pipeline);
+            var set = parsed.Derivation.Set;
             var review = await reviewer.ReviewAsync(
-                parsed.Derivation.Set, ticket.Description ?? string.Empty,
+                [.. set.Phases.Select(p => p.Draft)], set.Key, SpecCutReviewTicketText.Of(ticket), reviewLook,
                 agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
             if (!review.Deliverable)
             {
                 kept.Offer(parsed.Derivation, review);
-                lastError = SpecCutRejection.For(review);
+                lastError = SpecCutRejection.For(review, reviewLook?.Evidence.Lines);
                 logger.LogWarning("Spec cut attempt {Attempt} is not deliverable: {Error}", attempt, lastError);
-                messages.Add(Again("Your cut cannot be delivered", lastError));
+                messages.Add(SpecDerivationMessages.Again("Your cut cannot be delivered", lastError));
                 continue;
             }
             var gap = coverage.Gap(named, parsed.Derivation.Set);
@@ -109,9 +106,6 @@ public sealed class SpecSetDeriver(
         }
         return (kept.Best, lastError);
     }
-
-    private static ChatMessage Again(string verdict, string? error) =>
-        new(ChatRole.User, $"{verdict}:\n{error}\nRespond again with ONLY the corrected JSON object.");
 
     private string RenderSystemPrompt() => prompts.Render(SkillName, new Dictionary<string, string>
     {

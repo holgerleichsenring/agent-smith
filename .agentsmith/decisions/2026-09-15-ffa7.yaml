@@ -1,0 +1,143 @@
+phase: 2026-09-15-ffa7
+decisions:
+  - id: terms-carry-the-holder
+    chose: >
+      DerivationLookTerms (actor, allowance, evidence letter, the exhausted instruction, the citation
+      rule) with two instances, Derivation (12, L) and CutReview (6, R). DerivationLook takes it as a
+      defaulted trailing constructor argument; the budget, the evidence, the prompt section, the tool
+      descriptions and the log lines read it off the look.
+    alternative: >
+      Separate allowance and prefix parameters on each type, or a generic refusal sentence.
+    why: >
+      Five places spelled the derivation's terms. One record keeps them together and lets the
+      derivation's prompt and refusal stay byte-identical: its exhausted sentence and citation rule are
+      the derivation's instance, not a rewording.
+  - id: room-by-a-gate-and-a-messages-type
+    chose: >
+      DerivationLookGate takes resolution, both budgets, the template refusal and Merge; DerivationLook
+      delegates to it and is 88 lines. SpecDerivationMessages takes the opening messages and Again, handed
+      the rendered system prompt; SpecSetDeriver is 113 lines. Neither file gained a baseline row.
+    alternative: >
+      Moving only Merge; or rendering the system prompt inside SpecDerivationMessages.
+    why: >
+      NoStaticStateRuleTests refuses a static that takes a collaborator, so the catalog stays with the
+      deriver.
+      The spec named these seams. The look keeps its public surface (Budget, TemplateBudget,
+      TemplateRefusal, TryOpen), so no tool and no existing test had to learn the gate. The look stays
+      constructible from an explicit sandbox map, which a later review inside a design turn needs.
+  - id: the-reviewer-look-per-attempt
+    chose: >
+      SpecSetDeriver creates the reviewer's look with DerivationLookFactory.ForCutReview inside the
+      attempt loop and disposes it at the end of the attempt; the rejection is built while it is alive.
+    alternative: >
+      One reviewer look for the derivation.
+    why: >
+      As the spec decided: the reviewer keeps no conversation, so an allowance spent by attempt one
+      would answer later attempts with a refusal to questions they never asked.
+  - id: the-factory-member-touches-neither-selection
+    chose: >
+      ForCutReview resolves the run's sandboxes as Create does and passes no templates; it calls neither
+      ProjectTemplateScopes.For nor ForProject.
+    alternative: >
+      Build through Create and discard the template scopes.
+    why: >
+      Both selections create a scope per declaration, so a discarded result still clones. The premise
+      was re-verified: For (:33) and ForProject (:49) both reach Select, which calls scopes.Create (:73).
+  - id: descriptions-vary-per-instance
+    chose: >
+      Each tool exposes a Description built from its look's letter and DerivationTools passes it to
+      AIFunctionFactory.Create(method, name, description). Parameter descriptions stay attributes.
+    alternative: >
+      A description that names no literal id.
+    why: >
+      The factory's description argument exists in Microsoft.Extensions.AI 10.3.0 at the call site that
+      already overrides the name, so the spec's preferred branch was available.
+  - id: one-id-index
+    chose: >
+      DerivationEvidence.IndexById is the one id-to-line index; FactResolver, SpecCutAdmission and
+      SpecCutRejection all read through it. FactResolver's private copy is gone.
+    alternative: >
+      A second index in the rejection.
+    why: >
+      Evidence minting and resolution stay in one type, which a later fix to what a refused step mints
+      has to change in exactly one place.
+  - id: a-false-premise-names-a-phase-too
+    chose: >
+      A false-premise finding is admitted when its phase id names a phase of the set AND its citation
+      resolves in the reviewer's own evidence. Its quote is not checked; every other kind keeps the
+      verbatim done-list match unchanged.
+    alternative: >
+      Admit on the citation alone.
+    why: >
+      The rejection opens with the phase id; a finding against a phase the cut does not have would hand
+      the deriver a correction it cannot place. A citation in the deriver's letter (L1) is not the
+      reviewer's and is discarded.
+  - id: the-answer-is-the-last-turn
+    chose: >
+      The reviewer parses the last message of the response that carries text, falling back to the
+      response text.
+    alternative: >
+      Parsing ChatResponse.Text as before.
+    why: >
+      With tools the response carries every turn, and Text concatenates prose the model wrote around a
+      look; the bracket scan would start inside that prose. Without a look the response has one message,
+      so the text parsed is the same.
+  - id: no-look-no-change
+    chose: >
+      With no look the reviewer passes no iteration cap and no tools, the prompt carries no look section,
+      no fourth verdict and no cites field. Against the previous prompt, a whole ticket renders
+      byte-identical; a truncated ticket differs only in the withheld-coverage note's continuation lines,
+      which carried twelve stray spaces of template indentation and now do not.
+    alternative: >
+      Reproducing the stray indentation.
+    why: >
+      It was an artefact of interpolating a multi-line string into a raw literal, not a wording, and the
+      composed note now also states its count from the list.
+  - id: the-cost-this-adds
+    chose: >
+      The reviewer's cap is CutReviewAllowance + 2 = 8 per call. Four attempts at six looks each is up to
+      twenty-four reviewer looks per derivation, against the derivation's twelve.
+    alternative: >
+      The factory default of twenty-five.
+    why: >
+      Stated in the spec; the cap is proven by Review_WithALook_PassesTheReadOnlyToolsAndTheIterationCeiling.
+  - id: a-look-that-could-not-run-proves-nothing
+    chose: >
+      DerivationEvidence keeps an EvidenceLook per minted id (id, repository, what, exit, ran, line)
+      beside the prose line, and a false premise is admitted only on a cited id whose look ran.
+    alternative: >
+      Admitting on any minted id, or parsing "could not run" back out of the line.
+    why: >
+      Found in review. A search exiting other than 0 or 1, or an audit that could not run, still mints an
+      id; its line says it proves nothing, and admission read only that the id existed. A structured
+      record is the one a later full evidence record extends, rather than a second parse of prose.
+  - id: the-answer-is-read-past-bracketed-ids
+    chose: >
+      SpecCutAnswerReader tries every "[" that opens an array of objects or an empty array, earliest
+      first, against every later "]", longest first, and takes the first candidate that parses.
+    alternative: >
+      The first "[" to the last "]", as before.
+    why: >
+      Found in review. The prompt teaches ids written [R3]; one in the prose made the old span unparseable
+      and the review silently read as not taken, which blocks nothing. Starting only where an object or
+      an empty array opens keeps an inner string array such as a cites list from reading as the answer.
+  - id: cites-is-a-string-or-a-list
+    chose: >
+      The wire record accepts cites as a string or an array of strings and joins an array into one field;
+      DerivationEvidence.CitationsIn splits a field on commas, semicolons and whitespace, and admission and
+      rejection use the first candidate that resolves (for admission, that ran).
+    alternative: >
+      A converter on the domain record, or a list-typed Cites.
+    why: >
+      Found in review. An array threw during deserialisation and lost the whole review, and "R1, R3" was
+      discarded as one unknown id. The domain record keeps its shape; the wire shape stays in Application.
+  - id: known-repeated-reviewer-ids
+    chose: >
+      Each attempt's reviewer look counts from R1, so the same R id can name different looks in two
+      rejections of one deriver conversation. Left as it is.
+    alternative: >
+      A prefix or counter carried across attempts.
+    why: >
+      Found in review, no change requested. Every rejection carries its resolved line beside the id, so
+      the deriver is never asked to resolve an R id itself; a later phase that posts findings outside the
+      conversation needs the evidence plumbed with them.

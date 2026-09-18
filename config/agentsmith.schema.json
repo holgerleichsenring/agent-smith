@@ -211,6 +211,10 @@
             "comment": { "type": "string", "description": "Add comment. Default /rest/api/3/issue/{id}/comment." },
             "transitions": { "type": "string", "description": "List/apply workflow transitions. Default /rest/api/3/issue/{id}/transitions." }
           }
+        },
+        "parent_link_type": {
+          "type": "string",
+          "description": "Jira only: the issue link type a filed epic child is linked to its parent with. Default Relates. A type the site does not have is a failed link, shown on the filing."
         }
       }
     },

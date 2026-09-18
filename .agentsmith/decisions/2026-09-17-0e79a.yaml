@@ -1,0 +1,217 @@
+phase: 2026-09-17-0e79a
+decisions:
+  - id: the-approval-instant-and-the-time-are-one-field
+    chose: >
+      SpecApproval is (At, Conversation, Principal) — three fields. `At` IS the approval
+      instant and the only thing the precedence compares; IsNewerThan lives on it.
+    alternative: >
+      The spec enumerated four things — "the instant, the conversation, the principal and the
+      time" — which reads as a version marker beside a separate provenance timestamp.
+    why: >
+      Two timestamps written together at one call site are two chances to disagree, and nothing
+      in this phase or in 2026-09-17-0e79b reads a "recorded at" that is not the approval. A
+      second field would be a second answer to one question, which is the defect the record
+      exists to remove. Written down here because the spec asked for four and got three.
+  - id: the-record-is-one-blob-with-indexed-projections
+    chose: >
+      ApprovedSpecSet carries SpecKey, RecordJson (the whole SpecApprovalRecord as
+      SpecApprovalJson writes it) and ApprovedAt / ApprovedInConversation / ApprovedBy as
+      PROJECTIONS, written from the record and never read back into one. UNIQUE(SpecKey);
+      a second approval upserts in place.
+    alternative: >
+      Separate SetJson and RepositoriesJson columns with the approval rebuilt from its own
+      columns — the literal reading of "an entity carrying the set, its approval instant and
+      provenance and its repositories".
+    why: >
+      One content column has one parse. Rebuilding the record from four columns plus a blob
+      that also contains them puts the same fact in two places in one row, which is the
+      TicketSpecSet reasoning applied to itself. The projections exist so an operator reading
+      the table sees whose approval a row holds and when; the doc comment says they are
+      write-only so nobody wires a reader to them later.
+  - id: the-resolver-always-asks-the-store
+    chose: >
+      ApprovedSpecSetResolver reads the carried record AND the store on every call, takes the
+      newer approval, and publishes the WINNER back under ContextKeys.ApprovedSpecSet.
+    alternative: >
+      A resolution marker key so the second caller (DeriveSpec, ten steps after ScopeRepos)
+      skips the store — the spec's "publishes what it found so the second call is free".
+    why: >
+      What is free on the second call is the DECISION, which is on the context. Skipping the
+      store would also skip an approval that landed between ScopeRepos and DeriveSpec, and a
+      marker key is a second name for one payload. The in-memory default is registered
+      everywhere, so "a process that has a store" is a process whose store answers — a CLI's
+      answers nothing, which is the same behaviour with one fewer branch.
+  - id: the-merge-is-its-own-type-and-so-is-the-approved-arm
+    chose: >
+      ApprovedSetMerge (positional merge + the two refusals) and ApprovedSetSource (the
+      precedence arm, the cap and the cause) are separate types; SpecSourceResolver calls the
+      arm first and falls through to the branch artifact, the description and derivation.
+    alternative: >
+      Putting the precedence and the merge inside SpecSourceResolver.Decide.
+    why: >
+      Decide was 86 lines and gains the pointer, the pipeline, the cause and the loud miss.
+      "Which source wins" and "how a re-approved set is laid over an executed head" are two
+      reasons to change, and the merge is the one with the rule nobody can reconstruct from
+      the code around it. SpecSourceResolver ends at 106 lines.
+  - id: a-filed-ticket-is-known-by-a-stamp-not-by-the-phase-label
+    chose: >
+      The framework stamps FiledTicketLabels.ApprovedSetStamp ("phase-spec:approved") on every
+      ticket it files from an approved set. FiledTicketSpecGate keys on that stamp, and
+      SpecSourceResolver consults the gate BEFORE the ticket-description arm.
+    alternative: >
+      Keying the gate on the bare `phase` label (the first cut), or leaving the gate after the
+      description arm.
+    why: >
+      Adversarial review found the hole: with the gate after the description, anyone with tracker
+      write access could paste a ```yaml block into a filed ticket and the run would take it as
+      the source, publish it to the branch and work it — the second editable truth this whole
+      series exists to remove, reintroduced by the phase that removed the fence. The gate has to
+      run first. But the bare phase label cannot carry the rule, because a HAND-WRITTEN phase
+      ticket carries it too and its spec legitimately lives in its description (p0315d). So the
+      filer stamps what only the filer knows. Removing the stamp by hand downgrades a ticket to
+      "derive", which is today's behaviour; adding it by hand makes a ticket fail loudly. Both
+      are the safe direction.
+  - id: the-loud-miss-is-an-error-on-the-decision
+    chose: >
+      FiledTicketSpecGate returns the text of what is missing; SpecSourceResolver returns it
+      as Decision.Error on the Approved source, and the handler's existing Error branch fails
+      the step. The handler's message became "has no usable phase spec", which covers a
+      malformed embedded spec and a missing approved one.
+    alternative: >
+      A separate check in DeriveSpecHandler after the decision.
+    why: >
+      The handler is AT its baseline and had to SHRINK. The gate belongs where the precedence
+      already decided that nothing answered — one place that knows "no branch artifact, no
+      record, no description". The failure is ALSO published on the run's gate trail
+      (SpecCutGate.RefuseSpecAsync, "spec-source"): a failed step names the phase, not the
+      reason, and the reason is the whole point of failing loudly. It is not posted as a ticket
+      COMMENT — what a filed ticket's states and comments say is 2026-09-17-042eg's subject, and
+      a second writer on that surface now would collide with it.
+  - id: the-handler-shrinks-by-extracting-the-coverage-refusal
+    chose: >
+      SpecCoverageRefusal owns reporting an incomplete accounting and building the fallback
+      from the refused cut. DeriveSpecHandler ends at 142 lines against its 143 baseline.
+    alternative: >
+      Extracting the announce block or the Finalize helper.
+    why: >
+      The announce block and Finalize are both one responsibility of the handler's own; the
+      coverage refusal is a second one. Measured, not predicted: 143 at the start, +2 constructor
+      parameters (the approval resolver and the refusal), +1 resolve call, +1 as the Decide call
+      grew to two lines, -1 for the cause local the Decision now carries, -4 for the refusal
+      block that left behind a three-line call. 143 + 4 - 5 = 142, which is what the file is.
+  - id: a-record-that-does-not-win-cannot-refuse-the-run
+    chose: >
+      ApprovedSetSource checks the newer-than-the-branch precedence BEFORE the phase cap, and
+      ApprovedSetMerge refuses a re-approval that adds no phase past the executed head when it
+      also edits one, as well as one shorter than EITHER the contiguous head or the whole
+      executed list.
+    alternative: >
+      The first cut's order (cap first) and a single drop guard measured against the head.
+    why: >
+      Adversarial review: an old over-cap record left in the store failed EVERY later run of a
+      ticket whose branch already carried a valid set — a record that is not the source must not
+      be able to refuse the run. The empty-tail case was worse than a refusal: the merge yielded
+      exactly the executed head, PhaseSequence reported "nothing left to run" and the run
+      SUCCEEDED having discarded every edit. And Executed is copied wholesale while ExecutedHead
+      is only the contiguous prefix, so a hand-edited set.yaml could walk a shorter re-approval
+      past a head-only guard.
+  - id: the-approval-is-intersected-with-the-operators-override
+    chose: >
+      ApprovedRepoScope reads ContextKeys.SourceOverrideRepo. Under an override the approval is
+      intersected with what the operator kept and nothing fails; with no repository of the
+      approval left, the flag simply wins. Without an override, a named repository the project
+      does not configure still fails the step.
+    alternative: >
+      Comparing the approval against ContextKeys.Repos unconditionally (the first cut).
+    why: >
+      Adversarial review: ContextKeys.Repos is ALREADY narrowed by `--repo` when ScopeRepos runs,
+      so `--repo` plus an approval failed the step with a message saying the project does not
+      configure a repository it configures perfectly well. The operator's flag is the one thing
+      the classifier was never allowed to override; an approval is the same kind of answer and
+      does not outrank it either.
+  - id: an-approved-scope-skips-the-narrowing-and-nothing-else
+    chose: >
+      The Settled early return was removed. An approved multi-repo run evaluates the classifier's
+      reply as before: the scope rationale, ExpectedChangeRepos (p0384) and the context scope
+      (p0336b) are all published; only the repo NARROWING is skipped, through Narrow(), and
+      ApprovedRepoScope.Kept names the repositories everything below reads. The single-repo early
+      return is unchanged.
+    alternative: >
+      Keeping the early return and recording the loss in this file.
+    why: >
+      Adversarial review: the early return silently dropped the keystone's per-repo delivery gate
+      and the context scoping for exactly the runs that need them most — a person named several
+      repositories, and the run then could not tell which of them had to change. "Approved" is a
+      statement about WHICH repositories, not about how the run is verified.
+  - id: the-scope-collaborator-owns-the-skip-not-the-publish
+    chose: >
+      ApprovedRepoScope.OpenAsync publishes the approved repositories to ContextKeys.Repos
+      BEFORE the inventory is built and returns the scope; Settled() gives the skip message
+      for an approved scope and for a single-repo run; Narrow() publishes the classifier's
+      result and is a no-op over an approved scope. ScopeReposHandler ends at 120 lines.
+    alternative: >
+      Absorbing the publish branch entirely, as the spec's line count assumed.
+    why: >
+      Narrow() IS the publish branch, moved: the handler asks once for the scope to publish
+      and once for what to record, and the "never over an approval" rule now lives with the
+      rule it belongs to instead of being an `if` in the handler. The handler needed 120 and
+      got 120, so two one-line guard returns were folded onto their `if`s to pay for the
+      collaborator.
+  - id: the-filed-body-points-at-the-conversation
+    chose: >
+      RenderPhase files PhaseTicketBody.Requirement plus a "## Specification" section naming
+      the design conversation the set was approved in and the path the run publishes it to.
+      PhaseTicketBody.WorkOrder goes with its last caller, and the p0315d contract note moves
+      to PhaseSpecFromTicket.
+    alternative: >
+      A URL into the dashboard, which is what "plus a link" most literally asks for.
+    why: >
+      The renderer has no dashboard base URL and the spec key needs a ticket id that does not
+      exist until CreateAsync returns. The conversation id is the reference a reader can act
+      on: it is where 2026-09-17-0e79b says a change to an approved set is made.
+  - id: the-cap-is-checked-in-the-epic-parser
+    chose: >
+      EpicOutcomeParser refuses an outcome with more than SpecSet.MaxPhases children, with a
+      message telling the master to propose the first eight and cut the rest afterwards.
+      ApprovedSetSource refuses an over-cap record at the run.
+    alternative: >
+      Checking in the filer, or in the proposal composer.
+    why: >
+      The parser is the first place a proposal exists and the last one before any ticket. The
+      filers create and then store, so a refusal at store time would leave a filed ticket with
+      no set — the one outcome this phase exists to prevent.
+  - id: the-record-is-identified-by-its-tracker-instance-too
+    chose: >
+      SpecApprovalRecord carries the tracker CONNECTION's catalog name; the store is keyed by
+      (Tracker, SpecKey) and the resolver checks a carried record against both. SpecSetKey itself
+      is untouched.
+    alternative: >
+      Putting the instance into SpecSetKey — the first cut's "keyed by the spec key alone".
+    why: >
+      Adversarial review: the key is <provider>-<ticketId> where the provider is the tracker's
+      TYPE, so two Jira instances or two Azure DevOps organizations numbering a ticket alike
+      resolved to one record, and the resolver's key check passed. The key could not simply grow
+      the instance: it is also the git path under .agentsmith/specs/ and the pointer's id, and
+      changing it would orphan every set already on a branch. The approval store is the first
+      thing keyed ACROSS projects, so it is the first thing that needed the instance; the
+      per-project pointer never did.
+  - id: a-hollow-record-is-not-a-record
+    chose: >
+      SpecApprovalJson.Read rejects a deserialized record whose Set or Repositories is null, or
+      whose Key is empty.
+    alternative: >
+      Catching the NullReferenceException at each reader.
+    why: >
+      Adversarial review: valid JSON that names a key and nothing else deserializes cleanly, and
+      the resolver and the repo scope then dereference Set and Repositories. "Not a record" is
+      the honest answer and leaves a filed ticket failing loudly — which is the behaviour this
+      phase already specifies for a set that did not arrive.
+  - id: a-seventh-archive-count-moved-with-the-six
+    chose: >
+      DataArchiveRefusalTests.cs:103 (46 to 48) was updated alongside the six the spec named.
+    alternative: >
+      Leaving it and discovering it in the full suite.
+    why: >
+      The spec's list was verified against DataArchiveSchemaTests and DataArchiveRoundTripTests
+      only. The refusal suite pins the same seeded row total; two seeded rows for the new table
+      move it too. Recorded so the next phase adding a table looks in three files, not two.

@@ -15,10 +15,8 @@ using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
-/// p0147f: thin Azure DevOps WorkItemTracking orchestrator. Field mapping
-/// in <see cref="AzureDevOpsFieldMapper"/>; cached VssConnection in
-/// <see cref="AzureDevOpsConnectionCache"/>; WIQL queries +
-/// transport-failure recovery in <see cref="AzureDevOpsWorkItemLister"/>.
+/// Thin Azure DevOps WorkItemTracking orchestrator. Field mapping in <see cref="AzureDevOpsFieldMapper"/>;
+/// cached VssConnection in <see cref="AzureDevOpsConnectionCache"/>; WIQL in <see cref="AzureDevOpsWorkItemLister"/>.
 /// </summary>
 public sealed class AzureDevOpsTicketProvider : ITicketProvider
 {
@@ -31,6 +29,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private readonly AzureDevOpsConnectionCache _connections;
     private readonly AzureDevOpsWorkItemLister _lister;
     private readonly ILogger _logger;
+    private readonly TrackerParentLink _parentLink;
 
     public string ProviderType => "AzureDevOps";
 
@@ -51,6 +50,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         _connections = new AzureDevOpsConnectionCache(connection, logger);
         _lister = new AzureDevOpsWorkItemLister(_connections, mapper, connection.Project, openStates, extraFields, logger);
         _logger = logger;
+        _parentLink = new TrackerParentLink("Azure DevOps", logger);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -87,8 +87,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken) =>
         _lister.ListAsync(extraWhere: null, "open", cancellationToken);
 
-    // p0283b: composed claimable discovery — the lister + WIQL builder push the per-project
-    // status/tag/area-path branches into the query so only candidates come back.
+    // The lister's WIQL carries the per-project status/tag/area-path branches, so only candidates return.
     public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
         DiscoveryQuery query, CancellationToken cancellationToken) =>
         _lister.ListClaimableAsync(query, cancellationToken);
@@ -116,9 +115,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // Work item type "Task" is the one type present in every AzDO process
-    // template (Basic/Agile/Scrum/CMMI); the description is markdown→HTML like
-    // System.History because System.Description renders HTML natively.
+    // "Task" exists in every process template; System.Description renders HTML, so markdown is converted.
     public async Task<CreatedTicket> CreateAsync(
         string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
     {
@@ -147,14 +144,25 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     internal static string WorkItemWebUrl(string organizationUrl, string project, int id) =>
         $"{organizationUrl.TrimEnd('/')}/{Uri.EscapeDataString(project)}/_workitems/edit/{id}";
 
+    public async Task<ParentLinkResult> LinkToParentAsync(
+        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+        int.TryParse(parent.Value, out var parentId) && int.TryParse(child.Id.Value, out _)
+            ? await _parentLink.AttemptAsync(() =>
+                PatchAsync(child.Id, BuildParentLinkPatch(_organizationUrl, parentId), cancellationToken), cancellationToken)
+            : ParentLinkResult.Failed($"'{child.Id.Value}' or '{parent.Value}' is not an Azure DevOps work item id.");
+
+    // A relation names its target by the REST url, not the web url a person follows.
+    internal static JsonPatchDocument BuildParentLinkPatch(string organizationUrl, int parentId) =>
+        [Op("/relations/-", new WorkItemRelation
+            { Rel = "System.LinkTypes.Hierarchy-Reverse", Url = $"{organizationUrl.TrimEnd('/')}/_apis/wit/workItems/{parentId}" })];
+
     public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>
         await TicketDocumentAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // p0317: the ticket conversation via the Comments REST resource — the same
-    // store the System.History PATCHes (UpdateStatusAsync) land in. Transport
+    // The Comments resource is the store the System.History PATCHes land in. Transport
     // failures propagate — FetchTicketHandler owns fail-soft.
     public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
@@ -176,11 +184,8 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => PatchAsync(ticketId, [Op("/fields/System.State", statusName)], cancellationToken);
 
-    // Atomic post-PR finalize: AzDO bumps System.Rev on every PATCH, so two
-    // sequential UpdateStatus + Transition calls race with any concurrent
-    // observer (parallel run, operator UI edit, automation rule) and the
-    // second one crashes with TF26071. Combining both ops into one PATCH
-    // is the only safe pattern. CloseTicketAsync uses the same shape.
+    // One PATCH: AzDO bumps System.Rev on every write, so a comment and a transition sent
+    // apart race any concurrent observer and the second fails with TF26071.
     public Task FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
     {
@@ -193,23 +198,18 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private async Task PatchAsync(TicketId ticketId, JsonPatchDocument patch, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var id)) return;
-        // p0260 audit: state/history writes (UpdateStatus, Finalize, Close) bypass
-        // the lifecycle transitioner — log them through the same lens so every
-        // outbound ticket mutation is attributable to its agent-smith caller.
+        // Writes that bypass the lifecycle transitioner are logged through the same lens.
         _logger.LogInformation(
             "TICKET WRITE #{Ticket}: fields[{Paths}] <- {Caller}",
             ticketId.Value, string.Join(", ", patch.Select(p => p.Path)), TicketWriteAudit.Caller());
         await _connections.CreateClient().UpdateWorkItemAsync(patch, _project, id, cancellationToken: cancellationToken);
     }
 
-    private static JsonPatchOperation Op(string path, string value) =>
+    private static JsonPatchOperation Op(string path, object value) =>
         new() { Operation = Operation.Add, Path = path, Value = value };
 
-    // ADO's System.History field renders HTML natively; sending raw markdown
-    // produces plain-text-with-no-line-breaks in the UI. The dedicated Comments
-    // REST API accepts a `format=markdown` parameter but the bundled SDK does
-    // not surface it (CommentCreate exposes Text only). Converting client-side
-    // keeps the existing UpdateWorkItemAsync call path intact.
+    // System.History renders HTML, and raw markdown loses its line breaks; the SDK's
+    // CommentCreate cannot send format=markdown, so the conversion happens here.
     private static readonly MarkdownPipeline MarkdownPipeline =
         new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
 

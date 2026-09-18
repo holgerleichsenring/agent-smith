@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Progress;
@@ -15,6 +16,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Turns;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
@@ -44,6 +46,8 @@ public sealed class AgenticMasterHandler(
     ISpecDialogPromptFactory specDialogPromptFactory,
     IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
+    SpecDialogProposalRefusal proposalRefusal, // 2026-09-17-042ec: no proposal before a discussion
+    SpecDialogProposalReview proposalReview, // 2026-09-17-042ed: the turn reviews what it proposes
     ISubAgentRunner subAgentRunner,
     SubAgentBudget subAgentBudget,
     SubAgentNameValidator subAgentNameValidator,
@@ -61,6 +65,8 @@ public sealed class AgenticMasterHandler(
     ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
     IDialogueTransport? dialogueTransport,
     AgenticToolSurface toolSurface,
+    ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the turn's own steps
+    TurnActivityTools reportingTools, // 2026-09-17-042ee: the surface those steps come from
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
 {
@@ -451,7 +457,10 @@ public sealed class AgenticMasterHandler(
         // invalid output never reaches the thread.
         if (isSpecDialog)
             loopResult = await GateSpecOutcomeAsync(
-                context.Pipeline, request, userPrompt, loopResult, costTracker, cancellationToken);
+                context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
+        // 2026-09-17-042ed: a phase or epic the gate ADMITTED is reviewed against the turn's repositories.
+        if (isSpecDialog)
+            await proposalReview.ReviewAsync(context.Pipeline, context.AgentConfig, costTracker, cancellationToken);
 
         var changes = fs.GetChanges();
 
@@ -624,8 +633,9 @@ public sealed class AgenticMasterHandler(
     // invalid output is never surfaced.
     private async Task<AgenticLoopResult> GateSpecOutcomeAsync(
         PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
-        AgenticLoopResult loopResult, PipelineCostTracker costTracker, CancellationToken ct)
+        AgenticLoopResult loopResult, MasterConversation conversation, PipelineCostTracker costTracker, CancellationToken ct)
     {
+        loopResult = await proposalRefusal.RefuseEarlyProposalAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
         var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty);
         if (resolution is OutcomeResolved first)
             return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
@@ -634,6 +644,7 @@ public sealed class AgenticMasterHandler(
         logger.LogWarning(
             "Design-partner terminal outcome failed validation — re-prompting once: {Error}",
             invalid.Error);
+        await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Revising), ct);
         AgenticLoopResult retry;
         try
         {
@@ -672,7 +683,9 @@ public sealed class AgenticMasterHandler(
     {
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
         // master surface, including the read-only Review/scan surface.
-        if (isSpecDialog) return toolSurface.SpecDialog(fs, human, web, recall, remember);
+        // 2026-09-17-042ee: only this surface reports; AgenticToolSurface itself is untouched.
+        if (isSpecDialog) return reportingTools.Reporting(
+            toolSurface.SpecDialog(fs, human, web, recall, remember));
         IList<AITool> BaseSurface() => isScanMaster
             ? toolSurface.Review(fs, log, web, recall, remember)
             : toolSurface.ReadWriteWithHuman(

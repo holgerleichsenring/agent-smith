@@ -401,6 +401,9 @@ export interface StudioTracker {
   // means the tracker declares none, and every ticket it routes runs the hardcoded
   // fallback — which is what the advisory finding on this field says.
   defaultPipeline?: string;
+  // 2026-09-17-042ea: Jira only — the issue link type a filed slice record is linked to its
+  // epic's work ticket with (2026-09-17-0e79d).
+  parentLinkType?: string;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to

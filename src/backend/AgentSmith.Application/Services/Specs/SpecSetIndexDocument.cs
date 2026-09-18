@@ -38,6 +38,17 @@ public sealed class SpecSetIndexDocument
     /// <summary>2026-09-08-5cd2: the ticket text this revision was cut from; absent on
     /// sets cut before it existed.</summary>
     public string? TicketFingerprint { get; set; }
+
+    /// <summary>2026-09-17-0e79a: the approval this published set came from — the instant, the
+    /// conversation and the principal. It is what the precedence compares a fresh record
+    /// against; absent on every set nobody approved.</summary>
+    public string? ApprovedAt { get; set; }
+
+    /// <inheritdoc cref="ApprovedAt"/>
+    public string? ApprovedInConversation { get; set; }
+
+    /// <inheritdoc cref="ApprovedAt"/>
+    public string? ApprovedBy { get; set; }
 }
 
 public sealed class SpecSetRevisionEntry

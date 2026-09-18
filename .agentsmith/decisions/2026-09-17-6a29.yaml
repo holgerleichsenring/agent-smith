@@ -1,0 +1,52 @@
+phase: 2026-09-17-6a29
+decisions:
+  - id: the-pin-moves-as-one-unit-and-the-build-proves-it
+    chose: >
+      Tarball, SkillsCatalogVersion and SkillsCatalogSha256 moved together to v5.5.0 in one edit,
+      following the procedure the csproj comment states: bump both properties, delete the old
+      Resources/*.tar.gz, check the new one in.
+    alternative: >
+      Letting the RestoreSkillsCatalog target download the tarball and reading the sha off the
+      downloaded file afterwards.
+    why: >
+      The sha was taken from the release asset digest BEFORE the build ran, so the checksum the
+      build verifies is an independent claim rather than a transcription of whatever happened to
+      land in Resources/. A sha copied out of a local file cannot detect the case the check exists
+      for — a tarball that is not the released one. The build's ValidateSkillsCatalog target then
+      confirmed the two agree.
+  - id: the-tests-read-the-packaged-master-through-the-existing-reader
+    chose: >
+      The three tests read the pinned master through PackagedMaster.Read("design-partner-master"),
+      the helper CodingMasterToolFirstPromptTests and DesignPartnerPlaceholderTests already use.
+    alternative: >
+      A checked-in fixture of the master text, or a second tar walk in the new file.
+    why: >
+      A fixture asserts against a copy this repo controls, which is exactly the thing that cannot
+      drift from the release and therefore proves nothing about what ships. PackagedMaster opens
+      the embedded tarball, so the assertion is about the catalog the product loads at runtime. A
+      second tar walk is how the first one drifts — p0442 already lifted the reader out for that
+      reason.
+  - id: each-rule-is-asserted-by-its-reason-not-only-its-headline
+    chose: >
+      Every test asserts three or four fragments per rule: the headline, the clause that says WHY
+      it holds, and the clause that says what to do when the conversation has not supplied it.
+    alternative: >
+      One Contain per rule, on the rule's first sentence.
+    why: >
+      The failure each rule fixes is a master that reads the headline and satisfies it cheaply —
+      writing a done list it invented rather than asking, or treating "discuss first" as one extra
+      turn rather than a gate. A headline-only assertion passes on a rewrite that keeps the
+      sentence and drops the part that makes it work, which is the likeliest way a later release
+      loses it.
+  - id: the-old-pin-was-restored-to-watch-the-tests-fail
+    chose: >
+      v5.4.0's tarball and sha were temporarily restored from HEAD, the three tests were run and
+      all three failed, then the v5.5.0 tarball was restored and compared byte-for-byte with cmp
+      before the rebuild.
+    alternative: >
+      Pointing the tests at a fixture of the v5.4.0 text to show the same thing.
+    why: >
+      What had to be proven is that the assertions discriminate between the two PINS, not between
+      two strings. Running them against the catalog the build actually embeds is the only form of
+      that proof; a fixture would have tested the fixture. cmp and the re-read sha are what keep
+      the temporary swap from surviving into the commit.

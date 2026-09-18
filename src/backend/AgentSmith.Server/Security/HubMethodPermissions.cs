@@ -37,6 +37,10 @@ internal static class HubMethodPermissions
             // because a browser-minted dialog id is no boundary.
             ["SubscribeSpecDialog"] = new(Permissions.DialogWrite),
 
+            // 2026-09-17-042ej: following a dialog's filed work means reading RUN state, so the
+            // caller holds both. WHICH dialog is again the method's own owner check.
+            ["WatchFiledWork"] = new(Permissions.DialogWrite, Permissions.RunsRead),
+
             ["GetTrail"] = new(Permissions.RunsRead),
             ["GetTrailPage"] = new(Permissions.RunsRead),
             ["GetResultMarkdown"] = new(Permissions.RunsRead),

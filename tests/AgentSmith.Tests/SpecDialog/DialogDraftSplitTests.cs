@@ -113,6 +113,54 @@ public sealed class DialogDraftSplitTests : IDisposable
             "the master revises a draft it can still read in its own transcript");
     }
 
+    // 2026-09-17-042ed: the findings were shown in a confirmation that is POSTED, never appended to
+    // the transcript, so the router hands the edit turn the proposal they ride on.
+    [Fact]
+    public async Task EditTurn_AfterAReviewedProposal_IsShownItsFindings()
+    {
+        var reviewed = new PhaseOutcome(new PhaseDraft("p9999", "widget goal", Draft, [])) with
+        {
+            Findings =
+            [
+                new ProposalFinding("p9999", "false premise", "the endpoint is already there",
+                    Quote: null, Evidence: "[P1] repo-a: the proposal review ran 'read src/Api.cs' exited 0"),
+            ],
+        };
+        Replies((ReplyWithDraft, reviewed), ("A smaller cut.", new AnswerOutcome()));
+        _transport.Setup(transport => transport.WaitForAnswerAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) =>
+                new DialogAnswer(questionId, "the endpoint is new, keep it", null, DateTimeOffset.UtcNow, "U1"));
+
+        await TurnAsync(Dashboard);
+
+        PromptOf(_turns[0]).Should().NotContain("the review of your last proposal",
+            "the turn that proposed it had nothing to be shown");
+        PromptOf(_turns[1]).Should().Contain("What the review of your last proposal found")
+            .And.Contain("[P1] repo-a: the proposal review ran 'read src/Api.cs' exited 0");
+    }
+
+    [Fact]
+    public async Task Turn_AfterAFiledProposal_IsShownNoFindings()
+    {
+        var reviewed = new PhaseOutcome(new PhaseDraft("p9999", "widget goal", Draft, [])) with
+        {
+            Findings = [new ProposalFinding("p9999", "false premise", "already there")],
+        };
+        Replies((ReplyWithDraft, reviewed));
+        _transport.Setup(transport => transport.WaitForAnswerAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string questionId, TimeSpan _, CancellationToken _) =>
+                new DialogAnswer(questionId, "approve", null, DateTimeOffset.UtcNow, "U1"));
+
+        await TurnAsync(Dashboard);
+        await _router.TryRouteAsync("now the next thing", "U1", "C1", Thread, Dashboard, false, CancellationToken.None);
+
+        _turns.Should().HaveCount(2, "the approved proposal was filed; this is an ordinary next turn");
+        PromptOf(_turns[1]).Should().NotContain("the review of your last proposal",
+            "a stored proposal is cleared only on reject or timeout — reading it back would be stale");
+    }
+
     [Fact]
     public async Task QuestionPump_AQuestionQuotingYaml_IsSentUnchanged()
     {
@@ -136,7 +184,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     {
         await _sessions.OpenAsync(platform, "C1", Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", "C1", Thread, platform, CancellationToken.None);
+        await _router.TryRouteAsync("draft the phase", "U1", "C1", Thread, platform, false, CancellationToken.None);
     }
 
     private void Replies(params (string Reply, OutcomeProposal Outcome)[] replies)
@@ -198,7 +246,8 @@ public sealed class DialogDraftSplitTests : IDisposable
                     NullLogger<SpecDialogResumer>.Instance),
                 new SpecDialogScopeResolver(Mock.Of<IConfigurationLoader>()),
                 new SpecDialogReplyComposer(), _messenger),
-            _turnRunner.Object, flow, gate, pending, _transport.Object,
+            _turnRunner.Object, flow, gate,
+            new SpecDialogAnswerAdmission(_sessions, pending, _transport.Object),
             new SpecDialogReplyComposer(), _messenger, NullLogger<SpecDialogRouter>.Instance);
     }
 

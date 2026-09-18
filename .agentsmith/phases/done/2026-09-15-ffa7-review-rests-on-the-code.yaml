@@ -147,6 +147,12 @@ tests:
   - "Prompt_WithoutALook_OffersThreeVerdictsAndNoCitesField"
   - "Prompt_WithALookAndATruncatedTicket_OffersContradictionUncheckableAndFalsePremise"
   - "Rejection_FalsePremise_CarriesTheMintedEvidenceLine"
+  - "Finding_FalsePremiseCitingALookThatCouldNotRun_IsDiscarded"
+  - "Finding_FalsePremiseCitingSeveralIds_IsKeptOnTheFirstThatResolves"
+  - "Review_ProseCitingABracketedId_StillReadsTheAnswer"
+  - "Review_ProseCitingABracketedIdAndAnEmptyAnswer_IsCleanNotUnreadable"
+  - "Review_AnswerFollowedByAnEmptyTurn_IsStillRead"
+  - "Rejection_AtTheDeriver_CarriesTheReviewersEvidenceLine"
 
 done:
   - "a reviewer that read a file and found the cut's premise contradicted produces a finding the deriver is answered with, carrying the line that proves it"

@@ -20,7 +20,7 @@ public sealed class FrameworkCallInterceptionTests
     [Fact]
     public void TheCutReviewPrompt_IsRecognisedAsAFrameworkCall()
     {
-        var prompt = SpecCutReviewPrompt.For(Set(), "the ticket");
+        var prompt = SpecCutReviewPrompt.For(Set(), "the ticket", look: null);
 
         SpecAccountReply.IsCutReviewCall(prompt).Should().BeTrue(
             "the harness recognises it by its own text — a marker that drifts steals a response");
@@ -51,8 +51,6 @@ public sealed class FrameworkCallInterceptionTests
                 + "shifts the whole sequence by one");
     }
 
-    private static SpecSet Set() =>
-        new("harness", [new SpecPhase(
-            new PhaseDraft("p1", "goal", "goal: g", []) { Done = ["a criterion"] },
-            "slug", "# md", [])], SpecAccounting.Empty, [], SpecSource.Derived);
+    private static IReadOnlyList<PhaseDraft> Set() =>
+        [new PhaseDraft("p1", "goal", "goal: g", []) { Done = ["a criterion"] }];
 }

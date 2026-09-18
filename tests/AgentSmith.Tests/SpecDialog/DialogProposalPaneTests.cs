@@ -48,7 +48,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), CancellationToken.None);
+        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
 
         var push = Proposals().Single();
         push.Kind.Should().Be(SpecDialogProposalComposer.PhaseKind);
@@ -64,7 +64,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new AnswerOutcome(), CancellationToken.None);
+        await flow.HandleAsync(State(), new AnswerOutcome(), false, CancellationToken.None);
 
         Proposals().Should().BeEmpty(
             "an answer proposes nothing, so the pane keeps whatever is still under discussion");
@@ -77,8 +77,8 @@ public sealed class DialogProposalPaneTests : IDisposable
         var state = State();
 
         var first = await flow.HandleAsync(
-            state, new PhaseOutcome(Draft("p9001")), CancellationToken.None);
-        await flow.HandleAsync(state, new PhaseOutcome(Draft("p9002")), CancellationToken.None);
+            state, new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
+        await flow.HandleAsync(state, new PhaseOutcome(Draft("p9002")), false, CancellationToken.None);
 
         first.Should().BeOfType<OutcomeFlowEditRequested>();
         Proposals().Select(push => push.Phase!.PhaseId).Should().Equal(["p9001", "p9002"],
@@ -90,7 +90,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), CancellationToken.None);
+        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
 
         _hub.Pushes.Should().OnlyContain(push => push.Group == HubGroups.SpecDialog(Dialog),
             "a design conversation is addressed to the one person holding it");
@@ -154,6 +154,22 @@ public sealed class DialogProposalPaneTests : IDisposable
         push.Filed.Should().Equal([new FiledTicket("https://tracker/1", "p9000: the cut")],
             "a partial epic must never silently lose the children it did create");
         push.Error.Should().Be("the tracker refused the child");
+    }
+
+    /// <summary>2026-09-17-042ea: a child the tracker would not link is said, not hidden.</summary>
+    [Fact]
+    public async Task Filed_WithANote_PublishesTheNoteAndNamesItInTheNotice()
+    {
+        var report = new FilingReport([new FiledTicket("https://tracker/2", "p9000a: slice")], Error: null)
+        {
+            Notes = ["https://tracker/2 is not linked to its parent https://tracker/1: refused"],
+        };
+
+        await Channel().FiledAsync(State(), report, CancellationToken.None);
+
+        Filings().Single().Notes.Should().Equal(report.Notes);
+        new SpecDialogOutcomeComposer().ComposeFiled(new PhaseOutcome(new PhaseDraft("p9000a", "slice", "phase: p9000a", [])), report)
+            .In(SpecDialogMarkup.For("slack")).Should().Contain("is not linked to its parent");
     }
 
     [Fact]

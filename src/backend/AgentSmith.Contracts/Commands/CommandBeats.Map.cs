@@ -57,6 +57,9 @@ public static partial class CommandBeats
         ["GeneratePlanCommand"] = RunBeat.Plan,
         ["PlanOpenQuestionsCommand"] = RunBeat.Plan,
             [CommandNames.Approval] = RunBeat.Plan,
+            // 2026-09-17-0e79c: it runs between SelectPhase and the master, and decides whether
+            // the phase is built at all — Verify would light the rail's last beat before Building.
+            [CommandNames.CheckPhasePremises] = RunBeat.Plan,
             [CommandNames.PhaseSpecGate] = RunBeat.Plan,
             [CommandNames.Ask] = RunBeat.Plan,
 
@@ -96,6 +99,7 @@ public static partial class CommandBeats
             [CommandNames.RunVerifyPhase] = RunBeat.Verify,
             [CommandNames.CommitPhaseWork] = RunBeat.Verify, // p0437
             [CommandNames.VerifyPhase] = RunBeat.Verify, // p0393
+            [CommandNames.ReviewPhaseDiff] = RunBeat.Verify, // 2026-09-17-042eh
             [CommandNames.ConvergenceCheck] = RunBeat.Verify,
             [CommandNames.CompileFindings] = RunBeat.Verify,
             [CommandNames.CollectMasterFindings] = RunBeat.Verify,

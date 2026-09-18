@@ -14,7 +14,8 @@ internal static class SpecDialogShownTranscript
         [.. transcript.Select(turn => new SpecDialogTurnView(
             turn.Role.ToString().ToLowerInvariant(),
             turn.Role == TranscriptRole.Assistant ? SpecDialogDraftBlocks.Strip(turn.Text) : turn.Text,
-            turn.At))];
+            turn.At,
+            turn.Decision?.ToString().ToLowerInvariant()))];
 
     /// <summary>
     /// The last assistant turn that carried a draft. No index travels with the proposal: live,

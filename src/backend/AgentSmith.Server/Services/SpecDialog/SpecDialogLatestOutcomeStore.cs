@@ -46,7 +46,7 @@ public sealed class SpecDialogLatestOutcomeStore(
         UpdateOpenAsync(platform, threadId,
             session => session.LatestFilingJson = JsonSerializer.Serialize(
                 new SpecDialogFiling(report.Filed, report.Error, DateTimeOffset.UtcNow,
-                    SpecDialogProposalComposer.KindOf(filed)), JsonOptions),
+                    SpecDialogProposalComposer.KindOf(filed), report.Notes), JsonOptions),
             ct);
 
     public async Task<SpecDialogLatestOutcome> ReadAsync(

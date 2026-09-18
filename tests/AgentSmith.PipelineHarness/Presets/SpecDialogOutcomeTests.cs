@@ -1,9 +1,11 @@
 using System.Runtime.CompilerServices;
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -33,7 +35,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// resolution tests keep a recording sink at the p0315c seam.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
-public sealed class SpecDialogOutcomeTests
+public sealed partial class SpecDialogOutcomeTests
 {
     private const string Project = "fixture-spec-dialog";
     private const string Repo = "spec-dialog-fixture";
@@ -82,12 +84,16 @@ public sealed class SpecDialogOutcomeTests
             steps:
               - id: store
                 action: "Add the widget store"
+            done:
+              - "a widget is stored and read back"
           - phase: p9000b
             goal: "Widget API on top of the storage layer"
             requires: [p9000a]
             steps:
               - id: api
                 action: "Add the widget endpoint"
+            done:
+              - "the endpoint returns a stored widget"
         ```
         """;
 
@@ -119,7 +125,7 @@ public sealed class SpecDialogOutcomeTests
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText(BugOutcomeReply);
-        var state = State("add a null check to AppendTurnAsync");
+        var state = Discussed("add a null check to AppendTurnAsync");
 
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
@@ -138,7 +144,7 @@ public sealed class SpecDialogOutcomeTests
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
-        var state = State("draft the widget phase now");
+        var state = Discussed("draft the widget phase now");
 
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
@@ -157,7 +163,7 @@ public sealed class SpecDialogOutcomeTests
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
 
-        var result = await RunTurnAsync(harness, State("draft the widget phase now") with { Platform = "dashboard" });
+        var result = await RunTurnAsync(harness, Discussed("draft the widget phase now") with { Platform = "dashboard" });
 
         result.Outcome.Should().BeOfType<PhaseOutcome>();
         result.Reply.Should().Contain("```yaml", "the transcript keeps what the master wrote");
@@ -171,7 +177,7 @@ public sealed class SpecDialogOutcomeTests
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText(EpicOutcomeReply);
-        var state = State("build the whole widget platform");
+        var state = Discussed("build the whole widget platform");
 
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
@@ -194,7 +200,7 @@ public sealed class SpecDialogOutcomeTests
             (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}");
-        var state = State("draft the widget phase now");
+        var state = Discussed("draft the widget phase now");
 
         var result = await RunTurnAsync(harness, state);
         var flow = RunFlowAsync(harness, state, result.Outcome);
@@ -254,7 +260,7 @@ public sealed class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task CreatePhase_PhaseOutcome_FilesOnePhaseTicketWithYamlBlock()
+    public async Task CreatePhase_PhaseOutcome_FilesOneRequirementAndStoresTheApprovedSet()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-phase");
@@ -266,14 +272,29 @@ public sealed class SpecDialogOutcomeTests
         var created = bed.Tickets.Created.Should().ContainSingle().Subject;
         created.Title.Should().Be("p9999: Add a widget endpoint to the sample service");
         created.Labels.Should().Contain(PhaseTicketRenderer.PhaseLabel);
-        var extracted = ExtractYaml(bed.Harness, created.Body);
-        extracted.Should().Be(ValidDraftYaml.Trim(),
-            "the body's single ```yaml block carries the schema-valid spec verbatim");
+        // 2026-09-17-0e79a: the spec is the approved RECORD, stored under the created ticket's
+        // spec key; the body carries no fence for anyone with tracker access to edit.
+        created.Body.Should().NotContain("```");
+        // The record is identified by the tracker CONNECTION and the spec key — the same pair
+        // SpecSetKeyFactory and ExecutePipelineUseCase hand the run.
+        var tracker = bed.Harness.Services.GetRequiredService<AgentSmithConfig>()
+            .Projects[Project].Tracker;
+        var record = await bed.Harness.Services.GetRequiredService<ISpecApprovalStore>()
+            .GetAsync(tracker.Name, SpecSetKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
+                CancellationToken.None);
+        record.Should().NotBeNull("the run that works this ticket resolves the set by exactly this key");
+        record!.Set.Phases.Should().ContainSingle().Which.Draft.Yaml.Should().Be(ValidDraftYaml.Trim(),
+            "the stored set carries the schema-valid spec verbatim");
+        record.Approval.Should().NotBeNull();
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("https://tracker.test/1"));
     }
 
+    /// <summary>
+    /// 2026-09-17-0e79d: one work ticket, one run, one pull request per repository — and one
+    /// record per slice that nothing routes and no machine reads.
+    /// </summary>
     [Fact]
-    public async Task CreatePhase_EpicOutcome_FilesLinkedPhaseTicketsWithRequires()
+    public async Task CreatePhase_EpicOutcome_FilesOneWorkTicketAndOneRecordPerSlice()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-epic");
@@ -282,7 +303,7 @@ public sealed class SpecDialogOutcomeTests
                 "phase: p9000\ngoal: \"Widget platform end to end\"", []),
             [
                 new PhaseDraft("p9000a", "Widget storage layer",
-                    "phase: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"",
+                    "phase: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"\ndone:\n  - \"a widget is stored and read back\"",
                     []),
                 new PhaseDraft("p9000b", "Widget API on top of the storage layer",
                     "phase: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\nsteps:\n  - id: api\n    action: \"Add the widget endpoint\"",
@@ -291,27 +312,47 @@ public sealed class SpecDialogOutcomeTests
 
         await RunFlowAsync(bed.Harness, state, epic);
 
-        bed.Tickets.Created.Should().HaveCount(3, "parent first, then the slices in order");
+        bed.Tickets.Created.Should().HaveCount(3, "the work ticket first, then a record per slice");
         bed.Tickets.Created.Select(t => t.Title).Should().Equal(
             "p9000: Widget platform end to end",
             "p9000a: Widget storage layer",
             "p9000b: Widget API on top of the storage layer");
-        // 2026-09-13-a3f1: the parent is the record of a cut and carries its own label, so no
-        // routing path can turn an epic summary into a run; the slices are the work.
-        bed.Tickets.Created[0].Labels.Should().Equal(PhaseTicketRenderer.EpicLabel);
+        // 2026-09-17-0e79d: the work ticket is the phase-labelled one — it is what a run picks up,
+        // and the set it works is stored under its own spec key. The records carry the record
+        // label, which is refused before every other resolution rule.
+        bed.Tickets.Created[0].Labels.Should().Equal(
+            PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp);
         bed.Tickets.Created.Skip(1).Should()
-            .OnlyContain(t => t.Labels.Contains(PhaseTicketRenderer.PhaseLabel));
+            .OnlyContain(t => t.Labels.Count == 1 && t.Labels[0] == PhaseTicketRenderer.EpicLabel);
         bed.Tickets.Created[0].Body.Should().Contain("## Slices").And.Contain("p9000a").And.Contain("p9000b");
-        bed.Tickets.Created[1].Body.Should().Contain("Parent: https://tracker.test/1");
-        bed.Tickets.Created[2].Body.Should().Contain("Parent: https://tracker.test/1");
-        // 2026-09-13-b7ba: a child is a REQUIREMENT — what is wanted and why, with no fenced
-        // block and no step list, so the run that picks it up derives against the repository as
-        // it then is instead of replaying a cut made weeks earlier. The order survives as prose.
+        // 2026-09-17-042ea: the work ticket is a tracker link, not a line the deriver reads.
+        bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("Parent:"));
+        bed.Tickets.Links.Should().Equal(("2", "1"), ("3", "1"));
+        // 2026-09-13-b7ba: a record is a REQUIREMENT — what is wanted and why, with no fenced
+        // block and no step list. It is read by a person; the run works the approved set.
         bed.Tickets.Created.Skip(1).Should().OnlyContain(t => !t.Body.Contains("```"));
-        bed.Tickets.Created[2].Body.Should().Contain("## Requires").And.Contain("p9000a");
+        // 2026-09-17-042eb: the order is the stored set's and the work ticket's slice list; a
+        // sibling's phase id in a tracker body means nothing, so it is not repeated there.
+        bed.Tickets.Created[2].Body.Should().NotContain("## Requires");
+        // 2026-09-17-042eb: the slice's done list reaches its record as acceptance criteria,
+        // and reads back as exactly what was written.
+        AcceptanceCriteriaSection.Read(bed.Tickets.Created[1].Body).Should().Equal("a widget is stored and read back");
+        bed.Tickets.Created[1].Body.Should().NotContain("Add the widget store", "steps stay out of a requirement");
+        // 2026-09-17-0e79d: no stamps anywhere — a parent stamp would cut the run's branch from
+        // another ticket's rung, and a predecessor stamp would hold a run that has no sibling run.
+        bed.Tickets.Created.Should().OnlyContain(
+            t => FiledTicketLabels.ParentId(t.Labels) == null
+                && FiledTicketLabels.PredecessorIds(t.Labels).Count == 0);
+        var tracker = bed.Harness.Services.GetRequiredService<AgentSmithConfig>()
+            .Projects[Project].Tracker;
+        var record = await bed.Harness.Services.GetRequiredService<ISpecApprovalStore>()
+            .GetAsync(tracker.Name, SpecSetKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
+                CancellationToken.None);
+        record.Should().NotBeNull("the whole approved set is stored under the WORK ticket's key");
+        record!.Set.Phases.Select(p => p.PhaseId).Should().Equal("p9000a", "p9000b");
         bed.Tickets.Comments.Should().ContainSingle(
-            "the parent links its children — a comment, honestly, since no tracker "
-            + "provider exposes native links").Which.Comment.Should()
+            "the work ticket lists its records in order — the tracker's links carry no order"
+            ).Which.Comment.Should()
             .Contain("https://tracker.test/2").And.Contain("https://tracker.test/3");
         bed.Adapter.SentTexts.Should().Contain(t =>
             t.Contains("https://tracker.test/1") && t.Contains("https://tracker.test/2")
@@ -319,22 +360,22 @@ public sealed class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task PhaseTicketRenderer_YamlBlock_SchemaValidAndExtractable()
+    public async Task PhaseTicketRenderer_FiledBody_IsAReadableRequirementAndCarriesNoSpec()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: null);
         var draft = new PhaseDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
-        var content = new PhaseTicketRenderer().RenderPhase(draft);
+        var content = new PhaseTicketRenderer().RenderPhase(draft, "sess-outcome");
 
         content.Title.Should().Be("p9999: Add a widget endpoint to the sample service");
-        content.Body.Should().Contain("## Goal").And.Contain("## Scope",
-            "humans read the summary before the machine block");
+        content.Body.Should().Contain("## Goal").And.Contain(AcceptanceCriteriaSection.Heading,
+            "a person reads what is wanted and what makes it finished");
+        content.Body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+            .And.Contain("sess-outcome", "the body points at the conversation it was approved in");
         var validator = bed.Harness.Services.GetRequiredService<ISpecDraftValidator>();
-        var outcome = validator.Validate(content.Body);
-        var valid = outcome.Should().BeOfType<SpecDraftValid>(
-            "the body holds exactly one ```yaml block and it is schema-valid").Subject;
-        valid.Yaml.Should().Be(ValidDraftYaml.Trim(), "the extractor's inverse restores the spec verbatim");
+        validator.Validate(content.Body).Should().BeOfType<SpecDraftAbsent>(
+            "a fence in the body would be a second truth the source precedence would take");
     }
 
     [Fact]
@@ -416,18 +457,12 @@ public sealed class SpecDialogOutcomeTests
     {
         await using var scope = harness.Services.CreateAsyncScope();
         var flow = scope.ServiceProvider.GetRequiredService<SpecDialogOutcomeFlow>();
-        return await flow.HandleAsync(state, outcome, CancellationToken.None);
+        return await flow.HandleAsync(state, outcome, false, CancellationToken.None);
     }
 
     // The p0315d inverse: the ticket body must hold exactly ONE ```yaml block
     // and it must be schema-valid — proven by the same validator the draft
     // gate uses.
-    private static string ExtractYaml(RealCompositionHarness harness, string body)
-    {
-        var validator = harness.Services.GetRequiredService<ISpecDraftValidator>();
-        return validator.Validate(body).Should().BeOfType<SpecDraftValid>().Subject.Yaml;
-    }
-
     private static ConversationState State(string userTurn) => new()
     {
         JobId = "sess-outcome",
@@ -441,6 +476,18 @@ public sealed class SpecDialogOutcomeTests
         ThreadId = "th-outcome",
         Transcript = [new TranscriptTurn(TranscriptRole.User, userTurn, DateTimeOffset.UtcNow)],
         Scope = new ActiveScope { Project = Project, Repos = [Repo] },
+    };
+
+    // 2026-09-17-042ec: a proposal is admitted only after the operator replied to an answer.
+    private static ConversationState Discussed(string userTurn) => State(userTurn) with
+    {
+        Transcript =
+        [
+            new TranscriptTurn(TranscriptRole.User, "we need widgets", DateTimeOffset.UtcNow),
+            new TranscriptTurn(TranscriptRole.Assistant, "Found the service; two open questions.",
+                DateTimeOffset.UtcNow, SpecDialogTurnKind.Answer),
+            new TranscriptTurn(TranscriptRole.User, userTurn, DateTimeOffset.UtcNow),
+        ],
     };
 
     private static ProjectMap CannedMap() => new(
@@ -530,7 +577,8 @@ public sealed class SpecDialogOutcomeTests
         public IReadOnlyList<OutcomeProposal> Accepted => _accepted;
 
         public Task AcceptAsync(
-            ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
+            ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
+            CancellationToken cancellationToken)
         {
             lock (_accepted) _accepted.Add(proposal);
             return Task.CompletedTask;
@@ -541,6 +589,12 @@ public sealed class SpecDialogOutcomeTests
     {
         private readonly List<(string Title, string Body, IReadOnlyList<string> Labels)> _created = [];
         private readonly List<(TicketId Id, string Comment)> _comments = [];
+        private readonly List<(string Child, string Parent)> _links = [];
+
+        public IReadOnlyList<(string Child, string Parent)> Links
+        {
+            get { lock (_links) return [.. _links]; }
+        }
 
         public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels)> Created
         {
@@ -571,6 +625,13 @@ public sealed class SpecDialogOutcomeTests
                     new TicketId(_created.Count.ToString()),
                     $"https://tracker.test/{_created.Count}"));
             }
+        }
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
+        {
+            lock (_links) _links.Add((child.Id.Value, parent.Value));
+            return Task.FromResult(ParentLinkResult.Linked);
         }
 
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)

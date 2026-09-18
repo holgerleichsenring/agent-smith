@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-44c2
+
+goal: "A review that was not taken says WHICH not-taken it was, so a phase with nothing to review stops raising the alarm a phase nobody reviewed earns."
+
+applies_to: "backend (phase review report, filed-work read) + dashboard (filed tab)"
+
+requires:
+  - 2026-09-17-042eh
+  - 2026-09-17-042ej
+  - 2026-09-17-042ef
+
+scope:
+  in: >
+    PhaseReviewReport.NotTaken carries a KIND beside its reason. Its four producers say which
+    they are: PhaseDiffReviewer's empty-diff case is "nothing to review", its unreadable-answer
+    case and ReviewPhaseDiffHandler's exhausted-budget and no-sandbox cases are "not reached".
+    The kind rides the artifact and FiledWorkReviewView to the dashboard, where the filed tab
+    marks "nothing to review" calm and "not reached" as the gap in the evidence it already is.
+  out: >
+    THE WORDS OF THE REASONS. They are read by people and are not a vocabulary.
+    THE OTHER FOUR REVIEW STATES. Reviewed, clean, unreadable and no-row are unaffected.
+
+decisions:
+  - key: |
+      THE FIELD IS THE FIX. 2026-09-17-042ef marks a not-taken review amber, which is right for
+      three of the four producers and wrong for PhaseDiffReviewer.cs:43 — a spec-only slice
+      changed no reviewable file, so nobody was asked because there was nothing to ask about,
+      and every such run raises a false alarm. The dashboard cannot tell them apart: the DTO
+      carries a bool and a prose reason, and matching that prose from a component would be a
+      heuristic around a missing field that breaks the moment the sentence is reworded.
+  - key: |
+      A KIND, NOT A SECOND BOOL. `reviewed` already answers "was it taken"; the new field
+      answers "why not", and a third boolean beside `unreadable` would leave the two-false case
+      undefined. An older artifact carries no kind and must keep rendering as it does today.
+
+steps:
+  - id: the-kind-on-the-report
+    action: "PhaseReviewReport.NotTaken takes a kind; its four call sites name theirs."
+  - id: the-kind-reaches-the-page
+    action: "The artifact and FiledWorkReviewView carry it; an artifact without one reads as not reached."
+  - id: the-mark-follows-the-kind
+    action: "The filed tab marks nothing-to-review calm and not-reached as a gap."
+
+tests:
+  - "backend: a phase whose diff carries no reviewable file reports the nothing-to-review kind"
+  - "backend: an exhausted budget, an absent sandbox and an unreadable answer all report not reached"
+  - "backend: a stored artifact written before this phase reads back as not reached"
+  - "dashboard: a nothing-to-review phase carries no alarm and a not-reached one does"
+
+done:
+  - "a spec-only slice raises no alarm on its filed tab"
+  - "the four reasons are still shown verbatim"
+  - "backend build and full suite green; dashboard build and tests green"

@@ -10,11 +10,14 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -82,7 +85,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("approve").HandleAsync(state, Proposal(), CancellationToken.None);
+        await Flow("approve").HandleAsync(state, Proposal(), false, CancellationToken.None);
 
         var view = await ReadAsync();
         view.Proposal!.Phase!.PhaseId.Should().Be("p9999");
@@ -92,12 +95,30 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         view.Filing.At.Should().BeOnOrAfter(view.Proposal.At, "the filing is of this proposal");
     }
 
+    /// <summary>2026-09-17-042ea: a filing note survives a reload like the tickets it is about.</summary>
+    [Fact]
+    public async Task View_AFilingWithANote_KeepsTheNote()
+    {
+        await ConversationAsync((TranscriptRole.Assistant, Draft));
+        var store = new SpecDialogLatestOutcomeStore(_repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+
+        await store.SetFilingAsync(Platform, Dialog,
+            new FilingReport([new("https://tracker.test/2", "p9999: widget goal")], null)
+            {
+                Notes = ["https://tracker.test/2 is not linked to its parent https://tracker.test/1: refused"],
+            },
+            Proposal(), CancellationToken.None);
+
+        (await ReadAsync()).Filing!.Notes.Should()
+            .Equal("https://tracker.test/2 is not linked to its parent https://tracker.test/1: refused");
+    }
+
     [Fact]
     public async Task View_AfterARejection_CarriesNoLatestProposal()
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow("reject").HandleAsync(state, Proposal(), CancellationToken.None);
+        await Flow("reject").HandleAsync(state, Proposal(), false, CancellationToken.None);
 
         var view = await ReadAsync();
         view.Proposal.Should().BeNull("a reload must not offer what the operator turned down");
@@ -130,7 +151,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
 
-        await Flow(timeout: true).HandleAsync(state, Proposal(), CancellationToken.None);
+        await Flow(timeout: true).HandleAsync(state, Proposal(), false, CancellationToken.None);
 
         (await ReadAsync()).Proposal.Should().BeNull("nothing is waiting for that approval any more");
     }
@@ -182,12 +203,70 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             .Should().Be(SpecDialogLatestOutcome.None, "a turn must not fail for want of a record");
     }
 
+    // 2026-09-17-042ed: the findings ride the proposal, so the confirmation the operator approves,
+    // the pane push and a reload after it all carry what the turn's own review found.
+    [Fact]
+    public async Task Flow_Findings_ReachTheConfirmationAndThePush()
+    {
+        var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
+
+        await Flow("reject").HandleAsync(state, Reviewed(), false, CancellationToken.None);
+
+        // 2026-09-17-042ek: on a PAGE the findings reach the operator on the push, which the
+        // approval card lists them from — so the question text beside that card is empty. That
+        // the sentence still exists in chat is
+        // SpecDialogDashboardWordingTests.OutcomeConfirmation_BoundForSlack_ListsTheReviewsFindings,
+        // where no flow has to run to prove it; this one stays about what the FLOW published.
+        var question = _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogChannelQuestion>().Single();
+        question.Text.Should().BeEmpty();
+        var push = _hub.Pushes.Select(p => p.Args[0]).OfType<SpecDialogProposalPush>().Single();
+        push.Findings.Single().Evidence.Should().Contain("[P2]");
+    }
+
+    [Fact]
+    public async Task View_AfterAReload_CarriesTheFindings()
+    {
+        var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
+
+        await Flow("split it").HandleAsync(state, Reviewed(), false, CancellationToken.None);
+
+        var finding = (await ReadAsync()).Proposal!.Findings.Should().ContainSingle().Subject;
+        finding.PhaseId.Should().Be("p9999");
+        finding.Evidence.Should().Contain("the proposal review ran");
+        finding.Quote.Should().BeNull("a false premise cites a look, it quotes nothing");
+    }
+
+    [Fact]
+    public async Task OutcomeProposalJson_RowWithoutFindings_ReadsAsNone()
+    {
+        await ConversationAsync((TranscriptRole.Assistant, Draft));
+        // A row as releases before this one wrote it: a kind and its payload, no findings field.
+        var session = await _repository.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        session!.LatestProposalJson =
+            "{\"kind\":\"phase\",\"phase\":{\"phaseId\":\"p9999\",\"goal\":\"widget goal\","
+            + "\"yaml\":\"phase: p9999\",\"requires\":[]}}";
+        await _repository.SaveAsync(CancellationToken.None);
+
+        (await ReadAsync()).Proposal!.Findings.Should().BeEmpty(
+            "a row nobody reviewed is not a review that found nothing wrong");
+    }
+
+    private static PhaseOutcome Reviewed() => Proposal() with
+    {
+        Findings =
+        [
+            new ProposalFinding(
+                "p9999", "false premise", "the endpoint is already there", Quote: null,
+                Evidence: "[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0"),
+        ],
+    };
+
     private async Task<ConversationState> ConversationAsync(params (TranscriptRole Role, string Text)[] turns)
     {
         await _sessions.OpenAsync(Platform, Dialog, Dialog, Owner,
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
         foreach (var (role, text) in turns)
-            await _sessions.AppendTurnAsync(Platform, Dialog, role, text, CancellationToken.None);
+            await _sessions.AppendTurnAsync(Platform, Dialog, role, text, null, null, CancellationToken.None);
         return (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!;
     }
 
@@ -233,8 +312,9 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
         var filer = new OutcomeTicketFiler(
             Loader().LoadConfig(string.Empty), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer()),
-            NullLogger<OutcomeTicketFiler>.Instance);
+            TestSupport.ApprovedSetDoubles.EpicFiler(),
+            TestSupport.ApprovedSetDoubles.Recorder(),
+            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
             filer, _sessions, messenger, composer, channel, latest,

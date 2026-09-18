@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Markdown } from "@/components/ui/Markdown";
-import type { DialogEntry } from "@/hooks/useSpecDialog";
+import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
 import { DialogProposalCard } from "./DialogProposalCard";
 
@@ -12,6 +12,13 @@ import { DialogProposalCard } from "./DialogProposalCard";
 // What the operator typed is rendered as the plain text they typed.
 // 2026-09-17-c7aed: a turn that proposed something carries a card, and a turn that was only
 // the draft is the card alone.
+// 2026-09-17-042ej: the closing line of the empty state says where the conversation goes after
+// filing, because it no longer stops there: the filed tab follows the run.
+// 2026-09-17-042el: an approve or reject is shown as the decision it was, not as the word — as
+// pending until a read confirms the server stored it. A decision this page cannot name is shown as
+// the message it was.
+// 2026-09-17-042ef: the eyebrows are the studio's field label and the speaker's initials are a
+// mark of this page's own — the studio's card icon leads a card, this leads a line.
 
 export function DialogTranscript({
   entries,
@@ -38,12 +45,13 @@ export function DialogTranscript({
           The design partner reads the repositories on the right before it answers, so the
           first reply takes about a minute. It will ask when something is ambiguous.
         </p>
-        <p className="mt-3 eyebrow-uppercase">Where it leads</p>
+        <p className="fl mt-3">Where it leads</p>
         <p className="mt-1">
           When you have converged, it proposes what to file — an answer and nothing filed,
-          one bug, one phase, or an epic with its slices in the order they will be filed. You approve
-          it or you keep talking. Filing is where this ends: the run starts when the tracker
-          picks the ticket up.
+          one bug, one phase, or an epic with its slices in the order they will be filed. You
+          approve it or you keep talking. Filing is not where this ends: the conversation then
+          follows the work it filed — which phase the run is on, what it opened, what the
+          review still finds, and anything handed back for you to settle here.
         </p>
       </div>
     );
@@ -65,16 +73,37 @@ function Turn({
   entry: DialogEntry;
   onInspect: (proposal: SpecDialogProposalPush) => void;
 }) {
-  const mine = entry.kind === "user";
+  if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
+  const mine = entry.kind !== "agent";
   const said = entry.text.trim().length > 0;
   return (
-    <DialogMessage who={mine ? "user" : "agent"} testId={said ? `dialog-turn-${entry.kind}` : "dialog-turn-card"}>
+    <DialogMessage who={mine ? "user" : "agent"} testId={said ? `dialog-turn-${mine ? "user" : "agent"}` : "dialog-turn-card"}>
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
       ) : (
         said && <Markdown>{entry.text}</Markdown>
       )}
       {entry.proposal && <DialogProposalCard proposal={entry.proposal} onInspect={onInspect} />}
+    </DialogMessage>
+  );
+}
+
+function Decision({ entry }: { entry: DialogEntry }) {
+  const approved = entry.decision === "approved";
+  if (entry.pending)
+    return (
+      <DialogMessage who="user" testId="dialog-turn-decision">
+        <p data-decision={entry.decision} data-pending="true" className="dsh-body text-body">
+          <span className="fl">Sent</span>{" "}
+          {approved ? "Approve — waiting for it to be recorded" : "Reject — waiting for it to be recorded"}
+        </p>
+      </DialogMessage>
+    );
+  return (
+    <DialogMessage who="user" testId="dialog-turn-decision">
+      <p data-decision={entry.decision} className="dsh-body font-semibold text-ink">
+        {approved ? "Approved — file the proposal" : "Rejected — nothing is filed"}
+      </p>
     </DialogMessage>
   );
 }
@@ -93,11 +122,7 @@ export function DialogMessage({
     <div data-testid={testId} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2.5">
       <div
         aria-hidden="true"
-        className={
-          who === "user"
-            ? "mt-px grid size-6 place-items-center rounded-md bg-canvas-soft font-mono dsh-label text-body"
-            : "mt-px grid size-6 place-items-center rounded-md bg-primary-deep font-mono dsh-label text-on-primary"
-        }
+        className={who === "user" ? "d-who mt-px" : "d-who agent mt-px"}
       >
         {who === "user" ? "OP" : "AS"}
       </div>

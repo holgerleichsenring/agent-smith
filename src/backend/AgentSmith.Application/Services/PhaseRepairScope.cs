@@ -26,5 +26,13 @@ public static class PhaseRepairScope
         ArgumentNullException.ThrowIfNull(pipeline);
         pipeline.Remove(ContextKeys.OutstandingCriteria);
         pipeline.Remove(ContextKeys.PhaseRepairAttempted);
+        // 2026-09-17-042eh: the review's fix pass is the same mechanism under a second name
+        // and ends the same way. A finding, a snapshot or a spent fix pass carried into the
+        // next phase is the leak p0444 closed for the repair, reopened.
+        pipeline.Remove(ContextKeys.PhaseReviewFindings);
+        pipeline.Remove(ContextKeys.PhaseReviewFixPass);
+        pipeline.Remove(ContextKeys.PhaseReviewReverted);
+        pipeline.Remove(ContextKeys.PhaseAccountsSnapshot);
+        pipeline.Remove(ContextKeys.RunAccountsSnapshot);
     }
 }

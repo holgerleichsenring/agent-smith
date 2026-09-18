@@ -1,0 +1,207 @@
+phase: 2026-09-17-042ed
+decisions:
+  - id: the-look-is-built-from-the-turns-sandbox-map
+    chose: >
+      DerivationLookFactory.ForProposalReview(pipeline) reads ContextKeys.Sandboxes directly, drops
+      every key under TemplateScopeName.Prefix, and builds a DerivationLook on
+      DerivationLookTerms.ProposalReview ("proposal review", the cut review's allowance of six, ids
+      under "P") with no template scope. Null when the map is absent or holds only templates.
+    alternative: >
+      SandboxTargets.TryResolve, as Create and ForCutReview do.
+    why: >
+      Re-verified in this tree: TryResolve needs ContextKeys.SandboxDiscoveries
+      (SandboxTargets.cs:25-27), which only PipelineSandboxCoordinator publishes; the spec-dialog
+      preset starts no coordinator, so a look built that way is always null. 2026-09-15-ffa7 left
+      DerivationLook constructible from an explicit sandbox map for exactly this caller, so the
+      member is a second factory line rather than a new type.
+  - id: the-tool-set-is-an-input-not-a-fixed-three
+    chose: >
+      DerivationLook takes a trailing `audits` flag; DerivationTools.Over takes a nullable audit tool
+      and DerivationTools.Named(look) words the tools for the prompt section, which no longer names
+      all three. The review look carries a search and a file read.
+    alternative: >
+      Putting the tool set on DerivationLookTerms, or leaving the audit on the review look.
+    why: >
+      Every entry of a design turn's map is a read-only source scope that runs no command, so an
+      offered audit is a tool whose only possible answer is "could not run". The spec's premise that
+      DerivationLook is at the 120-line ceiling no longer holds — ffa7 split the gate out and left it
+      at 88 — so the flag needed no extraction.
+  - id: a-source-scope-is-opened-first-and-searched-with-a-grep-step
+    chose: >
+      SourceScopeLook, a sealed class over ONE scope (a static taking a sandbox is a service without
+      a constructor — NoStaticStateRuleTests said so in the full suite): TryOpenAsync calls
+      ISourceScopeSandbox.MaterializeAsync and answers with the
+      typed failure's message; SearchAsync sends a Grep step under ContainedPath.Absolute and answers
+      in a RUN GREP's exit convention (0 matched, 1 matched nothing, 2 could not run), rendering
+      matches through GrepResultRenderer; ReadAsync reads the ReadFile step result itself. The search,
+      read and audit tools take that branch for any ISourceScopeSandbox, so the derivation's TEMPLATE
+      looks are fixed by the same code.
+    alternative: >
+      Leaving the tools on the Run grep and the file reader, and reading "could not run" back out of
+      the refusal text.
+    why: >
+      A source scope refuses every non-read step with exit 1 (SourceScopeRefusal.cs:12-18) and
+      SandboxFileReader collapses missing, refused and unclonable to null (SandboxFileReader.cs:24-25).
+      Under a Run grep's convention exit 1 is "the pattern is absent" and under the audit's it is
+      "no findings" — a look that never ran, standing as proof. Translating the Grep step's exits into
+      the Run grep's keeps ONE evidence-line grammar for both kinds of sandbox.
+  - id: a-look-that-never-ran-still-mints-an-id
+    chose: >
+      A refused open, a failed Grep step and an audit on a source scope all mint evidence with
+      SourceScopeLook.NotRunExit (-1) and Ran=false, so the line says it proves nothing.
+    alternative: >
+      Minting nothing.
+    why: >
+      2026-09-15-ffa7 already decided this shape: a citation is admitted only on a look that RAN
+      (EvidenceLook.Ran, SpecCutAdmission), and dropping the line would refuse a reviewer for citing a
+      look it really took. Building on the Ran flag ffa7 shipped, rather than adding a second marker.
+  - id: ripgrep-honours-its-own-exit-and-searches-hidden-paths
+    chose: >
+      GrepStepHandler treats rg's exit 2 (or a timeout) as a failure instead of an empty match list,
+      and a missing path in the managed fallback throws instead of returning []. RipgrepArguments —
+      a new file, which also freed the lines GrepStepHandler needed at its baseline — runs rg with
+      --hidden --no-ignore, the fixed directory exclusions as globs and the same size ceiling the
+      managed scan applies.
+    alternative: >
+      Leaving the handler alone and having the review's tool distrust every empty result.
+    why: >
+      Both paths must mean the same thing by "absent": rg skipped dotfiles and ignored paths while the
+      managed scan read them, and an invalid pattern or a missing directory came back as "[]", which
+      is "no match". The one previously deliberate behaviour reversed here is
+      HandleAsync_PathDoesNotExist_ReturnsEmptyArray_NoException; InProcessSandbox already fails a
+      missing directory, so the three search paths now agree.
+  - id: the-review-runs-after-the-gate-in-its-own-type
+    chose: >
+      SpecDialogProposalReview (DI) reads the gated outcome off the pipeline, reviews a phase or an
+      epic (parent plus children) through ISpecCutReviewer with the turn's look, no ticket, the turn's
+      AgentConfig and its PipelineCostTracker, keyed by the dialogue job id, and sets the proposal back
+      with its findings. The handler spends a constructor parameter and one call after
+      GateSpecOutcomeAsync (895 -> 899 of 922). A review that throws is logged and blocks nothing.
+    alternative: >
+      A branch inside GateSpecOutcomeAsync.
+    why: >
+      The gate has two publish points and 2026-09-17-042ec may strip a refused draft, so the single
+      call site after it is the only place that sees what was actually admitted. Its own type because
+      2026-09-17-042ee hangs "reviewing" and the look's reads off it, and because the handler has
+      almost no room.
+  - id: findings-ride-the-proposal
+    chose: >
+      OutcomeProposal gains a Findings tail of ProposalFinding (phase, problem, why, quote, evidence),
+      stored as a nullable field on the existing outcome column (a row without it reads as none),
+      carried by SpecDialogProposalComposer onto the pane push, listed by the confirmation composer,
+      and rendered in the dashboard's approval card.
+    alternative: >
+      A second push, a second column, or handing the findings to each surface separately.
+    why: >
+      2026-09-13-ed5a put the template stamp on the same record for the same reason: one composer
+      serves the live push and the reload (SpecDialogViewReader.cs:53), so four surfaces carry the
+      findings without a signature each, and the filer's retry from a stored row keeps them.
+  - id: the-ids-are-resolved-where-the-look-is-alive
+    chose: >
+      SpecDialogProposalFindings.Of resolves each cited id through DerivationEvidence.IndexById over
+      the look's own lines, inside the turn; an id that resolves to nothing leaves the evidence null
+      and the quote standing.
+    alternative: >
+      Carrying the id and resolving it at the surface.
+    why: >
+      The look is disposed with the turn (SpecDialogTurnRunner.cs:73-80), and an id means nothing to
+      an operator or to a later edit turn — the deriver's rejection resolves the same way for the same
+      reason (SpecCutRejection).
+  - id: the-edit-turn-is-handed-the-proposal-it-revises
+    chose: >
+      ConversationState gains a JsonIgnored Revising property; the router sets it on the line that
+      already refreshes the state (no growth, 124 of 124); SpecDialogTurnSeeds adds
+      ContextKeys.SpecDialogRevisedProposal when it is present, and SpecDialogRevisionSection renders
+      its findings into the design prompt.
+    alternative: >
+      A transcript note, or reading the stored proposal back.
+    why: >
+      The confirmation is posted and never appended (SpecDialogRouter.cs:97-103), so a note would
+      reference something the master never saw; the stored proposal is cleared only on reject or
+      timeout (SpecDialogOutcomeFlow.cs:51,57), so a later ordinary turn would be shown stale findings.
+      Only the router knows a turn is an edit.
+  - id: the-harness-answers-the-review-as-a-framework-call
+    chose: >
+      HarnessSpecCutReviewer gains Finds(...) and records what each review was asked (drafts, key,
+      ticket, the look's repositories); RealCompositionHarness registers it so a case can resolve it.
+      The design-turn cases script the review through it.
+    alternative: >
+      Letting the review draw its answer from the master's script.
+    why: >
+      p0422 stood this port down in the harness precisely so a framework call cannot consume a
+      response meant for the master — the whole sequence would shift by one. The review is the same
+      kind of call, and the real reviewer stays under test in its own cases.
+  - id: what-is-reviewed-and-what-is-not
+    chose: >
+      A phase and an epic are reviewed; an answer and a bug are not. An epic is reviewed as its parent
+      and every child in one call.
+    alternative: >
+      Reviewing the children only, or reviewing a bug too.
+    why: >
+      The parent states a goal and steps that can rest on a false premise as much as a child's can,
+      and PhaseQuotableText already renders a done-less draft. A bug is a ticket someone will run, not
+      a plan to be checked against the code.
+  - id: a-framework-call-is-guarded-on-the-runs-token-not-the-exceptions-type
+    chose: >
+      SpecCutReviewer.AskAsync and SpecDialogProposalReview.ReviewAsync catch
+      `when (!ct.IsCancellationRequested)`; SourceScopeLook.TryOpenAsync does the same. An
+      operator cancel still propagates, because it leaves the token cancelled.
+    alternative: >
+      Keeping `when (ex is not OperationCanceledException)`, or catching every exception.
+    why: >
+      An LLM-layer NetworkTimeout surfaces as a TaskCanceledException while the run token is
+      untouched — the reason AgenticMasterHandler guards every one of its own re-prompts on the
+      TOKEN (:385,:486,:543,:651,:791). The review call sits AFTER GateSpecOutcomeAsync and
+      OUTSIDE that handler's try, so an escaping timeout destroyed the reply the turn already
+      had: the operator saw a failure notice instead of the proposal a merely advisory review
+      had been asked about. Type-guarding also made the deriver's own cut review fail a
+      derivation over a timed-out advisory call.
+  - id: hidden-and-ignored-paths-are-a-step-option-one-caller-sets
+    chose: >
+      Step gains a trailing `SearchHidden` (default false); RipgrepArguments adds
+      --hidden --no-ignore only when it is set, and only SourceScopeLook.SearchAsync sets it.
+      The fixed directory list and the size ceiling move to AgentSmith.Sandbox.Wire.GrepScope,
+      applied by BOTH search paths and named — as GrepScope.Summary, a compile-time constant so
+      an attribute can hold it — in RepositorySearchTool's description AND in grep_in_tree's.
+    alternative: >
+      Leaving --hidden --no-ignore on every grep (as first shipped), or dropping the directory
+      exclusions for the review look instead of naming them.
+    why: >
+      SandboxStepRunner serves FilesystemToolHost.GrepInFile/GrepInTree for the coding master,
+      the review/scan masters, the investigator and bootstrap, so the flags changed what EVERY
+      master's grep sees: a gitignored .venv, target, out or Pods floods grep_in_tree's
+      1000-match head, and .env, .npmrc, *.pem and terraform.tfvars become greppable. An absence
+      only has to hold over the whole checkout for the ONE look that states absences as evidence.
+      The exclusions are kept rather than dropped for that look because .git is in the list and a
+      match in a packfile or a ref log is not a fact about the code; keeping them makes naming
+      them mandatory, since a blinkered "absent" is minted with ran:true and admitted as proof.
+      The wording over-states the skip for the legacy Run-grep branch (SearchCommands.OverTree
+      excludes four directories and no size), which errs toward doubting an absence, never toward
+      claiming coverage that was not taken.
+  - id: the-evidence-line-names-the-engine-that-ran
+    chose: >
+      RepositorySearchTool mints `rg --hidden --no-ignore '<pattern>' <under>` for a source scope
+      and `grep -E '<pattern>' <under>` for a command sandbox, deciding which AFTER it has
+      resolved the sandbox; the pattern parameter no longer promises POSIX ERE and instead states
+      what holds on both engines (no lookaround, no backreferences).
+    alternative: >
+      One line for both paths, as it read when the Grep step was introduced.
+    why: >
+      Inside ONE derivation both branches are live — the repositories are command sandboxes and a
+      declared template is a read-only source scope. An evidence line is the framework's own
+      record of what was run, read back by the admission and shown to the operator; spelling a
+      grep that did not run makes the record the one thing it exists not to be.
+  - id: a-file-that-is-not-there-is-told-by-a-shared-wording
+    chose: >
+      AgentSmith.Sandbox.Wire.StepErrors holds FileNotFoundPrefix / FileNotFound / IsFileNotFound.
+      FileStepHandler and InProcessSandbox spell the message from it, SourceScopeLook.ReadAsync
+      matches on it with StartsWith, and FileStepHandlerTests pins the producer's wording.
+    alternative: >
+      A typed reason on StepResult, or leaving the substring search in place.
+    why: >
+      "The file is absent" and "the read could not run" were told apart by searching for
+      "not found" anywhere in a message produced in another assembly. SourceScopeSandbox wraps
+      ANY post-open failure into an exit 1 whose ErrorMessage is the reason, so a clone that
+      answered "fatal: remote branch not found" was laundered into an absence the reviewer may
+      state as a fact. A typed reason would change the wire contract for one distinction; a
+      shared prefix plus a test on the producer costs nothing and cannot drift silently.

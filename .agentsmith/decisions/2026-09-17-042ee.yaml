@@ -1,0 +1,184 @@
+phase: 2026-09-17-042ee
+decisions:
+  - id: an-ambient-observer-not-the-run-event-stream
+    chose: >
+      A turn-activity observer (ITurnActivityObserver) carried ambiently by
+      ITurnActivityObserverAccessor, AsyncLocal-backed, silent when unset, registered from
+      AddTurnActivity beside AddSourceScopes. Reporting one step is a default method ON the
+      accessor interface, so each of the four report sites is one line with no null check.
+    alternative: >
+      Relaying the ToolCall / ToolResult run events the first draft meant to use; a static
+      helper class for the null-safe report.
+    why: >
+      Re-verified in this tree: EventPublishingAIFunction is constructed only by
+      SkillCallRuntime.WrapTools (SkillCallRuntime.cs:151-157), and ISkillCallRuntime has no
+      production caller — only its own DI registration (LoopRuntimeExtensions.cs:44) — so those
+      events are never published for any run. Publishing them instead would turn tool events on
+      for every run and push each through the router's persisting path, and the design turn's
+      lines would land in the run group, which JobsHub.SubscribeRun checks nobody for. The
+      ambient shape is 2026-09-17-c7aec's, already proven over the same boundary. The report
+      is on the contract rather than in a static helper because NoStaticStateRuleTests is right
+      about what a static-with-a-collaborator is, and putting one in AgentSmith.Contracts —
+      the assembly that rule does not scan — would be dodging it rather than answering it.
+  - id: the-wrap-is-on-the-spec-dialog-surface-only
+    chose: >
+      AgenticMasterHandler wraps the tool set at the single line the spec-dialog surface is
+      returned from (ComposeMasterTools), through the injected TurnActivityTools service — a
+      sealed class over the accessor, not a static helper, for the same rule.
+      AgenticToolSurface is not touched.
+    alternative: >
+      Wrapping inside AgenticToolSurface, or wrapping every master's surface.
+    why: >
+      AgenticToolSurface stands at the 120-line hard limit. The handler had 23 lines to its 922
+      baseline after 2026-09-17-042ed and spent 7 of them: two constructor parameters, the wrap
+      and the invalid-outcome re-prompt's own line. A coding or scan master's surface is
+      unchanged, which a test pins from the tool set the handler hands the loop. The accessor's
+      report is a DEFAULT INTERFACE METHOD, which a dynamic proxy does not inherit: a
+      Mock.Of<ITurnActivityObserverAccessor>() returns null for it and every caller awaits that.
+      The interface says so, and every test bed hands over the real accessor with nothing
+      observing it, which is already silence.
+  - id: a-model-call-is-reported-when-it-returns
+    chose: >
+      EventPublishingChatClient reports the call after the response, carrying the intent it has
+      just extracted. Its one production construction site (ChatClientFactory.cs:123) passes the
+      accessor; the parameter is optional so the decorator still answers where nothing injected
+      one.
+    alternative: >
+      Reporting at call start, which is where LlmCallStarted is published.
+    why: >
+      The intent is stored onto the call scope only after the response
+      (EventPublishingChatClient.cs:69); at call start the scope still holds the sentence the
+      PREVIOUS call narrated, so an early line would show the operator the wrong sentence, which
+      is worse than showing none. A test pins that the reported sentence is this response's.
+      Extracting it is now guarded on there being a call scope or an observer to read it: it
+      materialises the response text on the hottest path of every run, and a run with neither
+      reader was paying for a design turn's feature.
+  - id: revising-is-reported-where-each-retry-lives
+    chose: >
+      Two report lines, one in SpecDialogProposalRefusal before its re-prompt and one in
+      AgenticMasterHandler.GateSpecOutcomeAsync before the outcome-fix re-prompt. No
+      "checking the proposal" line.
+    alternative: >
+      One line at the gate covering both, or a line per gate entry.
+    why: >
+      Resolving the outcome is synchronous parsing; only a re-prompt takes time, and the two
+      re-prompts live in different types since 2026-09-17-042ec moved the refusal out. A single
+      line at the gate would fire for the case where nothing is re-prompted at all.
+  - id: the-look-reports-through-the-same-observer
+    chose: >
+      DerivationLook wraps its own tool list through a nullable TurnActivityTools its factory
+      supplies, for all three looks it builds; with none, the list is the one it always was.
+    alternative: >
+      Passing the accessor only from ForProposalReview.
+    why: >
+      2026-09-17-042ed's review look takes its tools from the derivation tools, and the look's
+      reads are the part of the review that takes time. Wrapping in one place keeps the
+      ambient contract intact — a look always reports, and silence comes from nobody listening.
+      A derivation sets no observer, so nothing else changes; a test pins that the review's
+      reads reach the turn's observer.
+  - id: what-the-operators-line-says-that-the-events-does-not
+    chose: >
+      OperatorToolSummary, its own type beside ToolArgumentFacts, rewords the whitelisted value
+      for the person: a `repository` argument joins the line (as `repo/path` for a path key and
+      `repo value` otherwise); an absolute http(s) url becomes its host and every other value
+      keeps only what precedes its first '?' or '#'; a `pattern` is shown exactly as searched.
+      The rewording runs BEFORE the 120-character cap. ToolArgumentFacts.Summarize is untouched,
+      so the run event stream's payloads are byte-for-byte what they were.
+    alternative: >
+      Reducing inside Summarize; host-reducing absolute http(s) only; adding `repository` to the
+      whitelist ahead of `path`.
+    why: >
+      Its own type because ToolArgumentFacts already says that deciding what a blob is worth
+      SAYING is a different job from saying it — and because the file would otherwise pass the
+      120-line limit. Each rule answers a defect found by review: the look's read and search take
+      (repository, path) and (repository, pattern), so "read_file src/Api.cs" named no repository
+      at all over a multi-repository scope, and putting `repository` in the whitelist would have
+      printed the repository INSTEAD of the path, since the whitelist is first-key-wins. A
+      scheme-less "/v2/orders?token=…" or "localhost:8080/x?token=…" parses as no absolute url
+      and printed its query whole. Cutting a url at 120 characters leaves it unparseable exactly
+      when it is longest, which is why the rewording comes first.
+  - id: a-search-pattern-is-shown-as-it-was-searched
+    chose: >
+      A `pattern` value is neither host-reduced nor cut at a '?'. TurnActivity's own
+      documentation says so: a pattern is MODEL-AUTHORED text and a model writes one out of what
+      it has just read, a literal it found in a config among it.
+    alternative: >
+      Treating a pattern like a url, or withholding it.
+    why: >
+      Both reductions are wrong for a regex — '?' is syntax, and a url-shaped pattern collapsed
+      to a host hides what the turn looked for, which is the one thing the line exists to say. It
+      is withheld from nobody who could not already read it: a step goes to the dialog's own
+      owner-checked group, never to the run group or the run's event stream, so the reader is the
+      person who will read the reply. The "nothing here is content" claim the first draft made
+      was too strong and now says this instead.
+  - id: the-push-goes-to-the-dialogs-own-group
+    chose: >
+      DashboardActivityChannel + DialogActivityObserver + SpecDialogActivityPush, mirroring the
+      reading channel: dashboard sessions only, the dialog taken from the turn's state at push
+      time. The two questions all three dialog channels asked of a session — is this the
+      dashboard, and which dialog is it — move into DialogTarget, called by all three.
+    alternative: >
+      Extending DashboardReadingChannel with a second method; leaving the third copy of the
+      platform gate and the dialog-id rule where the first two were.
+    why: >
+      One channel per kind of push is what the reading and outcome channels already are, and a
+      reading is a repository state while an activity is a step of the turn. But a rule written
+      out three times can end up meaning three things, and this one decides who sees a design
+      conversation. The reach is the same as every other dialog push — one instance, no
+      backplane — and the spec names the successor that covers all dialog pushes at once.
+  - id: an-activity-push-never-throws-back-into-the-work
+    chose: >
+      DashboardActivityChannel swallows every exception, the caller's own cancellation included,
+      where the reading channel deliberately lets that one through. The chat client's report was
+      moved OUT of the try that publishes the call's outcome.
+    alternative: >
+      The reading channel's `when (!ct.IsCancellationRequested)` filter, kept for symmetry.
+    why: >
+      Found by review: on a cancelled turn the filter declined, the OperationCanceledException
+      escaped the report, and the chat client's catch read it as the CALL failing — publishing a
+      second LlmCallFinished{Cancelled}, a duplicate cost row, for a call it had already
+      published as Ok. A reading is reported from a scope that only reads; a step is reported
+      from inside work that publishes its own outcome next, and that difference is the reason.
+      ITurnActivityObserver already said an implementation must not throw; now the only
+      production one cannot.
+  - id: the-page-folds-what-is-past
+    chose: >
+      The working indicator lists the last three steps under the reading lines, newest last, with
+      everything older inside a collapsed disclosure; the hook keeps at most 50 and clears them
+      wherever it clears the readings. Its colours are theme tokens, and a scan beside the
+      palette scan fails a colour utility components/dialog names that tokens.json does not
+      define.
+    alternative: >
+      Showing every step, or replacing the line each time.
+    why: >
+      The step being waited for is the last one, so the eye belongs at the bottom; the earlier
+      ones are worth keeping but not worth the height. A turn that reads twenty files reports
+      twenty lines, and an unbounded array in a tab someone leaves open is a leak. The scan is
+      the review's finding made enforceable: `text-muted` was written where the token is `mute`,
+      Tailwind emits nothing at all for an unknown utility, and build, lint and every test
+      stayed green while the visible half of this phase rendered in the wrong tone.
+  - id: where-each-claim-is-proven
+    chose: >
+      The tool wrapper, the url reduction, the model call, the review's reads and the channel are
+      unit-tested; the spec-dialog / coding surfaces and the invalid-outcome re-prompt are pinned
+      from the tool set and the request count the real handler produces; the dashboard push, the
+      slack silence, the refusal's revising and the review's reviewing run through the real
+      composition in the harness.
+    alternative: >
+      Proving the model call end to end in the harness too.
+    why: >
+      The harness answers the master from a script through ScriptedChatClientFactoryAdapter,
+      which does not insert EventPublishingChatClient, so no harness run can observe a model-call
+      report. Inserting it would start emitting LlmCall events into every harness run's
+      assertions. The decorator is tested directly instead, and the harness cases say so.
+  - id: the-colour-scan-reads-its-source
+    chose: >
+      The colour-token scan reads DESIGN.md's frontmatter, the one source tools/build-tokens.mjs
+      generates the tokens from.
+    alternative: >
+      Importing the generated src/styles/tokens.json, as the scan first did.
+    why: >
+      That file is not in the repository and is written by pnpm build, which the phase gate runs
+      AFTER pnpm test — so every fresh worktree blocked on the scan whatever its change was. Found
+      by the next phase's agent on a clean checkout.
+

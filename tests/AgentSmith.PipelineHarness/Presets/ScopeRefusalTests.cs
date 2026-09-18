@@ -86,7 +86,7 @@ public sealed class ScopeRefusalTests
         await runner.RunAsync("fix-bug");
 
         harness.ChatClient.InvocationCount.Should().Be(1);
-        var shown = harness.ChatClient.LastMessages.First(m => m.Role == ChatRole.User).Text;
+        var shown = harness.ChatClient.LastScriptedMessages.First(m => m.Role == ChatRole.User).Text;
         shown.Should().Contain("## Ticket conversation");
         shown.Should().Contain(Appeal, "the operator's 'yes, really, and here is why' must reach the judge");
         shown.Should().Contain(DestructionQuote, "the judge sees what was refused last time beside the appeal");

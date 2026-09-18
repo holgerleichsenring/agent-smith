@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
@@ -13,6 +15,10 @@ namespace AgentSmith.Contracts.Specs;
 /// <param name="TicketFingerprint">2026-09-08-5cd2: fingerprint of the ticket text the model
 /// last cut this set from. Null on a set cut before it existed, which compares as unchanged —
 /// a missing fact is not evidence of an edit.</param>
+/// <param name="Approval">2026-09-17-0e79a: the approval this set was ratified by in the design
+/// conversation, or null for a set nobody approved. On a set read back from the branch it is the
+/// approval the published revision came from, which is what the precedence compares a fresh
+/// record against.</param>
 public sealed record SpecSet(
     string Key,
     IReadOnlyList<SpecPhase> Phases,
@@ -22,7 +28,8 @@ public sealed record SpecSet(
     SpecHandback? Handback = null,
     bool TicketPinnedWhole = false,
     IReadOnlyList<string>? ExecutedPhaseIds = null,
-    string? TicketFingerprint = null)
+    string? TicketFingerprint = null,
+    SpecApproval? Approval = null)
 {
     /// <summary>
     /// Phase ids that already ran — on this branch, in this run or an earlier one.
@@ -33,6 +40,7 @@ public sealed record SpecSet(
     public IReadOnlyList<string> Executed { get; init; } = ExecutedPhaseIds ?? [];
 
     /// <summary>The phases no run has started yet — the only ones a correction may re-cut.</summary>
+    [JsonIgnore]
     public IReadOnlyList<SpecPhase> UnexecutedTail =>
         [.. Phases.Where(p => !Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
 
@@ -41,21 +49,28 @@ public sealed record SpecSet(
     /// preserved by position, which is what the append-only rule already implies: the
     /// sequence executes in order, so anything executed is a prefix of it.
     /// </summary>
+    [JsonIgnore]
     public IReadOnlyList<SpecPhase> ExecutedHead =>
         [.. Phases.TakeWhile(p => Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
 
     /// <summary>
-    /// Cap on the phases one ticket may split into. The pipeline executor allows a
-    /// bounded number of command executions per run and each phase splices its own
-    /// plan/master/verify block; beyond this cap a ticket is a programme and belongs
-    /// in the spec dialogue, not in one coding run.
+    /// Cap on the phases one ticket may split into. Beyond this cap a ticket is a
+    /// programme and belongs in the spec dialogue, not in one coding run.
+    /// <para>
+    /// 2026-09-17-0e79e: the executor's command-execution guard is no longer a fixed
+    /// number this cap has to fit under — the budget follows the phase count
+    /// (<see cref="Pipeline.StepBudget"/>), so raising the cap raises the guard with it.
+    /// What the cap still decides is how much work one run may be asked to do.
+    /// </para>
     /// </summary>
     public const int MaxPhases = 8;
 
     /// <summary>The revision the run works from — always the latest.</summary>
+    [JsonIgnore]
     public SpecRevision Current => Revisions[^1];
 
     /// <summary>True when derivation handed the ticket back instead of specifying it.</summary>
+    [JsonIgnore]
     public bool IsHandedBack => Handback is not null && Handback.Case != SpecHandbackCase.None;
 }
 
@@ -86,4 +101,12 @@ public enum SpecSource
 
     /// <summary>Derived from the ticket prose against the analysed repository.</summary>
     Derived = 2,
+
+    /// <summary>
+    /// 2026-09-17-0e79a: approved by a person in the design conversation and carried to the run
+    /// that works the ticket it filed. It outranks the DESCRIPTION because a ticket the framework
+    /// files no longer carries a fence, and yields to the BRANCH ARTIFACT unless its approval is
+    /// newer than the one the branch was published from.
+    /// </summary>
+    Approved = 3,
 }

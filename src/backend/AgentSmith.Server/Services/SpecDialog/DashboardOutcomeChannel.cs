@@ -33,8 +33,8 @@ public sealed class DashboardOutcomeChannel(
         ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (!IsDashboard(state)) return Task.CompletedTask;
-        var dialogId = Dialog(state);
+        if (!DialogTarget.IsDashboard(state)) return Task.CompletedTask;
+        var dialogId = DialogTarget.Of(state);
         var push = composer.Compose(dialogId, proposal, DateTimeOffset.UtcNow);
         return push is null
             ? Task.CompletedTask
@@ -50,21 +50,13 @@ public sealed class DashboardOutcomeChannel(
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(report);
-        if (!IsDashboard(state)) return Task.CompletedTask;
-        var dialogId = Dialog(state);
+        if (!DialogTarget.IsDashboard(state)) return Task.CompletedTask;
+        var dialogId = DialogTarget.Of(state);
         return PushAsync(
             FiledMethod, dialogId,
-            new SpecDialogFilingPush(dialogId, report.Filed, report.Error, DateTimeOffset.UtcNow),
+            new SpecDialogFilingPush(dialogId, report.Filed, report.Error, DateTimeOffset.UtcNow, report.Notes),
             cancellationToken);
     }
-
-    private static bool IsDashboard(ConversationState state) =>
-        string.Equals(
-            state.Platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase);
-
-    // The dialog id IS the thread id, as it is for every other push on this channel.
-    private static string Dialog(ConversationState state) =>
-        string.IsNullOrEmpty(state.ThreadId) ? state.ChannelId : state.ThreadId;
 
     private async Task PushAsync(
         string clientMethod, string dialogId, object payload, CancellationToken cancellationToken)

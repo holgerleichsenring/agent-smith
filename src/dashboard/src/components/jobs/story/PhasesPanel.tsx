@@ -19,6 +19,9 @@ const BADGE: Record<string, { cls: string; label: string }> = {
   done: { cls: "ok", label: "done" },
   in_progress: { cls: "run", label: "in progress" },
   failed: { cls: "bad", label: "failed" },
+  // 2026-09-17-0e79c: a phase handed back on a false premise was never built. Falling
+  // through to the not_started default would have said so of a phase the run stopped on.
+  handed_back: { cls: "bad", label: "handed back" },
   not_started: { cls: "neu", label: "not started" },
 };
 

@@ -33,10 +33,10 @@ public sealed class SlackMessageDispatcher(
     {
         try
         {
-            // Spec-dialog branch first: /spec commands and follow-ups inside an
-            // open spec thread never reach the intent engine (p0315a).
+            // Spec-dialog branch first (p0315a). 2026-09-17-042eg: false — a chat message carries
+            // no permission, so approving here files the work and never moves a ticket.
             if (await specDialogRouter.TryRouteAsync(
-                    text, userId, channelId, threadId, platform, cancellationToken))
+                    text, userId, channelId, threadId, platform, false, cancellationToken))
                 return;
 
             // The run-trigger path keeps its historical platform label ("slack"

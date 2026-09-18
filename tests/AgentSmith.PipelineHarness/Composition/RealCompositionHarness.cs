@@ -182,7 +182,13 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         // source provider — see HarnessFrameworkCalls for why, and where the real ones are
         // exercised instead.
         services.RemoveAll<ISpecCutReviewer>();
-        services.AddSingleton<ISpecCutReviewer, HarnessSpecCutReviewer>();
+        services.AddSingleton<HarnessSpecCutReviewer>();
+        services.AddSingleton<ISpecCutReviewer>(sp => sp.GetRequiredService<HarnessSpecCutReviewer>());
+        // 2026-09-17-0e79c: the premise check is a framework call too, and stands down the same way.
+        services.RemoveAll<IPhasePremiseChecker>();
+        services.AddSingleton<HarnessPhasePremiseChecker>();
+        services.AddSingleton<IPhasePremiseChecker>(
+            sp => sp.GetRequiredService<HarnessPhasePremiseChecker>());
         services.RemoveAll<ISpecAccountant>();
         services.AddSingleton<HarnessSpecAccountant>();
         services.AddSingleton<ISpecAccountant>(sp => sp.GetRequiredService<HarnessSpecAccountant>());

@@ -108,6 +108,8 @@ public static class SpecPrBody
     {
         PhaseRunState.Done => phase.Note is null ? "✅ done" : $"✅ done — {phase.Note}",
         PhaseRunState.Failed => $"❌ failed — {phase.FailingCommand ?? "verification red"}",
+        PhaseRunState.HandedBack =>
+            $"↩️ handed back, never built — {phase.FailingCommand ?? "a premise no longer holds"}",
         PhaseRunState.InProgress => "⏳ started, not finished",
         _ => "⬜ not started",
     };

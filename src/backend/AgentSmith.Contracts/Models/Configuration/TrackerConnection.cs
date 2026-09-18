@@ -64,6 +64,12 @@ public sealed record TrackerConnection
     public JiraEndpoints Endpoints { get; init; } = new();
 
     /// <summary>
+    /// Jira-only (YAML key <c>parent_link_type</c>): the issue link type a filed epic child is
+    /// linked to its parent with. Unset means "Relates". Ignored for non-Jira trackers.
+    /// </summary>
+    public string? ParentLinkType { get; init; }
+
+    /// <summary>
     /// Jira-only (YAML key <c>lifecycle_status_names</c>): maps agent-smith lifecycle states
     /// (pending / enqueued / in-progress / done / failed) to native Jira workflow status names.
     /// When non-empty the Jira transitioner drives those states via real workflow transitions

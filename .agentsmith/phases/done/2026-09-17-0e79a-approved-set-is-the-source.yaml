@@ -1,0 +1,302 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-0e79a
+
+goal: "A phase spec approved in the design conversation is stored with its approval, reaches the run that works its ticket, and is published to the ticket branch as the set that run works from."
+
+applies_to: "backend (an approved-set store and its migration in both persistence assemblies, the spec sources and their precedence, the spawn funnel's initial context, the reconciler, the phase filer, repo scoping)"
+
+scope:
+  in: >
+    Approving a PHASE outcome stores the reviewed draft under the spec-set key of the ticket it files,
+    with an approval instant and the conversation, principal and time it came from, and the scope's
+    repositories. The store is the server's: a port in Contracts with an in-memory default, the
+    relational implementation swapped in where the pointer store's is. ONE resolver answers "what did
+    this ticket's approval say" for every step that asks: it reads the record the spawn funnel put on
+    the run's initial context under one key, and, in a process that has the store, the stored record —
+    the newer approval winning — and it checks the record against the run's own spec key. ScopeRepos and
+    DeriveSpec both call it, so a run started outside the funnel is not blind at either step.
+    A fourth SpecSource, Approved, joins the precedence: the branch artifact wins UNLESS an approved
+    record carries a NEWER approval than the one recorded in the branch's set.yaml, in which case the
+    re-approved set is what the run works from, merged BY POSITION over the branch's executed head and
+    revision history, and refused when it is shorter than that head. The source decision carries the revision cause. The first run publishes with the existing
+    publisher and writer — one commit, the pointer, the draft pull request — and set.yaml records the
+    approval it was published from. ScopeRepos publishes the approved repositories to ContextKeys.Repos
+    before the inventory is built, and skips the classifier's narrowing. A ticket the framework filed
+    that reaches DeriveSpec with no set from either route FAILS — except a phase ticket carrying a
+    phase-parent: stamp, which is an epic child of the old shape and still derives.
+  out: >
+    THE EPIC OUTCOME. Today an epic files a non-routable parent and N children, so one record under one
+    key has no home; 2026-09-17-0e79d gives the epic its work ticket and extends this store to it.
+    A SERVER-SIDE GIT WRITE. The run publishes; nothing else pushes.
+    WHAT A COMMENT, AN EDIT OR A RE-TRIGGER DOES TO AN APPROVED SET, AND THE AMENDMENT ENTRY.
+    2026-09-17-0e79b, which leans on the precedence and the merge specified here.
+    CHECKING A PHASE'S PREMISES. 2026-09-17-0e79c.
+    THE RUN'S STEP BUDGET. 2026-09-17-0e79e.
+    MOVING A FILED TICKET INTO A TRIGGER STATUS, AND THE ORDER OF STORE AND MOVE. 2026-09-17-042eg.
+    MAKING A FILED TICKET ROUTABLE. 2026-09-17-042eg names that successor.
+    RAISING THE EIGHT-PHASE CAP. A successor, named by what it does: a long approved set is measured
+    for cost and parking before the cap moves.
+    THE TICKET-FIRST PATH. A ticket nobody approved has no record and derives exactly as today.
+
+decisions:
+  - key: |
+      THE RECORD IS A VERSIONED SOURCE, NOT A ONE-SHOT HAND-OFF. An approved set can be approved AGAIN
+      (2026-09-17-0e79b's amendment), so "carried once, then the branch forever" would make the second
+      approval unreachable. The record carries an APPROVAL INSTANT; set.yaml records the approval the
+      published set came from; and the precedence reads: branch artifact, unless a record's approval is
+      newer than the branch's, in which case the record wins. Everything else about the branch keeps
+      winning, which is what an executed phase needs.
+  - key: |
+      PUBLISHING A RE-APPROVED SET MERGES, OR IT DELETES HISTORY AND RE-RUNS FINISHED PHASES. Finalize
+      rewrites only Revisions and TicketFingerprint (DeriveSpecHandler.cs:69, 131-137), and a carried
+      record has no ExecutedPhaseIds, so SpecSetIndex would write executed_phases: []
+      (SpecSetIndex.cs:37) and the sequence would splice every phase again (PhaseSequenceHandler.cs:37).
+  - key: |
+      THE MERGE IS POSITIONAL, AND THE RULE IS WRITTEN OUT BECAUSE THE TWO OBVIOUS READINGS DISAGREE. A
+      carried record has Executed = [] so its own UnexecutedTail is the WHOLE set (SpecSet.cs:33, 36-37)
+      — reading the tail off the record would re-run everything. The parser's shape is positional
+      (SpecDerivationParser.cs:82-89) and so are the ids themselves, minted from the phase's index
+      (PhaseIdFactory.cs:28-29). So: the merged set is the BRANCH's ExecutedHead (SpecSet.cs:44-45)
+      followed by the record's phases from index ExecutedHead.Count onward. A record with fewer phases
+      than that head is REFUSED, naming the phases it would drop — silently shortening a sequence whose
+      work is already in the branch history is the one thing a merge must not do. An edit the record
+      makes to a position at or before the head is therefore discarded, and the run says so.
+  - key: |
+      THE MERGE'S OTHER FIELDS. Accounting comes from the BRANCH when the branch has one: the reader
+      rebuilds each phase's carried segments from the index (SpecSetReader.cs:82-88) and writing
+      SpecAccounting.Empty over it would erase what a derived predecessor recorded. TicketFingerprint is
+      carried from the branch as Finalize already carries it when no model ran
+      (DeriveSpecHandler.cs:136) — except where 2026-09-17-0e79b refreshes it. A Handback on the branch
+      is CLEARED by a publish that beats it: a hand-back says derivation could not specify the ticket,
+      and an approval is the answer to that question.
+  - key: |
+      TWO ROUTES BECAUSE ONE OF THEM IS NOT ALWAYS THERE. Funnel runs execute IN THE SERVER —
+      PipelineQueueConsumer is hosted there (QueueConsumerHostedService.cs:27-33) and that process
+      swapped the relational stores in (RelationalPersistenceExtensions.cs:125-127) — so a store read
+      works for them. A chat run is spawned as a container (FixTicketIntentHandler.cs:44,
+      InitProjectIntentHandler.cs:47) whose composition swaps no store
+      (AgentSmith.Cli/ServiceProviderFactory.cs:49-82), and a CLI run has none either. The CARRY is
+      therefore the primary route and works for every launcher; the STORE is the fallback for a process
+      that has one, which is what repairs a request nobody built a context for. Where BOTH are
+      available the newer approval wins: a capacity-queue entry freezes its context when the candidate
+      is built (SpawnRequestBuilder.cs:54-55) and the pump launches it later, in the server, which has
+      the store — so the carried copy can be the stale one.
+  - key: |
+      ONE RESOLVER, BECAUSE TWO STEPS ASK AND THEY ARE TEN APART. ScopeRepos is position 4 of the code
+      preset and DeriveSpec position 14 (PipelinePresets.Code.cs:41, 55). A fallback resolved only at
+      DeriveSpec would leave ScopeRepos classifying a thin ticket, and a carrying repo scoped out is
+      exactly the failure this phase warns about (SpecCarryingRepoResolver.cs:14-23 →
+      SpecSetReader.cs:29-33). One resolver — carried record, else the store where this process has one,
+      newer approval winning, checked against the run's key — is called by BOTH steps, and publishes
+      what it found so the second call is free.
+  - key: |
+      A CARRIED RECORD IS CHECKED AGAINST THE RUN'S OWN KEY. The run computes its spec key from the
+      tracker platform and the ticket it fetched (SpecSetKeyFactory.cs:14-19). A record whose key is not
+      that key belongs to another ticket — a re-used queue row, a hand-built request — and is IGNORED;
+      the run then has no set, and a filed ticket fails loudly rather than being worked to someone
+      else's specification.
+  - key: |
+      ONE NAMED KEY, THE WHOLE RECORD. The names this phase adds: ISpecApprovalStore in Contracts with
+      InMemorySpecApprovalStore as the default and DbSpecApprovalStore swapped in by the server, the
+      context key ContextKeys.ApprovedSpecSet, and — a Contracts change, because SpecSet has no such
+      member today (SpecSet.cs:16-25) — a nullable SpecApproval on SpecSet carrying the instant, the
+      conversation, the principal and the time. The set, the approval and the approved repositories
+      travel together under that one key — ScopeRepos needs the
+      repositories before any sandbox, DeriveSpec needs the set and the approval, and splitting them
+      would let a run scope by an approval it then does not use. It rides as a plain JSON STRING for the
+      reason the resume payload does (ResumePayload.cs:3-8, RunResumer.cs:58-70) and is read as string
+      or JsonElement (ResumeRequestReader.cs:57-63). The funnel writes it into both shapes it emits
+      (SpawnRequestBuilder.cs:32, 54-55) and ExecutePipelineUseCase copies the request context into the
+      pipeline (:337-341). Stated consequence: it travels through the queue row
+      (QueuedTicket.InitialContextJson) and the Redis job payload — tens of kilobytes per phase.
+  - key: |
+      THE PATHS THAT BUILD A BARE REQUEST. EnqueuedReconciler re-enqueues an orphaned ticket as a
+      PipelineRequest with no context at all (EnqueuedReconciler.cs:92-96); it runs in the server, so it
+      resolves the record and carries it, which is why the store fallback is not the only repair. The
+      chat intent builds one too (LlmIntentParser.cs:118). The CLI verbs differ: RunCommand.cs:56 is the
+      DRY-RUN print and CodeCommand.cs:61-63 already passes a Context dictionary this record would join.
+      What holds for all of them is the composition: a CLI process swaps in no store
+      (AgentSmith.Cli/ServiceProviderFactory.cs:49-82), so where nothing carried the record a FILED
+      ticket fails loudly rather than deriving, and the failure names the route that should have
+      carried it.
+  - key: |
+      A MISSING SET IS LOUD. A ticket the framework filed carries the phase label
+      (PhaseTicketRenderer.cs:17) and, after this phase, no fenced spec. If such a ticket reaches
+      DeriveSpec with no branch artifact, no carried record and no record in a store this process has,
+      the hand-off broke. Deriving then would silently replace a ratified spec with a guess, so the step
+      FAILS naming what is missing. The exemption is carried HERE and not left to 2026-09-17-0e79d,
+      because the rule and the tickets it would break must land together: a phase ticket carrying a
+      phase-parent: stamp (FiledTicketLabels.cs:28, 46-47) is an epic child of the N-children shape,
+      which deliberately carries no spec (PhaseTicketBody.cs:6-14), and still derives. Every other
+      ticket derives as before.
+  - key: |
+      A FOURTH SOURCE, BELOW THE BRANCH AND ABOVE THE DESCRIPTION. SpecSource is BranchArtifact,
+      TicketDescription, Derived (SpecSet.cs:79-89) and SpecSourceResolver.Decide picks in that order
+      (SpecSourceResolver.cs:33-71). Approved outranks the description because a filed ticket stops
+      carrying a fence (below), while a hand-written phase ticket has no approved record and keeps the
+      description path. SpecMarkdown.Describe (SpecMarkdown.cs:106-111) gains its arm, or the run detail
+      reports an approved set as "derived from the ticket".
+  - key: |
+      Decide STAYS SYNCHRONOUS WHERE IT CAN, AND TAKES WHAT THE ANSWER NEEDS. Reading a context key
+      needs no await; the store fallback is resolved by the caller before the decision, not inside it.
+      Decide takes the pipeline and the POINTER — the cause already needs it (SpecRevisionCause.For over
+      previous, pointer, ticket, pipeline), and the pointer is resolved one call earlier
+      (DeriveSpecHandler.cs:49) — and its Decision carries the Cause, so the handler's separate cause
+      statement (:58) disappears and its two readers (:66, :69) take decision.Cause.
+  - key: |
+      THE HANDLER MUST SHRINK, SO SOMETHING LEAVES IT. DeriveSpecHandler is 143 lines with a baseline
+      row of 143 (file-length-baseline.tsv:119), and a listed file may only get shorter
+      (FileLengthRatchetTests.cs:37-52). This phase adds a constructor parameter for the resolver (+1),
+      a resolve call (+1) and a second line on the Decide call as its arguments grow (+1), and removes
+      the cause local (-1). The compensating extraction is the COVERAGE-REFUSAL block
+      (DeriveSpecHandler.cs:103-115): reporting an incomplete accounting and building the fallback set
+      from the refused cut is its own responsibility, and it leaves one call behind (-12). Count:
+      143 + 3 - 1 - 12 = 133.
+  - key: |
+      THE FIRST RUN PUBLISHES IT, WITH THE CODE THAT ALREADY DOES THIS. SpecSetPublisher writes the
+      revision, records the pointer, opens the draft pull request and puts the set on the run context
+      (SpecSetPublisher.cs:23-45); SpecSetWriter writes .agentsmith/specs/<key>/ path-scoped, commits
+      and pushes on the run's branch (SpecSetWriter.cs:48-69, SpecSetKey.cs:13-32). ISourceProvider
+      gains no COMMIT OR PUSH member — it has none (its writes are pull-request writes,
+      ISourceProvider.cs:35-118) and gets none here.
+  - key: |
+      THE SET REMEMBERS WHICH APPROVAL IT IS. set.yaml gains the approval — instant, conversation,
+      principal, time — through the one serializer both halves share (SpecSetIndexDocument.cs:21-41,
+      SpecSetIndex.cs:29-57, read back at SpecSetReader.cs:58-67). It is what the precedence compares
+      and what 2026-09-17-0e79b's guard reads.
+  - key: |
+      KEYED BY THE SPEC KEY ALONE. The key is <provider>-<ticket id> (SpecSetKey.cs:15-16) and the run's
+      provider half is the project's tracker type lowercased (ExecutePipelineUseCase.cs:301-303), which
+      the filer knows from the catalog it resolves the provider from (OutcomeTicketFiler.cs:52-62). One
+      ticket matching two projects of one tracker is spawned twice (ProjectResolver.cs:43-86) and is the
+      same work, so one record serves both; the per-project pointer stays as it is (TicketSpecSet.cs:9-23).
+  - key: |
+      ITS OWN TABLE, AND SIX COUNTS AND A TEST NAME THAT MOVE WITH IT. TicketSpecSet is deliberately NOT
+      a copy of the spec (TicketSpecSet.cs:3-8) and that reasoning holds: the pointer points at git. What
+      a person ratified before any branch exists is a different thing and gets its own table, with a long
+      generated Id like its siblings. The migration is added to both provider assemblies under ONE name,
+      because the schema heads are compared by name (DataArchiveSchemaTests.cs:29-41). Moving with it:
+      DataArchiveSchemaTests.cs:63 (22 to 23) and :163 (20 to 21) with the stale test name at :158
+      ("TheTwenty"), and DataArchiveRoundTripTests.cs:33 (22 to 23), :34 (46 to 48, two seeded rows),
+      :54 (22 and its "twenty-two tables" message) and :81 (22). The tests those counts live in —
+      Manifest_TheTwoProvidersSchemaHeads_CompareEqual (DataArchiveSchemaTests.cs:29-41) and
+      RoundTrip_EveryTable_RestoresEveryRow (DataArchiveRoundTripTests.cs:29-44) — stay green with the
+      new numbers; no near-duplicate of either is minted.
+  - key: |
+      REPOS COME FROM THE APPROVAL, AND MUST REACH THE SEAM BEFORE THE INVENTORY. ScopeReposHandler's
+      repos read at :58 is a local and the remote context inventory is built from it one line later
+      (:59); ContextKeys.Repos is written only at :91-92, the single-repo path returns at :76-81 without
+      writing it, and RepoScopeEvaluator narrows at :82-83. So the approved repositories are PUBLISHED
+      to ContextKeys.Repos at the top, before the inventory: the inventory and the classifier both see
+      the approved set of repositories, and the classifier's NARROWING is skipped. Its estimate and its
+      refusal still run (:66-73). The spec set is carried by the FIRST repo of the resolved scope
+      (SpecCarryingRepoResolver.cs:14-23), which is why a thin ticket must not be classified: the
+      carrying repo could be scoped out and the next run would find no artifact (SpecSetReader.cs:29-33).
+      A named repository the project does not configure fails the step.
+  - key: |
+      ROOM IN THE SCOPE HANDLER, WITH ITS CALL SITE COUNTED. The file is 119 lines against a hard limit
+      of 120 and no baseline row is allowed. The collaborator costs a constructor line and a call line
+      (+2) and absorbs two existing seams: the single-repo early return (:76-81, six lines, whose skip
+      message and the p0413a --repo comment at :74-75 move into it, so that class is where the override
+      rule is now explained) and the publish branch (:91-92, two lines) — the handler asks it once for
+      the scope it should publish and once for what to record. Net: 119 + 2 - 10 = 111.
+  - key: |
+      EIGHT PHASES STAYS THE CAP, CHECKED WHERE A PERSON CAN SPLIT. SpecSet.MaxPhases is 8
+      (SpecSet.cs:47-53) and only the derivation parser enforces it (SpecDerivationParser.cs:77-80), so
+      a branch artifact or an approved set of any size runs today. The dialog refuses to store more than
+      eight ON THE PROPOSAL, before any ticket is created — the filers create and then store
+      (2026-09-17-042eg's ordering, 2026-09-17-0e79d's cap decision), so a refusal at store time would
+      leave a filed ticket with no set — and the run refuses an approved set over the cap rather than
+      truncating it. 2026-09-17-0e79e sizes the executor's step budget on that number.
+  - key: |
+      THE RECORD IS NOT CONSUMED. A re-trigger before the first publish — a run that died before
+      DeriveSpec, or one whose write failed and continued from the in-memory set
+      (SpecSetPublisher.cs:34-40) — is handed the same record again. It is never deleted: it is what an
+      approval is compared against, and what the conversation showed the operator.
+  - key: |
+      THE FILED BODY LOSES ITS FENCE, AND SO DOES ITS RENDERER. RenderPhase files a work order ending in
+      exactly one yaml block (PhaseTicketRenderer.cs:28-33, PhaseTicketBody.cs:22-31), which the
+      resolver would take as the source (SpecSourceResolver.cs:47-62) — two truths, one of them editable
+      by anyone. RenderPhase files the requirement body (PhaseTicketBody.cs:37-38) plus a link, which
+      leaves PhaseTicketBody.WorkOrder with no caller: it goes, and the p0315d contract note moves to
+      the extractor, which keeps inverting that shape for HAND-WRITTEN phase tickets
+      (PhaseSpecFromTicket.cs:7-17, 26-43). A malformed embedded spec still fails loudly
+      (SpecSourceResolver.cs:64-68).
+  - key: |
+      ACCOUNTING IS EMPTY, AS IT IS FOR AN EMBEDDED SPEC. SpecAccounting.Empty is what the description
+      path carries (SpecSourceResolver.cs:56-60) and the approved path does the same: segment coverage
+      answers "did the cut carry the ticket", and an approved set answers to the conversation that cut
+      it. The accounting file is still written, and says so.
+
+steps:
+  - id: the-store
+    action: "A port for approved sets with an in-memory default beside the pointer store's, a relational implementation swapped in by the server, an entity carrying the set, its approval instant and provenance and its repositories, and one migration of the same name in both assemblies; the six archive counts and the stale test name follow."
+  - id: the-filer-stores-it
+    action: "Approving a phase writes the record under the key built from the project's tracker type and the created ticket id; the filed body is a requirement with a link and no fence, and WorkOrder goes with its last caller."
+  - id: the-carry
+    action: "The spawn funnel puts the whole record on the initial context of both request shapes under one key, and the reconciler resolves it before re-enqueuing an orphan."
+  - id: the-one-resolver
+    action: "One resolver answers a ticket's approval: the carried record, else the store where the process has one, newer approval winning, refused unless its key is the run's own; ScopeRepos and DeriveSpec both call it."
+  - id: the-source-and-its-precedence
+    action: "SpecSource gains Approved; the resolver takes the pipeline and the pointer, prefers the branch artifact unless the record's approval is newer, and carries the revision cause on its Decision."
+  - id: room-in-the-handler
+    action: "The coverage-refusal block leaves DeriveSpecHandler as a collaborator, so the handler ends shorter than its baseline."
+  - id: the-merge
+    action: "Publishing a record that beats the branch keeps its executed head, revision history, accounting and fingerprint, takes the record's phases from the head's length onward, and refuses a record shorter than the head."
+  - id: the-set-carries-its-approval
+    action: "set.yaml records the approval instant and its provenance; the reader reads it back."
+  - id: the-loud-miss
+    action: "A phase-labelled ticket with no branch artifact, no carried record and no record in a store this process has fails DeriveSpec naming what is missing; one carrying a parent stamp still derives."
+  - id: scope-from-the-approval
+    action: "A collaborator publishes the approved repositories before the inventory is built and owns the single-repo skip and the publish branch; an unconfigured repository fails the step; the estimate and refusal are unchanged."
+  - id: the-cap
+    action: "The dialog refuses a proposal over MaxPhases phases before anything is filed, and the run refuses an approved set over it."
+
+tests:
+  - "ApprovedSet_CarriedOnTheContext_IsTheSource"
+  - "ApprovedSet_NotCarriedButInTheStore_IsTheSource"
+  - "ApprovedSet_CarriedRecordOlderThanTheStoredOne_TheStoredOneWins"
+  - "ApprovedSet_CarriedRecordForAnotherTicket_IsIgnoredAndTheRunFailsLoudly"
+  - "ApprovedSet_OlderThanTheBranchApproval_LosesToTheBranchArtifact"
+  - "Reapproval_NewerThanTheBranchApproval_BeatsTheBranchArtifact"
+  - "Reapproval_Published_KeepsTheExecutedHeadAndTheRevisionHistory"
+  - "Reapproval_Published_TakesTheRecordsPhasesFromTheHeadsLengthOnward"
+  - "Reapproval_Published_DoesNotEmptyExecutedPhases"
+  - "Reapproval_ShorterThanTheExecutedHead_IsRefusedNamingWhatItWouldDrop"
+  - "Reapproval_EditsAnExecutedPhase_IsDiscardedAndSaidSo"
+  - "Reapproval_Published_KeepsTheBranchAccountingAndClearsItsHandback"
+  - "ApprovedSet_WithAFencedTicketDescription_WinsOverTheDescription"
+  - "ApprovedSet_FirstRun_IsCommittedToTheTicketBranchAndPointed"
+  - "ApprovedSet_FirstRun_SetYamlRecordsTheApprovalItWasPublishedFrom"
+  - "ApprovedSet_FirstRun_RevisionCauseNamesTheApproval"
+  - "ApprovedSet_WriteFailed_RunContinuesAndTheNextRunIsHandedItAgain"
+  - "ApprovedSet_FiledTicketWithNoRecord_FailsLoudly"
+  - "ApprovedSet_HandWrittenPhaseTicketWithNoRecord_StillUsesItsDescription"
+  - "LoudMiss_PhaseTicketWithAParentStamp_StillDerives"
+  - "ApprovedSet_NoRecordAndNoPhaseLabel_DerivesExactlyAsBefore"
+  - "ApprovedSet_MalformedEmbeddedSpecAndNoRecord_StillFailsLoudly"
+  - "SpawnFunnel_TicketWithARecord_PutsTheWholeRecordOnBothRequestShapes"
+  - "SpawnFunnel_TicketWithoutARecord_AddsNothing"
+  - "SpawnFunnel_DeferredEntry_CarriesTheRecordThroughTheQueueRow"
+  - "Reconciler_OrphanWithARecord_ReEnqueuesItWithTheRecord"
+  - "ApprovedRecord_KeyedByTrackerTypeAndTicketId_MatchesTheRunsSpecSetKey"
+  - "ApprovedRecord_TwoProjectsOnOneTracker_ShareOneRecord"
+  - "Proposal_OverMaxPhases_IsRefusedBeforeAnythingIsFiled"
+  - "ApprovedSet_OverMaxPhases_IsRefusedByTheRunAndNotTruncated"
+  - "FiledPhaseBody_CarriesNoYamlFence"
+  - "ScopeRepos_WithApprovedRepositories_PublishesThemBeforeTheInventoryIsBuilt"
+  - "ScopeRepos_RecordOnlyInTheStore_StillNarrowsToItsRepositories"
+  - "ScopeRepos_WithApprovedRepositories_DoesNotApplyTheClassifiersScope"
+  - "ScopeRepos_WithApprovedRepositories_StillEstimatesAndStillRefuses"
+  - "ScopeRepos_ApprovedRepositoryNotConfigured_FailsTheStep"
+  - "ScopeRepos_WithoutApprovedRepositories_ClassifiesAsBefore"
+  - "SpecMarkdown_ApprovedSource_NamesTheConversation"
+
+done:
+  - "a phase approved in the conversation is the spec the run works from, without any re-derivation"
+  - "a second approval of the same ticket beats the branch artifact, and publishing it keeps every phase that already ran"
+  - "a run started by the funnel, the reconciler, chat or the CLI either has the set or fails saying it does not"
+  - "the first run puts it on the ticket branch as one commit with a pointer and a draft pull request, and set.yaml says which approval it is"
+  - "the repositories the approval named are the repositories the run scopes and inventories"
+  - "a ticket nobody approved behaves exactly as it does today"
+  - "build green, full suite green, file-length ratchet green with no new baseline row"

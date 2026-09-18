@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ea
+
+goal: "A filed epic child is linked to its parent through the tracker's own relation, and its body no longer carries a Parent line that the deriver has to discard."
+
+applies_to: "backend (ticket providers, epic filing)"
+
+requires:
+  - 2026-09-13-a72a
+
+scope:
+  in: >
+    After a child ticket is created, the filer links it to its parent through the tracker: an Azure
+    DevOps hierarchy relation, a GitHub sub-issue, a Jira issue link, a GitLab issue link. A link that
+    is unsupported or fails becomes a note on the filing report, which the saved filing, the push, the
+    chat notice and the dashboard's filed panel show. The "Parent:" line leaves the child body. Jira's
+    single-ticket read starts returning labels, because every stamp this work relies on is a label.
+  out: >
+    REPLACING THE LABEL STAMPS. See decisions.
+    PREDECESSOR LINKS. The phase-requires stamp keeps ordering; a dependency link is a successor, named
+    here: the filer links a slice to the slice it requires.
+    JIRA SERVER OR DATA CENTER. The provider targets Cloud REST v3 only (JiraEndpoints.cs:15-28).
+
+decisions:
+  - key: |
+      THE LABELS STAY THE MACHINE STAMP; THE LINK IS FOR PEOPLE. Every path that acts on the relation
+      reads labels: the predecessor gate (PredecessorGate.cs:44,71,79), the epic ground
+      (EpicGroundFetcher.cs:43), the run's parent branch (RunParentTicket.cs:24). The poll and webhook
+      envelopes carry labels and no relations (IncomingTicketEnvelope.cs:9-18), which is why a72a chose
+      a label. A link replaces the text line a person reads, not the stamp a machine reads.
+  - key: |
+      EACH TRACKER GETS ITS OWN HONEST RELATION, ALL AFTER CREATE. Azure DevOps: an UpdateWorkItemAsync
+      patch adding /relations/- of type System.LinkTypes.Hierarchy-Reverse whose url is the REST form
+      {org}/_apis/wit/workItems/{parentId}, not the web url the provider builds for references
+      (AzureDevOpsTicketProvider.cs:147-148); the Op helper takes a string only (:205) and grows an
+      object overload. GitHub: POST
+      /repos/{owner}/{repo}/issues/{parent}/sub_issues through the client's connection, because Octokit
+      14 has no typed sub-issue call; it needs the child's database id, which the create call returns
+      and the provider drops today (GitHubTicketProvider.cs:99-114). The request path and body come
+      from an internal static builder, as the create request already does (TicketProviderCreateTests.cs:90,100),
+      because the provider constructs its own client. Jira Cloud: a Task cannot parent a
+      Task, and the filer creates both as Task (JiraTicketProvider.cs:138-161), so the child gets an
+      issue link, which Jira shows under linked issues rather than as hierarchy. The endpoint joins the
+      overridable defaults (JiraEndpoints.IssueLink = /rest/api/3/issueLink, JiraEndpoints.cs:4-13) and the
+      link type name defaults to "Relates" and is configurable, because a site can rename or disable link
+      types; a missing type or disabled linking is a failed link. GitLab: a relates_to
+      issue link, the only relation the free tier offers.
+  - key: |
+      A NEW CONTRACT MEMBER WITHOUT A DEFAULT, WITH A RESULT. CreateAsync has no default so every provider
+      states what it does (ITicketProvider.cs:51-59); linking follows the same rule and returns a
+      ParentLinkResult of Linked, Unsupported or Failed with a reason. The hand-written implementers state
+      it too: StubTicketProvider, ParkedTicketFixture, RecordingTicketProvider and the fakes in
+      PredecessorGateFunnelTests, SpecDialogOutcomeStoreTests, EpicFilingOrderTests,
+      TicketProviderDefaultsTests, TicketConversationTests, PhaseExecutionTests and the harness
+      SpecDialogOutcomeTests. CreatedTicket gains NativeId as an init property, so its positional
+      constructions stay; only GitHub sets it. The recording provider hands out distinct ids so a test can
+      tell children apart (it returns "1" today, RecordingTicketProvider.cs:48).
+  - key: |
+      A LINK THAT FAILS UNFILES NOTHING AND IS NEVER THE FILING'S ERROR. The tickets exist and the labels
+      still order them. An exception in the filer becomes the report's Error (OutcomeTicketFiler.cs:43-48),
+      the sink then keeps the confirmed outcome (TicketFilingOutcomeSink.cs:32-34) and the notice offers a
+      retry (SpecDialogOutcomeComposer.cs:39) that would file every ticket again. A link outcome is
+      therefore a Note on FilingReport (FilingReport.cs:12-14), carried by the saved filing
+      (SpecDialogLatestOutcomeStore.cs:47-49), the filing push, the filed notice and the dashboard type and
+      panel.
+  - key: |
+      JIRA'S SINGLE-TICKET READ RETURNS LABELS. It requests
+      summary,description,status,attachment,assignee,reporter (JiraTicketProvider.cs:80), so
+      JiraFieldMapper.cs:27 maps no labels and every stamp read after the funnel finds nothing on Jira:
+      the epic ground, the parent branch and the predecessor walk past its first hop.
+  - key: |
+      THE PARENT LINE WAS NOISE THE MODEL HAD TO CARRY. Nothing parses it (its only writer is
+      PhaseTicketRenderer.cs:44), and the segmenter makes it a segment of its own (TicketSegmenter.cs:21-57)
+      that the derivation master must carry or discard. The parent's body already reaches the deriver
+      as epic ground (SpecPromptComposer.cs:41).
+
+steps:
+  - id: the-port-links
+    action: "ITicketProvider gains a link-to-parent member with no default returning ParentLinkResult; CreatedTicket gains NativeId; every provider and hand-written fake states what it does."
+  - id: four-trackers
+    action: "Azure DevOps hierarchy relation by update, GitHub sub-issue through a static request builder, Jira issue link with a configurable type, GitLab relates_to link."
+  - id: the-filer-links
+    action: "EpicTicketFiler links each child after creating it; anything but Linked becomes a note on the filing report."
+  - id: notes-travel
+    action: "Filing notes are saved with the filing, pushed, named in the filed notice and shown on the dashboard's filed panel."
+  - id: jira-reads-its-labels
+    action: "Jira's single-ticket read requests labels."
+  - id: the-line-goes
+    action: "The Parent line leaves the child body; RequirementTicketTests.cs:68 and the harness SpecDialogOutcomeTests.cs:305-306 change with it."
+
+tests:
+  - "AzureDevOps_LinkToParent_PatchesAHierarchyRelationWithTheRestUrl"
+  - "GitHub_SubIssueRequest_CarriesTheChildsDatabaseId"
+  - "Jira_LinkToParent_CreatesAnIssueLinkOfTheConfiguredType"
+  - "Jira_LinkToParent_MissingLinkType_IsAFailedLink"
+  - "GitLab_LinkToParent_CreatesARelatesToLink"
+  - "Jira_GetTicket_RequestsAndMapsItsLabels"
+  - "EpicFiling_EachChild_IsLinkedToItsParent"
+  - "EpicFiling_ALinkThatFails_FilesTheRemainingChildrenAndNotesIt_WithoutAnError"
+  - "RequirementTicket_Body_CarriesNoParentLine"
+  - "dashboard: a filing note is shown on the filed panel"
+  - "EpicFiling_ALinkThatTimesOut_FilesTheRemainingChildrenAndNotesIt"
+  - "EpicFiling_ALinkThatThrows_IsANoteNotAnError"
+  - "OutcomeTicketFiler_ATrackerTimeoutOnCreate_IsReportedNotThrown"
+  - "Jira_LinkToParent_TimedOut_IsAFailedLink"
+  - "Jira_LinkToParent_CallerCancelled_Throws"
+  - "GitHub_Created_CarriesTheDatabaseIdAsNativeId"
+  - "GitHub_LinkToParent_WithoutNativeId_IsAFailedLink"
+  - "AzureDevOps_LinkToParent_NotAWorkItemId_IsAFailedLink"
+  - "GitLab_LinkToParent_Refused_IsAFailedLink"
+  - "dashboard: a filing push without notes still shows the filed panel"
+
+done:
+  - "on Azure DevOps each child's Related Work shows its parent"
+  - "a link that fails leaves every ticket filed once and says so on the filed panel"
+  - "no child body contains a Parent line"
+  - "on Jira, a child's parent and predecessor stamps are read after the funnel"
+  - "build green, full suite green, file-length ratchet green"

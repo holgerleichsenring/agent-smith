@@ -28,6 +28,7 @@ internal static class SpecDialogExtensions
         // runner shares that scope for the duration of its in-process run.
         services.AddScoped<SpecDialogSessionManager>();
         services.AddScoped<SpecDialogResumer>();
+        services.AddScoped<SpecDialogAnswerAdmission>();
         services.AddScoped<SpecDialogCommandHandler>();
         services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>();
         // 2026-09-13-ed5a: the declared templates the epic analysis may read, and the
@@ -40,12 +41,17 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddTransient<PhaseTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
-        // 2026-09-13-a72a: an epic's children are filed in dependency order, so a child's
-        // predecessor stamp can name a ticket that already exists.
+        // 2026-09-17-0e79d: the order is the approved SET's — one run works the slices in it, and
+        // the records are filed in the same order so the tracker reads as the run runs.
         services.AddTransient<EpicChildOrderer>();
+        services.AddScoped<EpicSliceRecordFiler>();
         services.AddScoped<EpicTicketFiler>();
+        // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
+        services.AddScoped<FiledWorkStarter>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
+        // 2026-09-17-0e79a: filing a phase stores the approved set under the ticket's spec key.
+        services.AddScoped<ApprovedPhaseSetRecorder>();
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
@@ -60,12 +66,24 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogProjectCatalog>();
         services.AddScoped<SpecDialogViewReader>();
         services.AddScoped<SpecDialogConversationList>();
+        // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
+        // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.
+        services.AddScoped<FiledWorkFiling>();
+        services.AddTransient<FiledWorkTrackerProjects>();
+        services.AddTransient<FiledWorkPhaseReviews>();
+        services.AddTransient<FiledWorkRunsReader>();
+        services.AddTransient<FiledWorkHandbacks>();
+        services.AddScoped<FiledWorkReader>();
+        services.AddSingleton<FiledWorkWatchRegistry>();
+        services.AddScoped<FiledWorkWatch>();
         // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
         // what filing it actually created.
         services.AddTransient<SpecDialogProposalComposer>();
         services.AddSingleton<DashboardOutcomeChannel>();
         // 2026-09-17-c7aec: which repositories a dashboard design turn opens, as it opens them.
         services.AddSingleton<DashboardReadingChannel>();
+        // 2026-09-17-042ee: what that turn is doing between the reads and the answer.
+        services.AddSingleton<DashboardActivityChannel>();
         return services;
     }
 }

@@ -32,7 +32,9 @@ public sealed class RequirementTicketTests
         """;
 
     private static readonly PhaseDraft Draft =
-        new("p9000a", "Widget storage layer", Yaml, ["p9000"]);
+        new("p9000a", "Widget storage layer", Yaml, ["p9000", "2026-09-17-042ea"]);
+
+    private static readonly IReadOnlySet<string> Siblings = new HashSet<string> { "p9000", "2026-09-17-042ea", "p9000a" };
 
     [Fact]
     public void RenderChildRequirement_Body_HasNoFencedBlock() =>
@@ -60,24 +62,132 @@ public sealed class RequirementTicketTests
             "every modern decision is a {key: '…'} map, which used to render as an empty "
             + "line and be filtered away — so no filed ticket has ever carried its reasoning");
 
+    /// <summary>2026-09-17-042eb: the done list is how the ticket says when it is finished.</summary>
     [Fact]
-    public void RenderChildRequirement_Body_NamesItsParentAndItsRequires()
+    public void RequirementTicket_ChildWithDone_RendersAcceptanceCriteria()
     {
         var body = Render();
 
-        body.Should().Contain("Parent: https://tracker.test/1");
-        body.Should().Contain("## Requires").And.Contain("p9000");
+        body.Should().Contain("## Acceptance criteria\n- the table exists and the repository reads it");
+        AcceptanceCriteriaSection.Read(body).Should().Equal("the table exists and the repository reads it");
+    }
+
+    /// <summary>
+    /// 2026-09-17-042eb: a sibling's phase id means nothing in a tracker — the order lives in the
+    /// phase-requires labels and on the parent's slice list.
+    /// </summary>
+    [Fact]
+    public void RequirementTicket_SiblingRequires_AreNotInTheBody()
+    {
+        var body = Render();
+
+        body.Should().NotContain("## Requires").And.NotContain("## Preconditions");
+        body.Should().NotContain("p9000\n").And.NotContain("- p9000");
+        body.Should().NotContain("2026-09-17-042ea", "a dated sibling id is a sibling id too");
+    }
+
+    /// <summary>
+    /// The edge checker only holds CHILDREN to siblings. A parent may require a phase outside the
+    /// epic, and that precondition is still true of the whole cut.
+    /// </summary>
+    [Fact]
+    public void RequirementTicket_EpicParent_KeepsAnOutsidePhaseIdRequirement()
+    {
+        var parent = new PhaseDraft("p9000", "Widget platform", "phase: p9000\ngoal: Widget platform", ["p8000"]);
+
+        var body = new PhaseTicketRenderer().RenderEpicParent(parent, [Draft]).Body;
+
+        body.Should().Contain("## Preconditions\n- p8000");
     }
 
     [Fact]
-    public void RenderPhase_SinglePhaseOutcome_StillEmbedsTheSpec()
+    public void RequirementTicket_ChildOutsidePhaseId_StaysAPrecondition() =>
+        new PhaseTicketRenderer().RenderChildRequirement(Draft with { Requires = ["p8000", "p9000"] }, Siblings).Body
+            .Should().Contain("## Preconditions\n- p8000").And.NotContain("- p9000");
+
+    /// <summary>A block-scalar done item is one criterion; its continuation must not read back as a second.</summary>
+    [Fact]
+    public void RequirementTicket_MultiLineDone_ReadsBackAsOneCriterion()
+    {
+        const string yaml = "phase: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
+
+        var body = new PhaseTicketRenderer()
+            .RenderChildRequirement(new PhaseDraft("p9000a", "Widget storage layer", yaml, []), Siblings).Body;
+
+        AcceptanceCriteriaSection.Read(body).Should().Equal("the table exists and the repository reads it");
+    }
+
+    [Fact]
+    public void RequirementTicket_ChildWithFreeTextRequires_KeepsThePrecondition()
+    {
+        var draft = Draft with { Requires = ["p9000", "the widget database exists in every environment"] };
+
+        var body = new PhaseTicketRenderer().RenderChildRequirement(draft, Siblings).Body;
+
+        body.Should().Contain("## Preconditions\n- the widget database exists in every environment",
+            "no label carries a free-text precondition, so the body is the only place it lives");
+        body.Should().NotContain("- p9000");
+    }
+
+    /// <summary>
+    /// 2026-09-17-0e79a: a filed phase is a REQUIREMENT with its acceptance criteria and its
+    /// preconditions — no sibling set to subtract, so every requires: edge is a precondition.
+    /// </summary>
+    [Fact]
+    public void FiledPhaseBody_IsTheRequirementShape()
     {
         var body = new PhaseTicketRenderer().RenderPhase(Draft).Body;
 
-        body.Should().Contain("```yaml").And.Contain("phase: p9000a");
-        body.Should().Contain("Add the table and its migration",
-            "a work order is cut against the repository as it is and filed to be worked now");
+        body.Should().Contain(AcceptanceCriteriaSection.Heading);
+        body.Should().Contain("## Preconditions\n- p9000");
+        body.Should().NotContain("## Requires");
     }
+
+    /// <summary>
+    /// 2026-09-17-042ea: the tracker links the child to its parent and a label stamps it; a line in
+    /// the body was a segment the deriver had to carry or discard, and nothing parsed it.
+    /// </summary>
+    [Fact]
+    public void RequirementTicket_Body_CarriesNoParentLine() =>
+        Render().Should().NotContain("Parent:");
+
+    /// <summary>
+    /// 2026-09-17-0e79a: the approved set is stored and carried, not embedded. A fence in the body
+    /// would be a second truth — one anyone with tracker access can edit, and one the source
+    /// precedence would take over the record a person actually approved.
+    /// </summary>
+    [Fact]
+    public void FiledPhaseBody_CarriesNoYamlFence()
+    {
+        var body = new PhaseTicketRenderer().RenderPhase(Draft, "session-7").Body;
+
+        body.Should().NotContain("```");
+        body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+            .And.Contain("session-7", "the body points at the conversation the set was approved in");
+    }
+
+    /// <summary>
+    /// 2026-09-17-0e79a: the filed ticket carries the stamp that holds it to "the approved set
+    /// must have reached the run" — the bare phase label cannot say that, because a hand-written
+    /// phase ticket carries it too and its spec legitimately lives in its description.
+    /// </summary>
+    [Fact]
+    public void FiledPhase_Labels_CarryTheApprovedSetStamp()
+    {
+        FiledTicketLabels.CarriesApprovedSet(
+            [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp]).Should().BeTrue();
+        FiledTicketLabels.CarriesApprovedSet([PhaseTicketRenderer.PhaseLabel]).Should().BeFalse(
+            "a hand-written phase ticket is not held to a set nobody approved");
+    }
+
+    /// <summary>The extractor must read a filed body as ABSENT, never as malformed.</summary>
+    [Fact]
+    public void FiledPhaseBody_ReadsBackAsNoSpecAtAll() =>
+        new PhaseSpecFromTicket(
+                new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader())
+            .Extract(new PhaseTicketRenderer().RenderPhase(Draft).Body)
+            .Should().BeOfType<PhaseSpecInvalid>()
+            .Which.IsAbsent.Should().BeTrue();
 
     [Fact]
     public void SpecSource_RequirementTicket_LeavesTheDerivationToRun()
@@ -93,5 +203,5 @@ public sealed class RequirementTicketTests
     }
 
     private static string Render() =>
-        new PhaseTicketRenderer().RenderChildRequirement(Draft, "https://tracker.test/1").Body;
+        new PhaseTicketRenderer().RenderChildRequirement(Draft, Siblings).Body;
 }

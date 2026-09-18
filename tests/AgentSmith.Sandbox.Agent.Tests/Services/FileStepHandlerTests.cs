@@ -42,7 +42,11 @@ public class FileStepHandlerTests : IDisposable
         var result = await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
 
         result.ExitCode.Should().Be(1);
-        result.ErrorMessage.Should().Contain("not found");
+        // 2026-09-17-042ed: a READER across the assembly boundary tells "the file is not there"
+        // from "the read could not run" by this exact opening, so the wording is pinned here —
+        // it is a contract, not a sentence anyone may reword.
+        result.ErrorMessage.Should().StartWith(StepErrors.FileNotFoundPrefix);
+        StepErrors.IsFileNotFound(result.ErrorMessage).Should().BeTrue();
     }
 
     [Fact]

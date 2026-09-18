@@ -66,4 +66,16 @@ public sealed class TrackerCatalogBuilderTests
         var built = _sut.Build(raw, []);
         built["tr1"].ZeroMatchComment.Should().BeTrue();
     }
+
+    /// <summary>2026-09-17-042ea: the Jira link type a filed child is linked to its parent with.</summary>
+    [Fact]
+    public void Build_TrackerWithParentLinkType_BindsField()
+    {
+        var raw = new Dictionary<string, RawTrackerEntry>
+        {
+            ["tr1"] = new RawTrackerEntry { Type = TrackerType.Jira, Auth = "token", ParentLinkType = "Parent of" },
+        };
+
+        _sut.Build(raw, [])["tr1"].ParentLinkType.Should().Be("Parent of");
+    }
 }

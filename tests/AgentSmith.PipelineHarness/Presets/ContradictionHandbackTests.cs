@@ -84,7 +84,7 @@ public sealed class ContradictionHandbackTests
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         await runner.RunAsync("code");
 
-        var shown = harness.ChatClient.LastMessages.First(m => m.Role == Microsoft.Extensions.AI.ChatRole.User).Text;
+        var shown = harness.ChatClient.LastScriptedMessages.First(m => m.Role == Microsoft.Extensions.AI.ChatRole.User).Text;
         shown.Should().Contain(reply, "the reply reaches the derivation through the conversation");
         tickets.Finalized.Should().ContainSingle().Which.Status.Should().Be("needs-info",
             "a person replied and the model still sees a contradiction, so the ticket parks again");

@@ -10,8 +10,16 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// tracker filing via ITicketProvider; until then the shipped default
 /// (SessionStoreOutcomeSink) stores the proposal durably and says so in the
 /// thread — it never fakes a filed ticket.
+/// <para>
+/// 2026-09-17-042eg: <c>mayStartRuns</c> is whether the APPROVER holds runs.control. It rides
+/// the turn in process rather than being persisted on the answer: the approving message only
+/// answers the pending question, and the principal that started the turn is the one who approves.
+/// Both chat channels pass false — a move that starts a run is a dashboard affordance.
+/// </para>
 /// </summary>
 public interface IOutcomeSink
 {
-    Task AcceptAsync(ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken);
+    Task AcceptAsync(
+        ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
+        CancellationToken cancellationToken);
 }

@@ -53,7 +53,7 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
     {
         var path = Resolve(step);
         if (!File.Exists(path))
-            return Failure(step, sw, $"file not found: {path}");
+            return Failure(step, sw, StepErrors.FileNotFound(path));
 
         var info = new FileInfo(path);
         if (info.Length > SizeLimits.ReadFileMaxBytes)

@@ -1,0 +1,210 @@
+phase: 2026-09-17-042eh
+decisions:
+  - id: a-code-review-step-because-nothing-reviewed-the-code
+    chose: >
+      ReviewPhaseDiff, a step of CodePhaseBlock between VerifyPhase and WritePhaseRecord,
+      with its own command name, display label, beat (Verify), step class (Milestone),
+      model-use declaration, context, builder and handler.
+    alternative: >
+      Widening the accountant's question; reusing the pr-review preset; a second cut review.
+    why: >
+      Re-verified in this tree: SpecAccountant asks what the diff does NOT SATISFY of the
+      done-list, so a phase can pass every mechanical gate while breaking every rule the
+      repository states. SpecCutReviewer reads the plan before code exists. pr-review runs on
+      a pull-request webhook (GitHubPrEventWebhookHandler), which a run never fires for
+      itself. Widening the accountant would put two unlike questions behind one verdict —
+      "is the contract met" decides delivery and "is this sound" must not.
+  - id: the-phase-diff-has-a-producer-of-its-own
+    chose: >
+      PhaseStartHeads records each sandbox's HEAD at SelectPhase (one call, beside
+      PhaseRepairScope.Reset); PhaseDiffs runs `git diff --no-color <head>` per sandbox to the
+      WORKING TREE; PhaseDiffText drops run-record paths and packs WHOLE FILES to 120,000
+      characters, naming the rest unreviewed.
+    alternative: >
+      DeliveryDiff as it stands; VerifiedHeads as the start point; a character cut at the bound.
+    why: >
+      DeliveryDiff answers what the BRANCH delivers against the rung it was cut from, so on
+      the fourth phase of a set it carries the first three phases' work and a reviewer would
+      report their code as this phase's. VerifiedHeads is written by this phase's own
+      verification — the far end of the interval, not the near one. To the working tree,
+      because the admission reads the same files the reviewer reads and a checkpoint the
+      secret scan refused leaves work off the branch. A character cut would show the last file
+      half, and a finding on the half it could not see reads exactly like one on the half it
+      could.
+  - id: the-look-is-the-phase-reviews-own-and-its-reads-are-numbered
+    chose: >
+      DerivationLookTerms.PhaseReview ("phase review", allowance 8, prefix P, its own Settle
+      and CiteRule, NumberedReads: true) and DerivationLookFactory.OnTerms — the template-free
+      member ForCutReview now delegates to. RepositoryFileReadTool numbers lines when the terms
+      say so, bounds the NUMBERED text and records how many whole lines survived.
+    alternative: >
+      Reusing the cut review's terms; a second factory member copied with one constant changed;
+      numbering every holder's reads; letting the model count lines itself.
+    why: >
+      Eight against six because this reviewer judges a DIFF: every file it reports on is a file
+      it must open. The terms are the only difference between two template-free looks, so they
+      are the parameter, not a copied method. Numbering only where it is needed: the derivation
+      and the cut review quote TEXT and would pay tokens for numbers they never use. A model
+      asked for a line it counted itself would be believed — the numbers a finding is checked
+      against have to be the framework's, which is the rule FactResolver already states about
+      ids.
+  - id: a-finding-rests-on-a-read-and-the-evidence-had-to-learn-its-parts
+    chose: >
+      DerivationEvidence.Remember/RememberOnce take an EvidenceRecord (repository, kind, what,
+      exit, ran, path, lines returned); EvidenceLook carries Kind, Path and LinesReturned
+      beside the minted line, which is unchanged. All four callers and the tests that
+      constructed the old shape move over. PhaseReviewAdmission keeps a finding only on an
+      exit-0 READ of exactly its repository and path, with the line inside what that read
+      returned and the path inside the reviewed diff.
+    alternative: >
+      Parsing the minted sentence; a path instead of an id; keeping the four-argument overload
+      beside the record.
+    why: >
+      Remember took kind and path fused into one prose string ("read <path>") — enough for a
+      LINE a model reads, not for a rule that has to decide whether a finding rests on a read
+      of one path. Parsing the sentence back apart would make the line format a contract. A
+      path instead of an id is the fabrication moved one field along: a reviewer asked for a
+      path produces a plausible one. Two overloads would leave the old shape reachable, which
+      is the wrapper this repository does not keep.
+  - id: one-fix-pass-prepared-the-way-a-repair-is
+    chose: >
+      PhaseReviewFixPass.Decide/Prepare: with kept findings and no pass yet, snapshot
+      PhaseAccounts and RunAccounts, set PhaseReviewFixPass and PhaseRepairAttempted, REMOVE
+      OutstandingCriteria, and splice [AgenticMaster, MasterOpenQuestions, CommitPhaseWork,
+      VerifyPhase, ReviewPhaseDiff] stamped with the phase.
+    alternative: >
+      Reusing PhaseVerdict.RepairSteps; letting the fix pass run without clearing the repair
+      state; no snapshot.
+    why: >
+      The repair's block ends at VerifyPhase, and a fix the review asked for has to be read by
+      the rule that asked for it. The repair flag is SET so the verification inside the pass
+      returns its verdict instead of splicing a repair of its own — Repairable checks exactly
+      that flag. OutstandingCriteria is cleared because only SelectPhase clears it today, so a
+      spent repair's list would open the fix pass with "close exactly these, the rest is
+      accounted for" over criteria that are not the findings. The snapshot exists because the
+      fix pass's own VerifyPhase writes PhaseAccounts and the run ledger, and RunDeliveryGate
+      reads the ledger at CommitAndPR: a reverted pass that left its account behind would fail
+      a run whose delivered state is the verified one.
+  - id: a-fix-pass-that-is-not-green-is-reverted-and-the-phase-stands
+    chose: >
+      PhaseReviewRevert, called once from VerifyPhaseHandler.RecordAsync: on any NON-SUCCESS
+      verdict while the pass is in flight, restore every sandbox to its verified head, commit
+      forward through RunWorkCheckpointer.PushNowAsync, put the account snapshot back, mark the
+      findings "fix pass reverted: <reason>" and return success. A sandbox that cannot be
+      restored FAILS the phase, naming it.
+    alternative: >
+      Failing the phase on a red fix pass; rewriting history; SandboxGitOperations.CommitAndPushStagedAsync
+      directly; reading "not green" as a red build.
+    why: >
+      The review may not fail a phase that verified — a fix is an attempt at an improvement on
+      top of proven work. Not green means ANY non-success, including a green build with a
+      criterion the fix made outstanding, which a build-only reading would ship. The push
+      primitive commits nothing when nothing is staged; the bare CommitAndPushStagedAsync
+      throws on a clean tree, which every sandbox the fix never touched has. Forward, never
+      rewritten: the fix and its undo both show in the open draft pull request, which is what a
+      person reads. The one exception is a tree that could not be brought back — a tree
+      carrying unverified work must not be recorded done.
+  - id: the-fix-pass-is-spliced-only-where-it-could-be-undone
+    chose: >
+      Decide returns no steps and the note "no fix pass: <sandbox> has no verified head" unless
+      EVERY sandbox has one.
+    alternative: >
+      Splicing anyway and letting the revert fail the phase.
+    why: >
+      VerifiedHeads records none for a sandbox whose source tree was dirty at verification, and
+      a mixed-stack run's secondary clone is never committed at all. Splicing a pass that could
+      not be reverted would make "the revert fails the phase" a routine outcome of a run that
+      had already delivered, which is the opposite of what this phase is for.
+  - id: the-absence-of-a-review-is-recorded-as-loudly-as-its-findings
+    chose: >
+      PhaseReviewReport (Reviewed, Findings, Why) is what the reviewer returns, what the ledger
+      keeps, what the artifact carries and what the record and the pull request render. Four
+      answers are not-taken and each states why: a spent cost cap, no sandbox, a call that
+      failed or returned nothing readable, and a phase whose diff carries no reviewable file.
+      The record and the pull-request section print "not reviewed: <why>"; a review that RAN
+      and kept nothing stays silent.
+    alternative: >
+      A bare finding list, with an empty list meaning both "clean" and "never asked"; logging
+      the reason and recording nothing.
+    why: >
+      Adversarial review of the first commit: the cap-exhausted branch and the failed call both
+      wrote an empty list, so the artifact said "[]", the record body rendered nothing and the
+      pull-request section skipped the phase — a review nobody took read exactly like a review
+      that read the whole diff and objected to nothing. That is the silent degradation this
+      repository keeps closing, and it is the one this phase's own cost decision named. A log
+      line is not a record: 2026-09-17-042ej reads the artifact, not the console.
+  - id: the-forward-commit-is-proven-not-assumed
+    chose: >
+      After RunWorkCheckpointer.PushNowAsync, every sandbox is asked `git diff --name-only
+      <verified head> HEAD` and any source path left is a failure naming the repository. A
+      sandbox map that does not resolve is a failure too, not the success sentinel.
+    alternative: >
+      Trusting the push; changing RepoWorkPusher to report per repo.
+    why: >
+      Adversarial review: PushNowAsync returns void and swallows three outcomes — the
+      checkpointer catches and logs every exception, and the pusher returns silently on a
+      secret-pattern match and on a repo with no matching sandbox. The fix pass has already
+      committed and pushed its red work, so a silent decline left that work on the branch under
+      a phase recorded Done — the exact state a person would merge. The post-condition asks git
+      the question the decision already promised to answer, and changing the shared pusher's
+      signature would touch the checkpoint path this phase has no business in. The no-sandbox
+      case was worse: it returned the SUCCESS sentinel, so a torn-down fix pass "reverted"
+      having touched nothing.
+  - id: the-phase-diff-drops-only-the-run-record-and-packs-around-a-big-file
+    chose: >
+      RunRecordPaths.IsUnderRunsDir (p0322c), not IsRunRecordPath; a binary hunk is dropped; a
+      file over the remaining bound is skipped and named, and the files behind it still pack.
+      PhaseDiffPath reads the path off the `+++ b/…` header, falls back to the a-side for a
+      deletion, and unquotes git's C-quoted form including its octal UTF-8 bytes.
+    alternative: >
+      The broad record check the spec named; a sticky bound; the `diff --git` one-liner.
+    why: >
+      Adversarial review, all three measured on real shapes. The broad check would show an init
+      or bootstrap phase whose deliverable IS .agentsmith/contexts/*/principles.md as a phase
+      that changed nothing, and discard every finding on its real work — which is the
+      misclassification p0322c introduced IsUnderRunsDir to prevent. The sticky bound blanked
+      every file behind the first oversized one: on this phase's own diff (213k characters,
+      with a 37k generated SVG) that would have left the whole test tree unreviewed. And a path
+      git quotes — a space or a non-ASCII byte under core.quotePath — made the one-line form
+      unparseable, so the file vanished from the prompt AND from the path list and a true
+      finding on it could never have been admitted. A binary hunk is dropped because it carries
+      no line to cite, so it spends the bound on text no finding could rest on.
+  - id: the-findings-are-readable-in-three-places-and-add-no-column
+    chose: >
+      PhaseRecordBody appends the review after the account; PhaseReviewPublisher emits
+      PhaseReviewedEvent carrying the whole PhaseReviewReport as JSON and
+      RunPhaseProjection.ApplyReviewAsync upserts artifact phase_review:<id> in the existing
+      RunArtifact table; PhaseReviewLedger keeps a run-level
+      RunPhaseReviews that PhaseReviewSection renders into the pull-request body — one added
+      line at CommitAndPRHandler, 431 to 432 of a 436 baseline.
+    alternative: >
+      The record body alone; a column on RunPhase; rendering the last phase's findings in the
+      pull request.
+    why: >
+      Three readers: the person who opens the phase, a reader that wants the findings AS DATA
+      (2026-09-17-042ej), and the pull-request reviewer who opens neither. The record copy is
+      markdown inside a YAML body and cannot be read back without parsing it apart. The
+      artifact table already holds phase_record:<id> keyed the same way, so no migration. The
+      per-phase key clears at SelectPhase and the pull request is built once at the end, which
+      is the same reason RunAccountLedger exists.
+  - id: the-cost-is-bounded-and-a-spent-cap-says-so
+    chose: >
+      At most two review calls per phase (none after a revert) and one master pass, each call
+      pinned at allowance + 2 iterations. An exhausted configured cap skips the review and
+      records why; with no cap IsBudgetExhausted is false and the review runs.
+    alternative: >
+      Reviewing unconditionally; failing the phase when the cap is spent.
+    why: >
+      The ceiling mirrors SpecCutReviewer.MaxIterations and is stated because no done-line can
+      measure it. A skipped review that said nothing would be indistinguishable from a review
+      that found nothing, which is the silent degradation this repository keeps closing. A
+      review is advisory, so a spent cap is a recorded reason, never a verdict.
+  - id: the-block-it-joins-needed-the-budget-first
+    chose: >
+      Requiring 2026-09-17-0e79e rather than anything this phase calls.
+    alternative: >
+      Landing the step and raising the executor's ceiling here.
+    why: >
+      The review plus its five-step fix pass is what takes a phase to about seventeen spliced
+      steps; the old fixed ceiling of 100 per segment could not hold a long set. 0e79e sizes
+      the budget from the phase count, which is the correct owner of that number.
