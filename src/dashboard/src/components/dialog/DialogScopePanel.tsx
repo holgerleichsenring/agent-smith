@@ -7,6 +7,12 @@ import type { SpecDialogProject, SpecDialogSession } from "@/types/spec-dialog";
 // statements are worth anything: a proposal is only as good as the code it was allowed to
 // look at. 2026-09-15-6d9c: the FIRST state of the right-hand column, shown until the
 // conversation has proposed something — DialogColumn decides which state is current.
+//
+// 2026-09-17-042ef: a repository and a template are each ONE MARK, the same mark the Projects
+// page counts a project's facts in — a bulleted list of em-dashed sentences was the one place
+// on this page that looked like nothing else in the product. A template's mark names it and
+// then says where it comes from: "repo@revision", or a plain repository where the scope
+// pinned no revision.
 
 export function DialogScopePanel({
   session,
@@ -17,17 +23,16 @@ export function DialogScopePanel({
 }) {
   return (
     <div data-testid="dialog-scope">
-      <h2 className="dsh-h3 mb-1 font-semibold text-ink">Scope</h2>
+      {/* The Scope tab above names this pane; a heading repeating it was the same noise the
+          filed pane carried, one tab over. */}
       {session ? (
         <>
-          <p className="mb-2 dsh-label text-body">
-            What this conversation may read.
-          </p>
+          <p className="ec-sub mb-2">What this conversation may read.</p>
           <Grounding project={session.scope} />
         </>
       ) : (
         <>
-          <p className="mb-2 dsh-label text-body">
+          <p className="ec-sub mb-2">
             No conversation is open on this page yet. A new one can be grounded in:
           </p>
           {projects.length === 0 ? (
@@ -46,30 +51,35 @@ export function DialogScopePanel({
 function Grounding({ project }: { project: SpecDialogProject }) {
   return (
     <div data-testid={`dialog-scope-project-${project.name}`} className="mb-3">
-      <div className="dsh-body font-semibold text-ink">{project.name}</div>
-      <Facts label="Repositories" items={project.repos} empty="no repositories" />
-      <Facts
-        label="Templates"
-        items={project.templates.map((template) =>
-          `${template.name} — ${template.repo}${template.revision ? ` @ ${template.revision}` : ""}`)}
-        empty="no templates declared"
-      />
-    </div>
-  );
-}
-
-function Facts({ label, items, empty }: { label: string; items: string[]; empty: string }) {
-  return (
-    <div className="mt-1">
-      <div className="eyebrow-uppercase text-body">{label}</div>
-      {items.length === 0 ? (
-        <div className="dsh-label text-body">{empty}</div>
+      <div className="ec-name">{project.name}</div>
+      <div className="fl mt-2">Repositories</div>
+      {project.repos.length === 0 ? (
+        <div className="ec-sub">no repositories</div>
       ) : (
-        <ul className="ml-4 list-disc font-mono dsh-mono text-ink">
-          {items.map((item) => (
-            <li key={item}>{item}</li>
+        <div className="ec-marks">
+          {project.repos.map((repo) => (
+            <span key={repo} data-testid={`dialog-scope-repo-${repo}`} className="ec-mark">
+              {repo}
+            </span>
           ))}
-        </ul>
+        </div>
+      )}
+      <div className="fl mt-2">Templates</div>
+      {project.templates.length === 0 ? (
+        <div className="ec-sub">no templates declared</div>
+      ) : (
+        <div className="ec-marks">
+          {project.templates.map((template) => (
+            <span
+              key={template.name}
+              data-testid={`dialog-scope-template-${template.name}`}
+              className="ec-mark"
+            >
+              <span className="mn">{template.name}</span>
+              {template.revision ? `${template.repo}@${template.revision}` : template.repo}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );

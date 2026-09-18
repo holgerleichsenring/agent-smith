@@ -17,6 +17,8 @@ import { DialogProposalCard } from "./DialogProposalCard";
 // 2026-09-17-042el: an approve or reject is shown as the decision it was, not as the word — as
 // pending until a read confirms the server stored it. A decision this page cannot name is shown as
 // the message it was.
+// 2026-09-17-042ef: the eyebrows are the studio's field label and the speaker's initials are a
+// mark of this page's own — the studio's card icon leads a card, this leads a line.
 
 export function DialogTranscript({
   entries,
@@ -43,7 +45,7 @@ export function DialogTranscript({
           The design partner reads the repositories on the right before it answers, so the
           first reply takes about a minute. It will ask when something is ambiguous.
         </p>
-        <p className="mt-3 eyebrow-uppercase">Where it leads</p>
+        <p className="fl mt-3">Where it leads</p>
         <p className="mt-1">
           When you have converged, it proposes what to file — an answer and nothing filed,
           one bug, one phase, or an epic with its slices in the order they will be filed. You
@@ -92,7 +94,7 @@ function Decision({ entry }: { entry: DialogEntry }) {
     return (
       <DialogMessage who="user" testId="dialog-turn-decision">
         <p data-decision={entry.decision} data-pending="true" className="dsh-body text-body">
-          <span className="eyebrow-uppercase">Sent</span>{" "}
+          <span className="fl">Sent</span>{" "}
           {approved ? "Approve — waiting for it to be recorded" : "Reject — waiting for it to be recorded"}
         </p>
       </DialogMessage>
@@ -120,11 +122,7 @@ export function DialogMessage({
     <div data-testid={testId} className="grid grid-cols-[24px_minmax(0,1fr)] gap-2.5">
       <div
         aria-hidden="true"
-        className={
-          who === "user"
-            ? "mt-px grid size-6 place-items-center rounded-md bg-canvas-soft font-mono dsh-label text-body"
-            : "mt-px grid size-6 place-items-center rounded-md bg-primary-deep font-mono dsh-label text-on-primary"
-        }
+        className={who === "user" ? "d-who mt-px" : "d-who agent mt-px"}
       >
         {who === "user" ? "OP" : "AS"}
       </div>

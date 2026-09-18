@@ -16,6 +16,7 @@ import type {
   SpecDialogTurn,
   SpecDialogView,
   FiledWork,
+  FiledWorkReview,
   FiledWorkTicket,
 } from "@/types/spec-dialog";
 
@@ -188,6 +189,23 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
                 reason: null,
                 openedAt: "2026-09-17T10:00:00Z",
               },
+              // 2026-09-17-042ef: the two states no fixture carried — a raw column value with
+              // an underscore in it, and the failure whose reason the row holds and nothing
+              // was showing.
+              {
+                repo: "docs",
+                status: "no_changes",
+                url: null,
+                reason: null,
+                openedAt: "2026-09-17T10:01:00Z",
+              },
+              {
+                repo: "infra",
+                status: "failed",
+                url: null,
+                reason: "the branch was rejected by the remote",
+                openedAt: "2026-09-17T10:02:00Z",
+              },
             ],
             phases: [
               {
@@ -209,6 +227,19 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
                       why: "the catch body logs nothing",
                       cites: "P1",
                       reverted: "the fix pass was reverted: the suite stayed red",
+                    },
+                    // 2026-09-17-042ef: a second one, because one finding cannot show whether
+                    // two run together — which on the rendered page they did.
+                    // 2026-09-17-042ef: reverted too, because the revert note was keyed by
+                    // PHASE and two of them under one phase made getByTestId throw.
+                    {
+                      repository: "api",
+                      path: "src/B.cs",
+                      line: 9,
+                      rule: "no magic values",
+                      why: "the retry count is a literal",
+                      cites: "P4",
+                      reverted: "the fix pass was reverted: the build stayed red",
                     },
                   ],
                 },
@@ -260,6 +291,19 @@ function stoppedPhase(status: string, verdict: string): FiledWork {
         ],
       },
     ],
+  };
+}
+
+/** 2026-09-17-042ef: the same filing whose one phase carries the given review state. */
+function reviewedBy(review: FiledWorkReview | null): FiledWork {
+  const work = filedWork();
+  const run = work.tickets[0].runs[0];
+  return {
+    ...work,
+    tickets: [{
+      ...work.tickets[0],
+      runs: [{ ...run, phases: [{ ...run.phases[0], review }] }],
+    }],
   };
 }
 
@@ -462,6 +506,44 @@ describe("SpecDialogSurface", () => {
     const turn = await screen.findByTestId("dialog-turn-agent");
     expect(turn.querySelector("strong")).toHaveTextContent("sample");
     expect(turn.textContent).not.toContain("**");
+  });
+
+  // 2026-09-17-042ef: the page has a shell of its own. Under the runs list's, `section +
+  // section` put a 26px top margin on the exchange column and dropped it below its two
+  // neighbours; under the config studio's, .main caps at 1000px, narrower than the width the
+  // third column appears at. Neither shell can be the one this page runs under.
+  it("SpecDialog_TheSurface_RunsUnderItsOwnShellAndNeitherOfTheTwoItIsBuiltFrom", async () => {
+    await renderSurface();
+
+    const root = screen.getByTestId("spec-dialog");
+    expect(root.className.split(/\s+/)).toContain("mock-shell");
+    expect(root.className.split(/\s+/)).toContain("mock-dialog");
+    expect(root.className.split(/\s+/)).not.toContain("mock-runs");
+    expect(root.className.split(/\s+/)).not.toContain("mock-config");
+  });
+
+  // 2026-09-17-042ef: a repository and a template are each ONE mark, the Projects page's own.
+  // A template says where it comes from after its name — "repo@revision", or a plain
+  // repository where the scope pinned no revision.
+  it("SpecDialog_TheScopeColumn_ShowsEachRepositoryAndEachTemplateAsAMark", async () => {
+    const unpinned = {
+      name: "unpinned",
+      repos: ["repo-b"],
+      templates: [{ name: "template:loose", repo: "loose-repo", revision: "" }],
+    };
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, unpinned] }));
+    await renderSurface();
+
+    for (const repo of ["repo-a", "repo-b"]) {
+      expect(screen.getByTestId(`dialog-scope-repo-${repo}`).className.split(/\s+/)).toContain("ec-mark");
+    }
+    const pinned = screen.getByTestId("dialog-scope-template-template:default");
+    expect(pinned.className.split(/\s+/)).toContain("ec-mark");
+    expect(pinned).toHaveTextContent("template-repo@v1.2");
+    const loose = screen.getByTestId("dialog-scope-template-template:loose");
+    expect(loose.className.split(/\s+/)).toContain("ec-mark");
+    expect(loose).toHaveTextContent("loose-repo");
+    expect(loose.textContent).not.toContain("@");
   });
 
   it("SpecDialog_TheScopeColumn_NamesTheRepositoriesAndTheTemplates", async () => {
@@ -1704,8 +1786,11 @@ describe("SpecDialogSurface", () => {
     await waitFor(() =>
       expect(screen.getByTestId("dialog-filed-noreview-p9001c")).toBeInTheDocument());
     expect(screen.getByTestId("dialog-filed-noreview-p9001c")).toHaveTextContent("not reviewed yet");
-    expect(screen.getByTestId("dialog-filed-reverted-p9001a"))
+    // 2026-09-17-042ef: keyed per FINDING, because a phase may revert more than one.
+    expect(screen.getByTestId("dialog-filed-reverted-p9001a-api/src/A.cs:4"))
       .toHaveTextContent("the fix pass was reverted: the suite stayed red");
+    expect(screen.getByTestId("dialog-filed-reverted-p9001a-api/src/B.cs:9"))
+      .toHaveTextContent("the fix pass was reverted: the build stayed red");
   });
 
   // A failed phase shows the verdict its row carries and NOTHING else: the only producer of a
@@ -1735,6 +1820,194 @@ describe("SpecDialogSurface", () => {
       .toHaveTextContent("approve the set again in this conversation");
     expect(screen.getByTestId("dialog-filed-verdict-p9001a"))
       .toHaveTextContent("the premise 'api has no cache' is false");
+  });
+
+  // 2026-09-17-042ef, all six found by looking at the rendered page rather than at the markup.
+  // A state rendered as the column value the projection writes — "in_progress", "not_started" —
+  // inline in the sentence around it, so it could not be told from prose. Every state is the
+  // Projects page's mark now, and the words are English.
+  it("SpecDialog_APhaseAndItsRun_ShowTheirStateAsAWrittenMarkNotAColumnValue", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const running = await screen.findByTestId("dialog-filed-phase-p9001b");
+    expect(running.querySelector(".ec-mark")).toHaveTextContent("running");
+    expect(running.textContent).not.toContain("in_progress");
+    const waiting = screen.getByTestId("dialog-filed-phase-p9001c");
+    expect(waiting.querySelector(".ec-mark")).toHaveTextContent("not started");
+    expect(waiting.textContent).not.toContain("not_started");
+    const run = screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    expect(run.querySelector(".ec-mark")).toHaveTextContent("running");
+  });
+
+  // The two stopped states ask opposite things of the operator, so they do not share a mark
+  // any more than 042ej let them share a sentence.
+  it("SpecDialog_APhaseStoppedRed_AndOneHandedBack_CarryDifferentMarks", async () => {
+    const markOf = async (status: string) => {
+      await renderSurface();
+      fetchFiledWork.mockResolvedValue(stoppedPhase(status, "why it stopped"));
+      act(() => filings.emit(filing()));
+      const row = await screen.findByTestId("dialog-filed-phase-p9001a");
+      return row.querySelector(".ec-mark") as HTMLElement;
+    };
+
+    const red = await markOf("failed");
+    expect(red).toHaveClass("bad");
+    expect(red).toHaveTextContent("failed");
+    cleanup();
+    __forgetDialogIdForTests();
+    const premise = await markOf("handed_back");
+    expect(premise).toHaveClass("warn");
+    expect(premise).toHaveTextContent("handed back");
+  });
+
+  // Two findings, two addresses and a revert note arrived as one unbroken block. Each finding
+  // is a row, and the address it rests on is set above the prose the way the reference sets a
+  // mono name above its description.
+  it("SpecDialog_TwoFindingsUnderOnePhase_AreTwoRowsEachWithItsAddressSetApart", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const findings = await screen.findByTestId("dialog-filed-findings-p9001a");
+    const rows = findings.querySelectorAll("li.d-finding");
+    expect(rows).toHaveLength(2);
+    expect(rows[0].querySelector(".fv")).toHaveTextContent("api/src/A.cs:4");
+    expect(rows[1].querySelector(".fv")).toHaveTextContent("api/src/B.cs:9");
+    expect(rows[0]).toHaveTextContent("the catch body logs nothing");
+    expect(rows[1]).toHaveTextContent("the retry count is a literal");
+  });
+
+  // 2026-09-17-042eh exists to keep "nobody looked" apart from "looked and found nothing", and
+  // on screen the separation was a word. The two states where nobody looked are the two that
+  // carry an alarm mark; a clean review and a phase that has not reached its review are calm.
+  it("SpecDialog_AReviewNobodyTook_IsMarkedApartFromACleanOne", async () => {
+    const markOf = async (review: FiledWorkReview | null, testId: string) => {
+      await renderSurface();
+      fetchFiledWork.mockResolvedValue(reviewedBy(review));
+      act(() => filings.emit(filing()));
+      const row = await screen.findByTestId(`${testId}-p9001a`);
+      return row.querySelector(".ec-mark") as HTMLElement;
+    };
+    const again = () => { cleanup(); __forgetDialogIdForTests(); };
+
+    const skipped = await markOf(
+      { reviewed: false, why: "the cost cap is exhausted", findings: [], unreadable: false },
+      "dialog-filed-unreviewed");
+    expect(skipped).toHaveClass("warn");
+    expect(skipped.parentElement).toHaveTextContent("not reviewed: the cost cap is exhausted");
+
+    again();
+    expect(await markOf(
+      { reviewed: false, why: "the row could not be read", findings: [], unreadable: true },
+      "dialog-filed-unreadable")).toHaveClass("bad");
+
+    again();
+    const clean = await markOf(
+      { reviewed: true, why: null, findings: [], unreadable: false }, "dialog-filed-reviewed");
+    expect(clean.className).toBe("ec-mark");
+
+    // The third gap. A phase that STOPPED and wrote no review row has a hole where its evidence
+    // should be, and read in the same calm grey as "reviewed, nothing found" beside it. A phase
+    // still working has simply not got there, and stays calm.
+    again();
+    const missing = await markOf(null, "dialog-filed-noreview");
+    expect(missing).toHaveClass("warn");
+    expect(missing).toHaveTextContent("no review was recorded");
+  });
+
+  it("SpecDialog_APhaseStillRunning_SaysItsReviewIsNotReachedWithoutRaisingAnAlarm", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const notYet = await screen.findByTestId("dialog-filed-noreview-p9001c");
+    expect(notYet.querySelector(".ec-mark")?.className).toBe("ec-mark");
+    expect(notYet).toHaveTextContent("not reviewed yet");
+  });
+
+  // "Filed" stood three times in one corner: the selected tab, the eyebrow beside it and the
+  // panel's own heading. The tab is the name; the eyebrow says only what the name cannot.
+  it("SpecDialog_TheFiledPane_NamesItselfOnceAndSaysNothingElseWhenNothingFailed", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const pane = await screen.findByTestId("dialog-pane");
+    expect(screen.getByTestId("dialog-tab-filed")).toHaveTextContent("Filed");
+    expect(within(pane).queryByRole("heading")).toBeNull();
+    expect(pane.querySelector(".d-head .fl")).toHaveTextContent("");
+  });
+
+  // Dropping the panel's heading was right for a filing that worked and wrong for one that did
+  // not: it left the failure as 9.5px of the lightest ink on the page. The label keeps its size
+  // and takes the colour the studio gives a broken thing.
+  it("SpecDialog_AFailedFiling_SaysSoBesideTheTabAndInTheToneOfAFailure", async () => {
+    await renderSurface();
+
+    act(() => filings.emit(filing({ error: "the tracker refused" })));
+
+    const pane = await screen.findByTestId("dialog-pane");
+    const eyebrow = pane.querySelector(".d-head .fl");
+    expect(eyebrow).toHaveTextContent("filing failed");
+    expect(eyebrow?.className.split(/\s+/)).toContain("bad");
+    // And the sentence under it went the other way when the heading left: it dropped to the
+    // panel's quietest class. A failure is not a sub-line.
+    const lead = screen.getByTestId("dialog-filed").querySelector("p");
+    expect(lead).toHaveTextContent("These tickets were created before it stopped");
+    expect(lead?.className.split(/\s+/)).toContain("text-ink");
+    expect(lead?.className.split(/\s+/)).not.toContain("ec-sub");
+  });
+
+  // The Scope tab said itself twice — as the tab, and as an eyebrow beside it — over a panel
+  // whose own first sentence says the same thing a third time. The eyebrow carries STATE, and
+  // a list of what a conversation may read is not one.
+  it("SpecDialog_TheScopePane_SaysWhatItIsOnceBesideItsTab", async () => {
+    await renderSurface();
+
+    const pane = await screen.findByTestId("dialog-pane");
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+
+    expect(screen.getByTestId("dialog-tab-scope")).toHaveTextContent("Scope");
+    expect(pane.querySelector(".d-head .fl")).toHaveTextContent("");
+    expect(screen.getByTestId("dialog-scope")).toHaveTextContent("What this conversation may read.");
+  });
+
+  // The run line read "…in sample · $2.50" and then a bare repository name, with nothing on it
+  // to say the second was a pull request rather than another repository the run had touched.
+  it("SpecDialog_ARunsPullRequests_SayThatIsWhatTheyAre", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    expect(run).toHaveTextContent("pull request");
+    expect(run.querySelector("a[href='https://git/pr/3']")).toHaveTextContent("api");
+    expect(run).toHaveTextContent("opened");
+  });
+
+  // Its state was the column value, underscore and all, and a pull request that could not be
+  // opened read in the same grey as one that was — while a skipped review one panel over was
+  // amber. The reason the row carries for a failure was never shown at all.
+  it("SpecDialog_APullRequestState_IsEnglishAndAFailureAlarmsAndSaysWhy", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    expect(run).toHaveTextContent("no changes");
+    expect(run.textContent).not.toContain("no_changes");
+    const alarm = [...run.querySelectorAll(".ec-mark.bad")];
+    expect(alarm).toHaveLength(1);
+    expect(alarm[0]).toHaveTextContent("could not be opened");
+    expect(run).toHaveTextContent("the branch was rejected by the remote");
   });
 
   it("SpecDialog_AReconnect_RewatchesAndRereadsTheFiledWork", async () => {

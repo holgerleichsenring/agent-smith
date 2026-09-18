@@ -15,7 +15,7 @@ export function DialogProposalFindings({ findings }: { findings?: SpecDialogProp
   if (!findings?.length) return null;
   return (
     <div data-testid="dialog-proposal-findings" className="mt-1.5 mb-1.5">
-      <div className="eyebrow-uppercase text-body">
+      <div className="fl">
         {findings.length === 1 ? "the review found one thing" : `the review found ${findings.length} things`}
       </div>
       <ul className="ml-4 flex list-disc flex-col gap-1">

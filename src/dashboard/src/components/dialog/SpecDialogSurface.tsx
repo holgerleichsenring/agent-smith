@@ -18,6 +18,11 @@ import { DialogWorking } from "./DialogWorking";
 // and the pane with what the conversation reads, proposes and filed. The surface is a size
 // container and collapses by the width the shell leaves it, not by the window's: the
 // conversations column goes above first, then the pane stacks under the exchange.
+// 2026-09-17-042ef: and it runs under a shell of its OWN — .mock-dialog — rather than under
+// the runs list's, whose `section + section` margin dropped the middle column 26px below its
+// neighbours, and rather than under the config studio's, whose .main caps at 1000px, below
+// the width the third column appears at. The columns themselves stay container-queried: the
+// surface collapses by the width the shell leaves it, not by the window's.
 
 export const WORK_IT_OUT = "Work it out";
 
@@ -40,7 +45,7 @@ export function SpecDialogSurface() {
     : null;
 
   return (
-    <div className="mock-shell mock-runs" data-testid="spec-dialog">
+    <div className="mock-shell mock-dialog" data-testid="spec-dialog">
       <main className="main">
         <PageHead
           title={WORK_IT_OUT}
@@ -61,30 +66,30 @@ export function SpecDialogSurface() {
               onStartNew={(chosen) => void dialog.startNew(chosen)}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
             />
-            <section className="min-w-0 rounded-md border border-mute bg-canvas">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-mute px-3 py-2">
+            <section className="ecard inert min-w-0">
+              <div className="d-head">
                 {/* 2026-09-17-042em: the header names the open session's PROJECT. The picker
                     beside the list stays a choice — it feeds New conversation, and disabling it
                     on the open session's project would stop a new conversation on another one —
                     so this is where a person reads what the conversation they are in is about. */}
-                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <h2 className="min-w-0 dsh-body font-semibold text-ink">{title ?? "New conversation"}</h2>
+                <div className="d-head-t">
+                  <h2 className="ec-name sans min-w-0">{title ?? "New conversation"}</h2>
                   {session && (
-                    <span data-testid="dialog-exchange-project" className="dsh-label text-body">
-                      in <span className="font-mono text-ink">{session.scope.name}</span>
+                    <span data-testid="dialog-exchange-project" className="ec-sub">
+                      in <span className="fv">{session.scope.name}</span>
                     </span>
                   )}
                 </div>
                 {/* The dialog id IS the session key: a page that lost it would open a second
                     conversation beside one still running, and an operator comparing two tabs
                     needs to see which is which. */}
-                <span data-testid="dialog-identity" className="font-mono dsh-label text-body">
+                <span data-testid="dialog-identity" className="ec-sub font-mono">
                   {session
                     ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
                     : `dialog ${dialog.dialogId ?? ""} · no session open`}
                 </span>
               </div>
-              <div className="flex flex-col gap-4 px-4 py-4">
+              <div className="d-body flex flex-col gap-4">
                 <DialogTranscript
                   entries={dialog.entries}
                   onInspect={(proposal) => setFocus({ tab: "proposal", proposal })}

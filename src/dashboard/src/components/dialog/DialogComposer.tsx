@@ -5,6 +5,8 @@ import { useState } from "react";
 // 2026-09-15-cb3e: what the operator says. One path for everything they write — a design
 // message, an answer to a question, a note on a proposal — because the router reads the
 // session's state and decides which it is.
+// 2026-09-17-042ef: the control and the send button are the studio's own — the text field it
+// edits a project in, and its primary button.
 
 export function DialogComposer({
   onSend,
@@ -27,7 +29,7 @@ export function DialogComposer({
   };
 
   return (
-    <div className="flex flex-col gap-1 border-t border-mute px-3.5 py-3">
+    <div className="d-foot flex flex-col gap-1">
       {hint && (
         <p data-testid="dialog-composer-hint" className="dsh-body text-body">
           {hint}
@@ -49,14 +51,14 @@ export function DialogComposer({
               send();
             }
           }}
-          className="min-w-0 flex-1 rounded-md border border-mute bg-canvas px-3 py-2 dsh-body text-ink placeholder:text-body-mid"
+          className="d-input min-w-0 flex-1"
         />
         <button
           type="button"
           data-testid="dialog-composer-send"
           onClick={send}
           disabled={disabled}
-          className="rounded-md bg-primary-deep px-3 py-1.5 dsh-body font-semibold text-on-primary hover:bg-primary-pressed disabled:opacity-50"
+          className="btn primary"
         >
           Send
         </button>
