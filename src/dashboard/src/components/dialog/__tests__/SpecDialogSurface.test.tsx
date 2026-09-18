@@ -546,6 +546,42 @@ describe("SpecDialogSurface", () => {
     expect(loose.textContent).not.toContain("@");
   });
 
+  // 2026-09-18-e63d: a project, a repository and a template are all NAMED BY SOMEBODY ELSE,
+  // and the pane they stand in is a fixed 360px track inside a card that clips. A name with no
+  // space in it has no soft-wrap opportunity of its own — a template's is followed immediately
+  // by repo@revision, with no text node between — so each carries the modifier that lets it
+  // break anywhere. The HEADING is here too: it is 14.5px mono with no wrap help of its own, so
+  // without the modifier it would be sliced while the marks one line below it wrapped cleanly.
+  // Whether the text then READS in full is a rendered outcome no test in this project can
+  // observe; what is asserted here is that each asks for it, and that its whole text is present.
+  it("SpecDialog_TheScopeColumnsGivenText_AsksToWrap", async () => {
+    const projectName = "a_project_name_with_no_break_opportunity";
+    const repoName = "a-repository-name-with-no-space-in-it-at-all";
+    const templateName = "template:a-name-nobody-here-chose";
+    fetchSpecDialog.mockResolvedValue(view({
+      session: null,
+      projects: [{
+        name: projectName,
+        repos: [repoName],
+        templates: [{ name: templateName, repo: "a-template-repository", revision: "v1.2" }],
+      }],
+    }));
+    await renderSurface();
+
+    const heading = screen.getByTestId(`dialog-scope-project-${projectName}`)
+      .querySelector(".ec-name") as HTMLElement;
+    expect(heading.className.split(/\s+/)).toContain("given");
+    expect(heading.textContent).toBe(projectName);
+
+    const repo = screen.getByTestId(`dialog-scope-repo-${repoName}`);
+    expect(repo.className.split(/\s+/)).toContain("given");
+    expect(repo.textContent).toBe(repoName);
+
+    const template = screen.getByTestId(`dialog-scope-template-${templateName}`);
+    expect(template.className.split(/\s+/)).toContain("given");
+    expect(template.textContent).toBe(`${templateName}a-template-repository@v1.2`);
+  });
+
   it("SpecDialog_TheScopeColumn_NamesTheRepositoriesAndTheTemplates", async () => {
     await renderSurface();
 
@@ -582,6 +618,20 @@ describe("SpecDialogSurface", () => {
   function turn(text: string): SpecDialogTurn {
     return { role: "user", text, at: "2026-09-15T09:00:00Z" };
   }
+
+  // 2026-09-18-e63d: the likelier case of the same bug. This column is 220px — 140px narrower
+  // than the scope pane — the title one line above it already needs truncation, and the project
+  // name is the operator's own. The mark carries the same modifier.
+  it("SpecDialog_AConversationsProjectMark_AsksToWrap", async () => {
+    const projectName = "a-project-name-with-no-space-in-it-at-all";
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ project: projectName })]);
+    await renderSurface();
+
+    const mark = (await screen.findByTestId("dialog-conversation-s-9"))
+      .querySelector(".ec-mark") as HTMLElement;
+    expect(mark.className.split(/\s+/)).toContain("given");
+    expect(mark.textContent).toBe(projectName);
+  });
 
   it("SpecDialog_TheConversationList_NamesEachByTitleAndWhatItFiled", async () => {
     fetchSpecDialogConversations.mockResolvedValue([
@@ -1773,6 +1823,32 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-filed-unreviewed-p9001b"))
       .toHaveTextContent("not reviewed: the run's configured cost cap is exhausted");
     expect(screen.queryByTestId("dialog-filed-reviewed-p9001b")).toBeNull();
+  });
+
+  // 2026-09-18-e63d: the same class of text one tab over, and the reason this phase does not
+  // stop at marks. The repository a pull request is against is a flex item of the mark row, and
+  // the project the run is in sits in the head line — both named by somebody else, both inside
+  // a card that clips. A phase id one row below is NOT given text: this page mints it, and it
+  // keeps the plain field value.
+  it("SpecDialog_TheFiledPanesGivenText_AsksToWrap", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const where = run.querySelector(".ec-sub") as HTMLElement;
+    expect(where.className.split(/\s+/)).toContain("given");
+    expect(where).toHaveTextContent("in sample");
+
+    const repositories = [...run.querySelectorAll("ul.ec-marks .fv")];
+    expect(repositories.map((el) => el.textContent?.replace(" \u2197", ""))).toEqual(["api", "docs", "infra"]);
+    for (const repository of repositories) {
+      expect(repository.className.split(/\s+/), repository.textContent ?? "").toContain("given");
+    }
+
+    const phaseId = screen.getByTestId("dialog-filed-phase-p9001a").querySelector(".fv") as HTMLElement;
+    expect(phaseId.className.split(/\s+/)).not.toContain("given");
   });
 
   // The third and fourth states of the review, and the one finding that says the branch still
