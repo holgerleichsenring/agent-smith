@@ -245,7 +245,7 @@ public sealed class DialogConversationListTests : IDisposable
         var composer = new SpecDialogOutcomeComposer();
         return new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(Mock.Of<IDialogueTransport>(), messenger,
-                new SpecDialogPendingQuestions(), composer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

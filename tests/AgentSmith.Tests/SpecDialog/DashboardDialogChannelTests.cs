@@ -45,8 +45,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
     private readonly AgentSmithDbContext _context;
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogSessionRepository _repository;
-    private readonly SpecDialogPendingQuestions _pendingQuestions = new();
-    private readonly SpecDialogTurnGate _turnGate = new();
+    private readonly SpecDialogPendingQuestions _pendingQuestions = new(new SpecDialogTurnGate(TimeProvider.System));
+    private readonly SpecDialogTurnGate _turnGate = new(TimeProvider.System);
     private readonly SpecDialogResumer _resumer;
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner = new();
     private readonly Mock<IDialogueTransport> _dialogueTransport = new();

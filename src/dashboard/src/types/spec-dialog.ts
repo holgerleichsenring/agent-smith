@@ -72,6 +72,9 @@ export interface SpecDialogView {
   projects: SpecDialogProject[];
   /** What the turn is blocked on, so a reload during the gate keeps the question. */
   question: SpecDialogQuestionPush | null;
+  /** 2026-09-18-2f8b: the running turn, ADDED to the page's own awaiting flag and never
+   *  substituted for it — the page that posted issues no read until the reply lands. */
+  turn: SpecDialogTurnLiveness;
 }
 
 /** A reply delivered into the session group. */
@@ -127,6 +130,33 @@ export interface SpecDialogActivityPush {
   name: string | null;
   detail: string | null;
   at: string;
+  /** 2026-09-18-2f8b: the step's place in its turn, from 1, restarting with every turn. The
+   *  conversation read serves the steps so far and the hub pushes the rest; the page merges
+   *  the two by THIS, because a moment cannot tell two identical tool calls apart and losing
+   *  one of them would corrupt the step count a reader watches for signs of life. */
+  seq: number;
+  /** Which turn that number belongs to. The sequence restarts every turn, so a page whose
+   *  reply push never arrived — a reconnect loses every push sent during the gap — would read
+   *  the next turn's steps as duplicates of the dead turn's and discard every one of them. */
+  turnStartedAt: string;
+}
+
+/**
+ * 2026-09-18-2f8b: what the turn on this conversation is doing, for a page that did NOT post
+ * the message. `computing` is false while the turn waits on a question — that wait has no
+ * deadline and is a wait on a PERSON, and it is not counted in `elapsedSeconds` either.
+ * The seconds are measured on the server at read time and the page counts up from them, so
+ * two clocks are never differenced.
+ */
+export interface SpecDialogTurnLiveness {
+  computing: boolean;
+  /** How long the turn has COMPUTED — the waits on a person are not counted. */
+  elapsedSeconds: number;
+  /** What the turn has reported so far, oldest first. */
+  steps: SpecDialogActivityPush[];
+  /** The running turn's identity; null when none is. A read carrying a turn the page has not
+   *  seen replaces whatever steps it held, even when that read carries no steps yet. */
+  turnStartedAt: string | null;
 }
 
 // 2026-09-15-6d9c: the turn's typed outcome, and what filing it actually created — the two

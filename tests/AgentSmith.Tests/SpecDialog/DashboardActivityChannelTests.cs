@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Turns;
-using AgentSmith.Contracts.Turns;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
@@ -19,33 +18,33 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class DashboardActivityChannelTests
 {
     [Fact]
-    public async Task PushAsync_HubThrows_DoesNotThrow()
+    public async Task SendAsync_HubThrows_DoesNotThrow()
     {
         var sut = Channel(new InvalidOperationException("hub is down"));
 
-        var act = () => sut.PushAsync("d-1", Step(), CancellationToken.None);
+        var act = () => sut.SendAsync(Step(), CancellationToken.None);
 
         await act.Should().NotThrowAsync();
     }
 
     [Fact]
-    public async Task PushAsync_ACancellationTheCallerDidNotAskFor_DoesNotThrow()
+    public async Task SendAsync_ACancellationTheCallerDidNotAskFor_DoesNotThrow()
     {
         var sut = Channel(new TaskCanceledException("the push timed out"));
 
-        var act = () => sut.PushAsync("d-1", Step(), CancellationToken.None);
+        var act = () => sut.SendAsync(Step(), CancellationToken.None);
 
         await act.Should().NotThrowAsync("only the caller's own cancellation may end the work");
     }
 
     [Fact]
-    public async Task PushAsync_TheCallersOwnCancelledToken_DoesNotThrow()
+    public async Task SendAsync_TheCallersOwnCancelledToken_DoesNotThrow()
     {
         var sut = Channel(new TaskCanceledException("the hub saw the cancellation"));
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        var act = () => sut.PushAsync("d-1", Step(), cancelled.Token);
+        var act = () => sut.SendAsync(Step(), cancelled.Token);
 
         await act.Should().NotThrowAsync(
             "a step is reported from inside work that publishes its own outcome next: a throw "
@@ -56,9 +55,10 @@ public sealed class DashboardActivityChannelTests
     public void Observe_ChatPlatformSession_SetsNoObserver()
     {
         var observers = new AsyncLocalTurnActivityObserverAccessor();
-        var sut = new DashboardActivityChannel(observers, NullLogger<DashboardActivityChannel>.Instance);
+        var sut = new DashboardActivityChannel(
+            observers, NullLogger<DashboardActivityChannel>.Instance);
 
-        using var observing = sut.Observe(Session("slack"));
+        using var observing = sut.Observe(Session("slack"), new RunningDialogTurn(TimeProvider.System));
 
         observing.Should().BeNull();
         observers.Current.Should().BeNull();
@@ -68,15 +68,19 @@ public sealed class DashboardActivityChannelTests
     public void Observe_DashboardSession_SetsAnObserverBoundToTheDialog()
     {
         var observers = new AsyncLocalTurnActivityObserverAccessor();
-        var sut = new DashboardActivityChannel(observers, NullLogger<DashboardActivityChannel>.Instance);
+        var sut = new DashboardActivityChannel(
+            observers, NullLogger<DashboardActivityChannel>.Instance);
 
-        using var observing = sut.Observe(Session(DispatcherDefaults.PlatformDashboard));
+        using var observing = sut.Observe(
+            Session(DispatcherDefaults.PlatformDashboard), new RunningDialogTurn(TimeProvider.System));
 
         observing.Should().NotBeNull();
         observers.Current.Should().BeOfType<DialogActivityObserver>();
     }
 
-    private static TurnActivity Step() => new(TurnActivityKind.Tool, "read_file", "repo/src/Router.cs");
+    private static SpecDialogActivityPush Step() =>
+        new("d-1", "tool", "read_file", "repo/src/Router.cs", DateTimeOffset.UtcNow, 1,
+            DateTimeOffset.UtcNow);
 
     private static ConversationState Session(string platform) => new()
     {

@@ -272,8 +272,9 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
 
     private async Task<SpecDialogSessionView> ReadAsync() =>
         (await new SpecDialogViewReader(
-                _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(),
-                new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer())
+                _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
+                new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
+                new SpecDialogTurnGate(TimeProvider.System))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
 
     private static PhaseOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));
@@ -294,7 +295,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             ProposalComposer(), NullLogger<DashboardOutcomeChannel>.Instance, _hub);
         var latest = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
         return new SpecDialogOutcomeFlow(
-            new SpecDialogOutcomeConfirmer(transport.Object, messenger, new SpecDialogPendingQuestions(),
+            new SpecDialogOutcomeConfirmer(transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 composer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Sink(messenger, composer, channel, latest), composer, messenger, channel, latest,
             NullLogger<SpecDialogOutcomeFlow>.Instance);
