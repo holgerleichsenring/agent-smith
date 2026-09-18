@@ -73,8 +73,8 @@ export function isDecision(value: unknown): value is SpecDialogDecision {
 export interface SpecDialogState {
   dialogId: string | null;
   view: SpecDialogView | null;
-  /** The caller's conversations, open and closed — read on mount, when the session here
-   *  changes, and after a filing; never after every message. */
+  /** The caller's conversations, open and closed — read on mount, when the session here changes,
+   *  and after a framework message that the listed row for this conversation is behind. */
   conversations: SpecDialogSessionSummary[];
   entries: DialogEntry[];
   question: SpecDialogQuestionPush | null;
@@ -232,9 +232,17 @@ export function useSpecDialog(): SpecDialogState {
     if (dialogId) void load(dialogId);
   }, [dialogId, load]);
 
+  // The list reads overlap exactly as the dialog reads do — one goes out per framework message —
+  // and a late answer carrying the row as it was two replies ago would roll the title and the
+  // turn count back to a moment that has passed. Its own sequence number says which is latest.
+  const listReads = useRef(0);
+
   const loadConversations = useCallback(async () => {
+    const issued = (listReads.current += 1);
     try {
-      setConversations(await fetchSpecDialogConversations());
+      const next = await fetchSpecDialogConversations();
+      if (issued !== listReads.current) return;
+      setConversations(next);
     } catch (thrown) {
       // The list is beside the conversation, not the conversation: a failed read of it must not
       // put the page-wide failure over a dialog that is working.
@@ -242,12 +250,38 @@ export function useSpecDialog(): SpecDialogState {
     }
   }, []);
 
-  // Not after every message: the list reads every listed transcript for its titles. A
-  // session opened, resumed or forked here changes what it holds, and so does a filing.
+  // 2026-09-17-042em: ON A REPLY THE LISTED ROW IS BEHIND, because the reply is sent after the
+  // turn is appended. A conversation's title and turn count are read off its transcript, so the
+  // read this effect makes when the session opens races the first append and leaves the running
+  // conversation listed as untitled with zero turns until something else triggers a read. The
+  // reply is the thing that happens: it is sent after the assistant turn is appended
+  // (SpecDialogRouter.cs:105-106), so a read issued from it sees the turn. This narrows
+  // 2026-09-17-c7aed's "never after every message" rather than reversing it: that rule priced the
+  // read — every listed transcript parsed, two further JSON documents per row, up to fifty rows —
+  // and the price is still real, so the read is issued only while it would say something new.
+  // The filing's own read goes with it: the filing notice is a framework message like any other.
   const sessionHere = view?.session?.sessionId ?? null;
   useEffect(() => {
     void loadConversations();
   }, [sessionHere, loadConversations]);
+
+  // What the list last said about the conversation open HERE. Held in a ref because the hub
+  // subscription asks it: putting the list in that effect's dependencies would tear the
+  // subscription down and rebuild it every time the list changed.
+  const listedHere = useRef<SpecDialogSessionSummary | null>(null);
+  useEffect(() => {
+    listedHere.current =
+      conversations.find((held) => held.sessionId === sessionHere) ?? null;
+  }, [conversations, sessionHere]);
+
+  /** Whether a list read would tell this page anything it does not already know: the conversation
+   *  open here is not listed at all, is listed with no title, or is listed with fewer turns than
+   *  the page last read the transcript to be. Once the row identifies the conversation it stops
+   *  being read on every reply, and it comes back the moment the count falls behind again. */
+  const listIsBehind = useCallback(() => {
+    const row = listedHere.current;
+    return row === null || row.title === null || row.turns < turnsRead.current;
+  }, []);
 
   useEffect(() => {
     if (!dialogId) return;
@@ -264,7 +298,11 @@ export function useSpecDialog(): SpecDialogState {
       // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
       replyWasDraftOnly.current = message.text.trim().length === 0;
       if (!replyWasDraftOnly.current) append("agent", message.text, message.at);
+      // Asked BEFORE the dialog read below, which is what moves turnsRead on: the question is
+      // whether the list is behind what the page already knew, not behind what it is about to learn.
+      const behind = listIsBehind();
       void load(dialogId);
+      if (behind) void loadConversations();
     });
     const offQuestion = client.specDialogQuestions.add((asked) => {
       if (asked.dialogId !== dialogId) return;
@@ -288,9 +326,7 @@ export function useSpecDialog(): SpecDialogState {
       if (step.dialogId === dialogId) setActivity((held) => [...held, step].slice(-ACTIVITY_KEPT));
     });
     const offFiled = client.specDialogFilings.add((filing) => {
-      if (filing.dialogId !== dialogId) return;
-      setFiled(filing);
-      void loadConversations();
+      if (filing.dialogId === dialogId) setFiled(filing);
     });
     client.subscribeSpecDialog(dialogId)
       .then((cancel) => {
@@ -311,7 +347,7 @@ export function useSpecDialog(): SpecDialogState {
       offActivity();
       void stop?.();
     };
-  }, [dialogId, append, load, post, loadConversations]);
+  }, [dialogId, append, load, post, loadConversations, listIsBehind]);
 
   /// Sending with no session open used to reach the router as an ordinary message, and
   /// the router answered with the command tutorial a chat channel needs — on a page whose

@@ -1,6 +1,10 @@
 "use client";
 
-import type { SpecDialogFiledStart, SpecDialogFilingPush } from "@/types/spec-dialog";
+import type {
+  SpecDialogFiledStart,
+  SpecDialogFiledTicket,
+  SpecDialogFilingPush,
+} from "@/types/spec-dialog";
 
 // 2026-09-15-6d9c: WHAT WAS FILED — the tickets that now exist, by reference and title. The
 // report behind it is honest about a partial failure, and so is this: the tickets that WERE
@@ -11,6 +15,10 @@ import type { SpecDialogFiledStart, SpecDialogFilingPush } from "@/types/spec-di
 // nothing will pick it up, or a record, which is not work. A filing written before that phase
 // carries no start state at all and renders exactly as it did, because an absent state is
 // unknown and a panel that guessed would be making the claim the state exists to stop.
+// 2026-09-17-042em: a ticket is named by its KEY, with its title beside it and the tracker's page
+// behind both — a column of web urls differing in their last few digits is the one part of them
+// nobody reads. A filing written before this phase carries no key and reads by its reference, as
+// it always did.
 
 export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
   const partial = filed.error !== null && filed.filed.length > 0;
@@ -32,8 +40,7 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
         <ul className="dsh-body flex flex-col gap-2">
           {filed.filed.map((ticket) => (
             <li key={ticket.reference} data-testid={`dialog-filed-${ticket.reference}`}>
-              <Reference reference={ticket.reference} />
-              <div className="text-ink">{ticket.title}</div>
+              <Named ticket={ticket} />
               {ticket.start && <Start start={ticket.start} reference={ticket.reference} />}
             </li>
           ))}
@@ -82,19 +89,25 @@ function Start({ start, reference }: { start: SpecDialogFiledStart; reference: s
   );
 }
 
-// A reference is a web URL wherever the tracker gives one, and a bare key where it does not.
-function Reference({ reference }: { reference: string }) {
-  if (!/^https?:\/\//.test(reference)) {
-    return <div className="font-mono dsh-label font-semibold text-ink">{reference}</div>;
-  }
+// The key and the title, linked to the tracker wherever the reference is a web URL — and plain
+// text where it is not, because a bare reference is not a link and must not read as one.
+function Named({ ticket }: { ticket: SpecDialogFiledTicket }) {
+  const name = ticket.key ?? ticket.reference;
+  const body = (
+    <>
+      <span className="font-mono dsh-label font-semibold">{name}</span>
+      <span className="ml-2 dsh-body">{ticket.title}</span>
+    </>
+  );
+  if (!/^https?:\/\//.test(ticket.reference)) return <div className="text-ink">{body}</div>;
   return (
     <a
-      href={reference}
+      href={ticket.reference}
       target="_blank"
       rel="noreferrer"
-      className="font-mono dsh-label font-semibold text-primary-deep underline hover:text-primary-pressed"
+      className="text-primary-deep underline hover:text-primary-pressed"
     >
-      {reference}
+      {body}
     </a>
   );
 }

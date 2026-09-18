@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
@@ -18,21 +20,24 @@ public sealed record SpecDialogMarkup
 {
     /// <summary>What Slack and Teams render.</summary>
     public static readonly SpecDialogMarkup ChatMrkdwn =
-        new("*", "_", withShortcodes: true, onAPage: false);
+        new("*", "_", "<{1}|{0}>", withShortcodes: true, onAPage: false);
 
     /// <summary>What a browser renders.</summary>
     public static readonly SpecDialogMarkup CommonMark =
-        new("**", "*", withShortcodes: false, onAPage: true);
+        new("**", "*", "[{0}]({1})", withShortcodes: false, onAPage: true);
 
     private readonly string _bold;
     private readonly string _italic;
+    private readonly string _link;
     private readonly bool _withShortcodes;
     private readonly bool _onAPage;
 
-    private SpecDialogMarkup(string bold, string italic, bool withShortcodes, bool onAPage)
+    private SpecDialogMarkup(
+        string bold, string italic, string link, bool withShortcodes, bool onAPage)
     {
         _bold = bold;
         _italic = italic;
+        _link = link;
         _withShortcodes = withShortcodes;
         _onAPage = onAPage;
     }
@@ -46,6 +51,18 @@ public sealed record SpecDialogMarkup
     public string Bold(string text) => $"{_bold}{text}{_bold}";
 
     public string Italic(string text) => $"{_italic}{text}{_italic}";
+
+    /// <summary>
+    /// 2026-09-17-042em: text carrying a url, in the shape the channel links with — CommonMark's
+    /// "[text](url)" for a browser, chat mrkdwn's "&lt;url|text&gt;" for Slack. A MARK-UP member,
+    /// beside <see cref="Bold"/> and <see cref="Italic"/>, and deliberately not built out of
+    /// <see cref="Wording"/>: that one selects what the reader can DO, and a link shape is what
+    /// the reader RENDERS. Stated risk, pre-existing and not narrowed here: Teams reads this same
+    /// dialect (<see cref="For"/> hands ChatMrkdwn to everything but the dashboard) and renders
+    /// markdown rather than Slack's shapes, as it already does for bold and shortcodes.
+    /// </summary>
+    public string Link(string text, string url) =>
+        string.Format(CultureInfo.InvariantCulture, _link, text, url);
 
     /// <summary>
     /// The emoji as the channel carries it: a shortcode where the chat client expands one,

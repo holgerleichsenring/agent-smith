@@ -12,6 +12,7 @@ import type {
   SpecDialogQuestionPush,
   SpecDialogReadingPush,
   SpecDialogSessionSummary,
+  SpecDialogTurn,
   SpecDialogView,
 } from "@/types/spec-dialog";
 
@@ -374,6 +375,10 @@ describe("SpecDialogSurface", () => {
     };
   }
 
+  function turn(text: string): SpecDialogTurn {
+    return { role: "user", text, at: "2026-09-15T09:00:00Z" };
+  }
+
   it("SpecDialog_TheConversationList_NamesEachByTitleAndWhatItFiled", async () => {
     fetchSpecDialogConversations.mockResolvedValue([
       conversation({ outcome: { kind: "epic", tickets: 3, partial: true } }),
@@ -525,7 +530,68 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-conversation-s-1")).toHaveAttribute("aria-current", "true");
   });
 
-  it("SpecDialog_TheConversationList_IsNotReadOnEveryMessage", async () => {
+  // 2026-09-17-042em: the read the session opening triggers races the first append, so the
+  // conversation the operator is IN was listed as untitled with zero turns for as long as the
+  // conversation ran. The reply is sent after the turn is appended, so the read it triggers is
+  // the first one that can see the turn — and the row it renders is the point, not the call.
+  it("SpecDialog_AfterAReply_TheRunningConversationIsListedWithItsTitleAndTurns", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: null, turns: 0 }),
+    ]);
+    await renderSurface();
+    expect(await screen.findByTestId("dialog-conversation-s-1")).toHaveTextContent("untitled s-1");
+
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),
+    ]);
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-conversation-s-1")).toHaveTextContent(
+        "a widget that reads the ledger"));
+    expect(screen.getByTestId("dialog-conversation-s-1")).toHaveTextContent("2 turns");
+  });
+
+  // One read goes out per framework message, so they overlap; without a sequence number of its
+  // own the answer that arrives LAST wins, and that is not the same as the newest.
+  it("SpecDialog_ALateConversationListResponse_DoesNotReplaceANewerOne", async () => {
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+
+    let releaseStale: (rows: SpecDialogSessionSummary[]) => void = () => {};
+    fetchSpecDialogConversations.mockReturnValueOnce(
+      new Promise<SpecDialogSessionSummary[]>((resolve) => { releaseStale = resolve; }));
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "one", at: new Date().toISOString(),
+    }));
+
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "the newest title", turns: 4 }),
+    ]);
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "two", at: new Date().toISOString(),
+    }));
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-conversation-s-1")).toHaveTextContent("the newest title"));
+
+    await act(async () => releaseStale([conversation({ sessionId: "s-1", title: "two replies ago", turns: 1 })]));
+
+    expect(screen.getByTestId("dialog-conversation-s-1")).toHaveTextContent("the newest title");
+    expect(screen.queryByText("two replies ago")).not.toBeInTheDocument();
+  });
+
+  // 2026-09-17-042em, found in review: the read this phase added is the EXPENSIVE one — every
+  // listed transcript parsed, two further JSON documents per row, up to fifty rows — so paying it
+  // on every reply for the life of a conversation buys nothing once the row already names it.
+  it("SpecDialog_TheConversationList_IsNotReadWhileTheRowAlreadyNamesTheConversation", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),
+    ]);
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
     const listed = fetchSpecDialogConversations.mock.calls.length;
@@ -539,15 +605,79 @@ describe("SpecDialogSurface", () => {
     expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
   });
 
-  it("SpecDialog_AFiling_RereadsTheConversationList", async () => {
+  // And it comes back the moment the count falls behind what the page has already read, so the
+  // row never drifts more than an exchange from the conversation it names.
+  it("SpecDialog_TheConversationList_IsReadAgainOnceTheRowFallsBehind", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 1 }),
+    ]);
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() =>
+      expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
+  });
+
+  // The filing's own read went: the filing NOTICE is a framework message, so the list follows it
+  // like every other reply — one mechanism, not two.
+  it("SpecDialog_TheFilingNotice_RereadsTheConversationList", async () => {
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
     const listed = fetchSpecDialogConversations.mock.calls.length;
 
     act(() => filings.emit(filing()));
+    expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "Filed one phase:", at: new Date().toISOString(),
+    }));
 
     await waitFor(() =>
       expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
+  });
+
+  // 2026-09-17-042em: the picker beside the list is the choice for a NEW conversation, so it can
+  // say nothing about the one that is open. The header does.
+  it("SpecDialog_TheExchangeHeader_NamesTheOpenSessionsProject", async () => {
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-exchange-project")).toHaveTextContent("sample");
+  });
+
+  // A REGRESSION GUARD, not a discriminating test: with no session open there is no project to
+  // name, and this passed before the header line existed because the element did not either. It
+  // is kept so a later "always show the project" cannot quietly claim one for no conversation.
+  it("SpecDialog_NoSessionOpen_TheHeaderNamesNoProject", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+    await renderSurface();
+
+    expect(screen.queryByTestId("dialog-exchange-project")).not.toBeInTheDocument();
+  });
+
+  // Also a REGRESSION GUARD: this passes on the parent commit too, because the phase deliberately
+  // left the picker alone. It is what says the header naming the session's project did NOT make
+  // the picker follow it — the alternative this phase considered and rejected.
+  it("SpecDialog_NewConversation_StillUsesThePickedProjectWhileASessionIsOpen", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      projects: [SAMPLE_SCOPE, { name: "other", repos: ["repo-b"], templates: [] }],
+    }));
+    await renderSurface();
+
+    fireEvent.change(await screen.findByTestId("dialog-project-picker"), {
+      target: { value: "other" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-new"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(expect.any(String), "/spec other"));
   });
 
   // 2026-09-15-cb3e, found by review: nothing is pushed when a wait expires — the confirmer
@@ -833,6 +963,32 @@ describe("SpecDialogSurface", () => {
     expect(pane).toHaveTextContent("p9001: the phase");
     expect(pane.querySelector("a")).toHaveAttribute("href", "https://tracker/7");
     expect(screen.queryByTestId("dialog-proposal")).not.toBeInTheDocument();
+  });
+
+  // 2026-09-17-042em: what a person calls the ticket is the KEY, and the url is what sits behind
+  // it. A list of web urls differing in their last few digits names nothing anyone can repeat.
+  it("SpecDialog_AFiledTicket_IsLinkedByItsKeyAndTitle", async () => {
+    await renderSurface();
+
+    act(() => filings.emit(filing({
+      filed: [{ reference: "https://tracker/7", title: "p9001: the phase", key: "SAMPLE-412" }],
+    })));
+
+    const link = (await screen.findByTestId("dialog-filed")).querySelector("a")!;
+    expect(link).toHaveAttribute("href", "https://tracker/7");
+    expect(link).toHaveTextContent("SAMPLE-412");
+    expect(link).toHaveTextContent("p9001: the phase");
+    expect(link).not.toHaveTextContent("https://tracker/7");
+  });
+
+  it("SpecDialog_AFilingWithoutAKey_StillReadsByItsReference", async () => {
+    await renderSurface();
+
+    act(() => filings.emit(filing()));
+
+    const link = (await screen.findByTestId("dialog-filed")).querySelector("a")!;
+    expect(link).toHaveTextContent("https://tracker/7");
+    expect(link).toHaveTextContent("p9001: the phase");
   });
 
   it("SpecDialog_APartialFailure_ShowsWhatWasCreatedBesideTheError", async () => {

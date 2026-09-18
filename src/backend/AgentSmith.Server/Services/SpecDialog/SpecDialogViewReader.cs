@@ -4,8 +4,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
 /// 2026-09-15-cb3e: the dashboard dialog surface's per-dialog read — the conversation on a
-/// dialog id and what it is grounded in. The caller's conversation list is
-/// <see cref="SpecDialogConversationList"/>, off this read's every-message path.
+/// dialog id and what it is grounded in. This is the read the page issues after every message.
+/// The caller's conversation list is <see cref="SpecDialogConversationList"/>, which since
+/// 2026-09-17-042em the page may issue on the same message — but only while the row for the
+/// conversation open in it is missing, untitled or behind, so the two are not paid together on
+/// every reply.
 /// </summary>
 public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,

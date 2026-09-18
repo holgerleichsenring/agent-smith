@@ -111,8 +111,9 @@ public sealed class OutcomeTicketFiler(
         await starter.StampAsync(provider, project, created, labels, mayStartRuns, filed, ct);
     }
 
-    /// <summary>The id and the project travel on the report: a Reference is a web url wherever
-    /// the tracker gives one, and the ticket's runs are found by project and id.</summary>
+    /// <summary>The id, the project and the display key travel on the report: a Reference is a web
+    /// url wherever the tracker gives one, and the ticket's runs are found by project and id.</summary>
     internal static FiledTicket Entry(CreatedTicket created, string title, ResolvedProject project) =>
-        new(created.Reference, title) { TicketId = created.Id.Value, Project = project.Name };
+        new(created.Reference, title)
+        { TicketId = created.Id.Value, Project = project.Name, Key = FiledTicketKey.Of(project, created) };
 }
