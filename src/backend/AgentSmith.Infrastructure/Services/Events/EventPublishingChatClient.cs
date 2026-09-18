@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Turns;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Infrastructure.Services.Events;
@@ -29,7 +30,10 @@ public sealed class EventPublishingChatClient(
     IRunContextAccessor runContext,
     LlmCallCostCalculator costCalculator,
     RateLimiting.ThrottleWaitReporter waitReporter,
-    string configuredModel = "") : IChatClient
+    string configuredModel = "",
+    // 2026-09-17-042ee: the ambient observer a design turn sets. Null where nothing was
+    // injected, which is the same silence as nothing being set.
+    ITurnActivityObserverAccessor? turnActivity = null) : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -56,6 +60,8 @@ public sealed class EventPublishingChatClient(
         }
 
         var sw = Stopwatch.StartNew();
+        ChatResponse answered;
+        string? intent;
         try
         {
             var response = await InvokeAsync(materialised, options, cancellationToken);
@@ -66,8 +72,14 @@ public sealed class EventPublishingChatClient(
             // p0222: stash the assistant's one-sentence intent narration on the shared
             // call scope so the turn's ToolCall events can read it. Same scope instance
             // spans this call and its tool invocations; each turn overwrites it.
-            if (scope is not null) scope.Intent = IntentNarration.Extract(response.Response);
-            return response.Response;
+            // 2026-09-17-042ee: and only when somebody reads it. Extracting materialises the
+            // response text on the hottest path of every run, for two readers that a run
+            // without a call scope and without a turn observer does not have.
+            intent = scope is not null || turnActivity?.Current is not null
+                ? IntentNarration.Extract(response.Response)
+                : null;
+            if (scope is not null) scope.Intent = intent;
+            answered = response.Response;
         }
         catch (Exception ex)
         {
@@ -78,6 +90,15 @@ public sealed class EventPublishingChatClient(
                 prompt.Length, outcome, CancellationToken.None);
             throw;
         }
+
+        // 2026-09-17-042ee: reported ON RETURN, because the intent exists only now — at call
+        // start the scope still holds the sentence the PREVIOUS call narrated. OUTSIDE the
+        // try: a report that failed would be caught above as the CALL failing and publish a
+        // second LlmCallFinished — a duplicate cost row — for a call already published as Ok.
+        await (turnActivity?.ReportAsync(
+            new TurnActivity(TurnActivityKind.Model, model, intent), cancellationToken)
+            ?? Task.CompletedTask);
+        return answered;
     }
 
     private async Task<(ChatResponse Response, long ThrottleWaitMs)> InvokeAsync(

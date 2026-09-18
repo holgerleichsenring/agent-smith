@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Scans;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 
@@ -20,14 +21,101 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// over a real git repository, SpecCutReviewTests over a real contradiction — so nothing
 /// is left unproven by standing them down here.
 /// </para>
+/// <para>
+/// 2026-09-17-042ed: a design turn reviews its own proposal through this same port, so a case
+/// says what the review finds (<see cref="Finds"/>) and reads back what it was asked about. The
+/// real reviewer is still the one under test in SpecCutReviewTests.
+/// </para>
 /// </summary>
 internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
 {
+    private readonly List<CutFinding> _findings = [];
+
+    /// <summary>What the review asked about, in call order.</summary>
+    internal List<ReviewAsked> Asked { get; } = [];
+
+    /// <summary>Every later review reports these findings, each against the phase it names —
+    /// a review of OTHER drafts is clean. A design session proposes several phases across its
+    /// turns, and findings that followed every later draft would report the first turn's fault
+    /// against a phase nobody reviewed.</summary>
+    internal HarnessSpecCutReviewer Finds(params CutFinding[] findings)
+    {
+        lock (_findings) _findings.AddRange(findings);
+        return this;
+    }
+
     public Task<SpecCutReview> ReviewAsync(
-        SpecSet set, string ticketText, AgentConfig agent,
-        PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
-        Task.FromResult(SpecCutReview.Clean);
+        IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(drafts);
+        lock (Asked) Asked.Add(new ReviewAsked(drafts, key, ticketText, look?.Repositories ?? []));
+        List<CutFinding> against;
+        lock (_findings)
+            against = [.. _findings.Where(f => drafts.Any(d =>
+                string.Equals(d.PhaseId, f.PhaseId, StringComparison.OrdinalIgnoreCase)))];
+        return Task.FromResult(against.Count == 0 ? SpecCutReview.Clean : new SpecCutReview(against));
+    }
 }
+
+/// <summary>One review the framework asked for: the drafts, the key it was charged under, the
+/// ticket behind them (none, for a design turn) and the repositories its look could name.</summary>
+internal sealed record ReviewAsked(
+    IReadOnlyList<PhaseDraft> Drafts, string Key, string? TicketText, IReadOnlyList<string> Repositories);
+
+/// <summary>
+/// 2026-09-17-0e79c: the premise check is the same kind of call and gets the same treatment —
+/// the framework asks it on its own behalf, and letting it draw from the master's script would
+/// shift the whole sequence by one. It reports every premise as holding unless a case says
+/// otherwise; the real checker is exercised by PremiseCheckTests over a real look.
+/// </summary>
+internal sealed class HarnessPhasePremiseChecker : IPhasePremiseChecker
+{
+    private readonly List<PremiseFinding> _findings = [];
+
+    private readonly Dictionary<int, PremiseFinding[]> _perCall = [];
+
+    /// <summary>What the check was asked about, in call order — the phase, the premises it was
+    /// handed and the phases it was told had already run.</summary>
+    internal List<PremiseAsked> Asked { get; } = [];
+
+    /// <summary>The Nth check (1-based) reports these; every other phase's premises hold. Keyed
+    /// by call rather than by phase id, because a derived set's ids are minted in the run.</summary>
+    internal HarnessPhasePremiseChecker FindsOnCall(int call, params PremiseFinding[] findings)
+    {
+        lock (_perCall) _perCall[call] = findings;
+        return this;
+    }
+
+    public Task<PremiseCheck> CheckAsync(
+        PhaseDraft draft, PhasePremises premises, DerivationLook look,
+        IReadOnlyList<PhaseProgress> alreadyRan, string key, AgentConfig agent,
+        PipelineCostTracker costTracker, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        ArgumentNullException.ThrowIfNull(premises);
+        ArgumentNullException.ThrowIfNull(alreadyRan);
+        int call;
+        lock (Asked)
+        {
+            Asked.Add(new PremiseAsked(
+                draft.PhaseId, premises.Claims, [.. alreadyRan.Select(p => p.PhaseId)],
+                look?.Repositories ?? []));
+            call = Asked.Count;
+        }
+        PremiseFinding[]? against;
+        lock (_perCall) _perCall.TryGetValue(call, out against);
+        return Task.FromResult(against is null or { Length: 0 }
+            ? PremiseCheck.Held
+            : new PremiseCheck(against, []));
+    }
+}
+
+/// <summary>2026-09-17-0e79c: one premise check the framework asked for — the phase, the claims
+/// it was handed, the phases it was told had already run, and the repositories its look names.</summary>
+internal sealed record PremiseAsked(
+    string PhaseId, IReadOnlyList<string> Claims, IReadOnlyList<string> AlreadyRan,
+    IReadOnlyList<string> Repositories);
 
 /// <summary>
 /// p0429: the finding refutation is the same kind of call and gets the same treatment.

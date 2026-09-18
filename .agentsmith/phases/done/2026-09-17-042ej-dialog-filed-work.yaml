@@ -1,0 +1,208 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042ej
+
+goal: "The conversation that filed work shows, live and after a reload, its work ticket's run: phase by phase, with pull requests, remaining review findings and what was handed back."
+
+applies_to: "backend (a filed-work read, an owner-checked watch on the hub, one runs index) + dashboard (the filed tab, the transcript's closing line)"
+
+requires:
+  - 2026-09-17-042eg
+  - 2026-09-17-042eh
+  - 2026-09-17-042em
+  - 2026-09-17-c7aeb
+  - 2026-09-17-0e79c
+  - 2026-09-17-0e79d
+
+scope:
+  in: >
+    A read of its own, needing dialog.write and runs.read and the dialog's owner check, resolves the
+    open session's latest filing to ticket ids and filing projects (2026-09-17-042eg), and the work
+    ticket to its runs in every project sharing that project's tracker connection, newest first and
+    capped: status, cost, pull requests as the run records them, and PER PHASE its standing from the
+    run's phase rows — including the verdict a phase handed back on a false premise carries
+    (2026-09-17-0e79c) — and the remaining findings from the phase_review artifact (2026-09-17-042eh). A run waiting for input carries its pending
+    question, and a handed-back derivation carries its case. Slice records are listed as records with
+    no run. A dialog id with no open session reads empty. Live: WatchFiledWork(dialogId), needing
+    dialog.write and runs.read and owner-checked, registers the connection with the ticket ids the
+    SERVER reads from that session's latest filing, on the replica holding the connection, and a hub
+    filter removes it on disconnect; a run snapshot naming a watched ticket id sends a data-free nudge
+    to that connection, and the page refetches, coalesced. The runs table gains a (Project, TicketId)
+    index. The transcript's closing line says the conversation follows what it filed.
+  out: >
+    JOINING A RUN'S GROUP FROM THE DIALOG. See decisions.
+    FILINGS BEFORE THE LATEST ONE, AND CLOSED CONVERSATIONS. See decisions.
+    MERGE STATE. One run leaves one pull request per repository (2026-09-17-0e79d) and there is no epic
+    branch; whether a person merged a pull request is read on the tracker, not here.
+    THE FILED PANEL'S TICKET KEYS AND THE LIST RE-READ. 2026-09-17-042em.
+    THE TEXT OF A TICKET-PARKED HAND-BACK QUESTION. It lives on the ticket; the row links there.
+    ANSWERING, AMENDING OR RETRYING FROM THE DIALOG. The run view keeps those controls, and an
+    amendment is the approval path (2026-09-17-0e79b).
+    UN-WATCHING WHEN THE PAGE LEAVES THE CONVERSATION. A connection keeps the watch it last
+    registered until the next WatchFiledWork replaces it or the connection goes, so a tab that
+    navigates to /jobs still receives data-free nudges for those ticket ids. The nudge carries
+    nothing and the read behind it is owner-checked, so this costs a refetch nobody renders.
+    SLACK AND TEAMS. See decisions.
+
+decisions:
+  - key: |
+      NOTHING COMES BACK TODAY. The session stores transcript, proposal and latest filing and no run,
+      pull request or ticket state (SpecDialogSession.cs:10-48); the filing holds references and titles
+      (FilingReport.cs:4, SpecDialogFiling.cs:12-13); the page says the story ends at filing
+      (DialogTranscript.tsx:43-46). That line is rewritten here and nowhere else.
+  - key: |
+      ONE WORK TICKET, ONE RUN, MANY PHASES. 2026-09-17-0e79d files one work ticket for an epic and one
+      record per slice, and one run works every phase of it (PhaseSequenceHandler.cs:32-56). The rows
+      are therefore ticket, then run, then PHASE — the unit an operator reasons in — read from the run's
+      own phase rows (RunPhase.cs:12-39, written by RunPhaseProjection.ApplyStateAsync:23-39). A slice
+      record has no run and reads as a record.
+  - key: |
+      SESSION → FILING → TICKET ID → RUNS, ACROSS THE PROJECTS OF ONE TRACKER. A run records Project and
+      TicketId (Run.cs:11-13). One ticket may match several projects and a run is spawned per match
+      (Application/Services/Triggers/ProjectResolver.cs:12-19, 43-86), so the read looks in every
+      configured project whose tracker connection has the filing project's tracker name
+      (TrackerConnection.cs:10); the hand-back case is read the same way, by project and
+      SpecSetKey.For(platform, ticket id) (TicketSpecSet.cs:12-15, SpecSetKey.cs:15-16). A filing
+      without ids shows references only.
+  - key: |
+      THE INDEX IS A PERFORMANCE CHOICE, KEPT. Runs are indexed on Project alone
+      (RunConfiguration.cs:23), so each ticket lookup scans every run of each project; the read runs on
+      every nudge window of a live run. The (Project, TicketId) index is one migration of one name in
+      AgentSmith.Infrastructure.Persistence and AgentSmith.Infrastructure.Persistence.SqlServer, whose
+      heads are compared by name (DataArchiveSchemaTests.cs:29-41).
+  - key: |
+      runs.read AS WELL AS dialog.write, ON THE ROUTE AND ON THE HUB METHOD. The rows are run state. The
+      route declares both, with a row in route-permission-baseline.tsv beside the spec-dialog rows
+      (:54-55, 75). The hub filter refuses any method missing from HubMethodPermissions and checks every
+      name it lists (HubPermissionFilter.cs:40-47, 50-54; HubMethodPermissions.cs:22-45);
+      WatchFiledWork is listed with DialogWrite and RunsRead, which HubPermissionTests' enumeration
+      requires.
+  - key: |
+      THE SERVER CHOOSES THE TICKET IDS. MayWatchAsync lets through any dialog id with no open session
+      (SpecDialogOwnership.cs:37-42). The watch accepts only a dialog id; the ids come from the open
+      session's latest filing, so a caller cannot watch a ticket by naming it, and an id with no open
+      session watches nothing. The same rule makes the read return empty.
+  - key: |
+      A READ OF ITS OWN, NOT A FIELD ON THE DIALOG VIEW. The view is refetched after every hub message
+      (2026-09-17-c7aeb decisions); run lookups there would run on every reply.
+  - key: |
+      NO RUN GROUP. SubscribeRun joins any runs-read caller to any run's group and replays its trail
+      (JobsHub.cs:70-80). The nudge carries nothing but its name.
+  - key: |
+      A NUDGE CANNOT FIRE BEFORE THE RUN KNOWS ITS TICKET. The snapshot's TicketId is null until
+      FetchTicket lands on the stream (RunSnapshot.cs:35-38, filled on the LIVE path at
+      RunSnapshotFold.cs:79-82, which is the fold the nudge runs off — not the REST mapper), so the
+      snapshots of a queued or just-started run name no ticket and reach no watcher. The page's own
+      fetch on connect and after a filing is what shows that first state; the nudge takes over from the
+      first ticket-bearing snapshot. Matching on a server-resolved project and ticket instead would
+      mean resolving every snapshot of every run against the filing, for one earlier refresh.
+  - key: |
+      THE VERDICT IS STICKY, SO IT IS RENDERED ONLY ON A TERMINAL ROW. The projection keeps the last
+      verdict it saw (RunPhaseProjection.cs:39, `row.Verdict = e.Verdict ?? row.Verdict`) and clears
+      EndedAt when a phase runs again (:42). A phase re-run after an amendment would otherwise still
+      show the premise that stopped the previous attempt. The read renders a verdict only where the
+      row's status is terminal, and shows a running phase as running.
+  - key: |
+      THE WATCH LIVES WITH THE CONNECTION, BECAUSE PRODUCTION MAY RUN TWO REPLICAS WITHOUT A BACKPLANE.
+      The manifest declares one replica and a comment says prod runs two (8-deployment-server.yaml:11),
+      so the claim rests on that comment and the design holds either way. Every replica reads the whole run-event stream with XREAD and
+      routes each event with its snapshot (JobsBroadcaster.cs:213, 248; RunEventRouter.cs:21-32), so the
+      replica holding a connection sees every snapshot. The page calls the watch on connect, on
+      reconnect and after each filing it is told of. The snapshot carries a ticket id and no project
+      (RunSnapshot.cs:12-38): an id shared by two trackers costs a wasted refetch of a read that
+      filters, never a leak.
+  - key: |
+      DISCONNECT IS HANDLED BY A HUB FILTER, NOT AN OVERRIDE. HubPermissionTests enumerates JobsHub's
+      declared public instance methods and requires each in the permission table
+      (HubPermissionTests.cs:22-25, 28-39); an OnDisconnectedAsync override would be one, and it is not
+      an invocable method to authorize. SignalR's IHubFilter has its own disconnect hook, the interface
+      HubPermissionFilter already implements (HubPermissionFilter.cs:29-30); a second filter forgets
+      the connection there. It is registered on the TWO lines the permission filter uses — the singleton
+      at DashboardApiExtensions.cs:28 and the AddFilter call at :36.
+  - key: |
+      ROOM IN THE HUB, COUNTED. JobsHub is 146 lines at a 146 baseline. The collaborator holds the owner
+      check, the filing read and the registry. The hub gains its constructor parameter on line 23 (0
+      lines) and "public Task WatchFiledWork(string dialogId) => filedWork.WatchAsync(Context,
+      dialogId);" after a blank line (+2). The p0246f note inside SubscribeOverview (JobsHub.cs:34-38)
+      repeats the class note at :25-30 and goes (-5): 143.
+  - key: |
+      NUDGES ARE COALESCED, AS THE RUN LIST DOES. useJobsHub folds nudges into one refetch per window
+      (useJobsHub.ts:76-88). The filed tab does the same.
+  - key: |
+      WHILE THE CONVERSATION IS OPEN, AND THE LATEST FILING ONLY. SetFilingAsync overwrites
+      LatestFilingJson on the OPEN session (SpecDialogLatestOutcomeStore.cs:43-50) and the dialog view
+      reads only an open one (SpecDialogViewReader.cs:20-23). A closed conversation shows its filed work
+      again once 2026-09-17-c7aeb's resume reopens it. Keeping every filing is a successor, named by
+      what it does: a conversation keeps each filing it made.
+  - key: |
+      THREE KINDS OF HAND-BACK, AND WHAT THE SERVER KNOWS OF EACH. A run parked on a dialog question is
+      waiting_for_input with its question on the checkpoint (RunCheckpoint.cs:3-9,
+      RunSnapshotMapper.cs:77). A SpecHandback question is a ticket comment; the server keeps only the
+      case and repeat count on the spec set (TicketSpecSet.cs:25-29). A premise handed back before a
+      phase is READ, never derived: 2026-09-17-0e79c shipped PhaseRunState.HandedBack
+      (SpecSequenceProgress.cs:62), projected to RunPhase.Status "handed_back"
+      (RunPhaseProjection.cs:93), with the premise, the finding and its evidence as the row's Verdict
+      (RunPhase.cs:26-39). The STATUS is the discriminator and the page maps it: "handed_back" asks for
+      the amendment, which is made in the conversation (2026-09-17-0e79b), and "failed" — a red build,
+      the only kind VerifyPhaseHandler writes — asks for nothing. Neither is read off the verdict text,
+      and no "awaiting an amendment" flag is computed server-side.
+  - key: |
+      FINDINGS COME FROM THE phase_review ARTIFACT. 2026-09-17-042eh upserts them as JSON under
+      phase_review:<phase id> in RunArtifact (ReviewKindPrefix at RunPhaseProjection.cs:25,
+      ApplyReviewAsync at :68-77 writes it). No column.
+  - key: |
+      SLACK AND TEAMS GET NOTHING NEW. They render from conversation state and the filing notice
+      (2026-09-17-c7aeb out); following a run there needs a push path per run event into that channel.
+
+steps:
+  - id: runs-by-ticket
+    action: "A (Project, TicketId) index on runs: one migration name in both persistence assemblies."
+  - id: the-filed-work-read
+    action: "GET /api/spec-dialog/{dialogId}/filed-work needing dialog.write and runs.read, owner-checked, with a baseline row: the open session's latest filing, the work ticket's runs across the tracker's projects, pull requests, per-phase standing, phase_review findings, a premise awaiting review, the pending question and the hand-back case; records read as records; empty without an open session."
+  - id: the-watch
+    action: "WatchFiledWork(dialogId) in HubMethodPermissions with DialogWrite and RunsRead; a collaborator checks ownership, reads the ticket ids from the session's latest filing and registers the connection; a hub filter's disconnect hook forgets it, registered on two lines beside the permission filter; JobsHub lands at 143."
+  - id: the-nudge
+    action: "Where snapshots are routed, a snapshot naming a watched ticket id sends a data-free FiledWorkChanged to the watching connections."
+  - id: the-filed-tab
+    action: "The filed tab renders the work ticket with a row per phase and its records beneath, watches on connect, reconnect and after a filing, and refetches on the nudge, coalesced."
+  - id: the-closing-line
+    action: "The transcript's empty-state line says the conversation follows what it filed."
+
+tests:
+  - "FiledWork_WorkTicketWithTwoRuns_ListsBothNewestFirst"
+  - "FiledWork_RunWithFivePhases_ListsEachPhaseWithItsStanding"
+  - "FiledWork_SliceRecord_IsListedAsARecordWithNoRun"
+  - "FiledWork_RunInAnotherProjectOnTheSameTracker_IsShown"
+  - "FiledWork_RunInAProjectOnAnotherTracker_IsNotShown"
+  - "FiledWork_TicketWithoutARun_ShowsTheTicketAndNoRun"
+  - "FiledWork_FilingRecordWithoutIds_ShowsReferencesOnly"
+  - "FiledWork_WaitingRun_CarriesItsPendingQuestion"
+  - "FiledWork_HandedBackTicket_CarriesTheCase"
+  - "FiledWork_PhaseFailedOnAPremise_RendersTheRowsVerdictAsAwaitingAmendment"
+  - "FiledWork_PhaseVerdict_IsReadNeverInferred"
+  - "FiledWork_PhaseRerunAfterAnAmendment_DoesNotShowTheOldVerdict"
+  - "FiledWork_RunningPhase_ShowsNoVerdict"
+  - "FiledWork_PhaseReviewArtifact_CarriesItsFindings"
+  - "FiledWork_WithoutRunsRead_IsForbidden"
+  - "FiledWork_AnotherPrincipalsDialog_IsForbidden"
+  - "FiledWork_DialogIdWithNoOpenSession_IsEmpty"
+  - "Watch_IsClassifiedWithDialogWriteAndRunsRead"
+  - "Watch_AnotherPrincipalsDialog_IsRefused"
+  - "Watch_DialogIdWithNoOpenSession_WatchesNothing"
+  - "Watch_TicketIdsComeFromTheSessionsFiling"
+  - "Watch_Disconnect_RemovesTheEntry"
+  - "Nudge_SnapshotForAWatchedTicket_ReachesOnlyTheWatchingConnection"
+  - "Nudge_SnapshotForAnUnwatchedTicket_SendsNothing"
+  - "Nudge_CarriesNoRunData"
+  - "Nudge_SnapshotBeforeTheTicketIsKnown_SendsNothing"
+  - "Migrations_BothProviders_HeadNamesStillCompareEqual"
+  - "dashboard: the filed tab shows the work ticket's run, a row per phase, its pull requests and findings"
+  - "dashboard: a nudge refetches the filed work once per window"
+  - "dashboard: a reload shows the same rows without a nudge"
+  - "dashboard: the empty transcript says the conversation follows what it files"
+
+done:
+  - "while the conversation is open, an operator who approved work sees which phase its run is on, the pull requests, what the review left and what was handed back"
+  - "it updates without a reload on either replica and survives a reload"
+  - "nobody without runs.read or the dialog's ownership reads or watches a run through it"
+  - "Slack and Teams behave exactly as before"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"

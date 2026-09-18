@@ -72,7 +72,7 @@ public sealed class PhaseExecutionTests
         // body does not declare — pinned at the unit level instead
         // (AgenticMasterPlanSectionTests over the production BuildPlanSection).
         var promptText = string.Join(
-            "\n", harness.ChatClient.LastMessages.Select(m => m.Text ?? string.Empty));
+            "\n", harness.ChatClient.LastScriptedMessages.Select(m => m.Text ?? string.Empty));
         promptText.Should().Contain("phase: p9999",
             "the validated spec must reach the master verbatim");
         promptText.Should().Contain("Add the widget endpoint + handler",
@@ -97,6 +97,12 @@ public sealed class PhaseExecutionTests
             "the phase yaml must be written to .agentsmith/phases/done/ in the sandbox tree");
 
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
+
+        // 2026-09-17-042eh: the verified phase's own diff reaches a fresh instance — the step
+        // is in the block, so a preset that ships code asks this question once per phase.
+        harness.ChatClient.PromptsSeen.Should().Contain(
+            p => p.Contains(AgentSmith.PipelineHarness.Llm.PhaseReviewScript.Marker, StringComparison.Ordinal),
+            "the phase review runs after the verification and before the record");
     }
 
     [Fact]
@@ -145,13 +151,11 @@ public sealed class PhaseExecutionTests
             services.AddSingleton<ITicketProviderFactory>(new PhaseTicketProviderFactory(tickets));
         });
 
-    // The genuine p0315c artifact: title + markdown summary + ONE fenced yaml
-    // block, rendered by the production renderer (not a hand-built body).
+    // 2026-09-17-0e79a: a HAND-WRITTEN phase ticket — the shape the extractor still inverts.
+    // The framework's own filing carries no fence any more: its spec is the approved record.
     private static string PhaseTicketBody() =>
-        new PhaseTicketRenderer()
-            .RenderPhase(new PhaseDraft(
-                "p9999", "Add a widget endpoint to the sample service", ValidYaml, []))
-            .Body;
+        "## Goal\nAdd a widget endpoint to the sample service\n\n---\n\n```yaml\n"
+        + ValidYaml.Trim() + "\n```\n";
 
     private sealed class PhaseTicketProvider(
         string body, IReadOnlyList<TicketComment>? comments = null) : ITicketProvider
@@ -177,6 +181,10 @@ public sealed class PhaseExecutionTests
             string title, string description, IReadOnlyList<string> labels,
             CancellationToken cancellationToken) =>
             Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            Task.FromResult(ParentLinkResult.Linked);
 
         public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
             TicketId ticketId, CancellationToken cancellationToken) =>

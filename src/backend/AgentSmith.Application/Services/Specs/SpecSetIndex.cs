@@ -53,7 +53,22 @@ public sealed class SpecSetIndex
             HandbackReadings = [.. set.Handback?.Readings ?? []],
             HandbackTaken = set.Handback?.Taken ?? 0,
             TicketFingerprint = set.TicketFingerprint,
+            ApprovedAt = set.Approval?.At.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            ApprovedInConversation = set.Approval?.Conversation,
+            ApprovedBy = set.Approval?.Principal,
         });
+    }
+
+    /// <summary>2026-09-17-0e79a: the approval the published set came from, or null when nobody
+    /// approved it. The precedence reads this to decide whether a fresh record beats the branch.</summary>
+    public SpecApproval? ApprovalOf(SpecSetIndexDocument doc)
+    {
+        ArgumentNullException.ThrowIfNull(doc);
+        return DateTimeOffset.TryParse(
+            doc.ApprovedAt, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var at)
+            ? new SpecApproval(at, doc.ApprovedInConversation ?? string.Empty, doc.ApprovedBy ?? string.Empty)
+            : null;
     }
 
     /// <summary>The fingerprint the index carries, or null when it predates one.</summary>

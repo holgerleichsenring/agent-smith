@@ -67,7 +67,7 @@ public sealed class MasterQuestionResumeTests
             second.ChatClient
                 .EnqueueDeferred(() =>
                 {
-                    masterPrompt = second.ChatClient.LastMessages;
+                    masterPrompt = second.ChatClient.LastScriptedMessages;
                     return WriteFile("csharp-fixture/src/Patch.cs", "// refresh window: 15 minutes");
                 })
                 .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"csharp-fixture"}""")

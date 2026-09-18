@@ -1,45 +1,45 @@
 using System.Text;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// 2026-09-13-b7ba: the two body shapes a filed ticket can take.
+/// 2026-09-13-b7ba: the body shape a filed ticket takes. A REQUIREMENT states what is wanted
+/// and why and carries no fenced block at all.
 /// <para>
-/// A WORK ORDER ends in exactly one fenced yaml block holding the spec verbatim — the
-/// p0315d contract the phase-execution extractor inverts. A REQUIREMENT states what is
-/// wanted and why and carries no block at all, so the run that picks it up derives its
-/// phases against the repository as it then is, rather than replaying a cut made weeks
-/// earlier against a repository that has since moved.
-/// </para>
-/// <para>
-/// Carved out of the renderer because there are now two shapes and one of them must NOT
-/// open a fence — a rule that is easier to keep when the two are written side by side.
+/// 2026-09-17-0e79a: the WORK ORDER shape is gone with its last caller. It ended in one fenced
+/// yaml block, which the source precedence would take as the spec — a second truth beside the
+/// approved record, editable by anyone with tracker access. The extractor still inverts that
+/// shape for HAND-WRITTEN phase tickets, and the p0315d contract note lives there now.
 /// </para>
 /// </summary>
 internal static class PhaseTicketBody
 {
-    public static string WorkOrder(PhaseDraft draft, Action<StringBuilder> extraSections)
-    {
-        var sb = Shared(draft, StepActions, extraSections);
-        sb.AppendLine("---");
-        sb.AppendLine();
-        sb.AppendLine("```yaml");
-        sb.AppendLine(draft.Yaml.Trim());
-        sb.AppendLine("```");
-        return Done(sb);
-    }
-
     /// <summary>
     /// What is wanted and why — and deliberately NOT the steps. Carrying the cut in prose
     /// would let the deriver anchor on it and reproduce the cut it was supposed to redo.
+    /// <para>
+    /// 2026-09-17-042eb: the done list travels as acceptance criteria — an outcome, not a cut —
+    /// one line per criterion. A SIBLING's phase id stays out (the order lives in the labels and
+    /// the parent's slice list); any other precondition, an outside phase id included, stays.
+    /// </para>
     /// </summary>
-    public static string Requirement(PhaseDraft draft, Action<StringBuilder> extraSections) =>
-        Done(Shared(draft, ScopeLines, extraSections));
+    public static string Requirement(
+        PhaseDraft draft, IReadOnlySet<string> siblingIds, Action<StringBuilder> extraSections) =>
+        Done(Shared(draft, ScopeLines, (body, map) =>
+        {
+            AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(map));
+            AppendLines(body, "## Preconditions", draft.Requires.Where(r => !siblingIds.Contains(r)));
+        }, extraSections));
+
+    private static IEnumerable<string> DoneLines(IReadOnlyDictionary<string, object?> map) =>
+        (OutcomeYamlReader.GetList(map, "done") ?? []).Select(line => CriterionLine.Collapse(line?.ToString() ?? string.Empty));
 
     private static StringBuilder Shared(
         PhaseDraft draft,
         Func<IReadOnlyDictionary<string, object?>, IEnumerable<string>> middle,
+        Action<StringBuilder, IReadOnlyDictionary<string, object?>> tail,
         Action<StringBuilder> extraSections)
     {
         var map = OutcomeYamlReader.ReadMap(draft.Yaml);
@@ -49,7 +49,7 @@ internal static class PhaseTicketBody
         sb.AppendLine();
         AppendLines(sb, "## Why", Decisions(map));
         AppendLines(sb, "## Scope", middle(map));
-        AppendLines(sb, "## Requires", draft.Requires);
+        tail(sb, map);
         extraSections(sb);
         return sb;
     }
@@ -92,14 +92,4 @@ internal static class PhaseTicketBody
             yield return $"Out: {outScope.Trim()}";
     }
 
-    private static IEnumerable<string> StepActions(IReadOnlyDictionary<string, object?> map) =>
-        (OutcomeYamlReader.GetList(map, "steps") ?? []).Select(StepAction);
-
-    private static string StepAction(object? step)
-    {
-        if (step is not Dictionary<object, object?> map) return step?.ToString() ?? string.Empty;
-        var action = map.TryGetValue("action", out var a) ? a as string : null;
-        var id = map.TryGetValue("id", out var i) ? i as string : null;
-        return action ?? id ?? string.Empty;
-    }
 }

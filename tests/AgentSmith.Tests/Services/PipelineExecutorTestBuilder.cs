@@ -37,6 +37,10 @@ internal sealed class PipelineExecutorTestBuilder
     public SandboxSpecBuilder SandboxSpecBuilder { get; }
     public PhaseDataFlowResolver DataFlowResolver { get; } = new(Array.Empty<IPhaseDataFlow>());
     public AgentSmithConfig AgentSmithConfig { get; } = new();
+
+    /// <summary>2026-09-17-0e79e: the executor's own log, for the lines a run is READ by.</summary>
+    public CapturingLogger<PipelineExecutor> Log { get; } = new();
+
     public IPipelineExecutor Sut { get; }
 
     /// <param name="eventPublisher">
@@ -95,6 +99,7 @@ internal sealed class PipelineExecutorTestBuilder
             NullLogger<PipelineSandboxCoordinator>.Instance));
         var provider = services.BuildServiceProvider();
 
+        var finalizerTail = new PipelineFinalizerTail(stepRunner, NullLogger<PipelineFinalizerTail>.Instance);
         Sut = new PipelineExecutor(
             provider,
             stepRunner,
@@ -102,8 +107,9 @@ internal sealed class PipelineExecutorTestBuilder
             LifecycleCoordinatorMock.Object,
             CancellationRegistryMock.Object,
             new PipelineExecutorPolicy(NullLogger<PipelineExecutorPolicy>.Instance),
-            new PipelineFinalizerTail(stepRunner, NullLogger<PipelineFinalizerTail>.Instance),
+            finalizerTail,
+            new PipelineStepFailure(finalizerTail, errorHandler),
             new PlannedStepsAnnouncer(EventTestStubs.NoOp),
-            NullLogger<PipelineExecutor>.Instance);
+            Log);
     }
 }

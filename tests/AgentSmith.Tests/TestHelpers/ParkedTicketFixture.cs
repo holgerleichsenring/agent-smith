@@ -92,6 +92,10 @@ public static class ParkedTicketFixture
             string title, string description, IReadOnlyList<string> labels,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus,
             CancellationToken cancellationToken) => throw new NotSupportedException();

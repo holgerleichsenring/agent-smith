@@ -20,6 +20,10 @@ public sealed class RunPhaseProjection
     /// <summary>The artifact kind a phase record is stored under, one row per phase.</summary>
     public const string RecordKindPrefix = "phase_record:";
 
+    /// <summary>2026-09-17-042eh: the artifact kind the phase's review findings are stored
+    /// under, one row per phase, in the same table and read the same way.</summary>
+    public const string ReviewKindPrefix = "phase_review:";
+
     public async Task ApplyStateAsync(IUnitOfWork uow, PhaseStateChangedEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);
@@ -55,18 +59,38 @@ public sealed class RunPhaseProjection
         await uow.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// 2026-09-17-042eh: the findings a fresh instance reported against the phase's diff, as
+    /// JSON. A sibling of <see cref="ApplyRecordAsync"/>, not a field on it: the record body is
+    /// prose for a person, and a reader that wants the findings AS DATA would otherwise have to
+    /// parse markdown back out of a YAML body.
+    /// </summary>
+    public async Task ApplyReviewAsync(IUnitOfWork uow, PhaseReviewedEvent e, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        var kind = ReviewKindPrefix + e.PhaseId;
+        var row = await uow.Set<RunArtifact>()
+            .FirstOrDefaultAsync(a => a.RunId == e.RunId && a.Kind == kind, ct);
+        if (row is null) uow.Add(new RunArtifact { RunId = e.RunId, Kind = kind, Content = e.ReportJson });
+        else row.Content = e.ReportJson;
+        await uow.SaveChangesAsync(ct);
+    }
+
     private static Task<RunPhase?> FindAsync(
         IUnitOfWork uow, string runId, string phaseId, CancellationToken ct) =>
         uow.Set<RunPhase>().FirstOrDefaultAsync(p => p.RunId == runId && p.PhaseId == phaseId, ct);
 
     private static bool IsTerminal(PhaseRunState state) =>
-        state is PhaseRunState.Done or PhaseRunState.Failed;
+        state is PhaseRunState.Done or PhaseRunState.Failed or PhaseRunState.HandedBack;
 
     private static string StatusOf(PhaseRunState state) => state switch
     {
         PhaseRunState.InProgress => "in_progress",
         PhaseRunState.Done => "done",
         PhaseRunState.Failed => "failed",
+        // 2026-09-17-0e79c: its own status, so a reader can tell a phase that was never built
+        // from one whose build went red without parsing the verdict.
+        PhaseRunState.HandedBack => "handed_back",
         _ => "not_started",
     };
 }

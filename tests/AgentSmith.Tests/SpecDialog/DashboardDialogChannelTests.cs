@@ -417,6 +417,20 @@ public sealed class DashboardDialogChannelTests : IDisposable
             It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    // 2026-09-17-042ek: this path exists only on the dashboard, so the one thing it must not
+    // do is answer a page with the three slash commands that page has no way to type.
+    [Fact]
+    public async Task DashboardDialogDispatcher_NoOpenDialog_NamesNoCommand()
+    {
+        await SendAsync("just thinking out loud");
+
+        var answer = LastText();
+        answer.Should().NotContain("/spec");
+        answer.Should().Contain("New conversation",
+            "the button that starts one is what the page actually offers");
+        answer.Should().Contain("project", "the picker decides the scope when there are several");
+    }
+
     [Fact]
     public async Task Ingest_PublishesTheChatIngestionSystemEvent()
     {
@@ -451,8 +465,9 @@ new DashboardOutcomeChannel(
             new SpecDialogCommandHandler(
                 _sessions, _resumer, new SpecDialogScopeResolver(SingleProjectLoader()),
                 composer, messenger),
-            _turnRunner.Object, outcomeFlow, _turnGate, _pendingQuestions,
-            _dialogueTransport.Object, composer, messenger,
+            _turnRunner.Object, outcomeFlow, _turnGate,
+            new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object),
+            composer, messenger,
             NullLogger<SpecDialogRouter>.Instance);
     }
 
@@ -462,6 +477,10 @@ new DashboardOutcomeChannel(
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
         services.AddSingleton(dispatcher);
         services.AddSingleton(_ownership);
+        // 2026-09-17-042eg: the endpoint reads whether this caller may start runs before it
+        // dispatches. A non-enforcing authority answers without touching the identity resolver,
+        // which is the installation these routing tests are about.
+        services.AddSingleton(new TokenAuthorityConfig());
         services.AddSingleton<ISystemEventPublisher>(_events);
         return services.BuildServiceProvider();
     }
@@ -469,7 +488,7 @@ new DashboardOutcomeChannel(
     // The hub method under test touches none of the readers, so they are absent rather
     // than faked — what it needs is the ownership guard and a caller.
     private JobsHub Hub(string caller) =>
-        new(null!, null!, null!, null!, null!, null!, null!, null!, _ownership)
+        new(null!, null!, null!, null!, null!, null!, null!, null!, _ownership, null!)
         {
             Context = new FakeCaller(Principal(caller)),
             Groups = _hub,

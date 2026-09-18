@@ -56,6 +56,10 @@ public sealed class RawTrackerEntry
     /// (YAML key <c>lifecycle_status_names</c>). Non-empty → native transition mode.
     /// </summary>
     public Dictionary<string, string>? LifecycleStatusNames { get; set; }
+
+    /// <summary>Jira-only (YAML key <c>parent_link_type</c>): the issue link type a filed child
+    /// is linked to its parent with.</summary>
+    public string? ParentLinkType { get; set; }
 }
 
 /// <summary>

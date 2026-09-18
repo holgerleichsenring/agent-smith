@@ -12,11 +12,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
-/// p0147f: thin Jira Cloud REST v3 orchestrator. Field mapping in
-/// <see cref="JiraFieldMapper"/>; ADF body in <see cref="JiraAdfRenderer"/>;
-/// search in <see cref="JiraIssueSearcher"/>; workflow transitions in
-/// <see cref="JiraTransitioner"/>; attachments in
-/// <see cref="JiraAttachmentLoader"/>.
+/// Thin Jira Cloud REST v3 orchestrator. Mapping in <see cref="JiraFieldMapper"/>, ADF in
+/// <see cref="JiraAdfRenderer"/>, search in <see cref="JiraIssueSearcher"/>, transitions in <see cref="JiraTransitioner"/>.
 /// </summary>
 public sealed class  JiraTicketProvider : ITicketProvider
 {
@@ -32,7 +29,9 @@ public sealed class  JiraTicketProvider : ITicketProvider
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
     private readonly ILogger<JiraTicketProvider> _logger;
+    private readonly TrackerParentLink _parentLink;
     private readonly AgentSmith.Contracts.Models.Configuration.JiraEndpoints _endpoints;
+    private readonly string _parentLinkType;
 
     public string ProviderType => "Jira";
 
@@ -49,14 +48,15 @@ public sealed class  JiraTicketProvider : ITicketProvider
         _doneStatus = doneStatus ?? "Done";
         _closeTransitionName = closeTransitionName ?? "Close";
         _logger = logger;
+        _parentLink = new TrackerParentLink("Jira", logger);
         _endpoints = connection.ResolvedEndpoints;
+        _parentLinkType = connection.ParentLinkType ?? JiraTicketConnection.DefaultParentLinkType;
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
         _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
         _transitioner = new JiraTransitioner(_http, _baseUrl, _endpoints, logger);
     }
 
-    // Canonical Jira Cloud "who am I" endpoint — the cheapest authenticated call
-    // that proves the email + API token are valid and the site is reachable.
+    // "Who am I": the cheapest authenticated call that proves the credentials and the site.
     private const string MyselfEndpoint = "/rest/api/3/myself";
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -77,7 +77,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
-        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=summary,description,status,attachment,assignee,reporter";
+        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=summary,description,status,labels,attachment,assignee,reporter";
         _logger.LogDebug("Jira GetTicket #{Ticket}: GET {Url}", ticketId.Value, url);
         using var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
@@ -93,11 +93,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
             $"labels = \"{LifecycleLabels.For(status)}\"",
             $"lifecycle={status}", cancellationToken);
 
-    // Open-state discovery query for the poller. Without this Jira fell back to
-    // ITicketProvider's empty default, so the poller only ever saw lifecycle-tagged
-    // tickets and NEVER discovered a fresh ticket — only AzDO implemented ListOpenAsync.
-    // "Open" = statusCategory != Done; per-ticket routing + trigger_statuses gating
-    // run downstream in TrackerPoller.
+    // Open-state discovery for the poller; routing and trigger_statuses gate downstream in TrackerPoller.
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         => _searcher.SearchAsync("statusCategory != Done", "open-discovery", cancellationToken);
 
@@ -133,8 +129,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // Issue type "Task" is the one type present in every Jira project template;
-    // the description travels as line-preserving ADF so it reads back intact.
+    // "Task" exists in every project template; the description travels as line-preserving ADF.
     public async Task<CreatedTicket> CreateAsync(
         string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
     {
@@ -160,15 +155,21 @@ public sealed class  JiraTicketProvider : ITicketProvider
         return new CreatedTicket(new TicketId(key), $"{_baseUrl}/browse/{key}");
     }
 
+    // A missing link type or disabled linking is the site's refusal, and a Failed link.
+    public Task<ParentLinkResult> LinkToParentAsync(
+        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+        _parentLink.AttemptAsync(() => _http.SendAsync(
+            HttpMethod.Post, $"{_baseUrl}{_endpoints.IssueLink}",
+            new { type = new { name = _parentLinkType }, inwardIssue = new { key = parent.Value }, outwardIssue = new { key = child.Id.Value } },
+            cancellationToken), cancellationToken);
+
     public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>
         await TicketDocumentAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // p0317: the ticket conversation — GET on the same endpoint UpdateStatusAsync
-    // posts to; ADF bodies are flattened by the mapper. Transport failures
-    // propagate — FetchTicketHandler owns fail-soft.
+    // GET on the endpoint UpdateStatusAsync posts to. Transport failures propagate — FetchTicketHandler owns fail-soft.
     public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
@@ -191,7 +192,6 @@ public sealed class  JiraTicketProvider : ITicketProvider
     public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => _transitioner.TransitionAsync(ticketId, statusName, null, cancellationToken);
 
-    // Jira issues have no rev-guard on comments + transitions; sequential is safe.
     public async Task FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
     {

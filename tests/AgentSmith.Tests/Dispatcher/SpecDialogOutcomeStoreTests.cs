@@ -9,11 +9,14 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.Dispatcher;
 
@@ -58,7 +61,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var phase = new PhaseOutcome(new PhaseDraft(
             "p9999", "Widget endpoint", "phase: p9999\ngoal: \"Widget endpoint\"", []));
 
-        await sink.AcceptAsync(state, phase, CancellationToken.None);
+        await sink.AcceptAsync(state, phase, false, CancellationToken.None);
 
         provider.Created.Should().ContainSingle().Which.Title.Should().Be("p9999: Widget endpoint");
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-1", CancellationToken.None);
@@ -82,7 +85,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var state = await OpenSessionAsync("th-2");
         var bug = new BugOutcome(new BugTicketDraft("Fix the null deref", "AppendTurnAsync NREs.", null));
 
-        await sink.AcceptAsync(state, bug, CancellationToken.None);
+        await sink.AcceptAsync(state, bug, false, CancellationToken.None);
 
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-2", CancellationToken.None);
         session!.ConfirmedOutcomeJson.Should().NotBeNull(
@@ -114,7 +117,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             Templates = [new TemplateProvenance("template:default", "reference-server", "a1b2c3d", true)],
         };
 
-        await sink.AcceptAsync(state, epic, CancellationToken.None);
+        await sink.AcceptAsync(state, epic, false, CancellationToken.None);
 
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-3", CancellationToken.None);
         var restored = OutcomeProposalJson.Read(session!.ConfirmedOutcomeJson!);
@@ -149,8 +152,9 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicTicketFiler(new PhaseTicketRenderer(), new EpicChildOrderer()),
-            NullLogger<OutcomeTicketFiler>.Instance);
+            TestSupport.ApprovedSetDoubles.EpicFiler(),
+            TestSupport.ApprovedSetDoubles.Recorder(),
+            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
             filer, _sessions, messenger, new SpecDialogOutcomeComposer(),
@@ -197,6 +201,10 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
                 new TicketId(_created.Count.ToString()),
                 $"https://tracker.test/{_created.Count}"));
         }
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            Task.FromResult(ParentLinkResult.Linked);
 
         public Task FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>

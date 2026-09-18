@@ -21,10 +21,6 @@ public sealed class SpecDialogOutcomeConfirmer(
     ILogger<SpecDialogOutcomeConfirmer> logger)
 {
     private static readonly TimeSpan ConfirmationTimeout = TimeSpan.FromMinutes(15);
-    private static readonly string[] ApprovalAnswers =
-        ["yes", "y", "approve", "approved", "ok", "confirm", "confirmed"];
-    private static readonly string[] RejectionAnswers =
-        ["no", "n", "reject", "rejected", "decline", "declined", "cancel", "discard", "drop"];
 
     public async Task<ConfirmationResult> ConfirmAsync(
         ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
@@ -90,10 +86,11 @@ public sealed class SpecDialogOutcomeConfirmer(
                 state.JobId);
             return new OutcomeConfirmationTimedOut();
         }
-        var reply = answer.Answer.Trim();
-        var token = reply.ToLowerInvariant();
-        if (ApprovalAnswers.Contains(token)) return new OutcomeConfirmed();
-        if (RejectionAnswers.Contains(token)) return new OutcomeRejected();
-        return new OutcomeEditRequested(reply);
+        return SpecDialogAnswerWords.DecisionIn(answer.Answer) switch
+        {
+            SpecDialogDecision.Approved => new OutcomeConfirmed(),
+            SpecDialogDecision.Rejected => new OutcomeRejected(),
+            _ => new OutcomeEditRequested(answer.Answer.Trim()),
+        };
     }
 }

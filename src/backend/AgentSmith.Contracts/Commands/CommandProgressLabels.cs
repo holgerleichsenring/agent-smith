@@ -39,6 +39,7 @@ public static partial class CommandNames
         [SpecHandback] = "Handing the ticket back",
         [PhaseSequence] = "Planning the phase sequence",
         [SelectPhase] = "Starting the phase",
+        [ReviewPhaseDiff] = "Reviewing the phase's diff",
         // p0394a: retired steps, kept by literal name so progress reporting of
         // run records persisted before the retirement keeps its labels.
         ["GeneratePlanCommand"] = "Generating plan",
@@ -104,6 +105,7 @@ public static partial class CommandNames
         [BootstrapCheck] = "Checking bootstrap files",
         [RunVerifyPhase] = "Running verify phase",
         [VerifyPhase] = "Building and running tests", // p0393
+        [CheckPhasePremises] = "Checking what the phase rests on", // 2026-09-17-0e79c
         [BootstrapGate] = "Verifying bootstrap files",
         [PublishProjectLanguage] = "Publishing project language",
         [BootstrapDispatch] = "Dispatching bootstrap skill",

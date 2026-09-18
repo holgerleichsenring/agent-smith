@@ -1,0 +1,181 @@
+phase: 2026-09-17-0e79e
+decisions:
+  - id: the-budget-is-a-value-in-contracts-not-a-constant-in-the-executor
+    chose: >
+      StepBudget (AgentSmith.Contracts.Pipeline), a positional record of Limit and Origin
+      with BaseAllowance 40, PerPhaseAllowance 20, AbsoluteCeiling 400 and Default 100.
+      ForPhases computes and clamps; From(PipelineContext) reads the published one or
+      returns TheDefault; ToString renders "step budget N (origin)", which is what the log
+      line and the exhaustion message both say.
+    alternative: >
+      Keeping MaxCommandExecutions in PipelineExecutor and reading a bare int from the
+      context; a config option; deriving the ceiling from the live command list.
+    why: >
+      Re-verified in this tree: the constant was 100 at PipelineExecutor.cs:30, checked per
+      segment at :110-115, and its message says what it is for — "possible infinite loop in
+      command insertion". A bare int would carry no origin, and an exhausted run would have
+      to be read by arithmetic. It lives in Contracts because the publisher is in
+      Application.Services.Handlers and the reader in Application.Services, and because a
+      checkpoint has to name its type. A ceiling derived from the CURRENT command list would
+      grow with every insertion, including a looping handler's own — the failure it exists to
+      catch. Config is not the lever either: the number follows the phase count, which the
+      run knows and an operator would have to guess.
+  - id: the-computed-number-is-the-guard-the-ceiling-only-clamps
+    chose: >
+      40 + 20 x phases, clamped at 400. At SpecSet.MaxPhases that is 200 against a worst case
+      near 160. The clamp never binds while MaxPhases is 8, and the origin string says
+      "clamped" when it does.
+    alternative: >
+      A flat higher constant (say 400 for everyone); no absolute ceiling at all.
+    why: >
+      The arithmetic re-verified here: the code preset is 22 literal commands
+      (PipelinePresets.Code.cs) and each phase splices six (PipelinePresets.Parking.cs:42-53),
+      with a repair of four more and a master question re-engaging two at a time — 22 + 8 x 10
+      = 102, already over the old ceiling before anything goes wrong, and near 160 once
+      2026-09-17-042eh's review and 2026-09-17-0e79c's premise check land. A flat 400 would
+      stop guarding the small run that today's 100 does guard. The ceiling exists so a later
+      raise of MaxPhases cannot silently unbound the guard, and a test says so by name.
+  - id: a-small-run-is-guarded-tighter-than-it-was
+    chose: >
+      Accepting that one phase gets 60 and two get 80 where every run used to get 100. Three
+      phases tie the old number exactly; four is the first that gets more. Stated in the
+      record line and asserted by StepBudget_OnePhase_IsSmallerThanTheDefaultCeilingButSufficient.
+    alternative: >
+      Flooring the budget at the old 100 (Math.Max(Default, computed)), so the change could
+      only ever loosen the guard.
+    why: >
+      A one-phase run needs about 39 at worst — 22 literal preset commands plus one phase's
+      six-command block, its four-command repair, a master question re-engaging two, and the
+      premise check and review/fix pass that are coming. 60 leaves about 21 spare where the
+      flat 100 left about 61, which is the point: a guard sized for eight phases is not a
+      guard for one, and the run that loops is the one that was going to spend those 61 steps
+      looping. A floor at 100 would keep exactly the blind spot the phase exists to close, and
+      it would make "the budget follows the work" false for every run below three phases.
+      Named out loud because a narrowing nobody wrote down is the kind that gets discovered by
+      a failed run.
+  - id: one-publisher-and-it-is-the-sequence
+    chose: >
+      PhaseSequenceHandler publishes StepBudget.ForPhases(pending.Count) beside the sequence
+      progress, for the UNEXECUTED TAIL it splices. PhaseSpecGate publishes nothing, and a
+      test pins that.
+    alternative: >
+      Publishing from PhaseSpecGateHandler, which validates the set and knows every phase.
+    why: >
+      The gate's number is the whole set; the sequence splices only the tail
+      (PhaseSequenceHandler.cs:37-46 in this tree), so on a re-trigger after four executed
+      phases the gate's number is twice the work. The gate is also not an alternative:
+      PhaseSpecGate appears in exactly one preset (PipelinePresets.Code.cs:57) and that preset
+      carries PhaseSequence too (:66), so a gate-published budget would be unreachable in
+      every configuration. With nothing published the executor uses 100, exactly as before, so
+      every preset that splices no blocks keeps its number.
+  - id: exhaustion-is-reported-the-way-a-failing-step-is
+    chose: >
+      The exhaustion branch composes a failed CommandResult and hands it to the same
+      collaborator the step-failure branch uses. Nothing marks the lifecycle failed eagerly
+      any more — HandleStepFailureAsync does that at the end of the path it already owned.
+    alternative: >
+      Keeping the bare `lifecycle.MarkFailed(); return CommandResult.Fail(...)`.
+    why: >
+      Verified at :110-115 against :146-166: the check returned BEFORE the step ran while the
+      finalizer tail ran only on a failed STEP or a safety cancel, so a run that hit the
+      ceiling kept whatever CommitPhaseWork had pushed but wrote no run result, opened no pull
+      request and left the ticket unfinalized. Going through the failure path means the tail
+      runs, a shortfall returns as a done that says what it lacks, and where there is no
+      shortfall the run now gets a failure comment and a terminal ticket status where it got
+      neither. The eager MarkFailed had to go with it: a delivered shortfall is a done run,
+      which the existing p0439 test pins.
+  - id: the-exhaustion-result-names-its-step
+    chose: >
+      PipelineStepFailure.ReportExhaustedAsync composes the failed result: StepName =
+      StepLabelComposer.Label of the node the run never reached, FailedStep = executionCount
+      + 1, TotalSteps = the LIVE list's count. The executor's branch passes the budget and
+      the node; the composition lives beside the reporting.
+    alternative: >
+      A bare CommandResult.Fail(message) — what the old ceiling returned; TotalSteps from the
+      preset the run started with.
+    why: >
+      StepName, FailedStep and TotalSteps are not decoration: FailureTicketComment.cs:28
+      renders them into the ticket's one comment on a failed run, PipelineErrorHandler.cs:31
+      logs them, and :96 stamps StepName into the WIP commit's trailer. A bare Fail leaves all
+      three at their defaults (CommandResult.cs:13-19), so the report this phase exists to
+      produce would have told the operator "Step:  (0/0)". The label is composed exactly as
+      PipelineStepRunner composes a failing step's, so the two reports read identically. The
+      denominator is the live list because an insertion loop's whole symptom is a list that
+      grew — against the 22-command preset the numerator would read like nonsense.
+  - id: a-budget-that-runs-out-exactly-at-writerunresult
+    chose: >
+      Left as it is, and recorded. PipelineFinalizerTail.cs:34 starts at the stopped-at node's
+      NEXT, so a run whose budget expires with WriteRunResult as the current node opens a pull
+      request with no run result written.
+    alternative: >
+      Starting the tail AT the stopped-at node when the stop is an exhaustion (the node has
+      not run), rather than after it.
+    why: >
+      The two branches genuinely differ: a failing step HAS run and must not be re-run, while
+      an exhausted run stopped BEFORE its node. But the window is one node wide and needs the
+      budget to expire on exactly the run's own WriteRunResult — unreachable at any budget
+      this phase computes, since the tail commands sit at the end of a list the guard trips
+      long before. Handling it means teaching the tail a second entry rule for one unreachable
+      case, which is a worse trade than a recorded note. If the finalizer tail ever gains a
+      caller that stops on a node it has not run, this is the decision to revisit.
+  - id: room-a-collaborator-not-a-private-method
+    chose: >
+      PipelineStepFailure (56 lines) beside PipelineFinalizerTail: set the failure reason, run
+      the tail, return the shortfall's summary if one was delivered, else report the failure
+      and return it. Registered in AddPipelineExecutor with the executor's other collaborators.
+      PipelineExecutor 185 -> 180 lines.
+    alternative: >
+      A private method on PipelineExecutor; a second call to finalizerTail in the exhaustion
+      branch with the shortfall check written out twice.
+    why: >
+      PipelineExecutor stands at 180 against a 187 baseline (file-length-baseline.tsv:44) and
+      the branch must not grow it. Two lines of headroom could not have absorbed a private
+      method plus a budget read plus a changed branch. Writing the shortfall check twice is
+      the worse failure: it is the rule that decides whether a stopped run delivers, and a
+      rule written twice can end up meaning two things.
+  - id: the-budget-survives-a-checkpoint-and-is-re-read
+    chose: >
+      A plain serializable record, not in PipelineContextSerializer's ExcludedKeys, read
+      through StepBudget.From on EVERY loop pass rather than captured before the loop. The
+      resumed segment keeps its own window, as it already did.
+    alternative: >
+      Reading the budget once at the top of RunLoopAsync; excluding it from the checkpoint and
+      recomputing on resume.
+    why: >
+      The sequence publishes MID-RUN, so a budget captured before the loop is the default for
+      every run that needs a different number — a test pins that by publishing from inside a
+      step. A resume rehydrates the context and splices no sequence of its own, so an excluded
+      key would silently fall back to the number this phase exists to replace; the serializer
+      drops excluded keys and unreadable types with nothing but a log line
+      (PipelineContextSerializer.cs:27-39, 82-111), so the round trip is tested rather than
+      assumed. The window is per segment because the check subtracts the segment start
+      (:110) — and a resume follows a person answering a question, which is work somebody
+      asked for.
+  - id: the-run-says-which-budget-it-has-and-when-it-changed
+    chose: >
+      The start line names the budget beside the command count, and the loop logs it again
+      whenever it changes — once per change, not once per pass. Deviation from the spec's
+      decision, which named only the start line. Both lines are asserted by
+      PipelineExecutor_BudgetChangesMidRun_TheChangeIsLogged against a capturing logger.
+    alternative: >
+      The start line alone.
+    why: >
+      On a fresh coding run the sequence has not run yet when the start line is written, so
+      that line would say "step budget 100 (no phase sequence)" for every run that later works
+      to 200 — the one case the number exists for. The start line is still right for a resume,
+      which enters with the restored budget, so it stays; the change line makes the log tell
+      the truth in both cases. A log line nothing asserts is a log line that quietly stops
+      being written, which is why the test reads the lines rather than the behaviour around
+      them. The exhaustion message names the budget and its origin either way.
+  - id: the-caps-justification-moves-with-the-cap
+    chose: >
+      SpecSet.MaxPhases's comment no longer says the executor allows a bounded number of
+      command executions; it says the budget follows the phase count and names StepBudget,
+      and states what the cap still decides — how much work one run may be asked to do.
+    alternative: >
+      Leaving the comment; deleting it.
+    why: >
+      The comment was the only place the old coupling was written down (SpecSet.cs:47-52), so
+      leaving it teaches the next reader a rule that no longer exists, and deleting it leaves
+      the cap unexplained. Raising the cap is 2026-09-17-0e79a's decision, not this phase's;
+      this one only makes the budget follow it.

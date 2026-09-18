@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -40,6 +41,10 @@ public sealed class PhaseSequenceHandler(ILogger<PhaseSequenceHandler> logger)
                 $"Every phase of {set.Key} already executed on this branch — nothing left to run"));
 
         context.Pipeline.Set(ContextKeys.SpecSequenceProgress, SpecSequenceProgress.ForSet(set));
+        // 2026-09-17-0e79e: the executor's loop guard is sized here, because this is where
+        // the work is known. The UNEXECUTED tail is the right number: on a re-trigger after
+        // four executed phases the set's own count is twice what this run will splice.
+        context.Pipeline.Set(ContextKeys.StepBudget, StepBudget.ForPhases(pending.Count));
         var commands = pending
             .SelectMany(phase => PerPhase.Select(
                 name => new PipelineCommand(name) { PhaseId = phase.PhaseId }))

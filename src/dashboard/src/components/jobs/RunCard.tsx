@@ -6,6 +6,9 @@ import { CancelRunButton } from "./CancelRunButton";
 import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { isRunLive } from "@/lib/runLiveness";
+// 2026-09-17-042ef: the status words live beside the glyph mapping that reads the same column,
+// because the Work it out page reads them too and a second copy would disagree.
+import { runStatusWord } from "./runStatus";
 
 // p0330: "queued" is NOT terminal for cancel purposes — the capacity-waiting
 // state is exactly the one the operator most wants to kill, and the backend
@@ -17,19 +20,6 @@ import { isRunLive } from "@/lib/runLiveness";
 interface Props {
   snapshot: RunSnapshot;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  running: "running",
-  success: "success",
-  shortfall: "done, with a shortfall",
-  failed: "failed",
-  error: "error",
-  cancelled: "cancelled",
-  // p0269a: capacity-waiting run — the ticket re-runs automatically when room frees.
-  queued: "queued — waiting for capacity",
-  // p0327: parked on a question — resumes as the same run once answered.
-  waiting_for_input: "waiting for your input",
-};
 
 function statusTone(status: string | null | undefined): BadgeTone {
   const s = (status ?? "").toLowerCase();
@@ -97,7 +87,7 @@ export function RunCard({ snapshot }: Props) {
             cancelRequested={snapshot.cancelRequested}
           />
           <Badge tone={statusTone(snapshot.status)} className="flex-none">
-            {STATUS_LABEL[(snapshot.status ?? "").toLowerCase()] ?? snapshot.status ?? "unknown"}
+            {runStatusWord(snapshot.status) || "unknown"}
           </Badge>
         </span>
       </div>

@@ -42,6 +42,16 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
             BuildOutcomeResolver(),
+            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
+                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
+                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
+            // 2026-09-17-042ed: the review of a proposal — no reviewer call unless a test proposes.
+            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
+                Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
+                AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
+                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
             new StubSubAgentRunner(),
             new SubAgentBudget(20),
             new SubAgentNameValidator(),
@@ -88,6 +98,8 @@ internal static class MasterHandlerFixture
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
             dialogueTransport: null,
             new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>

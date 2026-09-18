@@ -12,14 +12,20 @@ import type {
 //
 // An epic's children are listed IN THE ORDER THEY WILL BE FILED: the backend orders them
 // with the orderer the filer itself runs, so this column cannot show a plan other than the
-// one about to be created. Whether a slice waits is what its requires ids say, and nothing
-// more — the proposal carries no reason and no promise about when it runs.
+// one about to be created.
+//
+// 2026-09-17-0e79d: that order is also the order ONE run works them in — the parent draft is
+// the work ticket carrying the whole approved set, and each slice is a record beside it. So
+// "waits for" names the edge the cut declared, not a ticket held in a queue behind another.
 //
 // There is deliberately no "what it had to assume" section: the design-partner master's
 // phase template emits neither facts nor assumptions, so one would be blank on every draft
 // this conversation can produce.
 //
 // 2026-09-17-c7aed: the raw form is one disclosure under the structure, as it will be filed.
+//
+// 2026-09-17-042ef: every heading above a list is the studio's field label and every slice is
+// its panel card, so the local eyebrow this file declared is gone.
 
 export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposalPush }) {
   const phases = [proposal.parent, proposal.phase, ...proposal.children].filter(
@@ -29,16 +35,16 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
     <div data-testid="dialog-proposal" data-kind={proposal.kind} className="flex flex-col gap-3.5">
       {proposal.bug && (
         <div data-testid="dialog-proposal-bug">
-          <Eyebrow>A fix-bug ticket</Eyebrow>
+          <Label>A fix-bug ticket</Label>
           <h3 className="dsh-h3 font-semibold text-ink">{proposal.bug.title}</h3>
           <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.bug.body}</p>
         </div>
       )}
       {proposal.phase && <Phase phase={proposal.phase} label="One phase" />}
-      {proposal.parent && <Phase phase={proposal.parent} label="Parent — a record, not work" />}
+      {proposal.parent && <Phase phase={proposal.parent} label="The work ticket — one run works every slice" />}
       {proposal.children.length > 0 && (
         <div>
-          <Eyebrow>Slices, in the order they will be filed</Eyebrow>
+          <Label>Slices, in the order they will be filed</Label>
           <ol data-testid="dialog-proposal-children" className="ml-5 flex list-decimal flex-col gap-2 marker:font-mono marker:text-body">
             {proposal.children.map((child, index) => (
               <li key={child.phaseId}>
@@ -50,7 +56,7 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
       )}
       {phases.some((phase) => phase.yaml) && (
         <details>
-          <summary className="cursor-pointer eyebrow-uppercase text-body">
+          <summary className="fl cursor-pointer">
             The same thing, as it will be filed
           </summary>
           {phases.filter((phase) => phase.yaml).map((phase) => (
@@ -71,9 +77,9 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
 function Phase({ phase, label }: { phase: SpecDialogPhaseProposal; label: string }) {
   return (
     <div data-testid={`dialog-proposal-phase-${phase.phaseId}`}>
-      <Eyebrow>{label}</Eyebrow>
+      <Label>{label}</Label>
       <h3 className="dsh-h3 font-semibold text-ink">{phase.goal}</h3>
-      <div className="font-mono dsh-mono text-body">{phase.phaseId}</div>
+      <div className="fv">{phase.phaseId}</div>
       <Sections phase={phase} />
     </div>
   );
@@ -92,10 +98,10 @@ function Slice({
     <details
       data-testid={`dialog-proposal-phase-${slice.phaseId}`}
       open={open}
-      className="rounded-md border border-mute"
+      className="ecard inert"
     >
       <summary className="flex cursor-pointer items-baseline gap-2 px-2.5 py-2">
-        <span className="font-mono dsh-label text-body">{slice.phaseId}</span>
+        <span className="ec-mark">{slice.phaseId}</span>
         <span className="flex-1 dsh-body font-medium text-ink">{slice.goal}</span>
       </summary>
       <div className="px-2.5 pb-2.5">
@@ -129,7 +135,7 @@ function Lines({ label, items, mono }: { label: string; items: string[]; mono?: 
   if (items.length === 0) return null;
   return (
     <div className="mt-2">
-      <Eyebrow>{label}</Eyebrow>
+      <Label>{label}</Label>
       <ul className={mono ? "ml-4 list-disc font-mono dsh-mono text-ink" : "ml-4 list-disc dsh-body text-ink"}>
         {items.map((item) => (
           <li key={item}>{item}</li>
@@ -139,6 +145,7 @@ function Lines({ label, items, mono }: { label: string; items: string[]; mono?: 
   );
 }
 
-function Eyebrow({ children }: { children: string }) {
-  return <div className="mb-0.5 eyebrow-uppercase text-body">{children}</div>;
+/** The studio's field label — what the lines under it are. */
+function Label({ children }: { children: string }) {
+  return <div className="fl mb-0.5">{children}</div>;
 }

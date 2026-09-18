@@ -17,6 +17,7 @@ using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -95,9 +96,19 @@ public sealed class DeriveSpecCommentRecutTests
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
             deriver, reader, publisher, pointers,
-            new SpecSourceResolver(new PhaseSpecFromTicket(validator, draftReader), NullLogger<SpecSourceResolver>.Instance),
+            new ApprovedSpecSetResolver(
+                new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
+            new SpecSourceResolver(
+                new PhaseSpecFromTicket(validator, draftReader),
+                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
+                NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecCoverageRefusal(
+                new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
+                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
             new SpecSetTicketCommenter(tickets.Object, NullLogger<SpecSetTicketCommenter>.Instance),
+            ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),

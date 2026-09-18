@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-17-042ea
+
+decisions:
+  - category: Architecture
+    chose: "A provider's link refusal is a Failed result; the filer guards a throw into one too"
+    over: "Providers throw and only the filer converts"
+    reason: |
+      The spec names a missing Jira link type a failed LINK, so the provider has to answer with a
+      result. One internal collaborator (TrackerParentLink, an instance each provider constructs
+      beside its other helpers, because NoStaticStateRuleTests refuses a static taking a logger)
+      holds the catch-log-and-return shape all four providers share. The filer keeps its own guard because an exception that reached
+      OutcomeTicketFiler would become the report's Error, and the notice would offer a retry that
+      files every ticket again.
+
+  - category: Architecture
+    chose: "FilingReport.Notes as an init property; SpecDialogFiling and SpecDialogFilingPush carry it"
+    over: "A second positional parameter on FilingReport"
+    reason: |
+      Positional constructions of FilingReport stay valid in every existing test. The saved filing
+      takes notes as an optional trailing parameter, so a row written before this phase reads back
+      with null and the view reader sends an empty list.
+
+  - category: Implementation
+    chose: "The Jira link type is a tracker key, parent_link_type, plumbed from the raw YAML entry"
+    over: "A field on JiraEndpoints"
+    reason: |
+      Verified while building: the tracker's endpoints block is never read from YAML.
+      RawTrackerEntry has no Endpoints property and TrackerCatalogBuilder never sets
+      TrackerConnection.Endpoints, so a type placed there would be configurable in name only. The
+      IssueLink path still joins JiraEndpoints, as the spec says, and shares that pre-existing gap.
+      CapabilityCoverageTests refuses a raw tracker field the studio does not declare, so the key
+      is declared among the workflow fields and carried by TrackerEntity, ConfigCatalogMapper,
+      RawConfigPatch and the dashboard's tracker type, like lifecycle_status_names, the other
+      Jira-only key there.
+
+  - category: Implementation
+    chose: "Azure DevOps sends a WorkItemRelation value through the Op helper, whose value became object"
+    over: "A second Op overload"
+    reason: |
+      One helper with an object value serves the string fields and the relation alike. The
+      provider sits at its ratchet baseline, so every line counted; phase-history comments were
+      condensed to make room rather than moving the patch builder out.
+
+  - category: Implementation
+    chose: "Jira links child and parent as outward and inward issue of the configured type"
+    over: "Checking the link type exists with a GET first"
+    reason: |
+      A missing or disabled type is refused by the POST itself with the site's own message, which
+      becomes the note. A pre-check doubles the calls and still races a site admin.
+
+  - category: Scope
+    chose: "The shared harness RecordingTicketProvider hands out distinct ids"
+    over: "Leaving it at a constant id"
+    reason: |
+      The spec names it. The epic harness test uses its own nested recording provider, which now
+      records the links, so the harness proves each child is linked to ticket 1.
+
+  - category: Architecture
+    chose: "A cancellation is let through only when the caller's own token asked for it"
+    over: "Letting every OperationCanceledException escape"
+    reason: |
+      Found in review. An HttpClient timeout throws TaskCanceledException with nobody having
+      cancelled. It escaped TrackerParentLink, EpicTicketFiler and OutcomeTicketFiler, so the
+      sink stopped right after storing the confirmed outcome, no notice was written, and asking
+      again filed every ticket a second time. A timed-out link is now a Failed link and a note; a
+      timed-out create is the report's error; the caller's own cancellation still ends the filing.
+
+  - category: Implementation
+    chose: "Azure DevOps refuses to link when either id is not a work item id"
+    over: "Checking the parent id only"
+    reason: |
+      Found in review. PatchAsync returns without sending when the child id does not parse, and
+      the link then reported Linked for a relation that was never written. The provider now
+      answers Failed with both ids named before any patch is built.

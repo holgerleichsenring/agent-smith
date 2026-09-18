@@ -23,12 +23,13 @@ public sealed class TicketFilingOutcomeSink(
     ILogger<TicketFilingOutcomeSink> logger) : IOutcomeSink
 {
     public async Task AcceptAsync(
-        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
+        ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
+        CancellationToken cancellationToken)
     {
         await outcomeStore.SetConfirmedAsync(
             state.Platform, state.ThreadId!, proposal, cancellationToken);
 
-        var report = await filer.FileAsync(state, proposal, cancellationToken);
+        var report = await filer.FileAsync(state, proposal, mayStartRuns, cancellationToken);
         if (report.Succeeded)
         {
             await outcomeStore.ClearConfirmedAsync(state.Platform, state.ThreadId!, cancellationToken);
@@ -48,12 +49,13 @@ public sealed class TicketFilingOutcomeSink(
         // The notice is both sent and kept: the transcript is the master's own context, so
         // it holds the line in the dialect the reader of this conversation sees.
         var notice = (report.Succeeded
-            ? composer.ComposeFiled(proposal, report.Filed)
-            : composer.ComposeFilingFailure(report.Error!, report.Filed))
+            ? composer.ComposeFiled(proposal, report)
+            : composer.ComposeFilingFailure(report))
             .In(SpecDialogMarkup.For(state.Platform));
         await messenger.SendAsync(
             state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
         await sessions.AppendTurnAsync(
-            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, cancellationToken);
+            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice,
+            SpecDialogTurnKind.Filing, null, cancellationToken);
     }
 }

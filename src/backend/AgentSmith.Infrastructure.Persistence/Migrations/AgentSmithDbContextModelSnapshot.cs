@@ -61,6 +61,53 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ActiveRuns");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ApprovedSpecSet", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("ApprovedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApprovedBy")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApprovedInConversation")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecordJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecKey")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tracker")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Tracker", "SpecKey")
+                        .IsUnique();
+
+                    b.ToTable("ApprovedSpecSets");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntity", b =>
                 {
                     b.Property<long>("Id")
@@ -453,6 +500,8 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Project");
+
+                    b.HasIndex("Project", "TicketId");
 
                     b.ToTable("Runs");
                 });

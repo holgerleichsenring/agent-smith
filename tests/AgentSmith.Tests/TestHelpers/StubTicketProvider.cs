@@ -20,6 +20,10 @@ internal sealed class StubTicketProvider : ITicketProvider
         string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken) =>
         Task.FromResult(new CreatedTicket(new TicketId("1"), "https://stub.test/tickets/1"));
 
+    public Task<ParentLinkResult> LinkToParentAsync(
+        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+        Task.FromResult(ParentLinkResult.Linked);
+
     public Task FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
         Task.CompletedTask;

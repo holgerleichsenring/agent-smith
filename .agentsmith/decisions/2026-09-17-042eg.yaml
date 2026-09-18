@@ -1,0 +1,177 @@
+phase: 2026-09-17-042eg
+decisions:
+  - id: the-start-is-a-collaborator-with-one-public-method
+    chose: >
+      FiledWorkStarter.StampAsync is the only public method: it resolves, moves where it may, and
+      writes the resulting state onto the entry the filer already put in the report, found by
+      ticket id. FiledWorkReasons holds the sentences.
+    alternative: >
+      A public StartAsync returning the state, with each filer stamping the report itself.
+    why: >
+      Three call sites (bug, phase, epic) would each have repeated the same two lines, and the
+      lookup "which entry is this ticket" would have been three answers instead of one. One public
+      method is also one surface to test, and every test in the spec reaches it through a filer,
+      which is how the server reaches it. The reasons moved out because OutcomeTicketFiler was at
+      101 of 120 and the starter itself would have crossed the cap with them inline.
+  - id: the-pipeline-assertion-was-removed-after-it-survived-mutation
+    chose: >
+      "Routed" is a ProjectMatch naming the filing project on the filing tracker's own kind —
+      nothing about which pipeline. The spec asked for phase-execution on a work ticket and any
+      pipeline on a bug; that distinction is ProjectResolver's own (the phase label hard-binds the
+      preset before pipeline_from_label is consulted), so restating it here was dead code.
+    alternative: >
+      Keeping the assertion as a defensive check, untested.
+    why: >
+      Mutating the check away left all eighteen tests green — the honest signal that nothing
+      depended on it, and that no test through the real resolver ever could. A second copy of a
+      routing rule in a file that does not own it is a copy that drifts.
+  - id: the-permission-is-read-where-the-request-is
+    chose: >
+      SpecDialogEndpoints.MayStartRuns computes the bool from TokenAuthorityConfig.Enforce and
+      CallerIdentityResolver, and it travels as a parameter down DashboardDialogDispatcher →
+      SpecDialogRouter → SpecDialogOutcomeFlow → IOutcomeSink → the filers. It is internal so a
+      test can hold it to the two authority states without standing up the whole chain.
+    alternative: >
+      A scoped service the filer reads, or a field on the persisted DialogAnswer.
+    why: >
+      The turn that files is the turn the request started, and MayPostAsync already admits only the
+      session's owner — so the principal on that request IS the approver. A persisted field would
+      have been a migration for a value that never outlives the turn, and a service read deeper
+      down would have had no request to read from: the turn runs fire-and-forget on a fresh scope.
+      Slack and Teams pass false at their one shared call site, because a chat message carries no
+      permission this process can check.
+  - id: the-move-is-the-last-thing-the-approval-does
+    chose: >
+      EpicTicketFiler stamps the work ticket AFTER the set is stored, after the records are filed
+      and after the comment; OutcomeTicketFiler stamps a phase after RecordAsync and a bug straight
+      after the create.
+    alternative: >
+      Stamping immediately after StoreAsync, which is the earliest point that is safe.
+    why: >
+      Both are safe against the one failure that matters — a ticket in a trigger status with no
+      stored set is claimed by the poller and derives its own spec. Last is also safe against a
+      record that fails to file, and it keeps the filing order one straight line a reader can
+      follow. Filing_ApprovedSetIsStoredBeforeTheTicketIsMoved pins the ordering that matters;
+      moving the call before StoreAsync fails it.
+  - id: the-state-is-an-enum-serialized-by-name
+    chose: >
+      FiledStartState carries [JsonConverter(typeof(JsonStringEnumConverter<FiledStartState>))], so
+      "Started"/"NotStarted"/"Record" is what the session row keeps and what the hub pushes,
+      whatever options the writer used. The dashboard type is that string union.
+    alternative: >
+      A plain string on the record, or an enum relying on the ambient serializer options.
+    why: >
+      SpecDialogLatestOutcomeStore serializes with JsonSerializerDefaults.Web, which has no string
+      enum converter — a bare enum would have been persisted as a number, and a later member
+      insertion would have silently re-read every stored filing as the wrong state. A plain string
+      would have moved the same risk into the C# side. The attribute makes one wire form true on
+      every path.
+  - id: jira-matches-the-target-only-after-the-name
+    chose: >
+      FindTransitionId keeps the name pass exactly as it was and adds a second pass that takes the
+      transition whose "to".name EQUALS the wanted status, case-insensitively. Only primaryName is
+      matched against the target; the fallback stays a transition-name match.
+    alternative: >
+      Matching the target first, or matching the fallback against the target too.
+    why: >
+      Close, finalize, the native lifecycle and the retry all rest on the name pass, and a target
+      match that ran first would silently reroute them — JiraTransition_NameMatch_StillWinsOverTarget
+      is that mutation caught. The fallback is a transition NAME by construction (the close
+      transition's label), so holding a status field to it would be comparing two different things.
+      Equality, not substring: "To Do" must not be satisfied by a transition landing in "To Do Later".
+      "Every transition a name match found is still the one taken" is held literally, including the
+      one the tracker sent without an id: that answers "none", the way it always did, rather than
+      falling through to a pass the name match exists to pre-empt.
+  - id: the-resolvers-three-silent-drops-get-three-sentences
+    chose: >
+      Before a not-started reason is written, the cause is established from the data in hand:
+      IStartupFindings.BlockingReason for this project trigger, then the matches that DID come back
+      (they name other projects), then the trigger's own project_resolution — absent, a non-tag
+      strategy a polled envelope can never satisfy, or a tag the ticket does not carry — and only
+      what is left is "the project's own pipeline rules dropped it".
+    alternative: >
+      One sentence naming the resolution, which is what the first implementation wrote.
+    why: >
+      ProjectResolver drops a match for three different reasons and returns the same empty list for
+      all of them. One sentence therefore told an operator whose tracker credentials are missing to
+      add a tag their ticket already carries — a WRONG answer, not a vague one, and the three want
+      three different things done about them. Only the TAG comparison is re-read here, off the very
+      labels the envelope carries; the other three strategies read an area path, a source repo or a
+      to-address that a polled envelope does not carry at all, so they are unsatisfiable by
+      construction rather than by a comparison this file would have to keep in step.
+  - id: a-ticket-that-resolves-elsewhere-is-not-a-ticket-nothing-routes
+    chose: >
+      When the resolver returns matches that do not name the filing project, the reason names those
+      projects and says a poll will spawn a run there — still NOT STARTED, because it is not the
+      work this conversation filed.
+    alternative: >
+      "Nothing would route it", the same sentence as an unresolvable ticket.
+    why: >
+      ProjectResolver is ambiguous by design and TrackerPoller.DispatchTicketAsync spawns for every
+      match, so a run IS coming — just not the one the approval asked for. Telling the operator
+      nothing routes it would send them looking for a tag while a neighbouring project works the
+      ticket, which is the harder failure to unpick of the two.
+  - id: the-not-started-reason-names-a-move-not-a-wait
+    chose: >
+      Without runs.control the reason says to move the ticket into the trigger status in the
+      tracker, or to ask someone who holds runs.control to move it THERE, and warns that approving
+      again files a second work ticket and a second run. A successor gives the filed tab a start
+      action that re-runs the starter against the ticket id and project the report already carries.
+    alternative: >
+      "Waiting for someone who may start runs", which the first implementation wrote.
+    why: >
+      That named a wait nothing can end. The permission is sampled once, on the request that opened
+      the turn, and no later path re-reads it — an approval is admitted as the answer to the pending
+      question and returns before RunTurnAsync — so a colleague granted the role afterwards has no
+      affordance at all, and re-approving would file a second work ticket with a second stored set.
+      Until the start action lands, the tracker is the affordance, and the sentence says so.
+  - id: the-permission-is-the-proposing-turns-in-both-directions
+    chose: >
+      The bool is the one sampled when the turn that PROPOSED started, and that is stated for both
+      directions: a role removed before the approval still moves the ticket, and a role granted
+      before the approval does not. Pinned by a test that routes an approval with the permission
+      set and shows it reaches neither the turn runner nor the sink.
+    alternative: >
+      Carrying the permission on the pending answer so the approving principal decides.
+    why: >
+      The answer would have to travel from the router's admission through the dialogue transport to
+      the confirmer's result and on to the sink — and that transport is not guaranteed to be the
+      same process, so the value would have to be persisted on DialogAnswer, which is a migration
+      for a value that never outlives the turn. The one-sample rule is defensible; leaving only
+      half of it written down was not, because it is what made the old "waiting" sentence read as
+      an affordance somebody had.
+  - id: an-impossible-move-outranks-a-missing-permission
+    chose: >
+      A trigger status that is not a native GitHub or GitLab state is reported before the
+      runs.control check.
+    alternative: >
+      Checking the permission first, as the first implementation did.
+    why: >
+      The impossibility is the same answer whoever is asking. Telling a reader without the
+      permission to find a colleague who holds it would send two people after a move neither of
+      them can make; the honest answer is that the project's trigger statuses name a state this
+      tracker does not have.
+  - id: the-per-ticket-line-is-a-nested-bullet
+    chose: >
+      FiledWorkStart.Note renders "\n  - {label}: {reason}" and is marked [JsonIgnore].
+    alternative: >
+      A bare newline, and letting the property serialize.
+    why: >
+      A single newline inside a markdown list item is a SOFT break in CommonMark, so on the page
+      the reason ran on after the ticket title, while Slack's mrkdwn broke it — one markup has to
+      read in both. And the property is a rendering of two fields already on the record: serialized,
+      it would have become a third field on the stored session row and on the hub push, stale the
+      moment either field changed.
+  - id: an-unresolvable-ticket-is-told-about-rather-than-moved
+    chose: >
+      A ticket the poller's envelope would not resolve is reported NOT STARTED, naming the
+      resolution it does not satisfy and saying the tracker's own webhook may still claim it. It is
+      never moved.
+    alternative: >
+      Moving it anyway, so that a webhook or a later configuration change finds it ready.
+    why: >
+      Moving it would leave it sitting in a trigger status nothing claims, and the report would
+      have to either lie ("started") or say "moved, but nothing will pick it up" — which is the
+      same sentence with a side effect attached. The framework stamps no resolution tag on what it
+      files, so on an area-path, repo or to-address project nothing this filer creates resolves;
+      that is a named successor's work, not a move made in hope.

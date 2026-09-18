@@ -28,6 +28,7 @@ public sealed class ChatClientFactory(
     ILlmRateLimiterRegistry rateLimiterRegistry,
     RateLimiting.ThrottleWaitReporter waitReporter,
     Contracts.Runs.IRunTraceWriter trace,
+    Contracts.Turns.ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee
     CompactionSummaryRequest summaryRequest,
     WindowDerivedCompaction windowCompaction,
     ILoggerFactory loggerFactory)
@@ -121,7 +122,7 @@ public sealed class ChatClientFactory(
         // resolver can't price a config-only model → $0.0000 despite real tokens.
         var pricing = new OverlayModelPricingResolver(pricingResolver, agent.Pricing);
         var instrumented = new EventPublishingChatClient(resilient, eventPublisher, runContext,
-            new LlmCallCostCalculator(pricing), waitReporter, assignment.Model ?? "");
+            new LlmCallCostCalculator(pricing), waitReporter, assignment.Model ?? "", turnActivity);
 
         // p0427: a traced run records EVERY provider call here, below the tool loop, so the
         // record is a replayable sequence instead of one flattened entry per skill call —

@@ -60,7 +60,7 @@ public sealed class DataArchiveSchemaTests : IDisposable
         using var db = MigratedStoreTemplate.Context(_store);
         var ordered = new ArchiveTableOrder().Of(db.Model);
 
-        ordered.Should().HaveCount(22);
+        ordered.Should().HaveCount(23);
         var placed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var type in ordered)
         {
@@ -155,12 +155,12 @@ public sealed class DataArchiveSchemaTests : IDisposable
     }
 
     [Fact]
-    public void GeneratedKeyProperty_TheTablesTheProviderGeneratesKeysFor_AreTheTwentyWithLongIds()
+    public void GeneratedKeyProperty_TheTablesTheProviderGeneratesKeysFor_AreTheTwentyOneWithLongIds()
     {
         using var db = MigratedStoreTemplate.Context(_store);
         var generated = new GeneratedKeyProperty();
 
-        DataArchiveHarness.Tables(db).Count(t => generated.Of(t) is not null).Should().Be(20);
+        DataArchiveHarness.Tables(db).Count(t => generated.Of(t) is not null).Should().Be(21);
         generated.Of(db.Model.FindEntityType(typeof(Run))!).Should().BeNull("a run carries its own id");
         generated.Of(db.Model.FindEntityType(typeof(RunEvent))!).Should().NotBeNull();
     }

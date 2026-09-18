@@ -170,7 +170,7 @@ public sealed class DialogConversationListTests : IDisposable
             new FilingReport([new("https://tracker.test/1", "p1: the phase")], null), Phase(), CancellationToken.None);
         var before = (await ListAsync()).Single().Outcome;
 
-        await Flow(store).HandleAsync(state, new AnswerOutcome(), CancellationToken.None);
+        await Flow(store).HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
 
         before.Should().Be(new SpecDialogConversationOutcome("phase", Tickets: 1, Partial: false));
         (await ListAsync()).Single().Outcome.Should().Be(before);
@@ -267,7 +267,7 @@ public sealed class DialogConversationListTests : IDisposable
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
 
     private Task SayAsync(string dialogId, string text) =>
-        _sessions.AppendTurnAsync(Platform, dialogId, TranscriptRole.User, text, CancellationToken.None);
+        _sessions.AppendTurnAsync(Platform, dialogId, TranscriptRole.User, text, null, null, CancellationToken.None);
 
     private Task<IReadOnlyList<SpecDialogSessionSummary>> ListAsync() =>
         new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)).ListAsync(Owner, CancellationToken.None);

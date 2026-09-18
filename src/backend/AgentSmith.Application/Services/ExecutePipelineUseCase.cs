@@ -293,19 +293,19 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
         pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
-        // p0327: hybrid-wait tuning + the identity facts a checkpoint event needs
-        // (a spawned orchestrator cannot read them from the DB).
+        // p0327: hybrid-wait tuning + the identity facts a checkpoint event needs (a spawned
+        // orchestrator cannot read them from the DB); 0e79a adds the tracker CONNECTION.
         pipeline.Set(ContextKeys.DialogueHotWaitSeconds, config.Dialogue.HotWaitSeconds);
         pipeline.Set(ContextKeys.DialogueApprovalTimeoutSeconds, config.Dialogue.ApprovalTimeoutSeconds);
         pipeline.Set(ContextKeys.ProjectName, projectConfig.Name);
         if (request.TicketId is not null)
-            pipeline.Set(ContextKeys.TrackerPlatform,
-                projectConfig.Tracker.Type.ToString().ToLowerInvariant());
+        {
+            pipeline.Set(ContextKeys.TrackerPlatform, projectConfig.Tracker.Type.ToString().ToLowerInvariant());
+            pipeline.Set(ContextKeys.TrackerConnection, projectConfig.Tracker.Name);
+        }
         pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
         pipeline.Set("PipelineCostCap", configResolver.ResolveCostCap(request.PipelineName).Value);
-        // p0176b: per-call cost emitter (EventPublishingChatClient) and the
-        // tracker share the same default-pricing baseline via the resolver.
-        pipeline.Set("ModelPricingResolver", modelPricingResolver);
+        pipeline.Set("ModelPricingResolver", modelPricingResolver); // p0176b: one pricing baseline
 
         // p0125c-followup: vocabulary must be in PipelineContext BEFORE the first
         // handler runs. Since p0125c, PipelineNameInitializer is step 1 of every

@@ -1,0 +1,190 @@
+phase: 2026-09-17-0e79d
+decisions:
+  - id: the-renderer-methods-keep-their-names
+    chose: >
+      PhaseTicketRenderer.RenderEpicParent renders the WORK ticket and RenderChildRequirement
+      renders a SLICE RECORD; both keep their names and gain doc comments saying what they now
+      render. Only the LABELS the filer stamps on their output changed.
+    alternative: >
+      Renaming them to RenderWorkTicket / RenderSliceRecord, which is what the new shape reads like.
+    why: >
+      The two methods produce the same bytes as before — the shape of an epic's parent body and of
+      a requirement body is untouched — so a rename would be churn across seven test files and the
+      harness for no behavioural difference, and it would collide with 2026-09-17-0e79b in the two
+      files it also edits. The spec asked for the renderer to "become the work ticket's", not for a
+      new name. The doc comment is where the meaning moved.
+  - id: the-records-are-filed-by-their-own-method
+    chose: >
+      EpicTicketFiler.FileAsync files the work ticket and stores the set; a private
+      FileRecordsAsync files every record, links it and returns the reference lines the comment
+      is built from.
+    alternative: >
+      One method, as the N-children shape had it.
+    why: >
+      FileAsync gained the session and the resolved project (for the store write) and the file is
+      at 99 of 120 lines. 2026-09-17-042eg still has to add its start-and-confirm call here, so the
+      21 lines left are its budget — and "file the work ticket" and "file the records" are two
+      things a reader can now hold apart. The spec's own estimate ("near 58 of 120") was made
+      against a 64-line file; 2026-09-17-042ea's link call and its handler had landed since, so the
+      base was 90, not 64.
+  - id: the-cap-and-the-legacy-exemption-were-already-there
+    chose: >
+      No code was written for the cap refusal or for the legacy-child exemption: EpicOutcomeParser
+      already refuses an over-cap proposal and FiledTicketSpecGate already exempts a phase ticket
+      carrying a parent stamp, both landed by 2026-09-17-0e79a. This phase only documents the
+      stamp as what it has become — a LEGACY DISCRIMINATOR, since nothing the framework files
+      carries one any more.
+    alternative: >
+      Minting the four tests the spec named for those two behaviours
+      (EpicApproval_OverThePhaseCap_IsRefusedBeforeAnyTicketIsCreated,
+      LegacyEpicChild_WithParentStampAndNoRecord_StillDerives,
+      FiledTicketWithoutAStampOrARecord_StillFailsLoudly, and the at-the-cap case).
+    why: >
+      Each of them exists in the tree under a different name
+      (ApprovedPhaseSetStoredTests.Proposal_OverMaxPhases_IsRefusedBeforeAnythingIsFiled and
+      Proposal_AtTheCap_IsStillAccepted, ApprovedSetDeriveSpecTests.LoudMiss_PhaseTicketWith
+      AParentStamp_StillDerives and ApprovedSet_FiledTicketWithNoRecord_FailsLoudly). A second copy
+      asserting the same thing is a second copy that will disagree with the first when one of them
+      is updated.
+  - id: the-withdrawal-had-already-been-recorded
+    chose: >
+      Nothing was deleted or corrected for step the-withdrawal.
+    alternative: >
+      Deleting 2026-09-17-042ei's spec file and correcting 2026-09-17-042eh and -042ej, as the
+      step says.
+    why: >
+      The spec was written and the withdrawal executed in ONE commit (b5efa8ea): that commit
+      deletes 2026-09-17-042ei-epic-final-pull-request.yaml and rewrites 042eh and 042ej alongside
+      the five 0e79 specs. No reference to 042ei survives anywhere in the tree outside this
+      phase's own spec. Recorded because the step reads as outstanding work and is not.
+  - id: the-record-label-is-refused-by-the-value-not-by-a-new-constant
+    chose: >
+      PhaseTicketRenderer.EpicLabel keeps the value "phase-epic"; its doc, FiledTicketLabels' doc
+      and ProjectResolver's log line say "a record, not work" instead of "the record of a cut".
+      A test pins the literal value.
+    alternative: >
+      Renaming the constant (and its value) to something like "phase-record", which is what the
+      widened meaning reads like.
+    why: >
+      ProjectResolver refuses on the VALUE, and every epic parent already on an operator's tracker
+      carries "phase-epic". A new value would make each of them routable overnight — a run started
+      on the summary of a cut, which is the exact failure 2026-09-13-a3f1 fixed.
+  - id: the-two-stamp-tests-of-the-old-shape-became-one-of-the-new
+    chose: >
+      EpicFilingOrderTests' FileEpic_Child_CarriesPredecessorAndParentLabels and
+      FileEpic_Child_ParentAndPredecessorStampsAreDistinguishable were replaced by
+      FileEpic_NothingItFiles_CarriesAStamp.
+    alternative: >
+      Keeping them as a regression guard on FiledTicketLabels' stamp semantics.
+    why: >
+      They asserted the filing shape this phase removes, through the filer. The stamp SEMANTICS
+      they incidentally covered are pinned directly elsewhere — PredecessorGateFunnelTests,
+      RunParentTicketTests and EpicGroundFetchTests all read stamps from envelopes they build
+      themselves — so nothing is left unguarded, and what the filer must now be held to is the
+      absence of a stamp.
+  - id: a-failed-record-is-a-note-a-failed-store-is-the-error
+    chose: >
+      The line is the STORED SET. A record that cannot be created, like a link that does not
+      land, is a NOTE naming the slice that has no ticket; a store write that fails is the
+      filing's ERROR, and its message names the work ticket, says not to trigger it and says to
+      close it because asking again files a second one.
+    alternative: >
+      One rule for everything after the work ticket — all notes, or all errors.
+    why: >
+      2026-09-17-042ea made a failed link non-fatal because an error offers a retry and the retry
+      files every ticket a second time; with the set stored under the work ticket that retry now
+      costs a SECOND work ticket with a second stored set — two runs and two pull requests per
+      repository. The record-create path had been left fatal and had exactly that consequence.
+      The store is the other way round: until it lands the work ticket is a phase-labelled ticket
+      with no specification, which is the broken hand-off FiledTicketSpecGate fails loudly on, on
+      the operator's own epic. Silence there would hand back a complete-looking epic that cannot
+      run, so it is reported — and reported before any record is filed, so nothing is left behind
+      it. Filing the work ticket AFTER the store is not open: the key is built from the created
+      ticket's id (SpecSetKey.For(tracker, ticketId)), so the ticket must exist first.
+  - id: the-work-ticket-carries-the-specification-pointer
+    chose: >
+      RenderEpicParent appends the same "## Specification" section RenderPhase does, and the filer
+      passes state.JobId; the section is one private method both render paths call. A slice record
+      still gets none.
+    alternative: >
+      Leaving the pointer to the filed PHASE only, as it shipped.
+    why: >
+      The work ticket is the one ticket a run works from, and it said nothing about where its
+      specification lives — a reader had to know that an epic keeps it somewhere a filed phase
+      does not. A record gets none because no run works one: nothing is ever published to a branch
+      of its own.
+  - id: the-records-moved-to-their-own-filer
+    chose: >
+      EpicSliceRecordFiler files each record, links it and notes what failed; EpicTicketFiler
+      orders, renders, creates the work ticket, stores the set and comments. PhaseTicketRenderer's
+      template-provenance block moved to TemplateProvenanceLines.
+    alternative: >
+      Both responsibilities in EpicTicketFiler, and the renderer left at 119 of 120.
+    why: >
+      The two failure answers above are each several lines of reasoning; keeping them in one file
+      would have taken it past 120 and left 2026-09-17-042eg no budget at all. The renderer was at
+      119 with no baseline row and had to GAIN the specification call, so the one block it holds
+      for a reason of its own — how a template's revision is worded — left; it ends at 110 with
+      room for 2026-09-17-0e79b, which also edits it.
+  - id: two-of-the-spec-named-tests-were-substitutions-not-omissions
+    chose: >
+      EpicApproval_SliceRecords_AreLinkedToTheWorkTicket and
+      EpicApproval_LinkFails_IsANoteOnTheFilingReport are covered by the pre-existing
+      EpicFilingOrderTests.EpicFiling_EachChild_IsLinkedToItsParent (:74) and
+      EpicFiling_ALinkThatFails_FilesTheRemainingChildrenAndNotesIt_WithoutAnError (:89), and
+      ProposalPane_Epic_StillListsTheChildrenInDependencyOrder by
+      DialogProposalPaneTests.Compose_AnEpic_OrdersTheChildrenTheWayTheFilerWillFileThem (:114)
+      and the dashboard's SpecDialog_AnEpicProposal_RendersParentAndChildrenInFilingOrder.
+      PhaseApproval_SinglePhase_StillFilesOneWorkTicket had no equivalent and was written.
+    alternative: >
+      Minting a second copy of each under the spec's own name.
+    why: >
+      A second copy asserting the same thing is a second copy that will disagree with the first
+      when one of them is updated — the same reason the cap and legacy-exemption tests were not
+      duplicated above. What was missing was the RECORD of the substitution, not the tests.
+  - id: nothing-verifies-the-epics-own-done-list
+    chose: >
+      Recorded, not fixed. The stored set is the SLICES only (EpicTicketFiler: the set is built
+      from order.Children), so the run's sequence splices a master-verify-record block per slice
+      and nothing is ever gated on the parent draft's own done list. It travels as prose in the
+      work ticket's acceptance criteria, for a person.
+    alternative: >
+      Appending the parent as a ninth phase, or verifying its done list at the end of the run.
+    why: >
+      The parent is the requirement the whole cut answers; it has no steps of its own and adding
+      it to the set would spend a master-verify block on a phase with nothing to do — and it would
+      count against SpecSet.MaxPhases, which is the cap the conversation splits a programme on.
+      What is true is that "the epic is done" is asserted by nobody, and a reader of this file
+      should know that before leaning on it. A successor, named by what it does: an epic's own
+      done list is verified when its last slice is.
+  - id: the-work-ticket-carries-the-approved-set-stamp
+    chose: >
+      The epic's work ticket is filed with FiledTicketLabels.ApprovedSetStamp beside the phase
+      label, exactly as a filed single phase is. A slice record carries neither.
+    alternative: >
+      Leaving the epic's work ticket on the phase label alone, as this phase first shipped it.
+    why: >
+      2026-09-17-0e79a was amended after review: FiledTicketSpecGate now keys on the STAMP and not
+      on the phase label, and SpecSourceResolver consults the gate BEFORE the ticket-description
+      arm. A work ticket without the stamp is therefore invisible to both — the loud miss never
+      fires for an epic, and a fenced block pasted into the description by anyone with tracker
+      access becomes the spec again. That is the exact pair of holes 0e79a closed, and an epic
+      would have been the one filed shape where both stayed open. A slice record must NOT carry
+      it: it has no set of its own, so the gate would hold it to a hand-off nobody ever made.
+      Old-shape epic children carry no stamp either and keep deriving, which is what the
+      phase-parent: exemption is for.
+  - id: rebased-onto-the-amended-0e79a
+    chose: >
+      This commit was rebased from 5049c939 onto 997194ea. Three collaborators changed shape under
+      it and were followed: ISpecApprovalStore.GetAsync takes the TRACKER first, SpecApprovalRecord
+      carries a Tracker written from project.Tracker.Name, and the harness and unit test doubles
+      address the store by that pair. Nothing in the epic filer's own logic moved.
+    alternative: >
+      Keeping the branch on 5049c939 and merging later.
+    why: >
+      The amended 0e79a is cut from a different parent (594a760d, not d4ca9db7), so 2026-09-17-0e79e
+      and 2026-09-17-042ek are no longer ancestors of this branch and their specs are back in
+      planned/. Their record lines were therefore dropped from the context index during the rebase,
+      and the four approval-card tests 042ek contributed left with them — this commit no longer
+      claims either phase. What survived is this phase's own change to the card's counted summary,
+      which was wrong independently of 042ek: it called the work ticket a record.

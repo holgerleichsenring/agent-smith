@@ -1,0 +1,95 @@
+phase: 2026-09-15-a5a5
+decisions:
+  - id: three-ticket-states
+    chose: >
+      CutReviewTicket (Whole, Truncated, Absent), decided by SpecCutReviewPrompt.StateOf: null or
+      whitespace is Absent before any length is compared. Absent offers no coverage verdict, adds a note
+      that there is no ticket, opens with "A draft has been cut into phases, with no ticket behind it."
+      and renders no TICKET block.
+    alternative: >
+      A nullable bool for wholeness, or keeping the TICKET heading over an empty body.
+    why: >
+      Three states read as three states at every branch; an empty TICKET block is the same invitation to
+      judge coverage against nothing that the phase exists to remove. A derivation over a ticket with an
+      empty description now also withholds the coverage verdict, which is the same defect on that path.
+  - id: unchanged-means-the-offer
+    chose: >
+      Prompt_WithAWholeTicket_IsUnchanged and Prompt_WithATruncatedTicket_IsUnchanged assert what is
+      offered — the count, the coverage verdict or its withheld-coverage note, the problem enumeration and
+      the ticket block — not byte equality with the previous prompt.
+    alternative: >
+      Byte-identical prompts for a whole and a truncated ticket.
+    why: >
+      The spec's own step rewords the verdicts and the JSON field for every review, so a byte-identical
+      prompt would contradict the-verdicts-name-what-a-phase-states. What must not move for those two
+      states is which verdicts the reviewer may return.
+  - id: what-a-phase-states
+    chose: >
+      PhaseQuotableText: the done-list's non-blank entries when there are any, otherwise the goal and the
+      step actions. The same type renders the phase for the prompt (a done: heading only over entries, a
+      steps: heading only over steps) and admits a quote, so what is shown and what is admitted cannot
+      drift apart. The JSON key stays "criterion" and its placeholder reads "verbatim from the phase".
+    alternative: >
+      Rendering the goal and steps for every phase, or renaming the JSON key.
+    why: >
+      A phase that states a done-list is judged against it, as today. Renaming the key would change
+      CutFinding's wire shape for every caller for a word only the placeholder needs.
+  - id: the-match-is-by-words-one-direction
+    chose: >
+      A quote and a stated text are compared as lowercase word sequences (letters and digits). A quote is
+      admitted when it equals a stated text, or when it is a contiguous run of at least two of its words
+      covering at least half of them. A quote that contains a stated text is not admitted.
+    alternative: >
+      Bidirectional character containment with a two-word floor, as first shipped; or dropping the
+      contained direction but keeping character containment.
+    why: >
+      Found in review. Character containment admitted fragments that are not even words ("r uses"), a
+      word count admitted "the new" inside any criterion, and the reverse direction admitted an invented
+      sentence ending in a short criterion. Half the words is enough to say which statement is meant;
+      a model that quotes with a trailing period or different case still matches.
+  - id: a-whole-criterion-is-quotable-at-any-length
+    chose: >
+      An exact word-sequence match admits regardless of length, so "Builds" quotes the criterion "Builds".
+      The bare-id case is closed where it arises instead: a step whose action is its own id (the reader's
+      rendering of a step with no action) is not a quotable statement and is not rendered.
+    alternative: >
+      Falling back to goal and steps when no criterion passes the floor.
+    why: >
+      Found in review. One-word criteria stopped being quotable while the phase still counted as stating
+      criteria, so every finding against it was lost, which contradicts "every existing derivation-path
+      review behaves exactly as it does today". Falling back would show the reviewer text other than the
+      criteria the phase is judged against.
+  - id: the-goal-is-quotable
+    chose: >
+      The goal is quotable for every phase, beside its done-list or its steps, and the prompt says so.
+    alternative: >
+      Keeping the goal visible but unquotable, and saying so in the prompt.
+    why: >
+      Found in review. A goal can contradict the phase's own criteria, and it is rendered anyway.
+  - id: the-ticket-is-title-description-and-criteria
+    chose: >
+      SpecCutReviewTicketText joins the ticket's title, description and acceptance criteria, skipping
+      blanks; the deriver passes that. Absent only when all three are blank.
+    alternative: >
+      Passing the description alone and treating an empty one as absent.
+    why: >
+      Found in review. A ticket with a title and no description would be told there is no ticket. The
+      acceptance criteria are what a not-in-ticket verdict most needs to see.
+  - id: the-judging-sentence-follows-the-drafts
+    chose: >
+      The paragraph after the opening says phases are judged against their completion criteria only when
+      every draft states criteria; otherwise it says they are judged against what they state.
+    alternative: >
+      One wording for every review.
+    why: >
+      Found in review. A done-less draft is not judged against criteria it does not have.
+  - id: the-port-takes-drafts-and-a-key
+    chose: >
+      ISpecCutReviewer.ReviewAsync(drafts, key, ticketText?, look, agent, tracker, ct); the prompt and
+      the admission take the drafts. The deriver passes its set's drafts and key and the ticket
+      description as it is, null included.
+    alternative: >
+      An overload that builds a SpecSet from drafts.
+    why: >
+      As the spec decided: a SpecSet's Current throws on an empty revision list and its accounting and
+      source mean nothing for a draft never derived from a ticket.

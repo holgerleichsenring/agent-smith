@@ -23,7 +23,7 @@ public sealed class FactResolver
         IReadOnlyList<FactLine> lines, IReadOnlyList<string>? evidence)
     {
         ArgumentNullException.ThrowIfNull(lines);
-        var byId = IndexById(evidence ?? []);
+        var byId = DerivationEvidence.IndexById(evidence);
         var facts = new List<PhaseFact>();
         var assumptions = new List<string>();
         foreach (var line in lines)
@@ -35,14 +35,5 @@ public sealed class FactResolver
                 assumptions.Add(line.Claim);
         }
         return new PhaseFacts(facts, assumptions);
-    }
-
-    private static Dictionary<string, string> IndexById(IReadOnlyList<string> evidence)
-    {
-        var byId = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var line in evidence)
-            if (DerivationEvidence.IdOf(line) is { } id)
-                byId.TryAdd(id, line);
-        return byId;
     }
 }

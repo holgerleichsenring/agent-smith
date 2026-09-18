@@ -20,8 +20,15 @@ public static class PhaseRecordBody
                 ? SpecAccountRenderer.ToMarkdown(accounts)
                 : string.Empty;
 
+        // 2026-09-17-042eh: and what a fresh reviewer still finds in the diff, AFTER the
+        // account — the account says what was delivered, the review what it costs to keep.
+        // A review that was NOT taken says so here too: an absent answer is not a clean one.
+        var review = PhaseReviewSection.ForTheRecord(PhaseReviewLedger.ForThisPhase(pipeline));
+
         var spec = draft.Yaml.TrimEnd() + "\n";
-        if (account.Length == 0) return spec;
-        return spec + "\n# " + account.Replace("\n", "\n# ").TrimEnd() + "\n";
+        var body = (account + (account.Length > 0 && review.Length > 0 ? "\n" : string.Empty) + review)
+            .TrimEnd();
+        if (body.Length == 0) return spec;
+        return spec + "\n# " + body.Replace("\n", "\n# ") + "\n";
     }
 }

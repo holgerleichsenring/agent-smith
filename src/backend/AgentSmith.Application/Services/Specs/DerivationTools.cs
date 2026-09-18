@@ -15,13 +15,21 @@ internal static class DerivationTools
     internal static IList<AITool>? For(DerivationLook? look) => look?.Tools;
 
     internal static IList<AITool> Over(
-        RepositorySearchTool search, RepositoryFileReadTool read, DependencyAuditTool audit) =>
+        RepositorySearchTool search, RepositoryFileReadTool read, DependencyAuditTool? audit) =>
         [
             BoundedResultTool.Wrap(AIFunctionFactory.Create(
-                search.SearchRepository, name: RepositorySearchTool.Name)),
+                search.SearchRepository, RepositorySearchTool.Name, search.Description)),
             BoundedResultTool.Wrap(AIFunctionFactory.Create(
-                read.ReadFile, name: RepositoryFileReadTool.Name)),
-            BoundedResultTool.Wrap(AIFunctionFactory.Create(
-                audit.AuditDependencies, name: DependencyAuditTool.Name)),
+                read.ReadFile, RepositoryFileReadTool.Name, read.Description)),
+            .. audit is null
+                ? []
+                : new[] { BoundedResultTool.Wrap(AIFunctionFactory.Create(
+                    audit.AuditDependencies, DependencyAuditTool.Name, audit.Description)) },
         ];
+
+    /// <summary>2026-09-17-042ed: what the tools a look carries are, in the prompt's words.</summary>
+    internal static string Named(DerivationLook look) =>
+        look.Tools.Any(tool => tool.Name == DependencyAuditTool.Name)
+            ? "a search, a file read, the ecosystem's own dependency audit"
+            : "a search and a file read";
 }

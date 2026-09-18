@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Events;
 
@@ -19,10 +20,27 @@ public sealed record PendingQuestionInfo(
     DateTimeOffset AskedAt,
     DateTimeOffset AnswerDeadlineAt)
 {
-    public static PendingQuestionInfo? FromCheckpoint(RunCheckpointRecord? checkpoint)
+    /// <summary>
+    /// 2026-09-17-042ej: a stored question that cannot be deserialized is ABSENT, not an
+    /// exception. One malformed row used to take down whichever read joined it — and on the
+    /// filed-work read that is every ticket of a conversation, over one parked run.
+    /// </summary>
+    public static PendingQuestionInfo? FromCheckpoint(
+        RunCheckpointRecord? checkpoint, ILogger? logger = null)
     {
         if (checkpoint is null || checkpoint.ResumedAt is not null) return null;
-        var question = JsonSerializer.Deserialize<DialogQuestion>(checkpoint.QuestionJson);
+        DialogQuestion? question;
+        try
+        {
+            question = JsonSerializer.Deserialize<DialogQuestion>(checkpoint.QuestionJson);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            logger?.LogWarning(
+                ex, "The parked question of run {RunId} is unreadable — shown as absent",
+                checkpoint.RunId);
+            return null;
+        }
         if (question is null) return null;
         return new PendingQuestionInfo(
             question.QuestionId,

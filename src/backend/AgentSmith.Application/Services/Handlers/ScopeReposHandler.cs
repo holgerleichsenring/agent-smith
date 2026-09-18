@@ -41,8 +41,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// single-repo included, as the claim the derivation's cut is held against. Naming is
 /// not narrowing: a single-repo run still scopes nothing.
 /// </para>
+/// <para>
+/// 2026-09-17-0e79a: ApprovedRepoScope answers WHICH repositories first — an approval names them
+/// and they are published before the inventory — and says when narrowing does not apply.
+/// </para>
 /// </summary>
 public sealed class ScopeReposHandler(
+    ApprovedRepoScope approvedScope,
     RemoteContextInventoryBuilder inventoryBuilder,
     RepoScopeClassifier classifier,
     ScopeEstimateRecorder estimates,
@@ -55,51 +60,47 @@ public sealed class ScopeReposHandler(
         ScopeReposContext context, CancellationToken cancellationToken)
     {
         var pipeline = context.Pipeline;
-        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        var scope = await approvedScope.OpenAsync(pipeline, context.Ticket, cancellationToken);
+        if (scope.Error is not null) return CommandResult.Fail(scope.Error);
+        var repos = scope.Repos;
         var inventory = await inventoryBuilder.BuildAsync(pipeline, repos, cancellationToken);
 
-        if (context.Ticket is null)
-            return CommandResult.Ok("Repo scoping skipped: run has no ticket");
+        if (context.Ticket is null) return CommandResult.Ok("Repo scoping skipped: run has no ticket");
 
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
             ContextKeys.TicketComments, out var c) ? c : null;
         var reply = await classifier.ClassifyAsync(
             context.Ticket, comments, repos, inventory, context.AgentConfig, pipeline, cancellationToken);
-        if (reply.Refusal is not null)
-            return refusals.Apply(pipeline, reply.Refusal);
+        if (reply.Refusal is not null) return refusals.Apply(pipeline, reply.Refusal);
         // p0341c/p0413: the SAME call estimates the ticket's size and its shape. Both are
         // independent of the repo-scope confidence fallback: a low-confidence scope still
         // yields a usable effort estimate and a usable shape.
         await estimates.ApplyAsync(pipeline, reply.Estimate, cancellationToken);
-        // p0413a: an operator's --repo override (or a one-repo project) already decided
-        // WHICH repositories — the estimate is what was missing, and it is now recorded.
+        // p0413a: an operator's --repo override (or a one-repo project) already decided WHICH
+        // repositories — the estimate is what was missing, and it is now recorded.
         if (repos.Count <= 1)
         {
             namedContexts.Record(pipeline, reply.Classification, repos, inventory);
-            return CommandResult.Ok(
-                "Repo scoping skipped: single-repo run (one configured repo or --repo override)");
+            return CommandResult.Ok("Repo scoping skipped: single-repo run (one repo or --repo)");
         }
-        var (scoped, record, expectedChanges) =
-            RepoScopeEvaluator.Evaluate(reply.Classification, reply.Error, repos);
-
+        var (scoped, record, expectedChanges) = RepoScopeEvaluator.Evaluate(
+            reply.Classification, reply.Error, repos);
         // The scope decision is a run artifact, never silent: a named context key
         // for programmatic consumers + a decision entry result.md / dashboard render.
         pipeline.Set(ContextKeys.RepoScopeRationale, record);
         pipeline.AppendDecisions([new PlanDecision("scope", record)]);
         logger.LogInformation("{Record}", record);
-
-        if (scoped is not null)
-            pipeline.Set(ContextKeys.Repos, scoped);
-        // p0384: the validated must-change subset feeds the keystone's per-repo
-        // delivery gate. Published only when present — absent key = anyCode
-        // semantics, the classifier imposed no per-repo requirement.
+        // 2026-09-17-0e79a: a no-op over an approved scope — but everything BELOW it still runs.
+        approvedScope.Narrow(pipeline, scope, scoped);
+        var kept = ApprovedRepoScope.Kept(scope, scoped);
+        // p0384: the validated must-change subset feeds the keystone's per-repo delivery gate.
+        // Absent key = anyCode semantics: the classifier imposed no per-repo requirement.
         if (expectedChanges.Count > 0)
             pipeline.Set(ContextKeys.ExpectedChangeRepos, expectedChanges);
-        // p0336b: narrow CONTEXTS within the kept repos (a whole sandbox each),
-        // one level below repo-scoping — same conservative keep-all fallback.
-        ApplyContextScope(pipeline, reply.Classification, reply.Error, scoped ?? repos, inventory);
-        namedContexts.Record(pipeline, reply.Classification, scoped ?? repos, inventory);
-        return CommandResult.Ok(record);
+        // p0336b: narrow CONTEXTS within the kept repos — same keep-all fallback.
+        ApplyContextScope(pipeline, reply.Classification, reply.Error, kept, inventory);
+        namedContexts.Record(pipeline, reply.Classification, kept, inventory);
+        return CommandResult.Ok(ApprovedRepoScope.Settled(scope) ?? record);
     }
 
     private void ApplyContextScope(

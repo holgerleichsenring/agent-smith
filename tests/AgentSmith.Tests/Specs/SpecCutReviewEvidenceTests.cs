@@ -27,7 +27,7 @@ public sealed class SpecCutReviewEvidenceTests
     [Fact]
     public void AWholeTicket_LetsTheReviewerSayACriterionWasNeverAskedFor()
     {
-        var prompt = SpecCutReviewPrompt.For(Cut(), "migrate the messaging library");
+        var prompt = SpecCutReviewPrompt.For(Cut(), "migrate the messaging library", look: null);
 
         prompt.Should().Contain("NOT IN THE TICKET");
     }
@@ -35,7 +35,7 @@ public sealed class SpecCutReviewEvidenceTests
     [Fact]
     public void ATicketTooLongToShowWhole_WithholdsThatVerdict()
     {
-        var prompt = SpecCutReviewPrompt.For(Cut(), new string('x', 400_000));
+        var prompt = SpecCutReviewPrompt.For(Cut(), new string('x', 400_000), look: null);
 
         prompt.Should().NotContain("NOT IN THE TICKET",
             "a fragment cannot support the claim that the ticket never asked for something");
@@ -51,19 +51,15 @@ public sealed class SpecCutReviewEvidenceTests
     {
         var ticket = new string('y', 44_302) + "THE-LAST-REQUIREMENT";
 
-        var prompt = SpecCutReviewPrompt.For(Cut(), ticket);
+        var prompt = SpecCutReviewPrompt.For(Cut(), ticket, look: null);
 
         prompt.Should().Contain("THE-LAST-REQUIREMENT");
         prompt.Should().Contain("NOT IN THE TICKET");
     }
 
-    private static SpecSet Cut() =>
-        new("azuredevops-1",
-            [new SpecPhase(
-                new PhaseDraft("p1a", "migrate the senders", "phase: p1a", [])
-                {
-                    Done = ["every sender uses the new bus"],
-                },
-                "migrate-the-senders", "# p1a", [])],
-            SpecAccounting.Empty, [], SpecSource.Derived);
+    private static IReadOnlyList<PhaseDraft> Cut() =>
+        [new PhaseDraft("p1a", "migrate the senders", "phase: p1a", [])
+        {
+            Done = ["every sender uses the new bus"],
+        }];
 }

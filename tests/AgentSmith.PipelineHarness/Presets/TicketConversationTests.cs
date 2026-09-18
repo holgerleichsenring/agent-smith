@@ -53,7 +53,7 @@ public sealed class TicketConversationTests
         // p0341f: a re-driven master CONTINUES its conversation, so the last call carries
         // the opening user message plus the nudge that re-drove it. The ticket conversation
         // and the screenshot ride the OPENING message — which is what this test is about.
-        var openingUserMessage = harness.ChatClient.LastMessages
+        var openingUserMessage = harness.ChatClient.LastScriptedMessages
             .First(m => m.Role == ChatRole.User);
         var userText = openingUserMessage.Text;
 
@@ -117,6 +117,10 @@ public sealed class TicketConversationTests
             string title, string description, IReadOnlyList<string> labels,
             CancellationToken cancellationToken) =>
             Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
+
+        public Task<ParentLinkResult> LinkToParentAsync(
+            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
+            Task.FromResult(ParentLinkResult.Linked);
 
         public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
             TicketId ticketId, CancellationToken cancellationToken) =>

@@ -21,5 +21,9 @@ public sealed class RunConfiguration : IEntityTypeConfiguration<Run>
         // p0330: bounded like the other id-shaped columns (12-char spawn handle today).
         builder.Property(r => r.JobId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(r => r.Project);
+        // 2026-09-17-042ej: the filed-work read looks a WORK TICKET up across the projects of one
+        // tracker, and runs on every nudge window of a live run. On the Project index alone each
+        // lookup scanned every run that project ever had.
+        builder.HasIndex(r => new { r.Project, r.TicketId });
     }
 }

@@ -31,7 +31,7 @@ public sealed class SpecDerivationCall(
 
     /// <summary>Per request — every attempt gets it over again, while the look budget
     /// the tools draw on is one allowance for all of them.</summary>
-    public const int MaxIterations = DerivationLookBudget.Allowance + 2;
+    public const int MaxIterations = DerivationLookTerms.DerivationAllowance + 2;
 
     /// <summary>
     /// 2026-09-13-9f84: the LOOK, not its tool list — the call takes the tools off it, and

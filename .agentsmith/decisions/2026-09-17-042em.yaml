@@ -1,0 +1,121 @@
+phase: 2026-09-17-042em
+decisions:
+  - id: the-key-is-formatted-from-the-id-042eg-put-on-the-report
+    chose: >
+      One internal FiledTicketKey formats the display key from the ticket id and the project's
+      TrackerType, called once from OutcomeTicketFiler.Entry — the single site all three filers
+      construct a FiledTicket through. CreatedTicket gains nothing.
+    alternative: >
+      The spec's own shape: a display key each ITicketProvider sets onto CreatedTicket at creation.
+    why: >
+      The spec's reason for the provider was that formatting in the filers "would put a tracker
+      switch in each filer". 2026-09-17-042eg landed between the spec and this implementation and
+      removed that premise: it introduced OutcomeTicketFiler.Entry as the one construction site,
+      which EpicTicketFiler and EpicSliceRecordFiler also go through, and put the tracker-native
+      TicketId on the report beside the project. So there is exactly ONE switch either way, and the
+      one here is total over TrackerType, where a provider-set field is optional by construction —
+      a provider that forgets it yields null and the key silently degrades with nothing to say so.
+      The hash convention is already the domain's rather than the providers': CreatedTicket.Reference
+      falls back to "#{Id}" today. Adding a display-only field to CreatedTicket would also have
+      widened a record that link-to-parent, lifecycle and retry all carry, for a concern only the
+      filing report has.
+  - id: the-list-is-read-on-a-reply-the-row-is-behind-and-the-filing-read-goes
+    chose: >
+      The hub MESSAGE handler re-reads the conversation list, guarded by a sequence number of its
+      own AND by a staleness test: only while the row for the conversation open here is missing,
+      untitled, or listed with fewer turns than the page last read the transcript to be. The read
+      the filing push made is deleted.
+    alternative: >
+      Reading on every framework message unconditionally (what was first built), or keeping the
+      filing read and adding a second trigger for the first reply only.
+    why: >
+      The list's title and turn count are read off each transcript, so the read the session opening
+      triggers races the first append and the conversation the operator is IN stays "untitled, 0
+      turns" for its whole life. The reply is sent AFTER the assistant turn is appended
+      (SpecDialogRouter.cs:105-106), so it is the first event that can see the turn. But the read
+      is the EXPENSIVE one — up to fifty transcripts parsed plus two further JSON documents per row
+      (SpecDialogLatestOutcomeStore.cs:64-67) — and "a row nobody can recognise costs more" is true
+      of the first reply, not of the hundredth. So it NARROWS 2026-09-17-c7aed's "never after every
+      message" instead of reversing it: the read stops once the row names the conversation, and
+      comes back the moment the count falls behind, which in a running conversation settles at
+      every other reply rather than every one. The filing read then had nothing left to do — the
+      filing notice is itself a message on that channel (TicketFilingOutcomeSink.cs:55-59). The
+      notice is SENT before it is APPENDED, so the read it triggers shows one turn fewer until the
+      next message; that is a count, not an identity, and the staleness test picks it up next time.
+  - id: the-message-channel-carries-no-question
+    chose: >
+      The read hangs off client.specDialogMessages and is described as exactly that, not as "every
+      framework message".
+    alternative: >
+      Subscribing the read to the question channel as well.
+    why: >
+      The spec claimed the handler fires for "questions and notices included". It does not: the
+      confirmer asks through messenger.AskQuestionAsync (SpecDialogOutcomeConfirmer.cs:63-64) and
+      DashboardAdapter pushes it as "SpecDialogQuestion" and nothing else (DashboardAdapter.cs:46-61).
+      Nothing is lost — the reply always precedes the question inside the same turn, and a pending
+      question appends no transcript turn, so a read on the question would find what the read on
+      the reply already found — but the sentence was wrong and is corrected rather than implemented.
+  - id: the-key-reads-as-a-key-in-chat-too
+    chose: >
+      SpecDialogMarkup gains Link(text, url) beside Bold/Italic/Emoji — "[text](url)" for a browser,
+      "<url|text>" for chat mrkdwn — and the filing notice links the key on EVERY channel.
+    alternative: >
+      Keeping the raw url in chat and selecting on Wording, as first built.
+    why: >
+      The phase's own done line says filed tickets read as keys rather than raw urls; holding that
+      on the dashboard alone would have been the wrong half of it. Wording was also the wrong
+      selector: it is documented as the AFFORDANCE selector — what the reader can DO — and a link
+      shape is what the reader RENDERS, which is what Bold and Emoji already select on. Stated risk,
+      pre-existing and not narrowed here: SpecDialogMarkup.For hands ChatMrkdwn to Teams as well as
+      Slack, and Teams renders markdown rather than Slack's shapes — as it already does for bold and
+      for emoji shortcodes. A per-platform dialect is a change of its own, named by what it does:
+      the markup dialect is chosen per platform rather than per browser-or-not.
+  - id: the-reads-overlap-so-they-are-sequenced-like-the-dialog-read
+    chose: >
+      loadConversations takes its own read counter and drops an answer that is not the latest.
+    alternative: >
+      Sharing the dialog read's counter, or leaving them unguarded as they were.
+    why: >
+      One list read now goes out per framework message, so several are in flight at once and the
+      answer that lands LAST is not the newest — the row would roll back to a title and a turn
+      count from two replies ago. The dialog read already solves this for itself
+      (useSpecDialog.ts:117-126); sharing its counter would have made either read cancel the other,
+      since they are issued together but answered independently.
+  - id: the-picker-stays-a-choice-and-the-header-names-the-session
+    chose: >
+      The project picker is untouched; the exchange header names the open session's scope beside
+      the conversation title.
+    alternative: >
+      Binding the picker to the open session, or disabling it while one is open.
+    why: >
+      The picker feeds "New conversation" (DialogConversations.tsx:64-71) and sending with no
+      session open. Pinning it to the open session's project would stop a new conversation on any
+      OTHER project — the one thing the control exists for. What was actually missing is a person
+      being able to see what the conversation in front of them reads, and that belongs in the
+      header of the exchange, next to its title.
+  - id: the-panel-links-the-whole-name-not-just-the-key
+    chose: >
+      One anchor carrying the key and the title, to the tracker's page; plain text where the
+      reference is not a web url, and the reference itself where a stored filing has no key.
+    alternative: >
+      Keeping the reference on its own line above the title, with the key replacing the url.
+    why: >
+      The key and the title are one name for one thing, so they are one target. The url is still
+      the href — it was only ever the LABEL that was unreadable. A reference that is not a url
+      must not render as a link: an anchor to "#412" navigates nowhere and claims it does. The
+      panel spells that rule /^https?:\/\// and the backend spells it Uri.TryCreate with an http
+      or https scheme; two languages, one rule, and the prefix test the backend first used is
+      gone because "http" admits "httpfoo://".
+  - id: two-of-the-dashboard-tests-are-regression-guards
+    chose: >
+      SpecDialog_NewConversation_StillUsesThePickedProjectWhileASessionIsOpen and
+      SpecDialog_NoSessionOpen_TheHeaderNamesNoProject are kept, each saying in the test that it is
+      a guard rather than a discriminating test.
+    alternative: >
+      Deleting them, since both pass unchanged on the parent commit.
+    why: >
+      Neither can fail on the parent — the second is vacuous there, because the element it looks
+      for does not exist yet. They are kept because they hold the two things this phase chose NOT
+      to do: the picker was deliberately left alone, and the header names a project only when
+      there is a conversation to name it for. A guard that cannot discriminate still has to say
+      so, or the next reader counts it as evidence it is not.

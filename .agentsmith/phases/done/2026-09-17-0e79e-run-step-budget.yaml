@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-0e79e
+
+goal: "The executor's step budget is sized from the phases a run will actually splice, and a run that exhausts it fails as a step so its verified phases are still delivered."
+
+applies_to: "backend (the pipeline executor's execution ceiling and its failure path, where the sequence publishes its size, the checkpointed context)"
+
+scope:
+  in: >
+    The fixed ceiling of 100 command executions becomes a budget published once the phases are known:
+    a base allowance plus a per-phase allowance times the phases that will be spliced, clamped by a
+    stated absolute ceiling. The sequence publishes it, because it knows the unexecuted tail it splices.
+    A preset that splices no blocks keeps today's number. Exhaustion stops being a bare failed result: it is reported the way a failing step
+    is, so the finalizer tail runs and the phases that verified are delivered. The budget is a plain
+    value that survives a checkpoint, is re-read on every loop pass, and is logged with its origin.
+  out: >
+    CHANGING WHAT A PHASE SPLICES. The block, the repair, 2026-09-17-0e79c's premise check and
+    2026-09-17-042eh's fix pass are what they are; this phase only makes room for them.
+    A PER-PHASE OR PER-STEP TIME OR MONEY BUDGET. The cost cap stays the run's
+    (PipelineCostTracker.cs:68).
+    RAISING THE EIGHT-PHASE CAP. 2026-09-17-0e79a decides that number; this sizes the budget on it.
+    A CAP DERIVED FROM THE LIVE COMMAND LIST. See decisions.
+
+decisions:
+  - key: |
+      THE CEILING IS A LOOP GUARD SIZED FOR A PIPELINE WITHOUT SEQUENCES. MaxCommandExecutions is a const
+      100 (PipelineExecutor.cs:30) checked per segment (:110-115), and its message says what it is for:
+      "possible infinite loop in command insertion". It predates a preset whose length depends on how
+      many phases a ticket was cut into.
+  - key: |
+      THE ARITHMETIC, TODAY. The code preset is 22 literal commands (PipelinePresets.Code.cs:36-69) and
+      each phase splices six (PipelinePresets.Parking.cs:42-53), with a repair of four more
+      (PhaseVerdict.cs:93-96, 112-118) and a master question re-engaging two at a time
+      (MasterOpenQuestionsHandler.cs:75-79). Eight phases with one repair each is 22 + 8 x 10 = 102 —
+      over the ceiling before anything goes wrong. 2026-09-17-042eh adds a review and a five-step fix
+      pass and 2026-09-17-0e79c adds a premise check, taking a phase to about seventeen: near 160.
+  - key: |
+      THE COMPUTED BUDGET IS THE LOOP GUARD; THE CEILING ONLY CLAMPS IT. Base 40 plus 20 per phase gives
+      200 for a set at the eight-phase cap, against a worst case near 160, and 60 for a single phase that
+      needs about 29. So the guard that actually stops an insertion loop is the computed number, not the
+      absolute ceiling of 400 — which never binds while MaxPhases is 8 and exists so a later cap raise
+      cannot silently unbound the guard. The test says so by name.
+  - key: |
+      SIZED FROM THE PHASES, NOT FROM THE LIST. A ceiling derived from the CURRENT command list would
+      grow with every insertion, including a looping handler's own — the failure it exists to catch. The
+      phase count is fixed before the first block splices.
+  - key: |
+      ONE PUBLISHER, AND IT IS THE SEQUENCE. The gate knows every phase of the set
+      (PhaseSpecGateHandler.cs:28-55) but the sequence splices only the UNEXECUTED TAIL
+      (PhaseSequenceHandler.cs:37-46) — on a re-trigger after four executed phases the gate's number is
+      twice the work. The gate is also not an alternative: PhaseSpecGate appears in exactly one preset
+      (PipelinePresets.Code.cs:57) and that preset carries PhaseSequence too (:66), so a gate-published
+      budget would be unreachable in every configuration. The sequence publishes, and nothing else
+      does.
+  - key: |
+      A DEFAULT THAT CHANGES NOTHING ELSE. With nothing published the executor uses 100, exactly as
+      today, so every preset that splices no blocks keeps its number.
+  - key: |
+      EXHAUSTION MUST NOT LOSE THE WORK, AND ITS CONSEQUENCE IS STATED. Today the check returns a failed
+      result BEFORE the step runs (PipelineExecutor.cs:110-115) while the finalizer tail runs only on a
+      failed STEP or a safety cancel (:146-166): a run that hits the ceiling keeps whatever
+      CommitPhaseWork pushed (CommitPhaseWorkHandler.cs:30-36) but writes no run result, opens no pull
+      request and leaves the ticket unfinalized. Exhaustion is reported the way a failing step is, which
+      means the tail runs, a shortfall returns as a done that says what it lacks (:162-163) — and where
+      there is no shortfall it goes on through HandleStepFailureAsync (:164-166), so an exhausted run now
+      gets a failure comment and a terminal ticket status where it got neither.
+  - key: |
+      ROOM: A COLLABORATOR, NOT A PRIVATE METHOD. PipelineExecutor is 185 lines against a 187 baseline
+      (file-length-baseline.tsv:44), so two lines of headroom cannot absorb a private method plus a
+      budget read plus a changed branch. The failure handling at :152-166 moves into a small type beside
+      PipelineFinalizerTail (49 lines) that runs the tail, returns a shortfall if there is one and
+      otherwise reports the failure; the executor keeps one call in the step-failure branch and adds one
+      in the exhaustion branch. Count: -15 for the moved block, +1 for the constructor parameter, +2 for
+      the two calls, +2 for reading the budget = 175.
+  - key: |
+      THE BUDGET MUST SURVIVE A CHECKPOINT AND BE RE-READ. PipelineContextSerializer drops excluded keys
+      and anything whose type it cannot deserialize, silently but for a log line
+      (PipelineContextSerializer.cs:36-39, 82-111), so the budget is a plain serializable value, is not
+      excluded, and is re-read on each loop pass rather than captured once — a resume rehydrates the
+      context and then splices no sequence of its own.
+  - key: |
+      A RESUME GETS THE BUDGET AGAIN, AND THAT IS THE RULE. The check subtracts the segment start
+      (PipelineExecutor.cs:110), so a resumed segment already starts a fresh window today. A resume
+      follows a person answering a question, which is work somebody asked for. Stated because it is the
+      obvious place to assume otherwise.
+  - key: |
+      THE CAP'S JUSTIFICATION MOVES WITH THE CAP. SpecSet.MaxPhases is explained by "the pipeline
+      executor allows a bounded number of command executions per run" (SpecSet.cs:47-52) — a bound that
+      stops being fixed here. That comment is updated in the same change to say the budget follows the
+      phase count, or the next reader learns a rule that no longer exists.
+  - key: |
+      THE RUN SAYS WHICH BUDGET IT HAS. The budget and its origin — phases times allowance, or the
+      default — are logged where the executor logs its command list (PipelineExecutor.cs:51-53), so an
+      exhausted run is read without arithmetic.
+
+steps:
+  - id: the-budget
+    action: "A step-budget value: base plus per-phase allowance times phases, clamped by the absolute ceiling, with today's number as the default."
+  - id: the-sequence-publishes-it
+    action: "PhaseSequence publishes the budget for the tail it splices; nothing else publishes one, and SpecSet's cap comment is updated to name the computed budget."
+  - id: the-executor-reads-it
+    action: "The executor reads the budget from the context on each pass, defaulting to today's number, and logs it with its origin."
+  - id: one-failure-path
+    action: "The step-failure handling moves into a collaborator beside the finalizer tail; both branches call it, so an exhausted run runs the tail and a shortfall still delivers."
+  - id: the-checkpoint
+    action: "The budget survives serialization and restore, and a resumed segment reads it from the rehydrated context."
+
+tests:
+  - "StepBudget_EightPhases_ExceedsTheOldCeilingAndFitsTheNewOne"
+  - "StepBudget_OnePhase_IsSmallerThanTheDefaultCeilingButSufficient"
+  - "StepBudget_RetriggerWithFourExecutedPhases_IsSizedOnTheTail"
+  - "StepBudget_NoSpecSet_IsTheDefaultHundred"
+  - "StepBudget_PresetWithoutASequence_IsUnchanged"
+  - "StepBudget_AboveTheAbsoluteCeiling_IsClamped"
+  - "PipelineExecutor_BudgetExhausted_RunsTheFinalizerTail"
+  - "PipelineExecutor_BudgetExhausted_DeliversTheVerifiedPhasesAsAShortfall"
+  - "PipelineExecutor_BudgetExhaustedWithoutAShortfall_ReportsTheFailureLikeAnyStep"
+  - "PipelineExecutor_BudgetExhausted_MessageNamesTheBudgetAndItsOrigin"
+  - "PipelineExecutor_InsertionLoop_StopsAtTheBudget"
+  - "PipelineExecutor_Resume_ReadsTheBudgetFromTheRehydratedContext"
+  - "PipelineExecutor_Resume_GetsItsOwnWindow"
+  - "PipelineContextSerializer_StepBudget_SurvivesARoundTrip"
+  - "PhaseSpecGate_PublishesNoBudget"
+  - "PipelineExecutor_WithinBudget_BehavesExactlyAsBefore"
+
+done:
+  - "a run of eight approved phases, with a premise check, a repair and a review pass each, is not stopped by the step guard"
+  - "an insertion loop is still stopped, by a number the run cannot raise"
+  - "a run that does exhaust its budget writes its result and delivers what it verified, or reports the failure like any step"
+  - "every pipeline without a phase sequence keeps the ceiling it has today"
+  - "build green, full suite green, file-length ratchet green with no new baseline row"

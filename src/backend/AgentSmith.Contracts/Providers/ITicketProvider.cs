@@ -12,11 +12,8 @@ namespace AgentSmith.Contracts.Providers;
 public interface ITicketProvider : ITypedProvider
 {
     /// <summary>
-    /// p0140a: declares whether this provider's backing system supports comments on tickets.
-    /// Default true — all of today's providers (Jira/ADO/GitHub/GitLab) have in-band comments.
-    /// The future Email provider (p0141) returns false. Webhook handlers will check this
-    /// before calling <see cref="UpdateStatusAsync"/> from p0140b's zero-match / capability-
-    /// conditional paths.
+    /// Whether the backing system has in-band comments on tickets. True for Jira, Azure DevOps,
+    /// GitHub and GitLab; a provider without them returns false.
     /// </summary>
     bool SupportsComments => true;
 
@@ -61,21 +58,22 @@ public interface ITicketProvider : ITypedProvider
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Posts a status comment to the ticket.
+    /// Links a created child ticket to its parent through the tracker's own relation. No default,
+    /// for the reason <see cref="CreateAsync"/> has none. A relation the tracker lacks is
+    /// Unsupported, and one it refuses is Failed with its reason — neither throws.
     /// </summary>
+    Task<ParentLinkResult> LinkToParentAsync(
+        CreatedTicket child, TicketId parent, CancellationToken cancellationToken);
+
+    /// <summary>Posts a status comment to the ticket.</summary>
     Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
-    /// <summary>
-    /// Closes the ticket with a resolution comment.
-    /// </summary>
+    /// <summary>Closes the ticket with a resolution comment.</summary>
     Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
-    /// <summary>
-    /// Transitions the ticket to the named status (e.g. "In Review").
-    /// No-op if the provider does not support transitions.
-    /// </summary>
+    /// <summary>Transitions the ticket to the named status; no-op where transitions are unsupported.</summary>
     Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => Task.CompletedTask;
 

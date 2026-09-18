@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.AI;
@@ -20,98 +21,71 @@ namespace AgentSmith.Application.Services.Specs;
 /// evidence ids span the attempts: a retry sees the looks it already took.
 /// </para>
 /// <para>
-/// 2026-09-13-84c0: a declared template is one more name, on its OWN allowance and in a
-/// COPY of the map — never in the run's, which CommitAndPR and the toolchain probe iterate.
-/// The look owns the scopes it was handed and disposes them.
+/// 2026-09-13-84c0: a declared template is one more name, on its own allowance (see
+/// <see cref="DerivationLookGate"/>). The look owns the scopes it was handed and disposes them.
+/// </para>
+/// <para>
+/// 2026-09-15-ffa7: a look has a holder. The cut reviewer is handed one of its own, per
+/// attempt, on <see cref="DerivationLookTerms.CutReview"/>.
 /// </para>
 /// </summary>
 public sealed class DerivationLook : IAsyncDisposable
 {
-    private readonly IReadOnlyDictionary<string, ISandbox> _sandboxes;
     private readonly IReadOnlyDictionary<string, ISourceScopeSandbox> _templates;
-    private readonly IList<AITool> _tools;
+    private readonly DerivationLookGate _gate;
 
     public DerivationLook(
         IReadOnlyDictionary<string, ISandbox> sandboxes, ISandboxFileReaderFactory files,
         IPackageEcosystemDetector ecosystems, ILogger logger,
-        IReadOnlyDictionary<string, ISourceScopeSandbox>? templates = null)
+        IReadOnlyDictionary<string, ISourceScopeSandbox>? templates = null,
+        DerivationLookTerms? terms = null, bool audits = true,
+        TurnActivityTools? activity = null)
     {
         ArgumentNullException.ThrowIfNull(sandboxes);
         _templates = templates ?? new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal);
-        _sandboxes = Merge(sandboxes, _templates);
-        _tools = DerivationTools.Over(
+        Terms = terms ?? DerivationLookTerms.Derivation;
+        _gate = new DerivationLookGate(sandboxes, _templates, Terms);
+        Evidence = new DerivationEvidence(Terms.EvidencePrefix, $"the {Terms.Actor}");
+        var tools = DerivationTools.Over(
             new RepositorySearchTool(this, logger),
             new RepositoryFileReadTool(this, files, logger),
-            new DependencyAuditTool(this, files, ecosystems, logger));
+            audits ? new DependencyAuditTool(this, files, ecosystems, logger) : null);
+        // 2026-09-17-042ee: a look reports what it reads to whoever set an observer. Nobody
+        // has during a derivation; a design turn's proposal review runs inside one that has.
+        Tools = activity?.Reporting(tools) ?? tools;
     }
 
+    /// <summary>2026-09-15-ffa7: whose look this is — its allowance, its id letter, its name.</summary>
+    public DerivationLookTerms Terms { get; }
+
     /// <summary>The repositories a look may name, for the prompt to list.</summary>
-    public IReadOnlyList<string> Repositories => [.. _sandboxes.Keys.Except(_templates.Keys)];
+    public IReadOnlyList<string> Repositories => [.. _gate.Names.Except(_templates.Keys)];
 
     /// <summary>The template entries a look may name, listed apart from the targets.
     /// 2026-09-13-9f84: the scopes themselves, because the framework reads what each one
     /// declares as its own proof and a name cannot be read from.</summary>
     public IReadOnlyDictionary<string, ISourceScopeSandbox> Templates => _templates;
 
-    /// <summary>One allowance for the whole derivation — never re-opened.</summary>
-    public DerivationLookBudget Budget { get; } = new();
+    /// <summary>One allowance for the whole look — never re-opened.</summary>
+    public DerivationLookBudget Budget => _gate.Budget;
 
-    /// <summary>
-    /// A template's own allowance. AccountSearchBudget records what one shared pool costs:
-    /// the first repository spent all twelve and every later question was answered "No
-    /// search left", and its own comment says a bigger shared pool does not fix that
-    /// because it is still one pool.
-    /// </summary>
-    public DerivationLookBudget TemplateBudget { get; } = new();
+    /// <summary>A template's own allowance, apart from the targets'.</summary>
+    public DerivationLookBudget TemplateBudget => _gate.TemplateBudget;
 
-    /// <summary>
-    /// Set when a TEMPLATE look was refused for budget. A refusal sentence would let the
-    /// derivation cut against the target's habits while the declaration says a template
-    /// governs — a provenance the run record would carry as true. The deriver fails on it.
-    /// </summary>
-    public string? TemplateRefusal { get; private set; }
+    /// <summary>Set when a TEMPLATE look was refused for budget; the deriver fails on it.</summary>
+    public string? TemplateRefusal => _gate.TemplateRefusal;
 
     /// <summary>Every look taken, one framework-minted line with an id each.</summary>
-    public DerivationEvidence Evidence { get; } = new();
+    public DerivationEvidence Evidence { get; }
 
-    /// <summary>The named read-only tools, each bounded in what it may return.</summary>
-    public IList<AITool> Tools => _tools;
+    /// <summary>The named read-only tools, each bounded in what it may return. 2026-09-17-042ed:
+    /// the audit is an input — a proposal review over read-only scopes cannot run one.</summary>
+    public IList<AITool> Tools { get; }
 
     /// <summary>Resolves the repository, THEN takes from the allowance that name belongs to;
     /// a refusal is the sentence the model is answered with, and nothing has run.</summary>
-    internal bool TryOpen(string repository, out ISandbox sandbox, out string refusal)
-    {
-        sandbox = null!;
-        refusal = string.Empty;
-        // 2026-09-13-84c0: resolve BEFORE charging. Which budget to charge cannot be chosen
-        // before the name is known to be a template or a target — and a mis-addressed guess
-        // now costs the target nothing, where it used to cost it a look.
-        if (!_sandboxes.TryGetValue(repository, out var found))
-        {
-            refusal = $"No repository named '{repository}'. The run carries: "
-                + $"{string.Join(", ", _sandboxes.Keys)}.";
-            return false;
-        }
-        var isTemplate = _templates.ContainsKey(repository);
-        if (!(isTemplate ? TemplateBudget : Budget).TryTake())
-        {
-            refusal = DerivationLookBudget.Exhausted;
-            if (isTemplate) TemplateRefusal ??= $"'{repository}': {refusal}";
-            return false;
-        }
-        sandbox = found;
-        return true;
-    }
-
-    private static Dictionary<string, ISandbox> Merge(
-        IReadOnlyDictionary<string, ISandbox> targets,
-        IReadOnlyDictionary<string, ISourceScopeSandbox> templates)
-    {
-        // A COPY, and the targets go in first so Keys.First() elsewhere is unmoved.
-        var merged = new Dictionary<string, ISandbox>(targets, StringComparer.Ordinal);
-        foreach (var (name, scope) in templates) merged[name] = scope;
-        return merged;
-    }
+    internal bool TryOpen(string repository, out ISandbox sandbox, out string refusal) =>
+        _gate.TryOpen(repository, out sandbox, out refusal);
 
     public async ValueTask DisposeAsync()
     {

@@ -3,6 +3,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -35,18 +36,18 @@ public sealed class SpecDerivationLoopTests
     public async Task ADerivationThatLooksPastItsBudget_IsRefusedInTextAndCompletes()
     {
         var sandbox = new CountingSandbox(exitCode: 1);
-        var provider = new LookingChatClient(looks: DerivationLookBudget.Allowance + 1, Reply());
+        var provider = new LookingChatClient(looks: DerivationLookTerms.DerivationAllowance + 1, Reply());
 
         var (derivation, error) = await Derive(provider, sandbox);
 
         error.Should().BeNull();
         derivation.Should().NotBeNull("an exhausted budget ends looking, not the derivation");
-        sandbox.Ran.Should().HaveCount(DerivationLookBudget.Allowance,
+        sandbox.Ran.Should().HaveCount(DerivationLookTerms.DerivationAllowance,
             "the budget is a real fence inside the loop");
         provider.LastMessages
             .SelectMany(m => m.Contents).OfType<FunctionResultContent>()
             .Select(r => r.Result?.ToString() ?? string.Empty)
-            .Should().Contain(t => t == DerivationLookBudget.Exhausted,
+            .Should().Contain(t => t == new DerivationLookBudget(DerivationLookTerms.Derivation).Exhausted,
                 "the refusal reaches the model as a tool result it can decide on");
         var draft = derivation!.Set.Phases[0].Draft;
         draft.Facts.Should().ContainSingle().Which.Evidence.Should().StartWith("[L1] ");
@@ -164,8 +165,8 @@ public sealed class SpecDerivationLoopTests
     private sealed class CleanReviewer : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            SpecSet set, string ticketText, AgentConfig agent,
-            PipelineCostTracker costTracker, CancellationToken cancellationToken)
+            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(SpecCutReview.Clean);
     }
 

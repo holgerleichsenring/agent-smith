@@ -37,7 +37,7 @@ public static class SpecMarkdown
         sb.AppendLine();
         sb.AppendLine(
             $"`{key.Directory}/` — revision {set.Current.Number} ({set.Current.Cause}), "
-            + $"source: {Describe(set.Source)}");
+            + $"source: {Describe(set)}");
 
         if (set.Handback is { } handback)
         {
@@ -103,10 +103,15 @@ public static class SpecMarkdown
                 $"- **{revision.Number}** — {revision.Cause} ({revision.At:yyyy-MM-dd HH:mm} UTC)");
     }
 
-    private static string Describe(SpecSource source) => source switch
+    private static string Describe(SpecSet set) => set.Source switch
     {
         SpecSource.BranchArtifact => "read back from the ticket branch",
         SpecSource.TicketDescription => "embedded in the ticket description",
+        // 2026-09-17-0e79a: an approved set is not "derived from the ticket" — it names the
+        // conversation a person approved it in, which is where a change to it is made.
+        SpecSource.Approved => "approved in design conversation "
+            + (string.IsNullOrWhiteSpace(set.Approval?.Conversation)
+                ? "(unnamed)" : set.Approval!.Conversation),
         _ => "derived from the ticket",
     };
 }

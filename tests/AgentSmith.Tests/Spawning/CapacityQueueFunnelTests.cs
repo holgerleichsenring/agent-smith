@@ -140,6 +140,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 BuildDbQueue(connection),
                 CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
                 CapacityTestDoubles.NoPredecessors(),
+                TestSupport.ApprovedSetDoubles.Carrier(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 

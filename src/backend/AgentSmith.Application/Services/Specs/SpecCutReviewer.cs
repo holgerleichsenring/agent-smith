@@ -1,10 +1,9 @@
-using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -29,90 +28,61 @@ public sealed class SpecCutReviewer(
 {
     private const string RoleName = "spec-cut-reviewer";
 
-    public async Task<SpecCutReview> ReviewAsync(
-        SpecSet set, string ticketText, AgentConfig agent,
-        PipelineCostTracker costTracker, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(set);
-        if (set.Phases.Count == 0) return SpecCutReview.Clean;
+    /// <summary>
+    /// 2026-09-15-ffa7: per call, the look allowance plus the turn that asks and the turn that
+    /// answers — as <see cref="SpecDerivationCall.MaxIterations"/> does for the deriver. Four
+    /// attempts, each with a fresh allowance, is up to twenty-four reviewer looks a derivation.
+    /// </summary>
+    public const int MaxIterations = DerivationLookTerms.CutReviewAllowance + 2;
 
-        var answer = await AskAsync(set, ticketText, agent, costTracker, cancellationToken);
+    public async Task<SpecCutReview> ReviewAsync(
+        IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(drafts);
+        if (drafts.Count == 0) return SpecCutReview.Clean;
+
+        var prompt = SpecCutReviewPrompt.For(drafts, ticketText, look);
+        var answer = await AskAsync(prompt, key, look, agent, costTracker, cancellationToken);
         if (answer is null)
             return new SpecCutReview([], "the cut review returned nothing readable");
 
-        var kept = answer.Where(finding => Quoted(set, finding)).ToList();
+        var kept = new SpecCutAdmission(logger).Admit(drafts, answer, look);
         foreach (var finding in kept)
             logger.LogWarning("Cut review — {Phase} cannot be delivered: {Problem} — {Why}",
                 finding.PhaseId, finding.Problem, finding.Why);
         return new SpecCutReview(kept);
     }
 
-    /// <summary>
-    /// A finding must quote a criterion the phase really states. Anything else is the
-    /// reviewer inventing a fault, which would block a cut nobody can find the flaw in.
-    /// </summary>
-    private bool Quoted(SpecSet set, CutFinding finding)
-    {
-        var phase = set.Phases.FirstOrDefault(p =>
-            string.Equals(p.Draft.PhaseId, finding.PhaseId, StringComparison.OrdinalIgnoreCase));
-        if (phase is not null && phase.Draft.Done.Any(d => Matches(d, finding.Criterion))) return true;
-
-        logger.LogWarning(
-            "Cut review quoted a criterion that is not in {Phase} — discarding the finding: {Criterion}",
-            finding.PhaseId, Shorten(finding.Criterion));
-        return false;
-    }
-
-    private static bool Matches(string stated, string quoted) =>
-        stated.Contains(quoted.Trim(), StringComparison.OrdinalIgnoreCase)
-        || quoted.Contains(stated.Trim(), StringComparison.OrdinalIgnoreCase);
-
     private async Task<IReadOnlyList<CutFinding>?> AskAsync(
-        SpecSet set, string ticketText, AgentConfig agent,
+        string prompt, string key, DerivationLook? look, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken ct)
     {
         try
         {
-            var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
-            using var _ = costTracker.BeginCall(RoleName, RoleName, SkillExecutionPhase.Plan, set.Key);
+            // Without a look the call is exactly the one it was: no cap, no tools.
+            var chat = chatClientFactory.Create(
+                agent, TaskType.Reasoning, look is null ? null : MaxIterations);
+            using var _ = costTracker.BeginCall(RoleName, RoleName, SkillExecutionPhase.Plan, key);
             using var _scope = runContext.BeginCallScope(
-                RoleName, SkillExecutionPhase.Plan.ToString(), set.Key);
+                RoleName, SkillExecutionPhase.Plan.ToString(), key);
             var response = await chat.GetResponseAsync(
-                [new ChatMessage(ChatRole.User, SpecCutReviewPrompt.For(set, ticketText))],
-                new ChatOptions(), ct);
+                [new ChatMessage(ChatRole.User, prompt)],
+                new ChatOptions { Tools = DerivationTools.For(look) }, ct);
             costTracker.Track(response);
-            return Read(response.Text);
+            // The answer is the last turn that says anything: with tools, earlier turns may carry
+            // prose around a look, and a trailing turn may carry none.
+            return SpecCutAnswerReader.Read(
+                response.Messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.Text))?.Text ?? response.Text);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // 2026-09-17-042ed: guarded on the RUN's token, never on the exception's type. The LLM
+        // layer's own NetworkTimeout surfaces as a TaskCanceledException with this token NOT
+        // cancelled, and letting that escape kills the caller's turn over a review that is only
+        // ever advisory. An operator cancel does leave the token cancelled — that still propagates.
+        catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "The cut review call failed");
             return null;
         }
     }
-
-    private static IReadOnlyList<CutFinding>? Read(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        var start = text.IndexOf('[');
-        var end = text.LastIndexOf(']');
-        if (start < 0 || end <= start) return null;
-        try
-        {
-            return JsonSerializer.Deserialize<List<CutFinding>>(
-                text[start..(end + 1)],
-                // snake_case is what the prompt asks for, and case-insensitivity alone does
-                // not bridge an underscore — the same trap ships_code fell into.
-                new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-                });
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private static string Shorten(string text) => text.Length <= 80 ? text : text[..80] + "…";
 }

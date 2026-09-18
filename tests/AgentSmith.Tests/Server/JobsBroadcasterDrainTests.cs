@@ -4,7 +4,10 @@ using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Services.Events;
+using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Services.Events;
+using AgentSmith.Server.Services.SpecDialog;
+using Microsoft.AspNetCore.SignalR;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -152,7 +155,8 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         var router = new RunEventRouter(
             Mock.Of<IRunEventFanout>(), new SandboxExpansionRegistry(),
             new SandboxDetailEventClassifier(), new SandboxActivityCoalescer(),
-            new RunDbEventPersistence(provider.GetRequiredService<RunDbProjector>()));
+            new RunDbEventPersistence(provider.GetRequiredService<RunDbProjector>()),
+            new FiledWorkNudge(Mock.Of<IHubContext<JobsHub>>(), new FiledWorkWatchRegistry()));
         return new JobsBroadcaster(
             _redis.Connection, Mock.Of<IRunEventFanout>(), router,
             NullLogger<JobsBroadcaster>.Instance,

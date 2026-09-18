@@ -1,0 +1,327 @@
+phase: 2026-09-17-042ef
+decisions:
+  - id: the-dialog-joins-the-rules-it-never-copies
+    chose: >
+      One class, .mock-dialog, added to the SELECTOR LIST of the rules that already draw the
+      Projects page: runs-list's .main and .m-head (mock-parity.css:133-137) and Config
+      Studio's .btn family (:499-503), .ecard and .ecard.inert (:512,515), .ec-name and its
+      sans variant and .ec-sub (:525-527), .ec-marks and .ec-mark with its warn and bad
+      variants (:530-533), and the field label and value (:554-556). No declaration is
+      restated under .mock-dialog.
+    alternative: >
+      A .mock-dialog block restating those declarations, as .mock-system does for the pages
+      that have no mockup of their own (:738-815).
+    why: >
+      A copied declaration is a second definition of one look, and the operator's complaint is
+      that the two pages do not read as one product. .mock-system's copy is already the proof:
+      its .btn at :811 carries a white-space the studio's does not. Joined, a change to the
+      studio's card changes this page in the same commit, and a reader grepping .ecard sees
+      every page that has one.
+  - id: a-shell-of-its-own-not-either-of-the-two-it-is-built-from
+    chose: >
+      The page root is `mock-shell mock-dialog`. The dialog shell takes runs-list's .main
+      (1500px) and page head, and neither the runs list's section rules nor the studio's .main.
+    alternative: >
+      Staying under .mock-runs, as 2026-09-17-c7aed left it; or moving to .mock-config, which
+      is where the card, mark, label and button come from.
+    why: >
+      Two traps, each fatal to the three-column layout. .mock-runs puts a 26px top margin on
+      `section + section` (:729) and the conversations list and the exchange ARE adjacent
+      sections, so the middle column hung 26px below its neighbours. .mock-config caps .main at
+      1000px (:494); minus its padding that is 940px of container, and the third column appears
+      at the @6xl container width of 1152px, so under the studio's shell the page could never
+      reach three columns at all. Verified in the compiled bundle: no `section + section` rule
+      and no 1000px cap names .mock-dialog.
+  - id: the-hover-border-is-not-joined
+    chose: >
+      .ecard:hover (:516) and button.ecard (:709) keep .mock-config alone.
+    alternative: >
+      Joining the whole .ecard family for symmetry.
+    why: >
+      Nothing on this page is clickable as a whole card, and a border that moves under the
+      pointer offers a click that is not there — which is exactly why 2026-09-16-5451 added
+      .inert to the studio's own project card.
+  - id: two-rules-beyond-the-five-the-scope-names
+    chose: >
+      The studio's drawer TAB (.dtab, .dtab:hover, .dtab.on -> the dialog's
+      .dtab[aria-selected="true"]) and its text CONTROL (.field input/select -> .d-input) are
+      joined as well; the tab's CONTAINER (.dtabs) deliberately is not.
+    alternative: >
+      Leaving the pane's tabs and the composer in theme utilities, or restating those two
+      rules under .mock-dialog.
+    why: >
+      A DEVIATION from the scope list, taken because the scope's own third decision says every
+      dialog surface moves: a tab and a text field are surfaces, and the only other way to give
+      them the studio's look was the copied rule the whole method exists to prevent. .dtabs is
+      left alone because it carries a bottom border of its own, which would have drawn a second
+      line under the head bar that already has one.
+  - id: the-tones-and-the-type-rungs-stay
+    chose: >
+      text-ink, text-body, text-body-mid and text-primary-deep and the dsh-* rungs stay as
+      theme utilities; only fills, card lines, corners, labels, marks and controls move.
+    alternative: >
+      Moving every colour to the mock vocabulary, as the scope's third decision reads at its
+      widest.
+    why: >
+      The values are already identical — ink #201515 is --ink, body #605d52 is --ink-2,
+      body-mid #939084 is --ink-3 — so nothing on the page shifts. What the third decision is
+      about is the SURFACE mismatch it names: border-mute is #c5c0b1 where a card line is
+      #e6dfd0, a visibly darker line beside the studio's. Moving the tones as well would mean
+      inventing a text-class vocabulary mock-parity.css does not have.
+  - id: the-columns-stay-container-queried
+    chose: >
+      The three-column grid keeps c7aed's @container and @3xl/@6xl utilities; the shell change
+      is what makes them work.
+    alternative: >
+      Media queries in the .mock-dialog block, as every other mock surface uses.
+    why: >
+      c7aed made the surface a size container on purpose — it collapses by the width the shell
+      leaves it, not by the window's, which is the only correct answer with a rail beside it.
+      Neither trap this phase fixes is a query trap, and replacing a working mechanism to match
+      a file's house style would be a change nothing asked for.
+  - id: what-the-page-declares-for-itself
+    chose: >
+      Everything under .mock-dialog splits in two and the split is now measured, not counted by
+      hand: 27 JOINED rules, where the dialog's selector rides beside a .mock-config or
+      .mock-runs one, and 23 OWN-STRUCTURE rules (24 selectors) for things the studio has no
+      element for — .d-head, .d-body, .d-foot, .d-block, .d-strip, .d-finding, .d-who, .d-link,
+      .d-conv, textarea.d-input and the modifiers .ecard.waiting, .ec-mark.filed, .ec-mark .mn,
+      .fl.on and .fl.bad. --primary-deep is declared once as an alias of the theme's
+      --color-primary-deep. dialog-joins.test.ts now asserts the split rather than trusting it.
+    alternative: >
+      Reaching for the nearest studio class anyway (.ec-top for a head bar, .ec-ic for the
+      speaker mark); re-typing #15803d as .mock-access does.
+    why: >
+      A head bar with a divider, a speaker's initials beside a line, a nested run block and a
+      card that is WAITING ON A PERSON are states the config studio does not have; borrowing a
+      class whose meaning is different is how a vocabulary stops meaning anything. The accent
+      at text contrast is aliased rather than re-typed so the two can never disagree.
+  - id: a-scan-for-a-surface-drawn-twice
+    chose: >
+      dialog-surfaces.test.ts scans components/dialog for surface utilities (bg-canvas,
+      bg-primary, border-mute, border-primary, rounded-md, rounded-sm, eyebrow-uppercase,
+      text-on-primary) and for a locally declared Chip, Eyebrow or Facts.
+    alternative: >
+      Widening the existing palette scan; trusting review.
+    why: >
+      Neither thing it bans is a raw palette class, so the palette scan beside it passes them,
+      and no rendering test notices a card that merely looks assembled. It is the only
+      mechanical hold on a look whose real criterion — that two pages read alike — nothing can
+      measure.
+  - id: what-the-render-settled-and-what-it-did-not
+    chose: >
+      The done list's first criterion - the same cards, marks, labels and buttons, checked by
+      eye - is recorded as MET on the render: the shell, the cards, the line weights, the
+      shadow, the green button and the mono names matched. The second, that the three column
+      tops align at wide widths, is recorded as NOT established.
+    alternative: >
+      Reading both as met because the page was finally opened; or both as unmet because the
+      render was against a stand-in backend rather than a live one.
+    why: >
+      The render answers exactly what it showed. Nobody photographed the two pages side by
+      side at a width where three columns stand, and column alignment is a measurement, not an
+      impression - so it stays unclaimed even though both of its named causes are provably
+      absent from the compiled bundle. What the render did NOT change is the mechanical proof
+      it sits on: the joins land with their declarations, no surface utility survives under
+      components/dialog, and the studio's .btn at :499 wins over .mock-shell's at :126, so this
+      page's buttons compute what the Projects page's compute.
+  - id: the-page-was-finally-looked-at
+    chose: >
+      Six changes taken from a browser render at 1600, 1000 and 430 pixels against a stand-in
+      backend — the first time anyone in this series opened the page.
+    alternative: >
+      Shipping on the mechanical proof, which was green and stayed green through all six.
+    why: >
+      The shell, the cards, the line weights, the shadow, the green button and the mono names
+      DID match the Projects page, so the joins were right. Every one of the six is something a
+      class-name check cannot see: a column value set in prose, text run together, a state whose
+      separation was a word rather than a difference, a name said three times, a rule under every
+      link, and a thing that never said what it was. That is the gap the last report named, and
+      this is it being closed rather than restated.
+  - id: a-state-is-a-mark-in-words
+    chose: >
+      Every state on the page is the Projects page's mark: the five phase statuses, the run's
+      own and the five review states. phaseStatusWords maps RunPhaseProjection.StatusOf's five
+      to English and a tone; the run's WORDS move out of RunCard into runStatus.ts and both
+      surfaces read the one map.
+    alternative: >
+      Keeping the column value, which is what rendered; or writing a second word map beside
+      RunCard's.
+    why: >
+      "in_progress" and "not_started" reached the screen verbatim, inline in the sentence around
+      them, so a state could not be told from prose - and the reference renders every fact about
+      a project as a mark. RunCard's own comment already said a second copy of those words would
+      be two answers waiting to disagree, and this page was about to be the second copy. The
+      TONE is not shared: a mark has three tones and the Badge has four, including a green for a
+      success a mark has no equivalent of, so that is a different question with its own answer.
+  - id: an-alarm-only-where-nobody-looked
+    chose: >
+      Of the five review states, the two that mean nobody looked carry an alarm mark - warn for
+      a review that was skipped with a reason, bad for a row that cannot be read. A clean review
+      and a phase that has not reached its review are calm marks, and a phase WITH findings is
+      told by the rows themselves. The sentences 042ej wrote are unchanged.
+    alternative: >
+      One tone for all five; or rewording the sentences so the mark need not repeat a word.
+    why: >
+      2026-09-17-042eh exists to keep "nobody looked" apart from "looked and found nothing", and
+      on screen the separation was a word in body text. What must be seeable without reading is
+      the gap in the evidence, not the difference between done-clean and not-there-yet. The
+      wording stays 042ej's because how this looks is this phase's business and what it says is
+      that phase's - the mark is added beside its sentence, never in place of it.
+  - id: a-finding-gets-a-row
+    chose: >
+      Each review finding is a .d-finding row: the repository/path:line above, in the studio's
+      field value, the prose beneath, and a revert note as its own marked line. A rule separates
+      one row from the next.
+    alternative: >
+      Leaving the inline em-dashed run, which is what 042ej wrote and what rendered.
+    why: >
+      Two findings, two addresses and a trailing revert note arrived as one unbroken block -
+      the densest and most consequential text on the page and the hardest to read on it. The
+      reference sets a mono name above its description; this is that, applied to the one place
+      that needed it most. The fixture grew a second finding because one cannot show a wall.
+  - id: the-pane-names-itself-once
+    chose: >
+      The tab carries the name. The eyebrow beside it carries STATE and is empty where there is
+      none, so a clean filing says nothing there and a failed one still says "filing failed".
+      The Filed and Scope panels lose their own headings.
+    alternative: >
+      Dropping the tab label or the eyebrow instead.
+    why: >
+      "Filed" stood three times stacked in one corner. The tab is the only one of the three a
+      reader uses to NAVIGATE, so it keeps the name; a heading under a tab of the same word is
+      the noise. Scope had the identical triple one tab over and is fixed with it, because
+      leaving it would be the same incoherence this phase exists to remove.
+  - id: the-reference-underlines-nothing
+    chose: >
+      .d-link rests on colour alone and takes its rule on hover; "underline" joins the surface
+      scan's banned list.
+    alternative: >
+      Keeping the underline for the accessibility of a link distinguished by more than colour.
+    why: >
+      A config entity's link is colour alone (mock-parity.css:556) and three underlined links in
+      one pane read visibly busier than the page this one is meant to sit beside - which is the
+      whole complaint this phase answers. The hover rule keeps the affordance where a pointer
+      asks for it. The trade is real and is recorded here rather than hidden: a reader who
+      cannot separate the greens has the link's position and wording and nothing else.
+  - id: a-pull-request-says-so
+    chose: >
+      The run's pull requests sit under a field label naming them, each as the repository it is
+      against with its state as a mark.
+    alternative: >
+      Leaving the bare repository name the run line already carried.
+    why: >
+      The line read "...in a project - a sum" and then a bare repository name, and nothing on it
+      said the second was a pull request rather than another repository the run had touched. The
+      label says it once for however many there are, and the state stops being the raw word it
+      was on the url-less branch.
+  - id: rebased-onto-the-fixed-042ej
+    chose: >
+      Rebased onto 1393d21b; the one conflict, DialogFiledRuns.tsx, resolved by taking 042ej's
+      file whole and re-applying this phase's classes to it.
+    alternative: >
+      Merging the two versions hunk by hunk.
+    why: >
+      042ej rewrote that file's internals - a fourth and fifth review state, an amendment line
+      that now fires only on handed_back, three renamed test ids - while this phase had only
+      restyled its container. Taking its file whole and restyling again cannot lose a state; a
+      hunk merge could have dropped one silently, which is the exact defect these phases exist
+      to prevent.
+  - id: the-font-shorthand-was-eating-the-page
+    chose: >
+      `font: inherit` leaves the shared .d-link rule and moves to `.mock-dialog button.d-link`,
+      where a UA reset belongs; `.d-conv` is element-qualified for the same reason; and
+      dialog-joins.test.ts asserts the shorthand never again appears in this page's own block
+      on a selector that is not a form element.
+    alternative: >
+      Replacing the shorthand with `font-family: inherit` and friends; or leaving it and
+      dropping the composed classes it was killing.
+    why: >
+      `font:` is a SHORTHAND — it resets family, size, weight and line-height — and this
+      stylesheet is unlayered, so it beat both the mock classes and Tailwind's utility layer on
+      any element composed with it. The pull-request link rendered 14px proportional sans beside
+      a url-less sibling at 12.5px mono, and the run id, 11px mono before this phase, became the
+      largest text on its line. That is this phase's own thesis failing inside the phase, and it
+      went through an eye-check. A reset scoped to the element with chrome to reset cannot do
+      it, and only the guard stops it coming back, because nothing in jsdom can see a font.
+  - id: a-pull-request-says-its-state-and-why-it-failed
+    chose: >
+      pullRequestWords maps RunPullRequestView's documented "opened | no_changes | failed" to
+      words and a tone, failed being bad, and the row's `reason` is rendered beside it.
+    alternative: >
+      Leaving the column value, which is what shipped.
+    why: >
+      "no_changes" reached the screen with its underscore — the exact thing this phase's second
+      half removes, while a decision above claimed it was removed. And a pull request that could
+      NOT be opened read in the same grey as one that was, one panel from a skipped review in
+      amber. The reason field was populated for exactly that case and shown nowhere.
+  - id: the-third-gap-is-marked-and-the-fourth-cannot-be
+    chose: >
+      A null review on a STOPPED phase is warn, "no review was recorded"; on a running phase it
+      stays calm, "not reviewed yet". The alarm on a not-taken review is left exactly as it is,
+      and 2026-09-18-44c2 is filed to carry a KIND on PhaseReviewReport so the page can tell
+      "nothing to review" from "nobody was asked".
+    alternative: >
+      Matching PhaseDiffReviewer's reason text in the component to drop the false alarm.
+    why: >
+      The null review covers two facts and rendered one word for both, so a phase that FINISHED
+      with no review sat beside "reviewed, nothing found" in the same grey; the phase's own
+      status answers that, with no new data. The other half cannot be answered here: the DTO
+      carries a bool and a prose sentence written in another assembly, and matching that prose
+      is a heuristic around a missing field that breaks the moment somebody rewords it — which
+      is the one thing [[feedback_no_heuristic_for_missing_data]] rules out. So a spec-only
+      slice still raises a false amber, and that is named as a phase rather than left implied.
+  - id: a-keyboard-gets-a-cue-and-the-pull-request-link-gets-a-glyph
+    chose: >
+      .d-link takes its rule on :focus-visible as well as :hover, in the stylesheet where the
+      surface scan does not reach, and the pull-request link carries an aria-hidden ↗.
+    alternative: >
+      Restoring the resting underline everywhere, and narrowing the scan's ban to let
+      focus-visible:underline be written in a component.
+    why: >
+      Hover reaches neither a keyboard nor a touch screen, so colour alone was the ONLY cue for
+      both — and that colour is 1.35:1 against the ink beside it. The pull-request link is the
+      worst case because it sits inline among repository names that are not links, so it gets a
+      mark of its own rather than a different green. The scan keeps banning the substring:
+      every link on this page goes through .d-link, decoration is the stylesheet's business
+      here, and a narrower regex would be a second rule to keep true.
+  - id: the-method-itself-is-now-guarded
+    chose: >
+      dialog-joins.test.ts reads mock-parity.css and asserts three things: every .mock-dialog
+      selector above the own block rides beside a .mock-config or .mock-runs one; no rule in the
+      own block redefines a borrowed class outright, only narrows it; and the font shorthand
+      appears only on a form element.
+    alternative: >
+      Leaving the method to review, as it was.
+    why: >
+      The whole phase is "borrow the rule, never copy it", and every one of the 150 tests would
+      have stayed green if someone replaced the joins tomorrow with a .mock-dialog block
+      restating them — while this file argues at length that a copy drifts and cites
+      .mock-system .btn, a copy that already has. An argument in a decisions file is not a
+      guard.
+  - id: the-name-list-is-a-backstop-not-the-rule
+    chose: >
+      The local-surface name list keeps Chip, Eyebrow and Facts, but the test that showed
+      `Label` passing it is replaced by one showing a RENAMED local chip still caught — by the
+      surface-utility scan, because whatever it is called it has to draw itself out of
+      something.
+    alternative: >
+      Growing the name list; or detecting the shape of a local surface component.
+    why: >
+      The old case advertised the evasion it blessed. The load-bearing guard was never the name
+      — it is the utility list and now the stylesheet scan, which catch the DRAWING. The name
+      list stays because it costs nothing and catches the lazy regression.
+  - id: the-spec-in-done-is-not-edited
+    chose: >
+      The review asked for the done spec's premise "The dialog runs under mock-runs with its
+      own utility strings" to be corrected. It is left exactly as it is, and the correction is
+      recorded here.
+    alternative: >
+      Editing the sentence in phases/done/2026-09-17-042ef-dialog-shell-styling.yaml.
+    why: >
+      Two reasons, either sufficient. The sentence is a BEFORE-state — it said where the dialog
+      stood when the spec was written, which is what the phase then changed, so it was never
+      false. And a phase spec is not mutated after the fact ([[feedback_phase_versioning]]): a
+      spec that was adversarially reviewed and executed must keep saying what was reviewed, or
+      the record stops being evidence of anything. A successor carries a correction; this file
+      carries the note.

@@ -9,6 +9,8 @@ import { groupByDay, outcomeLabel, timeOfDay } from "./conversationDays";
 // strings still travel through the ingestion endpoint, but nobody has to type them.
 // 2026-09-17-c7aed: the list is the left column, grouped by day and marked with what each
 // conversation filed.
+// 2026-09-17-042ef: the column is the Projects page's panel card, the day is its field label
+// and the marks under a conversation are its marks — the local chip that drew them is gone.
 
 export function DialogConversations({
   dialogId,
@@ -39,19 +41,19 @@ export function DialogConversations({
   return (
     <section
       data-testid="dialog-controls"
-      className="rounded-md border border-mute bg-canvas @3xl:col-span-2 @6xl:col-span-1"
+      className="ecard inert @3xl:col-span-2 @6xl:col-span-1"
     >
-      <div className="border-b border-mute px-3 py-2">
-        <h2 className="dsh-body font-semibold text-ink">Conversations</h2>
+      <div className="d-head">
+        <h2 className="ec-name sans">Conversations</h2>
       </div>
-      <div className="flex flex-col gap-3 p-2.5">
+      <div className="d-body flex flex-col gap-3">
         {projects.length > 1 && (
           <select
             data-testid="dialog-project-picker"
             aria-label="Project"
             value={picked}
             onChange={(event) => onPicked(event.target.value)}
-            className="rounded-md border border-mute bg-canvas px-2 py-1 dsh-body text-ink"
+            className="d-input"
           >
             <option value="">pick a project…</option>
             {projects.map((project) => (
@@ -69,7 +71,7 @@ export function DialogConversations({
             setStarting(true);
             onStartNew(picked || undefined);
           }}
-          className="w-full rounded-md bg-primary-deep px-3 py-2 text-left dsh-body font-semibold text-on-primary hover:bg-primary-pressed disabled:opacity-50"
+          className="btn primary w-full"
         >
           + New conversation
         </button>
@@ -77,7 +79,7 @@ export function DialogConversations({
           <div data-testid="dialog-conversations" className="flex flex-col gap-3">
             {groupByDay(conversations).map((day) => (
               <div key={day.label} data-testid="dialog-conversation-day" className="flex flex-col gap-0.5">
-                <h3 className="eyebrow-uppercase px-1 pb-1 text-body">{day.label}</h3>
+                <h3 className="fl px-1 pb-1">{day.label}</h3>
                 {day.conversations.map((conversation) => (
                   <Conversation
                     key={conversation.sessionId}
@@ -112,46 +114,23 @@ function Conversation({
       data-testid={`dialog-conversation-${conversation.sessionId}`}
       aria-current={current ? "true" : undefined}
       onClick={() => onOpen(conversation.sessionId, conversation.openDialogId)}
-      className="w-full rounded-md border-l-2 border-transparent px-2 py-1.5 text-left hover:bg-canvas-soft aria-[current=true]:border-primary-deep aria-[current=true]:bg-canvas-soft"
+      className="d-conv"
     >
       <span className="block truncate dsh-body font-medium text-ink">
         {conversation.title ?? `untitled ${conversation.sessionId}`}
       </span>
-      <span className="mt-0.5 flex flex-wrap items-center gap-1.5 dsh-label text-body">
-        <Chip>{conversation.project}</Chip>
+      <span className="ec-marks ec-sub items-center">
+        <span className="ec-mark">{conversation.project}</span>
         <span>
           {conversation.turns} turn{conversation.turns === 1 ? "" : "s"}
         </span>
         {time && <span>{time}</span>}
         {filed && (
-          <Chip testId="dialog-conversation-outcome" filed>
+          <span data-testid="dialog-conversation-outcome" className="ec-mark filed">
             {filed}
-          </Chip>
+          </span>
         )}
       </span>
     </button>
-  );
-}
-
-function Chip({
-  children,
-  filed,
-  testId,
-}: {
-  children: string;
-  filed?: boolean;
-  testId?: string;
-}) {
-  return (
-    <span
-      data-testid={testId}
-      className={
-        filed
-          ? "rounded-sm border border-primary-deep px-1 font-mono text-primary-deep"
-          : "rounded-sm border border-mute px-1 font-mono text-body"
-      }
-    >
-      {children}
-    </span>
   );
 }

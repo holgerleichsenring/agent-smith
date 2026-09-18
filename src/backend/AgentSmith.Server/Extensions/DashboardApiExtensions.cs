@@ -26,6 +26,8 @@ internal static class DashboardApiExtensions
         // for. Registered unconditionally and silent while the enforce switch is off, so
         // it READS that switch rather than owning a second copy of it.
         services.AddSingleton<HubPermissionFilter>();
+        // 2026-09-17-042ej: and the one that forgets a gone connection's filed-work watch.
+        services.AddSingleton<FiledWorkDisconnectFilter>();
         services.AddSignalR(o =>
         {
             // p0367: raise the per-connection parallel-invocation cap. The dashboard opens
@@ -34,6 +36,7 @@ internal static class DashboardApiExtensions
             // the next subscribe on the same connection and read as a hung connection.
             o.MaximumParallelInvocationsPerClient = 4;
             o.AddFilter<HubPermissionFilter>();
+            o.AddFilter<FiledWorkDisconnectFilter>();
         });
         services.AddSingleton<SandboxExpansionRegistry>();
         services.AddSingleton<JobsBroadcaster>();
@@ -62,6 +65,7 @@ internal static class DashboardApiExtensions
             sp.GetService<RunDbProjector>()));
         services.AddSingleton<SandboxDetailEventClassifier>();
         services.AddSingleton<SandboxActivityCoalescer>();
+        services.AddSingleton<FiledWorkNudge>();
         services.AddSingleton<RunEventRouter>();
         return services;
     }

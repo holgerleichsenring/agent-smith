@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042em
+
+goal: "The conversation list follows the replies so a running conversation shows its title, the open session's project is named in its header, and filed tickets are named by their key."
+
+applies_to: "dashboard (conversation list, exchange header, filed panel) + backend (filed ticket display key)"
+
+requires:
+  - 2026-09-17-042eg
+  - 2026-09-17-042ek
+
+scope:
+  in: >
+    The hook re-reads the conversation list on a framework message of the current dialog whose listed row is
+    behind, which replaces the separate read after a filing, with a sequence guard so a late response never
+    replaces a newer list. The exchange header names the open session's project; the picker stays the
+    choice for a new conversation. Filed tickets carry a display key that the ticket provider formats from the id
+    2026-09-17-042eg records; FiledTicket and the dashboard filing type gain it as optional; the filed panel and the dashboard variant of the filed notice link key and title;
+    a saved filing without a key falls back to the reference.
+  out: >
+    RE-READING ON SEND. The post returns before dispatch (SpecDialogEndpoints.cs:41-42,56).
+
+decisions:
+  - key: |
+      ON A REPLY THE LISTED ROW IS BEHIND, BECAUSE THE REPLY IS SENT AFTER THE APPEND. The list is read on a
+      session change or a filing (useSpecDialog.ts:200-203,239-243); the first read races the append and the row
+      stays untitled. The reply is sent after the assistant turn is appended (SpecDialogRouter.cs:105-106). The
+      handler fires on the MESSAGE channel (client.specDialogMessages), which carries replies, refusals and the
+      framework's own notices — the filing notice among them, so the read after a filing becomes redundant and
+      goes. It does NOT carry an approval question: the confirmer asks through messenger.AskQuestionAsync
+      (SpecDialogOutcomeConfirmer.cs:63-64) and DashboardAdapter pushes that as "SpecDialogQuestion" only
+      (DashboardAdapter.cs:46-61). Nothing is lost by that — the reply always precedes the question in the same
+      turn, and a pending question appends no transcript turn — but the sentence has to say so. This NARROWS
+      c7aeb's "never after every message" rather than reversing it: that rule priced the read (every listed
+      transcript parsed, two further JSON documents per row at SpecDialogLatestOutcomeStore.cs:64-67, up to fifty
+      rows), and the price is still real, so the read is issued only while the row for the conversation open here
+      is missing, untitled, or listed with fewer turns than the page last read. The title comes from the first
+      operator turn (SpecDialogConversationTitle.cs:17-20), so it races nothing, but the list reads overlap each
+      other with no sequence guard (useSpecDialog.ts:188-196), unlike load (:117-126); they get one. The filed
+      notice is sent before it is appended (TicketFilingOutcomeSink.cs:55-59), so the read it triggers shows one
+      turn fewer until the next.
+  - key: |
+      THE PICKER STAYS A CHOICE. It feeds New conversation (DialogConversations.tsx:64-71); disabling it on the
+      open session's project would stop a new conversation on another project. The session's project is named
+      in the exchange header instead.
+  - key: |
+      THE PROVIDER FORMATS THE KEY. Only the provider knows its tracker's key shape (Jira ids are keys, the others
+      become #number); formatting in the filers would put a tracker switch in each filer. CreatedTicket gains a
+      display key the provider sets, after 2026-09-17-042ea's changes to it; its Reference already falls back to
+      #{Id} (CreatedTicket.cs:11). Old saved filings read without a key (SpecDialogLatestOutcomeStore.cs:47-49,64-81).
+
+steps:
+  - id: list-follows-messages
+    action: "The hook re-reads the conversation list on a framework message whose listed row is behind, guarded against late responses; the filing read goes."
+  - id: project-in-the-header
+    action: "The exchange header names the open session's project."
+  - id: tickets-by-key
+    action: "Providers set CreatedTicket's display key; FiledTicket and the dashboard type carry it; the filed panel and the dashboard filed notice link key and title."
+
+tests:
+  - "dashboard: after a reply the running conversation is listed with its title and turns"
+  - "dashboard: the list is not re-read while the row already names the conversation"
+  - "dashboard: the list is read again once the row falls behind"
+  - "dashboard: a late conversation-list response does not replace a newer one"
+  - "dashboard: the exchange header names the open session's project"
+  - "dashboard: New conversation still uses the picked project while a session is open"
+  - "FiledTicket_EachTracker_CarriesItsDisplayKey"
+  - "Markup_Link_IsTheChannelsOwnShape"
+  - "FilingNotice_InChat_LinksTheKeyToTheTicket"
+  - "LatestFiling_RowWithoutKey_ReadsAndFallsBackToTheReference"
+  - "dashboard: a filed ticket is linked by its key and title"
+
+done:
+  - "a running conversation never shows as untitled with zero turns once it has replied"
+  - "filed tickets read as keys, not raw urls, on the page and in chat alike"
+  - "dashboard build and tests green, full suite green"

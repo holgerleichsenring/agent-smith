@@ -1,0 +1,105 @@
+phase: 2026-09-17-042el
+decisions:
+  - id: the-admission-stores-every-thread-message
+    chose: >
+      SpecDialogAnswerAdmission.AdmitAsync looks the open session up, peeks the pending question and
+      classifies the message against it, appends it with that decision, then takes the question and
+      publishes the answer. It returns the stored state and whether it answered; the router takes the
+      gate path with that state, so a failed take never appends twice. The router lost the pending
+      registry and the transport from its constructor (132 -> 124 lines).
+    alternative: >
+      The admission handling only the answered case and the router appending an ordinary message itself.
+    why: >
+      The admission must look the session up and append before it knows whether the take succeeds, so
+      the non-answer path already holds a stored message; a second append path in the router would be
+      the duplicate the spec rules out.
+  - id: the-take-is-the-peeked-question
+    chose: >
+      SpecDialogPendingQuestions.TryTake takes the peeked PendingQuestion only while it is still the
+      registered value (ConcurrentDictionary.TryRemove of the key-value pair). With no peeked question
+      nothing is taken; when the take fails, the admission clears the decision on the turn it stored
+      (SpecDialogSessionManager.ClearDecisionAsync, the latest turn equal to it) and the message
+      goes the gate path.
+    alternative: >
+      Take whatever is pending after the append, as the first cut did, or take only when the peek found
+      a question but by key.
+    why: >
+      The decision is classified against the peeked question and stored before the take. A question
+      that expired meanwhile (the confirmer's finally clears it), was taken by a second POST of the same
+      click, or was replaced by another, left a stored "Approved" that answered nothing, or handed the
+      answer to a question it was not recorded against. A message sent before its question existed is
+      no longer taken as the answer to it.
+  - id: the-decision-is-a-required-append-argument
+    chose: >
+      SpecDialogSessionManager.AppendTurnAsync takes a required nullable SpecDialogDecision beside the
+      kind; every caller passes one (null except the admission).
+    alternative: >
+      An optional parameter, or a second append method for operator messages.
+    why: >
+      2026-09-17-042ec made the kind required so no append path silently records nothing; the decision
+      follows the same rule, and five call sites is a small price.
+  - id: one-vocabulary-type
+    chose: >
+      SpecDialogAnswerWords owns the approve and reject lists: DecisionIn(reply) trims and lower-cases,
+      DecisionOn(question, reply) applies it to approval questions only. The confirmer's Interpret maps
+      DecisionIn onto its results.
+    alternative: >
+      Keep the lists in the confirmer and expose them.
+    why: >
+      Two readers of one word list must agree, and a design turn's free-text question must keep "yes"
+      as a message.
+  - id: the-decision-lives-on-the-server-turn-only
+    chose: >
+      SpecDialogDecision (Approved, Rejected) on TranscriptTurn as an optional trailing member, and on
+      SpecDialogTurnView as the wire's lower-case word. The Contracts SpecDialogTurn the master reads is
+      unchanged.
+    alternative: >
+      Carry the decision to the design master's transcript too.
+    why: >
+      The master already reads the word, and 042ec's proposal rule counts the decision turn as an
+      operator message by its role; nothing in the pipeline reads a decision.
+  - id: the-buttons-add-a-decision-entry
+    chose: >
+      The approval controls carry their decision; send posts the word and appends a "decision" entry
+      instead of echoing. seed() maps a turn with a decision to the same entry, and the empty-text filter
+      drops only empty agent entries. The confirmation yes/no buttons still echo: the server records a
+      decision on approval questions only.
+    alternative: >
+      Re-seed entries after every read so the server's decision appears.
+    why: >
+      A re-seed after every read drops the framework's own lines (useSpecDialog.ts reseed rule), so the
+      live page needs its own entry.
+  - id: a-clicked-decision-is-pending-until-a-read
+    chose: >
+      The approval buttons add the decision entry as pending, remembering the read count and the
+      transcript length it was clicked at. The first read issued after it replaces it with the
+      decision stored at or after that turn (each stored decision confirms one click), or drops it;
+      the same read restores the question card when the question is still open.
+    alternative: >
+      Keep adding a confirmed entry when the POST resolves, or re-seed all entries from every read.
+    why: >
+      The endpoint answers 202 before the message is routed, so a resolved POST says nothing about an
+      append that failed or an answer that lost the race above; the card was already gone. A re-seed
+      after every read drops the framework's own lines.
+  - id: an-unknown-decision-reads-as-none
+    chose: >
+      A generic TolerantNullableEnumConverter reads the stored decision by name only and answers null
+      for an unknown word, a number or any other shape; the dashboard transcript renders only
+      "approved" and "rejected" as decisions and anything else as the operator message it was.
+    alternative: >
+      Reuse 2026-09-17-042ec's tolerant kind converter, or AgentSmith.Sandbox.Wire's
+      TolerantEnumConverter.
+    why: >
+      The stock converter threw on an unknown string and made the whole transcript unreadable, and
+      accepted any integer as an undefined value. 042ec's converter is not in this tree (it is being
+      amended in parallel), and the wire converter answers a non-null fallback, where a decision nobody
+      can name must be none.
+  - id: one-tolerant-enum-converter
+    chose: >
+      One tolerant converter for every optional enum a transcript turn stores, serving the turn kind and the
+      decision; 042ec's turn-kind converter is removed.
+    alternative: >
+      042ec's turn-kind converter beside this phase's decision converter.
+    why: >
+      Both phases met the same rollback risk in parallel and each wrote a converter. The generic one accepts
+      names only, the stricter of the two readings.

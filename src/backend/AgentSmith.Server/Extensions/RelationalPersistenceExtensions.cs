@@ -119,12 +119,12 @@ internal static class RelationalPersistenceExtensions
         // (SpecDialogSession precedent — Redis is a channel, never the authority); the
         // transport decorator writes answers durable-first; the resume sweeper (housekeeping
         // leader) turns answered/expired checkpoints into capacity-queue resume entries.
-        // p0393a: the work-spec pointer — carrying repo + last revision sha + hand-back
-        // counters. Replaces the DB-free in-memory default so a re-trigger in another
-        // process can still tell its own last revision from a reviewer's edit.
-        services.AddScoped<TicketSpecSetRepository>();
-        services.RemoveAll<ISpecSetPointerStore>();
+        // p0393a: the work-spec pointer (repo, sha, hand-back counters) tells a re-trigger's own
+        // revision from a reviewer's edit; 2026-09-17-0e79a: beside it, what a person APPROVED.
+        services.AddScoped<TicketSpecSetRepository>().AddScoped<ApprovedSpecSetRepository>();
+        services.RemoveAll<ISpecSetPointerStore>().RemoveAll<ISpecApprovalStore>();
         services.AddSingleton<ISpecSetPointerStore, DbSpecSetPointerStore>();
+        services.AddSingleton<ISpecApprovalStore, DbSpecApprovalStore>();
         services.AddScoped<Services.Lifecycle.NotImplementableRetryService>();
         services.AddScoped<RunCheckpointRepository>();
         services.AddScoped<DialogueAnswerRepository>();

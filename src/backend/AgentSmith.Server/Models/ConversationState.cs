@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models;
+
 namespace AgentSmith.Server.Models;
 
 /// <summary>
@@ -40,6 +42,16 @@ public sealed record ConversationState
 
     /// <summary>The project + repo set a spec-dialog session is scoped to.</summary>
     public ActiveScope? Scope { get; init; }
+
+    /// <summary>
+    /// 2026-09-17-042ed: the proposal THIS turn is revising, set by the router when an edit note
+    /// sends the turn round again — with the findings its review reported, which the re-prompted
+    /// master is shown. Never stored: it belongs to the turn about to run, and the stored
+    /// proposal is cleared only on reject or timeout, so reading it back would show a later
+    /// ordinary turn stale findings.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public OutcomeProposal? Revising { get; init; }
 
     public ConversationState WithPendingQuestion(string questionId) =>
         this with { PendingQuestionId = questionId };

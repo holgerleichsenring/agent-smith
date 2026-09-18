@@ -9,6 +9,9 @@ using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Events;
+using AgentSmith.Server.Hubs;
+using AgentSmith.Server.Services.SpecDialog;
+using Microsoft.AspNetCore.SignalR;
 using AgentSmith.Server.Services.Lifecycle;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -145,7 +148,8 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
     private static RunEventRouter NewRouter() => new(
         Mock.Of<IRunEventFanout>(), new SandboxExpansionRegistry(),
         new SandboxDetailEventClassifier(), new SandboxActivityCoalescer(),
-        new RunDbEventPersistence(null));
+        new RunDbEventPersistence(null),
+        new FiledWorkNudge(Mock.Of<IHubContext<JobsHub>>(), new FiledWorkWatchRegistry()));
 
     // p0357: a finalizer whose ticket provider is observable — the running-cancel
     // branch must terminalize the ticket through it at request time.

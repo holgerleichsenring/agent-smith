@@ -45,6 +45,7 @@ public sealed class VerifyPhaseHandlerTests
             NullLogger<PhaseAccounting>.Instance),
         new PhaseProgressRecorder(new NoOpEventPublisher()),
         new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
+        AgentSmith.Tests.TestHelpers.TestPhaseReview.Revert(),
         NullLogger<VerifyPhaseHandler>.Instance);
 
     private static ProjectMap Map(string language, CiConfig ci) => new(

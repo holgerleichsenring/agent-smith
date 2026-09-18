@@ -1,0 +1,210 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-17-042eh
+
+goal: "After a phase is verified, a fresh reviewer reads its diff against the spec and principles, keeps only findings resting on a file it read, gets one fix pass, and records what remains."
+
+applies_to: "backend (the code phase block: a review step after VerifyPhase, its look terms and evidence records, the fix pass and its revert, the phase record, a review artifact and the pull request)"
+
+requires:
+  - 2026-09-15-ffa7
+  - 2026-09-17-0e79e
+
+scope:
+  in: >
+    SelectPhase records each sandbox's head. ReviewPhaseDiff follows VerifyPhase: it diffs each sandbox from
+    that head to HEAD without run-record paths, bounded in the prompt, and asks a fresh instance with a
+    template-free look on its own terms (phase review, allowance 8, prefix P, numbered reads) what the diff
+    breaks of the phase spec and the loaded principles. A finding names repository, path, line, the rule or
+    spec passage, and cites an id; it is kept only on the reviewer's own exit-0 read record of exactly that
+    repository and path, with the path in the phase diff and the line within the lines that read returned.
+    Kept findings get ONE fix pass — master, questions, commit, verify, review — after the step snapshots the
+    phase's account and sets the repair flag. A fix pass whose verification is anything but success is
+    reverted to the verified heads, committed, its snapshot restored, the second review skipped, and the
+    findings kept as "fix pass reverted: <reason>"; a sandbox that cannot be restored fails the phase with
+    the reason. Remaining findings go into the phase record body, a phase_review:<phase id> JSON artifact,
+    and through a run ledger into the pull-request body.
+  out: >
+    FAILING A VERIFIED PHASE ON A FINDING OR ON A REVERTED FIX PASS.
+    A SECOND FIX PASS.
+    SEARCH OR AUDIT RESULTS AS ADMISSION EVIDENCE. They are still recorded structurally; a finding rests on a read.
+    A LINE-RANGE READ. A successor, named by what it does: the reviewer reads a file by line range.
+    A NEW COLUMN OR MIGRATION.
+    REVIEWING THE WHOLE RUN. The pr-review preset stays as it is.
+
+decisions:
+  - key: |
+      NOTHING REVIEWS THE CODE TODAY. VerifyPhase runs build, test and the accountant, which asks what the
+      diff does NOT SATISFY of the done-list (SpecAccountant.cs:12-26, PhaseAccounting.cs:34-65). The cut
+      reviewer reads the cut before code exists (SpecCutReviewer.cs:14-24). pr-review runs on a pull-request
+      webhook only (PipelinePresets.PrReview.cs:29-45, GitHubPrEventWebhookHandler.cs:20-24).
+  - key: |
+      THE DERIVATION LOOK ON TERMS OF ITS OWN, NOT THE ACCOUNT'S SEARCH. The accountant's look is BranchSearch:
+      search only, no read, citations resolved by command prefix (AccountTools.cs:22-45, BranchSearch.cs:22-60).
+      A code finding rests on reading the file. ffa7 (in flight) makes the look's holder a
+      DerivationLookTerms of actor, allowance, prefix, Settle and CiteRule (ffa7 worktree
+      DerivationLookTerms.cs:16-35), with CutReview at 6 and "R" and a factory member ForCutReview
+      (DerivationLookFactory.cs:37-43) building a template-free look; the look mints its evidence under the
+      terms' prefix and "the {Actor}" (DerivationLook.cs:46). This phase adds DerivationLookTerms.PhaseReview
+      ("phase review", 8, "P", its own Settle and CiteRule, reads numbered) and a factory member taking terms,
+      as an edit sequenced after ffa7 lands.
+  - key: |
+      READS ARE NUMBERED FOR THIS HOLDER, BECAUSE A LINE NUMBER IS OTHERWISE UNCHECKABLE. The read tool returns
+      raw content bounded at 16,000 characters (RepositoryFileReadTool.cs:18-20, and :38-51 in ffa7;
+      BoundedResultTool.cs:34-39) with no line numbers. Terms carry whether reads are numbered; the phase review's
+      are, the derivation's and the cut review's are not. The bound applies to the numbered text, and the lines
+      returned are counted from it. A longer file is reviewed on its first part.
+  - key: |
+      EVIDENCE KEEPS A RECORD BESIDE EACH LINE. Remember takes kind and path as one string, "read <path>"
+      (DerivationEvidence.cs:33-43 in ffa7), and a read of a missing file still mints, with exit 1. Remember and
+      RememberOnce take a structured record — id, repository, kind (read, search, audit, template proof),
+      path, exit, lines returned — from all their callers: RepositoryFileReadTool (:43), RepositorySearchTool
+      (:36), DependencyAuditTool (:55) and TemplateProofReport (:58). The minted line text is unchanged.
+  - key: |
+      THE PHASE DIFF HAS A PRODUCER, AND A BOUND. DeliveryDiff diffs against the base ladder or the run start and
+      returns git's output uncapped (DeliveryDiff.cs:47-67, 68-79); VerifiedHeads is written by this phase's own
+      verification before the review (VerifyPhaseHandler.cs:155-156). A phase diff runs git diff from the head
+      recorded at SelectPhase, where PhaseRepairScope.Reset runs (SelectPhaseHandler.cs:52), and drops
+      run-record paths as CarriesSource does (DeliveryDiff.cs:86-87). The prompt carries at most 120,000
+      characters of it, whole files first; files past the bound are listed as unreviewed and a finding on them
+      is not kept. A sandbox opened mid-phase has no recorded head and is reviewed against its delivery diff,
+      which the findings say.
+  - key: |
+      A STEP AFTER VERIFY, SO IT SEES ONLY VERIFIED WORK. A red verification stops the pipeline before it.
+      Verify's repair splices ahead of the rest of the block (VerifyPhaseHandler.cs:178-199,
+      PhaseVerdict.cs:112-118). Membership of CodePhaseBlock (PipelinePresets.Parking.cs:42-53) puts it in
+      PhaseWorkSteps (:65-69).
+  - key: |
+      THE FIX-PASS VERIFICATION WRITES THE RUN'S ACCOUNT, SO THE ACCOUNT IS SNAPSHOT FIRST. VerifyPhase records a
+      mechanical failure into the ledger (VerifyPhaseHandler.cs:136) and the account into PhaseAccounts and the
+      ledger (:143-144), keyed by phase id (RunAccountLedger.cs:17-24); the run gate fails an unaccounted or
+      outstanding run (RunDeliveryGate.cs:44-56) when CommitAndPR evaluates it (CommitAndPRHandler.cs:204-215).
+      A reverted fix pass that left its own account behind would fail a run whose delivered state is the
+      verified one. The review step keeps the PhaseAccounts value and the RunAccounts value (ContextKeys.Spec.cs:43,
+      54) before splicing; a revert sets both back.
+  - key: |
+      NOT GREEN MEANS ANY NON-SUCCESS VERDICT. That includes a green build with a criterion the fix made
+      outstanding (VerifyPhaseHandler.cs:150-159). The repair flag the review sets makes Repairable return the
+      verdict instead of splicing (:181-183), so every non-success reaches RecordAsync (:206-219), where one call
+      hands a review fix pass to a collaborator instead of recording Failed.
+  - key: |
+      THE REVERT CAN FAIL, AND THEN THE PHASE FAILS. UnverifiedWorkReverter restores the index to the verified
+      head and returns false when no head was recorded — a dirty tree at verification records none
+      (VerifiedHeads.cs:60-65) — or git fails (UnverifiedWorkReverter.cs:32-51); it never commits (:54-68). The
+      collaborator commits the restored state as a new forward commit with SandboxGitOperations.CommitAndPushStagedAsync
+      (SandboxGitOperations.cs:210-236), the work-branch primitive every phase commit uses; no history is
+      rewritten. A sandbox that cannot be restored or committed fails the phase with that reason — a tree
+      carrying unverified work must not be recorded done.
+  - key: |
+      A REVERTED FIX PASS IS NOT REVIEWED AGAIN. The review at the end of its splice sees the flag and records the
+      first review's findings marked reverted; it asks nothing.
+  - key: |
+      THE BLOCK IT JOINS IS BUDGETED. This phase's review and fix pass are what take a phase to about
+      seventeen spliced steps, which the executor's fixed ceiling of 100 per segment cannot hold for a
+      long set; 2026-09-17-0e79e makes that budget follow the phase count and is required for that
+      reason, not for anything this phase calls.
+  - key: |
+      COST, STATED. At most two review calls (none after a revert) and one master pass per phase, each call with an
+      iteration ceiling of allowance + 2 as ffa7 pins. A configured cap that is exhausted skips the review and
+      records why; with no cap IsBudgetExhausted is false (PipelineCostTracker.cs:67-78).
+  - key: |
+      THE FIX IS HANDED OVER LIKE A REPAIR. Outstanding criteria reach the master prompt through a context key
+      (PhaseExecutionPromptBlocks.cs:34-50, ContextKeys.Spec.cs:47-51); review findings, the snapshot and the
+      fix-pass flag get keys of their own, cleared at phase start (PhaseRepairScope.cs:23-29).
+  - key: |
+      RECORDED THREE WAYS, NO COLUMN. The findings follow the account in the phase record body
+      (PhaseRecordBody.cs:14-26), published as PhaseRecordedEvent (PhaseRecordPublisher.cs:26) and stored as
+      artifact phase_record:<id> (RunPhaseProjection.cs:21, 47-56). The same findings go as JSON on an event of
+      their own, upserted as artifact phase_review:<id> in the same RunArtifact table, which
+      2026-09-17-042ej reads. Per-phase keys clear at SelectPhase, so the pull request, built once at the end,
+      reads a run-level ledger kept like RunAccountLedger, rendered at CommitAndPRHandler.cs:321: one line,
+      431 to 432 of its 436 baseline.
+  - key: |
+      ROOM. SelectPhaseHandler is 113: the head recording is a collaborator and one line. VerifyPhaseHandler is
+      284 of a 335 baseline: the fix-pass hand-off is one call in RecordAsync. RunPhaseProjection (72) gains a
+      sibling apply method for the review artifact.
+  - key: |
+      THIRD-ROUND REVIEW CORRECTIONS, BINDING ON THE STEPS BELOW. The restored state is committed per repository
+      through RepoWorkPusher.PushAsync (via RunWorkCheckpointer.PushNowAsync), which commits nothing when nothing is
+      staged (RepoWorkPusher.cs:35-51); the bare CommitAndPushStagedAsync throws on a clean tree
+      (SandboxGitOperations.cs:219-224) and is not used. The fix pass is spliced only when every sandbox has a
+      verified head; otherwise the findings are recorded with "no fix pass: <sandbox> has no verified head"
+      (mixed-stack secondary clones are never committed, RepoWorkPusher.cs:31-33; VerifiedHeads.cs:33,60-65), so
+      "revert fails the phase" is limited to real git failures.
+  - key: |
+      THE FIX PASS STARTS CLEAN. Splicing removes OutstandingCriteria, which only SelectPhase clears
+      (PhaseRepairScope.cs:27), so a stale REPAIR-pass instruction (PhaseExecutionPromptBlocks.cs:40-50) never
+      contradicts the findings. The diff runs from the recorded head to the working tree, as DeliveryDiff.TryDiffAsync
+      does (DeliveryDiff.cs:71-72), so admission reads and the diff see one state.
+  - key: |
+      A FIX PASS THAT STOPS BEFORE ITS VERIFICATION IS AN ACCEPTED SHORTFALL. Master failure, an unanswered park or
+      a cancellation stop the pipeline before VerifyPhase; the unverified fix work is then delivered through the
+      p0439 shortfall path (CommitAndPRHandler.cs:110-113,161-165). The fix commit and its revert show in the open
+      draft pull request, and each push fires synchronize and a pr-review run (GitHubPrEventWebhookHandler.cs:20-24).
+      A repository whose only code was a reverted fix still reads as changed (HasCheckpointedCode ORs,
+      RepoWorkPusher.cs:67), so such a pull request carries no diff; nothing merges it automatically,
+      and a person reads it.
+  - key: |
+      TEST CALLERS AND PARKING. Tests calling Remember/RememberOnce directly (CutReviewEvidenceIdTests.cs:51,62;
+      TemplateProofReportTests.cs:122-124) move to the structured record; the snapshot and fix-pass keys must survive
+      PipelineContextSerializer (:73-78).
+
+steps:
+  - id: the-phase-start-heads
+    action: "A collaborator records each sandbox's head at SelectPhase; SelectPhaseHandler calls it in one line."
+  - id: the-phase-diff
+    action: "A phase diff per sandbox from the recorded head to HEAD, run-record paths removed, bounded at 120,000 characters with unreviewed files listed; the delivery diff where no head was recorded."
+  - id: the-terms
+    action: "After ffa7: DerivationLookTerms.PhaseReview (phase review, 8, P, numbered reads) and a factory member that builds a template-free look on given terms; the read tool numbers lines when the terms say so."
+  - id: structured-evidence
+    action: "Remember and RememberOnce take a record of id, repository, kind, path, exit and lines returned from all four callers; the minted line text is unchanged."
+  - id: the-reviewer
+    action: "A phase-diff reviewer asks a fresh instance on that look with the phase spec, the principles and the bounded phase diff, and reads findings as JSON."
+  - id: the-admission
+    action: "Keep a finding only on its own exit-0 read record of exactly its repository and path, the path in the reviewed diff, the line within the lines returned."
+  - id: the-step
+    action: "ReviewPhaseDiff joins CodePhaseBlock after VerifyPhase with command name, context, builder and handler; an exhausted configured cap skips it with a recorded reason."
+  - id: the-fix-pass
+    action: "With kept findings: snapshot PhaseAccounts and RunAccounts, set the repair flag and the fix-pass flag, put the findings on their key, splice master, questions, commit, verify, review."
+  - id: revert-a-failed-fix
+    action: "RecordAsync hands a non-success fix-pass verdict to a collaborator: restore every sandbox, commit forward, restore the snapshot, record success with findings marked reverted; any sandbox not restored fails the phase with the reason."
+  - id: the-record
+    action: "Findings follow the account in the phase record, go as JSON to artifact phase_review:<id>, and reach the pull-request body through a run ledger."
+
+tests:
+  - "PhaseReview_FindingOnItsOwnReadOfThePath_IsKept"
+  - "PhaseReview_FindingOnAReadOfAnotherPath_IsDiscarded"
+  - "PhaseReview_FindingOnAReadThatExited1_IsDiscarded"
+  - "PhaseReview_FindingOnASearchOnly_IsDiscarded"
+  - "PhaseReview_FindingCitingAnIdTheDeriverMinted_IsDiscarded"
+  - "PhaseReview_FindingOutsideTheReviewedDiff_IsDiscarded"
+  - "PhaseReview_FindingPastTheLinesReturned_IsDiscarded"
+  - "PhaseReviewRead_IsNumberedAndDerivationReadIsNot"
+  - "Evidence_EveryCaller_RecordsKindPathAndExit"
+  - "PhaseDiff_IsFromThePhaseStartHeadAndExcludesRunRecords"
+  - "PhaseDiff_OverTheBound_ListsUnreviewedFiles"
+  - "PhaseDiff_SandboxWithoutAStartHead_UsesTheDeliveryDiffAndSaysSo"
+  - "PhaseReview_WithFindings_SplicesOneFixPassEndingInReview"
+  - "PhaseReview_FixPassWithAnOutstandingCriterion_RevertsAndSplicesNoMasterPass"
+  - "PhaseReview_FixPassRedBuild_RevertsCommitsAndPhaseStaysDone"
+  - "PhaseReview_RevertedFixPass_RunDeliveryGateStaysGreen"
+  - "PhaseReview_RevertedFixPass_SkipsTheSecondReview"
+  - "PhaseReview_GreenFixPass_SecondReviewRecordsAndSplicesNothing"
+  - "PhaseReview_ConfiguredCapExhausted_SkipsAndRecordsWhy"
+  - "PhaseReview_NoCapConfigured_Reviews"
+  - "PhaseReview_NextPhase_StartsWithNoFindingsCarriedOver"
+  - "CodePhaseBlock_ReviewFollowsVerifyAndPrecedesTheRecord"
+  - "PhaseRecord_RemainingFindings_FollowTheAccount"
+  - "PhaseReviewArtifact_IsUpsertedAsJson"
+  - "PullRequestBody_FindingsOfEveryPhase_AreRendered"
+
+  - "FixPass_AfterARepairPass_PromptCarriesNoOutstandingCriteria"
+  - "FixPass_ParkedAndResumed_KeepsSnapshotAndFlags"
+  - "PhaseReview_RevertWithNothingStagedInARepository_CommitsNothingAndStandsDone"
+  - "PhaseReview_SandboxWithoutAVerifiedHead_RecordsFindingsWithoutAFixPass"
+done:
+  - "a verified phase's diff is reviewed by an instance that did not write it, and every kept finding rests on a numbered read that instance took"
+  - "the master gets exactly one fix pass per phase"
+  - "a fix pass that is not green leaves the branch, the phase and the run's account as the first verification left them"
+  - "a phase whose unverified fix cannot be reverted fails, naming why"
+  - "remaining findings are in the phase record, the phase_review artifact and the pull request"
+  - "build green, full suite green, file-length ratchet green with no new baseline row"

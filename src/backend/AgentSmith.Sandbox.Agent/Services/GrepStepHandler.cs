@@ -22,12 +22,6 @@ namespace AgentSmith.Sandbox.Agent.Services;
 internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHandler> logger)
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
-    private static readonly string[] ExcludedDirs =
-    [
-        ".git", "node_modules", "bin", "obj", ".vs", ".idea", "dist", "build",
-        ".next", ".nuxt", "coverage", ".terraform", "vendor", "__pycache__"
-    ];
-    private const long MaxFileSizeBytes = 1_000_000;
 
     public async Task<StepResult> HandleAsync(
         Step step,
@@ -69,56 +63,27 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         Func<IReadOnlyList<StepEvent>, Task> onEvents,
         Stopwatch sw, CancellationToken ct)
     {
-        var args = step.OutputMode switch
-        {
-            GrepOutputMode.FilesWithMatches => BuildRipgrepFilesArgs(step),
-            GrepOutputMode.Count => BuildRipgrepCountArgs(step),
-            _ => BuildRipgrepContentArgs(step, headLimit)
-        };
-
         var rgStep = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "rg", Args: args, TimeoutSeconds: step.TimeoutSeconds);
+            Command: "rg", Args: RipgrepArguments.For(step, headLimit), TimeoutSeconds: step.TimeoutSeconds);
         var output = new List<string>();
         var outcome = await runner.RunAsync(rgStep,
             (kind, line) => { if (kind == StepEventKind.Stdout) output.Add(line); }, ct);
-
         var (rows, truncated) = step.OutputMode switch
         {
             GrepOutputMode.FilesWithMatches => ParseRipgrepFiles(output, step.Path!, headLimit),
             GrepOutputMode.Count => ParseRipgrepCount(output, step.Path!, headLimit),
             _ => ParseRipgrepJson(output, step.Path!, headLimit)
         };
-        if (truncated) await EmitTruncatedEvent(step, headLimit, onEvents);
+        // 2026-09-17-042ed: rg's own exit — 0 matched, 1 matched nothing, anything else an error
+        // such as an invalid pattern or a missing path, which must not read as an empty match
+        // list. rg also exits 2 for a PARTIAL error (one unreadable file, a dangling symlink)
+        // while printing every match it did find: those rows are kept and the error is told.
+        if (outcome.TimedOut || (outcome.ExitCode is not (0 or 1) && rows.Count == 0))
+            return Failure(step, sw, $"rg exited {outcome.ExitCode}: {outcome.ErrorMessage}", outcome.TimedOut);
+        if (outcome.ExitCode is not (0 or 1))
+            await EmitStderr(step, $"rg exited {outcome.ExitCode}: {outcome.ErrorMessage}", onEvents);
+        if (truncated) await EmitStderr(step, $"grep truncated at {headLimit} matches", onEvents);
         return Success(step, sw, JsonSerializer.Serialize(rows, WireFormat.Json));
-    }
-
-    private static List<string> BuildRipgrepContentArgs(Step step, int headLimit)
-    {
-        var args = new List<string> { "--json", "--max-count", headLimit.ToString() };
-        if (step.ContextBefore is > 0) { args.Add("-B"); args.Add(step.ContextBefore.Value.ToString()); }
-        if (step.ContextAfter is > 0) { args.Add("-A"); args.Add(step.ContextAfter.Value.ToString()); }
-        if (!string.IsNullOrEmpty(step.Glob)) { args.Add("--glob"); args.Add(step.Glob); }
-        args.Add(step.Pattern!);
-        args.Add(step.Path!);
-        return args;
-    }
-
-    private static List<string> BuildRipgrepFilesArgs(Step step)
-    {
-        var args = new List<string> { "--files-with-matches" };
-        if (!string.IsNullOrEmpty(step.Glob)) { args.Add("--glob"); args.Add(step.Glob); }
-        args.Add(step.Pattern!);
-        args.Add(step.Path!);
-        return args;
-    }
-
-    private static List<string> BuildRipgrepCountArgs(Step step)
-    {
-        var args = new List<string> { "--count" };
-        if (!string.IsNullOrEmpty(step.Glob)) { args.Add("--glob"); args.Add(step.Glob); }
-        args.Add(step.Pattern!);
-        args.Add(step.Path!);
-        return args;
     }
 
     private static (List<JsonObject> Rows, bool Truncated) ParseRipgrepJson(
@@ -203,7 +168,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
             GrepOutputMode.Count => ScanCounts(step, regex, headLimit),
             _ => ScanContent(step, regex, headLimit)
         };
-        if (truncated) await EmitTruncatedEvent(step, headLimit, onEvents);
+        if (truncated) await EmitStderr(step, $"grep truncated at {headLimit} matches", onEvents);
         return Success(step, sw, JsonSerializer.Serialize(rows, WireFormat.Json));
     }
 
@@ -219,7 +184,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
             try
             {
                 var info = new FileInfo(file);
-                if (info.Length > MaxFileSizeBytes) continue;
+                if (info.Length > GrepScope.MaxFileSizeBytes) continue;
                 var lines = File.ReadAllLines(file);
                 var rel = RelativeFromRoot(step.Path!, file);
                 var emittedContextIndices = new HashSet<int>();
@@ -254,7 +219,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
             try
             {
                 var info = new FileInfo(file);
-                if (info.Length > MaxFileSizeBytes) continue;
+                if (info.Length > GrepScope.MaxFileSizeBytes) continue;
                 var rel = RelativeFromRoot(step.Path!, file);
                 using var sr = new StreamReader(file);
                 string? line;
@@ -281,7 +246,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
             try
             {
                 var info = new FileInfo(file);
-                if (info.Length > MaxFileSizeBytes) continue;
+                if (info.Length > GrepScope.MaxFileSizeBytes) continue;
                 var rel = RelativeFromRoot(step.Path!, file);
                 var count = 0;
                 using var sr = new StreamReader(file);
@@ -316,23 +281,14 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         if (File.Exists(root))
             return new[] { root };
         if (!Directory.Exists(root))
-            return Array.Empty<string>();
+            throw new DirectoryNotFoundException($"path not found: {root}");
         if (string.IsNullOrEmpty(glob) || glob == "**/*")
-            return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Where(f => !IsExcluded(f));
+            return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Where(f => !GrepScope.IsExcluded(f));
         var pattern = NormalizeGlobToRegex(glob);
         var rx = new Regex(pattern, RegexOptions.Compiled, RegexTimeout);
         return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-            .Where(f => !IsExcluded(f))
+            .Where(f => !GrepScope.IsExcluded(f))
             .Where(f => rx.IsMatch(System.IO.Path.GetRelativePath(root, f).Replace('\\', '/')));
-    }
-
-    private static bool IsExcluded(string fullPath)
-    {
-        foreach (var dir in ExcludedDirs)
-            if (fullPath.Contains(System.IO.Path.DirectorySeparatorChar + dir + System.IO.Path.DirectorySeparatorChar,
-                    StringComparison.OrdinalIgnoreCase))
-                return true;
-        return false;
     }
 
     private static string NormalizeGlobToRegex(string glob)
@@ -345,12 +301,10 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         return $"^{escaped}$";
     }
 
-    private static async Task EmitTruncatedEvent(Step step, int headLimit, Func<IReadOnlyList<StepEvent>, Task> onEvents) =>
-        await onEvents(new[]
-        {
-            new StepEvent(StepEvent.CurrentSchemaVersion, step.StepId, StepEventKind.Stderr,
-                $"grep truncated at {headLimit} matches", DateTimeOffset.UtcNow)
-        });
+    private static async Task EmitStderr(
+        Step step, string message, Func<IReadOnlyList<StepEvent>, Task> onEvents) =>
+        await onEvents([new StepEvent(StepEvent.CurrentSchemaVersion, step.StepId,
+            StepEventKind.Stderr, message, DateTimeOffset.UtcNow)]);
 
     private static string TruncateLine(string line)
     {
@@ -362,7 +316,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         new(StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 0, TimedOut: false,
             DurationSeconds: sw.Elapsed.TotalSeconds, ErrorMessage: null, OutputContent: output);
 
-    private static StepResult Failure(Step step, Stopwatch sw, string message) =>
-        new(StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1, TimedOut: false,
+    private static StepResult Failure(Step step, Stopwatch sw, string message, bool timedOut = false) =>
+        new(StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1, TimedOut: timedOut,
             DurationSeconds: sw.Elapsed.TotalSeconds, ErrorMessage: message);
 }

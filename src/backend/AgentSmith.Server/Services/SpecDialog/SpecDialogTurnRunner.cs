@@ -35,6 +35,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogQuestionPump questionPump,
     SpecDialogPendingQuestions pendingQuestions,
     DashboardReadingChannel reading,
+    DashboardActivityChannel activity,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
 {
     public async Task<SpecDialogTurnResult> RunTurnAsync(
@@ -58,6 +59,9 @@ public sealed class SpecDialogTurnRunner(
         // Set before the pipeline runs, so both the scope repos and the templates it opens
         // report through the flow; any run that sets none reports nothing.
         using var observing = reading.Observe(state);
+        // 2026-09-17-042ee: and what it does with them — its tools, its model calls, its
+        // review and each re-prompt. Same flow, same dialog, same silence off the dashboard.
+        using var reporting = activity.Observe(state);
         try
         {
             var result = await pipelineUseCase.ExecuteAsync(request, serverContext.ConfigPath, cancellationToken);
@@ -66,9 +70,10 @@ public sealed class SpecDialogTurnRunner(
             // The stamp rides the outcome because the scopes below are gone by filing time.
             return slot is { Reply: not null, Outcome: not null }
                 ? SpecDialogTurnResult.On(
-                    state.Platform, slot.Reply, templateScopes.Stamp(slot.Outcome, project, templates))
+                    state.Platform, slot.Reply, templateScopes.Stamp(slot.Outcome, project, templates), slot.Kind)
                 : SpecDialogTurnResult.On(
-                    state.Platform, ComposeFailureReply(state, result), new AnswerOutcome());
+                    state.Platform, ComposeFailureReply(state, result), new AnswerOutcome(),
+                    SpecDialogTurnKind.Failure);
         }
         finally
         {

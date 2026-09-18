@@ -17,6 +17,15 @@ public abstract record OutcomeProposal
     /// kind at a time, which analyses are allowed to say what they read.
     /// </summary>
     public IReadOnlyList<TemplateProvenance> Templates { get; init; } = [];
+
+    /// <summary>
+    /// 2026-09-17-042ed: what the review of this proposal found, taken inside the turn that
+    /// produced it. On the BASE record for the same reason the templates are: it is a fact about
+    /// the analysis, and the four paths that show a proposal — the confirmation, the pane push,
+    /// the stored row and a reload — then carry it without a signature each. Empty is a clean
+    /// review and a review that could not be taken alike: neither is a fault.
+    /// </summary>
+    public IReadOnlyList<ProposalFinding> Findings { get; init; } = [];
 }
 
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>

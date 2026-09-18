@@ -1,4 +1,3 @@
-using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
@@ -19,8 +18,7 @@ public sealed class SpecDialogRouter(
     ISpecDialogTurnRunner turnRunner,
     SpecDialogOutcomeFlow outcomeFlow,
     SpecDialogTurnGate turnGate,
-    SpecDialogPendingQuestions pendingQuestions,
-    IDialogueTransport dialogueTransport,
+    SpecDialogAnswerAdmission admission,
     SpecDialogReplyComposer composer,
     SpecDialogMessenger messenger,
     ILogger<SpecDialogRouter> logger)
@@ -31,11 +29,11 @@ public sealed class SpecDialogRouter(
     /// </summary>
     public async Task<bool> TryRouteAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, CancellationToken ct)
+        string platform, bool mayStartRuns, CancellationToken ct)
     {
         var command = parser.Parse(text);
         if (command is null)
-            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform, ct);
+            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform, mayStartRuns, ct);
 
         if (threadId is null)
         {
@@ -49,22 +47,16 @@ public sealed class SpecDialogRouter(
 
     private async Task<bool> TryContinueThreadAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, CancellationToken ct)
+        string platform, bool mayStartRuns, CancellationToken ct)
     {
         if (threadId is null) return false;
 
-        var state = await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.User, text, ct);
-        if (state is null) return false;
-
-        // A live ask_human question wins: the running master is blocked on it,
-        // so this message IS the answer (it stays in the transcript either way).
-        if (pendingQuestions.TryTake(state.JobId, out var questionId))
-        {
-            await dialogueTransport.PublishAnswerAsync(
-                state.JobId,
-                new DialogAnswer(questionId, text, null, DateTimeOffset.UtcNow, userId), ct);
-            return true;
-        }
+        // A live question wins: the running master is blocked on it, so this message IS the
+        // answer (it stays in the transcript either way).
+        var admitted = await admission.AdmitAsync(text, userId, platform, threadId, ct);
+        if (admitted is null) return false;
+        if (admitted.Answered) return true;
+        var state = admitted.State;
 
         if (!turnGate.TryEnter(state.JobId))
         {
@@ -73,7 +65,7 @@ public sealed class SpecDialogRouter(
         }
         try
         {
-            await RunTurnAsync(state, channelId, threadId, platform, ct);
+            await RunTurnAsync(state, channelId, threadId, platform, mayStartRuns, ct);
         }
         finally
         {
@@ -84,7 +76,7 @@ public sealed class SpecDialogRouter(
 
     private async Task RunTurnAsync(
         ConversationState state, string channelId, string threadId,
-        string platform, CancellationToken ct)
+        string platform, bool mayStartRuns, CancellationToken ct)
     {
         var current = state;
         while (true)
@@ -102,13 +94,13 @@ public sealed class SpecDialogRouter(
                 return;
             }
 
-            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, ct);
+            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
             await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
             // p0315e: a non-answer outcome is proposed + confirmed in-thread,
             // then handed to the outcome sink (p0315c: ticket filing). Runs
             // inside the turn gate; the pending-question branch above routes
             // the approval answer.
-            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, ct);
+            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, mayStartRuns, ct);
             if (flowResult is not OutcomeFlowEditRequested edit) return;
 
             // p0315c edit: the operator's note arrived as a thread message and
@@ -126,7 +118,7 @@ public sealed class SpecDialogRouter(
             logger.LogInformation(
                 "Re-running design turn for session {SessionId} with the operator's edit note",
                 current.JobId);
-            current = refreshed;
+            current = refreshed with { Revising = result.Outcome };
         }
     }
 }

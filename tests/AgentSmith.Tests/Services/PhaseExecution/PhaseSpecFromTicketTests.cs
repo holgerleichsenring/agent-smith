@@ -8,11 +8,15 @@ using Markdig;
 namespace AgentSmith.Tests.Services.PhaseExecution;
 
 /// <summary>
-/// p0315d: PhaseSpecFromTicket inverts the p0315c PhaseTicketRenderer — the
-/// single fenced ```yaml block in a phase ticket body comes back as a
-/// schema-validated PhaseDraft, byte-identical spec. The AzDO variant (body
-/// stored markdown→HTML, fence HTML-encoded in pre/code) round-trips too.
-/// Validation is the PRODUCTION SpecDraftValidator, not a test regex.
+/// p0315d: PhaseSpecFromTicket inverts the phase-ticket shape — the single fenced ```yaml
+/// block in a phase ticket body comes back as a schema-validated PhaseDraft, byte-identical
+/// spec. The AzDO variant (body stored markdown→HTML, fence HTML-encoded in pre/code)
+/// round-trips too. Validation is the PRODUCTION SpecDraftValidator, not a test regex.
+/// <para>
+/// 2026-09-17-0e79a: the body under test is HAND-WRITTEN. The framework files a requirement and
+/// stores the approved set instead, so what the extractor still inverts is a phase ticket a
+/// person wrote — prose plus exactly one fenced block, and nothing else opening one.
+/// </para>
 /// </summary>
 public sealed class PhaseSpecFromTicketTests
 {
@@ -34,12 +38,15 @@ public sealed class PhaseSpecFromTicketTests
     private readonly PhaseSpecFromTicket _sut = new(
         new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader());
 
-    private readonly PhaseTicketRenderer _renderer = new();
+    // What a person writes: a summary, then the single fenced block, nothing else fencing.
+    private static readonly string HandWrittenBody =
+        "## Goal\nAdd a widget endpoint to the sample service\n\n---\n\n```yaml\n"
+        + ValidYaml.Trim() + "\n```\n";
 
     [Fact]
     public void PhaseSpecFromTicket_ExtractsAndValidatesYamlBlock()
     {
-        var body = _renderer.RenderPhase(Draft()).Body;
+        var body = HandWrittenBody;
 
         var extraction = _sut.Extract(body);
 
@@ -57,7 +64,7 @@ public sealed class PhaseSpecFromTicketTests
         // AzDO stores System.Description as HTML: the create path converts the
         // markdown body with the SAME Markdig pipeline the provider uses, so the
         // fence reads back as <pre><code class="language-yaml"> with entities.
-        var markdown = _renderer.RenderPhase(Draft()).Body;
+        var markdown = HandWrittenBody;
         var html = Markdown.ToHtml(markdown, new MarkdownPipelineBuilder().UseAdvancedExtensions().Build());
         html.Should().NotContain("```yaml", "the HTML variant must exercise the pre/code path");
 
@@ -88,7 +95,4 @@ public sealed class PhaseSpecFromTicketTests
         extraction.Should().BeOfType<PhaseSpecInvalid>()
             .Which.Error.Should().NotBeNullOrWhiteSpace();
     }
-
-    private static PhaseDraft Draft() => new(
-        "p9999", "Add a widget endpoint to the sample service", ValidYaml, ["p9998"]);
 }

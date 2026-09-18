@@ -53,7 +53,7 @@ public sealed class PhaseSequenceTests
         pipeline.Set(ContextKeys.SpecSet, TwoPhaseSet());
 
         var result = await new SelectPhaseHandler(
-                NoEntryAccount(), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new PhaseProgressRecorder(new NoOpEventPublisher()),
                 NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
@@ -78,7 +78,7 @@ public sealed class PhaseSequenceTests
             .Record("api", "grep -rn 'Sample' src", "exit_code: 0\n");
 
         await new SelectPhaseHandler(
-                NoEntryAccount(), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new PhaseProgressRecorder(new NoOpEventPublisher()),
                 NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
@@ -118,6 +118,22 @@ public sealed class PhaseSequenceTests
     }
 
     [Fact]
+    public void PhaseSequence_PhaseHandedBackOnAFalsePremise_ReadsUnlikeARedBuildInTheTable()
+    {
+        // 2026-09-17-0e79c: this switch's default arm is "⬜ not started", so a standing it does
+        // not name is rendered as a phase nobody entered.
+        var progress = SpecSequenceProgress.ForSet(ThreePhaseSet())
+            .With("p0001a", PhaseRunState.Failed, "dotnet build exited 1")
+            .With("p0001b", PhaseRunState.HandedBack, "False premise in p0001b: \"…\" — [M1] …");
+
+        var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress);
+
+        table.Should().Contain("handed back, never built")
+            .And.Contain("False premise in p0001b")
+            .And.NotContain("❌ failed — False premise", "a false premise is not a red build");
+    }
+
+    [Fact]
     public void PhaseSequence_EveryPhaseDone_IsNotPartial()
     {
         var progress = SpecSequenceProgress.ForSet(TwoPhaseSet())
@@ -154,4 +170,9 @@ public sealed class PhaseSequenceTests
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],
         SpecSource.Derived);
+
+    /// <summary>2026-09-17-042eh: a start-head recorder with no sandbox to resolve — it
+    /// records an empty map, which is what a test pipeline without sandboxes has.</summary>
+    private static Application.Services.Specs.PhaseStartHeads StartHeads() =>
+        AgentSmith.Tests.TestHelpers.TestPhaseReview.StartHeads();
 }

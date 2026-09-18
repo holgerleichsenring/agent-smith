@@ -1,0 +1,130 @@
+phase: 2026-09-17-042ek
+decisions:
+  - id: the-dialect-carries-the-wording
+    chose: >
+      SpecDialogMarkup gains one selector, Wording(inChat, onThePage), picked by a private
+      flag the two dialects are constructed with. Every framework sentence the dialog page can
+      reach binds through it; the composed reply itself stays one expression per line.
+    alternative: >
+      A platform string threaded through SpecDialogReplyComposer and SpecDialogOutcomeComposer;
+      a second composer per channel; an IsDashboard predicate on the markup.
+    why: >
+      A ComposedReply is a function of the markup and of nothing else (ComposedReply.cs:13-16),
+      and the markup is the only object that already knows which channel is reading — For()
+      hands out CommonMark for the dashboard and for nothing else (SpecDialogMarkup.cs:37-40).
+      Threading a platform in beside it would give the composer two sources of truth about the
+      same reader, and a second composer would duplicate fifteen sentences to change six. A
+      predicate would push the branch into each call site, where one of them would soon read it
+      to decide something other than wording. The selector evaluates both arms, which for pure
+      string composition costs a few concatenations and keeps the two wordings visible on one
+      screen — that is the property this change exists to protect.
+  - id: the-typed-command-replies-are-worded-for-the-page-too
+    chose: >
+      ComposeResumeUsage and the empty-list line inside ComposeList bind through Wording like
+      every other sentence, and the sweep covers all three ComposeList shapes. No framework
+      line the page can be sent names a command or a thread.
+    alternative: >
+      Leaving those two naming /spec, on the ground that they answer a command the operator
+      typed and the page types none.
+    why: >
+      That ground was FALSE and this phase's own done-line depended on it. The page posts the
+      operator's text verbatim — send() posts the trimmed message through the ingest endpoint
+      (useSpecDialog.ts), SpecDialogRouter hands it to SpecCommandParser, and the parser matches
+      "^/spec ..." from any channel — so typing "/spec list" into the box reaches the session
+      list and "/spec resume" with no id reaches the resume usage. The earlier reading was taken
+      off what the page posts on the operator's BEHALF (startNew, open), which is a different
+      question from what it posts. A reply that answers "/spec resume" by naming "/spec list" is
+      the exact failure this phase exists to remove, and it is worse on those two lines than
+      anywhere else, because the operator has just demonstrated they are looking for commands.
+  - id: the-dashboard-confirmation-is-empty-not-shorter
+    chose: >
+      ComposeConfirmation binds to the empty string on the page. The question still travels —
+      the pending-question store, the reload read and the card's buttons all key off it — it
+      just carries no text.
+    alternative: >
+      A one-line "Approve or reject below"; keeping the proposal description and dropping only
+      the findings; leaving the text and hiding it in the card.
+    why: >
+      The card renders a counted summary of what would be filed (summaryOf,
+      DialogQuestionCard.tsx), 2026-09-17-042ed's findings above it, and the two buttons that
+      ARE the approve/reject sentence, with the edit-note line already beside them. Every
+      remaining candidate sentence is a second copy of one of those, and two copies disagree the
+      moment one of them is edited. Hiding the text in the card instead would leave the server
+      composing a line whose only reader is a branch that drops it.
+  - id: the-card-says-what-the-server-no-longer-does
+    chose: >
+      DialogQuestionCard shows a line of its own when an approval it is waiting on has no
+      summary AND no server text, and renders no Markdown block at all for empty text.
+    alternative: >
+      Always rendering the Markdown block; a fallback whenever there is no proposal; leaving the
+      bare buttons.
+    why: >
+      The proposal reaches the page as a live push and its saved copy is dropped when the write
+      fails (SpecDialogLatestOutcomeStore.cs:83-96, logged and swallowed), so a reload can land
+      on an approval with nothing to summarise — which, with the text now empty, would be two
+      unexplained buttons on the one surface where real tickets are filed. The condition reads
+      the TEXT rather than only the proposal so a confirmation that still carries its own
+      sentence — an older server, or a chat-shaped push — shows that sentence and no second line.
+      The line differs by BRANCH: with no proposal the page holds nothing about the draft at all,
+      because the shown transcript strips every draft block (SpecDialogShownTranscript.Turns via
+      SpecDialogDraftBlocks.Strip) and the seed drops the agent entry that leaves empty, so the
+      only honest advice is to reject and ask again; with a proposal of a kind summaryOf cannot
+      count, the findings below still render from that proposal and the pane has it in full, so
+      the missing thing is the one-line count and the sentence says only that. An earlier draft
+      of this line told the operator the draft was "in the conversation above", which was true
+      of neither branch.
+  - id: an-expired-card-promises-a-turn-not-a-revision
+    chose: >
+      The line beside an expired question's (absent) controls says the wait is over and the next
+      message starts a new turn. The summary and the findings stay off an expired card.
+    alternative: >
+      Leaving the note line as it was; showing the summary on an expired card so that something
+      is on screen.
+    why: >
+      Emptying the server text left an expired approval showing its eyebrow and one sentence,
+      and that sentence promised "the proposal is revised with it" — which the confirmer has
+      stopped waiting to do, and which the timeout has already cleared the stored proposal for
+      (SpecDialogOutcomeFlow, the default branch). It was a survivable inaccuracy while the
+      server text was still on the card and became the card's only claim once it was not. The
+      summary stays off because its wording is an offer — "File this epic?" over a wait that has
+      lapsed reads as a button that is no longer there — and the eyebrow already says nothing
+      was filed.
+  - id: the-dispatchers-line-is-reworded-in-place
+    chose: >
+      DashboardDialogDispatcher's NoOpenDialog stays a plain const string and is written for the
+      page: New conversation, the project picker, the conversation list.
+    alternative: >
+      Making it a ComposedReply so it binds like the rest.
+    why: >
+      The path exists only on the dashboard — the dispatcher's whole reason for answering rather
+      than dropping is that a dedicated page has nothing to fall through to — so there is no
+      second reader for a selector to choose between. Binding it would add a mechanism whose
+      chat arm is unreachable by construction.
+  - id: 042ed-s-confirmation-assertion-moves-to-the-chat-binding
+    chose: >
+      DialogLatestOutcomeViewTests.Flow_Findings_ReachTheConfirmationAndThePush now asserts the
+      dashboard question text is empty, the push carries the findings, and the CHAT binding of
+      the same confirmation still lists them with their evidence.
+    alternative: >
+      Deleting the assertion, or leaving the findings in the dashboard confirmation text.
+    why: >
+      That test pinned 042ed's real requirement — a finding reaches the person deciding — through
+      the one surface that carried it at the time. The requirement is unchanged and the surface
+      moved: on a page the card lists them from the push. Asserting all three keeps the test
+      proving the requirement rather than the old route to it.
+  - id: where-each-claim-is-proven
+    chose: >
+      A sweep test enumerates every page-reachable framework line and fails, case-insensitively,
+      on "/spec" or "thread" in any of them; each reworded sentence also has its own test, and
+      each has its chat form pinned. The dispatcher's line is proven end to end through the real
+      channel harness; the card's three states — counted, uncounted, unsaved — and its expired
+      line are proven in the dashboard suite. That the chat confirmation still carries 042ed's
+      findings is asserted on the composer, not inside the flow test: bound by hand there, it
+      would have passed with the confirmer deleted.
+    alternative: >
+      Per-sentence tests only.
+    why: >
+      Per-sentence tests prove the six sentences someone thought of. The sweep is what catches
+      the seventh — a line added later, or one moved to the wrong side of the selector — and it
+      is cheap because the composers are pure. Both sides are asserted for every sentence because
+      a wording put on the wrong arm reads correct from either side alone.

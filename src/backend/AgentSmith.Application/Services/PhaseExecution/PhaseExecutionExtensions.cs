@@ -18,6 +18,7 @@ public static class PhaseExecutionExtensions
         services.AddTransient<ExecutedPhaseMarker>(); // p0466
         // p0466's server copy, its own type since 2026-08-26-31e5.
         services.AddTransient<PhaseRecordPublisher>();
+        services.AddTransient<PhaseReviewPublisher>(); // 2026-09-17-042eh
         // 2026-08-26-31e5: the state.done line that names the record file.
         services.AddTransient<PhaseRecordIndexLine>();
         services.AddTransient<PhaseIndexWriter>();

@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
@@ -7,6 +8,12 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// child phases — validating the parent and EVERY child against the
 /// phase-spec schema (each child is a filable phase in its own right) and
 /// the requires: edges for consistency before the shape is proposed.
+/// <para>
+/// 2026-09-17-0e79a: the phase CAP is checked here, on the proposal, before any ticket exists.
+/// The filers create and then store, so a refusal at store time would leave a filed ticket with
+/// no set; and a run that met an over-cap set could only refuse it or truncate it. A cut this
+/// long is a programme, and the place a person can split it is the conversation.
+/// </para>
 /// </summary>
 public sealed class EpicOutcomeParser(
     ISpecDraftValidator draftValidator,
@@ -23,6 +30,12 @@ public sealed class EpicOutcomeParser(
                 "epic outcome needs 'children' with at least two phase-spec entries — "
                 + "a single slice is just a phase; emit the bare ```yaml draft instead");
 
+        if (childMaps.Count > SpecSet.MaxPhases)
+            return new OutcomeInvalid(
+                $"epic outcome has {childMaps.Count} children and one work ticket runs at most "
+                + $"{SpecSet.MaxPhases} phases — propose the first {SpecSet.MaxPhases} as this "
+                + "epic and the rest as a second one, cut after this one has delivered");
+
         var (parent, parentError) = ReadDraft(parentMap, "parent");
         if (parent is null) return new OutcomeInvalid(parentError!);
 
@@ -35,6 +48,13 @@ public sealed class EpicOutcomeParser(
             if (child is null) return new OutcomeInvalid(error!);
             children.Add(child);
         }
+
+        // 2026-09-17-042eb: a child is filed and worked weeks later; its done list is what says
+        // when it is finished, so a child without one is refused here, not discovered on the ticket.
+        if (children.FindIndex(c => c.Done.Count == 0) is var missing and >= 0)
+            return new OutcomeInvalid(
+                $"epic child #{missing + 1} ('{children[missing].PhaseId}') has no 'done' list — every epic "
+                + "child needs 'done:' with at least one outcome that is true once the slice is finished");
 
         var edgeError = edgeChecker.Check(parent, children);
         return edgeError is null

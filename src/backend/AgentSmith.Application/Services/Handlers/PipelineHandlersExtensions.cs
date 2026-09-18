@@ -40,6 +40,7 @@ public static class PipelineHandlersExtensions
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
         services.AddTransient<Scope.RepoScopeClassifier>().AddTransient<Scope.RemoteContextInventoryBuilder>();
+        services.AddTransient<Scope.ApprovedRepoScope>(); // 2026-09-17-0e79a: the approval names the repos
         // p0413: size + shape become run state here; a refusal ends the run before any sandbox.
         services.AddTransient<Scope.ScopeEstimateRecorder>().AddTransient<Scope.ScopeRefusalRecorder>()
             .AddTransient<Scope.ScopeNamedContextsRecorder>(); // 2026-09-08-1830: what the call NAMED
@@ -93,6 +94,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<DeriveSpecContext>, DeriveSpecHandler>();
         services.AddTransient<ICommandHandler<PhaseSequenceContext>, PhaseSequenceHandler>();
         services.AddTransient<ICommandHandler<SelectPhaseContext>, SelectPhaseHandler>();
+        services.AddTransient<ICommandHandler<CheckPhasePremisesContext>, CheckPhasePremisesHandler>(); // 0e79c
         services.AddTransient<ICommandHandler<SpecHandbackContext>, SpecHandbackHandler>();
         services.AddSpecDerivation();
         services.AddTransient<DiscoveryOutputParser>();
@@ -168,7 +170,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<BugOutcomeParser>();
         services.AddTransient<EpicOutcomeParser>();
         services.AddTransient<RequiresEdgeChecker>();
-        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>();
+        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>().AddTransient<SpecDialogProposalReview>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();
         services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
         // p0315d: phase-execution — spec extraction gate (inverse of the p0315c
@@ -194,6 +196,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
         services.AddTransient<Specs.PhaseAccounting>().AddTransient<Specs.PhaseEntryAccount>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
+        services.AddTransient<ICommandHandler<ReviewPhaseDiffContext>, ReviewPhaseDiffHandler>(); // 042eh
         services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddPhaseExecution(); // 2026-08-26-31e5

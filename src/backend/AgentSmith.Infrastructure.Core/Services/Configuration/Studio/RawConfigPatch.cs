@@ -76,6 +76,7 @@ public static class RawConfigPatch
         tracker.NotImplementableStatus = entity.NotImplementableStatus;
         tracker.CloseTransitionName = entity.CloseTransitionName;
         tracker.DefaultPipeline = entity.DefaultPipeline; // 2026-09-16-a4d7
+        tracker.ParentLinkType = entity.ParentLinkType;
         if (entity.ExtraFields is { } extraFields) tracker.ExtraFields = [.. extraFields];
         if (entity.ZeroMatchComment is { } zeroMatch) tracker.ZeroMatchComment = zeroMatch;
         if (entity.LifecycleStatusNames is { } lifecycle)
