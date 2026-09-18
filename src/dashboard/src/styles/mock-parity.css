@@ -1077,6 +1077,27 @@
 /* a mark that names a thing and then says where it comes from: the name is
    read as a word, the source as an address. */
 .mock-dialog .ec-mark .mn { font-family: var(--sans); font-weight: 600; color: var(--ink); margin-right: 5px; }
+/* 2026-09-18-e63d: GIVEN text — a repository, a template, a project, a revision. This page
+   did not choose any of it and cannot know how long it is or where it may break; a name with
+   only underscores or capitals in it offers no soft-wrap opportunity at all, and a template's
+   name is followed immediately by repo@revision with no text node between. Every card here
+   clips (the .mock-config overflow escape at :519 is that page's own), so in a 360px pane, and
+   worse in the 220px conversation column, such a name is cut off mid-word. The modifier is
+   named for what the text IS, not for the declarations it carries, and it lands on all four of
+   the borrowed classes that render given text: the mark, the card heading, the sub-line and
+   the field value.
+   TWO declarations, and either alone is inert. Under the mark rule's nowrap (:531) no
+   soft-wrap opportunity is taken, so the break property does nothing without the reset; and a
+   token with no break opportunity of its own ignores the reset without the break property.
+   And `anywhere`, NOT `break-word`: these are flex items (and, for .ec-name, a block in a
+   flex column) whose automatic minimum size is their min-content size, and break-word does not
+   contribute to min-content sizing — the item would keep the width of the whole unbroken
+   token, refuse to shrink, and stay clipped with both declarations in place. The sheet already
+   settled this at :908 for the run viewer's identity value. */
+.mock-dialog .ec-mark.given,
+.mock-dialog .ec-name.given,
+.mock-dialog .ec-sub.given,
+.mock-dialog .fv.given { white-space: normal; overflow-wrap: anywhere; }
 
 /* the field label of the thing that is waiting on a person, rather than merely
    naming a field. The studio has no such state; its labels never call. */
