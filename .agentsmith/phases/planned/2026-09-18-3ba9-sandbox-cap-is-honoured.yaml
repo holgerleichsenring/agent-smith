@@ -1,97 +1,81 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-09-18-3ba9
 
-goal: "The concurrent-sandbox cap bounds the runs that actually start, and a footprint larger than the cap is refused as unmeetable rather than queued behind slots that would never be enough."
+goal: "A run dequeued from the capacity queue is held to the Docker sandbox count the ledger cannot express, so the bound that guards a single host is not lost on the path that actually starts runs."
 
-applies_to: "backend (the capacity queue pump, the Docker and Kubernetes capacity probes, the capacity decision)"
+applies_to: "backend (the capacity queue pump and its use of the Docker capacity probe)"
+
+requires:
+  - 2026-09-18-0f27
 
 scope:
   in: >
-    The pump that dequeues a waiting run consults the same capacity probe the spawn path consulted,
-    so the cap bounds what starts and not merely what is admitted first time. The capacity answer
-    gains a third case beside admit and wait: a footprint that cannot fit the configured bound however
-    empty the host is. That case does not queue, because a queue position promises an end; it is
-    reported with the bound, the footprint and what would admit it. The Kubernetes probe answers the
-    same way for every quota key it compares, not only the counted ones, and evaluates all keys before
-    answering so an unmeetable key is not masked by a key that is merely busy.
+    The pump that claims the head of the capacity queue consults the Docker capacity probe before it
+    claims, using the footprint the ledger already persisted for that reservation, and only on the
+    Docker backend. A denial leaves the entry where it is, which is what a queue is for: the bound is
+    a count of sandboxes running right now, so an entry that does not fit this tick fits the next one
+    a run finishes. Where no footprint was persisted the pump says so and admits, because refusing on
+    a number nobody recorded would stop work for a missing field rather than for a full host.
   out: >
-    RAISING THE BOUND AUTOMATICALLY. The bound is deliberate; exceeding it silently is what it exists
-    to prevent.
-    WHERE THE BOUND IS CONFIGURED AND WHAT IT IS CALLED. 2026-09-18-0f27.
-    NARROWING THE FOOTPRINT. See decisions — the count is an over-estimate by design and this phase
-    does not change what it counts.
-    THE DB CAPACITY BUDGET. It is a second, independent bound and stays exactly as it is.
+    A FOOTPRINT LARGER THAN THE BOUND. It is refused at admission today and left refused; turning
+    that into a permanent answer is named in prose as the phase that decides what to do with a run
+    that cannot fit the host it was given — and it must not be attempted before the run is narrowed,
+    because the counted footprint is one sandbox per repository and toolchain over EVERY configured
+    repository, taken before the run is scoped to the repositories the ticket touches.
+    KUBERNETES. Its quota is expressed in the same resource terms the ledger carries, so the
+    substitution the decision below describes did not lose anything there.
+    THE LEDGER BUDGET. It is a second, independent bound and stays exactly as it is.
+    WHERE THE BOUND IS CONFIGURED. 2026-09-18-0f27.
 
 decisions:
   - key: |
-      THE BOUND IS NOT ENFORCED WHERE IT MATTERS, MEASURED. The probe is consulted once, on the spawn
-      path. The pump that later claims the head of the queue does not consult it — it reaps, then
-      reserves against the database capacity budget, which is unbounded unless cpu and memory limits
-      are configured. On a host with no budget configured, a run denied for exceeding the sandbox cap
-      is claimed on the next tick and runs over it. For Docker there is no create-time signal, so the
-      cap was the only guard; unconsulted, it guards nothing on that path.
+      THE PUMP'S SILENCE IS A RECORDED DECISION, NOT AN OVERSIGHT, AND THE NARROW CLAIM IS THE TRUE
+      ONE. p0336 states it: the pump reads the persisted footprint with no per-tick remote reads, and
+      "the advisory ISandboxCapacityProbe is replaced by the ledger gate at both admission sites". The
+      probe's own contract still calls itself advisory. That substitution is sound wherever the ledger
+      can express the bound — and the Docker bound is a COUNT of sandbox containers, which cpu and
+      memory reservations cannot express at all. So on the Docker backend the substitution replaced
+      the only guard with one that cannot see it, and the ledger is fail-open when no cpu or memory
+      limits are configured, which is the default on a single host.
   - key: |
-      TWO REFUSALS ARE MERGED INTO ONE SENTENCE. The probe admits while running plus needed fits the
-      bound and otherwise denies with "waiting for slots to free". When needed alone exceeds the
-      bound that is unsatisfiable at zero running, so the sentence describes a wait that cannot end.
-      Observed live: a three-sandbox footprint against a bound of two reported "(0 running + 3 needed
-      > 2); waiting for slots to free."
+      THE FOOTPRINT COMES FROM THE LEDGER, AND ITS ABSENCE IS ANSWERED EXPLICITLY. The queue entry
+      carries project, ticket, pipeline, platform and a reserved run id — no footprint. The ledger's
+      snapshot for that run id carries one, and returns null when nothing was recorded, which is also
+      what the no-op budget returns on every composition without a database. Refusing on a null would
+      stop every run on those compositions; admitting on it is the same fail-open the ledger already
+      is, and it is stated here rather than discovered.
   - key: |
-      THE RULE THAT PRODUCED IT WAS RIGHT. p0320b replaced "admit while fewer than the bound are
-      running" with the full-footprint test because admitting on a single free slot let multi-repo
-      runs crash into the bound mid-run. That trade is kept. What it did not carry is that there are
-      three answers, not two, and the third was folded into the second.
+      A DENIAL KEEPS ITS PLACE, BECAUSE THIS BOUND IS TRANSIENT BY CONSTRUCTION. The count is of
+      sandboxes running now; a finishing run frees slots. That is what a queue is, and the pump
+      already leaves a head it could not claim. The hazard a permanent refusal would create — a head
+      nothing can ever admit, with strict FIFO behind it — is why the unmeetable case is not in this
+      phase.
   - key: |
-      THE FOOTPRINT IS AN OVER-ESTIMATE, SO UNMEETABLE MUST SAY WHAT IT MEASURED. The count is one
-      sandbox per repository and toolchain over every configured repository, computed before the run
-      is narrowed to the repositories the ticket touches. A five-repository project whose ticket
-      touches one is counted as five. Refusing on that number without saying so would turn a
-      deliberate over-estimate into a permanent refusal of work that would have fitted, so the refusal
-      names what it counted and that the run was not yet narrowed.
+      AFTER THE REAP, BEFORE THE RESERVATION. The pump reaps corpse sandboxes first so headroom
+      reflects reality on the dequeue path; a probe consulted before that reads stale occupancy and
+      denies a head the reap would have admitted.
   - key: |
-      A THIRD CASE, NOT A FLAG. The decision type carries a bool today and four callers test it, so a
-      new factory or an enum member would compile unchanged and every one of them would read
-      unmeetable as a wait. The bool goes, so each of the four is made to answer for the new case —
-      including the tool host that answers a model in text, and the init path that already refuses
-      synchronously and only needs its wording corrected.
-  - key: |
-      THE INIT PATH IS ALREADY WHERE THIS PHASE WANTS IT. It refuses synchronously and answers with
-      the reason, which is where the observation came from. On that path only the sentence changes.
-      The spawn path is the one that queues, and the pump is the one that ignores the bound.
-  - key: |
-      ROOM. The spawn use case and the tool host are both baselined and may only shrink, so the
-      capacity answer's new shape is read through a collaborator each of them calls rather than
-      through branching added in place; the probes themselves have room.
+      ROOM. The pump is at its ratchet baseline exactly and may only shrink, so the consultation is a
+      collaborator it calls on one line — the same shape as the reap and the reservation it sits
+      between. The Kubernetes probe is also at its baseline and is not touched by this phase at all.
 
 steps:
   - id: the-pump-asks
-    action: "The capacity queue pump consults the sandbox capacity probe before claiming the head of the queue, as the spawn path does."
-  - id: the-third-case
-    action: "The capacity decision loses its bool for three cases; every caller answers for all three."
-  - id: the-probes-split
-    action: "The Docker probe answers unmeetable when the footprint cannot fit the bound however empty the host is; the Kubernetes probe does the same per quota key, evaluating every key before answering, with unmeetable winning over wait."
-  - id: the-refusal-says-enough
-    action: "An unmeetable refusal names the bound, the footprint it counted, that the run was not yet narrowed, and what would admit it; it does not take a queue position."
+    action: "A collaborator answers whether the head's persisted footprint fits the Docker sandbox bound, consulted after the corpse reap and before the reservation, admitting when no footprint was recorded and saying so."
+  - id: the-pump-calls-it
+    action: "The pump calls it on one line and leaves a denied head queued, as it already does."
 
 tests:
-  - "Pump_HeadOfQueueThatWouldExceedTheBound_IsNotClaimed"
-  - "Pump_HeadOfQueueThatFits_IsClaimed"
-  - "Pump_ProbeDenies_LeavesTheRunQueuedWithoutSpawning"
-  - "Capacity_FootprintLargerThanTheBound_IsUnmeetableNotAWait"
-  - "Capacity_FootprintLargerThanTheBound_WithNothingRunning_IsStillUnmeetable"
-  - "Capacity_FootprintThatFitsButNotNow_IsStillAWait"
-  - "Capacity_UnboundedBound_AdmitsAnyFootprint"
-  - "Capacity_UnmeetableRefusal_NamesTheBoundTheCountAndThatItIsNotNarrowed"
-  - "Capacity_UnmeetableRun_TakesNoQueuePosition"
-  - "Capacity_DaemonReadFailure_WithAFittingFootprint_StillAdmits"
-  - "Capacity_DaemonReadFailure_WithAnUnmeetableFootprint_IsStillUnmeetable"
-  - "Kubernetes_CpuHardValueBelowTheRequirement_IsUnmeetable"
-  - "Kubernetes_PodQuotaBelowTheFootprint_IsUnmeetable"
-  - "Kubernetes_OneKeyBusyAndAnotherUnmeetable_AnswersUnmeetable"
-  - "InitPath_UnmeetableFootprint_RefusesWithTheNewSentence"
+  - "Pump_HeadWhoseFootprintExceedsTheBound_IsNotClaimed"
+  - "Pump_HeadWhoseFootprintFits_IsClaimed"
+  - "Pump_DeniedHead_StaysAtTheHeadOfTheQueue"
+  - "Pump_HeadWithNoPersistedFootprint_IsClaimedAndSaysWhy"
+  - "Pump_AfterARunFinishes_ThePreviouslyDeniedHeadIsClaimed"
+  - "Pump_ConsultsTheProbeAfterTheReap_NotBefore"
+  - "Pump_OnANonDockerBackend_ConsultsNothingNew"
 
 done:
-  - "a run that exceeds the sandbox bound does not start, on either path"
-  - "a footprint that can never fit is refused, not queued, and the refusal says what would admit it"
-  - "a run that would fit but does not fit now still waits, with its position, as before"
+  - "a run dequeued from the capacity queue cannot start over the Docker sandbox bound"
+  - "a head denied for the bound is claimed on a later tick once a run finishes"
+  - "a composition with no persisted footprint behaves exactly as it does today"
   - "build green, full suite green, file-length ratchet green"

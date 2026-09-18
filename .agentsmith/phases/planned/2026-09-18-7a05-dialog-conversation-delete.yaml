@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-09-18-7a05
 
-goal: "An operator can delete a conversation they own, so a list of design conversations can be kept, and is told first what a deletion does not undo."
+goal: "An operator deletes a conversation they own, told first what a deletion does not undo, and no principal deletes or learns about another's."
 
-applies_to: "backend (a delete on the spec-dialog session, owner-checked) + dashboard (the conversation list)"
+applies_to: "backend (a delete keyed on the session id, its own owner check) + dashboard (the conversation list)"
 
 requires:
   - 2026-09-17-c7aeb
@@ -11,76 +11,108 @@ requires:
 
 scope:
   in: >
-    A delete of one conversation, addressed by its session id, needing the same permission and the
-    same owner check the dialog read already applies, removing the session and its transcript. The
-    conversation list offers it per row and removes the row without a reload. A conversation that
-    never got a turn is deleted without ceremony. A conversation that FILED something is deleted only
-    after the operator is told, in the confirmation, exactly what survives and what does not: the
-    tickets stay, their bodies keep naming this conversation as where the specification was approved,
-    and after the deletion that name leads nowhere. The delete is the caller's own; nobody deletes
-    another principal's conversation, and a session id that does not exist or is not theirs answers
-    the same way, so the route cannot be used to learn which ids exist.
+    A delete of one conversation, addressed by its session id, scoped to the dashboard platform as
+    every other read on this surface is, behind an owner check written for a SESSION id and for which
+    an absent row is not a pass. Not-yours, not-there and already-deleted answer identically, so the
+    route cannot be used to learn which ids exist. The conversation list offers it per row, removes
+    the row without a reload, and a list read still in flight cannot bring it back. Deleting the
+    conversation open here clears the surface. A conversation whose latest filing created work is
+    confirmed first, in the words of what survives: the tickets stay, and what stops resolving is the
+    map from this conversation to them — plus, for a filed phase or an epic parent, the sentence in
+    the ticket body naming this conversation as where the specification was approved.
   out: >
-    DELETING THE TICKETS. They are the tracker's, not ours, and a filing is not undone by forgetting
-    the conversation that made it.
-    A BIN OR AN UNDO. A deleted conversation is gone; keeping it hidden would be a second lifetime to
-    reason about beside open and closed.
-    BULK DELETE. One row at a time; a sweep over a list is its own phase once anyone wants it.
-    CLOSING A CONVERSATION. Closing already exists and is not deletion.
-    THE TICKET BODY'S REFERENCE. Rewriting a filed ticket when its conversation is deleted means
-    editing work items an operator owns, from a delete they asked for on something else.
+    DELETING WHILE A TURN IS RUNNING. See decisions — it is refused, and the reason is its own case.
+    DELETING THE TICKETS. They are the tracker's; a filing is not undone by forgetting the conversation.
+    THE APPROVED SPEC SET. It stays. See decisions.
+    A BIN OR AN UNDO. A deleted conversation is gone; a third lifetime beside open and closed is a
+    reader's burden with no reader.
+    BULK DELETE. One row at a time.
+    REWRITING A FILED TICKET'S BODY. Editing work items an operator owns, from a delete they asked for
+    on something else.
 
 decisions:
   - key: |
-      THE CAPABILITY DOES NOT EXIST AT ALL. CatalogEndpoints aside, the spec-dialog surface offers a
-      read, a conversation list and a message post; there is no delete on the route table and none in
-      the dashboard's api client. This is not a gap in an existing affordance — it is a missing one,
-      and the list grows with every conversation ever started, including the ones opened by mistake
-      that carry no turn at all.
+      THE OWNER CHECK THIS SURFACE HAS IS AN AUTHORISATION BYPASS FOR THIS ROUTE. Its watch check is
+      keyed on the THREAD id and returns true when no open session is found — safe for a watch, because
+      nothing is delivered into an id nobody holds. A delete is keyed on the SESSION id, and the two
+      namespaces are disjoint by construction: a session id can never match a thread id, so the lookup
+      always misses and the check always passes. Reusing it would let any holder of the dialog
+      permission delete every conversation in the installation. The delete gets its own check, keyed on
+      the session id, in which an absent row is a refusal.
   - key: |
-      THE OWNER CHECK IS THE ONE THAT ALREADY EXISTS. SpecDialogOwnership is what the dialog read and
-      the filed-work read use; a delete is the most destructive thing on this surface and gets the
-      same gate, not a new one. Its existing behaviour — that an id with no open session passes —
-      must not turn a delete into an oracle for which ids exist, so a delete answers identically for
-      "not yours" and "not there".
+      ONE ANSWER FOR THREE CASES, WHICH IS WHY A SECOND DELETE IS NOT AN ERROR. Not-yours, not-there
+      and already-deleted must be indistinguishable or the route is an oracle for which ids exist. That
+      forces the answer to be the same terminal one for all three — so the page asserts that the row
+      survives a refused delete, never that a status code differed.
   - key: |
-      A FILING IS NOT UNDONE. The work ticket carries the whole approved set and names the
-      conversation as where a change to it is made; the slice records link to it. Deleting the
-      conversation leaves those sentences pointing at nothing. That is acceptable and it is the
-      operator's call — but it is only their call if they are told, so the confirmation says it in
-      those terms rather than asking "are you sure?".
+      A RUNNING TURN IS REFUSED, BECAUSE THE INTERLEAVING FILES REAL TICKETS. The turn's state is
+      in-memory and keyed by session; a row delete touches none of it. Mid-turn, the transcript append
+      and the outcome store both become silent no-ops, and the filing path throws a message the operator
+      reads verbatim. The worst window files tracker tickets for a conversation that no longer exists
+      and records what was filed nowhere. The delete is refused while a turn is computing, with that as
+      its own stated case, not a generic failure.
   - key: |
-      AN EMPTY CONVERSATION NEEDS NO CONFIRMATION. A conversation with no turns filed nothing and
-      decided nothing; a confirmation dialog on it is friction for the exact case the operator is
-      trying to clean up. The two paths differ by what the conversation did, not by a preference.
+      THE APPROVED SET STAYS, AND THAT IS NOT AN OVERSIGHT. The approved specification set carries the
+      session id and is what a RUN reads to execute the approved work. Sweeping it with the session —
+      the shape the run deletion uses for its satellites — would make the next run of an already filed
+      ticket derive its own specification instead, silently, visible only in the wrong work.
   - key: |
-      DELETE, NOT SOFT-DELETE. SpecDialogSession already carries IsOpen, so a third state would make
-      "open", "closed" and "deleted" three lifetimes where the reader must know which two mean
-      visible. The row goes.
+      THE CONFIRMATION SAYS WHAT IS TRUE OF THIS FILING'S KIND. Only a filed phase and an epic parent
+      carry the sentence naming the conversation; a slice record never did and a bug ticket's body has
+      no such reference at all. A confirmation that promised otherwise would be false for two of the
+      three shapes. The latest filing's kind is already on the row the list reads.
+  - key: |
+      WHAT THE OPERATOR ACTUALLY LOSES IS THE LIST. The filed work is read off the session's latest
+      filing, and only while the conversation is open. After the delete nothing maps those tickets back
+      to anything. That is the sentence worth saying, more than the dangling reference.
+  - key: |
+      A CONVERSATION WITH TURNS BUT NO FILING IS CONFIRMED TOO. Only a conversation with no turns is
+      deleted without ceremony. The filing marker is a column added a day earlier, so a conversation
+      that filed real tickets before it existed reads as having filed nothing — and confirming anything
+      with turns is the cheap side of that error.
+  - key: |
+      THE LIST READ MUST NOT RESURRECT THE ROW. The list is re-read on hub messages and whenever the
+      open session changes — which deleting the open conversation is. Its sequence guard only drops a
+      read superseded by a newer read, not one issued before the delete and landing after it.
+  - key: |
+      THE ROW IS A BUTTON TODAY, SO THE CONTROL CANNOT BE INSIDE IT. A control nested in a button is
+      invalid, warns, and without stopping propagation the delete click also opens the conversation it
+      just deleted. The control is its own file beside the row, as the run list's delete already is.
+  - key: |
+      THE CONFIRMATION MECHANISM IS NAMED, BECAUSE THE DASHBOARD HAS NONE. There is no modal primitive;
+      the run delete arms on a first click and the two prose confirmations in the tree use the browser's
+      own. The shape decides the dashboard test, so the phase states it rather than leaving it to be
+      discovered.
 
 steps:
+  - id: the-owner-check
+    action: "An owner check keyed on the session id and scoped to the dashboard platform, in which an absent row is a refusal."
   - id: the-route
-    action: "A delete on one spec-dialog session, owner-checked, answering identically for a session that is not the caller's and one that does not exist; with its row in the route-permission baseline."
+    action: "A delete on one conversation, answering identically for not-yours, not-there and already-deleted, refusing while a turn is computing, with its row in the route-permission baseline."
   - id: the-list-offers-it
-    action: "The conversation list offers a delete per row and removes the row on success without a reload."
+    action: "The list offers the control beside the row, removes the row without a reload, guards against a list read in flight, and clears the surface when the open conversation goes."
   - id: what-it-does-not-undo
-    action: "A conversation that filed something is confirmed with what survives — the tickets stay and their reference to this conversation stops resolving; one with no turns is deleted without a confirmation."
+    action: "A conversation with turns is confirmed, in the words of what survives and what stops resolving, worded by the latest filing's kind; one with no turns is deleted without a confirmation."
 
 tests:
   - "Delete_OwnConversation_RemovesItAndItsTranscript"
-  - "Delete_AnotherPrincipalsConversation_IsRefused"
+  - "Delete_AnotherPrincipalsConversation_LeavesItInPlace"
   - "Delete_SessionThatDoesNotExist_AnswersAsForOneThatIsNotYours"
+  - "Delete_TwiceInARow_AnswersTheSameBothTimes"
+  - "Delete_AConversationOnAnotherPlatform_IsNotReached"
+  - "Delete_WhileATurnIsComputing_IsRefusedWithThatReason"
   - "Delete_WithoutTheDialogPermission_IsForbidden"
-  - "Delete_ConversationThatFiled_LeavesTheTicketsUntouched"
-  - "Delete_OpenConversation_IsDeletedLikeAClosedOne"
-  - "Delete_Twice_IsNotAnError"
+  - "Delete_ConversationThatFiled_LeavesTheTicketsAndTheApprovedSetStored"
   - "dashboard: a conversation with no turns is deleted without a confirmation"
-  - "dashboard: a conversation that filed work is confirmed with what the deletion does not undo"
-  - "dashboard: the deleted row leaves the list without a reload"
-  - "dashboard: a refused delete leaves the row and says so"
+  - "dashboard: a conversation that filed a phase is confirmed with the ticket sentence that stops resolving"
+  - "dashboard: a conversation that filed a bug is confirmed without claiming a sentence it never had"
+  - "dashboard: a list read in flight when the delete lands does not bring the row back"
+  - "dashboard: deleting the open conversation clears the surface"
+  - "dashboard: the delete control does not open the conversation"
 
 done:
-  - "an operator can clear conversations they started by mistake"
-  - "a conversation that filed work is only deleted after its owner is told what stops resolving"
-  - "no principal deletes or learns about another's conversation"
+  - "an operator clears conversations they started by mistake"
+  - "no principal deletes another's, and none learns which ids exist"
+  - "a conversation mid-turn is not deleted out from under its own filing"
+  - "what the operator loses is said before they lose it"
   - "build green, full suite green, dashboard tests green, file-length ratchet green"

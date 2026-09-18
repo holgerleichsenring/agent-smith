@@ -1,92 +1,77 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-09-18-b4f0
 
-goal: "An operator chooses which kind of work item a filing creates, and a lifecycle status the chosen kind does not have is refused where it is configured, not discovered when a run ends."
+goal: "An operator chooses which kind of work item a filing creates, on the two trackers that send one, defaulting to what each creates today so no installation changes behaviour."
 
-applies_to: "backend (the ticket providers' create and their type/state discovery, the tracker configuration, the config validation)"
+applies_to: "backend (the Azure DevOps and Jira providers' create, the tracker configuration, the config studio descriptor) + dashboard (the tracker form)"
 
 scope:
   in: >
-    The kind of work item a filing creates becomes part of the tracker's configuration instead of a
-    constant in one provider, defaulting to what each provider creates today so no existing
-    installation changes behaviour. The provider gains a read of the kinds the tracker offers and the
-    statuses each kind allows, so the configuration can be checked rather than believed: a configured
-    lifecycle status that the configured kind does not have is refused when the configuration is
-    saved, naming the kind, the value and what that kind does offer. The same check runs before a
-    filing, because a tracker's process can change after a configuration was saved, and a filing that
-    would create a ticket nothing can ever finalize is refused with that sentence rather than made.
-    Where a provider cannot enumerate kinds or statuses, it says so and the check reports that it
-    could not be made — an unknown answer is not a pass.
+    The kind of work item a filing creates becomes a field of the tracker's configuration for the two
+    providers that actually send one, defaulting per provider to the literal each sends today, so an
+    installation that sets nothing behaves exactly as it does now. The create for both moves into a
+    collaborator that owns the kind and the payload — which is what gives them a test seam, because
+    both build their clients internally and their kind is an argument to a call, not part of the
+    payload builder their tests pin today. The config studio descriptor and the tracker form carry
+    the field for those two provider types only.
   out: >
-    CHOOSING THE KIND FROM THE WORK. Letting the model propose the kind from what is being filed is
-    the obvious next step and it needs exactly this validation underneath it; it is named in prose as
-    the successor that proposes a work-item kind from the outcome and holds the proposal to the check
-    this phase builds.
-    HIERARCHY RULES. Whether a chosen kind may parent another is the tracker's own process rule and a
-    filing that violates it fails at the link, which 2026-09-17-042ea already reports as a filing note.
-    MIGRATING TICKETS ALREADY FILED. A kind is chosen for what is created next; work items on a
-    tracker keep the kind they were created with.
-    THE LOOP A FAILED FINALIZE CAUSES. 2026-09-18-c1a7 stops that whatever the cause; this phase
-    removes one cause.
+    GITHUB AND GITLAB. Neither sends a type on create and neither client exposes one; a field on their
+    forms would be read by nothing. They declare none rather than declaring one that answers "cannot".
+    WHETHER THE CONFIGURED LIFECYCLE STATUSES EXIST FOR THE CHOSEN KIND. That is 2026-09-18-6c8d, and
+    it is the half that actually prevents the incident below — this phase only makes the kind a choice.
+    CHOOSING THE KIND FROM THE WORK. Letting the model propose it needs 6c8d's check underneath it;
+    named in prose as the phase that proposes a work-item kind from the outcome and holds the proposal
+    to that check.
+    HIERARCHY RULES. Whether a kind may parent another is the tracker's own process rule; a filing
+    that violates it already fails at the link and is reported as a filing note.
+    TICKETS ALREADY FILED. A kind is chosen for what is created next.
 
 decisions:
   - key: |
-      THE KIND IS A CONSTANT IN ONE PROVIDER, MEASURED. AzureDevOpsTicketProvider passes the literal
-      "Task" to CreateWorkItemAsync on every create. Observed consequence on 2026-09-18: a filing
-      created a Task, the tracker configuration carried failed_status "Resolved", and Task has no
-      Resolved state in the default processes — so every run on that ticket ended with a rejected
-      status write. The mismatch was decidable the moment both values existed; it was discovered at
-      the end of a run, twice.
+      THE KIND IS A CONSTANT IN TWO PROVIDERS, NOT ONE. The Azure DevOps create passes the literal
+      "Task"; the Jira create sends the same literal as its issue type. The first draft of this phase
+      measured only the first and budgeted room only for it. Both files sit at their ratchet baselines
+      and may not grow, which is why the create moves out of both rather than gaining a parameter.
   - key: |
-      A CONFIGURATION THAT CANNOT BE CHECKED IS A GUESS WITH A FORM AROUND IT. The tracker exposes
-      which kinds exist and which states each kind allows. Checking at save time is what turns a
-      lifecycle configuration from a hope into a statement, and it is the same read the successor that
-      lets a model choose the kind would need.
+      A TASK WAS THE WRONG LEVEL, NOT ONLY THE WRONG STATE. Observed 2026-09-18: a filing created a
+      Task, the configured failed status was one a Task does not have, and every run on that ticket
+      ended with a rejected status write. But a Task is also the wrong shape for a work ticket that
+      carries slice records beneath it — hierarchy in the default processes runs through the levels
+      above it. Making the kind a choice is the smaller half of that; the check is 6c8d.
   - key: |
-      AND CHECKED AGAIN BEFORE A FILING, BECAUSE A PROCESS CHANGES. A configuration saved against a
-      process that later loses a state is a configuration that was right and is not any more. The
-      filing is the last moment the check is free, and a filing refused with the reason costs an
-      operator a sentence; a filing made costs them the loop this phase's sibling exists to stop.
+      TWO PROVIDERS HAVE NO SUCH CONCEPT, AND A FIELD THAT ANSWERS "CANNOT" IS WORSE THAN NO FIELD.
+      GitHub's create builds an issue with no type and its client exposes none; GitLab's posts title,
+      description and labels. The config studio declares its workflow fields identically for every
+      tracker type today, so a kind field would render on their forms and be read by nothing. The
+      descriptor gains it for the two provider types that send one.
   - key: |
-      AN UNKNOWN IS NOT A PASS. Providers differ in what they can enumerate. One that cannot answer
-      reports that it cannot, and the check records "not checked" rather than "fine" — the difference
-      2026-09-17-042eh had to build for reviews is the same difference here, and collapsing it is the
-      same defect.
+      THE COLLABORATOR IS THE SEAM, WHICH IS WHY THE EXTRACTION IS A STEP. Both providers construct
+      their SDK client internally, and their tests pin the payload builders as the only pure surface.
+      The kind is an argument to the call, not part of the payload — so today no test can assert what
+      kind is created. Moving the create out is what makes the phase's own headline test writable.
   - key: |
-      TODAY'S BEHAVIOUR IS THE DEFAULT. Every existing installation has a configuration written
-      against whatever each provider creates now. The configured kind defaults to exactly that, so
-      this phase changes no behaviour until an operator chooses otherwise — and the check then tells
-      them, on the spot, whether their existing lifecycle statuses survive the choice.
-  - key: |
-      ROOM. AzureDevOpsTicketProvider is 218 lines against a baseline of 218 and may only shrink, so
-      the kind read and the state read do not go there: they are a collaborator the provider holds,
-      and the create's literal becomes a value the provider is given. What the provider loses in
-      hard-coded text it does not gain back in lookup code.
+      TODAY'S LITERAL IS THE DEFAULT, PER PROVIDER. Every existing installation has a configuration
+      written against what its provider creates now. The default is that literal, so this phase alone
+      changes nothing anywhere until an operator chooses otherwise.
 
 steps:
+  - id: the-create-moves-out
+    action: "The Azure DevOps and Jira creates move into a collaborator each, owning the kind and the payload; both providers shrink."
   - id: the-kind-is-configured
-    action: "The tracker configuration carries the work-item kind a filing creates, defaulting per provider to what it creates today; the create uses it."
-  - id: the-tracker-is-asked
-    action: "A collaborator reads the kinds a tracker offers and the statuses a kind allows, per provider, reporting plainly where it cannot."
-  - id: the-configuration-is-checked
-    action: "Saving a tracker configuration refuses a lifecycle status the configured kind does not have, naming the kind, the value and what the kind offers; an unanswerable check is recorded as not checked."
-  - id: the-filing-is-checked
-    action: "A filing whose configured lifecycle statuses no longer fit the kind is refused with that sentence instead of made."
+    action: "The tracker configuration carries the work-item kind, defaulting per provider to the literal it sends today."
+  - id: the-form-carries-it
+    action: "The config studio descriptor and the tracker form carry the field for the two provider types that send a kind, and for no others."
 
 tests:
-  - "Create_ConfiguredKind_IsWhatTheProviderCreates"
-  - "Create_NoConfiguredKind_IsWhatTheProviderCreatesToday"
-  - "Config_LifecycleStatusTheKindDoesNotHave_IsRefusedOnSave"
-  - "Config_RefusalNamesTheKindTheValueAndWhatTheKindOffers"
-  - "Config_LifecycleStatusTheKindHas_IsSaved"
-  - "Config_ProviderThatCannotEnumerate_RecordsNotCheckedRatherThanFine"
-  - "Filing_ConfiguredStatusNoLongerFitsTheKind_IsRefusedWithTheReason"
-  - "Filing_ConfiguredStatusFits_IsMade"
-  - "Kinds_EachProvider_ReportsWhatItCanAndCannotEnumerate"
+  - "Create_ConfiguredKind_IsWhatTheAzureDevOpsCreateSends"
+  - "Create_ConfiguredKind_IsWhatTheJiraCreateSends"
+  - "Create_NoConfiguredKind_IsTheLiteralEachProviderSendsToday"
+  - "Create_GitHubAndGitLab_SendNoKindAndDeclareNoField"
+  - "Descriptor_TheKindField_IsDeclaredOnlyForTheProvidersThatSendOne"
+  - "dashboard: the tracker form shows the kind for those provider types and not for the others"
 
 done:
-  - "an operator chooses the kind of work item a filing creates, per tracker"
-  - "a lifecycle status the chosen kind does not have is refused where it is typed"
-  - "no filing creates a ticket whose configured terminal status the tracker will reject"
-  - "a check that could not be made says so and is not read as a pass"
-  - "build green, full suite green, file-length ratchet green"
+  - "an operator chooses the kind of work item a filing creates, per tracker, on the two trackers that have one"
+  - "an installation that configures nothing creates exactly what it creates today"
+  - "a test can assert what kind is created, which it cannot today"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"
