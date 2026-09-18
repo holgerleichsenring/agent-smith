@@ -488,7 +488,7 @@ new DashboardOutcomeChannel(
     // The hub method under test touches none of the readers, so they are absent rather
     // than faked — what it needs is the ownership guard and a caller.
     private JobsHub Hub(string caller) =>
-        new(null!, null!, null!, null!, null!, null!, null!, null!, _ownership)
+        new(null!, null!, null!, null!, null!, null!, null!, null!, _ownership, null!)
         {
             Context = new FakeCaller(Principal(caller)),
             Groups = _hub,

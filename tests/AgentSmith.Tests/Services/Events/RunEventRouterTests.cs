@@ -1,7 +1,11 @@
 using System.Collections.Concurrent;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Server.Services.Events;
+using AgentSmith.Server.Hubs;
+using AgentSmith.Server.Services.SpecDialog;
+using Microsoft.AspNetCore.SignalR;
 using FluentAssertions;
+using Moq;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Services.Events;
@@ -20,7 +24,8 @@ public sealed class RunEventRouterTests
     private static RunEventRouter NewRouter(
         RecordingFanout fanout, SandboxExpansionRegistry registry, RecordingPersistence persistence) =>
         new(fanout, registry, new SandboxDetailEventClassifier(),
-            new SandboxActivityCoalescer(), persistence);
+            new SandboxActivityCoalescer(), persistence,
+            new FiledWorkNudge(Mock.Of<IHubContext<JobsHub>>(), new FiledWorkWatchRegistry()));
 
     private static RunSnapshot Snapshot() => RunSnapshot.Empty(RunId);
 

@@ -76,6 +76,7 @@ const KEY_SYSTEM = "system";
 const keyRun = (runId: string) => `run:${runId}`;
 const keySandbox = (runId: string, repo: string) => `sandbox:${runId}:${repo}`;
 const keySpecDialog = (dialogId: string) => `spec-dialog:${dialogId}`;
+const keyFiledWork = (dialogId: string) => `filed-work:${dialogId}`;
 
 // p0388b: the per-run trail poll is GONE. Its first tick shipped the whole
 // structural trail of the run as one JSON per client per page load, and it
@@ -144,6 +145,9 @@ export class JobsHubClient {
   // subject for the same reason: a step replayed to a later listener would put a finished
   // turn's work back on screen.
   readonly specDialogActivity = makeSubject<SpecDialogActivityPush>();
+  // 2026-09-17-042ej: "something about the work you filed moved". Data-free by design — the
+  // page refetches over the read that checks ownership — so a plain subject with no payload.
+  readonly filedWorkChanged = makeSubject<void>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -238,6 +242,26 @@ export class JobsHubClient {
       () => this.connection!.invoke("SubscribeSpecDialog", dialogId),
     );
     return async () => { this.leave(keySpecDialog(dialogId)); };
+  }
+
+  /**
+   * 2026-09-17-042ej: follows the work one spec dialog filed. The SERVER reads the ticket ids
+   * off that session's latest filing, so the call is made AGAIN whenever the filing changes;
+   * each call replaces what this connection follows rather than adding to it. That is why the
+   * watch is not ref-counted like a group: the same thunk is what rejoins after a reconnect.
+   */
+  async watchFiledWork(dialogId: string): Promise<() => Promise<void>> {
+    await this.ensureStarted();
+    const key = keyFiledWork(dialogId);
+    const invoke = () => this.connection!.invoke("WatchFiledWork", dialogId);
+    this.rejoiners.set(key, invoke);
+    try {
+      await invoke();
+    } catch (thrown) {
+      this.rejoiners.delete(key);
+      throw thrown;
+    }
+    return async () => { this.rejoiners.delete(key); };
   }
 
   async expandSandbox(runId: string, repo: string): Promise<() => Promise<void>> {
@@ -375,6 +399,7 @@ export class JobsHubClient {
       this.specDialogReadings.emit(reading));
     conn.on("SpecDialogActivity", (activity: SpecDialogActivityPush) =>
       this.specDialogActivity.emit(activity));
+    conn.on("FiledWorkChanged", () => this.filedWorkChanged.emit(undefined));
     conn.on("SandboxActivity", (rollup: SandboxActivityRollup) =>
       this.sandboxActivity.emit(rollup));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>

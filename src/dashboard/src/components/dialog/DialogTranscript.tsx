@@ -12,6 +12,8 @@ import { DialogProposalCard } from "./DialogProposalCard";
 // What the operator typed is rendered as the plain text they typed.
 // 2026-09-17-c7aed: a turn that proposed something carries a card, and a turn that was only
 // the draft is the card alone.
+// 2026-09-17-042ej: the closing line of the empty state says where the conversation goes after
+// filing, because it no longer stops there: the filed tab follows the run.
 // 2026-09-17-042el: an approve or reject is shown as the decision it was, not as the word — as
 // pending until a read confirms the server stored it. A decision this page cannot name is shown as
 // the message it was.
@@ -44,9 +46,10 @@ export function DialogTranscript({
         <p className="mt-3 eyebrow-uppercase">Where it leads</p>
         <p className="mt-1">
           When you have converged, it proposes what to file — an answer and nothing filed,
-          one bug, one phase, or an epic with its slices in the order they will be filed. You approve
-          it or you keep talking. Filing is where this ends: the run starts when the tracker
-          picks the ticket up.
+          one bug, one phase, or an epic with its slices in the order they will be filed. You
+          approve it or you keep talking. Filing is not where this ends: the conversation then
+          follows the work it filed — which phase the run is on, what it opened, what the
+          review still finds, and anything handed back for you to settle here.
         </p>
       </div>
     );

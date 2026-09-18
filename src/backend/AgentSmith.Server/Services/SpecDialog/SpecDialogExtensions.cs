@@ -66,6 +66,16 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogProjectCatalog>();
         services.AddScoped<SpecDialogViewReader>();
         services.AddScoped<SpecDialogConversationList>();
+        // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
+        // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.
+        services.AddScoped<FiledWorkFiling>();
+        services.AddTransient<FiledWorkTrackerProjects>();
+        services.AddTransient<FiledWorkPhaseReviews>();
+        services.AddTransient<FiledWorkRunsReader>();
+        services.AddTransient<FiledWorkHandbacks>();
+        services.AddScoped<FiledWorkReader>();
+        services.AddSingleton<FiledWorkWatchRegistry>();
+        services.AddScoped<FiledWorkWatch>();
         // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
         // what filing it actually created.
         services.AddTransient<SpecDialogProposalComposer>();

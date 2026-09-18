@@ -1,10 +1,12 @@
 "use client";
 
 import type {
+  FiledWork,
   SpecDialogFiledStart,
   SpecDialogFiledTicket,
   SpecDialogFilingPush,
 } from "@/types/spec-dialog";
+import { DialogFiledRuns } from "./DialogFiledRuns";
 
 // 2026-09-15-6d9c: WHAT WAS FILED — the tickets that now exist, by reference and title. The
 // report behind it is honest about a partial failure, and so is this: the tickets that WERE
@@ -20,7 +22,17 @@ import type {
 // nobody reads. A filing written before this phase carries no key and reads by its reference, as
 // it always did.
 
-export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
+// 2026-09-17-042ej: and what became of it — under each ticket, the runs that took it up and,
+// per run, a row per PHASE with its pull requests and what the review still finds. The filing
+// push arrives first and alone; the work is a read of its own and appears beneath it.
+
+export function DialogFiledPanel({
+  filed,
+  work,
+}: {
+  filed: SpecDialogFilingPush;
+  work: FiledWork | null;
+}) {
   const partial = filed.error !== null && filed.filed.length > 0;
   // A push from a server older than filing notes carries none.
   const notes = filed.notes ?? [];
@@ -42,6 +54,7 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
             <li key={ticket.reference} data-testid={`dialog-filed-${ticket.reference}`}>
               <Named ticket={ticket} />
               {ticket.start && <Start start={ticket.start} reference={ticket.reference} />}
+              <Work work={work} reference={ticket.reference} />
             </li>
           ))}
         </ul>
@@ -62,6 +75,16 @@ export function DialogFiledPanel({ filed }: { filed: SpecDialogFilingPush }) {
         </p>
       )}
     </div>
+  );
+}
+
+// The read answers for the same filing the push carries, so a ticket is matched by the one
+// thing both name. A read that has not come back yet, or an older one, simply shows nothing.
+function Work({ work, reference }: { work: FiledWork | null; reference: string }) {
+  const row = work?.tickets.find((ticket) => ticket.reference === reference);
+  if (!row) return null;
+  return (
+    <DialogFiledRuns runs={row.runs} handback={row.handback} reference={reference} />
   );
 }
 

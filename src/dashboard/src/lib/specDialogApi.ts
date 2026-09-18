@@ -4,7 +4,7 @@
 // no id at all: it answers for the signed-in principal.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
-import type { SpecDialogSessionSummary, SpecDialogView } from "@/types/spec-dialog";
+import type { FiledWork, SpecDialogSessionSummary, SpecDialogView } from "@/types/spec-dialog";
 
 const MESSAGES_PATH = "/api/spec-dialog/messages";
 
@@ -13,6 +13,21 @@ export async function fetchSpecDialog(
   signal?: AbortSignal,
 ): Promise<SpecDialogView> {
   return getJson<SpecDialogView>(`/api/spec-dialog/${encodeURIComponent(dialogId)}`, signal);
+}
+
+/**
+ * 2026-09-17-042ej: the work this conversation filed, as its runs now stand. A read of its
+ * own, because the dialog view is refetched after every reply and run lookups there would be
+ * paid on each one. The server checks the same ownership the dialog read does.
+ */
+export async function fetchFiledWork(
+  dialogId: string,
+  signal?: AbortSignal,
+): Promise<FiledWork> {
+  return getJson<FiledWork>(
+    `/api/spec-dialog/${encodeURIComponent(dialogId)}/filed-work`,
+    signal,
+  );
 }
 
 /** The caller's conversations, open and closed, most recently active first. */

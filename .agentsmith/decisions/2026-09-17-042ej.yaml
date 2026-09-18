@@ -1,0 +1,213 @@
+phase: 2026-09-17-042ej
+decisions:
+  - id: a-read-of-its-own-behind-dialog-write-and-runs-read
+    chose: >
+      GET /api/spec-dialog/{dialogId}/filed-work, needing dialog.write AND runs.read, mapped
+      beside the dialog read in SpecDialogViewEndpoints and owner-checked there through the
+      same SpecDialogOwnership.MayWatchAsync the per-dialog read uses. One baseline row,
+      "dialog.write,runs.read".
+    alternative: >
+      A field on SpecDialogView; dialog.write alone, as the two spec-dialog routes carry.
+    why: >
+      The dialog view is refetched after every hub message, so run lookups there would be paid
+      on every reply. The rows are RUN STATE — status, cost, pull requests, phase standing —
+      and the permission that says "may hold spec dialogs" says nothing about reading runs.
+      The owner check stays on the route because a browser-minted dialog id is no boundary.
+  - id: the-reach-of-a-filed-ticket-is-its-trackers
+    chose: >
+      FiledWorkTrackerProjects returns every configured project whose tracker connection
+      carries the filing project's tracker NAME; the runs read and the hand-back read both
+      take that list.
+    alternative: >
+      The filing project alone; every configured project; matching on tracker type or url.
+    why: >
+      One ticket may match several projects and ProjectResolver spawns a run per match, so the
+      filing project alone would miss the run that did the work. A ticket id is unique within
+      one tracker and means nothing across two, so the tracker name is the boundary; type and
+      url are shared by two connections into different instances.
+  - id: the-verdict-is-rendered-only-on-a-terminal-row
+    chose: >
+      FiledWorkRunsReader renders RunPhase.Verdict only where the row's status is terminal.
+    alternative: >
+      Rendering the column as stored.
+    why: >
+      RunPhaseProjection KEEPS the last verdict it saw and clears EndedAt when a phase runs
+      again, so a phase re-run after a repair would still show what stopped the previous
+      attempt.
+  - id: the-hand-back-is-a-status-and-the-page-maps-it
+    chose: >
+      No AwaitsAmendment anywhere. FiledWorkPhaseView carries RunPhase.Status verbatim, and the
+      page renders the amendment line on "handed_back" alone — PhaseRunState.HandedBack
+      (SpecSequenceProgress.cs:62) projected by RunPhaseProjection.StatusOf (:93).
+    alternative: >
+      The first round's `failed && verdict is not null`; a server-side bool computed from the
+      status; reading the verdict text.
+    why: >
+      Adversarial review, upheld. The ONLY producer of a `failed` row is VerifyPhaseHandler,
+      whose FailingCommandOf is never null — so the inferred flag fired on every red build and
+      told the operator to approve the set again, which changes nothing. The two states ask
+      OPPOSITE things: a red build is fixed by working the code, a false premise by amending
+      the specification. A server-side bool would be a second copy of a rule the status already
+      states; mapping status to affordance once, where the affordance lives, is the same shape
+      PhasesPanel already uses for its badge.
+  - id: terminal-is-stated-as-not-running
+    chose: >
+      FiledWorkRunsReader renders a verdict for any status that is not "not_started" or
+      "in_progress".
+    alternative: >
+      Mirroring the producer's positive list (done, failed, handed_back).
+    why: >
+      0e79c appended a fourth state to that list in the phase after this one was written, and a
+      positive list would have silently hidden its verdict — reading a terminal phase as one
+      still going. The negative form fails towards showing what the row recorded, and never
+      towards claiming success.
+  - id: a-review-has-four-states-and-the-fourth-is-unreadable
+    chose: >
+      FiledWorkReviewView gains Unreadable, and a row that will not deserialize comes back with
+      it set and a stated reason; the catch widens to NotSupportedException; findings travel
+      whether or not the review was taken; a not-taken review with no recorded reason states
+      one. The page renders all four and says "not reviewed yet" for a phase with no row.
+    alternative: >
+      Returning null for an unreadable row, as the first round did; a bare boolean.
+    why: >
+      Null is the "never reached its review" state, so a truncated row — or a payload written
+      before 042eh made the report an object — turned a phase whose review kept three findings
+      into a phase nobody read. That is exactly the collapse 042eh's report exists to stop, one
+      state over. NotSupportedException escaped the catch and 500ed the whole read.
+      PhaseReviewReport.None is publishable, so "why is non-null exactly when not reviewed" is
+      the producer's intent rather than a guarantee, and the reader defends it.
+  - id: the-hand-back-shown-is-the-one-written-last
+    chose: >
+      FiledWorkHandbacks orders by UpdatedAt descending (EntityBase stamps it on every save),
+      then by Id.
+    alternative: >
+      Insertion order, as the first round had it.
+    why: >
+      Two projects of one tracker may both hold a spec set for the ticket — an old uncleared
+      case in the first and this morning's in the second. Ordering by Id named the older one,
+      and with it the wrong case, the wrong repeat count and the wrong ticket comment, while
+      the class doc said "last recorded".
+  - id: the-parked-question-comes-from-the-store-that-owns-checkpoints
+    chose: >
+      FiledWorkRunsReader takes IRunCheckpointStore and asks it per WAITING run; the local
+      entity-to-record mapper is deleted. PendingQuestionInfo.FromCheckpoint takes an optional
+      logger and answers null for a question it cannot deserialize.
+    alternative: >
+      Keeping the private copy of RunCheckpointRepository.ToRecord; ListPendingAsync.
+    why: >
+      The copy repeated four adjacent same-typed strings, so a future re-ordering of the record
+      would compile and silently attribute a question to the wrong project. ListPendingAsync
+      reads every parked run in the installation; a waiting run is rare and the cap is ten, so
+      asking per waiting run is both bounded and precise. One malformed QuestionJson used to
+      throw out of the whole filed-work read and take every ticket of the conversation with it,
+      while every neighbouring read degrades to "absent".
+  - id: the-tab-resyncs-on-reconnect-as-the-run-list-does
+    chose: >
+      useFiledWork subscribes to connectionState and, on Connected, re-issues the watch AND
+      refetches.
+    alternative: >
+      The coalescing window alone, as the first round had it.
+    why: >
+      Nudges sent during a drop are gone, so a run whose last phase finished while the socket
+      was down read as running until somebody reloaded — against this phase's own done-list.
+      The watch goes with it because a reconnected connection has a FRESH id and the registry
+      is keyed by connection, so the old entry belongs to a connection that no longer exists.
+  - id: a-configured-name-is-matched-by-the-repositorys-one-rule
+    chose: >
+      FiledWorkTrackerProjects compares project and tracker names through ConfigNames.
+    alternative: >
+      StringComparison.Ordinal, as the first round had it.
+    why: >
+      ConfigNames is the single rule every catalog, lookup and editor is keyed by; an ordinal
+      comparison here answers differently from the catalog that resolved these projects the
+      moment two spellings differ in case. The test now builds its project map with
+      ConfigNames.Comparer, which is the shape the loader produces.
+  - id: the-review-is-served-as-the-report-it-is-recorded-as
+    chose: >
+      FiledWorkPhaseReviews deserializes the phase_review artifact as PhaseReviewReport with
+      the snake_case policy PhaseReviewPublisher writes with, and the view carries
+      (Reviewed, Why, Findings) — nullable, so no row at all is a third state.
+    alternative: >
+      A bare finding list; a boolean "clean"; parsing the record's markdown body.
+    why: >
+      2026-09-17-042eh made the artifact an OBJECT precisely so a review that was not taken —
+      a spent cost cap, no sandbox, a failed call, no reviewable file — cannot read as a review
+      that found nothing. Flattening it back to a list here would put "nothing found" on the
+      page over a question nobody asked. A phase that never reached its review is neither, so
+      it is the absence of a review rather than a review with a flag.
+  - id: the-watch-lives-with-the-connection-and-the-server-picks-the-ids
+    chose: >
+      WatchFiledWork(dialogId) on JobsHub (DialogWrite + RunsRead in HubMethodPermissions),
+      delegating to FiledWorkWatch: owner check, then the ticket ids read off the open
+      session's latest filing, into a per-connection FiledWorkWatchRegistry singleton. Each
+      call REPLACES what the connection follows.
+    alternative: >
+      A ticket id argument; a SignalR group per ticket; a Redis-backed registry.
+    why: >
+      A caller who could name a ticket could follow anyone's run. A group would need a
+      backplane to survive two replicas; every replica already reads the whole run-event
+      stream and routes each event with its snapshot, so the replica holding a connection sees
+      every snapshot and a connection-keyed map needs no shared state. Replacing rather than
+      adding is what lets the page re-issue the watch after each filing, which it must,
+      because the ids come from that filing.
+  - id: disconnect-is-a-hub-filter-not-an-override
+    chose: >
+      FiledWorkDisconnectFilter implements IHubFilter.OnDisconnectedAsync and is registered on
+      the two lines HubPermissionFilter uses (AddSingleton, o.AddFilter).
+    alternative: >
+      Overriding OnDisconnectedAsync on JobsHub; a timed sweep of the registry.
+    why: >
+      HubPermissionTests enumerates JobsHub's declared public instance methods and requires
+      each in the permission table; an override would be one, while not being an invocable
+      method anyone can be authorized for. A sweep would have to decide how long a gone
+      connection may keep following runs, which is a question the disconnect already answers.
+  - id: the-nudge-is-data-free-and-routed-where-snapshots-are
+    chose: >
+      FiledWorkNudge, called from RunEventRouter.DispatchAsync beside the overview fan-out,
+      sends "FiledWorkChanged" with no arguments to the connections watching the snapshot's
+      ticket id. The page refetches, coalesced at 350 ms as the run list does.
+    alternative: >
+      Sending the snapshot; joining the dialog to the run's group; pushing the read's rows.
+    why: >
+      SubscribeRun joins any runs-read caller to a run's group and replays its trail — far more
+      than a dialog needs, and a second authorization surface. A payload would be run state
+      travelling on a channel whose membership was decided by a filing; the refetch goes
+      through the read that checks ownership, so the nudge needs to carry nothing but its name.
+      A snapshot names no ticket until FetchTicket lands, so the page's own fetch on connect
+      shows that first state and the nudge takes over from the first ticket-bearing snapshot.
+  - id: the-index-is-one-migration-of-one-name-in-both-assemblies
+    chose: >
+      builder.HasIndex(r => new { r.Project, r.TicketId }) plus AddRunTicketIndex, generated by
+      dotnet ef in AgentSmith.Infrastructure.Persistence and
+      AgentSmith.Infrastructure.Persistence.SqlServer.
+    alternative: >
+      Leaving the Project index alone; an index on TicketId alone.
+    why: >
+      Runs were indexed on Project alone, so each ticket lookup scanned every run of each
+      project — and this read runs on every nudge window of a live run. The two providers keep
+      disjoint migration histories whose HEAD NAMES the archive compares, so one index is one
+      migration of one name in both.
+  - id: the-migration-claim-is-containment-not-the-head
+    chose: >
+      RunTicketIndexTests asserts the two providers' heads still compare equal, and separately
+      that each provider carries exactly one migration NAMED AddRunTicketIndex.
+    alternative: >
+      Pinning the head to the literal name, as the first round did; restating
+      DataArchiveSchemaTests.Manifest_TheTwoProvidersSchemaHeads_CompareEqual alone.
+    why: >
+      The next migration anywhere moves the head, so a test named "HeadNamesStillCompareEqual"
+      would go red for a change that has nothing to do with this index — and the obvious repair
+      is to delete the claim. Containment is what this phase actually adds, and it fails for
+      exactly one reason: a provider missing this migration or spelling it differently.
+  - id: the-transcripts-closing-line-is-rewritten-and-nowhere-else
+    chose: >
+      The empty transcript now says filing is NOT where this ends and names what the
+      conversation follows afterwards; the filed tab renders the runs beneath the tickets the
+      filing push already lists, matched by reference.
+    alternative: >
+      A tab of its own; a second ticket list under the filing's.
+    why: >
+      The filing push arrives live and alone and is what the pane already shows; the read is
+      slower and arrives beside it. Two lists of the same tickets would disagree the moment
+      one of them is behind. A tab of its own would split "what was filed" from "what became
+      of it", which is the same question asked twice.
