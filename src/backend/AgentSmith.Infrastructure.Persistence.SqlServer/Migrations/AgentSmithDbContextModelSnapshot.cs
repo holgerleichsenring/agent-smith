@@ -522,6 +522,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.HasIndex("Project");
 
+                    b.HasIndex("Project", "TicketId");
+
                     b.ToTable("Runs");
                 });
 

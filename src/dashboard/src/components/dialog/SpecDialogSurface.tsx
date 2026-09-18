@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { PageHead } from "@/components/system/PageHead";
@@ -31,6 +32,9 @@ export function SpecDialogSurface() {
   const session = dialog.view?.session ?? null;
   const mustPick = !session && project === "";
   const [focus, setFocus] = useDialogPaneFocus(dialog.proposal, dialog.filed);
+  // 2026-09-17-042ej: the conversation follows what it filed. A read of its own rather than a
+  // field on the dialog view, which is refetched after every reply.
+  const work = useFiledWork(dialog.dialogId, dialog.filed);
   const title = session
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;
@@ -105,6 +109,7 @@ export function SpecDialogSurface() {
               projects={projects}
               proposal={dialog.proposal}
               filed={dialog.filed}
+              work={work}
               focus={focus}
               onFocus={setFocus}
             />

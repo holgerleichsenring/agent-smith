@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import type {
+  FiledWork,
   SpecDialogFilingPush,
   SpecDialogProject,
   SpecDialogProposalPush,
@@ -31,6 +32,7 @@ export function DialogPane({
   projects,
   proposal,
   filed,
+  work,
   focus,
   onFocus,
 }: {
@@ -38,6 +40,8 @@ export function DialogPane({
   projects: SpecDialogProject[];
   proposal: SpecDialogProposalPush | null;
   filed: SpecDialogFilingPush | null;
+  /** 2026-09-17-042ej: what became of that filing; null until its own read comes back. */
+  work: FiledWork | null;
   /** The operator's own choice, kept only while the conversation's outcome is unchanged. */
   focus: DialogPaneFocus | null;
   onFocus: (focus: DialogPaneFocus) => void;
@@ -86,7 +90,7 @@ export function DialogPane({
         aria-labelledby={offered.includes(tab) ? tabId(tab) : undefined}
         className="p-3"
       >
-        {tab === "filed" && filed && <DialogFiledPanel filed={filed} />}
+        {tab === "filed" && filed && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "proposal" && shownProposal && <DialogProposalPanel proposal={shownProposal} />}
         {tab === "scope" && <DialogScopePanel session={session} projects={projects} />}
       </div>

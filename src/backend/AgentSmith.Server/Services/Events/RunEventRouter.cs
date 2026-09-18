@@ -15,7 +15,8 @@ public sealed class RunEventRouter(
     SandboxExpansionRegistry expansionRegistry,
     SandboxDetailEventClassifier classifier,
     SandboxActivityCoalescer coalescer,
-    IRunEventPersistence persistence)
+    IRunEventPersistence persistence,
+    FiledWorkNudge filedWork)
 {
     public async Task DispatchAsync(
         string runId, RunSnapshot snapshot, RunEvent runEvent, CancellationToken cancellationToken)
@@ -29,6 +30,9 @@ public sealed class RunEventRouter(
         await persistence.PersistAsync(runEvent, cancellationToken);
         await fanout.ToOverviewAsync(snapshot, cancellationToken);
         await fanout.ToRunAsync(runId, runEvent, cancellationToken);
+        // 2026-09-17-042ej: and the conversations following this snapshot's WORK TICKET. Data-free,
+        // so nothing about the run leaves through it and no dialog is joined to a run's group.
+        await filedWork.OfAsync(snapshot, cancellationToken);
     }
 
     private async Task RouteSandboxDetailAsync(string runId, RunEvent runEvent, CancellationToken ct)

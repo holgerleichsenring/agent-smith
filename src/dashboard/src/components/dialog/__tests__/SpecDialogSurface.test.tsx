@@ -1,4 +1,5 @@
 import { render, renderHook, screen, fireEvent, waitFor, cleanup, act, within } from "@testing-library/react";
+import { HubConnectionState } from "@microsoft/signalr";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SpecDialogSurface } from "../SpecDialogSurface";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
@@ -14,6 +15,8 @@ import type {
   SpecDialogSessionSummary,
   SpecDialogTurn,
   SpecDialogView,
+  FiledWork,
+  FiledWorkTicket,
 } from "@/types/spec-dialog";
 
 // 2026-09-15-cb3e: the conversation surface over a faked channel — the API calls it makes
@@ -42,6 +45,11 @@ const filings = makeSubject<SpecDialogFilingPush>();
 const readings = makeSubject<SpecDialogReadingPush>();
 const activity = makeSubject<SpecDialogActivityPush>();
 const subscribeSpecDialog = vi.fn(async () => async () => {});
+// 2026-09-17-042ej: the filed-work watch and its data-free nudge. The double grows with the
+// client, because a surface that mounts this hook invokes both on every render of this file.
+const filedWorkChanged = makeSubject<void>();
+const connectionState = makeSubject<HubConnectionState>();
+const watchFiledWork = vi.fn(async () => async () => {});
 
 
 vi.mock("@/lib/JobsHubClient", () => ({
@@ -52,16 +60,21 @@ vi.mock("@/lib/JobsHubClient", () => ({
     specDialogFilings: filings,
     specDialogReadings: readings,
     specDialogActivity: activity,
+    filedWorkChanged,
+    connectionState,
     subscribeSpecDialog,
+    watchFiledWork,
   }),
 }));
 
 const fetchSpecDialog = vi.fn();
 const postSpecDialogMessage = vi.fn<(dialogId: string, text: string) => Promise<void>>(async () => {});
 const fetchSpecDialogConversations = vi.fn();
+const fetchFiledWork = vi.fn();
 vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: () => fetchSpecDialogConversations(),
+  fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
   postSpecDialogMessage: (dialogId: string, text: string) =>
     postSpecDialogMessage(dialogId, text),
 }));
@@ -144,6 +157,112 @@ function filing(overrides: Partial<SpecDialogFilingPush> = {}): SpecDialogFiling
   };
 }
 
+// 2026-09-17-042ej: what the filed-work read answers for the ticket the filing above created.
+function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
+  return {
+    dialogId: heldDialogId(),
+    tickets: [
+      {
+        reference: "https://tracker/7",
+        key: "SAMPLE-412",
+        title: "p9001: the phase",
+        ticketId: "7",
+        project: "sample",
+        start: { state: "Started", reason: "it already triggers" },
+        handback: null,
+        runs: [
+          {
+            runId: "2026-09-17T09-00-00-0001",
+            project: "sample",
+            pipeline: "phase-execution",
+            status: "running",
+            costUsd: 2.5,
+            startedAt: "2026-09-17T09:00:00Z",
+            finishedAt: null,
+            pendingQuestion: null,
+            pullRequests: [
+              {
+                repo: "api",
+                status: "opened",
+                url: "https://git/pr/3",
+                reason: null,
+                openedAt: "2026-09-17T10:00:00Z",
+              },
+            ],
+            phases: [
+              {
+                phaseId: "p9001a",
+                ordinal: 1,
+                title: "Make the thing exist",
+                status: "done",
+                verdict: null,
+                review: {
+                  reviewed: true,
+                  why: null,
+                  unreadable: false,
+                  findings: [
+                    {
+                      repository: "api",
+                      path: "src/A.cs",
+                      line: 4,
+                      rule: "no silent catch",
+                      why: "the catch body logs nothing",
+                      cites: "P1",
+                      reverted: "the fix pass was reverted: the suite stayed red",
+                    },
+                  ],
+                },
+              },
+              {
+                phaseId: "p9001b",
+                ordinal: 2,
+                title: "Make the thing readable",
+                status: "in_progress",
+                verdict: null,
+                review: {
+                  reviewed: false,
+                  why: "the run's configured cost cap is exhausted",
+                  findings: [],
+                  unreadable: false,
+                },
+              },
+              {
+                phaseId: "p9001c",
+                ordinal: 3,
+                title: "Make the thing fast",
+                status: "not_started",
+                verdict: null,
+                review: null,
+              },
+            ],
+          },
+        ],
+        ...overrides,
+      },
+    ],
+  };
+}
+
+/** The same filing, whose one phase stopped in the given status with the verdict it recorded. */
+function stoppedPhase(status: string, verdict: string): FiledWork {
+  const work = filedWork();
+  const run = work.tickets[0].runs[0];
+  return {
+    ...work,
+    tickets: [
+      {
+        ...work.tickets[0],
+        runs: [
+          {
+            ...run,
+            phases: [{ ...run.phases[0], status, verdict }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 /** The id the page minted and is holding — every push must carry it to be rendered. */
 function heldDialogId(): string {
   return fetchSpecDialog.mock.calls.at(-1)?.[0] as string;
@@ -178,7 +297,10 @@ beforeEach(() => {
   fetchSpecDialogConversations.mockReset();
   fetchSpecDialogConversations.mockResolvedValue([]);
   postSpecDialogMessage.mockReset();
+  fetchFiledWork.mockReset();
+  fetchFiledWork.mockResolvedValue({ dialogId: "d-1", tickets: [] });
   subscribeSpecDialog.mockClear();
+  watchFiledWork.mockClear();
 });
 
 afterEach(() => cleanup());
@@ -1548,6 +1670,134 @@ describe("SpecDialogSurface", () => {
     const panel = screen.getByRole("tabpanel");
     expect(selected).toHaveAttribute("aria-controls", panel.id);
     expect(panel).toHaveAttribute("aria-labelledby", selected.id);
+  });
+
+  // 2026-09-17-042ej: THE CONVERSATION FOLLOWS WHAT IT FILED. The filing push names the ticket;
+  // the read beneath it says which phase the run is on, what it opened, and what the review left.
+  it("SpecDialog_TheFiledTab_ShowsTheRunARowPerPhaseItsPullRequestsAndFindings", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const pane = await screen.findByTestId("dialog-filed");
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001")).toBeInTheDocument());
+    expect(pane.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']")).toBeInTheDocument();
+    expect(pane.querySelector("a[href='https://git/pr/3']")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-filed-phase-p9001a")).toHaveTextContent("Make the thing exist");
+    expect(screen.getByTestId("dialog-filed-findings-p9001a")).toHaveTextContent("src/A.cs:4");
+    // The whole point of the report being an object: a review nobody took is not a clean one.
+    expect(screen.getByTestId("dialog-filed-unreviewed-p9001b"))
+      .toHaveTextContent("not reviewed: the run's configured cost cap is exhausted");
+    expect(screen.queryByTestId("dialog-filed-reviewed-p9001b")).toBeNull();
+  });
+
+  // The third and fourth states of the review, and the one finding that says the branch still
+  // carries the code it is about — none of which the run/phase test above touches.
+  it("SpecDialog_TheFiledTab_TellsAnUnreviewedPhaseFromARevertedFinding", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-filed-noreview-p9001c")).toBeInTheDocument());
+    expect(screen.getByTestId("dialog-filed-noreview-p9001c")).toHaveTextContent("not reviewed yet");
+    expect(screen.getByTestId("dialog-filed-reverted-p9001a"))
+      .toHaveTextContent("the fix pass was reverted: the suite stayed red");
+  });
+
+  // A failed phase shows the verdict its row carries and NOTHING else: the only producer of a
+  // failed row is the phase's own verification, so an amendment would change nothing.
+  it("SpecDialog_APhaseFailedByARedBuild_ShowsItsVerdictAndNoAmendmentInstruction", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(stoppedPhase("failed", "dotnet test exited 1"));
+
+    act(() => filings.emit(filing()));
+
+    const verdict = await screen.findByTestId("dialog-filed-verdict-p9001a");
+    expect(verdict).toHaveTextContent("dotnet test exited 1");
+    expect(screen.queryByTestId("dialog-filed-amend-p9001a")).toBeNull();
+    expect(screen.getByTestId("dialog-filed")).not.toHaveTextContent("approve the set again");
+  });
+
+  // Its twin, and the pair is the whole point: the two statuses ask opposite things of the
+  // operator, so a page that collapsed them would send one of them to the wrong repair.
+  it("SpecDialog_APhaseHandedBackOnAPremise_AsksForTheAmendment", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(
+      stoppedPhase("handed_back", "the premise 'api has no cache' is false (P3)"));
+
+    act(() => filings.emit(filing()));
+
+    expect(await screen.findByTestId("dialog-filed-amend-p9001a"))
+      .toHaveTextContent("approve the set again in this conversation");
+    expect(screen.getByTestId("dialog-filed-verdict-p9001a"))
+      .toHaveTextContent("the premise 'api has no cache' is false");
+  });
+
+  it("SpecDialog_AReconnect_RewatchesAndRereadsTheFiledWork", async () => {
+    await renderSurface();
+    await waitFor(() => expect(fetchFiledWork).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(watchFiledWork).toHaveBeenCalledTimes(1));
+
+    act(() => connectionState.emit(HubConnectionState.Connected));
+
+    await waitFor(() => expect(fetchFiledWork).toHaveBeenCalledTimes(2));
+    expect(watchFiledWork).toHaveBeenCalledTimes(2);
+  });
+
+  // The watch is what the nudge is addressed by, and the SERVER reads the ticket ids off the
+  // latest filing - so a watch registered before the filing follows nothing.
+  it("SpecDialog_TheWatch_IsIssuedOnConnectAndAgainAfterAFiling", async () => {
+    await renderSurface();
+    await waitFor(() => expect(watchFiledWork).toHaveBeenCalledTimes(1));
+    expect(watchFiledWork).toHaveBeenCalledWith(heldDialogId());
+
+    act(() => filings.emit(filing()));
+
+    await waitFor(() => expect(watchFiledWork).toHaveBeenCalledTimes(2));
+    expect(watchFiledWork).toHaveBeenLastCalledWith(heldDialogId());
+  });
+
+  it("SpecDialog_ANudge_RefetchesTheFiledWorkOncePerWindow", async () => {
+    await renderSurface();
+    await waitFor(() => expect(fetchFiledWork).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      filedWorkChanged.emit(undefined);
+      filedWorkChanged.emit(undefined);
+      filedWorkChanged.emit(undefined);
+    });
+
+    await waitFor(() => expect(fetchFiledWork).toHaveBeenCalledTimes(2));
+    await new Promise((settle) => setTimeout(settle, 400));
+    expect(fetchFiledWork).toHaveBeenCalledTimes(2);
+  });
+
+  it("SpecDialog_AReloadWithoutANudge_ShowsTheSameRows", async () => {
+    reloadedWith({ filing: filing({ at: "2026-09-15T10:04:00Z" }) });
+    fetchFiledWork.mockImplementation(async (dialogId: string) => ({
+      ...filedWork(),
+      dialogId,
+    }));
+
+    render(<SpecDialogSurface />);
+
+    expect(await screen.findByTestId("dialog-filed-phase-p9001a"))
+      .toHaveTextContent("Make the thing exist");
+    expect(screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001")).toBeInTheDocument();
+  });
+
+  it("SpecDialog_TheEmptyTranscript_SaysTheConversationFollowsWhatItFiles", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+
+    render(<SpecDialogSurface />);
+
+    const empty = await screen.findByTestId("dialog-transcript-empty");
+    expect(empty).toHaveTextContent("Filing is not where this ends");
+    expect(empty).toHaveTextContent("follows the work it filed");
   });
 
   it("SpecDialog_APushForAnotherDialog_ChangesNothing", async () => {

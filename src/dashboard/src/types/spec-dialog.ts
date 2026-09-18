@@ -222,3 +222,100 @@ export interface SpecDialogFilingPush {
   notes?: string[];
   at: string;
 }
+
+// 2026-09-17-042ej: what the conversation that filed work is now following. The rows are
+// ticket, then run, then PHASE — the unit an operator reasons in. Read over a route of its
+// own and refetched on a data-free nudge; nothing about a run arrives over the hub.
+
+/** One thing 2026-09-17-042eh's review kept against a phase's own diff. */
+export interface FiledWorkFinding {
+  repository: string;
+  path: string;
+  line: number;
+  rule: string;
+  why: string;
+  cites?: string | null;
+  /** Set when the fix pass meant to close this was reverted — the branch still holds the code. */
+  reverted?: string | null;
+}
+
+/**
+ * What came of one phase's review, in four states. `reviewed` true is a fresh instance that
+ * read the diff — with or without findings. `reviewed` false is NOT a clean review: nobody
+ * was asked, and `why` says which reason it was. `unreadable` is a row that exists and cannot
+ * be deserialized. A null review on the phase is the fourth: no row at all, so it never
+ * reached its review step.
+ */
+export interface FiledWorkReview {
+  reviewed: boolean;
+  why: string | null;
+  findings: FiledWorkFinding[];
+  unreadable: boolean;
+}
+
+/** One phase of the run, as its own row says it stands. */
+export interface FiledWorkPhase {
+  phaseId: string;
+  ordinal: number;
+  title: string;
+  /** not_started | in_progress | done | failed. */
+  status: string;
+  /** Only ever set on a terminal row: a verdict is sticky and a rerun would show the old one. */
+  verdict: string | null;
+  review: FiledWorkReview | null;
+}
+
+/** One pull request the run recorded, per repository. Merge state is read on the tracker. */
+export interface FiledWorkPullRequest {
+  repo: string;
+  status: string;
+  url: string | null;
+  reason: string | null;
+  openedAt: string;
+}
+
+/** The question a parked run is waiting on, as the run view already shapes it. */
+export interface FiledWorkQuestion {
+  questionId: string;
+  text: string;
+  askedAt: string;
+  answerDeadlineAt: string;
+}
+
+/** One run of the work ticket, in one of the projects sharing the filing project's tracker. */
+export interface FiledWorkRun {
+  runId: string;
+  project: string;
+  pipeline: string;
+  status: string;
+  costUsd: number;
+  startedAt: string;
+  finishedAt: string | null;
+  pullRequests: FiledWorkPullRequest[];
+  phases: FiledWorkPhase[];
+  pendingQuestion: FiledWorkQuestion | null;
+}
+
+/** The hand-back case the ticket's spec set last recorded; the words live on the ticket. */
+export interface FiledWorkHandback {
+  case: string;
+  repeated: number;
+}
+
+/** One filed ticket with the runs that took it up. A slice record carries none. */
+export interface FiledWorkTicket {
+  reference: string;
+  key: string | null;
+  title: string;
+  ticketId: string | null;
+  project: string | null;
+  start: SpecDialogFiledStart | null;
+  runs: FiledWorkRun[];
+  handback: FiledWorkHandback | null;
+}
+
+/** The whole read. Empty for a dialog id with no open session. */
+export interface FiledWork {
+  dialogId: string;
+  tickets: FiledWorkTicket[];
+}

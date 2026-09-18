@@ -20,7 +20,7 @@ public sealed class JobsHub(
     SpecMarkdownReader specReader, // p0390
     AnalyzeMarkdownReader analyzeReader,
     SystemBacklogReader systemBacklog,
-    SpecDialogOwnership dialogOwnership) : Hub
+    SpecDialogOwnership dialogOwnership, FiledWorkWatch filedWork) : Hub
 {
     // p0246f: the run list + detail are served from the DB system-of-record over
     // REST (GET /api/runs, RunQueryEndpoints) — survives a process restart AND a
@@ -31,11 +31,6 @@ public sealed class JobsHub(
     public async Task SubscribeOverview()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Overview);
-        // p0246f: the run list/detail now come from GET /api/runs (the DB
-        // system-of-record); this group carries only the live KPI rollup + the
-        // RunsChanged nudge. On join we push the current SystemActivity so the
-        // /system card has server-truth on first paint without a separate round
-        // trip; subsequent KPI updates arrive via SystemActivityUpdated.
         await Clients.Caller.SendAsync("SystemActivityUpdated", broadcaster.GetSystemActivity());
     }
 
@@ -66,6 +61,8 @@ public sealed class JobsHub(
             throw new HubException($"Spec dialog '{dialogId}' belongs to another principal.");
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.SpecDialog(dialogId));
     }
+
+    public Task WatchFiledWork(string dialogId) => filedWork.WatchAsync(Context, dialogId);
 
     public async Task SubscribeRun(string runId)
     {

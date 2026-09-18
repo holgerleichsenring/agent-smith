@@ -37,6 +37,10 @@ scope:
     THE TEXT OF A TICKET-PARKED HAND-BACK QUESTION. It lives on the ticket; the row links there.
     ANSWERING, AMENDING OR RETRYING FROM THE DIALOG. The run view keeps those controls, and an
     amendment is the approval path (2026-09-17-0e79b).
+    UN-WATCHING WHEN THE PAGE LEAVES THE CONVERSATION. A connection keeps the watch it last
+    registered until the next WatchFiledWork replaces it or the connection goes, so a tab that
+    navigates to /jobs still receives data-free nudges for those ticket ids. The nudge carries
+    nothing and the read behind it is owner-checked, so this costs a refetch nobody renders.
     SLACK AND TEAMS. See decisions.
 
 decisions:
@@ -74,7 +78,7 @@ decisions:
       requires.
   - key: |
       THE SERVER CHOOSES THE TICKET IDS. MayWatchAsync lets through any dialog id with no open session
-      (SpecDialogOwnership.cs:34-43). The watch accepts only a dialog id; the ids come from the open
+      (SpecDialogOwnership.cs:37-42). The watch accepts only a dialog id; the ids come from the open
       session's latest filing, so a caller cannot watch a ticket by naming it, and an id with no open
       session watches nothing. The same rule makes the read return empty.
   - key: |
@@ -85,15 +89,16 @@ decisions:
       (JobsHub.cs:70-80). The nudge carries nothing but its name.
   - key: |
       A NUDGE CANNOT FIRE BEFORE THE RUN KNOWS ITS TICKET. The snapshot's TicketId is null until
-      FetchTicket lands on the stream (RunSnapshot.cs:35-38, filled at RunSnapshotMapper.cs:71), so the
+      FetchTicket lands on the stream (RunSnapshot.cs:35-38, filled on the LIVE path at
+      RunSnapshotFold.cs:79-82, which is the fold the nudge runs off — not the REST mapper), so the
       snapshots of a queued or just-started run name no ticket and reach no watcher. The page's own
       fetch on connect and after a filing is what shows that first state; the nudge takes over from the
       first ticket-bearing snapshot. Matching on a server-resolved project and ticket instead would
       mean resolving every snapshot of every run against the filing, for one earlier refresh.
   - key: |
       THE VERDICT IS STICKY, SO IT IS RENDERED ONLY ON A TERMINAL ROW. The projection keeps the last
-      verdict it saw (RunPhaseProjection.cs:35, `row.Verdict = e.Verdict ?? row.Verdict`) and clears
-      EndedAt when a phase runs again (:38). A phase re-run after an amendment would otherwise still
+      verdict it saw (RunPhaseProjection.cs:39, `row.Verdict = e.Verdict ?? row.Verdict`) and clears
+      EndedAt when a phase runs again (:42). A phase re-run after an amendment would otherwise still
       show the premise that stopped the previous attempt. The read renders a verdict only where the
       row's status is terminal, and shows a running phase as running.
   - key: |
@@ -133,13 +138,17 @@ decisions:
       waiting_for_input with its question on the checkpoint (RunCheckpoint.cs:3-9,
       RunSnapshotMapper.cs:77). A SpecHandback question is a ticket comment; the server keeps only the
       case and repeat count on the spec set (TicketSpecSet.cs:25-29). A premise handed back before a
-      phase is READ, never derived: 2026-09-17-0e79c records that phase as failed with the premise, the
-      finding and its evidence as the row's Verdict (RunPhase.cs:26-39), and this read renders that row
-      as awaiting the operator's amendment, which is made in the conversation (2026-09-17-0e79b). If
-      0e79c changes what it records, this read follows it rather than inferring anything.
+      phase is READ, never derived: 2026-09-17-0e79c shipped PhaseRunState.HandedBack
+      (SpecSequenceProgress.cs:62), projected to RunPhase.Status "handed_back"
+      (RunPhaseProjection.cs:93), with the premise, the finding and its evidence as the row's Verdict
+      (RunPhase.cs:26-39). The STATUS is the discriminator and the page maps it: "handed_back" asks for
+      the amendment, which is made in the conversation (2026-09-17-0e79b), and "failed" — a red build,
+      the only kind VerifyPhaseHandler writes — asks for nothing. Neither is read off the verdict text,
+      and no "awaiting an amendment" flag is computed server-side.
   - key: |
       FINDINGS COME FROM THE phase_review ARTIFACT. 2026-09-17-042eh upserts them as JSON under
-      phase_review:<phase id> in RunArtifact (RunPhaseProjection.cs:21, 47-56 is the shape). No column.
+      phase_review:<phase id> in RunArtifact (ReviewKindPrefix at RunPhaseProjection.cs:25,
+      ApplyReviewAsync at :68-77 writes it). No column.
   - key: |
       SLACK AND TEAMS GET NOTHING NEW. They render from conversation state and the filing notice
       (2026-09-17-c7aeb out); following a run there needs a push path per run event into that channel.
