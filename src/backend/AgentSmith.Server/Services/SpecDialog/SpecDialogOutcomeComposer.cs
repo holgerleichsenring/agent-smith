@@ -58,21 +58,21 @@ public sealed class SpecDialogOutcomeComposer
         $"Revising the proposal with your note: {m.Italic(note)}");
 
     public ComposedReply ComposeFiled(OutcomeProposal proposal, FilingReport report) =>
-        new(_ => $"Filed {Summarize(proposal)}:\n{FormatTickets(report.Filed)}{FormatNotes(report.Notes)}");
+        new(m => $"Filed {Summarize(proposal)}:\n{FormatTickets(report.Filed, m)}{FormatNotes(report.Notes)}");
 
     public ComposedReply ComposeFilingFailure(FilingReport report) => new(m =>
     {
         var head = report.Filed.Count == 0
             ? "Ticket filing failed — nothing was created."
-            : $"Ticket filing failed part-way. Created before the failure:\n{FormatTickets(report.Filed)}";
+            : $"Ticket filing failed part-way. Created before the failure:\n{FormatTickets(report.Filed, m)}";
         return $"{head}{FormatNotes(report.Notes)}\nError: {report.Error}\n"
             + "The confirmed outcome stays stored on this session — ask again "
             + m.Wording("in this thread ", "below ")
             + "to re-propose and retry.";
     });
 
-    private static string FormatTickets(IReadOnlyList<FiledTicket> filed) =>
-        string.Join("\n", filed.Select(t => $"- {t.Reference} — {t.Title}{t.Start?.Note}"));
+    private static string FormatTickets(IReadOnlyList<FiledTicket> filed, SpecDialogMarkup m) =>
+        string.Join("\n", filed.Select(t => $"- {FiledTicketKey.Named(t, m)} — {t.Title}{t.Start?.Note}"));
 
     private static string FormatNotes(IReadOnlyList<string> notes) =>
         notes.Count == 0 ? string.Empty : $"\nNotes:\n{string.Join("\n", notes.Select(n => $"- {n}"))}";

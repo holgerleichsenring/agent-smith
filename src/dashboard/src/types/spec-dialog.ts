@@ -203,6 +203,9 @@ export interface SpecDialogFiledTicket {
    * before 2026-09-17-042eg, which reads as unknown rather than as a wrong answer. */
   ticketId?: string | null;
   project?: string | null;
+  /** 2026-09-17-042em: what a person calls it — the Jira key, or the tracker's number behind a
+   * hash. Absent on a filing written before that phase, which reads by its reference as before. */
+  key?: string | null;
   /** Absent on a filing written before this phase — the panel then says nothing about it. */
   start?: SpecDialogFiledStart | null;
 }
