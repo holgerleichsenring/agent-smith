@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-0f27
+
+goal: "The concurrent-sandbox bound is set where every other sandbox setting is set, under the name the documentation already uses, and a change to it applies without a restart."
+
+applies_to: "backend (the global sandbox configuration and the capacity probe) + dashboard (the sandbox settings form) + docs"
+
+scope:
+  in: >
+    The bound becomes a field of the process-wide sandbox configuration, read through the
+    configuration loader at the moment a capacity decision is made, so a change applies to the next
+    admission rather than to the next restart. The environment variable stays as the fallback for an
+    installation whose store carries no value — the empty-store boot that is already a supported
+    state — and the built-in default stays beneath it. The resolved value and where it came from are
+    reported when a decision uses them, so "I set it and nothing happened" is answerable. The sandbox
+    settings form and the configuration schema gain the field, because a setting the operator cannot
+    see is not configured, and the field says plainly that it bounds the Docker backend.
+  out: >
+    WHAT THE BOUND MEANS WHEN IT IS EXCEEDED. 2026-09-18-3ba9.
+    A SWEEP OF EVERY OTHER ENVIRONMENT VARIABLE. One knob was measured to bite; a sweep needs a rule
+    before it needs edits, and is named in prose as the phase that decides which settings may live
+    outside the catalog at all.
+    THE DASHBOARD'S OWN BUILD-TIME PROXY TARGET. Its comment claims the standalone build does not
+    snapshot a default and the route manifest shows it does, while the Kubernetes manifest sets it at
+    runtime where it has no effect. Same class, different subsystem, named in prose as the phase that
+    makes the dashboard's backend target a runtime setting or says it is not one.
+    PER-PROJECT BOUNDS. See decisions.
+
+decisions:
+  - key: |
+      THE BOUND IS NOWHERE THE OPERATOR LOOKS, MEASURED. It is read from an environment variable at
+      composition and falls back to a built-in default of two. The per-project sandbox configuration
+      carries toolchain image, resources, registry, version, two timeouts, images and secrets — and no
+      concurrency field. The documentation names it as a configuration key in three places and nothing
+      reads that key. An operator following the documentation cannot set it at all, because the
+      documentation never says where.
+  - key: |
+      IT IS GLOBAL, NOT PER PROJECT. The probe counts every sandbox running on the host and the
+      footprint it compares against carries no project identity, so a per-project bound would have no
+      answer when two projects disagree. It belongs with the other process-wide sandbox defaults,
+      beside the one already marked "global and never per-project".
+  - key: |
+      READ AT THE DECISION, NOT AT COMPOSITION. The options object is built eagerly and registered as
+      a singleton, so a value read there is fixed for the process — and configuration in this system
+      reloads live on an epoch, which is what makes a settings change apply at all. The probe is
+      registered through a lazy factory, so the loader is fully available at the moment it decides.
+      Reading there is what makes the done criterion true rather than nominally satisfied.
+  - key: |
+      THE ENVIRONMENT VARIABLE IS A FALLBACK, AND ITS REASON IS NAMED. An empty store boots the server
+      unconfigured by design. That, and not unreachability, is why the variable stays: it is how an
+      installation with nothing in its catalog still has a bound. Catalog first, environment second,
+      built-in default last.
+  - key: |
+      REPORTED WHERE IT IS USED, NOT AT STARTUP. A line at startup would be I/O before the listener
+      binds, which a planned phase forbids, and it would state a number that the next epoch can change
+      three seconds later. The value and its source are reported with the decision that used them.
+  - key: |
+      THE FORM IS PART OF THE FIX, NOT A FOLLOW-UP. The sandbox settings form renders a fixed set of
+      fields and three settings that already exist on the global configuration are invisible in it.
+      Adding a field to a model and stopping would leave the bound exactly as unfindable as it is
+      today, with a green build to say otherwise.
+  - key: |
+      IT IS INERT ON KUBERNETES, AND THE FIELD SAYS SO. The bound is the Docker backend's; a
+      Kubernetes installation bounds sandboxes through its quota. A field in a global form that does
+      nothing for half the installations is a new way to be misled unless it says which backend it is
+      for.
+  - key: |
+      ROOM. The sandbox registrations, the ticket filers and the renderer are each within a few lines
+      of the limit or baselined at it; the read moves out of the registrations into the probe's own
+      resolution rather than growing the file it leaves.
+
+steps:
+  - id: the-bound-joins-the-global-config
+    action: "The process-wide sandbox configuration gains the bound under the documented name; the probe resolves it through the loader at decision time, then the environment variable, then the default, reporting the value and its source with the decision."
+  - id: the-form-shows-it
+    action: "The sandbox settings form and the configuration schema carry the field, saying which backend it bounds."
+  - id: the-docs-name-what-is-read
+    action: "The capacity, compose and Kubernetes pages name the key that is read and describe the environment variable as the unconfigured-boot fallback."
+
+tests:
+  - "Bound_SetInTheCatalog_IsWhatTheProbeUses"
+  - "Bound_ChangedInTheCatalog_AppliesToTheNextDecisionWithoutARestart"
+  - "Bound_AbsentFromTheCatalog_FallsBackToTheEnvironmentVariable"
+  - "Bound_AbsentFromBoth_IsTheBuiltInDefault"
+  - "Bound_UsedInADecision_IsReportedWithItsSource"
+  - "Bound_IsGlobal_AndNotReadFromAProjectsSandboxOverrides"
+  - "dashboard: the sandbox settings form carries the bound and says which backend it bounds"
+  - "Schema_TheSandboxBlock_DeclaresTheBound"
+
+done:
+  - "the bound is set where the other sandbox settings are set, under the documented name"
+  - "changing it applies to the next admission decision, with no restart"
+  - "an operator can see and change it without editing a compose file"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"

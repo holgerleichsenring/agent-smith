@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-e63d
+
+goal: "A dialog mark carrying a name somebody else chose wraps and reads in full instead of being clipped at the card edge, on both the scope panel and the conversation list."
+
+applies_to: "dashboard (a mark modifier in mock-parity, the scope panel and the conversation list, the stylesheet guard)"
+
+requires:
+  - 2026-09-17-042ef
+
+scope:
+  in: >
+    A modifier on the dialog's mark lets it wrap: it resets the shared rule's nowrap AND carries a
+    break rule that actually shrinks the mark's minimum size. The two marks that carry operator-chosen
+    text take it — the scope panel's repositories and templates, and the conversation list's project,
+    which sits in the narrowest column on the page. The stylesheet source is asserted for both
+    declarations and for the config selector still carrying nowrap, so the fix cannot be half-applied.
+    The rendered outcome is checked by eye once, at the width the three columns stand, because no test
+    in this project can observe a clip.
+  out: >
+    THE CONFIG PAGES' OWN MARKS. They can carry long operator text too — a comma-joined list of target
+    projects, and a resolution value — and they clip the same way today. Changing how the Projects page
+    renders is that surface's decision, not this one's; named in prose as the phase that lets a config
+    mark carrying operator text wrap.
+    SHORTENING THE TEXT. A template's identity is its name and revision; truncating replaces one
+    unreadable thing with another.
+    THE SHARED CARD RULE. Untouched, and not worth an assertion of its own.
+    A TOOLTIP. Not readable on touch, and not discoverable.
+
+decisions:
+  - key: |
+      THE CLIPPING, MEASURED. mock-parity.css:531 sets white-space: nowrap on the shared
+      .mock-config/.mock-dialog mark rule; :512 sets overflow: hidden on the shared card rule, and the
+      :519 overflow escape is .mock-config-only, so a dialog card always clips. The pane is a fixed
+      360px track and the conversation list a 220px one. The template mark has no soft-wrap
+      opportunity at all — the name span is followed immediately by repo@revision with no text node
+      between — so a rule that breaks only at spaces changes nothing.
+  - key: |
+      WHERE THE RULE MAY GO IS DECIDED BY 042ef'S OWN GUARD, AND IT LEAVES ONE PLACE. Above the own
+      structure block every .mock-dialog selector must also name .mock-config or .mock-runs, so a
+      dialog-only rule there fails the join guard. Inside the own block, no selector may END in
+      .ec-mark, so both .mock-dialog .ec-mark and .mock-dialog .d-scope .ec-mark fail the redefinition
+      guard. What passes is a trailing modifier — the shape .mock-dialog .ec-mark.filed already
+      establishes — so the rule is .mock-dialog .ec-mark with a modifier class, and the markup applies
+      it. That is why this phase has a markup step at all.
+  - key: |
+      TWO DECLARATIONS, AND ONE WITHOUT THE OTHER IS INERT. Under white-space: nowrap no soft-wrap
+      opportunity is used, so a break property alone does nothing. The modifier sets white-space:
+      normal AND the break rule, and the guard asserts both — a rule carrying only one would leave
+      every test in this phase green and the page unchanged.
+  - key: |
+      overflow-wrap: anywhere, NOT break-word, AND THE REASON IS THE POINT. The mark is a flex item
+      whose automatic minimum size is its min-content size. break-word does not contribute to
+      min-content sizing: the item's minimum stays the width of the whole unbroken token, it refuses
+      to shrink, and it is still clipped. Only anywhere (or word-break: break-all) shrinks that
+      contribution. This is the failure this phase is most likely to ship — the natural choice, all
+      assertions satisfied, the page unchanged — so the declaration is named literally rather than
+      described.
+  - key: |
+      THE GUARD READS THE SOURCE, AND CAN ONLY ASSERT TEXT. The dashboard suite builds no CSS; the
+      existing guards read mock-parity.css with readFileSync. Nothing there resolves a cascade, so
+      "the config mark still does not wrap" is expressible only as an absence — no .mock-config
+      selector carries a break declaration, and :531 still carries nowrap. It is written as an absence
+      check and named as one, because a name that promises a rendered property no test can see is the
+      defect this repository keeps finding.
+  - key: |
+      THE FIX LIVES IN THE STYLESHEET, NOT IN A UTILITY. mock-parity.css is imported unlayered and
+      beats every Tailwind utility by cascade layer, so break-all or whitespace-normal in the JSX would
+      have no effect and raise no error. The surface scan does not ban those two, so nothing would
+      catch it.
+  - key: |
+      THE CONVERSATION LIST IS THE LIKELIER CASE, NOT AN EXCEPTION. Its project mark carries an
+      operator-chosen name in a 220px column — 140px narrower than the pane this phase measured — and
+      the title one line above it already needs truncation, which is evidence the column is tight.
+      Leaving it out while claiming the class of bug closed would be the false claim this phase exists
+      to remove.
+
+steps:
+  - id: the-modifier
+    action: "A modifier on the dialog's mark inside the own structure block, setting white-space: normal and overflow-wrap: anywhere."
+  - id: the-two-marks-take-it
+    action: "The scope panel's repository and template marks and the conversation list's project mark carry the modifier."
+  - id: the-guard
+    action: "The stylesheet source is asserted for both declarations on the modifier, and for the absence of any break declaration on a .mock-config selector with :531 still carrying nowrap."
+
+tests:
+  - "MockParity_TheDialogMarkModifier_CarriesNormalWhiteSpaceAndOverflowWrapAnywhere"
+  - "MockParity_NoConfigSelector_CarriesABreakDeclaration"
+  - "dashboard: the scope panel renders a template whose name has no space in it, in full"
+  - "dashboard: the conversation list renders a project name with no space in it, in full"
+
+done:
+  - "a template, repository or project name wider than its column reads in full, checked by eye at the width the three columns stand"
+  - "the Projects and config pages render exactly as they did"
+  - "the fix cannot be half-applied without a test failing"
+  - "dashboard build and tests green"

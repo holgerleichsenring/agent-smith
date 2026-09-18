@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-b4f0
+
+goal: "An operator chooses which kind of work item a filing creates, and a lifecycle status the chosen kind does not have is refused where it is configured, not discovered when a run ends."
+
+applies_to: "backend (the ticket providers' create and their type/state discovery, the tracker configuration, the config validation)"
+
+scope:
+  in: >
+    The kind of work item a filing creates becomes part of the tracker's configuration instead of a
+    constant in one provider, defaulting to what each provider creates today so no existing
+    installation changes behaviour. The provider gains a read of the kinds the tracker offers and the
+    statuses each kind allows, so the configuration can be checked rather than believed: a configured
+    lifecycle status that the configured kind does not have is refused when the configuration is
+    saved, naming the kind, the value and what that kind does offer. The same check runs before a
+    filing, because a tracker's process can change after a configuration was saved, and a filing that
+    would create a ticket nothing can ever finalize is refused with that sentence rather than made.
+    Where a provider cannot enumerate kinds or statuses, it says so and the check reports that it
+    could not be made — an unknown answer is not a pass.
+  out: >
+    CHOOSING THE KIND FROM THE WORK. Letting the model propose the kind from what is being filed is
+    the obvious next step and it needs exactly this validation underneath it; it is named in prose as
+    the successor that proposes a work-item kind from the outcome and holds the proposal to the check
+    this phase builds.
+    HIERARCHY RULES. Whether a chosen kind may parent another is the tracker's own process rule and a
+    filing that violates it fails at the link, which 2026-09-17-042ea already reports as a filing note.
+    MIGRATING TICKETS ALREADY FILED. A kind is chosen for what is created next; work items on a
+    tracker keep the kind they were created with.
+    THE LOOP A FAILED FINALIZE CAUSES. 2026-09-18-c1a7 stops that whatever the cause; this phase
+    removes one cause.
+
+decisions:
+  - key: |
+      THE KIND IS A CONSTANT IN ONE PROVIDER, MEASURED. AzureDevOpsTicketProvider passes the literal
+      "Task" to CreateWorkItemAsync on every create. Observed consequence on 2026-09-18: a filing
+      created a Task, the tracker configuration carried failed_status "Resolved", and Task has no
+      Resolved state in the default processes — so every run on that ticket ended with a rejected
+      status write. The mismatch was decidable the moment both values existed; it was discovered at
+      the end of a run, twice.
+  - key: |
+      A CONFIGURATION THAT CANNOT BE CHECKED IS A GUESS WITH A FORM AROUND IT. The tracker exposes
+      which kinds exist and which states each kind allows. Checking at save time is what turns a
+      lifecycle configuration from a hope into a statement, and it is the same read the successor that
+      lets a model choose the kind would need.
+  - key: |
+      AND CHECKED AGAIN BEFORE A FILING, BECAUSE A PROCESS CHANGES. A configuration saved against a
+      process that later loses a state is a configuration that was right and is not any more. The
+      filing is the last moment the check is free, and a filing refused with the reason costs an
+      operator a sentence; a filing made costs them the loop this phase's sibling exists to stop.
+  - key: |
+      AN UNKNOWN IS NOT A PASS. Providers differ in what they can enumerate. One that cannot answer
+      reports that it cannot, and the check records "not checked" rather than "fine" — the difference
+      2026-09-17-042eh had to build for reviews is the same difference here, and collapsing it is the
+      same defect.
+  - key: |
+      TODAY'S BEHAVIOUR IS THE DEFAULT. Every existing installation has a configuration written
+      against whatever each provider creates now. The configured kind defaults to exactly that, so
+      this phase changes no behaviour until an operator chooses otherwise — and the check then tells
+      them, on the spot, whether their existing lifecycle statuses survive the choice.
+  - key: |
+      ROOM. AzureDevOpsTicketProvider is 218 lines against a baseline of 218 and may only shrink, so
+      the kind read and the state read do not go there: they are a collaborator the provider holds,
+      and the create's literal becomes a value the provider is given. What the provider loses in
+      hard-coded text it does not gain back in lookup code.
+
+steps:
+  - id: the-kind-is-configured
+    action: "The tracker configuration carries the work-item kind a filing creates, defaulting per provider to what it creates today; the create uses it."
+  - id: the-tracker-is-asked
+    action: "A collaborator reads the kinds a tracker offers and the statuses a kind allows, per provider, reporting plainly where it cannot."
+  - id: the-configuration-is-checked
+    action: "Saving a tracker configuration refuses a lifecycle status the configured kind does not have, naming the kind, the value and what the kind offers; an unanswerable check is recorded as not checked."
+  - id: the-filing-is-checked
+    action: "A filing whose configured lifecycle statuses no longer fit the kind is refused with that sentence instead of made."
+
+tests:
+  - "Create_ConfiguredKind_IsWhatTheProviderCreates"
+  - "Create_NoConfiguredKind_IsWhatTheProviderCreatesToday"
+  - "Config_LifecycleStatusTheKindDoesNotHave_IsRefusedOnSave"
+  - "Config_RefusalNamesTheKindTheValueAndWhatTheKindOffers"
+  - "Config_LifecycleStatusTheKindHas_IsSaved"
+  - "Config_ProviderThatCannotEnumerate_RecordsNotCheckedRatherThanFine"
+  - "Filing_ConfiguredStatusNoLongerFitsTheKind_IsRefusedWithTheReason"
+  - "Filing_ConfiguredStatusFits_IsMade"
+  - "Kinds_EachProvider_ReportsWhatItCanAndCannotEnumerate"
+
+done:
+  - "an operator chooses the kind of work item a filing creates, per tracker"
+  - "a lifecycle status the chosen kind does not have is refused where it is typed"
+  - "no filing creates a ticket whose configured terminal status the tracker will reject"
+  - "a check that could not be made says so and is not read as a pass"
+  - "build green, full suite green, file-length ratchet green"
