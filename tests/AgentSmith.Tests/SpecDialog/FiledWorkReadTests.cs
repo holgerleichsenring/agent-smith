@@ -387,7 +387,7 @@ public sealed class FiledWorkReadTests : IDisposable
         pipeline.Set(ContextKeys.RunId, "r-1");
         await new PhaseReviewPublisher(events).PublishAsync(pipeline, "p1", recorded, default);
 
-        await ReviewedAsync(events.Published.OfType<PhaseReviewedEvent>().Single().FindingsJson);
+        await ReviewedAsync(events.Published.OfType<PhaseReviewedEvent>().Single().ReportJson);
 
         var review = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single().Review;
         review!.Reviewed.Should().BeTrue();

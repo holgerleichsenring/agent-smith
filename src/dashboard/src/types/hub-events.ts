@@ -42,6 +42,7 @@ export enum EventType {
   RunWorkShapeResolved = 78,
   PhaseStateChanged = 79,
   PhaseRecorded = 80,
+  PhaseReviewed = 81,
 }
 
 interface RunEventBase {
@@ -510,6 +511,18 @@ export interface PhaseRecordedEvent extends RunEventBase {
   body: string;
 }
 
+/**
+ * 2026-09-17-042eh: what a fresh reviewer found in the phase's own diff. `reportJson` is a
+ * serialised PhaseReviewReport — an OBJECT, not the bare array it was before that phase was
+ * reworked: `reviewed` false is NOT a clean review, it says nobody was asked, and `why` then
+ * names which of the four reasons it was. 2026-09-17-042ej reads it back as data.
+ */
+export interface PhaseReviewedEvent extends RunEventBase {
+  type: EventType.PhaseReviewed;
+  phaseId: string;
+  reportJson: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -549,7 +562,8 @@ export type RunEvent =
   | PipelineStepsPlannedEvent
   | RunWorkShapeResolvedEvent
   | PhaseStateChangedEvent
-  | PhaseRecordedEvent;
+  | PhaseRecordedEvent
+  | PhaseReviewedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
