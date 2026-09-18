@@ -38,8 +38,8 @@ public sealed class SpecDialogRoutingTests : IDisposable
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner;
     private readonly Mock<AgentSmith.Contracts.Dialogue.IDialogueTransport> _dialogueTransport = new();
     private readonly Mock<IOutcomeSink> _outcomeSink = new();
-    private readonly SpecDialogTurnGate _turnGate = new();
-    private readonly SpecDialogPendingQuestions _pendingQuestions = new();
+    private readonly SpecDialogTurnGate _turnGate = new(TimeProvider.System);
+    private readonly SpecDialogPendingQuestions _pendingQuestions = new(new SpecDialogTurnGate(TimeProvider.System));
 
     public SpecDialogRoutingTests()
     {

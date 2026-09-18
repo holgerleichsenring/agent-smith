@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
-    SpecDialogProposalComposer proposalComposer)
+    SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -24,12 +24,21 @@ public sealed class SpecDialogViewReader(
         var latest = state is null
             ? SpecDialogLatestOutcome.None
             : await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
+        var asked = state is null ? null : Asked(dialogId, state);
         return new SpecDialogView(
             dialogId,
             state is null ? null : Session(dialogId, state, latest),
             projects.All(),
-            state is null ? null : Asked(dialogId, state));
+            asked,
+            state is null || asked is not null
+                ? SpecDialogTurnLivenessView.Idle
+                : turns.Liveness(state.JobId));
     }
+
+    // A TURN WAITING ON ITS OWN QUESTION IS NOT COMPUTING. A design turn's ask_human blocks
+    // inside the turn's execution and its wait has no deadline at all — it ends when the
+    // person answers. Reported as computing, it would render a working line beside the very
+    // card asking them to answer, so the question outranks the flag.
 
     /// <summary>
     /// What the turn is blocked on, rebuilt for a page that has just loaded. An expired wait
