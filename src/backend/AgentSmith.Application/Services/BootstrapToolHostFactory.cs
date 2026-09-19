@@ -23,6 +23,7 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class BootstrapToolHostFactory(
     IDecisionLogger decisionLogger,
+    ISandboxFileReaderFactory sandboxFileReaderFactory,
     IPathReadGuard readGuard,
     IPathWriteGuard writeGuard,
     IContextYamlSerializer contextYamlSerializer,
@@ -37,7 +38,7 @@ public sealed class BootstrapToolHostFactory(
             sandbox, repoLocalPath, readGuard, writeGuard,
             writePhase: SkillExecutionPhase.Bootstrap,
             contextName: contextName);
-        var log = new LogDecisionToolHost(decisionLogger, repoLocalPath);
+        var log = new LogDecisionToolHost(decisionLogger, sandboxFileReaderFactory.Create(sandbox));
         // p0193-fix: the bootstrap round writes context.yaml through the typed
         // write_context_yaml tool (write_file rejects context.yaml paths). Without
         // this the round could only ever write principles.md — context.yaml

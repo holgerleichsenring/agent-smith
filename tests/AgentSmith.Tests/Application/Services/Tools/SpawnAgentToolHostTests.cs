@@ -68,6 +68,26 @@ public sealed class SpawnAgentToolHostTests
         decisionLogger.Decisions[0].Decision.Should().Contain("Spawned 1");
     }
 
+    /// <summary>
+    /// 2026-09-19-c511a: this host is built with no sandbox (see its constructor), so the "/work"
+    /// it used to pass the decision logger was a guess that the repository it never saw would be
+    /// there — and in a container that guess was a path the server process cannot write. The spawn
+    /// line is run bookkeeping; the run's decision stream is where it belongs.
+    /// </summary>
+    [Fact]
+    public async Task SpawnAgent_SpawnLine_IsMirroredAndNamesNoRepositoryPath()
+    {
+        var (sut, decisionLogger) = BuildHost(new CountingLoopRunner());
+
+        await Invoke(sut, """
+        [{"name":"ContextMapInvestigator","activity":"map the repo","task_description":"t",
+          "inherited_context":{"pipeline_goal":"g","prior_context_slice":"s"}}]
+        """);
+
+        decisionLogger.Decisions.Should().ContainSingle()
+            .Which.Repo.Should().BeNull("a host with no sandbox has no repository to write into");
+    }
+
     [Fact]
     public void SpawnAgentToolHost_ResultHasNoResultTextField()
     {
@@ -126,13 +146,14 @@ public sealed class SpawnAgentToolHostTests
 
     private sealed class RecordingDecisionLogger : IDecisionLogger
     {
-        public List<(string? Repo, DecisionCategory Cat, string Decision)> Decisions { get; } = new();
-        public Task LogAsync(string? repoPath, DecisionCategory category, string decision,
-                             CancellationToken cancellationToken = default,
-                             string? sourceLabel = null)
+        public List<(ISandboxFileReader? Repo, DecisionCategory Cat, string Decision)> Decisions { get; } = new();
+        public Task<DecisionLogOutcome> LogAsync(
+            ISandboxFileReader? repositoryFiles, DecisionCategory category, string decision,
+            CancellationToken cancellationToken = default,
+            string? sourceLabel = null)
         {
-            Decisions.Add((repoPath, category, decision));
-            return Task.CompletedTask;
+            Decisions.Add((repositoryFiles, category, decision));
+            return Task.FromResult(DecisionLogOutcome.Recorded);
         }
     }
 }

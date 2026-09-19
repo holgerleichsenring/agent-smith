@@ -258,7 +258,8 @@ public sealed class AgenticMasterHandlerTests
     public void ReviewToolSurface_HasReadOnlyFsAndLogDecision_NoWriteOrRun()
     {
         var fs = new AgentSmith.Application.Services.Tools.FilesystemToolHost(new Mock<ISandbox>().Object);
-        var log = new AgentSmith.Application.Services.Tools.LogDecisionToolHost(new MasterHandlerFixture.NoOpDecisionLogger());
+        var log = new AgentSmith.Application.Services.Tools.LogDecisionToolHost(
+            new MasterHandlerFixture.NoOpDecisionLogger(), repositoryFiles: null);
 
         var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().Review(fs, log)
             .OfType<AIFunction>().Select(t => t.Name).ToHashSet();

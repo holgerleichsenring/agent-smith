@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
@@ -139,7 +140,7 @@ public sealed class BootstrapRetiredPrinciplesRenameTests
     private static BootstrapRoundHandler NewHandler(MetaRepository repo) => new(
         new StubFactory(new WritingChatClient()),
         new BootstrapToolHostFactory(
-            Mock.Of<IDecisionLogger>(),
+            Mock.Of<IDecisionLogger>(), new SandboxFileReaderFactory(),
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),

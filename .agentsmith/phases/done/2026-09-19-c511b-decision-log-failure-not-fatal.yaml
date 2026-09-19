@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-19-c511b
+
+goal: "A decision that cannot be written degrades to a warning instead of aborting the coding master, and the tool says which of the two places actually holds it."
+
+applies_to: "backend (the decision logger's failure behaviour and what the log tool reports)"
+
+requires:
+  - 2026-09-19-c511a
+
+scope:
+  in: >
+    The decision logger's body — the event mirror and the repository write — is guarded: a failure is
+    logged as a WARN naming the label and the reason, and nothing propagates to the caller.
+    Cancellation is not a failure and still propagates. The logger's outcome distinguishes the two
+    failures, because they are not the same event: a decision that reached the run's stream IS
+    recorded, and a decision that reached neither is recorded nowhere. log_decision reports the first
+    as the success it is and the second as what it is.
+  out: >
+    EVERY OTHER TOOL. A throw from a work tool still fails the run on the fourth consecutive error; the
+    general question is 2026-09-19-c511c, which this phase does not anticipate.
+    A NEW OPERATOR CHANNEL. The failure is a WARN and, for the total loss, the tool's own answer. With
+    c511a the write goes through the same sandbox every work step uses, so a surface that cannot take
+    it is a broken sandbox the run will fail on where it actually matters.
+    RETRYING THE WRITE OR QUEUEING IT. One attempt; a sink that retries hides the breakage it reports,
+    and a sink that defers would own state outliving the step and could rewrite a committed file.
+
+decisions:
+  - key: |
+      AN AUDIT SINK THAT CAN KILL A RUN IS A WORK STEP BY ACCIDENT. In 2026-09-17T14-41-51-a3e2 the
+      master had finished four of five ledger items, held a green test run and an open draft pull
+      request; the run died on the bookkeeping line ABOUT that work. The same class was answered once
+      before for path routing — "routing failures are RECOVERABLE tool errors, not run-aborting
+      exceptions. A throw here propagates through FunctionInvokingChatClient and kills the entire master
+      mid-run" (FilesystemToolHost.cs:110-117, p0259b). This applies that answer where the throw was
+      never the model's mistake in the first place.
+  - key: |
+      THE GUARD IS IN THE LOGGER, NOT IN THE TOOL HOST. All three callers — the log tool
+      (LogDecisionToolHost.cs:42), the spawn line (SpawnAgentToolHost.cs:180-182) and the registry-auth
+      report (RegistryAuthFailureReporter.cs:24, itself the fail-soft reporter for another failure) —
+      are audit paths. One guard at the sink covers them; three try/catches at the callers would be one
+      rule written three times and forgotten at the fourth call site.
+  - key: |
+      THE MIRROR AND THE FILE FAIL DIFFERENTLY, SO THEY ARE REPORTED DIFFERENTLY. Swallowing both and
+      answering "Decision logged" either way would make the tool lie in exactly the case that matters:
+      the mirror publishes to the run's event stream, which is what the dashboard reads and what the
+      file is only a copy of (DecisionEventMirror.cs:22-40, mirrored first at FileDecisionLogger.cs:29).
+      A lost file leaves the decision recorded; a lost mirror leaves it recorded nowhere. The outcome
+      the logger returns names which happened, and only the second changes the tool's answer.
+  - key: |
+      THE MODEL IS NOT TOLD ABOUT A LOST FILE, BECAUSE TELLING IT COST $2.29 AND PROVED NOTHING. The
+      failed run holds the experiment: the write threw, the framework fed the model a generic error —
+      IncludeDetailedErrors is unset repo-wide, so not even the path reached it — and the model rewrote
+      the SAME decision four times in six seconds, each shorter than the last, because rewording is the
+      only repair a model has for a tool it cannot fix. What it cannot act on goes to the operator's log.
+  - key: |
+      CANCELLATION IS NOT A FAILURE TO SWALLOW. An operator cancel and the loop's own timeout both
+      arrive as OperationCanceledException, and a sink that ate them would keep a cancelled run walking
+      for one more tool call and mask the reason the master names for the operator
+      (MasterOutcomes.cs:52-62). It is rethrown when the token is cancelled; one raised while the token
+      is NOT cancelled is an internal timeout of the sink's own call and is warned about like any other
+      failure, which is the same reading MasterOutcomes gives it.
+
+steps:
+  - id: the-guard
+    action: "The decision logger catches what its body can throw, logs a WARN naming the label and the reason, and returns an outcome instead of propagating."
+  - id: the-outcome
+    action: "The outcome distinguishes recorded, recorded-without-the-repository-copy, and recorded-nowhere."
+  - id: the-cancellation
+    action: "OperationCanceledException with a cancelled token is rethrown rather than swallowed."
+  - id: the-tool-result
+    action: "log_decision answers success for the first two and says the decision was not recorded for the third."
+
+tests:
+  - "DecisionLog_RepositoryWriteThrows_DoesNotThrow"
+  - "DecisionLog_RepositoryWriteThrows_LogsAWarningNamingTheLabelAndTheReason"
+  - "DecisionLog_RepositoryWriteThrows_TheDecisionStillReachesTheEventStream"
+  - "DecisionLog_EventMirrorThrows_DoesNotThrowAndTheRunGoesOn"
+  - "DecisionLog_EventMirrorThrows_ReportsTheDecisionAsRecordedNowhere"
+  - "DecisionLog_TokenCancelled_StillPropagatesTheCancellation"
+  - "LogDecision_RepositoryWriteFailed_ReturnsTheSameSuccessTextAsASuccessfulWrite"
+  - "LogDecision_NothingRecorded_SaysSoInsteadOfReportingSuccess"
+  - "MasterLoop_LogDecisionWhoseWriteFails_ReachesTheStepAfterIt"
+  - "MasterLoop_FourFailingLogDecisions_StillReachTheStepAfterThem"
+
+done:
+  - "a broken decision write costs a warning, not a run — and four of them in a row still cost a warning"
+  - "a cancelled run still stops at its first cancellation"
+  - "the model is never told about a failure it cannot act on, and never told 'logged' when nothing was"
+  - "build green, full suite green"
