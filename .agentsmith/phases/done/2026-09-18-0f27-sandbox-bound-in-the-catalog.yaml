@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-0f27
+
+goal: "The concurrent-sandbox bound is set where the other sandbox settings are set, under the documented name, and the three decisions that consult the probe see a change without a restart."
+
+applies_to: "backend (the global sandbox configuration, the Docker capacity probe and its registration) + dashboard (the sandbox settings form) + docs"
+
+scope:
+  in: >
+    The bound becomes a NULLABLE field of the process-wide sandbox configuration, resolved by the
+    probe through the configuration loader at the moment it decides, then the environment variable,
+    then the built-in default. Null means nobody configured it, which is what lets the variable
+    remain the fallback on an installation whose store is empty; zero keeps meaning unbounded, which
+    it already means to the probe. THREE decisions consult the probe and therefore see the change:
+    the ticket spawn funnel, the manual project init, and the mid-run sandbox escalation. The
+    capacity queue's dequeue does NOT — it admits against the capacity ledger alone and never asks
+    the probe — which is deliberate here and is what 2026-09-18-3ba9 closes. On the manual-init path
+    the probe's reason reaches the operator verbatim in the refusal body, so that refusal names the
+    resolved bound for free and is tested here. The settings form carries the field and says which
+    sandbox settings apply to the next decision and which need a restart. The resolved value and its
+    source are logged once whenever the resolution changes. The documentation names the key that is
+    read and all four spellings it has.
+  out: >
+    MAKING THE WHOLE SANDBOX BLOCK APPLY WITHOUT A RESTART. Seven types take the frozen options
+    instance; moving them is a phase of its own, named in prose as the phase that makes every sandbox
+    setting apply to the next run rather than the next restart.
+    THE DEQUEUE PATH. 2026-09-18-3ba9, which this phase must land before.
+    WHAT THE BOUND MEANS WHEN IT IS EXCEEDED. Also 3ba9.
+    A SWEEP OF EVERY OTHER ENVIRONMENT VARIABLE. Named in prose as the phase that decides which
+    settings may live outside the catalog at all.
+    THE READ-ONLY GLOBALS PROJECTION. Its four-field sandbox record reaches the dashboard on the
+    config snapshot and NO component reads it — the only other reference is a test fixture. A field
+    nobody is shown cannot mislead anybody, which is why this is not the same class as the
+    restart-split or the inert backends. An API consumer outside the dashboard sees an incomplete
+    sandbox block; that is the residual cost.
+    THE DASHBOARD'S OWN BUILD-TIME PROXY TARGET. Named in prose as the phase that makes the
+    dashboard's backend target a runtime setting or says it is not one.
+
+decisions:
+  - key: |
+      NULLABLE, OR THE FALLBACK IS UNREACHABLE AND ZERO CHANGES MEANING. The typed model is assembled
+      whether or not a sandbox document was ever stored, so a plain integer defaulting to two reads
+      the same for "never configured" and "deliberately two" — the environment variable could never
+      be reached and its test could not pass. Using zero as the absent marker is worse: zero already
+      means unbounded to the probe and is pinned by a test, so an operator disabling the bound would
+      silently get two. Null is the shape every per-project sandbox field already uses, and the shape
+      the one global setting with the same unset-is-not-default problem already uses.
+  - key: |
+      TWO DIFFERENT OBJECTS ARE FROZEN, AND SAYING "THE FROZEN OPTIONS" CONFLATES THEM. Today's bound
+      is frozen because the Docker registrations build their options EAGERLY at composition and read
+      the environment variable there. The sandbox block is frozen for a different reason: its global
+      config is a singleton factory resolved lazily on first use and cached thereafter. The
+      configuration LOADER under both is live — it re-assembles from the document store on every call,
+      with a fresh scope each time, which the capacity pump already relies on
+      every tick that has a queued head.
+      So the probe holding the loader sees a new value on its next decision with no watcher and no
+      epoch subscription.
+  - key: |
+      THE REFUSAL TEXT IS REACHABLE ON ONE OF THE THREE PATHS, AND THAT PATH IS TESTED HERE. Earlier
+      cuts said the reason is logged and dropped everywhere. It is dropped on the spawn path and in
+      the mid-run escalation, and the pump never asks the probe at all — but the manual project init
+      returns the probe's reason verbatim as the refusal body, and existing tests pin that. Since the
+      probe already writes the cap into its own sentence, this phase gets a surface for free on that
+      path: the init refusal names the resolved bound. Saying otherwise would have invited an
+      implementer to scope out work already done and leave it untested.
+  - key: |
+      IT IS GLOBAL, AND THE PROBE COUNTS A HOST. The probe counts every sandbox running on the daemon
+      and the footprint it compares carries no project identity, so a per-project bound has no answer
+      when two projects disagree. It belongs with the process-wide defaults.
+  - key: |
+      ONE FIELD LIVE AND THE REST NOT IS A SPLIT, SO THE FORM SAYS SO. Every other sandbox setting is
+      read from an instance built once. Making one field live without saying which is which replaces
+      "nothing applies until a restart" — uniform, learnable — with a rule that differs per row of one
+      form. The form states it per field.
+  - key: |
+      THE FIRST SAVE MUST NOT EAT THE VARIABLE, AND THE HAZARD IS STRONGER THAN A MISSING FIELD. A
+      settings save binds the client's payload onto a FRESH scratch object and reads the whole value
+      back, so any field the client omits resets to its model default. The field is optional on the
+      form and an absent field must land as null, so a save that did not touch it leaves the fallback
+      standing.
+  - key: |
+      THE FORM EMITS ABSENCE, NOT NULL, AND THE TEST MUST ASSERT WHAT IT EMITS. The number control
+      yields undefined on an empty input, the patch spreads it, and serialising omits the key
+      entirely — after which the backend's fresh-scratch bind lands it as null. The BEHAVIOUR is
+      right; a dashboard test asserting the request body carries an explicit null would fail. Either
+      the control maps empty to null explicitly or the test asserts omission, and the phase picks one
+      rather than describing the wrong one. The field's type also needs to admit the null the read
+      returns.
+  - key: |
+      INERT ON TWO BACKENDS, NOT ONE. A Kubernetes installation bounds sandboxes through its
+      namespace quota, and the in-process backend has an unbounded probe. A number in a global form
+      that does nothing for either is a new way to be misled unless it says which backend it bounds.
+  - key: |
+      FOUR SPELLINGS, ALL NAMED. The YAML key is underscored by the loader's convention, the property
+      is Pascal-cased, the stored document is Pascal-cased too because its serializer sets no naming
+      policy, and only the wire and the dashboard are camel-cased. The store reads either casing, so
+      the four spellings are a write-side concern. The documentation names the YAML key today and
+      nothing reads it; this phase makes that key real.
+  - key: |
+      ROOM, AND WHAT ACTUALLY LEAVES THE REGISTRATIONS. The registrations file is three lines under
+      the hard limit and the global configuration twenty-one, neither baselined. The probe cannot
+      resolve the bound without gaining the loader and a configuration path, and those are wired in
+      the registrations — so the file DOES change; what leaves it is the environment-variable merge,
+      not the read. Dropping the bound from the eagerly-built options frees more than the wiring
+      costs. Five existing probe tests construct those options directly and change with it, and the
+      phase decides outright whether the old field is removed rather than left as a second field with
+      one name. The probe takes the loader and the configuration path the way the global config
+      registration already resolves that pair — through the server context, which is registered
+      first and is therefore always available, including in the composition harness. Threading a
+      path primitive instead would change two registration signatures that have no reason to know
+      it. The probe's own class documentation cites the removed field and is rewritten with it.
+  - key: |
+      THE HARNESS COMPOSES THE REAL PROBE, SO ITS NEW DEPENDENCIES MUST RESOLVE THERE. The
+      composition harness runs the server's own service configuration, which auto-detects Docker on
+      any machine with a socket and composes this probe; the Docker harness registrations replace
+      only the sandbox factory and never the capacity probe. Both new dependencies resolve there
+      already, and the harness sets no bound, so behaviour is unchanged — said here to save a
+      confusing harness failure.
+  - key: |
+      THE TWO FALLBACK TESTS MUTATE A PROCESS-GLOBAL VARIABLE AND MUST BE SERIALISED. The repository
+      has a collection for exactly this, and the existing capacity-probe test class does not carry
+      it. Added blind, the new tests pass locally and flake under parallelism — which a done
+      criterion reading 'full suite green' would satisfy intermittently. They join that collection.
+      The change-detection state is an instance field on the singleton probe, which the no-static
+      rule does not reach; its test drives sequential calls, because three call sites can probe at
+      once and a naked comparison would log twice on a simultaneous first decision.
+
+steps:
+  - id: the-bound-joins-the-global-config
+    action: "The process-wide sandbox configuration gains the nullable bound under the documented name; the probe resolves it through the loader at decision time, then the environment variable, then the built-in default, and the eagerly-built options lose the field."
+  - id: the-form-shows-it-and-says-when-it-applies
+    action: "The sandbox settings form carries the field as optional, emits absence when empty, says which backends it bounds, and marks per field which sandbox settings apply to the next decision and which need a restart."
+  - id: the-value-is-answerable
+    action: "The resolved value and its source are logged once whenever the resolution changes, and the manual-init refusal names the resolved bound."
+  - id: the-docs-name-what-is-read
+    action: "The capacity, compose and Kubernetes pages and the field reference name the key that is read, its four spellings, and the environment variable as the empty-store fallback."
+
+tests:
+  - "Bound_SetInTheCatalog_IsWhatTheProbeUses"
+  - "Bound_ChangedInTheCatalog_AppliesToTheNextDecisionWithoutARestart"
+  - "Bound_NullInTheCatalog_FallsBackToTheEnvironmentVariable"
+  - "Bound_NullAndNoEnvironmentVariable_IsTheBuiltInDefault"
+  - "Bound_ZeroInTheCatalog_StillMeansUnbounded"
+  - "Bound_ASaveThatDidNotTouchIt_LeavesTheFallbackStanding"
+  - "Bound_ResolutionChanged_IsReportedOnceWithItsSource"
+  - "Bound_ResolutionUnchanged_IsNotReportedAgain"
+  - "Init_RefusedForCapacity_NamesTheResolvedBound"
+  - "dashboard: the sandbox form carries the bound, emits absence when cleared, and names the backends it bounds"
+  - "dashboard: the sandbox form says which of its settings need a restart"
+
+done:
+  - "the bound is set where the other sandbox settings are set, under the documented name"
+  - "changing it applies without a restart to the three decisions that consult the probe, and the dequeue path is named as the one it does not reach"
+  - "clearing it restores the fallback, and an unrelated save does not clear it"
+  - "a bound that did not take effect is answerable from one log line naming its source, and a refused init says the number"
+  - "nobody is misled about which sandbox settings apply immediately, or on which backends the bound does anything"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"

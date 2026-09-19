@@ -147,6 +147,28 @@ public sealed class SettingsRoundTripTests
         registries.Should().ContainSingle().Which.Host.Should().Be("pkgs.dev.azure.com");
     }
 
+    // 2026-09-18-0f27: a settings save binds the client's payload onto a FRESH scratch
+    // object and reads the whole value back, so every field the client omits lands at its
+    // model default. For the concurrent-sandbox bound that default is NULL — which is what
+    // keeps SANDBOX_MAX_CONCURRENT reachable. Had the field been a plain int defaulting to
+    // 2, the first save of an unrelated sandbox setting would have stored a bound nobody
+    // chose and the variable could never be read again.
+    [Fact]
+    public void Bound_ASaveThatDidNotTouchIt_LeavesTheFallbackStanding()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("sandbox",
+            Doc("""{"agentRegistry":"ghcr.io/sample","stepTimeoutSeconds":900,"runCommandTimeoutSeconds":300}"""),
+            new ChangeAttribution("op"));
+
+        var sandbox = h.Assembler.Assemble(h.DocStore.LoadAll()).Sandbox;
+        sandbox.StepTimeoutSeconds.Should().Be(900);
+        sandbox.MaxConcurrentSandboxes.Should().BeNull("an omitted bound is nobody's choice, not a stored 2");
+        Wire(h.Store.GetSetting("sandbox")).GetProperty("maxConcurrentSandboxes")
+            .ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
     [Fact]
     public void SaveSetting_UnknownType_Throws()
     {

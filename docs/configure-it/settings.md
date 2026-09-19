@@ -16,6 +16,8 @@ The orchestrator container image pin, and `MaxRunWallTimeSeconds`, the ceiling o
 
 The sandbox agent image, plus two timeouts: `StepTimeoutSeconds` at 900 and `RunCommandTimeoutSeconds` at 300. A repo whose test suite runs longer than five minutes needs the command timeout raised, and the symptom when you haven't is a command that dies at the same second every time.
 
+`MaxConcurrentSandboxes` is the one field in this group that applies without a restart: the Docker capacity probe reads it each time it decides whether a run fits. The image pin and the two timeouts are read from an instance built at startup, so they need the server restarted. The field is optional — the same key is `max_concurrent_sandboxes` in `agentsmith.yml`, `maxConcurrentSandboxes` on the wire and in this form, and `MaxConcurrentSandboxes` in the stored document — and left empty it falls back to the `SANDBOX_MAX_CONCURRENT` environment variable, then to the built-in default of 2. `0` means unbounded. It bounds the **Docker** backend only: a Kubernetes installation bounds sandboxes through its namespace `ResourceQuota` and the in-process backend is unbounded. The full story is on the [capacity page](../reference/operations/capacity.md#where-the-concurrent-sandbox-bound-is-set).
+
 ### Deployment
 
 A single registry plus version that feeds *both* the orchestrator and the sandbox agent image when the two groups above leave theirs unset. This is the one you bump on upgrade. The other two exist for the case where you want to pin one of them independently.

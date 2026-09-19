@@ -53,6 +53,22 @@ public sealed class SandboxGlobalConfig
     public int RunCommandTimeoutSeconds { get; set; } = 300;
 
     /// <summary>
+    /// 2026-09-18-0f27: the maximum number of sandbox containers the Docker backend
+    /// admits concurrently on one host — documented as <c>max_concurrent_sandboxes</c>.
+    /// NULL means nobody configured it, which is what keeps the
+    /// <c>SANDBOX_MAX_CONCURRENT</c> environment variable reachable as the fallback on
+    /// an installation whose store is empty; 0 means unbounded, which is what it has
+    /// always meant to the probe, so it cannot double as the absent marker. The probe
+    /// reads this through the configuration loader at the moment it decides, so a
+    /// change applies to the next decision without a restart.
+    /// <para>
+    /// Docker only. A Kubernetes installation bounds sandboxes through its namespace
+    /// ResourceQuota and the in-process backend is unbounded; neither reads this.
+    /// </para>
+    /// </summary>
+    public int? MaxConcurrentSandboxes { get; set; }
+
+    /// <summary>
     /// 2026-08-25-014d: the registries a sandbox toolchain image may be pulled from,
     /// as reference prefixes (<c>mcr.microsoft.com/</c>, <c>ghcr.io/</c>, a private
     /// mirror's host). The image string is model-authored or profile-authored, so

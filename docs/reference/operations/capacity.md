@@ -8,7 +8,7 @@ Before a triggered ticket is even claimed, the spawner asks the capacity probe o
 
 Per backend:
 
-- **Docker** (compose / single host): a proactive cap, `max_concurrent_sandboxes`, counted against the labelled sandbox containers actually running. A real out-of-memory on the host still fails honestly — the cap exists so you stop before that point.
+- **Docker** (compose / single host): a proactive bound, `max_concurrent_sandboxes`, counted against the labelled sandbox containers actually running. A real out-of-memory on the host still fails honestly — the bound exists so you stop before that point. It lives in the `sandbox:` settings and is read at the moment of the decision, so changing it applies to the next run rather than the next restart; see [where the bound is set](#where-the-concurrent-sandbox-bound-is-set).
 - **Kubernetes**: the probe reads the namespace `ResourceQuota` and compares against the keys present in its `status.hard`. Quota exceeded is a structured queue event, never a crash-looping pod. The quota shape you want (requests-based, plus a `pods` cap) is worked through on the [Kubernetes host page](../../host-it/kubernetes.md#capacity-quota-count-requests-not-limits).
 
 ## The queue: strict FIFO, one entry per ticket
@@ -56,11 +56,47 @@ Cancelling a run (dashboard button or `POST /api/runs/{runId}/cancel`) writes a 
 | Knob | Where | What it bounds |
 |---|---|---|
 | `queue.MaxParallelJobs` | `agentsmith.yml` (server) | Concurrent runs the consumer will execute (default 4). |
-| `max_concurrent_sandboxes` | Docker backend | Sandbox containers on one host. |
+| `max_concurrent_sandboxes` | `sandbox:` settings (Docker backend) | Sandbox containers on one host. Live — no restart. |
 | `ResourceQuota` (`requests.cpu` / `requests.memory` / `pods`) | your namespace | Whole-cluster footprint; the `pods` key is the deterministic backpressure knob. |
 | `stack.resources` | per-repo `context.yaml` | Build-sandbox size for code-changing pipelines (clamped). |
 | `projects.X.sandbox.resources` | `agentsmith.yml` | Per-project sandbox sizing override. |
 | `pipeline_cost_cap` | `agentsmith.yml` | USD / token budget per run — the other half of "bounded". |
+
+## Where the concurrent-sandbox bound is set
+
+`max_concurrent_sandboxes` is a field of the process-wide `sandbox:` block, edited in
+**Settings → Sandbox** like the rest of that block. The Docker capacity probe reads it
+through the configuration loader each time it decides, so a saved change reaches the next
+decision — the ticket spawn funnel, a manual project init, and a mid-run sandbox
+escalation — without restarting the server. The capacity queue's dequeue is the one
+decision it does not reach: the queue admits against the capacity ledger and never asks
+the probe.
+
+One field, four spellings, all of them the same field:
+
+| Where | Spelling |
+|---|---|
+| `agentsmith.yml` (the bootstrap/export file) | `max_concurrent_sandboxes` |
+| the stored configuration document | `MaxConcurrentSandboxes` |
+| the HTTP API and the dashboard | `maxConcurrentSandboxes` |
+| the C# model | `MaxConcurrentSandboxes` |
+
+Resolution order, every time the probe decides:
+
+1. the stored `sandbox:` settings, when they name a bound;
+2. otherwise the `SANDBOX_MAX_CONCURRENT` environment variable — the fallback for an
+   installation whose configuration store is still empty;
+3. otherwise the built-in default, **2**.
+
+`0` means unbounded, so it cannot double as "unset": leaving the field empty is how you
+hand the decision back to the environment variable. The resolved value and where it came
+from are logged once, and again whenever the resolution changes, so a bound that did not
+take effect is answerable from one line. A refused manual init quotes the resolved number
+in its refusal.
+
+The bound is a **Docker** setting. A Kubernetes installation bounds sandboxes through its
+namespace `ResourceQuota`, and the in-process backend is unbounded — on either, the number
+does nothing.
 
 ## Next
 
