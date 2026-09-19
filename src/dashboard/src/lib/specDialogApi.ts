@@ -38,6 +38,18 @@ export async function fetchSpecDialogConversations(
 }
 
 /**
+ * 2026-09-18-7a05: one conversation the caller owns, deleted. Addressed by its SESSION id — a
+ * dialog id is only the tab it was last on. The server answers the same for a conversation that
+ * is not yours, is not there, or is already gone, so nothing here learns which ids exist; a
+ * conversation with a turn running is the one refusal it makes.
+ */
+export async function deleteSpecDialogConversation(sessionId: string): Promise<void> {
+  const path = `/api/spec-dialog/conversations/${encodeURIComponent(sessionId)}`;
+  const res = await apiFetch(path, { method: "DELETE" });
+  if (!res.ok) throw await refused(res, path);
+}
+
+/**
  * One message into the dialog. The reply does NOT come back here — a design turn runs a
  * master and can take minutes, so the server accepts the message and answers on the hub.
  */
