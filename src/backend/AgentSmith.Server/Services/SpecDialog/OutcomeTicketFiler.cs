@@ -103,8 +103,9 @@ public sealed class OutcomeTicketFiler(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
         PhaseDraft draft, List<FiledTicket> filed, bool mayStartRuns, CancellationToken ct)
     {
-        var content = renderer.RenderPhase(draft, state.JobId);
+        // 2026-09-18-d518: the note explains the labels this ticket is actually filed with.
         string[] labels = [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp];
+        var content = renderer.RenderPhase(draft, state.JobId, TicketLabelNote.For(labels));
         var created = await provider.CreateAsync(content.Title, content.Body, labels, ct);
         filed.Add(Entry(created, content.Title, project));
         await approvals.RecordAsync(state, project, created.Id.Value, [draft], ct);

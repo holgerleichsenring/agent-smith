@@ -70,9 +70,10 @@ public sealed class EpicTicketFiler(
             throw new InvalidOperationException($"The epic cannot be filed: {order.Error}.");
 
         // 2026-09-13-ed5a: the work ticket records what the analysis read while it cut.
-        var content = renderer.RenderEpicParent(
-            epic.Parent, order.Children, epic.Templates, state.JobId);
+        // 2026-09-18-d518: and what the labels it is filed with bind.
         string[] labels = [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp];
+        var content = renderer.RenderEpicParent(
+            epic.Parent, order.Children, epic.Templates, state.JobId, TicketLabelNote.For(labels));
         var work = await provider.CreateAsync(content.Title, content.Body, labels, ct);
         filed.Add(OutcomeTicketFiler.Entry(work, content.Title, project));
         await StoreAsync(state, project, work, order.Children, ct);

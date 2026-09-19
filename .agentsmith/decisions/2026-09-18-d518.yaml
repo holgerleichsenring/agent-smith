@@ -1,0 +1,137 @@
+phase: 2026-09-18-d518
+decisions:
+  - id: the-note-is-composed-from-the-labels-the-filer-files-with
+    chose: >
+      TicketLabelNote.For(labels) returns one sentence per framework label actually present, or
+      null when none is — and each filer passes it the SAME array it hands
+      ITicketProvider.CreateAsync. The label list moved above the render call in both filers so
+      there is one array, not two that can drift.
+    alternative: >
+      A constant note, since both filed work shapes carry exactly the phase label and the
+      approved-set stamp today.
+    why: >
+      A constant would be a second statement of what the filer stamps, and the spec's own reason
+      for giving a bug no note — "a note about labels it does not carry would be false" — is a
+      rule about the actual label set, not about the shape. Composing from the array makes the
+      bug case fall out (empty labels, null note) instead of being special-cased, and a future
+      filer that stamps something else gets a true note or none.
+  - id: the-note-rides-through-the-body-composer-as-a-fourth-argument
+    chose: >
+      PhaseTicketRenderer's two work entry points take an optional note and pass it to
+      PhaseTicketBody.Requirement, which appends it AFTER extraSections — last in the body.
+      RenderChildRequirement passes nothing.
+    alternative: >
+      Appending the note inside each renderer lambda, or giving the renderer its own private
+      Append helper.
+    why: >
+      The renderer stood at 115 of 120 lines and a helper plus two call sites cost more than the
+      five it had; the body composer had room and is already the type that decides body order. It
+      also puts "last in the body" in ONE place rather than in two lambdas that could diverge —
+      and last is what keeps the note clear of the acceptance-criteria scan.
+  - id: the-strip-rebuilds-the-ticket-through-the-entity
+    chose: >
+      Ticket.WithDescription(description) on the domain entity, called by
+      TicketLabelNoteStripper.Strip(Ticket).
+    alternative: >
+      Constructing the nine-argument Ticket inline in the stripper.
+    why: >
+      Ticket is a class with get-only properties, so a copy has to name every field. Named in the
+      stripper, a property added to Ticket later would be silently dropped from every fetched
+      ticket; named on the entity, the copy sits beside the properties it copies and moves with
+      them. It is one public method with one test.
+  - id: the-stripper-lives-beside-the-other-ticket-text-readers
+    chose: >
+      TicketLabelNoteStripper in Application/Services/Specs, next to TicketHtmlConverter,
+      AcceptanceCriteriaSection and TicketTextFingerprint; the marker constants stay on
+      TicketLabelNote in Services/SpecDialog, and the stripper's GeneratedRegex pattern is a const
+      built from TicketLabelNote.BeginIdentifier / EndIdentifier.
+    alternative: >
+      One type that both writes and strips the note.
+    why: >
+      Writing the note and reading ticket-origin text are two responsibilities with two sets of
+      neighbours. Building the pattern from the identifier constants keeps the contract in one
+      place anyway — a rename of the identifier cannot desynchronise the two halves, because the
+      compiler resolves it.
+  - id: the-match-is-non-greedy-to-the-comments-close
+    chose: >
+      `<!--\s*agentsmith:note:begin.*?-->.*?<!--\s*agentsmith:note:end\s*-->` under Singleline.
+    alternative: >
+      `[^>]*` for the begin marker's tail, and matching the whole begin literal.
+    why: >
+      Only the identifier is the contract: on Jira the description renders HTML as literal text,
+      so a person sees the sentence and may reword or translate it, and matching the literal would
+      make it an editable first line. `[^>]*` would break on a rewording that contains a `>`,
+      which is ordinary prose. A test files a begin marker whose sentence contains one.
+  - id: no-match-means-no-touch
+    chose: >
+      Strip returns the input string unchanged unless a complete pair matched; only on a match is
+      the result trimmed at the end.
+    alternative: >
+      Always normalising (trim, collapse) the description on the way through the door.
+    why: >
+      The door is on the path of every ticket, most of which carry no note. A normalisation
+      applied to all of them is an edit the framework makes to text it did not write, and it would
+      show up as a fingerprint difference on tickets this phase has nothing to do with. The trim
+      after a match exists for the one blank line the removed section leaves behind.
+  - id: the-epic-ground-strips-at-its-own-publication
+    chose: >
+      EpicGroundFetcher strips the parent's description where it builds the EpicGround, rather
+      than the fetch handler stripping a parent it never sees.
+    alternative: >
+      Hoisting the parent fetch into FetchTicketHandler so one site strips both tickets.
+    why: >
+      The parent is a SECOND ticket that this fetcher reads and publishes itself; moving the fetch
+      would move a degrade-on-failure decision that belongs to it. Three publication sites were
+      swept for and found — the two Ticket sets in FetchTicketHandler and this one; no other
+      GetTicketAsync caller publishes ticket-origin description text into a pipeline.
+  - id: the-inline-ticket-goes-through-the-same-door
+    chose: >
+      The trackerless inline path strips too, though the framework never files an inline ticket.
+    alternative: >
+      Stripping only the provider path, since an inline payload cannot have been written by a
+      filer.
+    why: >
+      It publishes onto the same ContextKeys.Ticket and reaches the same readers, and an inline
+      payload can be composed from a ticket that was. A door with an exception is a door with a
+      way round it, and the strip costs one call on a text that almost never matches.
+  - id: the-fetched-event-carries-the-stripped-text
+    chose: >
+      The event is published from the stripped ticket, so the run card and the fetch step's
+      drill-in show a description that differs from the tracker's by one section.
+    alternative: >
+      Publishing the event before the strip, from the raw ticket.
+    why: >
+      Straight from the spec: the operator saw the note on the ticket, where the labels it
+      explains also live. Two descriptions on one run would be worse than one that is one section
+      short of the tracker's.
+  - id: a-half-deleted-note-is-left-alone
+    chose: >
+      Only a complete pair is removed. One surviving marker stays as ordinary ticket prose, reaches
+      every reader, and changes the fingerprint.
+    alternative: >
+      Removing the longest run that looks like part of a note.
+    why: >
+      That is a heuristic over text an operator edited, and the spec refuses it. The leak is
+      stated and tested as the accepted behaviour, so nobody later reads the gap as an oversight.
+  - id: the-note-is-bare-prose-under-a-heading
+    chose: >
+      A heading line, then one sentence per label as its own paragraph, blank line between them.
+    alternative: >
+      A bulleted list, which reads better on three of the four trackers.
+    why: >
+      The acceptance-criteria scan takes only marker lines and breaks on any heading: the heading
+      ends the scan, and prose cannot be mistaken for a criterion — bullets under that heading
+      could be, if the note ever moved above the criteria section. A mutation that renders the
+      note as criteria bullets is what proves the test that holds this.
+  - id: the-tests-drive-the-real-encoders
+    chose: >
+      The Azure DevOps case converts the filed markdown with Markdig on the pipeline the provider
+      builds, and the Jira case round-trips it through JiraAdfRenderer.FromMultilineText and
+      JiraAdfParser.ExtractText.
+    alternative: >
+      Pasting the HTML and the flattened text the two conversions produce today.
+    why: >
+      The claim under test is that the marker's characters survive conversions this repository
+      performs. A pasted fixture proves the stripper against a snapshot of those conversions and
+      goes stale the day either changes; driving the real ones fails when the round trip stops
+      being true, which is the failure worth hearing about.

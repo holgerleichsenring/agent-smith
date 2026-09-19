@@ -24,14 +24,19 @@ internal static class PhaseTicketBody
     /// one line per criterion. A SIBLING's phase id stays out (the order lives in the labels and
     /// the parent's slice list); any other precondition, an outside phase id included, stays.
     /// </para>
+    /// <para>
+    /// 2026-09-18-d518: the label note, when the filer passes one, is LAST in the body — after
+    /// everything the ticket is about, wrapped in its own marker pair.
+    /// </para>
     /// </summary>
     public static string Requirement(
-        PhaseDraft draft, IReadOnlySet<string> siblingIds, Action<StringBuilder> extraSections) =>
+        PhaseDraft draft, IReadOnlySet<string> siblingIds, Action<StringBuilder> extraSections,
+        string? labelNote = null) =>
         Done(Shared(draft, ScopeLines, (body, map) =>
         {
             AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(map));
             AppendLines(body, "## Preconditions", draft.Requires.Where(r => !siblingIds.Contains(r)));
-        }, extraSections));
+        }, sb => { extraSections(sb); sb.Append(labelNote); }));
 
     private static IEnumerable<string> DoneLines(IReadOnlyDictionary<string, object?> map) =>
         (OutcomeYamlReader.GetList(map, "done") ?? []).Select(line => CriterionLine.Collapse(line?.ToString() ?? string.Empty));
