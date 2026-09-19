@@ -11,6 +11,7 @@ DELETE	/api/config/trackers/{id}	config.write
 DELETE	/api/runs	runs.delete
 DELETE	/api/runs/{runId}	runs.delete
 DELETE	/api/runs/{runId}/judgements	runs.control
+DELETE	/api/spec-dialog/conversations/{sessionId}	dialog.write
 GET	/api/access	access.read
 GET	/api/archive/export	archive.export
 GET	/api/archive/preview	archive.export

@@ -11,6 +11,10 @@ import { groupByDay, outcomeLabel, timeOfDay } from "./conversationDays";
 // conversation filed.
 // 2026-09-17-042ef: the column is the Projects page's panel card, the day is its field label
 // and the marks under a conversation are its marks — the local chip that drew them is gone.
+// 2026-09-18-7a05: a row offers a delete, so the ROW stops being a button — a control nested in
+// a button is invalid markup and warns. The row is a container now, with the open control and
+// the delete control as siblings; neither is inside the other, and neither has to stop a click
+// travelling out of it.
 
 export function DialogConversations({
   dialogId,
@@ -21,6 +25,7 @@ export function DialogConversations({
   onPicked,
   onStartNew,
   onOpen,
+  onDelete,
 }: {
   dialogId: string | null;
   sessionHere: string | null;
@@ -30,6 +35,7 @@ export function DialogConversations({
   onPicked: (project: string) => void;
   onStartNew: (project?: string) => void;
   onOpen: (sessionId: string, openDialogId: string | null) => void;
+  onDelete: (sessionId: string) => void;
 }) {
   // Minting a dialog id and opening a session on it are two steps, and a second click
   // between them mints a second id: the first session opens on an id nothing is watching
@@ -86,6 +92,7 @@ export function DialogConversations({
                     conversation={conversation}
                     current={conversation.sessionId === sessionHere}
                     onOpen={onOpen}
+                    onDelete={onDelete}
                   />
                 ))}
               </div>
@@ -101,36 +108,49 @@ function Conversation({
   conversation,
   current,
   onOpen,
+  onDelete,
 }: {
   conversation: SpecDialogSessionSummary;
   current: boolean;
   onOpen: (sessionId: string, openDialogId: string | null) => void;
+  onDelete: (sessionId: string) => void;
 }) {
   const filed = outcomeLabel(conversation);
   const time = timeOfDay(conversation.lastActivityAt);
+  const title = conversation.title ?? `untitled ${conversation.sessionId}`;
   return (
-    <button
-      type="button"
-      data-testid={`dialog-conversation-${conversation.sessionId}`}
-      aria-current={current ? "true" : undefined}
-      onClick={() => onOpen(conversation.sessionId, conversation.openDialogId)}
-      className="d-conv"
-    >
-      <span className="block truncate dsh-body font-medium text-ink">
-        {conversation.title ?? `untitled ${conversation.sessionId}`}
-      </span>
-      <span className="ec-marks ec-sub items-center">
-        <span className="ec-mark given">{conversation.project}</span>
-        <span>
-          {conversation.turns} turn{conversation.turns === 1 ? "" : "s"}
-        </span>
-        {time && <span>{time}</span>}
-        {filed && (
-          <span data-testid="dialog-conversation-outcome" className="ec-mark filed">
-            {filed}
+    <div className="d-conv-row">
+      <button
+        type="button"
+        data-testid={`dialog-conversation-${conversation.sessionId}`}
+        aria-current={current ? "true" : undefined}
+        onClick={() => onOpen(conversation.sessionId, conversation.openDialogId)}
+        className="d-conv"
+      >
+        <span className="block truncate dsh-body font-medium text-ink">{title}</span>
+        <span className="ec-marks ec-sub items-center">
+          <span className="ec-mark given">{conversation.project}</span>
+          <span>
+            {conversation.turns} turn{conversation.turns === 1 ? "" : "s"}
           </span>
-        )}
-      </span>
-    </button>
+          {time && <span>{time}</span>}
+          {filed && (
+            <span data-testid="dialog-conversation-outcome" className="ec-mark filed">
+              {filed}
+            </span>
+          )}
+        </span>
+      </button>
+      <button
+        type="button"
+        data-testid={`dialog-delete-${conversation.sessionId}`}
+        aria-label={`Delete ${title}`}
+        title="Delete this conversation"
+        onClick={() => onDelete(conversation.sessionId)}
+        className="d-conv-x"
+      >
+        ×
+      </button>
+    </div>
   );
 }
