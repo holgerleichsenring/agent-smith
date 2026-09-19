@@ -49,6 +49,9 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         _sessions = new SpecDialogSessionManager(
             _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
         _ownership = new SpecDialogOwnership(_repository, new SpecCommandParser());
+        _turns = new SpecDialogTurnGate(_clock);
+        // The same gate: setting and taking a question is what stops and starts the turn's clock.
+        _pending = new SpecDialogPendingQuestions(_turns);
     }
 
     [Fact]
@@ -206,6 +209,133 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
             .Question.Should().BeNull();
     }
 
+    // 2026-09-18-2f8b: a page that did NOT post the message — one opened on a second screen,
+    // or reloaded mid-turn — issues this read and nothing else until the reply lands. Without
+    // the turn on it, that page shows a conversation that looks finished while it is running.
+    [Fact]
+    public async Task View_ComputingTurn_IsOnTheViewForAPageThatDidNotPostIt()
+    {
+        await OpenAsync(Owner);
+        var turn = _turns.Begin(await SessionIdAsync());
+        turn.Keep(new SpecDialogActivityPush(
+            Dialog, "tool", "read_file", "repo-a/src/Router.cs", _clock.Now, turn.Next(),
+            turn.StartedAt));
+
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
+
+        view.Turn.Computing.Should().BeTrue();
+        view.Turn.Steps.Should().ContainSingle().Which.Seq.Should().Be(1,
+            "the page merges the pushes that follow against this number");
+    }
+
+    // The design turn's own ask_human blocks INSIDE the turn's execution, and that wait has no
+    // deadline at all — it ends when the person answers. Reported as computing, it would render
+    // a working line beside the very card asking them to answer.
+    [Fact]
+    public async Task View_TurnBlockedOnAQuestion_IsNotComputing()
+    {
+        await OpenAsync(Owner);
+        var sessionId = await SessionIdAsync();
+        _turns.Begin(sessionId);
+        // The turn's OWN ask_human, as the question pump sets it: free text, no deadline at
+        // all, because nothing ends that wait but the person.
+        _pending.Set(sessionId, "q-1", "which repository holds the ledger?");
+
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
+
+        view.Question.Should().NotBeNull("the card is what the person is waiting on");
+        view.Question!.ExpiresAt.Should().BeNull("nothing ends an ask_human wait but an answer");
+        view.Turn.Computing.Should().BeFalse();
+        view.Turn.ElapsedSeconds.Should().Be(0);
+    }
+
+    // The wait on a person is not computation. Measured from the start instant, a turn that
+    // computed forty seconds and then waited twenty minutes for an answer would be shown to a
+    // colleague on a second screen as having worked for twenty minutes and forty seconds —
+    // the same untruth the flag above exists to prevent, on the duration axis.
+    [Fact]
+    public async Task View_TimeSpentWaitingForAnAnswer_IsNotCountedAsComputing()
+    {
+        await OpenAsync(Owner);
+        var sessionId = await SessionIdAsync();
+        _turns.Begin(sessionId);
+        _clock.Now = _clock.Now.AddSeconds(40);
+        _pending.Set(sessionId, "q-1", "which repository holds the ledger?");
+        _clock.Now = _clock.Now.AddMinutes(20);
+        _pending.TryTake(sessionId, Peeked(sessionId)).Should().BeTrue();
+        _clock.Now = _clock.Now.AddSeconds(5);
+
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
+
+        view.Turn.Computing.Should().BeTrue();
+        view.Turn.ElapsedSeconds.Should().Be(45,
+            "forty seconds before the question and five after the answer; the wait is not work");
+    }
+
+    // The sequence restarts every turn, so a page that missed the reply between two turns
+    // would read the new turn's steps as duplicates of the dead turn's and discard them.
+    [Fact]
+    public async Task View_ComputingTurn_NamesTheTurnItsStepsBelongTo()
+    {
+        await OpenAsync(Owner);
+        var sessionId = await SessionIdAsync();
+        var first = _turns.Begin(sessionId);
+        _turns.Finish(sessionId, first);
+        _clock.Now = _clock.Now.AddSeconds(30);
+        var second = _turns.Begin(sessionId);
+
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
+
+        view.Turn.TurnStartedAt.Should().Be(second.StartedAt).And.NotBe(first.StartedAt);
+    }
+
+    // Finish is handed the turn it is ending. Removing whatever sits under the key would let a
+    // slow turn's teardown end the turn that had already replaced it.
+    [Fact]
+    public async Task Gate_FinishingASupersededTurn_LeavesTheCurrentOneComputing()
+    {
+        await OpenAsync(Owner);
+        var sessionId = await SessionIdAsync();
+        var first = _turns.Begin(sessionId);
+        var second = _turns.Begin(sessionId);
+
+        _turns.Finish(sessionId, first);
+
+        _turns.Liveness(sessionId).TurnStartedAt.Should().Be(second.StartedAt);
+    }
+
+    private PendingQuestion Peeked(string sessionId)
+    {
+        _pending.TryPeek(sessionId, out var peeked).Should().BeTrue();
+        return peeked;
+    }
+
+    // 2026-09-18-2f8b reverses 2026-09-17-c7aed's "no duration, because nothing measures one":
+    // the gate measures one now. Read off the server so two clocks are never differenced.
+    [Fact]
+    public async Task View_ComputingTurn_CarriesElapsedSecondsFromTheInjectedTimeSource()
+    {
+        await OpenAsync(Owner);
+        _turns.Begin(await SessionIdAsync());
+        _clock.Now = _clock.Now.AddSeconds(42);
+
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
+
+        view.Turn.ElapsedSeconds.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task View_NoTurn_ReadsAsNotComputingWithNoSteps()
+    {
+        await OpenAsync(Owner);
+
+        var view = await Reader().ReadAsync(Dialog, CancellationToken.None);
+
+        view.Turn.Computing.Should().BeFalse();
+        view.Turn.ElapsedSeconds.Should().Be(0);
+        view.Turn.Steps.Should().BeEmpty();
+    }
+
     private static DialogQuestion Approval(string text) =>
         new(Guid.NewGuid().ToString("N"), QuestionType.Approval, text,
             Context: null, Choices: null, DefaultAnswer: "", TimeSpan.FromMinutes(15));
@@ -214,12 +344,26 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         _sessions.OpenAsync(Platform, dialogId, dialogId, owner,
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
 
-    private readonly SpecDialogPendingQuestions _pending = new();
+    private readonly SpecDialogPendingQuestions _pending;
 
     private SpecDialogViewReader Reader() =>
         new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending,
             new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
-            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()));
+            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), _turns);
+
+    /// <summary>A clock the test moves by hand, so no assertion about elapsed seconds waits
+    /// on a real one.</summary>
+    private sealed class StoppedClock(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private readonly StoppedClock _clock = new(new DateTimeOffset(2026, 9, 18, 9, 0, 0, TimeSpan.Zero));
+    private readonly SpecDialogTurnGate _turns;
+
+    private async Task<string> SessionIdAsync() =>
+        (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!.JobId;
 
     private SpecDialogMessenger Messenger() =>
         new([Adapter()], NullLogger<SpecDialogMessenger>.Instance);

@@ -231,7 +231,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         var composer = new SpecDialogOutcomeComposer();
         return new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
-                transport.Object, messenger, new SpecDialogPendingQuestions(), composer,
+                transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, messenger, Channel(),
             new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),

@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-3ba9
+
+goal: "The sandbox bound becomes a third term of the capacity ledger, so every path that reserves is held to it atomically, including the dequeue path that reserves without consulting the probe."
+
+applies_to: "backend (the capacity ledger's options, row and fit check; the enqueue refusal for a footprint that cannot fit)"
+
+requires:
+  - 2026-09-18-0f27
+
+scope:
+  in: >
+    The capacity ledger gains a sandbox-count term beside its cpu and memory terms: the row already
+    written per reservation carries the number of sandboxes that reservation is for, and the fit check
+    compares the sum over reserved rows against the configured bound inside the transaction it already
+    opens. Every reserving path is then held to it — the spawn funnel, the init admission and the
+    dequeue pump — without any of them gaining a line, because all three already reserve. A footprint
+    larger than the bound can never fit, so it is refused where it would otherwise enter the queue,
+    with a message saying what was counted, that the count is taken before the run is narrowed to the
+    repositories its ticket touches, and which setting would admit it.
+  out: >
+    THE CONTAINER COUNT AS THE GUARD. The probe counts what is running on the daemon and stays exactly
+    as it is at the two synchronous admission sites; this phase adds a term that is atomic where the
+    probe's read is not, and does not remove the probe.
+    ORPHANED AND FOREIGN CONTAINERS. The ledger counts what THIS server reserved. A container left by
+    a crashed replica is the reaper's business, and on a composition where the reaper stands down it
+    is nobody's — named in prose as the phase that makes an unreaped sandbox visible to the bound.
+    NARROWING THE FOOTPRINT BEFORE ADMISSION. The count is one sandbox per repository and toolchain
+    over every configured repository, taken before the run is scoped. Making admission see the narrowed
+    number is named in prose as the phase that scopes a run before it is admitted; until then the
+    refusal says which number it used.
+    WHERE THE BOUND IS CONFIGURED. 2026-09-18-0f27, which lands first.
+
+decisions:
+  - key: |
+      THE LEDGER ALREADY HAS THIS SHAPE, AND THE FIRST TWO CUTS OF THIS PHASE BOTH DENIED IT. The
+      capacity row stores per-run scalars and the fit check sums them over reserved rows and compares
+      against one configured scalar, inside a transaction. A count of sandboxes is that shape exactly.
+      What was missing is a column and an option, not expressiveness — so the earlier claim that the
+      ledger could not express a count was false, and building a second mechanism on top of it would
+      have made a future phase overturn a decision that was never true.
+  - key: |
+      AND THE LEDGER TERM IS ATOMIC WHERE THE PROBE IS NOT. The probe reads what is running now; a run
+      admitted a moment ago has no containers yet while its image pulls, so two consecutive admissions
+      can both pass a count neither of them will respect. The ledger reserves and compares in one
+      transaction, which is what makes "held to the bound" a statement rather than a hope.
+  - key: |
+      ONE TERM COVERS THREE PATHS WITH NO NEW CALL. The spawn funnel, the init admission and the
+      dequeue pump all reserve against the ledger today; only the first two also consult the probe.
+      Adding the term therefore closes the dequeue gap without the pump gaining a parameter or a line —
+      which matters, because the pump sits exactly at its ratchet baseline and may only shrink.
+  - key: |
+      A FOOTPRINT LARGER THAN THE BOUND MUST BE DECIDED, NOT SCOPED OUT. The queue is strict FIFO with
+      no expiry and no overtaking. An entry that can never fit would sit at its head and stop every
+      ticket behind it — the head-of-line stall the first cut was rejected for, which the second cut
+      moved into prose while leaving the behaviour. So it is refused before it enters the queue, and
+      the refusal says what it counted and what would admit it.
+  - key: |
+      REFUSING IS A BEHAVIOUR CHANGE AND IT IS STATED. On a default host such a run queues today and
+      then starts over the bound, because the ledger is unconfigured and fail-open. After this phase it
+      is refused with a reason an operator can act on. That is the point — the alternative is a bound
+      that only pretends — but it is louder than today and the refusal must say which number it used,
+      because that number is a deliberate over-estimate until the narrowing phase lands.
+  - key: |
+      KUBERNETES LOSES NOTHING AND GAINS THE SAME TERM. Its quota also carries a pod count, so the
+      earlier claim that it was unaffected was wrong too; what makes it safe today is a hard backstop
+      Docker does not have — the create itself refuses. The ledger term is backend-neutral and applies
+      there as well, one bound in one place.
+  - key: |
+      ROOM. The change is a column, an option field, one clause in the fit check and one refusal at the
+      enqueue site. The pump is not touched at all, which is what keeps it at its baseline.
+
+steps:
+  - id: the-ledger-counts-sandboxes
+    action: "The capacity options gain the bound, the capacity row carries the reservation's sandbox count, and the fit check compares the sum against it inside its existing transaction."
+  - id: the-bound-comes-from-one-place
+    action: "The configured value is the one 2026-09-18-0f27 makes settable; no second spelling exists."
+  - id: a-footprint-that-cannot-fit-is-refused
+    action: "A footprint larger than the bound is refused before it enters the queue, naming the count, that it is taken before the run is narrowed, and the setting that would admit it."
+
+tests:
+  - "Ledger_ReservationsSummingToTheBound_Fit"
+  - "Ledger_OneMoreSandboxThanTheBound_DoesNotFit"
+  - "Ledger_ReleasedReservation_FreesItsSandboxes"
+  - "Ledger_UnconfiguredBound_FitsAsBefore"
+  - "Ledger_TwoConcurrentReservations_CannotBothPassTheSameSlot"
+  - "Pump_HeadThatWouldExceedTheBound_IsNotClaimed"
+  - "Pump_AfterAReservationIsReleased_TheHeadIsClaimed"
+  - "Spawn_FootprintLargerThanTheBound_IsRefusedBeforeTheQueue"
+  - "Spawn_RefusalNamesTheCountTheNarrowingAndTheSetting"
+  - "Spawn_FootprintThatFitsButNotNow_StillQueues"
+
+done:
+  - "a run cannot reserve past the sandbox bound on any path, including the dequeue path"
+  - "two concurrent reservations cannot both take the last slot"
+  - "a run that can never fit is refused with a reason instead of stalling the queue behind it"
+  - "an installation with no bound configured behaves exactly as it does today"
+  - "build green, full suite green, file-length ratchet green"

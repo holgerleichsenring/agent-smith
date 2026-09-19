@@ -3,6 +3,7 @@ using AgentSmith.Server.Services.Diagnostics;
 using AgentSmith.Server.Services.Config;
 using AgentSmith.Server.Services.Events;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -28,6 +29,9 @@ internal static class DashboardReadersExtensions
         services.AddSingleton<PlanMarkdownReader>();
         services.AddSingleton<SpecMarkdownReader>(); // p0390
         services.AddSingleton<AnalyzeMarkdownReader>();
+        // 2026-09-18-84be: the catalog reader stamps WHEN it read the catalog, so the page
+        // cannot print a version beside contents of unknown age.
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<CatalogContentsReader>();
         services.AddSingleton<IInfraConnectivityProbe, InfraConnectivityProbe>();
         services.AddSingleton<IChatConnectivityProbe, ChatConnectivityProbe>();

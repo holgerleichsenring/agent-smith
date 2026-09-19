@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-18-84be
+
+decisions:
+  - category: Architecture
+    chose: "The origin phrase is minted ONCE, on CatalogResolution, and read by everyone who holds one"
+    over: "Keeping the composition inside SkillsCatalogPath and having the reader copy the singleton's string"
+    reason: |
+      The resolution already reached an operator-checkable phrase in exactly one place — source
+      mode lower-cased, version or path, the overlay fingerprint when one is layered, then the
+      root. A second composition over the same record would be free to drift the day the first
+      changes: the refusal texts that already print the phrase would say one thing and this page
+      another. Moving the minting onto the record keeps it single AND lets a caller that holds the
+      resolution read it without going through the shared singleton, which a concurrent resolve can
+      re-point between two lines. SkillsCatalogPath now publishes `resolution.Origin` verbatim.
+
+  - category: Architecture
+    chose: "Origin, listing and body share ONE binding: the cache is keyed on the phrase, and a body read across a swap is not served"
+    over: "Capturing the origin beside the definitions and leaving the body a live file read (the first draft), or snapshotting every SKILL.md at load"
+    reason: |
+      The first draft had three lifetimes in one reader and said in this file that the phrase
+      described the text on the page. It did not. The body was read live on every expand, from a
+      path that is STABLE across re-resolution — CatalogTarballExtractor moves the new tree into the
+      same absolute root and SkillsOverlayMaterializer rebuilds the union root in place — and every
+      run re-resolves. So a new version, or an edited overlay file, landed under the cached listing
+      and rendered beneath a phrase naming the old one. The cache is now keyed on the binding it was
+      loaded under: a moved binding drops it and the next call re-loads, and a body whose binding
+      moved while it was being read is not served at all rather than served under the wrong phrase.
+      Snapshotting every body at load was the alternative; it would have cost a full tree read on
+      the first page view to fix a problem that keying solves, and the lazy body fetch exists
+      precisely so the catalog is not read whole.
+
+  - category: Implementation
+    chose: "The CONFIGURED overlay directory travels with the origin, and the per-body note is conditional on it"
+    over: "One sentence for every installation, or adding `overlay` to the Skills settings form in this phase"
+    reason: |
+      On an overlaid installation the body on the page may be the operator's own file, and the
+      phrase's overlay token is a bare 12-hex directory fingerprint at a synthesised union root —
+      two strings nobody ever typed. Worse, the Skills settings form renders source, version, path,
+      url, sha256 and cacheDir and NOT overlay (the wire type omits it too), so an overlaid install
+      sent to that form finds nothing there that changes the text it is reading. The response
+      therefore carries skills.overlay as configured, present only when this binding actually
+      layered one, and the note names that directory instead of repeating a source instruction the
+      body did not come from. Putting overlay on the settings form is the other half and belongs to
+      the surface that owns that form — a follow-up phase for the Skills settings form, which this
+      page now makes visible by saying the form does not carry it.
+
+  - category: Scope
+    chose: "The page names the Skills settings surface, its access requirement and its reach, and links no further"
+    over: "A link into /config/settings/skills, an inline source switcher, or the bare instruction"
+    reason: |
+      The source is a settings singleton with its own form and its own permission; saving it bumps
+      the configuration epoch. A page that offered the edit would fork the surface that owns it and
+      reproduce its permission check. But the bare instruction over-promised in three ways, so the
+      sentence now carries them: the setting needs configuration access, which a caller holding only
+      catalog.read does not have; a saved change shows here when the server next RESOLVES, which the
+      next pipeline run does; and the background refresh re-pulls only a changed release version —
+      SkillsCatalogRefresher returns early for every non-Default source, so a default-to-path switch
+      changes nothing until something resolves.
+
+  - category: Implementation
+    chose: "The origin carries WHEN the catalog was read, stamped at the load gate"
+    over: "Rendering 'resolved at startup' in prose, as the first draft did"
+    reason: |
+      The spec's own decision says the phrase says WHEN, and nothing carried a time — the rendered
+      sentence was a tautology standing in for a missing field. The contents are cached, so a
+      version printed beside contents of unknown age is exactly the kind of half-truth this phase
+      exists to remove. ReadAt is a READING time, not a resolution time: the resolve behind it may
+      be older, and the field is named so the page cannot claim otherwise.
+
+  - category: Testing
+    chose: "The claim 'no catalog text is edited here' is held by a route enumeration over BOTH mapping chains"
+    over: "Asserting the sentence appears on the page, or enumerating the dashboard chain alone"
+    reason: |
+      A render assertion proves someone typed the sentence and nothing more; it would still pass the
+      day a POST lands under /api/catalog. ServerRouteTable.Facts (p0506/p0503a) enumerates the
+      mapped routes over the real server composition without resolving a single service, and
+      RouteFact carries the verb. The first draft enumerated MapDashboardApi only — a write route in
+      the unconditional MapServerEndpoints chain, the chain that survives with the dashboard API
+      switched off, would have passed untouched; measured, not assumed: with such a route mapped,
+      the one-chain spelling still passed and the two-chain spelling failed. The claim itself was
+      also weakened from "this page only reads" to "no catalog text is edited here", because a read
+      of this page CAN resolve the catalog on demand — downloading, swapping a directory and
+      re-pointing the process-wide path for every other consumer.
+
+  - category: Implementation
+    chose: "The expand control gets its own ec-open class, and the surface is split into five components"
+    over: "Leaving the config studio's edit-hint class on the catalog card, and leaving one growing file"
+    reason: |
+      The borrowed class was the most plausible reason a reader would believe this page saves
+      something. The parity assertion for .edit-hint is scoped to the config studio root and the
+      diagnostic pages under .mock-system still use the class, so the CSS rule stays and a sibling
+      rule with the same values carries the new name. The view was also growing past the principles'
+      120-line ceiling, which the dashboard escapes by ratchet rather than by right: the origin line,
+      the source note, the entry card and the concept section are now four components beside the
+      view, and the source note is the ONE composition of the sentence that both the page header and
+      every expanded body render — a second wording of it was the drift this phase rejected in the
+      phrase itself.

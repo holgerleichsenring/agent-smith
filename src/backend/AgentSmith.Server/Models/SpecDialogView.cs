@@ -14,8 +14,13 @@ namespace AgentSmith.Server.Models;
 /// page as a hub push and lived nowhere else, so a reload during the fifteen-minute
 /// approval gate left a blocked master and a page with no question and no button — on the
 /// one gate that files real tickets.</param>
+/// <param name="Turn">2026-09-18-2f8b: what the turn on this conversation is doing, for a
+/// page that did NOT start it. The page that posted has its own flag and no read to correct
+/// it — no read is issued until the reply lands — so this is ADDED to that flag and never
+/// substituted for it.</param>
 public sealed record SpecDialogView(
     string DialogId,
     SpecDialogSessionView? Session,
     IReadOnlyList<SpecDialogProjectView> Projects,
-    SpecDialogChannelQuestion? Question);
+    SpecDialogChannelQuestion? Question,
+    SpecDialogTurnLivenessView Turn);

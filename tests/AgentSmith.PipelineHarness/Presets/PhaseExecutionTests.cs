@@ -190,11 +190,11 @@ public sealed class PhaseExecutionTests
             TicketId ticketId, CancellationToken cancellationToken) =>
             Task.FromResult(comments ?? []);
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
         {
             lock (_finalized) _finalized.Add((ticketId, comment, doneStatus));
-            return Task.CompletedTask;
+            return Task.FromResult(TicketFinalizeResult.Moved());
         }
     }
 

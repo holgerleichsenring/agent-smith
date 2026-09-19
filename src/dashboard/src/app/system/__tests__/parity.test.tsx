@@ -38,7 +38,7 @@ vi.mock("@/lib/configApi", () => ({
 }));
 vi.mock("@/lib/catalogApi", () => ({
   fetchCatalogContents: vi.fn(() =>
-    Promise.resolve({ ready: false, masters: [], skills: [], concepts: [] }),
+    Promise.resolve({ ready: false, origin: null, masters: [], skills: [], concepts: [] }),
   ),
   fetchSkillBody: vi.fn(() => Promise.resolve(null)),
 }));

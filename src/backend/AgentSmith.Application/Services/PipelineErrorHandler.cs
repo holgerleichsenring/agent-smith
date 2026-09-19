@@ -18,6 +18,7 @@ public sealed class PipelineErrorHandler(
     ICommandContextFactory contextFactory,
     ITicketProviderFactory ticketFactory,
     FailureTicketComment failureComment,
+    Lifecycle.UnmovedTicketReport unmovedTickets,
     ILogger<PipelineErrorHandler> logger) : IPipelineErrorHandler
 {
     public async Task HandleStepFailureAsync(
@@ -162,7 +163,9 @@ public sealed class PipelineErrorHandler(
                 context.TryGet<string>(ContextKeys.DoneStatus, out failedStatus);
 
             var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
-            await ticketProvider.FinalizeAsync(ticketId, message, failedStatus, cancellationToken);
+            var finalize = await ticketProvider.FinalizeAsync(
+                ticketId, message, failedStatus, cancellationToken);
+            await unmovedTickets.RecordAsync(projectConfig, ticketId, finalize, cancellationToken);
         }
         catch (Exception ex)
         {

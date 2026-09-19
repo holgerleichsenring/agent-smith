@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
@@ -66,11 +67,11 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
         return Task.CompletedTask;
     }
 
-    public Task FinalizeAsync(
+    public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
     {
         lock (_finalized) _finalized.Add((ticketId, comment, doneStatus));
-        return Task.CompletedTask;
+        return Task.FromResult(TicketFinalizeResult.Moved());
     }
 }
 

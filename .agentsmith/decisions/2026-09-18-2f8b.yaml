@@ -1,0 +1,170 @@
+phase: 2026-09-18-2f8b
+decisions:
+  - id: the-view-is-added-to-the-local-flag-never-substituted
+    chose: >
+      The page renders the working line from `awaiting || view.turn.computing`. The local flag
+      stays the floor and the view's flag is added to it.
+    alternative: >
+      Rendering the line from the view alone, now that the view carries the turn.
+    why: >
+      No read is issued after a post. The hook posts, sets its own awaiting flag, and the next
+      read happens when the reply lands — which is after the turn. A page rendering only from
+      the view would therefore show nothing for the whole turn it had just started, which is
+      the defect this phase exists to remove rather than one to introduce at the other end. It
+      is also what keeps the second replica honest: a page served by the replica that is not
+      running the turn learns nothing new and behaves exactly as it does today.
+  - id: computing-is-false-while-a-question-is-pending
+    chose: >
+      SpecDialogViewReader answers computing only when the gate says so AND
+      SpecDialogPendingQuestions holds nothing for that session; the question outranks the flag.
+    alternative: >
+      Reporting the gate's flag as it stands, and letting the page decide.
+    why: >
+      A design turn's own ask_human blocks INSIDE the turn's execution and its wait has no
+      deadline at all — it ends when the person answers. A flag set around "the computation"
+      is therefore true for that whole wait, and would render "Working it out…" beside the very
+      card asking the person to answer. The two facts meet in one read, so the read is where
+      they are reconciled; a page reconciling them would have to be told the rule twice.
+  - id: the-home-is-the-turn-runner-and-the-gate
+    chose: >
+      SpecDialogTurnRunner opens the computing span beside the observer scopes it already opens
+      and closes it in the finally it already has; SpecDialogTurnGate holds the span, keyed by
+      session id, and takes TimeProvider.
+    alternative: >
+      The SpecDialogRouter, which is where the turn gate is entered and left.
+    why: >
+      The router is AT its file-length ratchet baseline (124 lines) and may only shrink. The
+      runner is under the hard limit with room, and it is already where the per-turn observer
+      scope is opened and closed — the same lifetime, the same boundary, the same `using`.
+      The router's span is also the WRONG span: it stays entered across the approval wait that
+      follows the computation, which is a wait on a person and not work.
+  - id: the-blocked-wait-is-not-computation
+    chose: >
+      The turn accumulates COMPUTED time in segments: SpecDialogPendingQuestions opens and
+      closes them, telling the gate Blocked when a question is set and Resumed when one is
+      taken or cleared. The start instant never moves, because it is the turn's identity.
+    alternative: >
+      Measuring from the start instant (what the first cut did); restarting the instant when
+      the question is consumed; reconciling it lazily at read time in the view reader.
+    why: >
+      A design turn's ask_human blocks INSIDE the turn's execution, so the entry and its start
+      instant survive the whole wait. A turn that computed forty seconds, asked which repository
+      holds the ledger and was answered twenty minutes later then read as 1240 seconds to a
+      colleague arriving on a second screen — while the page that posted read four, because its
+      own flag is stamped on the post. Two pages, one turn, one second, twenty minutes apart,
+      and the bigger number goes to the person with the least context to discount it. That is
+      the untruth the computing flag was written to prevent, left standing on the duration axis.
+      Restarting the instant would lose the identity the merge needs. Reconciling at read time
+      counts every wait nobody happened to read through. The boundary lives in
+      SpecDialogPendingQuestions rather than at the three sites that ask and answer, because
+      "a turn is blocked" is exactly what that class means, and a fourth site would otherwise
+      have to remember the rule.
+  - id: the-sequence-is-allocated-on-the-observer
+    chose: >
+      The per-turn state is a RunningDialogTurn the gate mints and the runner hands to
+      DialogActivityObserver; the observer allocates the step's sequence, keeps the step on the
+      turn, and hands the finished payload to DashboardActivityChannel.SendAsync.
+    alternative: >
+      Allocating the sequence in the channel, at the site that sends the push.
+    why: >
+      The gate is keyed by SESSION id and the sending site knows only the DIALOG id; the two
+      identifiers are disjoint by construction. The observer is the one place that holds both,
+      because the runner constructs it from the session's own state. So the number is minted
+      there or nowhere, and the gate is addressed by session id from the runner alone.
+  - id: the-merge-key-is-the-turn-and-the-sequence
+    chose: >
+      Every step and the liveness view carry the turn's start instant, and the page merges on
+      (turn, sequence): a step of a LATER turn replaces what is held, one of an earlier turn is
+      ignored, one of the same turn joins unless its sequence is already there. The bound of
+      fifty is kept over the merged whole, and the step count rendered is the highest sequence
+      rather than the length of the kept list.
+    alternative: >
+      The sequence alone; matching on the step's values (kind, name, detail) or its moment.
+    why: >
+      The activity push carries a wall clock and nothing else, and the page orders by array
+      position, which shifts as its window slides. Matching by value would collapse two
+      identical tool calls in one turn into one. But the sequence alone is ambiguous by
+      construction — this phase's own test has turn one emit [1,2] and turn two emit [1], and
+      the two ones are byte-identical on the hub. The page's only defence was the reply push
+      that clears the list, and that push is not guaranteed: a laptop that sleeps ninety seconds
+      loses everything sent during the gap, so the next turn's [1..5] would meet a stale [1..5]
+      and be filtered out entirely — the new turn's first five steps silently discarded and the
+      count frozen on a dead turn's. The instant is used rather than a minted id because it also
+      ORDERS, so a push racing a read cannot put an older turn's step over a newer turn's list.
+      The count is the sequence because the kept list is bounded: counting it would freeze past
+      fifty and kill one of the two liveness cues for the rest of the turn.
+  - id: a-reconnect-and-a-first-step-both-force-a-read
+    chose: >
+      The page re-reads the conversation on the hub's Connected transition, and on an activity
+      push that arrives while it is showing no working line.
+    alternative: >
+      Leaving the reply push as the only thing that corrects the flag.
+    why: >
+      Nothing but a push cleared `computing`, and a reconnect loses every push sent during the
+      gap — so a page whose laptop slept through the reply counted up for a turn that had
+      finished. And `computing` was only ever SET by a read, while the only unconditional read
+      is the one a page makes when it mounts: a second screen that was already open when the
+      turn started folded in every step and rendered nothing at all, which is the very case
+      this phase is for. A step arriving while the page shows no working line is evidence that
+      a turn is running, and the read is what turns that evidence into the line and its clock.
+  - id: elapsed-seconds-reverse-2026-09-17-c7aed
+    chose: >
+      The turn's start instant is kept, the view returns the seconds elapsed AT READ TIME, and
+      the page counts up from there. This REVERSES 2026-09-17-c7aed's decision that the progress
+      line "gives no duration, because nothing measures one", and retires the test that carried
+      that claim — SpecDialog_ARunningTurn_NamesEachRepositoryItOpensAndNoDuration is renamed to
+      ...AndHowLongItHasBeen and now asserts the counter it used to assert the absence of.
+    alternative: >
+      Leaving the decision standing, or sending the start instant and differencing it in the
+      browser.
+    why: >
+      c7aed's reason was true when it was written and this phase makes it false: the gate now
+      measures a duration. A reversal of a standing decision is recorded, not performed
+      silently. Seconds are measured server-side so no two clocks are differenced and a browser
+      running behind cannot render a turn that started in the future. The gate takes the
+      injected TimeProvider, so every assertion here moves a clock by hand rather than waiting
+      on a real one.
+  - id: the-ticker-lives-in-the-leaf
+    chose: >
+      DialogElapsed is a file of its own holding the per-second interval, and DialogActivityLines
+      took the step rendering with it; the count and the seconds render unconditionally, beside
+      the ring rather than instead of it, and a test scans the class names from the pulse up to
+      the working line for a motion variant.
+    alternative: >
+      A per-second interval in useSpecDialog; keeping both leaves inside DialogWorking; a second
+      motion-free variant of the indicator.
+    why: >
+      An interval in the hook would re-render the transcript, the panes and the filed work once
+      a second for the length of a turn, to move one number. In the leaf it re-renders one span
+      and stops when that unmounts. Its own file because the additions had pushed DialogWorking
+      from 109 lines to 142, past the same 120-line limit this phase's own decisions invoke for
+      the router — a limit no test looks at on the dashboard side, which is exactly why it gets
+      written down here. The motion guard on the ring stays: the convention is right, and what
+      was missing was a SECOND cue for the reader who asked for less motion and was left with a
+      static ring. Under jsdom a class applies no styles, so asserting that the text moves would
+      stay green if a `motion-` variant were added tomorrow; the test reads the class names on
+      the pulse and its ancestors instead.
+  - id: nothing-durable-and-nothing-across-replicas
+    chose: >
+      No migration, no startup clear, no write on the step path. The span and its steps die
+      with the process.
+    alternative: >
+      Persisting the running turn on the session row so a restart or a second replica could
+      answer for it.
+    why: >
+      A running turn IS an in-process agentic loop, so state about it that outlives the process
+      can only pin ghosts — the same reasoning the turn gate and the pending-question registry
+      were built on. There is no backplane, so the replica that is not running the turn still
+      learns nothing; because the local flag remains the floor, a page served by it behaves
+      exactly as it does today rather than gaining a confident "not computing".
+  - id: the-repositories-a-turn-opened-are-a-phase-of-their-own
+    chose: >
+      The reading lines are NOT kept on the turn; an arriving page sees the steps and not the
+      repositories.
+    alternative: >
+      Keeping them beside the steps, in the same scope.
+    why: >
+      They arrive on a different channel with no state and are upserted by repository name
+      rather than appended in order, so they need a keyed store and a different merge on the
+      page — a second mechanism inside a phase that already adds one. Named successor: the
+      phase that lets an arriving page see which repositories the running turn has opened.
