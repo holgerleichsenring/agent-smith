@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-d518
+
+goal: "A filed ticket says what its labels bind, and the note is stripped at the one door every reader comes through, so no prompt and no pull request ever carries it."
+
+applies_to: "backend (the phase ticket renderer's note, and the strip at the ticket fetch boundary)"
+
+requires:
+  - 2026-09-17-0e79d
+
+scope:
+  in: >
+    A ticket the framework files carries a short note saying what its labels BIND: the phase label
+    binds the ticket to phase execution, and without it the ticket is routed by this project's own
+    rules or dropped; the approved-set stamp says that an approved specification exists for this
+    ticket, and that removing it costs the ticket its one guard against a lost hand-off being
+    re-derived from a description anyone can edit. The note is written as bare prose under its own
+    heading, delimited by a marker pair rather than recognised by that heading. It is then STRIPPED at
+    all THREE sites that publish ticket-origin description text into a pipeline: the ticket itself,
+    published twice by the fetch handler, and the EPIC GROUND, which the same handler attaches by
+    fetching a SECOND ticket — the epic parent, which this phase gives a note — and publishing its
+    description itself. Stripping at those three covers every reader downstream without anyone
+    maintaining a list of readers. The stripper handles all THREE encodings a description arrives in.
+    The note itself stays human-readable prose under a visible heading; only its delimiters are
+    hidden, and on one tracker not even those. A bug filing gets no note.
+  out: >
+    PUTTING THE NOTE IN A COMMENT INSTEAD. It is not a safer home: comments are rendered into the
+    derivation prompt through the ticket-conversation section, so the note would reach a model by a
+    different door while gaining a second place to strip it from.
+    MAKING THE LABEL NAMES CONFIGURABLE. They are constants, and the stamp is the guard that fails
+    open — an installation that renames it silently loses the guard rather than loudly failing.
+    Named in prose as the phase that gives the framework's own labels a configured name and a
+    migration for the tickets already carrying the old one.
+    THE SLICE RECORD. It carries only the epic-record label, is refused by the project resolver
+    before every other rule and never reaches the stamp gate, so it has no labels to explain.
+    REWRITING TICKETS ALREADY FILED.
+
+decisions:
+  - key: |
+      THE SENTENCE STATES THE MECHANISM, BECAUSE TWO CUTS DIED STATING AN OUTCOME. Cut one said
+      changing the label reroutes the ticket; cut two said removing it stops the run. Both are false
+      on some projects, because the outcome depends on configuration the composer cannot see: with
+      pipeline-from-label the resolver hard-binds on the label; without it the project's own map may
+      match, or a declared default pipeline answers, or the undeclared fallback does, or nothing
+      matches and the ticket is dropped. "Binds the ticket to phase execution; without it the ticket
+      is routed by this project's own rules or dropped" is true on every one of those shapes.
+  - key: |
+      THE STRIP IS AT THE DOOR, NOT AT THE READERS, BECAUSE THE READERS ARE MORE THAN ANYONE COUNTS.
+      Cut three said three prompt readers and claimed all of them fence the description as untrusted
+      data. Both halves were wrong: the derivation prompt is a fourth, its acceptance-criteria read a
+      fifth path, and the CUT REVIEW prompt takes the ticket text with NO fence at all — the worst
+      possible reader, because it is the adversarial reviewer asked whether the ticket ever requested
+      this. Worse still, the whole-ticket spec fallback pins the entire description AS the ratified
+      phase markdown, so a leak there is not a prompt hazard, it is the specification. A per-reader
+      stripper is a list that goes stale; the fetch handler is a door that cannot.
+  - key: |
+      ONE MARKER PAIR, BECAUSE A HEADING MATCH IS FRAGILE EXACTLY WHERE IT MATTERS. The note is
+      wrapped in a marker pair the stripper cannot mistake, invisible on three of the four trackers
+      and visible on the fourth for the structural reason in the next decision. A heading match
+      would break the moment an operator edits the note's first line, and a broken match leaks. The
+      stronger reason is that the note's INNER content changes shape across the conversions below —
+      a heading becomes a heading element with a generated identifier — so a heading match would need
+      a third expression and would still have to anticipate that identifier, while a marker pair is
+      indifferent to everything between the markers. The literal is written here, not left to the
+      diff, because the renderer and the stripper live in different assemblies and read it as a
+      contract — the prompt delimiters are the precedent and they spell their strings out:
+        begin: <!-- agentsmith:note:begin - framework bookkeeping, removed before any model or pull request reads this ticket -->
+        end:   <!-- agentsmith:note:end -->
+      The begin marker explains itself, because on one tracker a person will read it — and THAT is
+      why the stripper matches only the stable identifier and tolerates any text between it and the
+      comment's close. Matching the whole literal, the way the prompt delimiters are matched, would
+      make the explaining sentence an editable first line: a Jira operator fixing a typo or
+      translating it would break the pair, and this decision's own argument against a heading match
+      would then apply to the marker itself. Only the identifier is the contract; the sentence after
+      it is display text. One constraint on rewording it: an HTML comment may not contain a double
+      hyphen, so the separator stays a single one or becomes a dash character.
+  - key: |
+      THREE ENCODINGS, NOT TWO — AND ON ONE OF THEM THE MARKER IS VISIBLE. Two trackers store the
+      description as the markdown we wrote. Azure DevOps converts it to HTML on create and hands it
+      back as HTML. Jira stores it as its own structured document format, one paragraph per line, and
+      hands that back parsed — the marker's literal characters round-trip through it unchanged, so
+      the strip works, but that format does NOT render HTML: it shows it as literal text. So a Jira
+      operator sees the delimiters around the note. That is accepted, and the reason there is no
+      hidden form to reach for is STRUCTURAL rather than incidental: the Jira renderer maps every
+      non-empty line to one plain text node, with no branch that could emit something the tracker
+      hides, and that document format has no comment node at all. A zero-width character run would be
+      invisible and is REFUSED — invisible control characters inside text an operator can edit make
+      the half-deleted-note case below undiagnosable. The cost of accepting is purely cosmetic: the
+      strip still works there, so no model sees the note on Jira either, and a visible delimiter
+      around a readable note beats no note for the operator who asked for this. A markdown-only
+      stripper would meanwhile leak the note on Azure DevOps, straight into the unfenced cut-review
+      prompt, which is the worst reader there is. The precedent for carrying more than one expression
+      is already here — the acceptance-criteria reader keeps an HTML one beside its markdown one.
+  - key: |
+      A HALF-DELETED NOTE IS LEFT ALONE, AND THAT IS AN ACCEPTED LEAK RATHER THAN A HANDLED CASE. An
+      operator can edit the body, so one marker can survive without its partner. The stripper takes
+      only a complete pair; an unrecognised remnant stays as ordinary ticket prose. It then reaches
+      every reader, and it also changes the fingerprint between runs, which reads as a ticket edit
+      and re-cuts the unstarted tail. Both consequences are stated rather than guessed at, because
+      the alternative — a stripper that removes the longest thing that looks like part of a note — is
+      a heuristic over operator text.
+  - key: |
+      RESUME IS A FOURTH DOOR AND IT IS SAFE ONLY BY AN INVARIANT, WHICH IS THEREFORE WRITTEN DOWN.
+      The ticket is checkpointed and restored on resume, and the fetch does NOT re-run — so a
+      restored context carries whatever was stored. It cannot carry an unstripped note only because
+      the writer and the stripper ship in the same commit. A later phase that backfills notes onto
+      tickets whose runs are parked must re-strip restored contexts, and that is named here rather
+      than discovered there.
+  - key: |
+      THE FETCHED-TICKET EVENT CARRIES THE STRIPPED TEXT, AND THAT IS A CHOICE. It is published after
+      the strip, so the dashboard's run card and the fetch step's drill-in show a description that
+      differs from the tracker's by one section. That is the right side of the trade: the operator
+      saw the note on the ticket, where the labels it explains also live.
+  - key: |
+      STRIPPING AT THE DOOR CHANGES THE FINGERPRINT, AND THAT IS THE BEHAVIOUR WE WANT. The
+      ticket-text fingerprint is taken over title, description and acceptance criteria. Stripped
+      first, the note never counts as a change to the ticket — which is right, because the framework
+      wrote it, and a ticket whose only edit is our own note has not been edited by anyone.
+  - key: |
+      THE NOTE IS BARE PROSE UNDER A HEADING, WHICH THE ACCEPTANCE READER STOPS AT. The criteria scan
+      breaks on any heading level and takes only marker lines, so a heading ends the scan and prose
+      cannot be mistaken for a criterion. A bulleted note under the same heading COULD be, which is
+      why the shape is stated here rather than left to a test to discover.
+  - key: |
+      THE WRITE GOES THROUGH THE RENDERER, BECAUSE THE FILERS CANNOT REACH THE BODY COMPOSER. The
+      body composer is internal to the application assembly and the filers live in the server
+      assembly, which is not in that assembly's internals list. So the renderer's entry points take
+      the note as an optional argument — the shape a nullable conversation argument already uses
+      there — rather than the filers threading a label set into a type they cannot see. The renderer
+      has five lines of room and the two entry points that get the note cost about two; the third,
+      the slice record's, gets none. The fetch handler sits
+      well under its own baseline, so the strip has room where it lands.
+  - key: |
+      THE STAMP SENTENCE SAYS WHAT REMOVAL COSTS, NOT THAT IT IS HARMLESS. Removing the stamp changes
+      nothing while the approved record lives, because the record is keyed on the spec-set key and the
+      tracker and the approved source is consulted before the gate. Saying so would read as an
+      invitation to delete the one guard that fails open. The note says what it protects instead.
+  - key: |
+      A BUG FILING HAS NO LABELS TO EXPLAIN. It is filed with an empty label set and its body is a
+      description and optional criteria. A note about labels it does not carry would be false.
+
+steps:
+  - id: the-note-is-written
+    action: "The phase renderer's entry points take an optional note; a filed phase ticket and an epic work ticket carry it as bare prose under its own heading."
+  - id: the-note-is-stripped-at-the-door
+    action: "FetchTicketHandler strips the note at all three sites that publish ticket-origin description text — the two that publish the ticket and the one that publishes the epic ground."
+  - id: nothing-downstream-knows-about-it
+    action: "No prompt composer, spec source, fallback or pull-request body gains a strip of its own."
+
+tests:
+  - "Filing_APhaseTicket_CarriesTheNoteAsProseUnderItsOwnHeading"
+  - "Filing_TheEmittedNote_IsWrappedInTheMarkerPairTheStripperLooksFor"
+  - "Filing_ABugTicket_CarriesNoNote"
+  - "Fetch_ATicketCarryingTheNote_PublishesADescriptionWithoutIt"
+  - "Fetch_AnAzureDevOpsTicketWhoseBodyIsHtml_IsStrippedToo"
+  - "Fetch_AJiraTicketWhoseBodyRoundTrippedThroughItsDocumentFormat_IsStrippedToo"
+  - "Fetch_AnEpicParentCarryingTheNote_PublishesAGroundWithoutIt"
+  - "Fetch_ANoteMissingOneMarker_IsLeftAloneAsOrdinaryProse"
+  - "Fetch_ABeginMarkerWhoseSentenceWasEdited_IsStillStripped"
+  - "Fetch_ATicketWithoutTheNote_IsPublishedUnchanged"
+  - "Prompts_TheMasterTheClassifierTheDerivationTheCutReviewAndTheEpicGround_DoNotSeeTheNote"
+  - "Fallback_TheWholeTicketSpec_DoesNotCarryTheNote"
+  - "PullRequest_TheBody_DoesNotCarryTheNote"
+  - "Fingerprint_TheNote_DoesNotCountAsATicketChange"
+  - "Criteria_TheNoteUnderItsHeading_IsNotReadAsAnAcceptanceCriterion"
+
+done:
+  - "an operator reading a filed ticket learns what its labels bind and what removing the stamp costs"
+  - "no model and no pull request ever sees the note, because every site that publishes ticket text strips it"
+  - "the note does not make the ticket look edited"
+  - "build green, full suite green, file-length ratchet green"
