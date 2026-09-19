@@ -663,6 +663,11 @@ export interface SandboxSetting {
   agentVersion: string;
   stepTimeoutSeconds: number;
   runCommandTimeoutSeconds: number;
+  /** 2026-09-18-0f27: the Docker concurrent-sandbox bound. NULL means nobody
+   *  configured it, which is what keeps SANDBOX_MAX_CONCURRENT reachable as the
+   *  fallback; 0 means unbounded. The read returns null, and clearing the field
+   *  emits null so the fallback is restored rather than a zero being stored. */
+  maxConcurrentSandboxes: number | null;
 }
 
 export interface QueueSetting {

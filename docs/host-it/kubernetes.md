@@ -109,6 +109,8 @@ spec:
 
 No `limits.*` keys: limits stay on the pods purely as the OOM guard, they no longer count against capacity. The `pods` key is the deterministic backpressure knob — the Kubernetes analog of Docker's `max_concurrent_sandboxes`.
 
+That analogy is the whole relationship: `max_concurrent_sandboxes` in the `sandbox:` settings (`maxConcurrentSandboxes` on the wire and in the dashboard, `MaxConcurrentSandboxes` in the stored document and the C# model, `SANDBOX_MAX_CONCURRENT` as the environment-variable fallback for an empty store) is read by the **Docker** capacity probe only. Here it does nothing — this quota is what bounds your sandboxes. See [where the bound is set](../reference/operations/capacity.md#where-the-concurrent-sandbox-bound-is-set).
+
 Two warnings:
 
 - **Keep requests honest, not minimal.** Node-pressure eviction kills Burstable pods ranked by usage-above-request first. A build sandbox declared at 512Mi that peaks at 3–4Gi during `dotnet build` is the prime eviction victim — that resurrects the "sandbox vanished" failure class. The build-sandbox default stays at a 1Gi request with a 4Gi limit as the OOM guard.

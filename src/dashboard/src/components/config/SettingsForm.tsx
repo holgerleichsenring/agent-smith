@@ -121,14 +121,22 @@ function OrchestratorForm({
   );
 }
 
+// 2026-09-18-0f27: every sandbox setting but the concurrent-sandbox bound is read from
+// an options instance built once at startup, so the form says per field which of the two
+// it is rather than leaving the operator to learn one rule that is no longer uniform.
+const AFTER_RESTART = "applies after a server restart";
+const NEXT_DECISION = "applies to the next capacity decision, no restart";
+
 function SandboxForm({ value, onChange }: { value: SandboxSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
   return (
     <>
       <TextField label="Agent registry" value={value.agentRegistry} onChange={(v) => set({ agentRegistry: v })}
-        mono testId="setting-sandbox-registry" help="the registry the sandbox agent image is pulled from" />
+        mono testId="setting-sandbox-registry"
+        help={`the registry the sandbox agent image is pulled from — ${AFTER_RESTART}`} />
       <TextField label="Agent version" value={value.agentVersion} onChange={(v) => set({ agentVersion: v })}
-        mono placeholder="0.48.0" testId="setting-sandbox-version" help="sandbox agent image tag" />
+        mono placeholder="0.48.0" testId="setting-sandbox-version"
+        help={`sandbox agent image tag — ${AFTER_RESTART}`} />
       {/* p0495: the pair is one rule, said once, above the two fields it governs. */}
       <p className="help" data-testid="setting-sandbox-timeouts-note">
         A run_command gets the default when it asks for no timeout, may ask for more, and is
@@ -136,10 +144,24 @@ function SandboxForm({ value, onChange }: { value: SandboxSetting; onChange: (v:
       </p>
       <NumberField label="Step timeout (seconds)" value={value.stepTimeoutSeconds}
         onChange={(v) => set({ stepTimeoutSeconds: keep(v, value.stepTimeoutSeconds) })} testId="setting-sandbox-step"
-        help="per-sandbox-step wall-time cap — the ceiling a run_command may ask for" />
+        help={`per-sandbox-step wall-time cap — the ceiling a run_command may ask for — ${AFTER_RESTART}`} />
       <NumberField label="Run-command timeout (seconds)" value={value.runCommandTimeoutSeconds}
         onChange={(v) => set({ runCommandTimeoutSeconds: keep(v, value.runCommandTimeoutSeconds) })} testId="setting-sandbox-runcmd"
-        help="what an agent run_command gets when it asks for none; never above the step cap" />
+        help={`what an agent run_command gets when it asks for none; never above the step cap — ${AFTER_RESTART}`} />
+      {/* 2026-09-18-0f27: the one sandbox setting that is live, and the two backends
+          it does nothing for. Said next to the field, because "everything here needs
+          a restart" stopped being true of this form the moment this field arrived. */}
+      <p className="help" data-testid="setting-sandbox-bound-note">
+        The concurrent-sandbox bound applies to the Docker backend only. A Kubernetes
+        installation bounds sandboxes through its namespace ResourceQuota and the in-process
+        backend is unbounded — on either, this number does nothing. Left empty it falls back to
+        the SANDBOX_MAX_CONCURRENT environment variable, and then to the built-in default of 2;
+        0 means unbounded.
+      </p>
+      <NumberField label="Max concurrent sandboxes" value={value.maxConcurrentSandboxes ?? undefined}
+        onChange={(v) => set({ maxConcurrentSandboxes: v ?? null })} testId="setting-sandbox-maxconcurrent"
+        placeholder="2"
+        help={`sandbox containers one Docker host runs at once — ${NEXT_DECISION}`} />
     </>
   );
 }

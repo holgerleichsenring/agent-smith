@@ -1,5 +1,7 @@
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
 using Docker.DotNet.Models;
@@ -181,9 +183,7 @@ public sealed class CapacityProbeTests
     public async Task DockerCapacityProbe_AtCap_ReportsNoCapacity()
     {
         var docker = DockerWithRunningSandboxes(count: 2);
-        var probe = new DockerCapacityProbe(
-            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
-            NullLogger<DockerCapacityProbe>.Instance);
+        var probe = ProbeBoundedAt(docker, bound: 2);
 
         (await probe.HasCapacityAsync(Footprint(), CancellationToken.None))
             .Admitted.Should().BeFalse();
@@ -193,9 +193,7 @@ public sealed class CapacityProbeTests
     public async Task DockerCapacityProbe_BelowCap_Admits()
     {
         var docker = DockerWithRunningSandboxes(count: 1);
-        var probe = new DockerCapacityProbe(
-            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
-            NullLogger<DockerCapacityProbe>.Instance);
+        var probe = ProbeBoundedAt(docker, bound: 2);
 
         (await probe.HasCapacityAsync(Footprint(), CancellationToken.None))
             .Admitted.Should().BeTrue();
@@ -207,9 +205,7 @@ public sealed class CapacityProbeTests
         // p0320b: 1 running, cap 3 — a run needing 2 sandboxes fits (1+2<=3), a run
         // needing 3 does not (1+3>3).
         var docker = DockerWithRunningSandboxes(count: 1);
-        var probe = new DockerCapacityProbe(
-            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 3 },
-            NullLogger<DockerCapacityProbe>.Instance);
+        var probe = ProbeBoundedAt(docker, bound: 3);
 
         var twoRepoRun = new RunFootprint(null, [SandboxSize(), SandboxSize()]);
         (await probe.HasCapacityAsync(twoRepoRun, CancellationToken.None))
@@ -233,9 +229,7 @@ public sealed class CapacityProbeTests
             .Callback((ContainersListParameters p, CancellationToken _) => asked = p)
             .ReturnsAsync((IList<ContainerListResponse>)[]);
         docker.SetupGet(d => d.Containers).Returns(ops.Object);
-        var probe = new DockerCapacityProbe(
-            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 2 },
-            NullLogger<DockerCapacityProbe>.Instance);
+        var probe = ProbeBoundedAt(docker, bound: 2);
 
         await probe.HasCapacityAsync(Footprint(), CancellationToken.None);
 
@@ -248,9 +242,7 @@ public sealed class CapacityProbeTests
     {
         // No Docker call should even be needed — cap 0 short-circuits to admit.
         var docker = new Mock<IDockerClient>(MockBehavior.Strict);
-        var probe = new DockerCapacityProbe(
-            docker.Object, Query, new DockerSandboxOptions { MaxConcurrentSandboxes = 0 },
-            NullLogger<DockerCapacityProbe>.Instance);
+        var probe = ProbeBoundedAt(docker, bound: 0);
 
         (await probe.HasCapacityAsync(Footprint(), CancellationToken.None))
             .Admitted.Should().BeTrue();
@@ -278,6 +270,19 @@ public sealed class CapacityProbeTests
                 Used = used.ToDictionary(kv => kv.Key, kv => new ResourceQuantity(kv.Value)),
             },
         };
+
+    // 2026-09-18-0f27: the bound left the eagerly-built Docker options — the probe now
+    // resolves it through the configuration loader at the moment it decides. Where these
+    // cases are about the COUNTING, the loader simply names the bound they were written for.
+    private static DockerCapacityProbe ProbeBoundedAt(Mock<IDockerClient> docker, int bound)
+    {
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(
+            new AgentSmithConfig { Sandbox = new SandboxGlobalConfig { MaxConcurrentSandboxes = bound } });
+        return new DockerCapacityProbe(
+            docker.Object, Query, loader.Object, new ServerContext("agentsmith.yml"),
+            NullLogger<DockerCapacityProbe>.Instance);
+    }
 
     private static Mock<IDockerClient> DockerWithRunningSandboxes(int count)
     {

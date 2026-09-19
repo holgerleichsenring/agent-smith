@@ -28,6 +28,7 @@ const FIXTURES: Record<string, unknown> = {
     agentVersion: "0.48.0",
     stepTimeoutSeconds: 900,
     runCommandTimeoutSeconds: 300,
+    maxConcurrentSandboxes: 4,
   },
   limits: {
     maxToolCallsPerSkill: 30,
@@ -176,6 +177,45 @@ describe("SettingsStudio", () => {
       "sandbox",
       expect.objectContaining({ runCommandTimeoutSeconds: 900, stepTimeoutSeconds: 900 }),
     );
+  });
+
+  // 2026-09-18-0f27: the concurrent-sandbox bound is edited where the other sandbox
+  // settings are. Clearing it must emit null, not 0 and not the loaded value — null is
+  // what restores the SANDBOX_MAX_CONCURRENT fallback, and 0 already means unbounded.
+  it("SandboxSettings_TheBound_IsCarried_EmitsNullWhenCleared_AndNamesTheBackendsItBounds", async () => {
+    render(<SettingsStudio settingKey="sandbox" />);
+    const bound = await screen.findByTestId("setting-sandbox-maxconcurrent");
+    expect(bound).toHaveValue(4);
+
+    // The note says which backends the number does nothing for, and what an empty
+    // field falls back to.
+    const note = screen.getByTestId("setting-sandbox-bound-note");
+    expect(note).toHaveTextContent(/Docker backend only/);
+    expect(note).toHaveTextContent(/Kubernetes/);
+    expect(note).toHaveTextContent(/in-process/);
+    expect(note).toHaveTextContent(/SANDBOX_MAX_CONCURRENT/);
+
+    fireEvent.change(bound, { target: { value: "" } });
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith(
+      "sandbox",
+      expect.objectContaining({ maxConcurrentSandboxes: null, stepTimeoutSeconds: 900 }),
+    );
+  });
+
+  // One field live and the rest not is a split, so the form says which is which — a
+  // uniform "nothing applies until a restart" would now be a lie about one row.
+  it("SandboxSettings_SaysWhichOfItsSettingsNeedARestart", async () => {
+    render(<SettingsStudio settingKey="sandbox" />);
+    await screen.findByTestId("setting-sandbox-maxconcurrent");
+
+    const restartHelp = screen.getAllByText(/applies after a server restart/);
+    // The agent registry, the agent version and the two timeouts.
+    expect(restartHelp).toHaveLength(4);
+    expect(
+      screen.getByText(/applies to the next capacity decision, no restart/),
+    ).toBeInTheDocument();
   });
 
   it("RegistriesForm_AddsAndEditsAFeed", async () => {

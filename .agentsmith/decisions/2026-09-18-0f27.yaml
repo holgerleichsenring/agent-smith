@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-18-0f27
+
+decisions:
+  - category: Architecture
+    chose: "The bound is a NULLABLE field of the process-wide sandbox config, under the documented name max_concurrent_sandboxes"
+    over: "A plain int defaulting to 2, the way the Docker options field was shaped"
+    alternatives:
+      - "Zero as the absent marker — rejected: zero already means unbounded to the probe and is pinned by a test, so an operator disabling the bound would silently get 2."
+      - "A per-project bound — rejected: the probe counts a HOST and the footprint it compares carries no project identity, so two projects disagreeing has no answer."
+    reason: |
+      The typed model is assembled whether or not a sandbox document was ever stored, so a
+      plain int reads the same for "never configured" and "deliberately two". The environment
+      variable could then never be reached and its test could not pass. Null is the shape every
+      per-project sandbox field already uses.
+
+  - category: Implementation
+    chose: "The old DockerSandboxOptions.MaxConcurrentSandboxes field and its env-var merge are REMOVED, not left beside the new one"
+    over: "Keeping the eagerly-built field as a second source the probe prefers the catalog over"
+    reason: |
+      Two fields with one name is how a setting starts disagreeing with itself: the options
+      instance is built once at composition while the catalog value is read per decision, so the
+      pair could never be made to agree. Five existing probe tests constructed those options
+      directly and moved to a stub loader in the same edit — that is the whole cost. The probe's
+      class documentation cited the removed field with a cref and is rewritten; left alone it
+      would have become a CS1574 warning.
+
+  - category: Architecture
+    chose: "The probe takes IConfigurationLoader plus ServerContext and resolves catalog -> SANDBOX_MAX_CONCURRENT -> built-in default 2 on every decision"
+    over: "An IOptions<SandboxGlobalConfig> snapshot, which is what freezes the rest of the sandbox block"
+    alternatives:
+      - "A config-epoch subscription or a watcher — rejected: the loader is already live, so a second mechanism would only add a way to miss a change."
+      - "Threading the config path as a primitive — rejected: it would change two registration signatures that have no reason to know it."
+    reason: |
+      IOptions<SandboxGlobalConfig> is a singleton factory resolved lazily and cached. The LOADER
+      under it re-assembles from the document store on every call, with a fresh scope each time,
+      which the capacity pump already relies on. ServerContext is registered first in
+      ServerCompositionBuilder.ConfigureServices and is how AddSandboxGlobalConfig already reaches
+      the path, so both dependencies resolve everywhere the probe is composed — including the
+      composition harness, which composes the REAL probe on any machine with a docker socket.
+
+  - category: Implementation
+    chose: "The settings form emits an EXPLICIT null when the field is cleared; the wire type is number | null"
+    over: "Letting the control's undefined ride the patch and asserting the key is OMITTED from the request body"
+    reason: |
+      Both land as null in C#, because a save binds the client's payload onto a fresh scratch
+      object and reads the whole value back. Absence is the accidental behaviour of JSON.stringify
+      dropping undefined, and a test asserting it would pin the serializer rather than the intent.
+      An explicit null says "nobody configures this" where a reader of the request can see it. The
+      field's type admits the null the read returns.
+
+  - category: TradeOff
+    chose: "The form marks liveness PER FIELD: four settings say they apply after a restart, the bound says it applies to the next capacity decision"
+    over: "One banner over the whole form, or saying nothing"
+    reason: |
+      Seven types take the frozen options instance, so one live field replaces a uniform,
+      learnable rule with one that differs per row — a banner would have to be false about one row
+      or the other. A note beside the bound also names the two backends it does NOTHING for: a
+      Kubernetes installation bounds sandboxes through its namespace quota and the in-process
+      backend is unbounded, so an unqualified number is a new way to be misled.
+
+  - category: Implementation
+    chose: "The resolved value and its source are logged once, from an instance field on the singleton probe, and again only when the resolution changes"
+    over: "Logging every decision, or one line at startup"
+    reason: |
+      A bound that did not take effect is otherwise unanswerable — the catalog, the variable and
+      the default all look alike in a line printing only a number, so the source travels with the
+      value. Per-decision logging buries it; a startup line cannot report a change that happens
+      without a restart. The state is an instance field on a singleton, which the no-statics rule
+      does not reach, and its test drives SEQUENTIAL calls because three call sites can probe at
+      once and a naked comparison would report twice on a simultaneous first decision.
+
+  - category: Scope
+    chose: "Init_RefusedForCapacity_NamesTheResolvedBound drives the REAL Docker probe through the init endpoint"
+    over: "Asserting only that the reason is logged, and calling the operator-facing surface future work"
+    reason: |
+      The reason is dropped on the spawn path and in the mid-run escalation, and the capacity
+      queue never asks the probe at all — but the manual init returns it verbatim as the refusal
+      body. The probe already writes the bound into its own sentence, so the surface exists
+      whether or not anybody tests it; leaving it untested would have scoped out work already done.
+
+  - category: Tooling
+    chose: "The new bound cases live in their own class marked [Collection(EnvVarCollection.Name)]"
+    over: "Adding them to CapacityProbeTests, which carries no [Collection] today"
+    reason: |
+      Two of them mutate a process-global variable. Added blind they pass alone and flake under
+      parallelism — which a done criterion reading "full suite green" would satisfy intermittently.
+      A separate class keeps the serialisation scoped to the cases that need it instead of
+      serialising the Kubernetes quota arithmetic along with them.
