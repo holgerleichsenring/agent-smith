@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
@@ -141,7 +142,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
 
     private static BootstrapRoundHandler NewHandler(CapturedPrompt captured) => new(
         new PromptCapturingFactory(new CapturingChatClient(captured)),
-        new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+        new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new SandboxFileReaderFactory(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
         BootstrapReaderStubs.NullMetaFiles(),
         PrinciplesTransferStubs.NoTemplates(),
         new BootstrapContextWriteVerdict(),

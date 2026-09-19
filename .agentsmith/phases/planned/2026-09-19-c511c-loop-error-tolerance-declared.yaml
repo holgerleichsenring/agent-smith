@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-19-c511c
+
+goal: "How many failing tool calls a master survives, and how much of the failure the model gets to read, are declared by this product instead of inherited from a framework default."
+
+applies_to: "backend (the chat client factory's function-invocation configuration and the tests that pin it)"
+
+requires:
+  - 2026-09-19-c511b
+
+scope:
+  in: >
+    ChatClientFactory.cs:177 configures MaximumIterationsPerRequest and nothing else, so
+    MaximumConsecutiveErrorsPerRequest (default 3) and IncludeDetailedErrors (default false) are
+    whatever Microsoft.Extensions.AI happens to ship. Both are set deliberately, with a stated number
+    and a stated reason, and tests pin them — including what happens at the limit, which is a rethrow
+    that ends the master.
+  out: >
+    A DECORATOR IN THE TOOL CHAIN. The first cut of this phase proposed one for
+    SkillCallRuntime.WrapTools (:151-157); the adversarial review of 2026-09-19 found the framework
+    already converts a tool throw into an error result the model reads and continues on, up to the
+    limit. A decorator would re-implement middleware that is already in the pipeline and already has
+    the two knobs.
+    THE TWO LOCAL ANSWERS. FilesystemToolHost's routing errors (p0259b) and the decision sink
+    (2026-09-19-c511b) keep their own handling: a tool that knows its failure is recoverable should say
+    so in its result rather than spend one of the loop's lives.
+    RAISING THE LIMIT TO BUY TOLERANCE FOR A BROKEN TOOL. The number answers "how many consecutive
+    failures mean the loop is stuck", not "how long may a broken sink keep failing".
+
+decisions:
+  - key: |
+      THE DEFAULT WAS LOAD-BEARING AND NOBODY CHOSE IT. MaximumConsecutiveErrorsPerRequest defaults to
+      3 and rethrows the exception to the caller on the next one (Microsoft.Extensions.AI 10.3.0, the
+      property's own documentation); ChatClientFactory.cs:177 sets only the iteration cap, and
+      ReplayChatClientFactory.cs:29 mirrors it. That number is what decided that run
+      2026-09-17T14-41-51-a3e2 died on its fourth log_decision rather than its first — the three
+      rewordings in its decision list are the three lives the framework gave it. A number with that
+      much consequence belongs in this product's configuration, next to the iteration cap.
+  - key: |
+      IncludeDetailedErrors IS SET NOWHERE, SO THE MODEL DEBUGS BLIND. It is false by default, which
+      means the model was told a tool failed and never that the path was denied. A model asked to work
+      around a failure it cannot see can only reword, which is what it did. The phase decides whether
+      the detail is worth the prompt characters and the leak surface, and records the answer either way.
+  - key: |
+      THE LIMIT MUST STILL BE REACHABLE, OR A STUCK LOOP RUNS UNTIL THE BUDGET STOPS IT.
+      SkillCallRuntime.cs:134 already turns the rethrow into a classified failure rather than a crash,
+      so the end of the loop is an outcome, not a fault. The tests pin that the limit still ends the
+      master, and that cancellation and MasterBudgetExhaustedException (MasterLoopHooks.cs:62) reach the
+      handler unchanged.
+  - key: |
+      NOT THIS SERIES' PRICE. c511a and c511b remove the failure the run actually hit; this changes how
+      EVERY tool failure is handled in every master, which is a wider blast radius than one run should
+      buy on its own.
+
+steps:
+  - id: the-number
+    action: "MaximumConsecutiveErrorsPerRequest is set explicitly at the function-invocation configuration, with the reason for the number in the code."
+  - id: the-detail
+    action: "IncludeDetailedErrors is decided explicitly and set, with the reason recorded."
+  - id: the-replay-path
+    action: "The replay factory carries the same configuration, so a replayed run fails where a live one does."
+  - id: the-pins
+    action: "Tests pin both values, the rethrow at the limit, and that cancellation and budget exhaustion still reach the handler."
+
+tests:
+  - "FunctionInvocation_ConsecutiveErrorLimit_IsTheValueThisProductDeclares"
+  - "FunctionInvocation_DetailedErrors_AreTheValueThisProductDeclares"
+  - "ReplayFactory_CarriesTheSameErrorConfigurationAsTheLiveFactory"
+  - "ToolThrow_BelowTheLimit_ReachesTheModelAndTheLoopGoesOn"
+  - "ToolThrow_AtTheLimit_EndsTheMasterAsAClassifiedFailure"
+  - "ToolThrow_Cancellation_StillStopsTheRun"
+  - "ToolThrow_MasterBudgetExhausted_StillStopsTheRunCleanly"
+
+done:
+  - "the number of tool failures a master survives is a decision of this product, written down with its reason"
+  - "what a model is told about a failed tool is a decision of this product, written down with its reason"
+  - "the limit still ends the loop, and the failures that must stop a run still stop it"

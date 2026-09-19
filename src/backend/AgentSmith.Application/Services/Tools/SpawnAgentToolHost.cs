@@ -178,7 +178,7 @@ public sealed class SpawnAgentToolHost : IToolHost
                     ? $" — {r.FailureReason}"
                     : string.Empty)));
         await _decisionLogger.LogAsync(
-            "/work", DecisionCategory.Implementation,
+            repositoryFiles: null, DecisionCategory.Implementation,
             $"Spawned {ranSpecs.Count} sub-agents: {summary}", ct);
     }
 }

@@ -22,7 +22,7 @@ public sealed class RegistryAuthFailureReporter(
         logger.LogWarning(
             "{Repo}: registry auth NOT staged for host {Host}: {Reason}", repoKey, host, reason);
         await decisionLogger.LogAsync(
-            repoPath: null, DecisionCategory.Tooling,
+            repositoryFiles: null, DecisionCategory.Tooling,
             $"registry auth NOT staged for host {host}: {reason}", ct, SourceLabel);
     }
 }
