@@ -40,6 +40,7 @@ public static class ContextBuildersExtensions
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);
         AddBuilder<LoadCachedCodeMapContextBuilder>(services, CommandNames.LoadCachedCodeMap);
+        AddBuilder<GroundSpecDialogContextBuilder>(services, CommandNames.GroundSpecDialog); // 4c1f
         AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);
         AddBuilder<WriteRunResultContextBuilder>(services, CommandNames.WriteRunResult);
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);

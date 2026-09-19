@@ -39,6 +39,7 @@ public static partial class CommandDisplayNames
         [CommandNames.AgenticExecute] = "Execute plan",
         [CommandNames.AgenticMaster] = "Run master skill",
         [CommandNames.LoadCachedCodeMap] = "Load cached code map",
+        [CommandNames.GroundSpecDialog] = "Ground the design conversation",
         [CommandNames.CollectSpecDialogReply] = "Collect design reply",
         [CommandNames.PhaseSpecGate] = "Validate phase spec",
         [CommandNames.MasterOpenQuestions] = "Post master open questions",
