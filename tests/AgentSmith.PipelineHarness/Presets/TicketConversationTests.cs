@@ -141,8 +141,8 @@ public sealed class TicketConversationTests
                     [0x89, 0x50, 0x4E, 0x47]),
             ]);
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+            Task.FromResult(TicketFinalizeResult.Moved());
     }
 }

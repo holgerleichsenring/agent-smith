@@ -120,7 +120,7 @@ function Conversation({
         {conversation.title ?? `untitled ${conversation.sessionId}`}
       </span>
       <span className="ec-marks ec-sub items-center">
-        <span className="ec-mark">{conversation.project}</span>
+        <span className="ec-mark given">{conversation.project}</span>
         <span>
           {conversation.turns} turn{conversation.turns === 1 ? "" : "s"}
         </span>

@@ -94,7 +94,15 @@ export function SpecDialogSurface() {
                   entries={dialog.entries}
                   onInspect={(proposal) => setFocus({ tab: "proposal", proposal })}
                 />
-                {dialog.awaiting && <DialogWorking readings={dialog.readings} activity={dialog.activity} />}
+                {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
+                    so a page arriving mid-turn is not shown a conversation that looks over. */}
+                {dialog.working && (
+                  <DialogWorking
+                    readings={dialog.readings}
+                    activity={dialog.activity}
+                    since={dialog.workingSince}
+                  />
+                )}
                 {dialog.question && (
                   <DialogQuestionCard
                     question={dialog.question}

@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-2f8b
+
+goal: "A page arriving at a conversation whose turn is computing shows what it is doing, and the working line reads as alive without depending on motion."
+
+applies_to: "backend (the turn runner, the turn gate, the dialog view) + dashboard (the hook, the working line)"
+
+requires:
+  - 2026-09-17-042ee
+  - 2026-09-17-c7aec
+
+scope:
+  in: >
+    The per-turn scope that already exists in the turn runner keeps three more things: that a turn is
+    computing, when it started, and the steps it has reported with a sequence that restarts each turn.
+    The dialog view returns them, and the page uses them to render the working line for a reader who
+    did NOT post the message — added to what it already shows the poster, never replacing it. Live
+    pushes carry the same sequence, so the read and the pushes merge in both directions without
+    collapsing two identical steps. Computing is false whenever the session has a question pending,
+    so a turn waiting on a person is never shown as thinking. The working line carries the step count
+    and the seconds since the turn started, both changing and neither behind a motion variant.
+  out: >
+    THE REPOSITORIES A TURN OPENED. They arrive on a different channel with no state and are upserted
+    by repository name, not appended in order; keeping them is a phase of its own, named in prose as
+    the phase that lets an arriving page see which repositories the running turn has opened.
+    DURABLE STORAGE. Nothing here touches the session row: no migration, no startup clear, no write
+    on the step path.
+    SURVIVING A RESTART OR REACHING A SECOND REPLICA. Stated in decisions, not solved.
+    THE ACTIVITY OF A FINISHED TURN. Its outcome is the transcript, the proposal and the filing.
+
+decisions:
+  - key: |
+      THE PAGE THAT POSTED MUST NOT GO DARK. No read is issued after a post — the hook posts and sets
+      its own awaiting flag, and the next read happens when the reply lands, which is after the turn.
+      So a page that renders the working line only from the view would show nothing for the whole turn
+      it just started, which is the defect this phase exists to remove. The view's computing flag is
+      ADDED to the local flag, never substituted, and the view is read on arrival, which is the case
+      this phase is for.
+  - key: |
+      COMPUTING IS FALSE WHILE A QUESTION IS PENDING, AND THE ASK IS THE UNBOUNDED ONE. A design turn's
+      own question blocks inside the turn's execution and its wait has no deadline at all — it ends
+      when the person answers. A flag set around "the computation" would therefore be true for that
+      whole wait, rendering "Working it out…" beside the card asking the person to answer. The view
+      answers computing only when the gate says so AND no question is pending for that session.
+  - key: |
+      THE HOME IS THE TURN RUNNER, BECAUSE THE ROUTER MAY NOT GROW. The router is at its ratchet
+      baseline exactly and may only shrink. The runner is under the hard limit with room, and it is
+      already where the per-turn observer scope is opened and closed — the same lifetime, the same
+      boundary, the same `using`. The flag, the start instant and the sequence reset live there; the
+      router is not touched.
+  - key: |
+      THE GATE IS KEYED BY SESSION AND THE REPORTER KNOWS ONLY THE DIALOG ID. The two identifiers are
+      disjoint by construction. So the per-turn state is held by the observer the runner already
+      constructs from the session's own state, and the sequence is allocated there; the gate is
+      addressed by session id from the runner, never from the reporting site.
+  - key: |
+      THE SEQUENCE IS THE MERGE KEY, AND VALUE MATCHING WOULD BREAK THE FEATURE. The activity push
+      carries a wall clock and nothing else; the page orders by array position, which shifts as its
+      window slides. Merging by value would collapse two identical tool calls in one turn into one —
+      corrupting the step count, which is the non-motion liveness cue this phase adds. A read landing
+      after a push must also not drop it, so the merge is by sequence in both directions.
+  - key: |
+      THE PAGE KEEPS ITS OWN BOUND OVER THE MERGED LIST. Its kept count exists because a long turn in
+      a tab someone leaves open would otherwise grow without limit; a server-side bound does not bound
+      the client array. The page stops trimming what it READ and keeps trimming the merged whole.
+  - key: |
+      ELAPSED SECONDS REVERSE 2026-09-17-c7aed, WHICH DECIDED THERE WOULD BE NONE BECAUSE NOTHING
+      MEASURED ONE. This phase makes that false by keeping the start instant. The view returns the
+      seconds elapsed at read time and the page counts up from there, so no two clocks are differenced
+      and a skewed browser cannot show a negative. The gate takes the injected time source, as its
+      sibling already does, so no assertion here waits on a real clock.
+  - key: |
+      THE MOTION GUARD STAYS; WHAT WAS MISSING IS A SECOND CUE. The convention is right — the defect is
+      that motion was the ONLY sign of life, so a reader who asked for less motion was left with a
+      static ring. The count and the seconds render unconditionally. Under jsdom a media variant is not
+      observable, so the test advances a fake clock and asserts the rendered text changed.
+  - key: |
+      THE TICKER LIVES IN THE LEAF. A per-second interval in the hook would re-render the whole
+      surface — transcript, panes, filed work — once a second for the length of a turn. It lives in the
+      working line, which is a small component, and stops when that unmounts.
+  - key: |
+      TWO REPLICAS, STATED. There is no backplane, and a page served by the replica that is not running
+      the turn learns nothing new. Because the local flag remains the floor, that page behaves exactly
+      as it does today rather than gaining a confident "not computing".
+
+steps:
+  - id: the-runner-keeps-it
+    action: "The turn runner's per-turn scope keeps computing, the start instant and the reported steps with a per-turn sequence, set and cleared in a finally around the computation."
+  - id: the-steps-carry-a-sequence
+    action: "The activity push and the kept step carry the sequence, allocated on the per-turn observer."
+  - id: the-view-carries-it
+    action: "The dialog view returns computing, elapsed seconds and the kept steps, under its existing owner check; computing is false while a question is pending."
+  - id: the-page-adds-it
+    action: "The surface renders the working line from the local flag OR the view's, merges read and pushed steps by sequence in both directions, and keeps its own bound over the merged list."
+  - id: the-line-is-alive-without-motion
+    action: "The working line renders the step count and a per-second counter of elapsed seconds, in the leaf component, neither behind a motion variant."
+
+tests:
+  - "TurnRunner_WhileComputing_TheGateSaysSo"
+  - "TurnRunner_TurnThatThrew_IsNoLongerComputing"
+  - "TurnRunner_AcrossTheApprovalWait_IsNotComputing"
+  - "TurnRunner_Steps_CarryASequenceThatRestartsEachTurn"
+  - "View_ComputingTurn_IsOnTheViewForAPageThatDidNotPostIt"
+  - "View_TurnBlockedOnAQuestion_IsNotComputing"
+  - "View_ComputingTurn_CarriesElapsedSecondsFromTheInjectedTimeSource"
+  - "View_NoTurn_ReadsAsNotComputingWithNoSteps"
+  - "dashboard: arriving during a computing turn shows the working line and its steps"
+  - "dashboard: the page that posted keeps its working line when the view says nothing"
+  - "dashboard: a step that was read and then pushed is shown once"
+  - "dashboard: a step pushed while the read was in flight is not lost"
+  - "dashboard: two identical steps in one turn are shown as two"
+  - "dashboard: advancing the clock changes the elapsed counter and the step count"
+  - "dashboard: a turn waiting on a question shows no working line"
+
+done:
+  - "leaving Work it out during a computing turn and coming back shows what it is doing"
+  - "the page that started the turn still shows it, exactly as before"
+  - "a reader with reduced motion sees the line change"
+  - "a turn waiting on a person is not shown as thinking"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"

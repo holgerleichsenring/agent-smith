@@ -96,7 +96,7 @@ public static class ParkedTicketFixture
             CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus,
             CancellationToken cancellationToken) => throw new NotSupportedException();
     }

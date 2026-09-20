@@ -90,6 +90,7 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
   return {
     dialogId: "d-1",
     question: null,
+    turn: { computing: false, elapsedSeconds: 0, steps: [], turnStartedAt: null },
     session: {
       sessionId: "s-1",
       scope: SAMPLE_SCOPE,
@@ -143,6 +144,24 @@ function proposal(overrides: Partial<SpecDialogProposalPush> = {}): SpecDialogPr
     children: [],
     at: "2026-09-15T10:03:00Z",
     findings: [],
+    ...overrides,
+  };
+}
+
+/** 2026-09-18-2f8b: the running turn's identity, and a later one for the turn after it. */
+const TURN = "2026-09-18T10:00:00Z";
+const NEXT_TURN = "2026-09-18T10:05:00Z";
+
+/** 2026-09-18-2f8b: one step of a running turn, read or pushed — the two carry one shape. */
+function step(overrides: Partial<SpecDialogActivityPush> = {}): SpecDialogActivityPush {
+  return {
+    dialogId: "d-1",
+    kind: "tool",
+    name: "read_file",
+    detail: "repo-a/src/A.cs",
+    at: "2026-09-18T10:00:00Z",
+    seq: 1,
+    turnStartedAt: TURN,
     ...overrides,
   };
 }
@@ -546,6 +565,42 @@ describe("SpecDialogSurface", () => {
     expect(loose.textContent).not.toContain("@");
   });
 
+  // 2026-09-18-e63d: a project, a repository and a template are all NAMED BY SOMEBODY ELSE,
+  // and the pane they stand in is a fixed 360px track inside a card that clips. A name with no
+  // space in it has no soft-wrap opportunity of its own — a template's is followed immediately
+  // by repo@revision, with no text node between — so each carries the modifier that lets it
+  // break anywhere. The HEADING is here too: it is 14.5px mono with no wrap help of its own, so
+  // without the modifier it would be sliced while the marks one line below it wrapped cleanly.
+  // Whether the text then READS in full is a rendered outcome no test in this project can
+  // observe; what is asserted here is that each asks for it, and that its whole text is present.
+  it("SpecDialog_TheScopeColumnsGivenText_AsksToWrap", async () => {
+    const projectName = "a_project_name_with_no_break_opportunity";
+    const repoName = "a-repository-name-with-no-space-in-it-at-all";
+    const templateName = "template:a-name-nobody-here-chose";
+    fetchSpecDialog.mockResolvedValue(view({
+      session: null,
+      projects: [{
+        name: projectName,
+        repos: [repoName],
+        templates: [{ name: templateName, repo: "a-template-repository", revision: "v1.2" }],
+      }],
+    }));
+    await renderSurface();
+
+    const heading = screen.getByTestId(`dialog-scope-project-${projectName}`)
+      .querySelector(".ec-name") as HTMLElement;
+    expect(heading.className.split(/\s+/)).toContain("given");
+    expect(heading.textContent).toBe(projectName);
+
+    const repo = screen.getByTestId(`dialog-scope-repo-${repoName}`);
+    expect(repo.className.split(/\s+/)).toContain("given");
+    expect(repo.textContent).toBe(repoName);
+
+    const template = screen.getByTestId(`dialog-scope-template-${templateName}`);
+    expect(template.className.split(/\s+/)).toContain("given");
+    expect(template.textContent).toBe(`${templateName}a-template-repository@v1.2`);
+  });
+
   it("SpecDialog_TheScopeColumn_NamesTheRepositoriesAndTheTemplates", async () => {
     await renderSurface();
 
@@ -582,6 +637,20 @@ describe("SpecDialogSurface", () => {
   function turn(text: string): SpecDialogTurn {
     return { role: "user", text, at: "2026-09-15T09:00:00Z" };
   }
+
+  // 2026-09-18-e63d: the likelier case of the same bug. This column is 220px — 140px narrower
+  // than the scope pane — the title one line above it already needs truncation, and the project
+  // name is the operator's own. The mark carries the same modifier.
+  it("SpecDialog_AConversationsProjectMark_AsksToWrap", async () => {
+    const projectName = "a-project-name-with-no-space-in-it-at-all";
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ project: projectName })]);
+    await renderSurface();
+
+    const mark = (await screen.findByTestId("dialog-conversation-s-9"))
+      .querySelector(".ec-mark") as HTMLElement;
+    expect(mark.className.split(/\s+/)).toContain("given");
+    expect(mark.textContent).toBe(projectName);
+  });
 
   it("SpecDialog_TheConversationList_NamesEachByTitleAndWhatItFiled", async () => {
     fetchSpecDialogConversations.mockResolvedValue([
@@ -1005,11 +1074,11 @@ describe("SpecDialogSurface", () => {
 
     const at = new Date().toISOString();
     act(() => {
-      activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "read_file", detail: "repo-a/src/A.cs", at });
-      activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "grep_in_files", detail: "Dispatch", at });
-      activity.emit({ dialogId: heldDialogId(), kind: "model", name: "sample-model", detail: "Checking the router.", at });
-      activity.emit({ dialogId: heldDialogId(), kind: "reviewing", name: null, detail: null, at });
-      activity.emit({ dialogId: "someone-else", kind: "tool", name: "read_file", detail: "foreign", at });
+      activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "read_file", detail: "repo-a/src/A.cs", at, seq: 1, turnStartedAt: TURN });
+      activity.emit({ dialogId: heldDialogId(), kind: "tool", name: "grep_in_files", detail: "Dispatch", at, seq: 2, turnStartedAt: TURN });
+      activity.emit({ dialogId: heldDialogId(), kind: "model", name: "sample-model", detail: "Checking the router.", at, seq: 3, turnStartedAt: TURN });
+      activity.emit({ dialogId: heldDialogId(), kind: "reviewing", name: null, detail: null, at, seq: 4, turnStartedAt: TURN });
+      activity.emit({ dialogId: "someone-else", kind: "tool", name: "read_file", detail: "foreign", at, seq: 1, turnStartedAt: TURN });
     });
 
     const shown = await screen.findByTestId("dialog-activity");
@@ -1025,13 +1094,242 @@ describe("SpecDialogSurface", () => {
     ]);
   });
 
+  // 2026-09-18-2f8b: a page that did NOT post the message — opened on a second screen, or
+  // reloaded mid-turn — issues this read and nothing else until the reply lands. Without the
+  // turn on the view it shows a conversation that looks finished while it is running.
+  it("SpecDialog_ArrivingDuringAComputingTurn_ShowsTheWorkingLineAndItsSteps", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      turn: {
+        computing: true,
+        elapsedSeconds: 12,
+        steps: [step({ seq: 1, name: "read_file", detail: "repo-a/src/A.cs" })],
+        turnStartedAt: TURN,
+      },
+    }));
+
+    await renderSurface();
+
+    const working = await screen.findByTestId("dialog-working");
+    expect(within(working).getAllByTestId("dialog-activity-line").map((l) => l.textContent))
+      .toEqual(["read_file repo-a/src/A.cs"]);
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("12s · 1 step");
+  });
+
+  // The page that posted issues NO read until the reply lands, so a working line rendered
+  // only from the view would go dark for the whole turn it just started.
+  it("SpecDialog_ThePageThatPosted_KeepsItsWorkingLineWhenTheViewSaysNothing", async () => {
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    expect(await screen.findByTestId("dialog-working")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
+  });
+
+  it("SpecDialog_AStepThatWasReadAndThenPushed_IsShownOnce", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      turn: { computing: true, elapsedSeconds: 3, steps: [step({ seq: 1 })], turnStartedAt: TURN },
+    }));
+    await renderSurface();
+    await screen.findByTestId("dialog-working");
+
+    act(() => activity.emit({ ...step({ seq: 1 }), dialogId: heldDialogId() }));
+
+    const lines = await screen.findAllByTestId("dialog-activity-line");
+    expect(lines).toHaveLength(1);
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("1 step");
+  });
+
+  it("SpecDialog_AStepPushedWhileTheReadWasInFlight_IsNotLost", async () => {
+    // The arriving page's read is still out when the turn reports its next step, so that
+    // step is in no read at all. Merging only the read's way would drop it.
+    let land!: (answered: SpecDialogView) => void;
+    fetchSpecDialog.mockImplementation(
+      () => new Promise<SpecDialogView>((resolve) => { land = resolve; }));
+    const { result } = renderHook(() => useSpecDialog());
+    await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+    const dialogId = result.current.dialogId!;
+    act(() => activity.emit({ ...step({ seq: 2, name: "grep_in_files" }), dialogId }));
+
+    await act(async () => {
+      land(view({
+        turn: { computing: true, elapsedSeconds: 3, steps: [step({ seq: 1 })], turnStartedAt: TURN },
+      }));
+    });
+
+    expect(result.current.activity.map((held) => held.seq)).toEqual([1, 2]);
+  });
+
+  it("SpecDialog_TwoIdenticalStepsInOneTurn_AreShownAsTwo", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await screen.findByTestId("dialog-working");
+
+    const at = new Date().toISOString();
+    act(() => {
+      activity.emit({ ...step({ seq: 1 }), dialogId: heldDialogId(), at });
+      activity.emit({ ...step({ seq: 2 }), dialogId: heldDialogId(), at });
+    });
+
+    expect(await screen.findAllByTestId("dialog-activity-line")).toHaveLength(2);
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("2 steps");
+  });
+
+  // The ring is behind a motion variant, and under jsdom a media variant is not observable at
+  // all — so what is asserted is that the RENDERED TEXT moves on its own.
+  it("SpecDialog_AdvancingTheClock_ChangesTheElapsedCounterAndTheStepCount", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      fetchSpecDialog.mockResolvedValue(view({
+        turn: { computing: true, elapsedSeconds: 5, steps: [step({ seq: 1 })], turnStartedAt: TURN },
+      }));
+      await renderSurface();
+      const pulse = await screen.findByTestId("dialog-working-pulse");
+      expect(pulse).toHaveTextContent("5s · 1 step");
+
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(pulse).toHaveTextContent("8s · 1 step");
+
+      act(() => activity.emit({ ...step({ seq: 2 }), dialogId: heldDialogId() }));
+      expect(pulse).toHaveTextContent("8s · 2 steps");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A design turn's own question blocks INSIDE the turn and that wait has no deadline: a
+  // working line beside the card would tell the person the agent is thinking about the answer
+  // they have not given yet.
+  it("SpecDialog_ATurnWaitingOnAQuestion_ShowsNoWorkingLine", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      question: question({ dialogId: "d-1", kind: "free_text", text: "which repository?" }),
+      turn: { computing: false, elapsedSeconds: 0, steps: [], turnStartedAt: null },
+    }));
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-question")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-working")).toBeNull();
+  });
+
+  // A reconnect loses every push sent during the gap, the reply that ends the turn included.
+  // Without the read on the way back the page counts up for a turn that finished while the
+  // laptop slept — and the next turn's steps meet a list that outlived it.
+  it("SpecDialog_TheNextTurnsSteps_ReplaceTheDeadTurnsWhenTheReplyWasMissed", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      turn: {
+        computing: true,
+        elapsedSeconds: 8,
+        steps: [step({ seq: 1 }), step({ seq: 2, name: "grep_in_files" })],
+        turnStartedAt: TURN,
+      },
+    }));
+    await renderSurface();
+    await screen.findByTestId("dialog-working");
+
+    act(() => activity.emit({
+      ...step({ seq: 1, name: "read_file", detail: "repo-b/src/B.cs", turnStartedAt: NEXT_TURN }),
+      dialogId: heldDialogId(),
+    }));
+
+    const lines = await screen.findAllByTestId("dialog-activity-line");
+    expect(lines.map((line) => line.textContent)).toEqual(["read_file repo-b/src/B.cs"]);
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("1 step");
+  });
+
+  it("SpecDialog_TheHubReconnecting_RereadsTheConversation", async () => {
+    await renderSurface();
+    const reads = fetchSpecDialog.mock.calls.length;
+
+    act(() => connectionState.emit(HubConnectionState.Connected));
+
+    await waitFor(() => expect(fetchSpecDialog.mock.calls.length).toBeGreaterThan(reads));
+  });
+
+  // A tab that was already open when the turn started never reads again on its own: the
+  // computing flag comes off a read, and the reply is what triggers the next one. Its first
+  // step is the evidence a turn is running.
+  it("SpecDialog_ATabOpenedBeforeThePost_LearnsFromTheFirstStepThatATurnIsRunning", async () => {
+    await renderSurface();
+    expect(screen.queryByTestId("dialog-working")).toBeNull();
+    fetchSpecDialog.mockResolvedValue(view({
+      turn: { computing: true, elapsedSeconds: 2, steps: [step({ seq: 1 })], turnStartedAt: TURN },
+    }));
+
+    act(() => activity.emit({ ...step({ seq: 1 }), dialogId: heldDialogId() }));
+
+    expect(await screen.findByTestId("dialog-working")).toBeInTheDocument();
+  });
+
+  // The kept list is bounded, so a count of what the PAGE holds freezes past that bound and
+  // one of the two liveness cues dies for the rest of the turn. The sequence is the true count.
+  it("SpecDialog_ATurnPastTheKeptBound_StillCountsEveryStepItTook", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await screen.findByTestId("dialog-working");
+
+    act(() => {
+      for (let seq = 1; seq <= 60; seq += 1) {
+        activity.emit({ ...step({ seq }), dialogId: heldDialogId() });
+      }
+    });
+
+    expect(screen.getByTestId("dialog-working-pulse")).toHaveTextContent("60 steps");
+  });
+
+  // The ring is behind a motion variant; the two cues beside it must not be. Under jsdom a
+  // class applies no styles, so what is asserted is the CLASS NAMES from the pulse up to the
+  // working line — a `motion-` token added there would hide the cue for the reader who asked
+  // for less motion and leave every rendering test green.
+  it("SpecDialog_TheLiveCues_CarryNoMotionVariant", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      turn: { computing: true, elapsedSeconds: 5, steps: [step({ seq: 1 })], turnStartedAt: TURN },
+    }));
+    await renderSurface();
+    const working = await screen.findByTestId("dialog-working");
+
+    const classes: string[] = [];
+    for (let at: Element | null = screen.getByTestId("dialog-working-pulse"); at; at = at.parentElement) {
+      classes.push(at.className);
+      if (at === working) break;
+    }
+
+    expect(classes.length).toBeGreaterThan(1);
+    expect(classes.filter((name) => name.includes("motion-"))).toEqual([]);
+  });
+
+  // A payload from a server that does not carry the turn yet must leave the page working.
+  it("SpecDialog_AViewWithoutTheTurn_IsNotAPageWideFailure", async () => {
+    const withoutTurn: Partial<SpecDialogView> = { ...view() };
+    delete withoutTurn.turn;
+    fetchSpecDialog.mockResolvedValue(withoutTurn as SpecDialogView);
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(screen.queryByTestId("failed-surface")).toBeNull();
+    expect(screen.queryByTestId("dialog-working")).toBeNull();
+  });
+
   it("SpecDialog_WhenTheAnswerArrives_ForgetsWhatTheTurnDid", async () => {
     const { result } = renderHook(() => useSpecDialog());
     await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
     await act(() => result.current.send("update every dependency"));
     const dialogId = result.current.dialogId!;
     act(() => activity.emit({
-      dialogId, kind: "revising", name: null, detail: null, at: new Date().toISOString(),
+      dialogId, kind: "revising", name: null, detail: null, at: new Date().toISOString(), seq: 1,
+      turnStartedAt: TURN,
     }));
     expect(result.current.activity).toHaveLength(1);
 
@@ -1408,7 +1706,11 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
   });
 
-  it("SpecDialog_ARunningTurn_NamesEachRepositoryItOpensAndNoDuration", async () => {
+  // 2026-09-18-2f8b RETIRES 2026-09-17-c7aed's "and no duration, because nothing measures
+  // one". The turn's start instant is kept now, so the line states the seconds and the step
+  // count. What this test still holds is the half that did not change: the reading lines name
+  // each repository as it opens.
+  it("SpecDialog_ARunningTurn_NamesEachRepositoryItOpensAndHowLongItHasBeen", async () => {
     await renderSurface();
     fireEvent.change(screen.getByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
@@ -1422,7 +1724,7 @@ describe("SpecDialogSurface", () => {
 
     expect(working).toHaveTextContent("Opening the repositories it needs");
     expect(within(working).getByTestId("dialog-reading")).toHaveTextContent("repo-a@v2");
-    expect(working).not.toHaveTextContent(/minute/);
+    expect(within(working).getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
   });
 
   it("SpecDialog_TheApprovalSurface_StatesOnlyWhatTheProposalCarries", async () => {
@@ -1773,6 +2075,32 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-filed-unreviewed-p9001b"))
       .toHaveTextContent("not reviewed: the run's configured cost cap is exhausted");
     expect(screen.queryByTestId("dialog-filed-reviewed-p9001b")).toBeNull();
+  });
+
+  // 2026-09-18-e63d: the same class of text one tab over, and the reason this phase does not
+  // stop at marks. The repository a pull request is against is a flex item of the mark row, and
+  // the project the run is in sits in the head line — both named by somebody else, both inside
+  // a card that clips. A phase id one row below is NOT given text: this page mints it, and it
+  // keeps the plain field value.
+  it("SpecDialog_TheFiledPanesGivenText_AsksToWrap", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const where = run.querySelector(".ec-sub") as HTMLElement;
+    expect(where.className.split(/\s+/)).toContain("given");
+    expect(where).toHaveTextContent("in sample");
+
+    const repositories = [...run.querySelectorAll("ul.ec-marks .fv")];
+    expect(repositories.map((el) => el.textContent?.replace(" \u2197", ""))).toEqual(["api", "docs", "infra"]);
+    for (const repository of repositories) {
+      expect(repository.className.split(/\s+/), repository.textContent ?? "").toContain("given");
+    }
+
+    const phaseId = screen.getByTestId("dialog-filed-phase-p9001a").querySelector(".fv") as HTMLElement;
+    expect(phaseId.className.split(/\s+/)).not.toContain("given");
   });
 
   // The third and fourth states of the review, and the one finding that says the branch still

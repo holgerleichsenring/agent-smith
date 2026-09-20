@@ -82,7 +82,7 @@ function Run({ run }: { run: FiledWorkRun }) {
           {run.runId}
         </Link>
         <span className={markClass(runStatusTone(run.status))}>{runStatusWord(run.status)}</span>
-        <span className="ec-sub">
+        <span className="ec-sub given">
           in {run.project} · ${run.costUsd.toFixed(2)}
         </span>
       </div>
@@ -126,12 +126,12 @@ function PullRequest({ pr }: { pr: FiledWorkPullRequest }) {
   return (
     <li className="flex flex-wrap items-baseline gap-x-1.5">
       {pr.url ? (
-        <a href={pr.url} target="_blank" rel="noreferrer" className="d-link fv">
+        <a href={pr.url} target="_blank" rel="noreferrer" className="d-link fv given">
           {pr.repo}
           <span aria-hidden="true"> ↗</span>
         </a>
       ) : (
-        <span className="fv">{pr.repo}</span>
+        <span className="fv given">{pr.repo}</span>
       )}
       <span className={markClass(state.tone)}>{state.word}</span>
       {pr.reason && <span className="ec-sub">{pr.reason}</span>}

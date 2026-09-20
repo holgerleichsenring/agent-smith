@@ -168,7 +168,7 @@ public sealed class DialogDraftSplitTests : IDisposable
         var bus = new Mock<IMessageBus>();
         bus.Setup(b => b.SubscribeToJobAsync("s-1", It.IsAny<CancellationToken>()))
             .Returns((string _, CancellationToken ct) => OneQuestion(question, ct));
-        var pump = new SpecDialogQuestionPump(bus.Object, _messenger, new SpecDialogPendingQuestions(),
+        var pump = new SpecDialogQuestionPump(bus.Object, _messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
             new SpecDialogReplyComposer(), NullLogger<SpecDialogQuestionPump>.Instance);
         using var stop = new CancellationTokenSource();
 
@@ -229,8 +229,8 @@ public sealed class DialogDraftSplitTests : IDisposable
     private SpecDialogRouter Router(SpecDialogSessionRepository repository)
     {
         var composer = new SpecDialogOutcomeComposer();
-        var pending = new SpecDialogPendingQuestions();
-        var gate = new SpecDialogTurnGate();
+        var pending = new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System));
+        var gate = new SpecDialogTurnGate(TimeProvider.System);
         var flow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(_transport.Object, _messenger, pending, composer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),

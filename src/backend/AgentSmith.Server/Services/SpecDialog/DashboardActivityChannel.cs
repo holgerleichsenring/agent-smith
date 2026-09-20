@@ -28,35 +28,34 @@ public sealed class DashboardActivityChannel(
 
     /// <summary>
     /// Sets the turn's activity observer until the handle is disposed; null — nothing set —
-    /// for a session on any other platform.
+    /// for a session on any other platform. <paramref name="turn"/> is what the observer
+    /// numbers its steps against and keeps them on, for a page arriving mid-turn.
     /// </summary>
-    public IDisposable? Observe(ConversationState state) =>
+    public IDisposable? Observe(ConversationState state, RunningDialogTurn turn) =>
         DialogTarget.IsDashboard(state)
-            ? observers.Observe(new DialogActivityObserver(this, DialogTarget.Of(state)))
+            ? observers.Observe(new DialogActivityObserver(this, DialogTarget.Of(state), turn))
             : null;
 
     /// <summary>
-    /// Pushes one step to the dialog. NEVER throws — not even on the caller's own
+    /// Sends one step to the dialog. NEVER throws — not even on the caller's own
     /// cancellation, which the reading channel does let through. A step is reported from
     /// inside work that publishes its own outcome afterwards, and a report that threw would
     /// be read there as that work failing: the chat client would publish a second, contrary
     /// LlmCallFinished for a call it had already published as Ok.
     /// </summary>
-    public async Task PushAsync(string dialogId, TurnActivity activity, CancellationToken ct)
+    public async Task SendAsync(SpecDialogActivityPush step, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(activity);
+        ArgumentNullException.ThrowIfNull(step);
         if (hub is null) return;
         try
         {
-            var push = new SpecDialogActivityPush(
-                dialogId, activity.Kind.ToString().ToLowerInvariant(),
-                activity.Name, activity.Detail, DateTimeOffset.UtcNow);
-            await hub.Clients.Group(HubGroups.SpecDialog(dialogId)).SendAsync(ActivityMethod, push, ct);
+            await hub.Clients.Group(HubGroups.SpecDialog(step.DialogId))
+                .SendAsync(ActivityMethod, step, ct);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Could not tell spec-dialog {DialogId} that the turn is {Kind}", dialogId, activity.Kind);
+                "Could not tell spec-dialog {DialogId} that the turn is {Kind}", step.DialogId, step.Kind);
         }
     }
 }

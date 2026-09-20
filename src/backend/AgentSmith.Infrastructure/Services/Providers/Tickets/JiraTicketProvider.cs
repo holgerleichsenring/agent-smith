@@ -30,6 +30,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
     private readonly string _closeTransitionName;
     private readonly ILogger<JiraTicketProvider> _logger;
     private readonly TrackerParentLink _parentLink;
+    private readonly JiraTicketFinalizer _finalizer;
     private readonly AgentSmith.Contracts.Models.Configuration.JiraEndpoints _endpoints;
     private readonly string _parentLinkType;
 
@@ -54,6 +55,8 @@ public sealed class  JiraTicketProvider : ITicketProvider
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
         _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
         _transitioner = new JiraTransitioner(_http, _baseUrl, _endpoints, logger);
+        _finalizer = new JiraTicketFinalizer(_doneStatus, UpdateStatusAsync, CloseAndReportAsync,
+            (ticket, status, ct) => _transitioner.TransitionAsync(ticket, status, null, ct));
     }
 
     // "Who am I": the cheapest authenticated call that proves the credentials and the site.
@@ -183,24 +186,20 @@ public sealed class  JiraTicketProvider : ITicketProvider
             $"{_baseUrl}{_endpoints.CommentFor(ticketId.Value)}",
             JiraAdfRenderer.CommentBody(comment), cancellationToken);
 
-    public async Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
+    public Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
+        => CloseAndReportAsync(ticketId, resolution, cancellationToken);
+
+    // Answers whether the close actually transitioned the issue — what finalize reports.
+    private async Task<bool> CloseAndReportAsync(TicketId ticket, string resolution, CancellationToken ct)
     {
-        await UpdateStatusAsync(ticketId, resolution, cancellationToken);
-        await _transitioner.TransitionAsync(ticketId, _doneStatus, _closeTransitionName, cancellationToken);
+        await UpdateStatusAsync(ticket, resolution, ct);
+        return await _transitioner.TransitionAsync(ticket, _doneStatus, _closeTransitionName, ct);
     }
 
     public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => _transitioner.TransitionAsync(ticketId, statusName, null, cancellationToken);
 
-    public async Task FinalizeAsync(
+    public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(doneStatus))
-            await CloseTicketAsync(ticketId, comment, cancellationToken);
-        else
-        {
-            await UpdateStatusAsync(ticketId, comment, cancellationToken);
-            await TransitionToAsync(ticketId, doneStatus, cancellationToken);
-        }
-    }
+        => _finalizer.FinalizeAsync(ticketId, comment, doneStatus, cancellationToken);
 }
