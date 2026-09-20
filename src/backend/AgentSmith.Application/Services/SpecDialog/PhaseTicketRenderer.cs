@@ -37,9 +37,11 @@ public sealed class PhaseTicketRenderer
     /// works from. The spec itself is not in the body — it is the approved record.
     /// </summary>
     /// <param name="conversation">The design conversation the set was approved in.</param>
-    public PhaseTicketContent RenderPhase(PhaseDraft draft, string? conversation = null) =>
+    /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
+    public PhaseTicketContent RenderPhase(
+        PhaseDraft draft, string? conversation = null, string? labelNote = null) =>
         new(Title(draft), PhaseTicketBody.Requirement(
-            draft, new HashSet<string>(), sb => AppendSpecification(sb, conversation)));
+            draft, new HashSet<string>(), sb => AppendSpecification(sb, conversation), labelNote));
 
     /// <summary>The heading the specification pointer is filed under.</summary>
     public const string SpecificationHeading = "## Specification";
@@ -94,9 +96,11 @@ public sealed class PhaseTicketRenderer
     /// revision each stood at.
     /// </param>
     /// <param name="conversation">The design conversation the set was approved in.</param>
+    /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
     public PhaseTicketContent RenderEpicParent(
         PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
-        IReadOnlyList<TemplateProvenance>? templates = null, string? conversation = null) =>
+        IReadOnlyList<TemplateProvenance>? templates = null, string? conversation = null,
+        string? labelNote = null) =>
         new(Title(parent), PhaseTicketBody.Requirement(parent, new HashSet<string>(), sb =>
         {
             sb.AppendLine("## Slices");
@@ -105,7 +109,7 @@ public sealed class PhaseTicketRenderer
             sb.AppendLine();
             TemplateProvenanceLines.Append(sb, templates);
             AppendSpecification(sb, conversation);
-        }));
+        }, labelNote));
 
     // 2026-09-17-042eb: the goal is whole in the body; the title only has to be accepted.
     private static string Title(PhaseDraft draft) => TicketTitle.Fit($"{draft.PhaseId}: {draft.Goal}");
