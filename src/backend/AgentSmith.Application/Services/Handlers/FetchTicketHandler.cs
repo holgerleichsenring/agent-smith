@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -45,7 +46,10 @@ public sealed class FetchTicketHandler(
         logger.LogInformation("Fetching ticket {TicketId}...", context.TicketId);
 
         var provider = factory.Create(context.Config);
-        var ticket = await provider.GetTicketAsync(context.TicketId, cancellationToken);
+        // 2026-09-18-d518: THE DOOR. The framework's own label note comes off the description
+        // here, once, so no reader downstream needs a strip of its own.
+        var ticket = TicketLabelNoteStripper.Strip(
+            await provider.GetTicketAsync(context.TicketId, cancellationToken));
         context.Pipeline.Set(ContextKeys.Ticket, ticket);
 
         // p87: Download image attachments for LLM vision input
@@ -92,7 +96,8 @@ public sealed class FetchTicketHandler(
     private async Task<CommandResult> FetchInlineAsync(
         InlineTicket inline, PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        var ticket = inline.ToTicket();
+        // 2026-09-18-d518: the same door. An inline requirement reaches the same readers.
+        var ticket = TicketLabelNoteStripper.Strip(inline.ToTicket());
         pipeline.Set(ContextKeys.Ticket, ticket);
         logger.LogInformation(
             "Inline ticket materialized: {Title} — provider lookup skipped", ticket.Title);

@@ -59,17 +59,19 @@ public sealed class ProjectTemplateScopes(
         var wanted = contexts is null || contexts.Count == 0
             ? null
             : new HashSet<string>(contexts, StringComparer.OrdinalIgnoreCase);
-        var result = new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal);
-        foreach (var template in project.Templates)
+        var result = new Dictionary<string, ISourceScopeSandbox>(TemplateScopeName.Comparer);
+        for (var ordinal = 0; ordinal < project.Templates.Count; ordinal++)
         {
-            if (discovered.Count > 0 && !discovered.Contains(template.Context)) continue;
-            if (wanted is not null && !wanted.Contains(template.Context)) continue;
-            // 2026-09-16-4df5: the name carries the local repository when the declaration
-            // names one, so two declarations of one context name are two addresses. The skip
-            // below is now only reachable for a genuine duplicate — the same context declared
-            // twice with the same qualification — where taking the first is still right.
-            var name = TemplateScopeName.For(template.Context, template.ContextRepo);
-            if (result.ContainsKey(name)) continue;
+            var template = project.Templates[ordinal];
+            if (!Admits(template, discovered, wanted)) continue;
+            // 2026-09-15-6f8d: one address is opened once, by the declaration that OWNS it —
+            // the statement the proof report reads too, over this same full list. Deciding it
+            // here by "is this key already taken" would be a second copy of the precedence
+            // rule, and it read the contexts case-insensitively while keying the result
+            // ordinally: two spellings of one context passed one filter check as one context
+            // and then opened two clones of one repository.
+            if (!TemplateScopeName.Owns(project.Templates, ordinal)) continue;
+            var name = TemplateScopeName.For(template);
             result[name] = scopes.Create(project, template.Repo, template.Revision);
             logger.LogInformation(
                 "Template '{Name}' ({Repo} at {Revision}) is open to this run",
@@ -78,7 +80,15 @@ public sealed class ProjectTemplateScopes(
         return result;
     }
 
-    private static Dictionary<string, ISourceScopeSandbox> Empty() => new(StringComparer.Ordinal);
+    // Whether this run is working on the context the declaration binds — what was checked out,
+    // and what the caller narrowed to. Both fold case, as the address comparison does.
+    private static bool Admits(
+        ProjectTemplate template, HashSet<string> discovered, HashSet<string>? wanted) =>
+        (discovered.Count == 0 || discovered.Contains(template.Context))
+        && (wanted is null || wanted.Contains(template.Context));
+
+    private static Dictionary<string, ISourceScopeSandbox> Empty() =>
+        new(TemplateScopeName.Comparer);
 
     /// <summary>
     /// Every context this run actually checked out. Empty when the run published none — a

@@ -204,9 +204,10 @@ public sealed class DialogDraftSplitTests : IDisposable
         var context = new PipelineContext();
         foreach (var (key, value) in SpecDialogTurnSeeds.Build(
                      state, [new RepoConnection { Name = "repo-a" }],
-                     new Dictionary<string, ISandbox>(), new SpecDialogReplySlot()))
+                     new Dictionary<string, ISandbox>(), new SpecDialogReplySlot(),
+                     DialogImageSet.None))
             context.Set(key, value);
-        return new SpecDialogPromptFactory().Build(context);
+        return new SpecDialogPromptFactory().Build(context, 0, 0);
     }
 
     private static async IAsyncEnumerable<BusMessage> OneQuestion(

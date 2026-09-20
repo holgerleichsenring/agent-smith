@@ -314,14 +314,14 @@ public sealed class AgenticMasterHandler(
             && keyToRepo.TryGetValue(defaultKey, out var defaultRepoName)
             ? $"{defaultRepoName}/"
             : string.Empty;
+        var dialog = isSpecDialog ? DialogImageParts.From(context) : DialogImageParts.None;
         var extras = isSpecDialog
-            ? (Conversation: string.Empty, Attachments: string.Empty,
-                ImageParts: (IReadOnlyList<AIContent>)[])
+            ? (Conversation: string.Empty, Attachments: string.Empty, ImageParts: dialog.Parts)
             : await ComposeTicketExtrasAsync(
                 context, sandboxes[defaultKey], runRecordDir, repoPrefix, isScanMaster, cancellationToken);
 
         var userPrompt = isSpecDialog
-            ? specDialogPromptFactory.Build(context.Pipeline)
+            ? specDialogPromptFactory.Build(context.Pipeline, dialog.Existing, dialog.Carried)
             : isPhaseExecution
                 ? phasePromptFactory.Build(
                     context.Pipeline,

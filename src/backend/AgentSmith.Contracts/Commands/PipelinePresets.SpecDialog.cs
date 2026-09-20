@@ -20,6 +20,7 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.LoadCachedCodeMap,
+        CommandNames.GroundSpecDialog,      // 4c1f: the project's own rules, read remotely
         CommandNames.AgenticMaster,         // loads design-partner-master
         CommandNames.CollectSpecDialogReply,
     ];

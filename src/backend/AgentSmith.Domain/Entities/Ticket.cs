@@ -50,4 +50,11 @@ public sealed class Ticket
         Assignee = assignee;
         Reporter = reporter;
     }
+
+    /// <summary>
+    /// 2026-09-18-d518: the same ticket with its description replaced — what the fetch door
+    /// publishes once the framework's own label note has been taken out of it.
+    /// </summary>
+    public Ticket WithDescription(string description) =>
+        new(Id, Title, description, AcceptanceCriteria, Status, Source, Labels, Assignee, Reporter);
 }

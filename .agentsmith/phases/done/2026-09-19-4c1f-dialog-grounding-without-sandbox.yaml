@@ -1,0 +1,176 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-19-4c1f
+
+goal: "The design conversation is grounded in the project's own principles and context, read remotely from the turn's scope, so the master stops rendering a heading with nothing under it."
+
+applies_to: "backend (a non-sandbox grounding step for the spec-dialog preset)"
+
+scope:
+  in: >
+    ONE new step, spliced before the master in the spec-dialog preset, reads the turn's scope
+    remotely — through the source provider's own file read, which needs no container and no clone —
+    and publishes the project's context documents, its coding principles and its memory index onto
+    the pipeline context under the keys the master prompt already binds. It reads the SCOPE'S
+    repositories, not the project's, which is a different set. It provisions nothing: the turn's lazy
+    read-only source sandboxes are still the same objects after the step as before it, and the step
+    is not registered as sandbox-requiring. It covers the scope's REPOSITORIES and not its declared
+    templates, which carry a revision a remote read cannot honour. It never fails the turn: what it
+    could not read it reports and continues, so a provider outage leaves a conversation that can
+    still answer from the code map. Absence has three cases and the report tells them apart — a
+    repository with no location, a location with no file, and a file that could not be read.
+  out: >
+    THE MEMORY INDEX, WHOLE. Reading it here would be inert, not merely unrendered: the prompt is
+    token substitution, the pinned design partner's body carries four tokens and none of them is the
+    memory section, and this preset resolves to that master and no other. The bound string would be
+    computed, substituted into nothing and discarded — one more authenticated read per repository per
+    turn, asserted by no test and observed by no done criterion. Named in prose as the phase that
+    reads the memory index, DECLARES it as an input and renders it in the design partner, and moves
+    the catalog pin; declaring matters as much as rendering, or it lands in exactly the
+    undeclared-input state the item below is about. That phase will also meet the design-partner rule
+    tests, which assert the pinned body unconditionally.
+    MAKING THE DIALOG READ THE PLANNED PHASE DIRECTORY. Named in prose as the phase that shows the
+    design conversation what is already planned; it needs a listing, not a file read.
+    THE EXPOSED REMEMBER TOOL THAT CANNOT WRITE. The design turn already carries recall and remember,
+    and the write is refused by the read-only scope — so the gap is a tool that is offered and
+    refused, not a tool that is missing. Named in prose as the phase that lets a design conversation
+    record what it learned.
+    RECALL'S TRUE COST ON THIS SURFACE. Recall is backed by the lazy scope, so calling it materialises
+    a repository, which the skill's own "cheap tier one" framing denies. Named in prose as the phase
+    that makes recall on the design surface cost what it says it costs.
+    NARROWING THE CACHED CODE MAP TO THE TURN'S SCOPE. It renders every project repository today,
+    ignoring the scope, for the same reason this step had to be written around. Named in prose as the
+    phase that scopes the design turn's code map to the scope it declares.
+    THE OTHER MASTERS' DECLARED INPUTS. Seven masters besides this one declare non-empty inputs, and
+    one of them declares a token the prompt vocabulary does not contain at all. Named in prose as the
+    phase that proves every declared master input is filled by the preset that runs it.
+    THE CODE PIPELINE'S OWN LOADERS. Untouched — they run after checkout, where sandboxes are real.
+
+decisions:
+  - key: |
+      THE SKILL ASKS FOR THIS AND THE PRESET NEVER ANSWERS, WHICH IS WHY IT IS A DEFECT. The pinned
+      design-partner master declares inputs [CodeMapSection, CodingPrinciples, ProjectContextSection,
+      RepoNames] and renders "{ProjectContextSection}", then "## Coding Principles" followed by
+      "{CodingPrinciples}". The handler binds both from the master context, whose builder falls back
+      to the empty string and null. The only writers of those two keys are the loaders in the code
+      pipeline and the bootstrap path — none of them in this preset. So every design turn has read a
+      heading with nothing under it, and its drafts were written against rules it could not see.
+  - key: |
+      SPLICING THE EXISTING LOADERS IS NOT EXPENSIVE, IT IS DESTRUCTIVE — AND THE FIRST CUT CALLED IT
+      A COST TRADE-OFF. Two of the three loaders are registered as sandbox-requiring, so the executor
+      provisions before them and the coordinator SETS the sandbox map, replacing the lazy read-only
+      scopes the turn runner seeded. Spec-dialog has no checkout step, so those new pods hold no
+      source and the principles are still not found; meanwhile the master's own file and search tools
+      now address empty containers, silently breaking the grounded reads and the templates. The
+      obvious three-line move costs N container spawns and leaves the conversation blind in a second
+      way.
+  - key: |
+      AND THE THIRD LOADER FAILS DIFFERENTLY, WHICH IS WORSE. Resolving sandbox targets requires BOTH
+      the sandbox map and the discovery map; the turn seeds the first and never the second, whose only
+      writer is the coordinator. So the memory loader — which is not sandbox-requiring — would find
+      nothing, publish the empty string and log that it skipped. That is precisely the second silent
+      emptiness this phase exists to prevent, arriving under the phase's own name.
+  - key: |
+      THE READ IS REMOTE, AND THE PRECEDENT IS IN THE TREE. The source provider exposes a file read
+      and a directory listing over the repository without a container: the language resolver already
+      lists the contexts directory and reads every context document that way, before any sandbox
+      exists. A principles file is one more read on the same path shape. That makes the grounding a
+      handful of authenticated requests per turn — cheap enough that "eager, before the master" needs
+      no measurement, which is why the first cut's step to MEASURE materialisation is deleted rather
+      than answered.
+  - key: |
+      IT SPEAKS THE PROVIDER DIRECTLY, NOT THROUGH A READER SHIM. Wrapping the source provider in the
+      sandbox file-reader interface would bridge an old interface to a new one for the convenience of
+      a caller, which this project's standing rule forbids; it would also re-import the sandbox
+      vocabulary the step exists to leave behind. The step takes the provider and the context
+      discovery it already has.
+  - key: |
+      THE SCOPE IS NOT THE PROJECT, AND THE PIPELINE ONLY KNOWS THE PROJECT. The run's repository list
+      is the project's whole set; the turn's scope filter lives in the turn runner and never reaches
+      the pipeline context. A step that read "the repositories" would therefore ground the
+      conversation in repositories the operator excluded. The step reads the scope the turn seeded.
+  - key: |
+      NO NEW CONTEXT KEY IS NEEDED, AND THE SCOPE IS RECOVERABLE WITHOUT ONE. All three output keys
+      already exist — the project context, the domain rules the principles render into, and the
+      memory index — so the context-keys file, which sits exactly at its ratchet baseline and cannot
+      gain a line, is not touched at all. The scope is recovered by iterating the run's repository
+      list and keeping those whose name is a key in the sandbox map — that DIRECTION needs no
+      knowledge of the template prefix, where the reverse invites a hand-rolled prefix test of
+      exactly the kind 2026-09-16-4df5 was cut to end.
+      What the phase does add is a command name, and THAT file is also exactly at its baseline — so
+      the name goes in a new partial, which the coverage tests accept because they reflect over every
+      partial. Four map files are forced by coverage tests — the beats, the step
+      classes, the display labels and the MODEL-USE map, whose own comment says a new step is
+      unclassified until someone says which side of the line it is on, and whose Deterministic list
+      already holds the three loaders this step replaces. A fifth, the progress labels, has NO
+      coverage test and is the one that will be silently forgotten; it is also the tightest against
+      the limit. All five fit.
+  - key: |
+      A COMMAND AND NOT A SEED IN THE TURN RUNNER, FOR ONE REASON WORTH THE TAX. The runner could
+      simply seed the grounding the way it already seeds the transcript, the sandboxes and the reply
+      slot: the request context is merged verbatim after the repository list is set, the runner holds
+      the scope typed, and the provider factory is injectable exactly as the sandbox factory already
+      is. That route costs no command name, no map entries and no registration. It is rejected
+      because this phase must REPORT what it could and could not read, and only a named command gets
+      a result message, a display label, a beat and a row in the run record — the step runner passes
+      the result message on SUCCESS as well as failure, precisely so a handler's one-line outcome
+      renders under its step row, and the projection persists it on that row. Work done in the runner
+      is invisible in the very record an operator would consult when the grounding looks wrong.
+  - key: |
+      THE MEMORY TOKEN NEEDS A RELEASE AND THE PRINCIPLES DO NOT. The prompt renders by token
+      substitution, and the memory section token is already bound by the handler and already in the
+      prompt vocabulary — but no version of the design partner RENDERS it, while its prose already
+      tells the model to scan a memory index section that nothing produces. Filling an input the
+      pinned skill already declares needs no new pin; giving it the memory token does, so that half
+      ships as its own release and the preset tolerates its absence.
+  - key: |
+      THE READ HAS NO REVISION, SO IT LANDS ON THE DEFAULT BRANCH — WHICH IS THE SAME REF THE LAZY
+      SCOPE USES. The provider's file read takes a path and nothing else, and the implementations
+      resolve the remote's own default branch rather than consulting the configured one. For a plain
+      repository that is the same ref the scope clones when no revision is named, so the two tiers
+      agree; it is not self-evident and is stated. A declared TEMPLATE, however, carries a revision,
+      and a remote read cannot honour it — which is why templates are out of the step's reach and the
+      grounding is the scope's repositories only.
+  - key: |
+      THE REQUEST COUNT IS STATED, BECAUSE THE PRECEDENT RUNS ONCE PER RUN AND THIS RUNS ONCE PER
+      MESSAGE. Per repository per turn: one directory listing, one context document per context, one
+      flat principles probe and one principles read per context — two per context plus two. Three
+      repositories with four contexts each is thirty reads on every message of the conversation, and
+      nothing carries across turns because each turn is a fresh pipeline execution. That is accepted
+      here — they are cheap authenticated GETs against a conversation that already calls a model —
+      but "a handful" was carrying more weight than it could. Caching a session's grounding across
+      its turns is named in prose as the phase that stops re-reading a scope that did not change.
+  - key: |
+      A REPOSITORY WITH A PATH AND NO URL GAINS GROUNDING IT NEVER HAD. Such a repository counts as
+      located, so the remote read works on it, while the lazy scope refuses every read for want of a
+      clone url. That is a gain rather than a risk, and it is the third case the absence report must
+      tell apart.
+  - key: |
+      THE SCOPE CAN BE THE WHOLE PROJECT, AND THE STEP MUST NOT PRETEND OTHERWISE. The turn runner
+      returns the project's repositories both when the scope names none and when the scope matched
+      none, so on those paths the grounding cost scales with the project. The step reads what the turn
+      seeded; it does not narrow further, and it does not claim to.
+
+steps:
+  - id: the-grounding-step
+    action: "A non-sandbox-requiring step reads the turn's scope through the source provider and publishes the context documents and the coding principles, built as ContextDocuments and rendered through the shared labelled rendering the two loaders already publish through — a second rendering would show the design partner a differently-shaped block than the coding master sees."
+  - id: it-joins-the-preset
+    action: "The step is spliced before the master in the spec-dialog preset, and provisions nothing."
+  - id: absence-is-said
+    action: "The step's result message tells the three absences apart — a repository with no location, a location with no file, and a file that could not be read — against a configurable fake built for this phase rather than a widening of the shared stub, which nine test files and the composition harness depend on. The fake serves three of the interface's eleven members and leaves the rest inert: the contexts directory listing, and a per-path file read that can answer content, answer nothing, OR THROW — without the throw the third absence cannot be produced at all. It must serve the flat principles path as well as the per-context one, because the loader probes the flat path first and only fans out when it finds none."
+
+tests:
+  - "Dialog_ProjectWithPrinciples_TheMasterPromptCarriesThem"
+  - "Dialog_ProjectWithContextDocuments_TheMasterPromptCarriesThem"
+  - "Dialog_ScopeNarrowedToOneRepo_GroundsOnThatRepoOnly"
+  - "Dialog_NoPrinciplesFile_IsReportedAsAbsentNotAsUnattempted"
+  - "Dialog_ARepositoryWithNoLocation_IsReportedApartFromAFileThatIsMissing"
+  - "Dialog_AProviderThatCannotBeReached_ReportsAndDoesNotFailTheTurn"
+  - "Dialog_AFileThatCannotBeRead_IsReportedApartFromAFileThatIsAbsent"
+  - "Dialog_TheGroundingStep_ProvisionsNoSandbox"
+  - "Dialog_AfterTheGroundingStep_TheTurnsOwnScopesAreStillTheSandboxes"
+
+done:
+  - "a design turn is written against the rules the implementation is measured by"
+  - "no master section is a heading with nothing under it"
+  - "a design turn provisions no container it did not provision before"
+  - "build green, full suite green, file-length ratchet green"

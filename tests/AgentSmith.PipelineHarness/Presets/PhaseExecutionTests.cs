@@ -178,7 +178,7 @@ public sealed class PhaseExecutionTests
                 body, null, "Open", "recording", ["phase"]));
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels,
+            string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken) =>
             Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
 

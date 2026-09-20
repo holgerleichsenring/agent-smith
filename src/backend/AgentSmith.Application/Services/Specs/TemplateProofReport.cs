@@ -1,7 +1,5 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -25,16 +23,16 @@ namespace AgentSmith.Application.Services.Specs;
 /// therefore not read and not reported: a line about a file nobody fetched would be a
 /// measurement nobody took.
 /// </para>
+/// <para>
+/// 2026-09-15-6f8d: and nothing is read out of a checkout its declaration does not own. Two
+/// declarations of one address share one scope, so reading each of them there read the
+/// SECOND declaration's template context out of the FIRST declaration's checkout — and minted
+/// that as a numbered line a finding could cite.
+/// </para>
 /// </summary>
 public sealed class TemplateProofReport(
-    IContextYamlSerializer contextYaml,
-    ISandboxFileReaderFactory files,
-    ILogger<TemplateProofReport> logger)
+    TemplateProofRead read, ILogger<TemplateProofReport> logger)
 {
-    // A read that reached a verdict about the declaration, and one that did not.
-    private const int Read = 0;
-    private const int Unread = 1;
-
     /// <summary>
     /// One line per template the derivation actually opened, minted once per derivation.
     /// A run with no template, or one whose templates nobody opened, is silent — and never
@@ -47,70 +45,41 @@ public sealed class TemplateProofReport(
         if (look is null || look.Templates.Count == 0) return;
         if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
             || project is null) return;
-        foreach (var declared in project.Templates)
+        for (var ordinal = 0; ordinal < project.Templates.Count; ordinal++)
         {
+            var declared = project.Templates[ordinal];
             // 2026-09-16-4df5: through the one builder. Composed here by hand, two
             // declarations of one context name resolved to one scope and one evidence key, so
             // the second was never proven while the report read as covered.
             var name = TemplateScopeName.For(declared);
             if (!look.Templates.TryGetValue(name, out var scope) || !scope.IsMaterialized) continue;
-            var (what, exit, path) = await ReadAsync(declared, scope, cancellationToken);
-            var id = look.Evidence.RememberOnce(new EvidenceRecord(
-                name, EvidenceRecord.TemplateProof, what, exit, Ran: exit == Read, path));
-            if (id is not null) logger.LogInformation("[{Id}] {Name}: {What}", id, name, what);
+            // The materialisation guard comes FIRST: scopes are lazy, and asking who owns an
+            // address before asking whether anyone opened it would mint a skip for a template
+            // nobody looked at.
+            Mint(look, name, TemplateScopeName.Owns(project.Templates, ordinal)
+                ? await read.OfAsync(declared, scope, cancellationToken)
+                : NotItsOwn(declared, ordinal));
         }
     }
 
-    // The sentence is the report: the evidence line carries the id and the repository, so
-    // WHAT was found has to live in the clause, or the count is a list of reads with no
-    // outcome attached to any of them.
-    private async Task<(string What, int Exit, string Path)> ReadAsync(
-        ProjectTemplate declared, ISourceScopeSandbox scope, CancellationToken cancellationToken)
+    private void Mint(DerivationLook look, string name, (string What, int Exit, string? Path) outcome)
     {
-        var path = $"{ProjectMetaPaths.Contexts}/{declared.TemplateContext}"
-            + $"/{ProjectMetaPaths.ContextYamlFile}";
-        // The revision it LANDED on, never the one that was asked for: a template pinned to a
-        // branch declares whatever that branch held at this moment, and the count is of a sha.
-        var read = $"read {path} at {scope.ResolvedSha ?? "the revision it landed on"}";
-        string? content;
-        try
-        {
-            content = await files.Create(scope).TryReadAsync(ContainedPath.Absolute(path), cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "The template at {Path} could not be read", path);
-            return ($"{read}: the template could not be read — {ex.Message}", Unread, path);
-        }
-        var (what, exit) = content is null
-            ? ($"{read}: the template carries no context under that name", Unread)
-            : Declared(read, content);
-        return (what, exit, path);
+        var id = look.Evidence.RememberOnce(new EvidenceRecord(
+            name, EvidenceRecord.TemplateProof, outcome.What, outcome.Exit,
+            Ran: outcome.Exit == TemplateProofRead.Read, outcome.Path));
+        if (id is not null) logger.LogInformation("[{Id}] {Name}: {What}", id, name, outcome.What);
     }
 
-    private (string What, int Exit) Declared(string read, string content)
-    {
-        ContextYamlParseResult parsed;
-        try
-        {
-            parsed = contextYaml.Parse(content);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // The parse throws on a context.yaml missing meta.workdir. That is a broken
-            // template, not a template without proof, and the two must not count as one.
-            return ($"{read}: the template's context.yaml is not readable — {ex.Message}", Unread);
-        }
-        if (parsed.ErrorReason is { } bad)
-            return ($"{read}: the template's context.yaml is not readable — {bad}", Unread);
-        if (parsed.Summary is null)
-            return ($"{read}: the template's context.yaml declares no context this reads", Unread);
-        // A verify block declaring no VALID stage parses to null, and that null is the whole
-        // finding: the template states nothing about how it is proven.
-        var stages = parsed.Summary.Verify;
-        return stages is null || stages.Count == 0
-            ? ($"{read}: the template declares NO verify stage — it proves nothing about itself", Read)
-            : ($"{read}: the template declares {stages.Count} verify stage(s) — "
-                + string.Join(", ", stages.Select(stage => stage.Label)), Read);
-    }
+    // A declaration that does not own its address was never read, and says so. The ORDINAL is
+    // what distinguishes it: evidence is deduplicated on the repository and what-was-done, the
+    // address is the repository and is shared by every declaration of a duplicate, and two
+    // losers can be identical in every other field. It is a discriminator, not a meaning — so
+    // the template context is named too, because after the catalog collapse the model is shown
+    // only the owner's address and "declaration two" alone names nothing it has a list of.
+    private static (string What, int Exit, string? Path) NotItsOwn(
+        ProjectTemplate declared, int ordinal) =>
+        ($"skipped declaration {ordinal + 1} of this project's templates: it is addressed as an "
+            + $"earlier declaration is, so the template context '{declared.TemplateContext}' was "
+            + "never read — this declaration proves nothing about itself",
+         TemplateProofRead.Unread, null);
 }

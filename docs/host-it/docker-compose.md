@@ -157,7 +157,9 @@ The image tag and the `deployment:` pin must match — that's the upgrade contra
 
 ## Capacity
 
-One host means finite capacity. `queue.MaxParallelJobs` (default 4) bounds concurrent runs, and the Docker capacity probe (`max_concurrent_sandboxes`) queues a run instead of overcommitting the host — queued runs show up amber in the dashboard with their position. Details on the [capacity page](../reference/operations/capacity.md).
+One host means finite capacity. `queue.MaxParallelJobs` (default 4) bounds concurrent runs, and the Docker capacity probe (`max_concurrent_sandboxes`) queues a run instead of overcommitting the host — queued runs show up amber in the dashboard with their position.
+
+`max_concurrent_sandboxes` lives in the `sandbox:` settings (`maxConcurrentSandboxes` on the wire and in the dashboard, `MaxConcurrentSandboxes` in the stored document and the C# model) and is read at the moment the probe decides, so a change applies without restarting the server. Leave it empty and the `SANDBOX_MAX_CONCURRENT` environment variable is read instead — the fallback for an installation whose configuration store is still empty — and then the built-in default of 2. `0` means unbounded. Details on the [capacity page](../reference/operations/capacity.md#where-the-concurrent-sandbox-bound-is-set).
 
 ## What this isn't
 

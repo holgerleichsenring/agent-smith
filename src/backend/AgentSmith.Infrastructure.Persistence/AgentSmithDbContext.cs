@@ -30,7 +30,6 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();
     public DbSet<SpecDialogSession> SpecDialogSessions => Set<SpecDialogSession>();
     public DbSet<QueuedTicket> QueuedTickets => Set<QueuedTicket>();
-
     // p0393a: pointer at the spec set that lives in git on the ticket branch.
     public DbSet<TicketSpecSet> TicketSpecSets => Set<TicketSpecSet>();
     // 2026-09-17-0e79a: the set a person approved in the design conversation, before any branch.
@@ -58,6 +57,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new RunConfiguration());
         modelBuilder.ApplyConfiguration(new ActiveRunConfiguration());
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new SpecDialogAttachmentConfiguration()); // 2026-09-20-3af8
         modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
         modelBuilder.ApplyConfiguration(new TicketSpecSetConfiguration()); // p0390
         modelBuilder.ApplyConfiguration(new UnmovedTicketConfiguration()); // 2026-09-18-c1a7

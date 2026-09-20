@@ -74,14 +74,23 @@ export function DialogFiledRuns({
 function Run({ run }: { run: FiledWorkRun }) {
   return (
     <div data-testid={`dialog-filed-run-${run.runId}`} className="d-block">
+      {/* 2026-09-20-c206: the STATUS leads, the way the ticket's start line one component above
+          already reads — and the identifier, which led here and was also the heaviest token on
+          the line, loses its semibold and keeps everything else. Position without weight would
+          have been a permutation: a semibold mono link in the deep primary reads first from
+          second place. The ticket's own state KEEPS its weight, and that asymmetry is the point,
+          because weight belongs on a state and not on an identifier.
+          The one declaration that goes is named rather than swept: `.d-link`'s font is the
+          subject of a specificity note in the stylesheet, and the mono and the label size are
+          what that note is about. */}
       <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className={markClass(runStatusTone(run.status))}>{runStatusWord(run.status)}</span>
         <Link
           href={`/jobs/${encodeURIComponent(run.runId)}`}
-          className="d-link font-mono font-semibold dsh-label"
+          className="d-link font-mono dsh-label"
         >
           {run.runId}
         </Link>
-        <span className={markClass(runStatusTone(run.status))}>{runStatusWord(run.status)}</span>
         <span className="ec-sub given">
           in {run.project} · ${run.costUsd.toFixed(2)}
         </span>

@@ -58,6 +58,27 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
                 .ToListAsync(ct))
             .OrderByDescending(s => s.LastActivityAt)];
 
+    /// <summary>
+    /// 2026-09-18-7a05: one session by its id, on one platform. The session id carries a unique
+    /// index, so the platform cannot change WHICH row is found — it stops a route serving one
+    /// surface from reaching a conversation that lives on another.
+    /// </summary>
+    public Task<SpecDialogSession?> GetBySessionOnPlatformAsync(
+        string platform, string sessionId, CancellationToken ct) =>
+        unitOfWork.Set<SpecDialogSession>()
+            .FirstOrDefaultAsync(s => s.Platform == platform && s.SessionId == sessionId, ct);
+
+    /// <summary>
+    /// 2026-09-18-7a05: the conversation itself, gone. Nothing here is closed or flagged — a
+    /// deleted conversation is gone, and the answers stored against its id go with it in the
+    /// caller's transaction.
+    /// </summary>
+    public Task<int> DeleteBySessionOnPlatformAsync(
+        string platform, string sessionId, CancellationToken ct) =>
+        unitOfWork.Set<SpecDialogSession>()
+            .Where(s => s.Platform == platform && s.SessionId == sessionId)
+            .ExecuteDeleteAsync(ct);
+
     /// <summary>Persists changes staged on a tracked session entity.</summary>
     public Task SaveAsync(CancellationToken ct) => unitOfWork.SaveChangesAsync(ct);
 

@@ -4,7 +4,12 @@
 // no id at all: it answers for the signed-in principal.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
-import type { FiledWork, SpecDialogSessionSummary, SpecDialogView } from "@/types/spec-dialog";
+import type {
+  FiledWork,
+  SpecDialogImage,
+  SpecDialogSessionSummary,
+  SpecDialogView,
+} from "@/types/spec-dialog";
 
 const MESSAGES_PATH = "/api/spec-dialog/messages";
 
@@ -35,6 +40,45 @@ export async function fetchSpecDialogConversations(
   signal?: AbortSignal,
 ): Promise<SpecDialogSessionSummary[]> {
   return getJson<SpecDialogSessionSummary[]>("/api/spec-dialog/conversations", signal);
+}
+
+/**
+ * 2026-09-18-7a05: one conversation the caller owns, deleted. Addressed by its SESSION id — a
+ * dialog id is only the tab it was last on. The server answers the same for a conversation that
+ * is not yours, is not there, or is already gone, so nothing here learns which ids exist; a
+ * conversation with a turn running is the one refusal it makes.
+ */
+export async function deleteSpecDialogConversation(sessionId: string): Promise<void> {
+  const path = `/api/spec-dialog/conversations/${encodeURIComponent(sessionId)}`;
+  const res = await apiFetch(path, { method: "DELETE" });
+  if (!res.ok) throw await refused(res, path);
+}
+
+/**
+ * 2026-09-20-3af8: one image into the conversation on this dialog id. The body IS the image —
+ * nothing is bound from it, so an over-size upload is refused on its declared length before the
+ * bytes are read — and the project rides the query because an upload may be the FIRST thing on
+ * a dialog id: the server opens the conversation rather than losing the opening screenshot.
+ */
+export async function uploadSpecDialogImage(
+  dialogId: string,
+  project: string,
+  file: File,
+): Promise<SpecDialogImage> {
+  const path = `/api/spec-dialog/images?dialogId=${encodeURIComponent(dialogId)}`
+    + `&project=${encodeURIComponent(project)}`;
+  const res = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  if (!res.ok) throw await refused(res, path);
+  return (await res.json()) as SpecDialogImage;
+}
+
+/** Where the transcript reads one stored image from. */
+export function specDialogImageUrl(imageId: number): string {
+  return `/api/spec-dialog/images/${imageId}`;
 }
 
 /**

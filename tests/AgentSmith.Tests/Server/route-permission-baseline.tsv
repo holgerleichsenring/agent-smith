@@ -11,6 +11,7 @@ DELETE	/api/config/trackers/{id}	config.write
 DELETE	/api/runs	runs.delete
 DELETE	/api/runs/{runId}	runs.delete
 DELETE	/api/runs/{runId}/judgements	runs.control
+DELETE	/api/spec-dialog/conversations/{sessionId}	dialog.write
 GET	/api/access	access.read
 GET	/api/archive/export	archive.export
 GET	/api/archive/preview	archive.export
@@ -52,6 +53,7 @@ GET	/api/runs/{runId}/trace	runs.read
 GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read
 GET	/api/runs/{runId}/trail	runs.read
 GET	/api/spec-dialog/conversations	dialog.write
+GET	/api/spec-dialog/images/{imageId:long}	dialog.write
 GET	/api/spec-dialog/{dialogId}	dialog.write
 GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read
 GET	/health	anonymous
@@ -73,6 +75,7 @@ POST	/api/runs/{runId}/answer	runs.control
 POST	/api/runs/{runId}/cancel	runs.control
 POST	/api/runs/{runId}/judgements	runs.control
 POST	/api/runs/{runId}/retry	runs.control
+POST	/api/spec-dialog/images	dialog.write
 POST	/api/spec-dialog/messages	dialog.write
 POST	/api/teams/messages	anonymous
 POST	/slack/commands	anonymous

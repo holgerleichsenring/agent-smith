@@ -185,7 +185,7 @@ public sealed class PredecessorGateFunnelTests
         }
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels,
+            string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ParentLinkResult> LinkToParentAsync(

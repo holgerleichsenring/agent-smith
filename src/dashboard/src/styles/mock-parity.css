@@ -1069,9 +1069,17 @@
 .mock-dialog button.d-link { font: inherit; }
 
 /* one conversation in the list */
-.mock-dialog button.d-conv { display: block; width: 100%; font: inherit; text-align: left; background: none; border: 0; border-left: 2px solid transparent; padding: 6px 8px; border-radius: var(--r-s); cursor: pointer; }
+.mock-dialog button.d-conv { display: block; width: 100%; min-width: 0; font: inherit; text-align: left; background: none; border: 0; border-left: 2px solid transparent; padding: 6px 8px; border-radius: var(--r-s); cursor: pointer; }
 .mock-dialog .d-conv:hover { background: var(--panel-2); }
 .mock-dialog .d-conv[aria-current="true"] { background: var(--panel-2); border-left-color: var(--accent); }
+/* 2026-09-18-7a05: the row holds two controls side by side. The delete is a sibling of the open
+   control rather than a child of it — a control nested in a button is invalid markup — and it
+   appears when the row is pointed at or the control itself is focused, so the column reads as a
+   history and not as a row of buttons. It stays reachable by keyboard either way. */
+.mock-dialog .d-conv-row { display: flex; align-items: center; gap: 2px; }
+.mock-dialog button.d-conv-x { flex: none; opacity: 0; font: inherit; line-height: 1; color: var(--muted); background: none; border: 0; padding: 4px 6px; border-radius: var(--r-s); cursor: pointer; }
+.mock-dialog .d-conv-row:hover .d-conv-x, .mock-dialog .d-conv-x:focus-visible { opacity: 1; }
+.mock-dialog .d-conv-x:hover { color: var(--bad); background: var(--panel-2); }
 
 /* the card the conversation is waiting on. The accent line says "you are the
    one holding this up"; an expired card keeps the plain card line. */

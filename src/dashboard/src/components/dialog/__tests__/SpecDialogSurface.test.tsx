@@ -72,12 +72,21 @@ const fetchSpecDialog = vi.fn();
 const postSpecDialogMessage = vi.fn<(dialogId: string, text: string) => Promise<void>>(async () => {});
 const fetchSpecDialogConversations = vi.fn();
 const fetchFiledWork = vi.fn();
+const deleteSpecDialogConversation = vi.fn<(sessionId: string) => Promise<void>>(async () => {});
+// 2026-09-20-3af8: the upload and the address the transcript reads an image back from.
+const uploadSpecDialogImage =
+  vi.fn<(dialogId: string, project: string, file: File) => Promise<unknown>>(
+    async () => ({ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }));
 vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: () => fetchSpecDialogConversations(),
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
   postSpecDialogMessage: (dialogId: string, text: string) =>
     postSpecDialogMessage(dialogId, text),
+  deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
+  uploadSpecDialogImage: (dialogId: string, project: string, file: File) =>
+    uploadSpecDialogImage(dialogId, project, file),
+  specDialogImageUrl: (imageId: number) => `/api/spec-dialog/images/${imageId}`,
 }));
 
 const SAMPLE_SCOPE = {
@@ -99,6 +108,7 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
       proposal: null,
       filing: null,
       proposalTurn: null,
+      images: [],
     },
     projects: [SAMPLE_SCOPE],
     ...overrides,
@@ -364,6 +374,8 @@ beforeEach(() => {
   fetchFiledWork.mockResolvedValue({ dialogId: "d-1", tickets: [] });
   subscribeSpecDialog.mockClear();
   watchFiledWork.mockClear();
+  deleteSpecDialogConversation.mockReset();
+  deleteSpecDialogConversation.mockResolvedValue(undefined);
 });
 
 afterEach(() => cleanup());
@@ -681,7 +693,8 @@ describe("SpecDialogSurface", () => {
     const days = screen.getAllByTestId("dialog-conversation-day");
     expect(days.map((day) => [
       day.querySelector(":scope > h3")?.textContent,
-      [...day.querySelectorAll("button")].map((row) => row.dataset.testid),
+      // 2026-09-18-7a05: a row holds two controls now, and this case is about the open one.
+      [...day.querySelectorAll<HTMLElement>(".d-conv")].map((row) => row.dataset.testid),
     ])).toEqual([
       ["Today", ["dialog-conversation-s-1"]],
       ["Yesterday", ["dialog-conversation-s-2"]],
@@ -897,6 +910,145 @@ describe("SpecDialogSurface", () => {
 
     await waitFor(() =>
       expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
+  });
+
+  // 2026-09-18-7a05: an operator clears a conversation they started by mistake, and is told
+  // first what the deletion does NOT undo. The confirmation is the browser's own — there is no
+  // modal primitive here — and these are the first tests anywhere to assert the string it is
+  // given, which is the whole point of a warning.
+  function confirms(answer: boolean) {
+    return vi.spyOn(window, "confirm").mockImplementation(() => answer);
+  }
+
+  it("SpecDialog_AConversationWithNoTurns_IsDeletedWithoutAConfirmation", async () => {
+    const asked = confirms(true);
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-9", title: null, turns: 0 }),
+    ]);
+    await renderSurface();
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+
+    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
+    expect(asked).not.toHaveBeenCalled();
+    asked.mockRestore();
+  });
+
+  it("SpecDialog_AConversationThatFiledAPhase_IsConfirmedWithTheTicketSentenceThatStopsResolving", async () => {
+    const asked = confirms(true);
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-9", outcome: { kind: "phase", tickets: 1, partial: false } }),
+    ]);
+    await renderSurface();
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+
+    const said = asked.mock.calls[0][0] as string;
+    expect(said).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
+    expect(said).toContain("This cannot be undone");
+    expect(said).toContain("The tickets it filed stay in the tracker");
+    expect(said).toContain("the specification approved here stays with them");
+    expect(said).toContain("the sentence in the ticket that names this conversation will stop resolving");
+    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
+    asked.mockRestore();
+  });
+
+  it("SpecDialog_AConversationThatFiledABug_IsConfirmedWithoutASentenceItNeverHad", async () => {
+    const asked = confirms(false);
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-9", outcome: { kind: "bug", tickets: 1, partial: false } }),
+    ]);
+    await renderSurface();
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+
+    const said = asked.mock.calls[0][0] as string;
+    expect(said).toContain("The tickets it filed stay in the tracker");
+    expect(said).not.toContain("names this conversation");
+    expect(said).not.toContain("stop resolving");
+    expect(deleteSpecDialogConversation).not.toHaveBeenCalled();
+    asked.mockRestore();
+  });
+
+  it("SpecDialog_AFilingWithNoKind_IsConfirmedWithTheSentenceTrueOfEveryFiling", async () => {
+    const asked = confirms(false);
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-9", outcome: { kind: null, tickets: 2, partial: false } }),
+    ]);
+    await renderSurface();
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+
+    expect(asked.mock.calls[0][0]).toContain(
+      "Whatever it filed stays in the tracker, and the map from this conversation to it stops resolving.");
+    asked.mockRestore();
+  });
+
+  // The list is re-read on a reply while the listed row is behind, and that read's sequence guard
+  // drops a read superseded by a NEWER one — not one issued BEFORE the delete and landing after.
+  it("SpecDialog_AListReadInFlightWhenTheDeleteLands_DoesNotBringTheRowBack", async () => {
+    const asked = confirms(true);
+    // The conversation open here is not listed at all, so every reply re-reads the list.
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9" })]);
+    await renderSurface();
+    await screen.findByTestId("dialog-conversation-s-9");
+
+    let releaseStale: (rows: SpecDialogSessionSummary[]) => void = () => {};
+    fetchSpecDialogConversations.mockReturnValueOnce(
+      new Promise<SpecDialogSessionSummary[]>((resolve) => { releaseStale = resolve; }));
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    fireEvent.click(screen.getByTestId("dialog-delete-s-9"));
+    await waitFor(() => expect(screen.queryByTestId("dialog-conversation-s-9")).toBeNull());
+
+    await act(async () => releaseStale([conversation({ sessionId: "s-9" })]));
+
+    expect(screen.queryByTestId("dialog-conversation-s-9")).toBeNull();
+    asked.mockRestore();
+  });
+
+  // The held dialog id now names a dead thread, so the surface leaves it: every pane is cleared
+  // and a fresh id is minted, in the one act the new-conversation switch already performs.
+  it("SpecDialog_DeletingTheOpenConversation_EmptiesEveryPaneAndChangesTheHeldDialogId", async () => {
+    const asked = confirms(true);
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("a widget that reads the ledger")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-1" })]);
+    await renderSurface();
+    const first = heldDialogId();
+    act(() => proposals.emit(proposal()));
+    expect(await screen.findByTestId("dialog-proposal")).toBeInTheDocument();
+    fetchSpecDialog.mockImplementation(async (dialogId: string) =>
+      view({ dialogId, session: null }));
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-1"));
+
+    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-1"));
+    await waitFor(() => expect(heldDialogId()).not.toBe(first));
+    await waitFor(() => expect(screen.queryByTestId("dialog-turn-user")).toBeNull());
+    expect(screen.queryByTestId("dialog-proposal")).toBeNull();
+    asked.mockRestore();
+  });
+
+  // The row was a button, and a control nested in a button is invalid markup that warns. The two
+  // controls are siblings, so the delete needs no propagation trick and the row never opens.
+  it("SpecDialog_TheDeleteControl_DoesNotOpenTheConversation", async () => {
+    const asked = confirms(true);
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-9", openDialogId: null }),
+    ]);
+    await renderSurface();
+    const first = heldDialogId();
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+
+    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
+    expect(heldDialogId()).toBe(first);
+    asked.mockRestore();
   });
 
   // The filing's own read went: the filing NOTICE is a framework message, so the list follows it
@@ -2338,6 +2490,104 @@ describe("SpecDialogSurface", () => {
     expect(run).toHaveTextContent("the branch was rejected by the remote");
   });
 
+  // 2026-09-20-c206: the row opened with a timestamp, under a ticket line that opens with its
+  // state. The status leads now. jsdom loads no stylesheet, so the weight is read off the class
+  // list — the idiom this suite already uses for a token's rendering.
+  it("SpecDialog_ARunRow_RendersItsStatusBeforeItsIdentifier", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const status = run.querySelector(".ec-mark") as HTMLElement;
+    const identifier = run.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']") as HTMLElement;
+    expect(status).toHaveTextContent("running");
+    expect(
+      status.compareDocumentPosition(identifier) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  // Second place does not stop a heavier token reading first, so the weight goes with the move —
+  // and nothing else about the link does.
+  it("SpecDialog_TheRunIdentifier_CarriesNoFontSemibold", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const identifier = run.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']") as HTMLElement;
+    const classes = identifier.className.split(/\s+/);
+    expect(classes).not.toContain("font-semibold");
+    expect(classes).toContain("d-link");
+    expect(classes).toContain("font-mono");
+    expect(classes).toContain("dsh-label");
+    expect(identifier).toHaveTextContent("2026-09-17T09-00-00-0001");
+  });
+
+  // The run block holds six sub-texts and an assertion elsewhere takes the first of them, so
+  // which token is first of its kind is load-bearing and not a detail of this row.
+  it("SpecDialog_TheProjectAndCost_AreStillTheFirstSubTextInTheRunBlock", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    expect(run.querySelector(".ec-sub")).toHaveTextContent("in sample \u00b7 $2.50");
+  });
+
+  // The move is a reorder and a weight, never a removal.
+  it("SpecDialog_AReorderedRunRow_StillCarriesEveryFactItCarried", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    expect(run).toHaveTextContent("2026-09-17T09-00-00-0001");
+    expect(run).toHaveTextContent("running");
+    expect(run).toHaveTextContent("in sample");
+    expect(run).toHaveTextContent("$2.50");
+    expect(run.querySelector("a[href='https://git/pr/3']")).toHaveTextContent("api");
+  });
+
+  // The rule this phase borrows is written one component above, in a comment: the state first,
+  // then why. Both rows lead with their state now — and only the ticket's is weighted, because
+  // weight belongs on a state and not on an identifier.
+  it("SpecDialog_TheRunRowAndTheTicketLineAboveIt_LeadWithTheirStateAndOnlyTheTicketsIsWeighted", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing({
+      filed: [
+        {
+          reference: "https://tracker/7",
+          title: "p9001: the phase",
+          ticketId: "7",
+          project: "sample",
+          start: { state: "Started", reason: "it already triggers" },
+        },
+      ],
+    })));
+
+    const ticketState = (await screen.findByTestId("dialog-filed-start-https://tracker/7"))
+      .firstElementChild as HTMLElement;
+    expect(ticketState).toHaveTextContent("started");
+    expect(ticketState.className.split(/\s+/)).toContain("font-semibold");
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const status = run.querySelector(".ec-mark") as HTMLElement;
+    const identifier = run.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']") as HTMLElement;
+    expect(status).toHaveTextContent("running");
+    expect(status.className.split(/\s+/)).not.toContain("font-semibold");
+    expect(identifier.className.split(/\s+/)).not.toContain("font-semibold");
+    expect(
+      status.compareDocumentPosition(identifier) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("SpecDialog_AReconnect_RewatchesAndRereadsTheFiledWork", async () => {
     await renderSurface();
     await waitFor(() => expect(fetchFiledWork).toHaveBeenCalledTimes(1));
@@ -2408,5 +2658,53 @@ describe("SpecDialogSurface", () => {
 
     expect(screen.queryByTestId("dialog-proposal")).not.toBeInTheDocument();
     expect(screen.getByTestId("dialog-scope")).toBeInTheDocument();
+  });
+
+  // 2026-09-20-3af8: an operator shows the design partner what they are looking at. The image is
+  // uploaded the moment it is picked — not held until Send — and the read that follows is what
+  // puts it in the transcript, which is also what makes it survive a reload.
+  it("SpecDialog_TheComposer_TakesAnImageAndTheTranscriptShowsIt", async () => {
+    await renderSurface();
+    fetchSpecDialog.mockResolvedValue(view({
+      session: {
+        ...view().session!,
+        transcript: [turn("what is wrong with this")],
+        images: [{ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }],
+      },
+    }));
+
+    fireEvent.change(screen.getByTestId("dialog-composer-image"), {
+      target: { files: [new File(["png-bytes"], "shot.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => expect(uploadSpecDialogImage).toHaveBeenCalled());
+    const [dialogId, project, file] = uploadSpecDialogImage.mock.calls[0];
+    expect(dialogId).toBe(heldDialogId());
+    expect(project).toBe("sample");
+    expect(file.name).toBe("shot.png");
+    const shown = await screen.findByTestId("dialog-image-7");
+    expect(shown).toHaveAttribute("src", "/api/spec-dialog/images/7");
+  });
+
+  // Nothing ties an image to a turn: the upload is a post of its own and the durable transcript
+  // holds text. Both carry a moment, so the image sits after what was said before it.
+  it("SpecDialog_AnAttachedImage_SitsAfterTheTurnItFollowed", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: {
+        ...view().session!,
+        transcript: [
+          { role: "user", text: "before the screenshot", at: "2026-09-15T09:00:00Z" },
+          { role: "user", text: "after the screenshot", at: "2026-09-15T10:00:00Z" },
+        ],
+        images: [{ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }],
+      },
+    }));
+    await renderSurface();
+
+    const transcript = await screen.findByTestId("dialog-transcript");
+    const shown = within(transcript).getAllByTestId(/dialog-turn-(user|image)/);
+    expect(shown.map((entry) => entry.getAttribute("data-testid"))).toEqual([
+      "dialog-turn-user", "dialog-turn-image", "dialog-turn-user",
+    ]);
   });
 });

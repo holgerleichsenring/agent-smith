@@ -69,6 +69,7 @@ public static partial class CommandModelUse
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, CommandNames.LoadContext,
         CommandNames.LoadSkills, CommandNames.LoadSwagger, CommandNames.LoadCachedCodeMap,
+        CommandNames.GroundSpecDialog,
         CommandNames.PublishProjectLanguage, CommandNames.SessionSetup,
         CommandNames.SpecHandback, CommandNames.PhaseSpecGate, CommandNames.PhaseSequence,
         CommandNames.MasterOpenQuestions, CommandNames.CommitPhaseWork,

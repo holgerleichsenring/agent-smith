@@ -88,6 +88,7 @@ public static partial class CommandStepClasses
         [CommandNames.LoadContext] = Internal,
         [CommandNames.LoadSkills] = Internal,
         [CommandNames.LoadCachedCodeMap] = Internal,
+        [CommandNames.GroundSpecDialog] = Internal,
         [CommandNames.LoadCatalog] = Internal,
         [CommandNames.LoadRuns] = Internal,
         [CommandNames.LoadSwagger] = Internal,

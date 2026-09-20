@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-c206
+
+goal: "A run in the filed pane leads with its status and stops leading with the heaviest token on the line, the way the ticket line above it already reads."
+
+applies_to: "dashboard (the filed pane's run row)"
+
+requires:
+  - 2026-09-17-042ej
+
+scope:
+  in: >
+    The run row's leading token is wrong in TWO ways and both are fixed. It opens with the run's
+    identifier — a timestamp — and that identifier is also the heaviest thing on the line: a
+    semibold monospace link in the deep primary, against a status chip of the same family and size
+    at normal weight, and smaller grey project and cost. Moving it to second without lightening it leaves it the heaviest token in
+    second place, which is a permutation and not a fix. So the status leads, and the identifier
+    loses its semibold while keeping its link, its monospace and its text. Every other fact on the
+    row stays where it is and as it is.
+  out: >
+    REMOVING ANY FACT. Identifier, project, cost, pull requests, pending question, phase rows,
+    review verdicts and the amend sentence all stay. The run-level facts 2026-09-17-042ej
+    deliberately did not soften are not softened here.
+    A DISCLOSURE. Folding the bookkeeping behind a summary is a bigger change with its own argument,
+    and doing it in the same phase would make it impossible to tell which change worked. Named in
+    prose as the phase that folds a run's bookkeeping behind a disclosure.
+    THE REST OF THE SURFACE. See decisions — three other candidates were refused against the code.
+
+decisions:
+  - key: |
+      THE RULE IS ALREADY WRITTEN DOWN, ONE COMPONENT ABOVE, AND IT SAYS STATE. The ticket's start
+      line renders its state first and its reason second, under a comment giving the reason in one
+      sentence: a person scanning the list reads the verdicts and only stops on the one that did not
+      start. The run row beneath it opens with a timestamp. This phase invents nothing; it stops one
+      row contradicting the row it sits under. The asymmetry is the point and survives the change:
+      the ticket's state KEEPS its weight, because weight belongs on a state and not on an
+      identifier.
+  - key: |
+      STATUS, NOT VERDICT — THE FILE ALREADY USES BOTH WORDS FOR DIFFERENT THINGS. A run has a
+      STATUS; a phase inside it has a VERDICT, with its own field, its own test id and its own
+      decision in 2026-09-17-042ej about staying sticky. The earlier cut of this phase called the
+      run's status a verdict and carried the collision into its own label. The borrowed rule is
+      state-first and the thing being moved is a status.
+  - key: |
+      POSITION WITHOUT WEIGHT IS A PERMUTATION. The identifier is a semibold monospace link in the
+      deep primary; the status is a chip of the same family and the same size at normal weight, and
+      the project and cost are smaller and grey. Second place does not stop a heavier token reading
+      first — and once the semibold is gone the two are at parity, the chip's filled pill answering
+      the link's colour. The semibold goes and nothing else about
+      the link does — that one declaration is also the subject of a past specificity fight recorded
+      in the stylesheet, so it is named rather than left to a class sweep.
+  - key: |
+      WHAT THIS DOES NOT CLAIM. The urgent signal on this block is already carried by colour at
+      position two and by the waiting-for-an-answer line, which this phase does not touch. So the
+      claim is not that a reader now finds what needs them; it is that the row stops leading with a
+      timestamp. A bigger claim would not be readable by any test this phase can write.
+  - key: |
+      TWO ASSERTIONS ELSEWHERE SELECT BY DOCUMENT ORDER, SO THE ORDER INSIDE THE ROW IS LOAD-BEARING.
+      One test takes the first sub-text span in the run block and expects the project and cost; the
+      run block holds five more further down. Another takes the first mark and expects the run's own
+      status, which this change helps rather than hurts. The project and cost stay the first of their
+      kind, and the status becomes the first of its kind.
+  - key: |
+      THE PANE IS NARROW AND THE ROW ALREADY WRAPS. It is three hundred pixels at one breakpoint and
+      three hundred and sixty at another, and the line wraps at baseline. Reordering changes WHICH
+      token is orphaned onto a second line, and orphaning the identifier is the right way round for
+      two reasons rather than a preference. It follows from this phase's own premise: the status is
+      the token being promoted, so orphaning IT would defeat the change. And it is mechanically
+      safer — the status chip declares no-wrap and breaks as a unit, while the identifier has no
+      wrap control on this surface, so a hyphenated timestamp can break mid-string.
+  - key: |
+      THREE OTHER CANDIDATES WERE REFUSED AGAINST THE CODE, AND THAT IS RECORDED ONCE. The first cut
+      proposed collapsing the pane's empty states, cutting the opening instruction and removing the
+      session and dialog identifiers. The three empty states do three jobs — an identity line, a
+      lead-in with a colon to the list beneath it, and a composer's disabled-reason that does not
+      fire on a single-project installation. The instruction is one phase's deliberate work, its
+      comment argues the ordering and a test pins two of its sentences. The dialog id is half a
+      documented mechanism: the id lives in the browser, storage can refuse, and a reload would then
+      start a second conversation beside the open one, which is why the page says which session it
+      is in. The density a screenshot shows is real and it is in this row.
+
+steps:
+  - id: the-status-leads-and-the-weight-goes
+    action: "The run row renders its status first and its identifier after it, and the identifier loses its semibold while keeping its link, its monospace and its text."
+
+tests:
+  - "dashboard: a run row renders its status before its identifier"
+  - "dashboard: the run identifier's classes carry no font-semibold"
+  - "dashboard: the project and cost are still the first sub-text in the run block"
+  - "dashboard: a run row still carries its identifier, project, cost and pull requests"
+  - "dashboard: the run row and the ticket line above it both render their state first, and only the ticket's keeps its weight"
+
+done:
+  - "no row in the filed pane leads with a timestamp"
+  - "no fact left the row"
+  - "the run row and the ticket line above it follow one rule, and a test says so"
+  - "dashboard tests green, build green"
