@@ -29,6 +29,7 @@ public static partial class CommandBeats
             [CommandNames.BootstrapGate] = RunBeat.Ticket,
             [CommandNames.LoadCodeMap] = RunBeat.Ticket,
             [CommandNames.LoadCachedCodeMap] = RunBeat.Ticket,
+            [CommandNames.GroundSpecDialog] = RunBeat.Ticket, // 2026-09-19-4c1f
             [CommandNames.LoadCodingPrinciples] = RunBeat.Ticket,
             [CommandNames.LoadMemoryIndex] = RunBeat.Ticket, // p0380
             [CommandNames.LoadContext] = RunBeat.Ticket,

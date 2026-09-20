@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-19-4c1f
+
+decisions:
+  - category: Architecture
+    chose: "A new non-sandbox step reads the scope through ISourceProvider"
+    over: "Splicing LoadContext + LoadCodingPrinciples + LoadMemoryIndex into the preset"
+    reason: |
+      Two of the three loaders are registered in SandboxRequiringCommands, so the executor
+      provisions before them and PipelineSandboxCoordinator SETS ContextKeys.Sandboxes —
+      replacing the lazy read-only scopes the turn runner seeded. Spec-dialog carries no
+      checkout step, so the new pods would hold no source: the principles would still not be
+      found, and the master's own file and search tools would now address empty containers.
+      The third, LoadMemoryIndex, is not sandbox-requiring but resolves through SandboxTargets,
+      which needs BOTH the sandbox map and the discovery map; the turn seeds only the first, so
+      it would publish the empty string and log that it skipped — the same silent emptiness
+      this phase exists to end, arriving under this phase's name.
+    alternatives:
+      - "Teaching the existing loaders a remote mode: a second code path inside a handler whose whole shape is sandbox-bound"
+
+  - category: Implementation
+    chose: "DialogGroundingReader speaks ISourceProvider directly"
+    over: "Wrapping ISourceProvider in ISandboxFileReader so the existing loaders could be reused"
+    reason: |
+      That wrapper would bridge one interface to another for a caller's convenience, which the
+      operator's standing rule forbids, and it would re-import the sandbox vocabulary the step
+      exists to leave behind. The precedent for a pre-sandbox read is already in the tree:
+      SandboxLanguageResolver lists .agentsmith/contexts/ and reads every context.yaml through
+      the provider before any sandbox exists. A principles.md is one more read on that shape.
+
+  - category: Implementation
+    chose: "The scope is recovered by keeping the ContextKeys.Repos entries the sandbox map names"
+    over: "Testing a key for a template prefix, or reading the repos out of the sandbox map"
+    reason: |
+      ContextKeys.Repos is the PROJECT's whole set; the turn's scope filter lives in
+      SpecDialogTurnRunner and never reaches the pipeline. The sandbox map is what the turn
+      seeded, and it holds the scope's repositories plus the project's declared templates. The
+      intersection in that DIRECTION needs no knowledge of what a template key looks like — a
+      template is in the map and not in the list and drops out by construction. The reverse
+      direction would have invited the hand-rolled prefix test 2026-09-16-4df5 was cut to end.
+      Templates are out of reach anyway: a declared template carries a revision, and the
+      provider's file read takes a path and nothing else.
+
+  - category: Implementation
+    chose: "ContextDocuments published through ContextDocumentRendering.RenderLabelled"
+    over: "Rendering the remote reads into their own block shape"
+    reason: |
+      A second rendering would show the design partner a differently-shaped block than the
+      coding master is shown for the same files. The step therefore builds the same
+      ContextDocument list the two sandbox-bound loaders build — sandbox key, context name,
+      workdir, path, content — and publishes the same two pairs of keys: RepoContextYamls +
+      ProjectContext, RepoCodingPrinciples + DomainRules. meta.workdir is parsed for the label
+      only; a context.yaml that does not parse still speaks to a design conversation, so the
+      document is kept and its label goes unset.
+
+  - category: Architecture
+    chose: "A named command, not a seed in SpecDialogTurnRunner"
+    over: "Seeding the grounding beside the transcript, the sandboxes and the reply slot"
+    reason: |
+      The runner route costs no command name, no map entries and no registration — the request
+      context is merged after the repository list is set, and the provider factory is
+      injectable exactly as the sandbox factory already is. It is rejected because this phase
+      must REPORT what it could and could not read, and only a named command gets a result
+      message, a display label, a beat and a row in the run record: PipelineStepRunner passes
+      result.Message on SUCCESS as well as failure, and RunStepProjection persists it on the
+      RunStep row. Work done in the runner is invisible in the very record an operator would
+      consult when the grounding looks wrong.
+
+  - category: Implementation
+    chose: "The whole scope's context documents are published, not the primary repository's alone"
+    over: "Copying LoadContextHandler, which publishes ProjectContext from the primary sandbox only"
+    reason: |
+      A design turn addresses every repository in its scope by name, so publishing one
+      repository's context.yaml would leave the others at exactly the emptiness this phase
+      removes — under a heading that now looks filled. RenderLabelled heads each section with
+      its sandbox key when more than one contributes, so the master is told which document
+      governs which repository.
+
+  - category: Implementation
+    chose: "The command name lives in a new CommandNames.SpecDialog.cs partial"
+    over: "Adding a line to CommandNames.Pipeline.cs beside the other spec-dialog names"
+    reason: |
+      CommandNames.Pipeline.cs (230) and ContextKeys.cs (152) both sit EXACTLY at their
+      file-length-baseline entries and may only shrink. No new context key was needed — all
+      three output keys already exist — and the coverage tests reflect over every partial, so
+      the name is as discoverable in its own file. Five maps carry the step: beats, step
+      classes, display names and model use are each forced by a coverage test; the progress
+      labels are not, and that file was also the tightest against the 120-line limit (117 → 118).
+
+  - category: Scope
+    chose: "The memory index is not read here"
+    over: "Publishing ContextKeys.MemoryIndex alongside the other two"
+    reason: |
+      The prompt is token substitution. The pinned design partner's body carries four tokens
+      and none of them is the memory section, and this preset resolves to that master and no
+      other — so the bound string would be computed, substituted into nothing and discarded, at
+      one more authenticated read per repository per turn. Reading it needs the token rendered
+      AND declared as an input, which moves the catalog pin; that is its own phase, named in
+      the spec's `out`.
+
+  - category: TradeOff
+    chose: "Re-reading the scope on every turn, uncached"
+    over: "Caching a session's grounding across its turns"
+    reason: |
+      Per repository per turn: one directory listing, one context.yaml per context, one flat
+      principles probe and, when that probe finds none, one principles.md per context — two per
+      context plus two. Three repositories with four contexts each is about thirty cheap
+      authenticated GETs on every message of a conversation that already calls a model, and
+      each turn is a fresh pipeline execution so nothing carries across. Accepted here; the
+      phase that stops re-reading a scope that did not change is named in the spec's `out`.
+
+  - category: Implementation
+    chose: "Three absences, each named in the step's one-line result"
+    over: "Reporting a count of what was loaded"
+    reason: |
+      A repository that names no location was never asked; a location that carries no such file
+      answered and has none; a read that was refused says nothing at all about whether the file
+      is there. RemoteFileSet holds the documents and the refusals together, so
+      IsAbsent = no documents AND no refusals is the second case exactly, and a repository whose
+      contexts listing threw carries its reason on DialogGrounding.Unreachable. The step always
+      succeeds — a provider outage leaves a conversation that can still answer from the code map.
+
+  - category: Tooling
+    chose: "A new ScriptedSourceProvider for the tests"
+    over: "Widening the shared StubSourceProvider"
+    reason: |
+      Nine test files and RealCompositionHarness read that stub's fixed answers. The third
+      absence can only be produced by a read that THROWS, which no shared stub can be taught
+      without changing what all of them see. The new fake serves three members — the contexts
+      listing and a per-path read that answers content, answers nothing, or throws — records
+      the paths it was asked for, and leaves the rest inert: a design turn writes nothing, so a
+      checkout or a pull request reaching it is a test that lost its way.
