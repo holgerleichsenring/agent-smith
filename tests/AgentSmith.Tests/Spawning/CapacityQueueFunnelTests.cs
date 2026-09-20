@@ -141,6 +141,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
                 CapacityTestDoubles.NoPredecessors(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
+                CapacityTestDoubles.NoNudge(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 

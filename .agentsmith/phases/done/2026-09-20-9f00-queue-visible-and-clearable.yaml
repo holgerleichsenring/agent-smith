@@ -1,0 +1,252 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-9f00
+
+goal: "A run that enqueues announces itself, and deleting one disarms its ticket, so a queue an operator can see is also a queue an operator can clear."
+
+applies_to: "backend (the spawn deferral and the run deleter); the surface changes nothing and is only nudged"
+
+scope:
+  in: >
+    Two defects an operator hit at once: they found a pile of queued phase runs the surface had
+    never shown them, deleted it by hand one row at a time, and the pile came back.
+    A run that DEFERS is written straight through the repository, and the use case that writes it
+    holds no event publisher at all — the repository's own note says so in three words: no lease,
+    no events. The surface refetches only when it is nudged, on reconnect, or on mount; there is no
+    poll. So the counter reads zero while the rows exist, and it is worst exactly when capacity is
+    exhausted, because then nothing else is running to nudge it either.
+    DELETING a run removes the queue entry, the capacity reservation and the run, and deliberately
+    leaves the tracker ticket alone. For a run WITH A RESULT that is right. For every run without
+    one it is not — queued, RUNNING and PARKED alike, with no exception: the deleter already branches
+    on having no result, and inside that branch it kills the job, releases the lease under this
+    run's id and drops the queue entry while never touching the ticket. The native status only
+    moves at run-end, so the ticket is still armed, and re-pickup is gated on the lease rather than
+    on any label. The next poll re-claims it as a fresh run — at the BACK of the queue, because the
+    entry's id is the queue order. Cancel already answers this, for the running branch as much as
+    the queued one. Delete does not, so an operator's cleanup undoes itself.
+  out: >
+    THE QUEUE'S OWN BEHAVIOUR — no cap, no expiry, one global first-in-first-out across every
+    project, and a head with no initial context that the pump returns on before any drop path, which
+    stalls the whole estate behind it. That is a different premise: this phase makes a queued run
+    visible and clearable, it does not change who gets to run. It belongs beside
+    2026-09-18-3ba9-sandbox-cap-is-honoured, which names the strict-order stall in its own words and
+    whose remedy does not reach it. Named in prose as the phase that gives the queue an expiry and a
+    way past a head that cannot advance. Deferring it is correct rather than merely convenient:
+    after this phase the stalled head has a visible row and delete works on any state, so an
+    operator can clear a stall by hand. The queue still refills for the head-of-line reason, but it
+    stops being invisible AND unclearable at once.
+    TERMINALIZING THE TICKET OF A RUN WITH A RESULT. The deliberate hands-off there is correct and
+    stays. What changes is every run that has no result yet, with no exception — an earlier cut
+    carved out a parked run and was wrong: two mechanisms park a run and only one of them moves the
+    ticket, so the carve-out would have excluded exactly the case this phase exists for.
+    THE ROUTING TAG. An early reading of this pile blamed a filed ticket not carrying the tag its
+    project resolves by. That defect is real and specced elsewhere, and it is NOT this: the filer
+    resolves before it moves and refuses to move what will not route, so an unroutable ticket
+    produces no run row at all. It causes silence, not a pile.
+    THE TICKET-SCOPED QUEUE REMOVAL BESIDE THE BRANCH THIS PHASE EDITS. Dropping a queue entry on
+    force-clear is keyed by project and ticket rather than by run, so deleting an old row can drop a
+    newer sibling's entry. Pre-existing, untouched here, and named because this phase edits that
+    exact branch and the next reader should not have to rediscover it.
+    THE RESUME ENQUEUE. A third caller enqueues without writing a run row at all — it reuses the
+    parked row — so it forms no invisible pile and is out of scope. It does shift queue positions
+    without a nudge, which is the same class of defect one size smaller.
+    BULK CLEARING. Clearing is terminal-only by design and excludes a queued row, which is why this
+    was a manual chore. Whether an operator may clear a queue in one action is a surface question
+    and is named in prose as the phase that gives the queue a clear.
+
+decisions:
+  - key: |
+      A QUEUED RUN IS A RUN THE SURFACE NEVER HEARS ABOUT. Two places publish the change that makes
+      the surface refetch: the persisted run-event fanout and the delete endpoint. The deferral path
+      is neither — it writes the visible row through a repository documented as taking no lease and
+      publishing no events, from a use case with no publisher in its constructor. The bucketing is
+      correct and the row really is returned as active, so nothing is wrong with the counter's
+      arithmetic; it is simply never told to ask again. An operator watching a zero while rows pile
+      up is being shown a stale number, not a wrong one, and no amount of reading the counter's code
+      finds it.
+      ONE OTHER PATH WRITES A QUEUED ROW SILENTLY AND DOES NOT MATTER. A manual init launcher
+      writes a queued row before the real start and publishes nothing either; it is short-lived,
+      because the genuine started event follows from the worker. So the deferral path is the
+      gap that accumulates, not the only silent write — an earlier cut said the only, and that was
+      too strong.
+  - key: |
+      DELETE IS RIGHT FOR A RUN WITH A RESULT AND WRONG FOR EVERY RUN WITHOUT ONE — AND THE
+      BOUNDARY IS NOT "QUEUED". Leaving the ticket untouched is a deliberate, documented choice,
+      and it holds for a run that finished. An earlier cut drew the other side at the queued state
+      and was wrong by a whole class: the deleter already branches on whether the run has a result,
+      and inside that branch it kills the pod, releases the lease under this run's id and drops the
+      queue entry — for a RUNNING run as much as a queued one. A running run whose lease the
+      deleter has just released is in exactly the position a queued one is in: the ticket is still
+      in the trigger statuses, because the native status only moves at run-end, and re-pickup is
+      gated on the lease rather than on any label. The next poll re-files it.
+      SO THE PREDICATE IS THE ONE THE CODE ALREADY HAS: no result yet. That is the branch that
+      force-clears, and it already holds the project, the ticket and the run id the finalizer needs.
+      AND THE SYMMETRY WITH CANCEL IS WIDER THAN AN EARLIER CUT CLAIMED. Cancel does not terminalize
+      only a queued run — it terminalizes the running branch too, and its own note says why in the
+      same words this decision arrives at independently: the cooperative cancel finished the run
+      and released the lease without touching the ticket, so the ticket stayed in trigger statuses
+      and the next poll re-claimed it. Appealing to cancel for the queued case alone borrowed an
+      authority narrower than the one that exists.
+      A PARKED RUN IS NOT EXCLUDED, AND THE EXCLUSION AN EARLIER CUT ADDED RESTED ON A FALSE
+      UNIVERSAL. That cut said a run reaches the waiting state only through a park that finalizes
+      its ticket into a clarification status, so its ticket is out of discovery's reach. TWO things
+      park a run, and the contract that models parking says so in its own words. One is the master
+      asking a mid-run question, which does move the ticket. The other is the dialogue ask gate:
+      it publishes the question to the dashboard, checkpoints, sets the waiting flag and touches
+      the tracker NOWHERE — not one call. Its park exits through the same finally that releases the
+      lease, so the ticket is still armed, discovery excludes nothing because no status was set,
+      and the next poll re-claims it. That is exactly the defect this phase exists to close, and
+      the exclusion carved it out. Nothing on the run row distinguishes the two producers.
+      SO THE PREDICATE IS THE BRANCH THE CODE ALREADY HAS, WITH NO EXCEPTION: no result yet. That
+      also matches cancel, which terminalizes a parked run's ticket today — the queued path declines
+      it and it falls through to the terminalize. An exclusion would have made delete diverge from
+      cancel in the one state where cancel does the thing.
+      THE NEW CALL CANNOT REPEAT ON THE TICKET WHAT AN EARLIER PHASE STOPPED ON THE LEASE. Releasing
+      a lease is scoped to this run's id because an older row can coexist with a newer run on the
+      same ticket, and a live test pins it. The ticket call takes no run id in its arguments, so the
+      question is fair — and the finalizer carries its own ownership guard: it reads the ticket's
+      lease and skips when that lease names a different run. So a delete of an old row leaves a
+      newer run's ticket alone, which also means disarming is CONDITIONAL and the done criterion
+      says so rather than promising it unconditionally.
+      THE COST OF INCLUDING IT IS ACCEPTED AND STATED. Terminalizing a parked run's ticket moves it
+      onto the failed-status chain and strands the link from a posted question to its answer, and
+      the delete drops the pending resume entry regardless. That is the price of a delete meaning
+      the same thing in every state, and the finalizer is fail-soft, so a tracker that will not
+      answer cannot fail the delete.
+      THE FINALIZER IS NOW MISNAMED AND THAT IS LEFT ALONE. Its name and its summary say it ends a
+      CANCELLED run's ticket; after this phase a delete uses it too. Renaming a type is a change of
+      its own; what this phase owes the next reader is the sentence that both callers exist.
+      AND THE COMMENT THE FINALIZE CARRIES SAYS WHAT HAPPENED. Cancel passes "cancelled by operator
+      while queued". A delete did not cancel anything, so it passes its own wording rather than
+      asserting an act that did not occur.
+  - key: |
+      THE DOCUMENTED CHOICE THIS REVERSES WAS NEVER PROVEN. One test pins the hands-off behaviour,
+      over a QUEUED run, and it is vacuous: the deleter takes no ticket collaborator at all, so the
+      mock it asserts was never called is unreachable from the code under test. It passes by
+      construction and always would. This phase rewrites it rather than deleting it, and the
+      replacement must FAIL if the terminalize call is moved outside its guard — otherwise the new
+      hands-off test inherits the same emptiness.
+  - key: |
+      IT COMES BACK AT THE BACK, WHICH IS WHY THE OPERATOR NOTICED. The queue entry's identity is
+      its order, so a re-filed ticket does not resume its place — it goes behind everything filed
+      since. A cleanup that silently reshuffles is worse than one that does nothing, because the
+      operator cannot tell the difference without reading the database.
+  - key: |
+      PUBLISHING IS NOT DELIVERY HERE, AND AN EARLIER CUT ASSUMED IT WAS. The obvious fix is to
+      publish a run event on enqueue and let the existing fanout carry it. It would reach nobody: a
+      stream is drained only for a run the broadcaster tracks, a cursor is created only for run ids
+      in the active set, and that set is populated by the STARTED event alone. A deferred run never
+      published one, so its event lands in the stream and dies there. This tree already knows it —
+      two mechanisms exist solely because a run outside the active set gets no delivery, and one
+      says in its own words that both entry points needed what publishing alone could not give
+      them. An earlier cut of this decision chose the event shape by what its PROJECTOR would do to
+      the row and never asked who routes it.
+      AND THE OBVIOUS SHAPE WOULD HAVE MADE THINGS WORSE. The finished-event shape also pushes the
+      run id onto the recent-runs list, capped at fifty. Every deferral would evict a genuinely
+      recent run from that list — so a pile of queued runs, which is the case this phase exists
+      for, would empty the surface of the runs an operator actually wants to see. Worse than the
+      stale count it replaces.
+      THE NUDGE REACHES ONE REPLICA, WHICH IS THE DOOR'S OWN PROPERTY. There is no backplane behind
+      the hub, so a nudge reaches the clients connected to the replica that raised it. The delete
+      endpoint is single-replica in the same way, though not identically: its nudge fires on
+      whichever replica served the request, while a deferral always fires on the leader. Narrower
+      than a fanout would have been, and strictly better than the nothing that exists today.
+      SO THE SURFACE IS NUDGED DIRECTLY. The delete endpoint already does exactly that, and the
+      nudge is what the surface listens for. What it must not do is make the deferral depend on it:
+      a deferral that fails because a hub is down would lose the queue entry, which is strictly
+      worse than a stale count. The row is written first and the nudge is best-effort.
+  - key: |
+      THE DIALOG COMPETES FOR THE SAME BOUND, AND THAT IS WORTH KNOWING BUT NOT FIXING HERE. A
+      design turn opens source-scope sandboxes and the probe counts distinct jobs against a bound
+      whose built-in default is two. So a live design conversation can consume the slot that defers
+      the first phase run, and everything filed after it queues behind that. Stated because an
+      operator seeing a pile form while they are talking to the dialog should find the reason
+      written down; changing the bound or exempting the dialog is the queue phase's question.
+
+steps:
+  - id: a-deferral-announces-itself
+    action: "The path that writes a queued run NUDGES the surface directly, the way the delete endpoint already does, after the row is written and without the write depending on it. It does NOT publish a run event: a deferred run was never in the active set, so no cursor is ever created for its stream and nothing drains it — the tree already carries two mechanisms built for exactly that gap. The nudge crosses assemblies through a small port. The no-op is registered in the shared server composition and the hub-backed implementation inside the dashboard-API registration, which is what adds the hub and which runs AFTER that composition — so a server started with the UI API disabled resolves the no-op instead of failing to resolve a hub that was never added. Registered the natural way, beside the use case, such a server cannot resolve the spawn use case at all and fails late at the first poll rather than at startup. 'Elsewhere' is that configuration, not the CLI, which never constructs this use case."
+  - id: deleting-a-queued-run-disarms-its-ticket
+    action: "Deleting a run that has no result yet terminalizes its tracker ticket the way cancelling one already does — on the branch that already force-clears it, which is where the project, the ticket and the run id are in hand. A run with a result keeps the deliberate hands-off, and the vacuous test that pinned that behaviour is rewritten so it can fail."
+
+tests:
+  - "Spawn_ARunThatDefers_NudgesTheSurface"
+  - "Spawn_ANudgeThatThrows_StillLeavesTheQueueEntryWritten"
+  - "RunDeleter_AParkedRun_TerminalizesItsTicketLikeAnyRunWithNoResult"
+  - "RunDeleter_AQueuedRun_TerminalizesItsTicket"
+  - "RunDeleter_ARunningRun_TerminalizesItsTicket"
+  - "RunDeleter_ARunWithAResult_LeavesItsTicketUntouched"
+  - "RunDeleter_ATicketFinalizerThatFails_StillDeletesTheRun"
+
+done:
+  - "a queued run appears in the count as it enqueues, not on the next unrelated event"
+  - "the deferral reaches the surface by the same door the delete endpoint uses; that it publishes no run event is the constructor signature, not a test"
+  - "a deleted PARKED run is disarmed too, including the park that never touched the ticket — unless a newer run has already reclaimed the ticket, where the finalizer's own ownership guard skips and the newer run keeps it"
+  - "a deleted queued run is not re-filed by the next poll — inferred from the terminalize, as cancel already infers it, and not separately proven"
+  - "a deleted RUNNING run is not re-filed by the next poll either — the case an earlier cut left out"
+  - "a deleted run WITH A RESULT still leaves its ticket alone, proven by a test that can fail"
+  - "a deferral survives a nudge that throws"
+  - "build green, full suite green, dashboard tests green"
+
+facts:
+  - claim: "The use case that writes a deferred run holds no event publisher, and the repository it writes through documents itself as taking no lease and publishing no events."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:31-40, :123-144, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:13, :103-108"
+  - claim: "The change the surface listens for is published from exactly two places: the persisted run-event fanout and the delete endpoint."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:19, src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:56"
+  - claim: "The surface refetches only on that nudge, on reconnect and on mount; there is no polling interval."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:91-106"
+  - claim: "A queued row is returned as active and buckets correctly, so the counter's arithmetic is not the defect."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:14-22, src/dashboard/src/components/jobs/mission/missionBuckets.ts:24-26, src/dashboard/src/components/jobs/runStatus.ts:46-48"
+  - claim: "The deleter deliberately leaves the tracker ticket untouched, calling terminalizing it a separate explicit operator action."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:13-17"
+  - claim: "The cancel path terminalizes a queued run's ticket and states the reason: the queue entry alone is not durable, the ticket still sits in trigger statuses, and the next poll would re-claim it as a fresh run."
+    evidence: "src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:33-38"
+  - claim: "Re-pickup is gated on the lease rather than on a label, and the native ticket status stays in the trigger statuses for the whole run because it only moves at run-end."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:149-162"
+  - claim: "The deleter branches on whether the run has a result, and inside that branch it kills the job, releases the lease under this run's id and drops the queue entry — for a running run as much as a queued one. It holds no ticket collaborator at all."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:18-24, :30, :43-55"
+  - claim: "Cancel terminalizes the ticket on the RUNNING branch too, and says why: the cooperative cancel finished the run and released the lease without touching the ticket, so it stayed in trigger statuses and the next poll re-claimed it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:130-137"
+  - claim: "The test that pins the hands-off behaviour asserts a mock the deleter never receives, so it passes by construction."
+    evidence: "tests/AgentSmith.Tests/Server/RunDeleteTests.cs:119-133, :184-193"
+  - claim: "A queue entry's identity is its order, so a re-filed ticket re-enters at the back."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:11, :52-54"
+  - claim: "One filed ticket produces one queued run: the enqueue is an upsert on project and ticket, and a retry reuses the reserved run id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:21-48, :82-93"
+  - claim: "Deleting a queued run does release its capacity reservation, its queue entry and its lease row."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:61-65"
+  - claim: "Bulk clearing is terminal-only and excludes a queued row."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:48-49, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:24-25"
+  - claim: "An unroutable filed ticket produces no run row at all: the filer resolves before it moves and refuses to move what will not route."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:56-77"
+  - claim: "A design turn opens source-scope sandboxes, and the probe counts distinct jobs against a bound whose built-in default is two."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:44-50, src/backend/AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs:39, :92-101"
+  - claim: "The phase that names the strict-order stall is planned and not built, and its remedy does not reach a head that cannot advance."
+    evidence: ".agentsmith/phases/planned/2026-09-18-3ba9-sandbox-cap-is-honoured.yaml"
+  - claim: "A parked run's ticket is finalized into a clarification status, and claimable discovery excludes that status BY NAME so it is never re-fetched — the human moving it back to a trigger status is what re-triggers it. A startup rule refuses only an UNSET clarification status; nothing validates that the status sits outside the trigger statuses, and the guard is the discovery exclusion rather than that rule."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/PlanOpenQuestionsPoster.cs:59-62, src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:89-98, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ClarificationParkStatusRule.cs:28"
+  - claim: "A run row with no job id makes the deleter decline to kill anything."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:59"
+  - claim: "A manual init launcher also writes a queued row without publishing, but the genuine started event follows from the worker rather than in the same call, so the row is short-lived."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunLauncher.cs:63"
+  - claim: "A run's stream is drained only for a run the broadcaster tracks; a cursor is created only for run ids in the active set, and that set is populated by the STARTED event alone while the finished event removes from it and pushes onto a recent-runs list capped at fifty."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/RedisEventPublisher.cs:54-62, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:191-213"
+  - claim: "The tree already carries a mechanism built solely because a run outside the active set gets no delivery, and says both cancel entry points needed what publishing alone could not give them."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/CancelTerminalWriter.cs:8-12"
+  - claim: "The delete endpoint nudges the surface directly rather than relying on a published run event."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:56"
+  - claim: "TWO mechanisms park a run and they are set by different machinery; the contract that models parking says so itself."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/RunPark.cs:5-9"
+  - claim: "The dialogue ask gate parks without touching the tracker at all — it publishes the question, checkpoints and sets the waiting flag, with no tracker call anywhere in the file."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/DialogueAskGate.cs:41-51"
+  - claim: "Cancel already terminalizes a parked run's ticket: the queued path declines a non-queued run and it falls through to the terminalize."
+    evidence: "src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:24, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:129-136"
+  - claim: "The hub has no backplane, so a nudge reaches only clients on the replica that raised it — the same reach the delete endpoint's own nudge has."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:31"
+  - claim: "The ticket finalizer is run-scoped by its own guard: it reads the ticket's lease and skips when that lease names a different run, so the new call cannot do to the ticket what an earlier phase stopped the lease release doing."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:30-41, :63-83"
+  - claim: "The hub is added only inside the dashboard-API registration, which is conditional on the UI API being enabled and runs after the shared server composition."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:15-20, :31, src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:90-92"
+  - claim: "The spawn use case is registered only in the server composition and is deliberately absent from the shared and CLI graph."
+    evidence: "src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs:82, src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:94-97"
+  - claim: "Without a configured clarification status the master-question path posts only a comment and the ticket stays claimable, so a parked-run carve-out would have failed for BOTH producers under a common configuration."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/PlanOpenQuestionsPoster.cs:58-62"

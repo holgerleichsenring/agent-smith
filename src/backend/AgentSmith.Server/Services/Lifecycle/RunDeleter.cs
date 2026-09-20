@@ -12,8 +12,15 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// spawned pod terminated, the lease released, the queue entry removed (the
 /// p0330 machinery) — so a delete never leaves a pod burning money or a held
 /// lease blocking the ticket. If the pod kill fails, the record is KEPT
-/// (PodTerminationFailed) for a retry. The tracker ticket is deliberately left
-/// untouched: terminalizing it is a separate, explicit operator action.
+/// (PodTerminationFailed) for a retry.
+/// <para>
+/// 2026-09-20-9f00: a run that FINISHED keeps the deliberate hands-off — its ticket
+/// is the operator's to move. A run with no result does not: force-clearing releases
+/// the lease, the native status only moves at run-end so the ticket is still in the
+/// trigger statuses, and re-pickup is gated on the lease — so the next poll re-claims
+/// the ticket as a fresh run at the BACK of the queue and the operator's cleanup undoes
+/// itself. Cancel already answers this for the same states; delete now does too.
+/// </para>
 /// </summary>
 public sealed class RunDeleter(
     IServiceProvider services,
@@ -21,6 +28,7 @@ public sealed class RunDeleter(
     RunDeletionRepository deletion,
     IActiveRunLease lease,
     ICapacityQueue queue,
+    CancelledTicketFinalizer ticketFinalizer,
     ILogger<RunDeleter> logger)
 {
     public async Task<RunDeleteOutcome> DeleteAsync(string runId, CancellationToken ct)
@@ -51,6 +59,13 @@ public sealed class RunDeleter(
         // put two runs on one branch.
         await lease.ReleaseAsync(run.Project, new TicketId(run.TicketId), run.Id, ct);
         await queue.RemoveAsync(run.Project, run.TicketId, ct);
+        // 2026-09-20-9f00: disarm the ticket, or the next poll re-files it. CONDITIONAL by the
+        // finalizer's own ownership guard — it skips when the ticket's lease names a newer run —
+        // and fail-soft inside, so a tracker that will not answer cannot fail the delete. The
+        // comment says what happened: a delete cancelled nothing.
+        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, run.Id,
+            "<b>Agent Smith — Deleted</b><br/>The run was deleted by an operator before it finished.",
+            ct);
         return true;
     }
 

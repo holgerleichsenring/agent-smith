@@ -66,6 +66,9 @@ internal static class DashboardApiExtensions
         services.AddSingleton<SandboxDetailEventClassifier>();
         services.AddSingleton<SandboxActivityCoalescer>();
         services.AddSingleton<FiledWorkNudge>();
+        // 2026-09-20-9f00: LAST-WINS over the no-op the shared composition bound. This is the
+        // only place the hub exists, so it is the only place the real nudge can be built.
+        services.AddSingleton<AgentSmith.Contracts.Services.IRunListNudge, JobsHubRunListNudge>();
         services.AddSingleton<RunEventRouter>();
         return services;
     }
