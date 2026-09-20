@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
@@ -52,8 +53,10 @@ public sealed class EpicGroundFetcher(ILogger<EpicGroundFetcher> logger)
         try
         {
             var parent = await provider.GetTicketAsync(new TicketId(parentId), cancellationToken);
-            pipeline.Set(ContextKeys.EpicGround,
-                new EpicGround(parentId, parent.Title, parent.Description));
+            // 2026-09-18-d518: the parent is a SECOND ticket, published here rather than at
+            // the fetch handler's door, so the note comes off its body here.
+            pipeline.Set(ContextKeys.EpicGround, new EpicGround(
+                parentId, parent.Title, TicketLabelNoteStripper.Strip(parent.Description)));
             logger.LogInformation(
                 "Epic ground read from parent ticket {ParentId} ({Title})", parentId, parent.Title);
             return $" — epic ground read from parent {parentId}";
