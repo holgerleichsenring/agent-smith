@@ -14,7 +14,7 @@ public sealed class ToolKitCompositionTests
     private static IToolHost[] DefaultHosts() =>
     [
         new FilesystemToolHost(new Mock<ISandbox>().Object),
-        new LogDecisionToolHost(Mock.Of<IDecisionLogger>()),
+        new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), repositoryFiles: null),
         new HumanToolHost()
     ];
 

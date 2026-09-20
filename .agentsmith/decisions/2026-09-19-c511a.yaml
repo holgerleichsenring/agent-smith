@@ -1,0 +1,135 @@
+phase: 2026-09-19-c511a
+decisions:
+  - id: the-contract-asks-for-a-surface-not-a-path
+    chose: >
+      IDecisionLogger.LogAsync takes an ISandboxFileReader? where it took a string repository path,
+      and returns a DecisionLogOutcome. The one implementation reads, appends and writes
+      .agentsmith/decisions/<label>.yaml through that surface.
+    alternative: >
+      Keeping the path and giving the tool host a SECOND collaborator — a sandbox-backed writer —
+      beside the logger; or passing ISandbox and letting the logger own an ISandboxFileReaderFactory.
+    why: >
+      The bug is a type error the type system was not asked to catch: Repository.LocalPath is the
+      constant "/work" (Repository.cs:16), the sandbox mount, and a string carried it into
+      System.IO in a process where that directory cannot exist. A second collaborator would leave
+      the old parameter meaning nothing and give four call sites two things to remember. Putting
+      the factory inside the logger would push a pipeline-layer collaborator into a singleton that
+      hosts without a pipeline also resolve. Asking for the surface makes the wrong call
+      unwritable, which is the only fix that survives the next call site.
+  - id: three-builders-gain-the-factory-and-the-default-goes
+    chose: >
+      GenerateDocsHandler, GenerateTestsHandler and BootstrapToolHostFactory gain an
+      ISandboxFileReaderFactory (AgenticMasterHandler already had one, :65). LogDecisionToolHost's
+      repository parameter has NO default value.
+    alternative: >
+      Defaulting the new parameter to null so the ten construction sites, six of them in tests,
+      would not have to change.
+    why: >
+      The old default WAS the bug's carrier: `string repoPath = "/work"` meant every site that
+      said nothing said "the sandbox mount", and every one of them meant it as a host path. A
+      default on the replacement would make the next construction site silently write nothing
+      instead — the same failure one degree quieter. Naming the surface at each of the ten sites
+      is the price of not having a silent one.
+  - id: a-file-that-cannot-be-read-is-not-replaced
+    chose: >
+      RepositoryDecisionFile lists .agentsmith/decisions before reading: a file that is LISTED and
+      reads back null is left untouched and the append reports a lost copy.
+    alternative: >
+      TryReadAsync ?? label.Header — the shape the System.IO predecessor had, one line shorter.
+    why: >
+      SandboxFileReader.TryReadAsync answers null for EVERY non-zero exit (:22-26), and the agent
+      fails a read over 1 MB (FileStepHandler.cs:55-60) or on non-UTF-8 content (:76-79), so
+      "absent" and "unreadable" arrive identically — and the naive shape would answer an
+      unreadable file by writing a fresh header plus one item, destroying every decision already
+      in it. System.IO threw there; the sandbox surface would not. ExistsAsync is no
+      discriminator: it is the same ReadFile probe (:16-20). ListFiles is, because it names files
+      without reading them — with one limit the review of the implementation caught: the agent stops
+      at 1000 entries in directory order, before any sort (SizeLimits.cs:7, FileStepHandler.cs:196),
+      and this repository's decisions directory already holds 720 files. At the cap a listing is not
+      evidence of absence, so it is treated as no answer at all rather than as permission to start
+      the file again.
+  - id: the-lock-stays-one-semaphore-and-the-wait-is-capped
+    chose: >
+      One process-wide SemaphoreSlim around the read-append-write, acquired with a 30-second wait:
+      a caller that does not get it gives up the repository COPY with a warning.
+    alternative: >
+      An unbounded wait with the cost merely written down, a semaphore per decision file, or no
+      lock at all.
+    why: >
+      Sub-agents of one run share that run's decisions/<runId>.yaml, so the append needs
+      serialising, and one semaphore covers the several readers each tool host builds over the same
+      sandbox. The first cut of this decision then stated the cost as 30 seconds, and the
+      adversarial review of the implementation showed that was wrong by six times: the critical
+      section holds up to three sandbox round-trips, each a 30-second step the host waits 60
+      seconds for (SandboxStepCap.cs:19, 26-27) — three minutes of another run's model call spent
+      waiting on a sandbox that is not its own. Capping the WAIT fixes the number instead of
+      documenting it. A per-file semaphore would remove the coupling outright but leaks a
+      dictionary entry per run id for the life of the server process, and the copy is best-effort
+      anyway: the decision is already on the run.
+  - id: the-second-implementation-goes-rather-than-being-migrated
+    chose: >
+      InMemoryDecisionLogger is deleted; InMemoryDecisionLoggerTests goes with it and
+      EventSequenceCompletenessTests (:149-151) moves onto RepositoryDecisionLogger with a null
+      surface.
+    alternative: >
+      Porting it to the new signature and keeping both.
+    why: >
+      It is registered nowhere — ServiceCollectionExtensions.cs:93 is the only registration — and
+      with a null surface the remaining implementation does exactly what it did. Two
+      implementations of one behaviour is a shim between the old shape and the new, tested twice
+      and used once.
+  - id: the-file-in-the-working-tree-is-already-classified-as-a-record
+    chose: >
+      Accept that the decision file now really appears in the sandbox working tree, and state why
+      nothing downstream has to change.
+    alternative: >
+      Excluding .agentsmith/decisions from the working-change probe.
+    why: >
+      RunRecordPaths.IsRunRecordPath matches any .agentsmith path (:36-40) and is the ONE
+      definition the keystone's real-code-change signal, the commit's hasCode and result.md's
+      Changed Files share; UnverifiedWorkReverter exempts those paths (:96) and CommitAndPR
+      force-stages the tree (CommitAndPRHandler.cs:46, :248). So the file is committed with the
+      work and counted as none of it. The master already writes its run record into the same
+      tree, so "a repo shows a working change made by bookkeeping" is the state of the world, not
+      something this phase introduces — and RepoDiffPartitioner (:47), the probe that would care,
+      is reached only from GenerateDocs and GenerateTests, neither of which is in any preset.
+  - id: the-partition-hands-out-the-sandbox-it-was-asked-for
+    chose: >
+      RepoDiffPartition carries the first changed repo's ISandbox, and PostExecutePassTools takes it
+      from there.
+    alternative: >
+      Indexing ChangedSandboxes by ChangedRepoNames[0], which is what the extraction first did.
+    why: >
+      The dictionary is keyed by SANDBOX KEY and the names are REPO names, and SandboxKeyComposer
+      makes the two agree in only one of its four shapes — "default" for the single-repo case, a
+      context slug, "<repo>-<context>", and only multi-repo/single-group yields the repo name. The
+      index would therefore have thrown KeyNotFoundException in the ordinary single-repo run, where
+      the old code threw nothing. Caught by the adversarial review of the implementation, in code no
+      preset reaches today, which is the only reason it was not a live crash.
+
+  - id: the-extraction-the-ratchet-asked-for
+    chose: >
+      PostExecutePassTools — the fs/log/human trio the docs and tests passes both build — extracted
+      out of the two handlers.
+    alternative: >
+      Adding the third collaborator to both handlers and taking the file-length failure, or
+      deleting blank lines until the ratchet passed.
+    why: >
+      Both files were already over the 120-line limit, and the ratchet's own message is "extract
+      the responsibility you were about to add". The trio was the same six lines in both, and both
+      were about to gain the same dependency, so the shared thing is real rather than invented to
+      buy lines. Gaming the count would have left the duplication and spent the rule's credibility.
+  - id: the-tests-assert-the-seam-not-a-directory
+    chose: >
+      Every logger test writes to an in-memory sandbox surface, one asserts /work was NOT created
+      on the host, and a repo-wide architecture rule refuses a file in Application or
+      Infrastructure.Core that names the sandbox mount and calls System.IO.
+    alternative: >
+      Keeping FileDecisionLoggerTests' shape — a temp directory of the test's own making as the
+      repository path.
+    why: >
+      That shape is exactly why the bug shipped: a path the test created always exists, so the one
+      thing that mattered — whether the path was reachable at all — was the one thing never
+      asserted. The architecture rule has one exemption, AcquireSourceHandler, which legitimately
+      reads a host inbox file and writes it to /work through the surface; an exemption has to
+      carry a sentence, which is the review the rule is really buying.

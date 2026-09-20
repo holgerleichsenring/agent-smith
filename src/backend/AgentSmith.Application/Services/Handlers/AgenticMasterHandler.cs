@@ -244,7 +244,8 @@ public sealed class AgenticMasterHandler(
             keyToRepo: keyToRepo, logger: logger)
         { Commands = Specs.PhaseCommandScope.Open(context.Pipeline) };
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
-        var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
+        var log = new LogDecisionToolHost(
+            decisionLogger, sandboxFileReaderFactory.Create(sandboxes[defaultKey]));
         // p0380: memory recall (a read, every surface) + remember (a proposal
         // writing only run-record-class .agentsmith/memory/ paths). Backed by
         // the default sandbox's file reader — the same seam the run-record and
