@@ -94,7 +94,8 @@ public sealed class TicketLabelNoteFilingTests
         var filer = new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             ApprovedSetDoubles.EpicFiler(store), ApprovedSetDoubles.Recorder(store),
-            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
+            NullLogger<OutcomeTicketFiler>.Instance);
 
         var report = await filer.FileAsync(State(), proposal, false, CancellationToken.None);
 
@@ -145,7 +146,8 @@ public sealed class TicketLabelNoteFilingTests
             throw new NotSupportedException();
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+            string title, string description, IReadOnlyList<string> labels, string? kind,
+            CancellationToken cancellationToken)
         {
             _created.Add((title, description, labels));
             return Task.FromResult(new CreatedTicket(

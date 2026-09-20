@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
@@ -27,6 +29,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class EpicSliceRecordFiler(
     PhaseTicketRenderer renderer,
+    TicketKindResolver kinds,
     ILogger<EpicSliceRecordFiler> logger)
 {
     /// <summary>One reference line per record that was created, in the set's order.</summary>
@@ -37,11 +40,12 @@ public sealed class EpicSliceRecordFiler(
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(slices);
         var refs = new List<string>(slices.Count);
+        var kind = kinds.For(project, TicketFilingRole.Record);
         var siblingIds = slices.Select(s => s.PhaseId).ToHashSet(StringComparer.Ordinal);
         foreach (var slice in slices)
         {
             var content = renderer.RenderChildRequirement(slice, siblingIds);
-            if (await CreateAsync(provider, content, slice, notes, ct) is not { } record) continue;
+            if (await CreateAsync(provider, content, kind, slice, notes, ct) is not { } record) continue;
             filed.Add(OutcomeTicketFiler.Entry(record, content.Title, project) with
             {
                 Start = new FiledWorkStart(FiledStartState.Record, FiledWorkReasons.Record),
@@ -54,7 +58,7 @@ public sealed class EpicSliceRecordFiler(
     }
 
     private async Task<CreatedTicket?> CreateAsync(
-        ITicketProvider provider, PhaseTicketContent content, PhaseDraft slice,
+        ITicketProvider provider, PhaseTicketContent content, string? kind, PhaseDraft slice,
         List<string> notes, CancellationToken ct)
     {
         try
@@ -62,7 +66,7 @@ public sealed class EpicSliceRecordFiler(
             // A record must not route, and "no label" is not the way to say that: a ticket with no
             // framework label is routed by the project's own rules. The record label is refused.
             return await provider.CreateAsync(
-                content.Title, content.Body, [PhaseTicketRenderer.EpicLabel], ct);
+                content.Title, content.Body, [PhaseTicketRenderer.EpicLabel], kind, ct);
         }
         // A timeout is a record that was not filed; only the caller's own cancellation stops the run.
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

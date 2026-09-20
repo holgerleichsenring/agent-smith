@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-18-b4f0
+
+decisions:
+  - category: Scope
+    chose: "config/agentsmith.schema.json DECLARES work_item_kinds on the tracker $def"
+    over: "Leaving it undeclared, as lifecycle_status_names and the tracker-owned default_pipeline are"
+    reason: |
+      The spec leaves this open because the precedent is split, and the split is real:
+      parent_link_type is declared at config/agentsmith.schema.json:215 while
+      lifecycle_status_names, needs_clarification_status and not_implementable_status are
+      not declared anywhere in the tracker $def. What settles it is WHAT THE SCHEMA IS
+      FOR here. The $def carries no "additionalProperties": false and no C# code reads the
+      file (nothing under src/ or tests/ names agentsmith.schema.json), so declaring
+      validates nothing and omitting refuses nothing — the schema is editor-facing
+      DOCUMENTATION of the YAML surface, and nothing else.
+      Documentation is exactly what this key needs and what none of the undeclared ones
+      needed. Its keys are FREE TEXT: no capability field can declare a map's legal keys
+      today, so the studio renders free-text key inputs and a mistyped role saves cleanly,
+      renders cleanly and silently files the literal. The schema description is the one
+      operator-facing place the five legal role keys — work / record / bug / phase / chat —
+      can be written down before that successor phase lands. lifecycle_status_names needed
+      no such home: its keys are agent-smith lifecycle states named all over the operator
+      documentation. So the key is declared, with the role list in its description.
+      The undeclared neighbours are a gap this phase does not widen and does not close.
+
+  - category: Implementation
+    chose: "The descriptor's tracker field list moves to AgentSmith.Contracts/Services/TrackerCapabilityFields.cs"
+    over: "Moving the WHOLE field surface (tracker + connection) out, or buying the line by compressing comments again"
+    reason: |
+      ConfigStudioCapabilities.cs sits at 258 lines against a file-length ratchet baseline
+      of 259 (tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:30), so it has
+      ONE line and this phase adds two: a descriptor entry and nothing else — the map is
+      not a Required field, so it needs no FieldValue arm. 2026-09-16-a4d7 already paid for
+      its two lines by reflowing comment paragraphs; doing that a second time buys one more
+      line at the cost of the prose that says why each field exists, and the third phase to
+      need room would have nothing left to compress.
+      What moves is the smallest whole responsibility: WHICH FIELDS A TRACKER OF A GIVEN
+      TYPE HAS — TrackerFields(TrackerType) and the shared WorkflowFields list it splices.
+      Both are one table; splitting them would leave a switch in one file and its rows in
+      another. ConnectionFields stays where it is: it answers the same question for a
+      different entity, it is not under length pressure, and moving it would be a code move
+      with no responsibility behind it. ConfigStudioCapabilities keeps the BUILD and the
+      write-side ENFORCEMENT and calls the new type for the tracker rows, so the descriptor
+      and ValidateTracker still read one list and cannot drift apart.
+
+  - category: Architecture
+    chose: "A role-to-kind map on the tracker (work_item_kinds), resolved on the FILING side, with only the kind crossing ITicketProvider.CreateAsync"
+    over: "One tracker-wide work-item type, or the filing role crossing the port"
+    reason: |
+      Taken from the spec and verified against the code before implementing. One create
+      serves three hierarchy levels: EpicTicketFiler.cs:76 files the work ticket,
+      EpicSliceRecordFiler.cs:64 files each slice record which is then LINKED AS ITS CHILD,
+      OutcomeTicketFiler.cs:97 files a bug, OutcomeTicketFiler.cs:108 a lone phase, and
+      CreateTicketIntentHandler.cs:39 a chat-filed ticket. A single tracker-wide type would
+      raise the records to the level of the ticket they hang under and make the link a
+      same-level link. The role stays off the port because the port is tracker vocabulary
+      throughout and two of its four implementations would accept a filing-domain role only
+      to ignore it; the kind reaches the two providers that have one and is ignored by the
+      two that do not. The role cannot be sniffed from the labels inside a provider: the
+      epic work ticket (EpicTicketFiler.cs:75) and the lone phase (OutcomeTicketFiler.cs:107)
+      send IDENTICAL labels.
+
+  - category: Implementation
+    chose: "The kind parameter carries NO DEFAULT VALUE"
+    over: "string? kind = null, which would have left all five call sites compiling"
+    reason: |
+      With a default the four implementations break and the five call sites do not, so the
+      compiler would enumerate the half of the change that reads the kind and stay silent
+      about the half that supplies it. Every filing would take the provider literal, and
+      "an installation that configures nothing creates exactly what it creates today" would
+      pass over a feature no call site ever reached.
+
+  - category: Implementation
+    chose: "The Azure DevOps create moves into AzureDevOpsTicketCreator behind a delegate; the Jira create moves into JiraTicketCreator with no new seam"
+    over: "Extracting both the same way, or seaming the SDK client factory"
+    reason: |
+      Extraction alone does not make the Azure DevOps kind assertable: it is an argument to
+      CreateWorkItemAsync on a client the provider builds in its own constructor
+      (AzureDevOpsConnectionCache), and moving the create carries the unseamed call with it.
+      The client factory is not the seam either — it returns the same concrete type. So the
+      creator takes its underlying call as a Func, which is the shape every finalizer in
+      this codebase already takes its write in (AzureDevOpsTicketProvider.cs:55, substituted
+      in TicketFinalizeReportTests.cs:192), and the test pins what the collaborator hands the
+      delegate. Jira needs no seam: JiraCreateAsync_PostsAdfIssueWithProjectKeyAndMapsBrowseUrl
+      already reads issuetype.name out of the recorded HTTP payload, and a second seam behind
+      a working boundary is the wrapper this project's rules forbid. Its create moves out
+      only to buy the line the ratchet refuses to give (baseline 206, file at 205).
+
+  - category: Implementation
+    chose: "The default literal is a private const in EACH create collaborator, applied in the one clause that reads the configured kind"
+    over: "One shared constant, or a default resolved in configuration"
+    reason: |
+      The configuration layer has one flat TrackerConnection for all four provider types
+      with Type as a discriminator only, so there is no per-provider shape for a default to
+      sit in. Both collaborators carry the same literal ("Task") today and that duplication
+      is correct: they are two different trackers' vocabularies that happen to agree, and
+      the day one diverges is the day they must be separate. The default is never written
+      back into the operator's configuration — RawConfigPatch only assigns the map when the
+      entity carries one, so an unrelated save leaves an unset map unset.
+
+  - category: Implementation
+    chose: "TicketKindResolver LOGS an unknown role key, as TicketStatusTransitionerFactory.BuildLifecycleMap does"
+    over: "Silently ignoring it, which is what a plain dictionary lookup would do"
+    reason: |
+      The map's keys are free text until a capability field can declare a key set, so a
+      mistyped role saves cleanly and renders cleanly. A wrong role key is LESS observable
+      than a wrong lifecycle key — a wrong lifecycle key falls back to label mode and shows
+      up in the tracker within a run, while a wrong role key files at the wrong hierarchy
+      level and surfaces only as a failed parent link. Claiming parity with the lifecycle
+      map while shipping something quieter than it would be the worse half of both worlds,
+      so the resolver walks the configured map and warns on every key that is not a role
+      (TicketStatusTransitionerFactory.cs:93-97 is the shape). A tracker that configures
+      nothing returns before the walk and logs nothing.
+
+  - category: Implementation
+    chose: "TrackerEntity's new parameter is APPENDED to the twenty-argument positional record"
+    over: "Inserting it beside LifecycleStatusNames, where it belongs semantically"
+    reason: |
+      ConfigCatalogMapper.ToTracker calls the record positionally and the trailing
+      parameters are all nullable reference types, so an insert shifts every argument after
+      it and the compiler accepts the shift wherever the types line up. The record already
+      carries that warning from 2026-09-16-a4d7; the new field goes where the warning says.
+
+  - category: Scope
+    chose: "The descriptor declares workItemKinds for Azure DevOps and Jira only, as an OPTIONAL Map field"
+    over: "Declaring it on all four types, or making it Required"
+    reason: |
+      GitHub and GitLab send no kind — one applies any status that is not open or closed as
+      a label, the other accepts two state events — so a field on their form would be a
+      control that changes nothing. Declaring on two arms and not the other two is legal
+      because CapabilityCoverageTests.cs:42 UNIONS the field keys across types before
+      checking that every raw tracker property is declared. Required is impossible: it is
+      enforced by ValidateTracker on every upsert, and every tracker configured before this
+      phase declares no map.
+
+  - category: Scope
+    chose: "The dashboard gets one optional property on the StudioTracker interface and nothing else"
+    over: "Rendering the five roles as fixed rows"
+    reason: |
+      capabilityFields.tsx already renders CapabilityFieldKind.Map generically through
+      MapField, and no tracker field key is named anywhere in the form — parentLinkType and
+      lifecycleStatusNames appear only in the TypeScript interface. Closed-key rendering
+      means widening CapabilityField itself, which touches the contract, the generic
+      renderer and the map control, and which pays back on the lifecycle map too. The spec
+      names it as its own successor phase and puts it out of scope here.

@@ -154,7 +154,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
-            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
             filer, _sessions, messenger, new SpecDialogOutcomeComposer(),
@@ -192,7 +192,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             throw new NotSupportedException();
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels,
+            string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken)
         {
             if (FailWith is not null) throw new InvalidOperationException(FailWith);

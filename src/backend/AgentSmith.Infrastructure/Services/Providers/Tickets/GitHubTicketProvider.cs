@@ -92,8 +92,11 @@ public sealed class GitHubTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
+    // GitHub has no work-item kind: any status that is not open or closed is applied as a
+    // label, so the kind the port carries is not something this tracker can express.
     public async Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+        string title, string description, IReadOnlyList<string> labels, string? kind,
+        CancellationToken cancellationToken)
     {
         var issue = await _client.Issue.Create(_owner, _repo, BuildNewIssue(title, description, labels));
         _logger.LogInformation("GitHub created issue #{Number} in {Owner}/{Repo}", issue.Number, _owner, _repo);

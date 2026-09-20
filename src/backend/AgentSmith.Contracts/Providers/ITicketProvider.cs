@@ -46,15 +46,15 @@ public interface ITicketProvider : ITypedProvider
         => ListOpenAsync(cancellationToken);
 
     /// <summary>
-    /// Creates a new ticket with the given title, description and labels/tags
-    /// and returns its id plus web URL. Deliberately NOT a default member:
-    /// creation must never silently no-op, so a provider that cannot create
-    /// has to state it in code (throw <see cref="NotSupportedException"/>)
-    /// instead of inheriting a throwing default nobody implemented (the
-    /// pre-p0315f state — the create path was dead on every tracker).
+    /// Creates a new ticket with the given title, description and labels/tags and returns its
+    /// id plus web URL. <paramref name="kind"/> is the tracker's own work-item type for the role
+    /// being filed; null means the literal the provider sends today, and a tracker with no such
+    /// notion ignores it. Deliberately NOT a default member: creation must never silently no-op,
+    /// so a provider that cannot create has to state it in code (throw
+    /// <see cref="NotSupportedException"/>) instead of inheriting a throwing default nobody implemented.
     /// </summary>
     Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels,
+        string title, string description, IReadOnlyList<string> labels, string? kind,
         CancellationToken cancellationToken);
 
     /// <summary>
