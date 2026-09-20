@@ -215,6 +215,11 @@
         "parent_link_type": {
           "type": "string",
           "description": "Jira only: the issue link type a filed epic child is linked to its parent with. Default Relates. A type the site does not have is a failed link, shown on the filing."
+        },
+        "work_item_kinds": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Azure DevOps and Jira only: which native work-item/issue type each filed ROLE is created as. Keys are the filing roles work | record | bug | phase | chat (case-insensitive); an unknown key is warned about and ignored. A role that is not mapped creates what agent-smith created before this key existed (Task), so a tracker that declares nothing behaves exactly as before. One kind for the whole tracker would raise a slice record to the level of the work ticket it hangs under, which is why the choice is per role."
         }
       }
     },

@@ -46,7 +46,7 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
 
     // Distinct ids, so a test can tell the tickets it created apart.
     public Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels,
+        string title, string description, IReadOnlyList<string> labels, string? kind,
         CancellationToken cancellationToken)
     {
         var id = Interlocked.Increment(ref _lastId);

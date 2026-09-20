@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
@@ -47,6 +48,25 @@ public sealed class CapabilityWireShapeTests
 
         foreach (var name in MemberNames)
             body.Should().NotContain($"\"kind\":\"{name}\"", "a .NET member name is not a wire vocabulary");
+    }
+
+    /// <summary>
+    /// 2026-09-18-b4f0: the kind map reaches the FORM, on the two tracker types whose create
+    /// sends a kind and on neither of the others. An assertion over the descriptor object says
+    /// the list is right; only the served payload says the form is ever handed it.
+    /// </summary>
+    [Fact]
+    public async Task Capabilities_TheRealDescriptorPayload_DeclaresTheMapForTwoTypesAndNotTheOthers()
+    {
+        using var payload = JsonDocument.Parse(await ServedCapabilitiesAsync());
+
+        var declaring = payload.RootElement.GetProperty("trackerTypes").EnumerateArray()
+            .Where(t => t.GetProperty("fields").EnumerateArray()
+                .Any(f => f.GetProperty("key").GetString() == "workItemKinds"))
+            .Select(t => t.GetProperty("type").GetString())
+            .ToList();
+
+        declaring.Should().BeEquivalentTo(["azure_devops", "jira"]);
     }
 
     /// <summary>

@@ -114,8 +114,11 @@ public sealed class GitLabTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
+    // GitLab has no work-item kind: an issue accepts exactly two state events, close and
+    // reopen, so the kind the port carries never reaches its payload.
     public async Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+        string title, string description, IReadOnlyList<string> labels, string? kind,
+        CancellationToken cancellationToken)
     {
         object body = labels.Count > 0
             ? new { title, description, labels = string.Join(",", labels) }

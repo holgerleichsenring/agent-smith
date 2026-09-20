@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
@@ -55,6 +57,7 @@ public sealed class EpicTicketFiler(
     ApprovedPhaseSetRecorder approvals,
     EpicSliceRecordFiler records,
     FiledWorkStarter starter,
+    TicketKindResolver kinds,
     ILogger<EpicTicketFiler> logger)
 {
     public async Task FileAsync(
@@ -73,7 +76,8 @@ public sealed class EpicTicketFiler(
         var content = renderer.RenderEpicParent(
             epic.Parent, order.Children, epic.Templates, state.JobId);
         string[] labels = [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp];
-        var work = await provider.CreateAsync(content.Title, content.Body, labels, ct);
+        var work = await provider.CreateAsync(
+            content.Title, content.Body, labels, kinds.For(project, TicketFilingRole.Work), ct);
         filed.Add(OutcomeTicketFiler.Entry(work, content.Title, project));
         await StoreAsync(state, project, work, order.Children, ct);
 
