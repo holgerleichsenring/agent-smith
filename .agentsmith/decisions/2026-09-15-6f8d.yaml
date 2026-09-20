@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-15-6f8d
+
+decisions:
+  - category: Architecture
+    chose: "Ownership is a STATEMENT on TemplateScopeName, taking the declaration list"
+    over: "A field on the materialised scope, or recomputing first-wins in the report"
+    reason: |
+      Nothing records which declaration a scope came from: the selection stores a sandbox and
+      discards the declaration, and the sandbox carries a repository name, a materialisation
+      flag and a sha. Comparing the repository is ambiguous in exactly the duplicate case —
+      two declarations differing only in template context name one repository — and
+      recomputing the precedence in the report is a second copy of it. The statement goes
+      where the other half of it already lives, as an ADDITIVE overload over the declaration
+      list; all four consumers already hold project.Templates, so no existing signature moved.
+
+  - category: Correctness
+    chose: "Ownership is computed over the project's FULL declaration list, by both readers"
+    over: "Letting each reader decide over the list it happens to hold"
+    reason: |
+      The scope selection applies its discovered and wanted filters BEFORE it dedups; the
+      report iterates the declarations unfiltered. They agree today only because those filters
+      key on the context alone and a genuine duplicate shares it — a coincidence of the
+      current filter, not a property of it. One list is what makes the statement a statement.
+
+  - category: Correctness
+    chose: "ONE comparer, case-insensitive, for every address comparison"
+    over: "Keeping the ordinal key the result dictionary had"
+    reason: |
+      Inside the one method this phase edits, both admission filters were built
+      OrdinalIgnoreCase while the result dictionary was keyed Ordinal. Two spellings of one
+      context therefore passed a single filter check as ONE context and then became TWO
+      addresses — two clones of one repository for one discovered context. The qualified half
+      says the same from the other side: the repository a declaration names is a configured
+      ref the catalog validates case-insensitively. The composed name keeps the casing it was
+      written with, because an operator and the model are shown it; only the comparison folds.
+
+  - category: Correctness
+    chose: "The ownership check runs AFTER the materialisation guard"
+    over: "Deciding ownership first, before the scope is consulted"
+    reason: |
+      Template scopes are lazy (2026-09-13-84c0). Asking who owns an address before asking
+      whether anybody opened it would mint a skip line for every template nobody looked at —
+      a measurement of a file that was never fetched, which is the thing this report refuses
+      to do in the first place.
+
+  - category: Implementation
+    chose: "The skip is recorded under the declaration's ORDINAL and its template context"
+    over: "Naming only the template context, or writing the line unconditionally"
+    reason: |
+      Evidence is deduplicated on the repository and what-was-done, and the report passes the
+      ADDRESS as the repository — shared by every declaration of a duplicate. An operator who
+      adds a template twice and fills the same values produces two losers identical in every
+      other field, and a line naming only the template context would vanish into the first.
+      The ordinal is the only field unique per declaration AND stable across the deriver's
+      retry loop, which is why RememberOnce stays as it is. It is a discriminator, not a
+      meaning: the template context is carried too, because after the catalog collapse the
+      model is shown only the owner's address and "declaration two" names nothing it has a
+      list of.
+
+  - category: Architecture
+    chose: "The read moves to TemplateProofRead, injected"
+    over: "A partial class, or a private helper constructed by hand"
+    reason: |
+      TemplateProofReport was 116 lines against a hard 120 and absent from the ratchet
+      baseline, so the ownership check and the skip record had no room. The read of ONE
+      declaration and the loop that decides WHICH declarations may be read are two
+      responsibilities anyway. It is a registered transient rather than a manual new, which
+      is the house rule for anything holding a logger.
+
+  - category: Architecture
+    chose: "The dialog's duplicate collapses SERVER-SIDE, in the catalog's shared helper"
+    over: "Picking the owner in the dashboard component, or re-keying the panel row"
+    reason: |
+      Both of the catalog's reads — the project list and an open session's scope — go through
+      one helper, so the collapse serves both. Picking the owner in the page would be a third
+      copy of the precedence rule, written where the statement cannot reach it. Re-keying the
+      row and collapsing it are two fixes that annihilate each other: once the duplicate is
+      gone before rendering, the key is unique again.
+
+  - category: Scope
+    chose: "RESOLUTION stays out"
+    over: "Making the derivation gate and the dialog stamp fold case too"
+    reason: |
+      Ownership decides which declaration owns an address; resolution decides whether a string
+      the MODEL wrote names an address that was opened. The gate is handed the deduplicated
+      set, so it receives one key per address and copies it faithfully; the stamp builds its
+      map from every declaration but looks up by the owner's own written string, which is
+      present by construction. A model writing a different casing than the one opened is still
+      refused, as it always was. The successor that makes the gate resolve every name the way
+      the catalog compares it is named in the spec's scope-out in prose.
+
+  - category: TradeOff
+    chose: "An address whose owner the filters exclude is not opened at all"
+    over: "Letting the surviving non-owner open it"
+    reason: |
+      Two declarations can share an address without sharing a context — an unqualified context
+      written with a slash and a qualified one compose the same address, and nothing refuses
+      that pair at load. The selection's filters key on the context, so the owner can be
+      filtered out while the other survives. One ownership answer means the address is then
+      not opened. It is narrow, it is honest, and the pair that produces it ought to be
+      refused at load: that is the phase named in prose as the one that refuses two template
+      declarations composing one address.

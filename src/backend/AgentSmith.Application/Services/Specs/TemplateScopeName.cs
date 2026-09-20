@@ -36,4 +36,32 @@ public static class TemplateScopeName
         ArgumentNullException.ThrowIfNull(template);
         return For(template.Context, template.ContextRepo);
     }
+
+    /// <summary>
+    /// How two addresses are compared. The discovery filter that admits a context and the
+    /// catalog that validates a repository ref are both case-insensitive, so two spellings of
+    /// one declaration denote ONE address here too. The composed name keeps the casing it was
+    /// written with — an operator and the model are shown it — and only the comparison folds.
+    /// </summary>
+    public static StringComparer Comparer => StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>
+    /// Whether the declaration at <paramref name="ordinal"/> OWNS the address it composes: an
+    /// address belongs to the FIRST declaration, in the project's own declaration order, that
+    /// composes it. Two declarations of one address share ONE materialised scope, so without
+    /// this every one of them was read out of the owner's checkout and the wrong read was
+    /// minted as evidence.
+    /// </summary>
+    /// <param name="declarations">The project's FULL declaration list. A reader that filters
+    /// first and a reader that does not must get one answer, and they only do when the list
+    /// ownership is computed over is the same list.</param>
+    public static bool Owns(IReadOnlyList<ProjectTemplate> declarations, int ordinal)
+    {
+        ArgumentNullException.ThrowIfNull(declarations);
+        var address = For(declarations[ordinal]);
+        for (var earlier = 0; earlier < ordinal; earlier++)
+            if (Comparer.Equals(For(declarations[earlier]), address))
+                return false;
+        return true;
+    }
 }
