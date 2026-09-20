@@ -1,0 +1,220 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-443a
+
+goal: "This repository declares the two verify stages that prove a change in it holds, so a run over it is gated by a command authored once rather than by one the analyzer guessed for that run."
+
+applies_to: "the default context's declaration"
+
+scope:
+  in: >
+    The default context gains a `verify:` block declaring a build stage and a test stage, in that
+    order, carrying the phase gate's INTENT — the same solution and the same category exclusion —
+    but as commands that stand alone. The commands are measured in the image they will run in BEFORE
+    anything is landed; if either does not fit the per-step cap, no block is landed and the phase
+    hands back. A small test set pins what must agree with the gate and the one thing that must not.
+  out: >
+    THE DASHBOARD STAGE. This context's image is the .NET SDK and carries no node or pnpm, so a
+    declared dashboard stage would exit non-zero for a missing binary — and a non-zero exit breaks
+    the loop for that repository, so it would hide the build and the test behind it. Named in prose
+    as the phase that gives the dashboard a context and an image of its own.
+    THE CLI DRY-RUNS AND THE HARNESS PRESETS. The gate runs both; neither is a build or a test of the
+    tree, and the gate's own note says a harness preset returning a pipeline FAIL is a valid outcome.
+    A stage whose exit code means something other than red cannot say so in a declaration that has no
+    field for it.
+    CHANGING THE GATE SCRIPT. The declaration is what a RUN executes; the gate is what a human commit
+    passes. This phase makes them agree on intent and states where they must not agree on text.
+    RAISING THE STEP TIMEOUT. If the measurement says a stage does not FIT, declaring a higher
+    ceiling is a change to this project's sandbox configuration and is named in prose as the phase
+    that gives a long-building project its own step ceiling; this phase hands back to it rather than
+    landing a block it knows will time out.
+    FIXING A RED STAGE. If a command exits non-zero in the declared image, that is a defect in this
+    repository or in the image, not a declaration problem, and no ceiling answers it. This phase
+    reports it and lands nothing; whoever owns the failure owns the fix.
+    CLOSING THE GAP THE DASHBOARD LEAVES. With build and test declared and no dashboard stage, a run
+    over this repository proves LESS than the gate a human commit passes: the gate's dashboard step
+    runs the generated-mirror check, so a run that changes a C# event contract is green at verify and
+    blocked at the human gate. That is stated here rather than left to be discovered, and closing it
+    is the dashboard-context phase above.
+    A `verify_derived_from` HASH. The drift reporter returns silently when no hash is recorded, so a
+    hand-authored block is never accused of being stale. This declaration is adopted from a script in
+    this repository, not derived from a pipeline the framework should re-hash, so the field stays
+    absent deliberately.
+
+decisions:
+  - key: |
+      A DECLARATION IS AUTHORED ONCE AND REPLAYED; A GUESS IS NOT. Without a `verify:` block the
+      resolver falls through to what the analyzer emitted for that run, and the resolver's own note
+      says in those words that the framework's own guess is not authoritative. The declared path is
+      also the only one whose command is read from the DEFAULT branch before any sandbox exists; the
+      inferred command is derived from the branch under review. And here the inferred rung leaves a
+      DILEMMA that two files establish without predicting anything. The analyzer locates .NET test
+      projects by three name patterns that all require the string Test in the file name; this
+      repository's harness is called AgentSmith.PipelineHarness and matches none, so an analyzer
+      applying that list literally does not name it. The analyzer's instruction then permits several command
+      shapes — by path, or a tree-wide form like the `pytest tests/` and `go test ./...` it offers as
+      compliant examples. A by-path command omits 232 tests the discovery never saw; a
+      solution-named one runs them. Which of the permitted shapes a given run produces is not
+      knowable from these files — and it is not knowable in principle either, which this repository
+      says in its own committed words: the analyzer is an LLM, one run does not settle the question,
+      and a split across runs is recorded as a split rather than collapsed to a majority. That
+      NON-DETERMINISM is the thing a declaration removes. Three
+      earlier cuts argued this badly and are recorded because the failures are instructive: that no
+      workflow ran the tests at all, a reviewer's observation promoted to a fact and cited to a
+      DIRECTORY; that the analyzer would transcribe the workflow's `--no-build` line, an inference
+      into a document shipped here as a gzip tarball and never opened; and that the analyzer could
+      only name one project, which assumed it would violate the instruction being cited as binding.
+      Each replaced a prediction with another prediction. What survives is the dilemma, not a bound.
+  - key: |
+      THE COMMANDS ARE THE GATE'S INTENT, NOT ITS TEXT — AND `--no-build` IS WHY. The gate tests with
+      `--no-build` because it built the same tree six lines earlier and failed the whole gate if that
+      build did not pass. A declared stage reproduces no such guarantee: it is contractually one
+      command that proves a change holds, stages are skipped individually, and the sibling phase
+      2026-09-20-9c74 runs ONE declared stage on its own. `dotnet test --no-build` on a tree nothing
+      built exits non-zero with a message about an invalid argument, which a reader takes for a
+      failing test; on a STALE tree it exits zero and reports green for code that is not the code
+      being committed. That second shape is the false green this repository already has an incident
+      for. So the declared test command carries no `--no-build`, and the cost is one incremental
+      up-to-date pass.
+  - key: |
+      THE FILTER IS UNQUOTED, BECAUSE THE QUOTES COST SOMETHING AND BUY NOTHING. Neither `!` nor `=`
+      is special to `/bin/sh`, so `--filter Category!=LiveLLM` is the same command. A double quote
+      anywhere in a declared command makes the toolchain probe treat it as naming no bare binary and
+      write an "unread" line into the master's own context section. Quoting would buy a shell
+      behaviour that is not needed and pay for it in what the master is told.
+  - key: |
+      SO THE DRIFT TEST PINS THREE THINGS, NOT THE TEXT — AND THE THREE ARE NOT SYMMETRIC. A test
+      comparing the declaration with the gate script verbatim would pin two things that must now
+      differ for a stated reason. What both commands share is the SOLUTION they name. The category
+      exclusion belongs to the test command alone: `dotnet build` has no `--filter` switch and would
+      fail on an unknown switch, so a rule phrased over "both commands" is false of one of them and
+      an implementer would have to deviate from the spec to get green. What must NOT agree is
+      `--no-build`, and asserting the declared test command does not carry it is the only place the
+      reasoning above reaches a future editor. A test reading the gate script is established practice
+      here — the series-id test already reads it.
+  - key: |
+      TWO STAGES, NOT ONE COMBINED. Verification stops at the first non-zero exit, and a red build
+      makes a test result meaningless. Two stages make the failure reason name the build rather than
+      a cascade behind it.
+  - key: |
+      NO `when_present` ON EITHER. The path guard exists for a stage that is meaningless without a
+      file; the solution file is committed at the root and a tree without it is not this repository.
+  - key: |
+      ONE THING MOVES, AND IT IS NOT THE PROBE. An earlier cut said nothing moves; its correction
+      then said the toolchain probe would now derive its binaries from these commands rather than the
+      analyzer's, which is also wrong — the probe has only ever read the declaration, and for THESE
+      two commands it changes nothing at all, because both name the bare binary `dotnet`, which the
+      fixed half of the sweep already asks about and the derived half filters out. What actually
+      moves is the blast radius: an unusable analyzer guess is filtered and the run falls through,
+      while an unusable DECLARATION becomes a resolution finding the verify handler turns into a hard
+      run failure. A declaration is authoritative — the reason to write one, and the reason a typo
+      here costs more than a typo anywhere else in this file.
+  - key: |
+      THE STALE DOCUMENTS ARE 2026-09-20-e92c, NOT THIS PHASE. Correcting them started here as "two
+      documents", became three, then seventeen carriers across the schema, five Contracts doc
+      comments, a dead Domain type, the tool description the model reads, the verify handler and the
+      operator reference page — which is a phase, not a clause. It is cut as 2026-09-20-e92c and
+      neither phase depends on the other for its reasoning, but they are NOT independent to land:
+      both write a state.done line into the default context, and this phase's own change is a verify
+      block in that same file. This repository's record says a duplicate key there broke main twice.
+      So they go in one pull request, or the second rebases onto the first. What follows is kept
+      here because it is the reason this
+      declaration looks like a contradiction until that phase lands.
+      THE TOOL DESCRIPTION IS THE COPY THAT SHIPS, WHICH IS WHY THAT PHASE MATTERS.
+      The resolver performs no .NET entry-point discovery; nothing branches on a language at all. The
+      schema's description misleads a person who opens the file. The handler's paragraph misleads a
+      maintainer. The tool description misleads THE MODEL, on every `write_context_yaml` call, in
+      every estate this product ever derives a context for — it is not generated from the schema, it
+      is independent prose that happens to repeat the same claim. A first review asserted the
+      description was BUILT from the schema; that mechanism is wrong and the substance was right, and
+      an earlier cut of this spec overturned the finding along with the reasoning after reading the
+      paragraph one line below the sentence it was sent to check. The schema's description also has a
+      machine reader: a rejection quotes the offending node's description back to the model,
+      truncated at 220 characters, which today cuts before the .NET half and would stop doing so if
+      the first sentence were shortened.
+  - key: |
+      THE MEASUREMENT IS A PRECONDITION, NOT A DELIVERABLE, AND IT CHECKS THE EXIT CODE TOO. Put
+      last, it would tell an implementer to unland a block whose test had already been written, which
+      no `done:` line can then satisfy. Put first, the failure branch is coherent: ship the document
+      corrections, write no block. And a wall time alone is not the measurement — a stage that fits
+      the cap in four hundred seconds and exits non-zero turns every run over this repository red
+      just as completely as one that times out.
+      THE COMMANDS ARE MEASURED WHERE THEY WILL RUN, AND THE CAP IS PER STAGE. A sandbox step is
+      capped at fifteen minutes by default and a sandbox gets one CPU by default, while the phase
+      gate's numbers come from a warm many-core laptop. A cold restore, a full solution build and six
+      and a half thousand tests on one core under that cap is an unmeasured bet, and losing it turns
+      every run over this repository red at verification. The two stages are two STEPS, so each is
+      measured and recorded on its own rather than combined; and a real sandbox mounts a persistent
+      package cache, so the recorded time says whether it was taken cold or warm. If either stage
+      does not fit, the block is not landed.
+
+steps:
+  - id: the-commands-are-measured-first
+    action: "Before anything is landed, both candidate commands are measured in ONE container of the declared image with one CPU, over a CLEAN source tree — a fresh clone into the volume, never the author's checkout, whose committed bin and obj would measure an already-built tree — with the build command timed first and the test command timed after it in the same shell, so the test stage is charged only the incremental pass the declaration makes it pay. Both must exit 0. The COLD number governs, because an empty package cache is a real first run and must not redden a repository; a warm second pass is timed in the same container and recorded beside it. Both times go in the phase's decision file. The two stages give FOUR numbers — a cold and a warm time each — and all four are recorded. If a stage misses the per-step cap, nothing is landed and the phase hands back to the named step-ceiling phase; if a stage EXITS NON-ZERO, nothing is landed and the phase hands back to whoever owns the red, because a ceiling answers a slow stage and nothing about a failing one."
+  - id: the-block
+    action: "The default context declares a build stage and a test stage, in that order, with the gate's solution and category exclusion and no --no-build."
+  - id: the-block-says-what-must-agree
+    action: "Tests assert both commands name the solution the gate script names, the TEST command carries the gate's category exclusion — read from the gate script with its double quotes stripped, since the declaration is deliberately unquoted — and the test command does not carry --no-build, with the reason in the failure message. The block must also satisfy the existing shipped-context schema test."
+
+tests:
+  - "Context_TheDefaultContext_DeclaresABuildAndATestStage"
+  - "Context_BothDeclaredCommands_NameTheSolution"
+  - "Context_TheDeclaredTestCommand_ExcludesTheLiveLlmCategoryTheGateExcludes"
+  - "Context_TheDeclaredTestCommand_DoesNotCarryNoBuild"
+
+done:
+  - "EITHER a run over this repository is gated by the declaration rather than the analyzer's pair, OR the measurement refused a command and nothing was landed"
+  - "IF a block landed: the declared test stage means the same thing whether or not a build stage ran before it"
+  - "the contradiction this declaration creates with the stale documents is named, not left: 2026-09-20-e92c carries it"
+  - "both candidate commands were measured in the declared image on one CPU before anything landed: each exited 0 inside the step cap, and all four numbers — a cold and a warm time per stage — are recorded — or no block was landed and the phase handed back"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The default context declares no verify block today, and it is the only context in this repository."
+    evidence: ".agentsmith/contexts/default/context.yaml (no verify: key), .agentsmith/contexts/ holds only default"
+  - claim: "The resolver prefers a declaration and falls through to the analyzer's pair only when no context declared; below both it skips."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:47-63"
+  - claim: "The inferred command comes from the analyzer's JSON, read verbatim as ci.build_command."
+    evidence: "src/backend/AgentSmith.Application/Services/ProjectMapJsonReader.cs:104-110, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:104-114"
+  - claim: "The resolver's own note says the framework's own guess is not authoritative, and that nothing branches on a language."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:102-103, :20-22"
+  - claim: "Verification stops a repository at the first non-zero exit."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs:120-122"
+  - claim: "This context's image is the .NET SDK and carries no node or pnpm."
+    evidence: ".agentsmith/contexts/default/context.yaml stack.image = mcr.microsoft.com/dotnet/sdk:10.0"
+  - claim: "The gate runs `dotnet build AgentSmith.sln -clp:ErrorsOnly` and `dotnet test AgentSmith.sln --no-build --filter \"Category!=LiveLLM\"`."
+    evidence: ".claude/hooks/phase-gate.sh:224, :234"
+  - claim: "A declared stage carries a label, a command and an optional presence path, and runs at the repository root through /bin/sh -c."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlVerifyStage.cs:20-27"
+  - claim: "A command containing a double quote is rejected by the bare-binary read, which is what the toolchain probe uses."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/BareCommandBinary.cs:23-34"
+  - claim: "An unusable DECLARED command becomes a resolution finding the verify handler turns into a run failure, while an unusable INFERRED one is only logged and filtered."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:80-87, :107-113, src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs:236-240"
+  - claim: "A restore inside a sandbox needs no private feed and lands in a reusable cache volume: the repository's nuget.config clears all sources and adds only nuget.org, and the container builder mounts a package cache and exports its env."
+    evidence: "nuget.config, src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:73-93"
+  - claim: "The embedded skills catalog tarball is committed, so the build's download target never fires and needs no network."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-57, :67-69 (the pinned tarball is tracked under Resources/ and the download target is conditioned on its absence)"
+  - claim: "A sandbox step is clamped to the configured cap — 900 seconds by default — whatever a caller asks for, and a sandbox gets one CPU by default."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs:41, src/backend/AgentSmith.Server/Services/Sandbox/SandboxStepCap.cs:23, src/backend/AgentSmith.Contracts/Sandbox/ResourceLimits.cs:19"
+  - claim: "Skills-dependent tests self-skip where no skills checkout is present, and CI sets the directory explicitly — so the declared test stage proves slightly less than CI does, in the same family as the dashboard gap; the docker-tier harness classes self-gate the same way."
+    evidence: "tests/AgentSmith.Tests/TestSupport/TestSkillsRoot.cs:21-40, .github/workflows/docker-publish.yml:50, :55-58"
+  - claim: "A test may read the gate script: an architecture test already does."
+    evidence: "tests/AgentSmith.Tests/Architecture/PhaseSeriesIdTests.cs:41"
+  - claim: "A schema rejection quotes the offending node's description back to the model, truncated at 220 characters."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ContextDefectReport.cs:28, :78-80"
+  - claim: "The toolchain probe reads only the declaration and already asks about `dotnet`, so these two commands change its sweep by nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ToolchainProbeCommand.cs:26-27, :36"
+  - claim: "The analyzer's own pattern list for .NET test projects is three globs that all require the string Test in the file name; AgentSmith.PipelineHarness.csproj matches none, so an analyzer applying that list literally does not name it. Its project holds 232 discoverable tests."
+    evidence: "skills/_masters/project-analyzer-master/SKILL.md:25 inside the pinned catalog tarball named by src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54, tests/AgentSmith.PipelineHarness/AgentSmith.PipelineHarness.csproj, `dotnet test tests/AgentSmith.PipelineHarness/AgentSmith.PipelineHarness.csproj --list-tests` = 232"
+  - claim: "The analyzer's instruction forbids only a BARE dotnet test that assumes the current directory, and offers tree-wide forms as compliant examples — so a solution-named command is permitted and would run the harness anyway."
+    evidence: "skills/_masters/project-analyzer-master/SKILL.md:31 inside the pinned catalog tarball"
+  - claim: "This repository states in its own committed code that the analyzer is an LLM, that one run does not settle what it emits, and that a split across runs is recorded rather than collapsed."
+    evidence: "tests/AgentSmith.PipelineHarness/Evals/AnalyzerCiCommandReport.cs:7-12"
+  - claim: "Nothing in the tree fixes which command shape the analyzer emits: the project map is written at runtime only, no fixture pins this repository's ci commands, and the string is read verbatim and executed with no normaliser between."
+    evidence: "src/backend/AgentSmith.Application/Services/ProjectMapJsonReader.cs:104-110, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:104-114"
+  - claim: "This repository's CI does run dotnet test, with --no-build, and neither CI build command names the solution; the live-model category is excluded there for cost."
+    evidence: ".github/workflows/docker-publish.yml:62, :39, .github/workflows/agent-smith.yml:33, .claude/hooks/phase-gate.sh:229-233"
+  - claim: "The drift reporter returns silently when no verify_derived_from hash is recorded."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyDerivationDrift.cs:37"
+
+assumptions:
+  - "That a full solution build and the suite finish inside the 900-second step cap on one CPU. This is the open question the measurement step exists to close; if it does not hold, the declaration needs a step ceiling of its own before it is useful."
