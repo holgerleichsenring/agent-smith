@@ -7,7 +7,8 @@
 #
 # When it gates, the deterministic phase checks must all be green or the commit
 # is blocked (exit 2, stderr fed back to Claude):
-#   1. dashboard       — pnpm install/test/build in src/dashboard (2026-08-25-39ab)
+#   1. dashboard       — pnpm install, the generated-mirror check, test and build in
+#                        src/dashboard (2026-08-25-39ab, 2026-09-18-7b31)
 #   2. build           — dotnet build (errors fail)
 #   3. unit + harness xUnit tests — dotnet test (this is the harness pass/fail gate)
 #   4. CLI dry-runs    — <command> --help for each pipeline
@@ -19,6 +20,12 @@
 # because it is the cheapest complete signal (~45s against minutes of .NET) and
 # because a phase that breaks the dashboard should hear so before the build.
 # A tree without src/dashboard/package.json has no dashboard to check and says so.
+# 2026-09-18-7b31 added the mirror check to that block: a C# event contract that
+# outgrew its TypeScript mirror passed this gate and failed on the pull request,
+# because install, test and build cannot see drift the dashboard never imports. A
+# tree whose package.json declares no gen:hub-events script predates the check and
+# is skipped with a line of its own — which is why the passed ledger line still says
+# only `dashboard`, and claims nothing about a step that may not have run.
 # A tree that HAS one and no pnpm fails the gate — a missing toolchain is an
 # unproven commit, and a silent skip is indistinguishable from a pass.
 #
@@ -178,7 +185,31 @@ log "1/5 dashboard build + tests..."
 if [ -f src/dashboard/package.json ]; then
   command -v pnpm >/dev/null 2>&1 \
     || fail "dashboard checks need pnpm on PATH (corepack enable, or install pnpm)"
-  for step in "install --frozen-lockfile" "test" "build"; do
+  # 2026-09-18-7b31: the generated-mirror check is a CONDITIONAL member, so the step
+  # list stops being a literal word list in the for statement and becomes an array —
+  # iterated with the same unquoted expansion inside, which is what splits the install
+  # step from its flag. Whether the member is there is READ from package.json, not
+  # inferred from pnpm's exit code: real pnpm answers a missing script with an
+  # undocumented 254 that this gate treats as any other failure, which would block
+  # exactly the worktree cut from before this phase that the skip exists to protect.
+  steps=("install --frozen-lockfile")
+  if python3 -c '
+import json, sys
+try:
+    scripts = json.load(open("src/dashboard/package.json")).get("scripts") or {}
+except Exception:
+    scripts = {}
+sys.exit(0 if "gen:hub-events" in scripts else 1)
+' 2>/dev/null; then
+    # After install, because the step runs through pnpm and pnpm needs its modules; the
+    # check itself only reads — it compares the C# event contracts against the dashboard's
+    # TypeScript mirror and writes nothing — so it cannot touch the tree it gates.
+    steps+=("gen:hub-events")
+  else
+    log "    no gen:hub-events script in src/dashboard/package.json — no generated mirror, nothing to check"
+  fi
+  steps+=("test" "build")
+  for step in "${steps[@]}"; do
     # shellcheck disable=SC2086
     if ! (cd src/dashboard && pnpm $step) >"$tmp/dashboard.log" 2>&1; then
       tail -40 "$tmp/dashboard.log" >&2; fail "dashboard: pnpm ${step%% *}"
