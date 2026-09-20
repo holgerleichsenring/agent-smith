@@ -1,0 +1,95 @@
+phase: 2026-09-20-9c74
+decisions:
+  - id: the-collaborator-is-a-type-not-two-parameters
+    chose: >
+      DerivationLookStages — a public factory product holding the gate's VerifyStageResolver and
+      the per-sandbox declaration map the factory reads out of ContextKeys.Sandboxes +
+      ContextVerifyStagesResolver. DerivationLook's constructor and DerivationLookFactory.OnTerms
+      each gain ONE optional parameter of that type; ForPremiseCheck is the only caller that
+      fills it. Registered nowhere: it is built inside the factory, never resolved.
+    alternative: >
+      Threading both collaborators plus the PipelineContext into the look, or giving the tool
+      the resolver and letting it read the declarations itself.
+    why: >
+      The declaration is a PIPELINE reading and the look never sees a pipeline; resolving it in
+      the factory keeps that boundary where it already is. Two parameters on the look and on the
+      shared terms method would be two chances to forget one, and passing the pipeline itself
+      would hand every look tool a map it has no business reading. One already-resolved thing
+      also gives the RAW labels a synchronous home, which is what the prompt needs.
+  - id: the-cache-is-the-tools-not-the-resolvers
+    chose: >
+      DerivationLookStages remembers what it resolved, keyed by repository.
+    alternative: >
+      Resolving on every call, or pre-resolving every repository when the look is built.
+    why: >
+      Pre-resolution is async and needs a sandbox, so it cannot happen where the look is built;
+      and it would pay a presence probe per repository for a capability most checks never use.
+      Re-resolving per call is correct but charges a second probe to a refused label, which is
+      the one path that is already paying for the framework's own omission.
+  - id: refusals-charge-the-look-and-not-the-run
+    chose: >
+      The tool opens through DerivationLook.TryOpen FIRST (charging the shared allowance), then
+      checks the one-run flag, then resolves and matches the label; the flag is set only once a
+      stage has been found. An unknown or filtered-out label therefore costs a look and not the
+      run.
+    alternative: >
+      Checking the one-run flag before opening, or charging the run at the top of the call.
+    why: >
+      Opening first is what every other look tool does, and a refusal that costs nothing at all
+      would let a model probe the label space for free. The RUN is the scarce thing: the prompt
+      lists the raw declaration, so a label the presence filter removes was offered by the
+      framework, and charging the only run for that would spend it on a refusal.
+  - id: the-reply-is-tailed-inside-the-tool
+    chose: >
+      VerifyCommandRunner.VerifyTimeoutSeconds, OutputTailChars and Tail() widened from private
+      to public and used by the tool; Tail() gained a null guard when its visibility changed.
+    alternative: >
+      A constant hoisted to a shared place with the one-expression tail copied beside it, or
+      letting BoundedResultTool's default bound do the truncation.
+    why: >
+      The wrapper every look tool is built with keeps the FRONT of a result, and a failing build
+      puts its reason at the END — so the truncation has to happen before the wrapper sees it.
+      Sharing the constant while copying the expression is the worse half of both options, and
+      the ceiling and the bound were written for exactly these commands: the step runner's own
+      sixty-second fallback would time out every stage this tool exists to run.
+  - id: the-throw-boundary-mints-rather-than-swallows
+    chose: >
+      catch (Exception ex) when (!ct.IsCancellationRequested) around the step call alone; it
+      logs with the exception, mints an evidence line at SourceScopeLook.NotRunExit with
+      Ran: false, and answers in words that it proves nothing. A timed-out RESULT takes the same
+      Ran: false path without the catch.
+    alternative: >
+      Letting the transport failure propagate, or catching TimeoutException by type.
+    why: >
+      PhasePremiseChecker catches every non-cancel exception and returns null, so one escaping
+      transport failure would lose the WHOLE check with a single warning — a stage that could not
+      run must cost one unproven premise instead. The narrow type is the wrong guard because the
+      two shapes are not one type: the sandbox agent returns a result marked timed out, while a
+      sandbox that went silent throws from the channel. Both end as the same did-not-run record.
+  - id: what-is-tested-is-driven-through-the-factory
+    chose: >
+      Every one of the nineteen tests builds its look through DerivationLookFactory over a real
+      PipelineContext carrying ContextKeys.Sandboxes, SandboxDiscoveries and SandboxContexts, and
+      invokes the tool as the AIFunction the look actually registered.
+    alternative: >
+      Hand-building a DerivationLook and constructing VerifyStageRunTool directly, as the
+      existing look tests do.
+    why: >
+      The look builds its own tools in its constructor and the shared test helper calls that
+      constructor directly, so a hand-built look would carry no stage-run tool at all — a suite
+      built that way would pass over a feature that ships dead. Driving the factory also proves
+      the two collaborators reach the tool and that the declaration is read from the per-sandbox
+      CONTEXT LIST rather than the grouped representative.
+  - id: the-sentence-is-keyed-on-the-term-and-the-tool-on-both
+    chose: >
+      DerivationTools.Over builds the tool only when Terms.MayRunAStage AND a collaborator was
+      supplied; DerivationTools.Named and DerivationLookPromptSection render the sentence and the
+      per-repository labels off the TERM alone.
+    alternative: >
+      Keying the sentence on the tool's presence, the way the audit's half of that sentence is
+      keyed.
+    why: >
+      The two answer different questions. What a holder CAN reach must fail closed, so it is the
+      conjunction. What a holder is TOLD is the terms' job — they are what the prompt is written
+      from, and a holder told about a tool it does not have spends nothing, while a holder handed
+      a tool it was never told about will not call it.

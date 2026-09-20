@@ -14,16 +14,25 @@ internal static class DerivationTestLooks
 {
     public const string Repo = "Sample.Server";
 
-    /// <summary>A factory over the pipeline's sandboxes; with none set, it yields no host.</summary>
+    /// <summary>A factory over the pipeline's sandboxes; with none set, it yields no host.
+    /// 2026-09-20-9c74: the gate's own stage resolution is built from the same reader the
+    /// caller hands in, so a declared when_present path is answered by that reader.</summary>
     public static DerivationLookFactory Factory(
         ISandboxFileReaderFactory? files = null, ISourceScopeSandboxFactory? scopes = null,
-        AgentSmith.Application.Services.Turns.TurnActivityTools? activity = null) =>
-        new(new SandboxTargets(), files ?? new StubSandboxFileReaderFactory(),
-            new PackageEcosystemDetector(),
+        AgentSmith.Application.Services.Turns.TurnActivityTools? activity = null)
+    {
+        var readers = files ?? new StubSandboxFileReaderFactory();
+        return new DerivationLookFactory(
+            new SandboxTargets(), readers, new PackageEcosystemDetector(),
             new ProjectTemplateScopes(
                 scopes ?? new NoScopes(), NullLogger<ProjectTemplateScopes>.Instance),
             activity ?? TurnActivityRecorder.Tools(),
+            new VerifyStageResolver(
+                new DeclaredStagePresence(readers, NullLogger<DeclaredStagePresence>.Instance),
+                NullLogger<VerifyStageResolver>.Instance),
+            new ContextVerifyStagesResolver(),
             NullLogger<DerivationLook>.Instance);
+    }
 
     /// <summary>2026-09-13-9f84: the template-proof read as the product composes it — the
     /// real context.yaml parse over whatever reader the caller hands in.</summary>
@@ -69,5 +78,41 @@ internal static class DerivationTestLooks
     public sealed class FixedReaderFactory(ISandboxFileReader reader) : ISandboxFileReaderFactory
     {
         public ISandboxFileReader Create(ISandbox sandbox) => reader;
+    }
+
+    /// <summary>2026-09-20-9c74: a sandbox whose step is KILLED at its ceiling — the ordinary
+    /// timeout shape, a result that came back marked timed out.</summary>
+    public sealed class TimingOutSandbox(string output = "") : ISandbox
+    {
+        public string JobId => "timed-out";
+        public List<Step> Ran { get; } = [];
+
+        public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
+        {
+            Ran.Add(step);
+            return Task.FromResult(new StepResult(
+                StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 124, TimedOut: true,
+                1800.0, "the step exceeded its timeout", output));
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    /// <summary>2026-09-20-9c74: a sandbox that went SILENT — the channel throws after its
+    /// wait, which is the shape both production backends route through.</summary>
+    public sealed class ThrowingSandbox(Exception? thrown = null) : ISandbox
+    {
+        private readonly Exception _thrown = thrown ?? new TimeoutException("no result arrived");
+
+        public string JobId => "threw";
+        public List<Step> Ran { get; } = [];
+
+        public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
+        {
+            Ran.Add(step);
+            throw _thrown;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

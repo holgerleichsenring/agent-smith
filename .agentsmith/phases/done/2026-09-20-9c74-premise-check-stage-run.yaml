@@ -1,0 +1,362 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-9c74
+
+requires: [2026-09-20-443a]
+
+goal: "A phase's premise check may run one verify stage a repository DECLARED, by label, so a premise about what a gate does is settled by producing its exit code instead of asserted."
+
+applies_to: "backend (the look's terms, a stage-run tool over the declared stages, the evidence kind it mints)"
+
+scope:
+  in: >
+    The PREMISE CHECK — and no other holder — may ask for one of the verify stages a repository of
+    the run DECLARED, by the stage's LABEL. The tool's REPLY carries the exit code and a tail of the
+    stage's output; the minted EVIDENCE carries the repository, the declared command and the exit
+    code, and no output. The list is the declaration, filtered exactly as the verify gate filters it: a command
+    that cannot fail takes the whole repository out, and a stage whose declared path is absent is not
+    offered. That filtering is taken from the gate's own resolver rather than re-implemented. The
+    evidence gains a kind of its own, because the kinds are a closed set and one holder filters on
+    kind.
+  out: >
+    THE ANALYZER'S INFERRED PAIR. The previous cut admitted it, to make the phase observable on this
+    repository — and that was the same defect the first cut had, in a better costume. An inferred
+    command is read verbatim out of the ANALYZER MODEL's JSON and handed to a shell, so "nothing a
+    model writes becomes a command" would have been false, and false on the only path this
+    repository has. The resolver's own note says the framework's guess is not authoritative.
+    Observability is bought instead by 2026-09-20-443a, which lands this repository's two declared
+    stages UNLESS its own measurement refuses them — which it does on either of two grounds, a stage
+    that misses the per-step cap or a stage that exits non-zero, and only the first is answered by
+    the step-ceiling phase 443a names. In either case this phase is still correct and simply
+    unobservable here until some repository declares a stage. A declaration is the
+    thing this phase was always about.
+    THE DERIVATION. It runs at the same moment as the cut review and for the same reason: there is
+    no phase code yet, so a gate run answers a question about a tree the work has not touched. It
+    has the largest allowance of any holder, which makes a half-hour unit the worst fit there.
+    THE CUT REVIEW. It runs at DERIVATION time, before the phase's code exists, where "would this
+    gate fail" is usually unanswerable — and it is the holder the proposal review is DERIVED from
+    (`CutReview with { … }`), so a term set on it reaches a design turn silently. Named in prose as
+    the phase that decides whether a cut review may run a stage.
+    THE PHASE REVIEW. It runs over real sandboxes AFTER the gate has already run over this tree in
+    this run, so re-running a stage proves nothing the run does not already hold. It is NOT excluded
+    on the ground that it can read the gate's outcome: it cannot. Its prompt is built from the draft,
+    the principles, the diffs and the look, and carries exactly one hardcoded sentence saying the
+    diff was built and tested green — one bit, true by pipeline order, and not always accurate, since
+    the gate skips a repository whose branch carries no source change. Named in prose as the phase
+    that gives a phase review the gate's actual outcome.
+    THE DESIGN TURN. Its look holds read-only SOURCE scopes, which refuse a run step before they
+    materialise anything; a passing test already asserts that refusal.
+    A COMMAND THE MODEL COMPOSES, and A SECOND STAGE RUN IN ONE CHECK. See decisions.
+    REPORTING OR REVERTING WHAT A STAGE WROTE. See decisions — the measurement is correct and cheap,
+    and is left to the successor that decides what to DO about the write, because a number nobody
+    acts on is a collaborator for nothing.
+
+decisions:
+  - key: |
+      THE FIRST CUT WAS INERT FOR ONE HOLDER AND UNSAFE FOR THE OTHER. It would have given a model
+      `/bin/sh -c` with a composed command inside the run's real toolchain containers — credentials
+      under the home directory, and the commit path reading the same map. The design turn's look
+      would have refused it on the first line of its step handler regardless.
+  - key: |
+      THE FOURTH CUT REINTRODUCED THE SAME DEFECT THROUGH THE ANALYZER. Admitting inferred stages to
+      make the phase observable here meant admitting a command another model in this run wrote as
+      free text, filtered only by the cannot-fail check — and since this repository declares nothing
+      today, that was the ONLY path it would ever have taken. The safety sentence would have been
+      false exactly where an operator would first have watched it. Observability is a reason to make
+      this repository declare, not a reason to run a guess.
+  - key: |
+      THE FILTERING IS THE GATE'S, TAKEN AND NOT COPIED. A declared command that CANNOT FAIL
+      (`echo`, `true`, `:`, `printf`, `#`) takes the whole repository out of resolution, because a
+      run once reported a repository green on a declared `echo Build command placeholder`. Reading
+      the declaration raw would offer that stage, run it, get exit 0 and mint admissible evidence —
+      the same false green, laundered through the framework. A stage whose declared path is absent is
+      skipped for the same reason a red it was never measured for would hide every real gate behind
+      it.
+  - key: |
+      WHAT CAN BE RUN IS THE FRAMEWORK'S, WHICH IS THE PROPERTY THE READ TOOLS ALREADY HAVE. The
+      search tool's own note says it builds fixed argument vectors with no shell, so that nothing a
+      model writes can become a command, and that read-only is a property of what CAN be run rather
+      than of what the caller is asked to stick to. A label chosen from a declared list keeps that
+      property. The command still reaches a shell — it is the repository's own declared line, read
+      from its DEFAULT branch before any sandbox exists, so injecting one needs default-branch
+      write, the same bar as changing CI.
+  - key: |
+      WHAT IS OFFERED IS THE TREE AS IT STANDS NOW, NOT WHAT THE GATE WILL DO. Three things separate
+      the two and the earlier cut claimed they were one: the gate skips a repository whose branch
+      carries no source change, which before the phase's work is usually every repository; the gate
+      stops a repository at its first non-zero exit, so later stages never run; and an absent-path
+      guard is evaluated against the tree at the moment it is read, and a path the phase's work
+      creates is absent now and present at verify. So the claim this phase can settle is what the
+      declared stage does to the tree AS IT STANDS — which is what a premise about the starting state
+      actually asks.
+  - key: |
+      THE TAILED OUTPUT REACHES THE MODEL, AND ONE CHANNEL OUT OF THE MODEL IS NOT FRAMEWORK-WRITTEN.
+      The minted evidence line carries the command and the exit code, never the output, so the
+      framework's own copy — in the handback notice, the phase row and the decision log — is a
+      command and an exit code. But the notice also prints the finding's `why`, which the model
+      writes free-form and the admission does not rewrite. The prompt asks for one sentence; nothing
+      enforces it, and the only treatment it gets is newline flattening. That `why` reaches the ticket
+      comment, the phase row and the decision log alike, so the bound a successor must consider
+      belongs to `why` itself and not to any one sink. The decision log goes to the run's event
+      stream and not into the committed tree — but the COMMITTED sink is a different one and it is
+      already open, which an earlier cut of this paragraph got backwards. A hand-back fails its step;
+      the finalizer tail still runs the run-result write and the commit, so the failure reason —
+      the verdict, `why` included — lands in the run record under `.agentsmith/runs/`, is
+      force-staged past any gitignore precisely so it cannot be dropped, and is carried by a record
+      pull request that is opened even when no repository changed a line of code. So a
+      model-authored sentence reaches a pull request today, on exactly the path this phase's
+      evidence travels, and this phase widens what that sentence can be composed from. Named in
+      prose as the phase that decides whether a model-authored sentence reaching a ticket AND a
+      commit needs a bound. That channel is not opened here — a file read
+      already returns content to the same model that writes `why` — but this phase WIDENS what can
+      travel through it, and the sandboxes this holder works over carry registry credentials under
+      the home directory. Stated rather than left to be discovered.
+      RAN MEANS A RESULT CAME BACK AND IT DID NOT TIME OUT — THE RULE THE AUDIT TOOL ALREADY USES.
+      The search tool's convention is `ExitCode is 0 or 1`, where 1 means "matched nothing"; for a
+      gate 1 is the failure verdict this phase exists to produce, so that convention inverts. The
+      earlier cut then invented a 126/127 special case, which is wrong for the execution shape:
+      every stage is one `/bin/sh -c` line, the shell always starts, and a 127 is the shell
+      reporting about a command INSIDE the line — possibly the fifth of an `&&` chain after four
+      succeeded. The run's own gate calls any non-zero red. A gate that failed is the evidence.
+  - key: |
+      A TIMEOUT ARRIVES IN TWO SHAPES AND BOTH MUST BE HANDLED — THE LAST CUT FILED THIS AS AN
+      ASSUMPTION AND WAS WRONG ABOUT IT. The ordinary shape is the sandbox agent killing the clamped
+      step and returning a result marked timed out, which the Ran rule above already covers. The
+      second is the host backstop: when a sandbox goes SILENT the channel throws a TimeoutException
+      after its wait, and both production backends route through it. The premise checker catches
+      every non-cancel exception and returns null, so the WHOLE premise check would vanish with one
+      warning — the failure mode this decision exists to prevent. The tool catches the timeout and
+      the transport failures at its own boundary and mints a did-not-run record, in the shape the
+      working-tree reader already uses. It never propagates.
+  - key: |
+      THE GATE'S RESOLVER IS TAKEN AND ITS RUNNER IS NOT, WHICH LOOKS INCONSISTENT AND IS NOT. The
+      runner already performs this execution — the same shell step at the same ceiling — but what it
+      RETURNS carries no timed-out flag, only an exit code and a skipped flag. This phase's whole
+      Ran rule turns on whether a result came back without timing out, so reusing the runner would
+      mean widening its outcome record for one caller. The step result the tool reads carries the
+      flag already.
+      A STAGE'S CEILING IS THE VERIFY GATE'S, NAMED ONCE. The step runner falls back to sixty seconds
+      and the look threads no configuration, while the ceiling written for exactly these commands is
+      half an hour — a build and a test on a cold sandbox are the slowest deterministic steps in a
+      run. Taking the step runner's default would time out every stage this phase exists to run.
+  - key: |
+      THE TAIL IS SHARED AS A METHOD, NOT COPIED AS TWO LINES. The bound is already a named
+      constant; what is needed is visibility, not hoisting. And sharing the constant while copying
+      the one-expression tail is the worse half of both options, so the method's visibility widens
+      with it.
+      THE OUTPUT KEEPS ITS END, AND THE TRUNCATION HAPPENS INSIDE THE TOOL. The wrapper every look
+      tool is built with keeps the FRONT of a result. A failing build or test puts its reason at the
+      END — the verify gate takes a tail for exactly that. So the tool tails its own output before it
+      returns and the wrapper's larger front-bound never reaches it. The verify runner's tail and its
+      bound are private today.
+  - key: |
+      ONE STAGE RUN PER PREMISE CHECK BOUNDS THE PHASE, NOT THE RUN, AND THAT IS STATED RATHER THAN
+      IMPLIED. The look is built once per premise check and the premise check is asked once per
+      phase, so a run of N phases can spend N stage runs. The cap keeps one check from spending its
+      six looks on two builds of the same unchanged tree; it is not a run-level budget and this phase
+      does not add one. And a phase is marked executed only when its record is written, so a
+      re-triggered phase re-enters and re-asks: the true bound is phases times re-entries. What the
+      look's gate counts is LOOKS, not seconds and not tokens — a sandbox
+      command spends no model tokens at all, so the cost tracker will not show it. Named in prose as
+      the phase that gives a run a wall-clock budget for the commands its reviewers run.
+  - key: |
+      A STAGE RUN DIRTIES A TREE THAT IS COMMITTED WHOLESALE, AND MEASURING IT IS WORSE THAN SAYING
+      IT. The premise check runs before the phase's work and the commit path stages everything, so
+      generated sources or lockfile churn from a stage run land in the pull request under the phase's
+      own message. Two grounds for refusing to measure it were tried and BOTH were false, which is
+      worth writing down because the successor named below would have inherited either. Nobody would
+      see it: false — the admission copies a cited evidence line onto the finding and the handback
+      notice prints it into the ticket comment and the decision log. The instrument is blind where it
+      matters: also false, and it inverts. A porcelain status lists tracked changes and untracked
+      non-ignored files, and `git add -A` stages that same set; gitignored build output is skipped by
+      both, as the staging path's own note about force-staging says. The direction that matters to
+      the successor is that nothing reaches the pull request UNSEEN: whatever the staging carries
+      shows in the delta. One edge is granularity, not error — porcelain reports an untracked
+      directory as a single entry where the staging expands it, so the entry covers its contents and
+      the direction holds, but the delta is not a file list. One edge is a real false positive — a
+      submodule dirty only in its contents is reported and staged by nothing — so a non-empty delta
+      is not by itself proof that something will be committed. And one blind spot the successor must close rather than inherit: the reader returns
+      an empty list when the status step exits non-zero and when it throws, so "empty" means clean OR
+      unread, and it never throws precisely because it swallows. So the instrument is correct, cheap and
+      already in the tree. It is left out on SCOPE alone: measuring without deciding what to do about
+      it adds a collaborator and a line nobody acts on, and deciding is the successor's question.
+      This phase states the consequence in prose — a stage run may leave output the phase's own
+      commit will carry — and hands the successor a true premise. Named in prose as the phase that
+      decides whether a reviewer's write is reverted before the commit or excluded from it, and it
+      should reach for the porcelain delta rather than build something new.
+  - key: |
+      THE COLLABORATOR IS THE GATE; THE TERM IS WHAT THE HOLDER IS TOLD. Two things could withhold
+      the tool and the spec must say which carries the weight. The COLLABORATOR does: a look built
+      without one has no stage-run tool, whatever its terms say, so the capability cannot be reached
+      by a holder the factory did not hand one to. The TERM earns its line separately — it is what
+      the prompt sentence is rendered from, so a holder knows whether it may ask. Keeping both means
+      a mistake in either one fails closed.
+      EVERY HOLDER NAMES ITS OWN VALUE, EVEN THOUGH ONLY ONE IS TRUE. There are five holders and one
+      of them is defined AS the cut review with fields replaced, so a term set on the cut review
+      reaches the design turn's proposal review silently. The premise check is constructed fresh and
+      is the only holder set true, but the other four are written out rather than left to a default.
+  - key: |
+      TWO COLLABORATORS, SUPPLIED AT THE FACTORY, AND ONE TEST THAT DRIVES THE FACTORY. The tool
+      needs the gate's stage resolver and the per-sandbox declared list — the second reads a
+      PipelineContext the look never sees, which is why neither can be resolved inside the look. Both
+      are injected into the FACTORY, which already takes the pipeline, and reach the look as one
+      already-resolved collaborator; the look's constructor gains one optional parameter that only
+      the premise-check path fills. The shared terms method gains the SAME optional parameter rather
+      than being duplicated: an earlier cut had the premise-check factory stop delegating, on the
+      ground that a terms-keyed capability would reach the cut review by accident — which is not so,
+      because the cut review's terms carry the flag as false and its factory method would pass no
+      collaborator. And duplicating that method would re-create the copy 2026-09-17-042eh deleted for
+      exactly this reason: the terms ARE the difference, so they are the parameter. What
+      would ship the feature dead is leaving the premise-check path optional too — the look builds
+      its own tools in its constructor and the tests' own helper calls that constructor directly, so
+      no hand-built look would ever have the tool. So at least one test drives the factory method off
+      a real pipeline carrying the sandbox context list rather than hand-building a look.
+  - key: |
+      THE SENTENCE LISTS THE RAW DECLARED LABELS, BECAUSE THE FILTERED LIST DOES NOT EXIST YET WHEN
+      THE PROMPT IS WRITTEN. The prompt section renders synchronously inside a raw string and the
+      factory method is synchronous, while the gate's resolution is asynchronous and needs a sandbox
+      — so the filtered list is only available on first use, after the prompt is written. Reading the
+      raw declaration is synchronous and needs only the pipeline, so that is what the sentence
+      carries. Not all the filtering is async, and the decision should not pretend so: the
+      cannot-fail check is a pure static and could be applied while the prompt is written, which
+      matters because it is the filter that removes a WHOLE repository — the case where every label
+      the sentence lists is a lie. Only the presence check needs a sandbox. So the sentence omits a
+      repository whose declaration cannot fail, and lists the raw labels for the rest. A label the
+      filtering then removes is refused on use WITHOUT charging the one-run cap:
+      the model was told it could ask, and paying for the framework's own omission would spend the
+      only run on a refusal.
+      A TOOL THE HOLDER IS NOT TOLD ABOUT IS A TOOL IT WILL NOT CALL. What a holder may call is
+      rendered from one hardcoded pair of strings keyed on a single predicate — audit present or not
+      — and one test pins the rendered sentence. The sentence must also carry WHAT can be run: the
+      declared labels per repository, the way the prompt section already lists repository names.
+      Otherwise the model guesses a label and spends the one stage run on a refusal.
+  - key: |
+      ROOM, AND ONE FILE THAT HAS NONE. None of the eight touched files is baselined, so all are held at
+      the 120-line limit: the look is ninety-five, the factory ninety, the terms seventy-four, the
+      prompt section forty-four and the tool helper thirty-five. The new tool is its own file, in the
+      shape the search tool has at seventy-three. The closed kind set is an eighth file at
+      thirty-five of a hundred and twenty, unbaselined, gaining one constant. A sixth file is
+      opened: the verify runner holds
+      both the ceiling and the output bound as private constants and its tail as a private method, so
+      widening those three happens there — eighty-three lines and unbaselined, so it has room.
+      The gate's resolver is EXACTLY 120 with no baseline row, so it cannot gain a line — which is
+      the second reason this phase calls its public entry
+      with a null map rather than extracting or exposing the declared half. The test helper is under
+      tests/ and the ratchet reads src/backend only, so the three sandbox doubles the new tests need
+      have room.
+
+steps:
+  - id: the-terms-carry-it
+    action: "The look's terms gain a term for whether this holder may run a declared verify stage, written out on all five holders and true only on the premise check."
+  - id: the-stage-run-tool
+    action: "A holder that may gets a tool taking a repository and a stage LABEL."
+  - id: the-list-is-the-gates
+    action: "The tool resolves that repository's DECLARED stages on first use by calling the gate's resolver with a NULL project map — the one argument that makes the inferred branch collapse to nothing — and refuses a label it did not resolve."
+  - id: the-run-is-bounded
+    action: "A stage run charges through the look's gate, runs at the verify ceiling, and is refused after the first one in a look-set; a label the filtering removed is refused without charging that one run."
+  - id: nothing-propagates
+    action: "The tool catches the timed-out result and every non-cancel exception at its own boundary; a transport failure that escaped would vanish the whole premise check exactly as a timeout would."
+  - id: the-evidence-has-a-shape
+    action: "The tool's RESPONSE carries the tailed output. The minted EVIDENCE carries the repository, the declared command and the exit code, and no output — the shape the evidence record already has, which is why the framework's copy in the notice, the phase row and the decision log is a command and an exit code."
+  - id: the-kind-says-whether-it-ran
+    action: "A stage run is minted under its own evidence kind; it RAN when a result came back and did not time out, and did not run when the step threw or timed out."
+  - id: the-holder-is-told
+    action: "What a holder may call names the stage-run tool when its terms allow it and lists the RAW declared labels per repository, read synchronously from the pipeline; the pinned sentence test is extended rather than replaced."
+
+tests:
+  - "Look_AHolderWhoseTermsForbidIt_HasNoStageRunTool"
+  - "Look_TheProposalReview_StillHasNoStageRunTool"
+  - "Look_TheCutReview_HasNoStageRunTool"
+  - "Look_ThePremiseCheck_ResolvesStagesFromTheSandboxsOwnContexts"
+  - "Look_AStageThatCannotFail_TakesItsWholeRepositoryOutOfTheList"
+  - "Look_ALabelTheFilteringRemoved_IsRefusedWithoutChargingTheOneRun"
+  - "Look_ARepositoryThatDeclaredNothing_OffersNothingAndNamesNoAnalyzerCommand"
+  - "Look_AStageWhosePresenceConditionFails_IsNotOffered"
+  - "Look_AStageLabelTheRepositoryDidNotDeclare_IsRefusedWithoutRunning"
+  - "Look_AStageRun_UsesTheCommandTheRepositoryDeclared"
+  - "Look_AStageThatFailed_IsAdmissibleEvidence"
+  - "Look_AStageThatTimedOut_IsNotAdmissible"
+  - "Look_AStageWhoseSandboxThrew_IsNotAdmissibleAndDoesNotPropagate"
+  - "Look_ASecondStageRunInOneCheck_IsRefused"
+  - "Look_AFailingStagesOutput_KeepsTheEndNotTheBeginning"
+  - "Look_AStageRunsMintedLine_CarriesTheCommandAndTheExitAndNotTheOutput"
+  - "Look_AStageRunAndARead_DrawOnOneAllowance"
+  - "Look_AStageRun_RunsAtTheVerifyCeilingNotAStepDefault"
+  - "Look_TheToolSentence_NamesTheDeclaredLabelsOnlyForAHolderThatMayRunOne"
+
+done:
+  - "a premise check settles a claim about a declared stage, on the tree as it stands, by producing its exit code"
+  - "nothing a model writes becomes a command: only a line the repository declared on its default branch is run"
+  - "a stage that cannot fail is never offered, and neither is one whose declared path is absent"
+  - "a stage run that times out or throws costs one unproven premise, never the whole check"
+  - "the cut review, the phase review and the design turn are unchanged, and each says why"
+  - "build green, full suite green, file-length ratchet green"
+
+facts:
+  - claim: "A declared stage is (Label, Command, WhenPresent) — no working directory; every command runs at the repository root through /bin/sh -c."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlVerifyStage.cs:20-27, src/backend/AgentSmith.Application/Services/Handlers/ContextVerifyStages.cs:14-16"
+  - claim: "The gate's resolver refuses a declared command that cannot fail and returns nothing for the whole repository; it skips a stage whose declared path is absent."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:80-87, :88-89"
+  - claim: "The raw declaration resolver applies neither filter."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ContextVerifyStagesResolver.cs:18-29"
+  - claim: "The inferred stages come from the analyzer model's JSON, read verbatim as ci.build_command and ci.test_command."
+    evidence: "src/backend/AgentSmith.Application/Services/ProjectMapJsonReader.cs:104-110, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:104-114"
+  - claim: "A declared context.yaml is read by the source provider from the repository's DEFAULT branch, before any sandbox exists."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs:115-116 -> src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:57-64"
+  - claim: "The verify gate skips a repository whose branch carries no source change, and stops a repository at its first non-zero exit."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs:95-100, :120-122"
+  - claim: "The premise check's terms are constructed fresh; the proposal review's are the cut review's with fields replaced."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:43-44, :52-56"
+  - claim: "The search tool's Ran convention is ExitCode is 0 or 1, where 1 means it matched nothing; the audit tool's is a verdict and not timed out."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/RepositorySearchTool.cs:55, src/backend/AgentSmith.Application/Services/Specs/DependencyAuditTool.cs:64"
+  - claim: "The sandbox channel throws TimeoutException when a step produces no result inside its wait, and both production backends route through it."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs:64, KubernetesSandbox.cs:42-43, DockerSandbox.cs:41"
+  - claim: "The premise checker returns null on any non-cancel exception, losing the whole check."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PhasePremiseChecker.cs:85"
+  - claim: "A working-tree status is already available as a fixed argv step that never throws, so reporting the delta needs no shell."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkingTreeReader.cs:44-54"
+  - claim: "A minted evidence line DOES leave the process: the admission copies it onto the finding, and the handback notice prints it into the ticket comment and into the decision log written on every handback run."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckAdmission.cs:78, src/backend/AgentSmith.Application/Services/Specs/PremiseHandback.cs:56-57, src/backend/AgentSmith.Application/Services/Specs/PremiseHandbackNotice.cs:46"
+  - claim: "The look builds its own tools in its constructor and the test helper calls that constructor directly."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLook.cs:50-56, tests/AgentSmith.Tests/Specs/DerivationTestLooks.cs:48-51"
+  - claim: "What a look may call is rendered from one pair of strings keyed on a single predicate, pinned by one test."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationTools.cs:31-34, tests/AgentSmith.Tests/Specs/ProposalReviewLookTests.cs:52-54"
+  - claim: "The prompt section renders synchronously and the premise-check factory method is synchronous, while the gate's resolution is asynchronous."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookPromptSection.cs:17, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:50, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:41"
+  - claim: "The verify runner holds the ceiling and the output bound as private constants and its tail as a private one-expression method, in an 83-line unbaselined file."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyCommandRunner.cs:22-23, :81-82"
+  - claim: "What the verify runner returns carries an exit code and a skipped flag and NO timed-out flag, while the step result the tool reads does carry one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyOutcome.cs:10-12, src/backend/AgentSmith.Sandbox.Wire/StepResult.cs:7"
+  - claim: "The cannot-fail check is a public pure static needing no sandbox; only the presence check is async, and it awaits only when a presence path is declared."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerificationCommand.cs:31, src/backend/AgentSmith.Application/Services/Handlers/DeclaredStagePresence.cs:36-51"
+  - claim: "Gitignored files are skipped by both a porcelain status without --ignored and `git add -A`, which is why the run record is force-staged separately."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkingTreeReader.cs:44-45, src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:44, :46-53"
+  - claim: "The working-tree reader returns an empty list when the status step exits non-zero and when any non-cancel exception is thrown, under a 60-second step timeout — so an empty delta means clean OR unread."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkingTreeReader.cs:20, :47, :50-53"
+  - claim: "The evidence record has no output field, and the minted line is built from the command and the exit code alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceRecord.cs:22-29, src/backend/AgentSmith.Application/Services/Specs/DerivationEvidence.cs:47-50"
+  - claim: "The shared terms method exists because a second holder wanting the same look was a copy of it with one constant changed."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:53-59"
+  - claim: "The non-cancel catch shape is the repository's established one, and it exists because the model layer's network timeout arrives as a cancellation on an uncancelled token."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PhasePremiseChecker.cs:81-85"
+  - claim: "The handback notice prints the finding's `why` alongside the evidence line; `why` is written free-form by the model, is not rewritten by the admission, is unbounded, and is only newline-flattened."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseHandback.cs:53, :79-80, src/backend/AgentSmith.Application/Services/Specs/PremiseCheckAdmission.cs:49, :51, :78, src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:59"
+  - claim: "The proposal review also reads a look's evidence, so the reader set is five sites and not four."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:50"
+  - claim: "VerifyStageResolver is registered in DI and the premise-check factory method already takes the PipelineContext."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:188, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:50-51"
+  - claim: "None of the touched files is baselined; the look is 95 lines against a 120 limit, the verify runner 83, and the gate's resolver exactly 120 with no baseline row."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv, src/backend/AgentSmith.Application/Services/Specs/DerivationLook.cs, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs"
+  - claim: "The declared half of the gate's resolver is private; the only public entry does declared-then-inferred in one method, and a null project map collapses the inferred branch to nothing because a null command cannot fail."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:41-63, :72, :104-114, src/backend/AgentSmith.Application/Services/Handlers/VerificationCommand.cs:33"
+  - claim: "A look's manufactured resolution notes cannot cause a false green: the verify handler constructs its own notes inside its execute method and re-resolves every repository against them."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs:90, :114-115"
+  - claim: "The step runner falls back to sixty seconds when no timeout is threaded."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RunCommandTimeout.cs:23, src/backend/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs:83-85"
+  - claim: "The phase review's prompt carries no verify outcome, only a hardcoded sentence saying the diff was built and tested green."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PhaseReviewPrompt.cs:22-23, :28"
+  - claim: "The test helper's sandbox double hardcodes a non-timed-out result and never throws, and its look builder hardcodes a null logger."
+    evidence: "tests/AgentSmith.Tests/Specs/DerivationTestLooks.cs:51, :59-64"
+
+assumptions:
+  - "That the premise check's six-look allowance is the right budget once one look can cost a full stage. The half-hour figure is the CEILING the tool asks for; the sandbox clamps it to the operator's own step cap, 900 seconds by default, so the real worst case is half that. Argued from the cost either way, not measured on a live run."
+  - "That 2026-09-20-443a lands a verify block at all: its own measurement step may refuse one, and then this phase is correct and unobservable here. And that it lands with a test command that stands alone. The requires edge is load-bearing, not a convenience: a declared test stage carrying --no-build would exit non-zero on the fresh tree a premise check sees, and this phase would mint that as admissible evidence of a failing gate — a false RED, the mirror of the false green the first cut risked. 443a's own review reached the same conclusion from the other side and drops it; if that changes, this phase must refuse a stage rather than run it."

@@ -32,4 +32,9 @@ public sealed record EvidenceRecord(
     public const string Search = "search";
     public const string Audit = "audit";
     public const string TemplateProof = "template proof";
+
+    /// <summary>2026-09-20-9c74: one verify stage the repository DECLARED, run by label. Its
+    /// own kind because the kinds are a closed set and a holder filters on them — a stage run
+    /// is not a read, and admitting it as one would let a line citation be checked against it.</summary>
+    public const string VerifyStage = "verify stage";
 }

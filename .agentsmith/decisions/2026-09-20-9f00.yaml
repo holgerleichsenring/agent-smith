@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-20-9f00
+
+decisions:
+  - category: Architecture
+    chose: "A deferral NUDGES the run list through a port; it publishes no run event"
+    over: "Publishing a queued run event and letting the existing fanout carry it"
+    reason: |
+      The event would reach nobody. A run's stream is drained only for a run the broadcaster
+      tracks, a cursor is created only for ids in the active set, and that set is populated by
+      the STARTED event alone — a deferred run never published one, so its event would land in
+      Redis and die there. The finished-event shape is worse than useless: it also pushes onto
+      a recent-runs list capped at fifty, so a pile of deferrals — the case this phase exists
+      for — would evict every genuinely recent run from the surface.
+      So the surface is nudged directly, the way RunDeletionEndpoints already does. The hub
+      lives in the server assembly and the use case in the application one, which is why the
+      nudge crosses as IRunListNudge. The nudge sits AFTER the enqueue and the capacity-budget
+      record and is wrapped: a hub that is down must cost a stale count, never the queue entry.
+    alternatives:
+      - "A second fanout implementation: the fanout interface is per-event-shape and none of its members is a bare run-list nudge"
+
+  - category: Implementation
+    chose: "The no-op binds in the SHARED server composition; the hub-backed one inside AddDashboardApi"
+    over: "Binding the hub-backed nudge beside the use case that consumes it"
+    reason: |
+      AddDashboardApi is what adds SignalR, it is conditional on AGENTSMITH_UI_API_ENABLED, and
+      it runs AFTER ServerCompositionBuilder. Bound the natural way — beside the spawn use case
+      in AddServerCompositionOverrides — a server with the UI API switched off could not resolve
+      IHubContext<JobsHub> and therefore could not resolve the spawn use case at all: a failure
+      at the first poll rather than at startup. Bound as no-op-then-override, last-wins gives the
+      real nudge wherever the hub exists and a silent no-op wherever it does not.
+
+  - category: Implementation
+    chose: "Delete terminalizes the ticket of every run with NO RESULT — queued, running and parked alike"
+    over: "Terminalizing only a queued run, or carving the parked run out"
+    reason: |
+      The predicate is the branch the deleter already has: FinishedAt is null. Inside it the
+      deleter kills the job, releases the lease under this run's id and drops the queue entry —
+      for a running run as much as a queued one. The native ticket status only moves at run-end
+      and re-pickup is gated on the lease, so any of those tickets is still armed when the lease
+      goes and the next poll re-files it at the BACK of the queue. Cancel reaches the same
+      conclusion on both its branches, in its own words.
+      The parked carve-out an earlier cut proposed rested on a false universal. TWO things park a
+      run: the master's mid-run question, which does finalize the ticket into a clarification
+      status, and the dialogue ask gate, which publishes the question, checkpoints, sets the
+      waiting flag and touches the tracker NOWHERE. Nothing on the run row tells them apart, and
+      the second is exactly the case this phase exists for. The cost is accepted and stated: a
+      parked run's ticket moves onto the failed-status chain and the link from a posted question
+      to its answer is stranded.
+      The new call cannot repeat on the ticket what p0459 stopped on the lease: the finalizer
+      reads the ticket's lease and skips when it names a different run, so disarming is
+      CONDITIONAL and the done criterion says so.
+
+  - category: Implementation
+    chose: "CancelledTicketFinalizer is reused under its current name, with a comment of the delete's own"
+    over: "Renaming the type now that a second caller exists"
+    reason: |
+      Its name and summary say it ends a CANCELLED run's ticket; after this phase a delete uses
+      it too. Renaming a type is a change of its own and would touch every caller and test for no
+      behavioural gain. What the next reader is owed is the sentence that both callers exist, so
+      the summary carries it. The delete passes its own wording — it cancelled nothing, and
+      asserting an act that did not occur on an operator's ticket would be a lie in the tracker.
+
+  - category: Tooling
+    chose: "The vacuous hands-off test is REWRITTEN over a real finalizer, not deleted"
+    over: "Dropping it, or leaving it beside the new ones"
+    reason: |
+      RunDeleteTests.Delete_LeavesTrackerTicketUntouched asserted a mock the hand-composed
+      deleter never received: it passed by construction and always would. The deleter is now
+      composed in the test with a REAL CancelledTicketFinalizer over a mocked provider and a
+      config that resolves the project, so the assertion is reachable. Proven by mutation:
+      moving the terminalize outside its no-result guard fails
+      RunDeleter_ARunWithAResult_LeavesItsTicketUntouched, and restricting it to the queued
+      status fails the running and the parked test while the queued one still passes — each
+      state is pinned by its own test rather than riding on a neighbour.
+      One trap found while proving it: the provider's default Setup was being re-stated at
+      deleter-construction time, AFTER a test's own ThrowsAsync, silently undoing it and making
+      the fail-soft test vacuous in turn. The default now lives in the constructor.
+
+  - category: Scope
+    chose: "The queue's own behaviour is left alone"
+    over: "Giving the queue an expiry or a way past a head that cannot advance in this phase"
+    reason: |
+      No cap, no expiry, one global FIFO across every project, and a head with no initial
+      context that the pump returns on before any drop path — a real stall, and a different
+      premise. It belongs beside 2026-09-18-3ba9-sandbox-cap-is-honoured, which names the
+      strict-order stall in its own words and whose remedy does not reach it. Deferring it is
+      correct rather than convenient: after this phase a stalled head HAS a visible row and
+      delete works on any state, so an operator can clear the stall by hand. The queue still
+      refills for the head-of-line reason, but it stops being invisible AND unclearable at once.
+      Also left alone and named so the next reader need not rediscover them: the force-clear's
+      queue removal is keyed by project and ticket rather than by run, the resume enqueue shifts
+      queue positions without a nudge, and bulk clearing stays terminal-only.

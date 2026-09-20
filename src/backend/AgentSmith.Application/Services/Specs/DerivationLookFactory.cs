@@ -17,6 +17,8 @@ public sealed class DerivationLookFactory(
     SandboxTargets targets, ISandboxFileReaderFactory files,
     IPackageEcosystemDetector ecosystems, ProjectTemplateScopes templates,
     TurnActivityTools turnActivity, // 2026-09-17-042ee: what a look reads is a step
+    VerifyStageResolver stageResolver, // 2026-09-20-9c74: the gate's filtering, taken not copied
+    ContextVerifyStagesResolver declarations,
     ILogger<DerivationLook> logger)
 {
     public DerivationLook? Create(PipelineContext pipeline)
@@ -47,8 +49,11 @@ public sealed class DerivationLookFactory(
     /// premise is what the spec ASSUMES about the target. Null when the run has no sandbox —
     /// every verdict this check can reach needs a look that ran, so there is nothing to ask.
     /// </summary>
-    public DerivationLook? ForPremiseCheck(PipelineContext pipeline) =>
-        OnTerms(pipeline, DerivationLookTerms.PremiseCheck);
+    public DerivationLook? ForPremiseCheck(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        return OnTerms(pipeline, DerivationLookTerms.PremiseCheck, Declared(pipeline));
+    }
 
     /// <summary>
     /// 2026-09-17-042eh: the run's repositories on any holder's own terms, with NO template
@@ -57,12 +62,27 @@ public sealed class DerivationLookFactory(
     /// constant changed; the terms ARE the difference, so they are the parameter.
     /// Null when the run has no sandbox.
     /// </summary>
-    public DerivationLook? OnTerms(PipelineContext pipeline, DerivationLookTerms terms)
+    public DerivationLook? OnTerms(
+        PipelineContext pipeline, DerivationLookTerms terms, DerivationLookStages? stages = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)) return null;
         return new DerivationLook(
-            sandboxes, files, ecosystems, logger, templates: null, terms, activity: turnActivity);
+            sandboxes, files, ecosystems, logger, templates: null, terms, activity: turnActivity,
+            stages: stages);
+    }
+
+    /// <summary>
+    /// 2026-09-20-9c74: what each repository of the run DECLARED, read out of the pipeline
+    /// HERE — the per-sandbox context list is a pipeline reading, and the look never sees a
+    /// pipeline. The two collaborators reach it as one already-resolved thing.
+    /// </summary>
+    private DerivationLookStages Declared(PipelineContext pipeline)
+    {
+        pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map);
+        var declared = ((IEnumerable<string>?)map?.Keys ?? []).ToDictionary(
+            key => key, key => declarations.For(pipeline, key), StringComparer.Ordinal);
+        return new DerivationLookStages(stageResolver, declared);
     }
 
     /// <summary>

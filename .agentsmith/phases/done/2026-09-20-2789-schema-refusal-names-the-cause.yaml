@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-2789
+
+goal: "A rejected draft is told what was actually wrong with it, instead of a list whose false half grows with the length of the draft."
+
+applies_to: "backend (the shared schema error report)"
+
+scope:
+  in: >
+    A schema refusal carries only the errors of branches that decided the failure. Today the
+    formatter keeps every evaluation detail that is not valid, and under list output a `oneOf`
+    that PASSED still carries its losing branch — so a draft gets one false clause per `requires`,
+    one per decision and one per step, each naming a type the schema explicitly allows. The false
+    part scales with the draft: a longer, better-argued draft earns a noisier refusal. Two
+    amplifiers compound it. The report is capped at ten clauses, so a draft with enough passing
+    `oneOf` sites pushes the real error off the end entirely — measured: twelve decisions and a
+    real error at step twenty yields ten clauses, all false, the true one absent — that shape needs the real error to be a wrong-typed field deep inside the step; a step merely missing a required key reports at a shallower location and survives the cut. And the text
+    itself is schema jargon: an unknown property reads "All values fail against the false schema",
+    which names the key at its location but never says what is wrong with it.
+    This matters twice over because the same string is shown to the operator AND fed back to the
+    model on retry, so the model corrects what is not broken.
+  out: >
+    WHY A MODEL INVENTS A KEY. This phase makes the refusal usable; what a design turn is told
+    about a run's scope, and whether the master should fence the phase-spec `scope` against it, is
+    named in prose as the phase that decides what a design turn is told about a run's scope.
+    CHANGING THE SCHEMA. The `oneOf` sites are correct — a step's action may be one line or many,
+    and both spellings are used in committed specs. The defect is in the report, not in what it
+    reports on.
+    A SECOND OUTPUT FORMAT. Switching the evaluation away from list output would change what every
+    caller receives; filtering what is already produced changes one method.
+
+decisions:
+  - key: |
+      THE FALSE CLAUSES COME FROM PASSING BRANCHES, AND THERE ARE THREE SOURCES. The phase-spec
+      schema has `oneOf` at `requires`, at each `decisions` entry and at each step's `action`.
+      Executed against the shipped schema through the production path: one of each yields four
+      clauses, three of each yields eight, eight of each yields ten — the cap. It is not about
+      arrays; a string `action` leaks "should be array" exactly as an array leaks "should be
+      string". An earlier cut of this reasoning reproduced a two-clause example and generalised it
+      to a six-clause report; the correct statement is the site count, not an example.
+  - key: |
+      THE FILTER REACHES THREE MORE SCHEMAS, AND THAT IS THE POINT. An earlier cut claimed the
+      blast radius was one schema and that the other four stayed byte-identical. Measured, that is
+      false for three of them. phase-spec is indeed the only schema with a `oneOf`, but plan,
+      bootstrap and discovery each carry an `allOf` of `if`/`then` pairs keyed on a status, and a
+      failing `if` leaks exactly as a passing `oneOf`'s losing branch does — a refusal about an
+      empty summary arrives carrying "status: Expected complete" when the status was legitimately
+      something else. An ancestor check removes both without knowing either keyword. A filter
+      written as a `oneOf` keyword list would have left three callers leaking, which is the second
+      reason the check is structural rather than a list. Only diff, the one schema with no `allOf`,
+      is unchanged. The schemas directory holds six files; two of them — the observation and the
+      work-spec — never reach this formatter at all, so the four spoken of here are the four it
+      evaluates, not the four remaining in the directory.
+  - key: |
+      THE CAP IS THE SECOND AMPLIFIER AND IS NOT REMOVED. Ten clauses is a sensible bound on a
+      message that reaches a model's context. What is wrong today is what fills it. Once passing
+      branches contribute nothing the cap stops being reached by noise, so this phase fixes the
+      cause and leaves the bound where it is — but it says the bound exists, because a reader who
+      sees exactly ten clauses should know the eleventh was dropped rather than assume there was
+      none.
+  - key: |
+      THE KEY IS ALREADY NAMED; THE RULE IS NOT. An earlier cut claimed a model could not tell
+      which key it invented. It can: the formatter prepends the instance location, so an unknown
+      property reads `phase-spec/scope/invented_key: All values fail against the false schema`.
+      What is missing is what is WRONG with it — the wording is the schema library's own, about a
+      `false` subschema, and describes a mechanism rather than a mistake. So the change is the
+      rule TEXT for that one keyword, not the location.
+      This correction is recorded rather than quietly made because the earlier cut was a step
+      added to answer a review, and it was already satisfied by the code — the same defect the
+      review had just found somewhere else.
+  - key: |
+      THE FILTER IS AN ANCESTOR CHECK, NOT A KEYWORD LIST. A detail whose ancestor evaluated valid
+      did not decide anything. Enumerating which keywords may be dropped would be a list that goes
+      stale the first time a schema gains a construct; asking whether anything above it succeeded
+      is true for every construct the library has. Verified to preserve a genuine `oneOf` failure —
+      a value matching neither branch still reports.
+
+steps:
+  - id: a-passing-branch-says-nothing
+    action: "A detail with a valid ancestor contributes no error, so a oneOf that matched carries none of its losing branches; a oneOf that matched nothing still reports."
+  - id: an-unknown-key-says-what-is-wrong
+    action: "An unknown-property failure reads as a property that is not allowed. It is keyed to an additionalProperties path specifically, not to any false subschema — several other keywords produce the identical empty-key wording and none of them means an unknown property. It is identified by that path carrying an EMPTY error key — not by the keyword alone and not by the library's English, because two schema nodes use additionalProperties as a schema, where the same path produces a real error key and the property IS allowed with a wrong value."
+  - id: the-bound-says-it-bounded
+    action: "A report cut at the cap says so, so ten clauses are not read as all of them."
+
+tests:
+  - "SchemaValidator_APassingOneOf_ContributesNoneOfItsLosingBranches"
+  - "SchemaValidator_AStringActionAndAnArrayAction_BothReportNothing"
+  - "SchemaValidator_AOneOfMatchingNeitherBranch_StillReports"
+  - "SchemaValidator_AnUnknownKey_IsReportedByNameAndAsNotAllowed"
+  - "SchemaValidator_ADraftWithOneRealError_ReportsExactlyThatOne"
+  - "SchemaValidator_AReportCutAtTheBound_SaysItWasCut"
+  - "SchemaValidator_AFailingIfBranch_ContributesNoError"
+  - "SchemaValidator_ASchemaWithNoBranching_IsUnchanged"
+
+done:
+  - "a draft with one real error is told about one SITE — a genuine oneOf mismatch still reports its own branches, which is the error"
+  - "an unknown key is refused as a property that is not allowed, while a value of the wrong type under a schema-valued additionalProperties still reports its type error"
+  - "a report cut at the bound says it was cut"
+  - "the count of clauses no longer grows with the number of requires, decisions and steps"
+  - "a genuine oneOf failure is still reported"
+  - "a plan, bootstrap or discovery refusal no longer carries the if branch that did not apply, and a diff refusal is byte-identical"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The formatter keeps every evaluation detail that is not valid, under list output, and caps the result at ten clauses."
+    evidence: "src/backend/AgentSmith.Application/Services/Validation/SchemaValidator.cs:42, :49-56"
+  - claim: "The formatter prepends the instance location to each rule, so an unknown property is already named at its location."
+    evidence: "src/backend/AgentSmith.Application/Services/Validation/SchemaValidator.cs:62-66"
+  - claim: "The phase-spec schema has three oneOf sites: requires, each decisions entry, and each step's action."
+    evidence: ".agentsmith/phase-spec.schema.json (properties.requires, properties.decisions.items, properties.steps.items.properties.action)"
+  - claim: "The phase-spec scope allows only in and out and forbids anything else, which is what produces the false-schema wording."
+    evidence: ".agentsmith/phase-spec.schema.json (properties.scope.additionalProperties = false)"
+  - claim: "Five validators share this formatter."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftValidator.cs:49, src/backend/AgentSmith.Application/Services/Validation/DiscoveryOutputValidator.cs:17, PlanOutputValidator.cs:17, DiffOutputValidator.cs:15, BootstrapOutputValidator.cs:15"
+  - claim: "Three of the other four schemas carry an allOf of if/then pairs whose failing branch leaks the same way; diff carries none."
+    evidence: ".agentsmith/schemas/plan.schema.json:55, .agentsmith/schemas/bootstrap.schema.json:37, .agentsmith/schemas/discovery.schema.json:36, .agentsmith/schemas/diff.schema.json"
+  - claim: "Two phase-spec nodes use additionalProperties as a SCHEMA, so an additionalProperties path alone does not identify an unknown property."
+    evidence: ".agentsmith/phase-spec.schema.json:159, :169"
+  - claim: "Both action spellings are in use across the phase tree — 927 files carry a single line and 6 carry a list — so the oneOf is not the defect."
+    evidence: ".agentsmith/phases/done/p0075-phase-docs-to-yaml.yaml:57, .agentsmith/phases/done/p0081-integration-setup-docs.yaml:22, .agentsmith/phases/done/p0082-webhook-and-trigger-docs.yaml:13"
