@@ -37,6 +37,7 @@ public sealed class SpawnPipelineRunsUseCase(
     ISandboxCapacityProbe capacityProbe,
     IPredecessorGate predecessorGate,
     Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: the run carries what was approved
+    IRunListNudge runListNudge, // 2026-09-20-9f00: a deferred row announces itself
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
     public async Task<SpawnResult> ExecuteAsync(
@@ -135,7 +136,10 @@ public sealed class SpawnPipelineRunsUseCase(
             approvedSetJson: await approvedSets.JsonForAsync(project.Tracker.Name, envelope.Platform, envelope.TicketId, ct));
         var reservedRunId = await capacityQueue.EnqueueAsync(candidate, ct);
         await capacityBudget.RecordAsync(reservedRunId, footprint, ct);
-
+        // 2026-09-20-9f00: a deferred run is outside the active set the broadcaster drains, so a
+        // published event would die there. Nudge the surface AFTER the write, and best-effort.
+        try { await runListNudge.RunsChangedAsync(reservedRunId, ct); }
+        catch (Exception ex) { logger.LogDebug(ex, "Queued-run nudge failed for {RunId}", reservedRunId); }
         logger.LogInformation(
             "Spawn deferred to capacity queue for project={Project} pipeline={Pipeline} "
             + "ticket={Ticket} run={RunId}: {Reason}",

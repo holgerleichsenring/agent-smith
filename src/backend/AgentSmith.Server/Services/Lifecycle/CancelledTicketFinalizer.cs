@@ -13,6 +13,12 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// chain as the pipeline failure path (trigger.failed_status, then done_status,
 /// then the provider default when null). Fail-soft by design: a tracker error is
 /// logged and swallowed — it must never block a cancel.
+/// <para>
+/// 2026-09-20-9f00: the name now undersells it. RunDeleter calls this too, for any run
+/// deleted before it produced a result — the same defect in the same words. The comment
+/// each caller passes is what tells the two apart on the ticket; renaming the type is a
+/// change of its own and is not this phase's.
+/// </para>
 /// </summary>
 public sealed class CancelledTicketFinalizer(
     ITicketProviderFactory ticketFactory,

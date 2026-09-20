@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -24,7 +25,15 @@ namespace AgentSmith.Tests.Server;
 /// behind (children, lease, queue entry, checkpoint, expectation, dialogue
 /// inbox). A non-terminal run is force-cleared first (pod terminated, lease
 /// released, queue entry removed); a failed kill keeps the record. Bulk delete
-/// is terminal-only. The tracker ticket is never touched.
+/// is terminal-only.
+/// <para>
+/// 2026-09-20-9f00: and the force-clear DISARMS the ticket. A run with a result keeps
+/// the hands-off; a run without one — queued, running or parked alike — would otherwise
+/// be re-filed by the next poll. The deleter is composed here with a REAL
+/// CancelledTicketFinalizer over a mocked provider, because the test that used to pin
+/// the hands-off asserted a collaborator the deleter never received and so could not
+/// fail.
+/// </para>
 /// </summary>
 public sealed class RunDeleteTests : IDisposable
 {
@@ -41,6 +50,12 @@ public sealed class RunDeleteTests : IDisposable
         using (var ctx = new AgentSmithDbContext(Options()))
             ctx.Database.Migrate();
         _queue = BuildDbQueue(_connection);
+        // The DEFAULT answer, set once here so a test that wants a throwing provider can
+        // override it — Moq takes the last matching Setup, and re-stating this default at
+        // deleter-construction time (after the Arrange) would silently undo that override.
+        _ticketProvider.Setup(p => p.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketFinalizeResult.Moved());
     }
 
     public void Dispose() => _connection.Dispose();
@@ -116,20 +131,87 @@ public sealed class RunDeleteTests : IDisposable
         db.Runs.Should().BeEmpty("the reserved queued run row is removed");
     }
 
+    // 2026-09-20-9f00: the queue entry alone is not durable — the ticket still sits in the
+    // trigger statuses and re-pickup is gated on the lease the delete just released, so the
+    // next poll would re-file it at the BACK of the queue.
     [Fact]
-    public async Task Delete_LeavesTrackerTicketUntouched()
+    public async Task RunDeleter_AQueuedRun_TerminalizesItsTicket()
     {
         var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
             "p1", "42", "fix-bug", "github",
             "2026-07-14T10-00-00-c3d4", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
-        await NewDeleter().DeleteAsync(reserved, CancellationToken.None);
+        var outcome = await NewDeleter().DeleteAsync(reserved, CancellationToken.None);
 
-        // Cancel terminalizes the ticket; delete must NOT — it is pure record cleanup.
+        outcome.Should().Be(RunDeleteOutcome.Deleted);
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            new TicketId("42"), It.IsAny<string>(), "Blocked", It.IsAny<CancellationToken>()),
+            Times.Once, "a deleted queued run whose ticket stays armed is re-filed by the next poll");
+    }
+
+    // The case an earlier cut left out: the native status only moves at run-end, so a RUNNING
+    // run whose lease the deleter just released is in exactly the queued run's position.
+    [Fact]
+    public async Task RunDeleter_ARunningRun_TerminalizesItsTicket()
+    {
+        await SeedRunningRunAsync("run-live-2", jobId: "dddd00000000");
+
+        var outcome = await NewDeleter().DeleteAsync("run-live-2", CancellationToken.None);
+
+        outcome.Should().Be(RunDeleteOutcome.Deleted);
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            new TicketId("42"), It.IsAny<string>(), "Blocked", It.IsAny<CancellationToken>()),
+            Times.Once, "a running run's ticket is still in the trigger statuses when the lease goes");
+    }
+
+    // The park this phase exists for: the dialogue ask gate parks WITHOUT touching the tracker,
+    // so nothing on the row tells it from the master-question park that does. The predicate is
+    // "no result yet", with no exception.
+    [Fact]
+    public async Task RunDeleter_AParkedRun_TerminalizesItsTicketLikeAnyRunWithNoResult()
+    {
+        await SeedParkedRunAsync("run-parked");
+
+        var outcome = await NewDeleter().DeleteAsync("run-parked", CancellationToken.None);
+
+        outcome.Should().Be(RunDeleteOutcome.Deleted);
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            new TicketId("42"), It.IsAny<string>(), "Blocked", It.IsAny<CancellationToken>()),
+            Times.Once, "a park that never moved the ticket leaves it armed for the next poll");
+    }
+
+    // The deliberate hands-off that stays: a run WITH a result. Reachable now — the deleter
+    // really holds the finalizer, so moving the terminalize out of the no-result branch
+    // fails this.
+    [Fact]
+    public async Task RunDeleter_ARunWithAResult_LeavesItsTicketUntouched()
+    {
+        await SeedTerminalRunWithSatellitesAsync("run-finished");
+
+        var outcome = await NewDeleter().DeleteAsync("run-finished", CancellationToken.None);
+
+        outcome.Should().Be(RunDeleteOutcome.Deleted);
         _ticketProvider.Verify(p => p.FinalizeAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            Times.Never, "a finished run's ticket is the operator's to move — deleting the record is not a verdict");
+    }
+
+    // Fail-soft: the delete is the operator's cleanup and a tracker that will not answer
+    // must not turn it into a kept row.
+    [Fact]
+    public async Task RunDeleter_ATicketFinalizerThatFails_StillDeletesTheRun()
+    {
+        _ticketProvider.Setup(p => p.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("tracker unreachable"));
+        await SeedRunningRunAsync("run-tracker-down", jobId: "eeee00000000");
+
+        var outcome = await NewDeleter().DeleteAsync("run-tracker-down", CancellationToken.None);
+
+        outcome.Should().Be(RunDeleteOutcome.Deleted);
+        using var db = new AgentSmithDbContext(Options());
+        db.Runs.Should().BeEmpty("a tracker error must never keep the record the operator deleted");
     }
 
     [Fact]
@@ -168,6 +250,11 @@ public sealed class RunDeleteTests : IDisposable
         outcome.Should().Be(RunDeleteOutcome.Deleted);
         var held = await lease.GetByTicketAsync("p1", new TicketId("42"), CancellationToken.None);
         held!.RunId.Should().Be("run-new", "deleting an older run must not strip the newer run's claim");
+        // 2026-09-20-9f00: and the disarm is CONDITIONAL for the same reason — the finalizer's
+        // ownership guard reads that lease and skips, so the newer run keeps its ticket.
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never, "the ticket belongs to the run that reclaimed it");
     }
 
     private IServiceScopeFactory LeaseScopeFactory()
@@ -189,7 +276,47 @@ public sealed class RunDeleteTests : IDisposable
         var uow = new AgentSmithDbContext(Options());
         return new RunDeleter(
             provider, new RunRepository(uow), new RunDeletionRepository(uow),
-            lease ?? _lease.Object, _queue, NullLogger<RunDeleter>.Instance);
+            lease ?? _lease.Object, _queue, NewTicketFinalizer(lease ?? _lease.Object),
+            NullLogger<RunDeleter>.Instance);
+    }
+
+    // 2026-09-20-9f00: the REAL finalizer over a mocked provider — the collaborator the
+    // hands-off assertion used to name without ever receiving it. The project it resolves
+    // carries a failed_status, so the status the finalize asks for is observable too.
+    private CancelledTicketFinalizer NewTicketFinalizer(IActiveRunLease lease)
+    {
+        var factory = new Mock<ITicketProviderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(_ticketProvider.Object);
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
+        {
+            Projects = new Dictionary<string, ResolvedProject>
+            {
+                ["p1"] = new()
+                {
+                    Name = "p1",
+                    Tracker = new TrackerConnection { Name = "tracker-a", Type = TrackerType.GitHub },
+                    GithubTrigger = new WebhookTriggerConfig { FailedStatus = "Blocked" },
+                },
+            },
+        });
+        return new CancelledTicketFinalizer(
+            factory.Object, loader.Object, lease, new ServerContext("agentsmith.yml"),
+            NullLogger<CancelledTicketFinalizer>.Instance);
+    }
+
+    // 2026-09-20-9f00: a PARKED run — no result, no job, and (for the dialogue ask gate's
+    // park) a ticket nothing ever moved.
+    private async Task SeedParkedRunAsync(string runId)
+    {
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.Runs.Add(new Run
+        {
+            Id = runId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+            Platform = "github", Status = "waiting_for_input",
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-9),
+        });
+        await ctx.SaveChangesAsync();
     }
 
     private async Task SeedRunningRunAsync(string runId, string jobId)
