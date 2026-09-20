@@ -79,6 +79,13 @@ internal static class DispatcherExtensions
         // left the working set? Registered before the use case that resolves it.
         services.AddTransient<IPredecessorGate,
             AgentSmith.Application.Services.Spawning.PredecessorGate>();
+        // 2026-09-20-9f00: the run-list nudge the spawn use case fires when it defers a run to
+        // the capacity queue. The NO-OP is the binding here, in the shared composition, because
+        // AddDashboardApi — which adds the hub the real one needs — is conditional and runs
+        // AFTER this. Binding the hub-backed one here would leave a server with the UI API
+        // switched off unable to resolve the spawn use case at all.
+        services.AddSingleton<IRunListNudge,
+            AgentSmith.Application.Services.Events.NoOpRunListNudge>();
         services.AddTransient<ISpawnPipelineRunsUseCase,
             AgentSmith.Application.Services.Spawning.SpawnPipelineRunsUseCase>();
         return services;
