@@ -2490,6 +2490,104 @@ describe("SpecDialogSurface", () => {
     expect(run).toHaveTextContent("the branch was rejected by the remote");
   });
 
+  // 2026-09-20-c206: the row opened with a timestamp, under a ticket line that opens with its
+  // state. The status leads now. jsdom loads no stylesheet, so the weight is read off the class
+  // list — the idiom this suite already uses for a token's rendering.
+  it("SpecDialog_ARunRow_RendersItsStatusBeforeItsIdentifier", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const status = run.querySelector(".ec-mark") as HTMLElement;
+    const identifier = run.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']") as HTMLElement;
+    expect(status).toHaveTextContent("running");
+    expect(
+      status.compareDocumentPosition(identifier) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  // Second place does not stop a heavier token reading first, so the weight goes with the move —
+  // and nothing else about the link does.
+  it("SpecDialog_TheRunIdentifier_CarriesNoFontSemibold", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const identifier = run.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']") as HTMLElement;
+    const classes = identifier.className.split(/\s+/);
+    expect(classes).not.toContain("font-semibold");
+    expect(classes).toContain("d-link");
+    expect(classes).toContain("font-mono");
+    expect(classes).toContain("dsh-label");
+    expect(identifier).toHaveTextContent("2026-09-17T09-00-00-0001");
+  });
+
+  // The run block holds six sub-texts and an assertion elsewhere takes the first of them, so
+  // which token is first of its kind is load-bearing and not a detail of this row.
+  it("SpecDialog_TheProjectAndCost_AreStillTheFirstSubTextInTheRunBlock", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    expect(run.querySelector(".ec-sub")).toHaveTextContent("in sample \u00b7 $2.50");
+  });
+
+  // The move is a reorder and a weight, never a removal.
+  it("SpecDialog_AReorderedRunRow_StillCarriesEveryFactItCarried", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing()));
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    expect(run).toHaveTextContent("2026-09-17T09-00-00-0001");
+    expect(run).toHaveTextContent("running");
+    expect(run).toHaveTextContent("in sample");
+    expect(run).toHaveTextContent("$2.50");
+    expect(run.querySelector("a[href='https://git/pr/3']")).toHaveTextContent("api");
+  });
+
+  // The rule this phase borrows is written one component above, in a comment: the state first,
+  // then why. Both rows lead with their state now — and only the ticket's is weighted, because
+  // weight belongs on a state and not on an identifier.
+  it("SpecDialog_TheRunRowAndTheTicketLineAboveIt_LeadWithTheirStateAndOnlyTheTicketsIsWeighted", async () => {
+    await renderSurface();
+    fetchFiledWork.mockResolvedValue(filedWork());
+
+    act(() => filings.emit(filing({
+      filed: [
+        {
+          reference: "https://tracker/7",
+          title: "p9001: the phase",
+          ticketId: "7",
+          project: "sample",
+          start: { state: "Started", reason: "it already triggers" },
+        },
+      ],
+    })));
+
+    const ticketState = (await screen.findByTestId("dialog-filed-start-https://tracker/7"))
+      .firstElementChild as HTMLElement;
+    expect(ticketState).toHaveTextContent("started");
+    expect(ticketState.className.split(/\s+/)).toContain("font-semibold");
+
+    const run = await screen.findByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
+    const status = run.querySelector(".ec-mark") as HTMLElement;
+    const identifier = run.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']") as HTMLElement;
+    expect(status).toHaveTextContent("running");
+    expect(status.className.split(/\s+/)).not.toContain("font-semibold");
+    expect(identifier.className.split(/\s+/)).not.toContain("font-semibold");
+    expect(
+      status.compareDocumentPosition(identifier) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("SpecDialog_AReconnect_RewatchesAndRereadsTheFiledWork", async () => {
     await renderSurface();
     await waitFor(() => expect(fetchFiledWork).toHaveBeenCalledTimes(1));

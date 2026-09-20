@@ -1,0 +1,109 @@
+phase: 2026-09-20-c206
+decisions:
+  - id: the-rule-was-already-written-one-component-above
+    chose: >
+      The run row renders its STATUS first and its identifier second, which is the ordering the
+      ticket's start line in DialogFiledPanel already uses under a comment that gives the reason
+      in one sentence.
+    alternative: >
+      Leaving the row as it was, or inventing a new ordering rule for the filed pane.
+    why: >
+      The pane already had a rule and one row contradicted it. A person scanning the list reads
+      the states and stops on the one that did not start; the run beneath opened with a
+      timestamp, which is the token a scan never needs. Nothing new is invented here — one row
+      stops disagreeing with the row it sits under.
+  - id: status-not-verdict
+    chose: >
+      The moved token is called a STATUS everywhere in this phase — its spec, its label, its
+      tests and this file.
+    alternative: >
+      Calling it a verdict, as the first cut of this phase did.
+    why: >
+      DialogFiledRuns.tsx already uses both words for different things. A run has a status; a
+      PHASE inside it has a verdict, with its own field, its own test id and its own decision in
+      2026-09-17-042ej about the projection keeping the last verdict it saw. Borrowing the
+      ticket line's rule is a state-first argument, and the thing being promoted is a status.
+  - id: position-without-weight-would-have-been-a-permutation
+    chose: >
+      The identifier loses `font-semibold`, and that one declaration is named rather than left
+      to a class sweep. Its `d-link`, its `font-mono`, its `dsh-label`, its href and its text
+      are untouched.
+    alternative: >
+      Moving the identifier to second place and leaving its weight alone.
+    why: >
+      The identifier was a semibold monospace link in the deep primary; the status is a chip of
+      the same family and size at normal weight, and the project and cost are smaller and grey.
+      Second place does not stop a heavier token reading first, so a move alone would have been
+      a permutation rather than a fix. Once the semibold is gone the two are at parity, the
+      chip's filled pill answering the link's colour. The declaration is named because the
+      stylesheet carries a specificity note about exactly this link's font — `font: inherit` on
+      `.d-link` once won family, size and weight in an unlayered file — and a sweep is how that
+      is re-fought.
+  - id: the-tickets-state-keeps-its-weight
+    chose: >
+      DialogFiledPanel's Start span keeps its `font-semibold`, and a test asserts the asymmetry
+      in one place.
+    alternative: >
+      Lightening both for consistency.
+    why: >
+      The asymmetry IS the claim: weight belongs on a state and not on an identifier. Lightening
+      the ticket's state would have kept the two rows consistent while abandoning the rule that
+      made this phase worth doing.
+  - id: the-class-list-is-what-a-test-can-read
+    chose: >
+      The weight is asserted by reading the element's class list, which is the idiom this suite
+      already uses for a token's rendering.
+    alternative: >
+      Asserting the computed font weight.
+    why: >
+      jsdom loads no stylesheet and `getComputedStyle` appears nowhere in this suite, so a
+      computed-weight assertion would pass against any markup and prove nothing. The class list
+      is the only honest reading available here, and the mutation proof confirms it: restoring
+      the semibold fails the test.
+  - id: the-orphan-goes-to-the-identifier
+    chose: >
+      The reorder accepts that the identifier, not the status, is what wraps onto a second line
+      in a pane three hundred pixels wide.
+    alternative: >
+      Adding wrap control, a width or a truncation to keep the line on one row.
+    why: >
+      Two reasons rather than a preference. It follows from this phase's own premise — the
+      status is the token being promoted, so orphaning it would defeat the change — and it is
+      the mechanically safer half: the status chip declares no-wrap and breaks as a unit, while
+      the identifier has no wrap control on this surface, so a hyphenated timestamp can break
+      mid-string where the chip cannot.
+  - id: the-order-inside-the-row-is-load-bearing
+    chose: >
+      The project and cost stay the first `.ec-sub` in the run block, and the run's status
+      becomes the first `.ec-mark`.
+    alternative: >
+      Treating the row's internals as free to rearrange.
+    why: >
+      Two assertions elsewhere in the suite select by document order: one takes the first
+      sub-text in the run block and expects the project and cost — five more sit further down —
+      and one takes the first mark and expects the run's own status. The change helps the second
+      and must not disturb the first, so both are pinned by tests of this phase as well.
+  - id: no-disclosure-and-no-sweep-of-the-rest-of-the-pane
+    chose: >
+      One step: the order and the weight. No `<details>` fold, and no change to the empty
+      states, the opening instruction or the session and dialog identifiers.
+    alternative: >
+      Folding the run's bookkeeping behind a summary in the same phase, and taking the three
+      other candidates the first cut proposed.
+    why: >
+      A disclosure is a bigger change with its own argument, and doing it here would make it
+      impossible to tell which change worked; it is named in prose as a successor. The other
+      three were refused against the code: the three empty states do three different jobs, the
+      instruction is one phase's deliberate work with a test pinning two of its sentences, and
+      the dialog identifier is half a documented mechanism — the id lives in the browser,
+      storage can refuse, and a reload would then open a second conversation beside the first.
+  - id: what-this-does-not-claim
+    chose: >
+      The claim is that the row stops leading with a timestamp — no more.
+    alternative: >
+      Claiming a reader now finds what needs them.
+    why: >
+      The urgent signal on this block is already carried by colour and by the waiting-for-an-
+      answer line, neither of which this phase touches. A bigger claim would not be readable by
+      any test this phase can write, and an unreadable claim in a done list is one a later
+      reader has to disprove.
