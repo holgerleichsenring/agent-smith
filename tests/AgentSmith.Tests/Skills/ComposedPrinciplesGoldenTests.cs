@@ -50,26 +50,50 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
     }
 
     [Fact]
-    public async Task Compose_DeltaWithArtefacts_SectionIsNotInTheRenderedPrinciples()
+    public async Task ComposedPrinciples_TheCsharpDelta_StillStripsTheSectionFromTheRenderedFile()
     {
         var composed = (await SourceAsync()).Compose("csharp");
 
         composed!.Content.Should().NotContain("## Artefacts",
             "an artefact is a file for the repository; restating it in principles.md would be a "
             + "second place for the two to disagree");
-        composed.Artefacts.Should().NotBeEmpty(
-            "the ecosystem this estate runs declares its enforcement files");
-        composed.Artefacts.Should().OnlyContain(a => a.Content.Length > 0,
-            "an artefact with no content is a heading nobody finished");
+    }
+
+    [Theory]
+    [InlineData("csharp")]
+    [InlineData("rust")]
+    [InlineData("typescript")]
+    public async Task EveryDelta_DeclaresNoArtefacts(string slug)
+    {
+        // 2026-09-20-b5af: the C# delta used to declare an .editorconfig and a
+        // Directory.Build.props, which turned a target repository's existing code into a build
+        // failure the moment the init pull request merged. No delta declares a file any more, and
+        // a section stated empty is an answer rather than an entry.
+        var composed = (await SourceAsync()).Compose(slug);
+
+        composed!.Artefacts.Should().BeEmpty(
+            $"the pinned '{slug}' delta must write nothing into a repository that changes what "
+            + "that repository compiles to");
     }
 
     [Fact]
-    public async Task Compose_DeltaDeclaringNoArtefacts_YieldsNoneRatherThanFailing()
+    public async Task DeltaFormat_LicensesNoneOfTheRemovedArtefactKinds()
     {
-        var composed = (await SourceAsync()).Compose("rust");
+        var format = await FormatAsync();
 
-        composed!.Artefacts.Should().BeEmpty(
-            "a section stated empty is an answer, and it must not be read as an entry");
+        format.Should().Contain("## Writing artefacts",
+            "the absence check below proves nothing against a document that lost its rules");
+        format.Should().NotContain("editor configuration",
+            "the example list licensed the exact file this phase removed");
+        format.Should().NotContain("build property file",
+            "a build property file is the one artefact kind that cannot arrive green");
+        format.Should().NotContain("ruleset",
+            "a ruleset is read by the build the same way, and dropping one noun of three leaves "
+            + "the licence standing");
+        format.Should().NotContain("arrives red",
+            "declaring a red artefact a FINDING is the rejected policy written as a rule");
+        format.Should().NotContain("where the stack's build already looks",
+            "an artefact placed where the build looks is an artefact the build enforces");
     }
 
     [Theory]
@@ -87,6 +111,9 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
             $"the pinned '{slug}' delta must declare its enforcement files, or state that it "
             + "declares none — an omitted section reads the same as an unfinished one");
     }
+
+    private async Task<string> FormatAsync() => await File.ReadAllTextAsync(
+        Path.Combine(await RootAsync(), "principles", "DELTA-FORMAT.md"));
 
     private async Task<string> DeltaAsync(string slug)
     {
