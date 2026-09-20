@@ -114,7 +114,7 @@ public sealed class TicketConversationTests
                 ticketId, "Fix the login flow", "The login flow is broken.", null, "Open", "Stub"));
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels,
+            string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken) =>
             Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
 

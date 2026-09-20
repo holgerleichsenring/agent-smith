@@ -2,8 +2,10 @@ using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Scope;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Server.Services.SpecDialog;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.TestSupport;
@@ -42,6 +44,11 @@ internal static class ApprovedSetDoubles
     internal static EpicTicketFiler EpicFiler(
         ISpecApprovalStore? store = null, FiledWorkStarter? starter = null) =>
         new(new PhaseTicketRenderer(), new EpicChildOrderer(), Recorder(store),
-            new EpicSliceRecordFiler(new PhaseTicketRenderer(), NullLogger<EpicSliceRecordFiler>.Instance),
-            starter ?? FiledWorkDoubles.Starter(), NullLogger<EpicTicketFiler>.Instance);
+            new EpicSliceRecordFiler(new PhaseTicketRenderer(), Kinds(), NullLogger<EpicSliceRecordFiler>.Instance),
+            starter ?? FiledWorkDoubles.Starter(), Kinds(), NullLogger<EpicTicketFiler>.Instance);
+
+    /// <summary>2026-09-18-b4f0: the real resolver — a tracker that configures no kinds
+    /// resolves none, which is what every test that does not set one expects.</summary>
+    internal static TicketKindResolver Kinds(ILogger<TicketKindResolver>? logger = null) =>
+        new(logger ?? NullLogger<TicketKindResolver>.Instance);
 }

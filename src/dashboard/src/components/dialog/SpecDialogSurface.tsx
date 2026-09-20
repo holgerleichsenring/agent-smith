@@ -65,6 +65,7 @@ export function SpecDialogSurface() {
               onPicked={setPicked}
               onStartNew={(chosen) => void dialog.startNew(chosen)}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
+              onDelete={(sessionId) => void dialog.remove(sessionId)}
             />
             <section className="ecard inert min-w-0">
               <div className="d-head">
@@ -115,6 +116,7 @@ export function SpecDialogSurface() {
                 disabled={!dialog.dialogId || mustPick}
                 hint={mustPick ? "Pick a project first — that is what a conversation reads." : undefined}
                 onSend={(text) => void dialog.send(text, project)}
+                onAttach={(file) => void dialog.attach(file, project)}
               />
             </section>
             <DialogPane

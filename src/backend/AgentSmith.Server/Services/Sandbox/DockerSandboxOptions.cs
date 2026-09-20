@@ -14,16 +14,6 @@ public sealed class DockerSandboxOptions
     public string Network { get; set; } = "";
 
     /// <summary>
-    /// p0269a: maximum number of sandbox containers allowed to run concurrently on
-    /// this Docker host. The capacity probe defers a new run while this many are
-    /// already running, so tickets are processed sequentially instead of
-    /// over-subscribing a limitless daemon (which would OOM-kill later, not reject
-    /// at create). 0 = unbounded (historic behaviour). Set via
-    /// SANDBOX_MAX_CONCURRENT. Default 2 — a conservative single-host floor.
-    /// </summary>
-    public int MaxConcurrentSandboxes { get; set; } = 2;
-
-    /// <summary>
     /// p0407: mount the persistent package-cache volumes into every sandbox so a
     /// restore reads packages from disk instead of the network. On by default —
     /// a cold restore cost a measured 978s (killed at the step cap) and 403s on

@@ -138,12 +138,23 @@ a namespace rather than an ordering. The product still mints a sentence slug fro
 backend build, the full suite, CLI dry-runs and harness presets must be green, or the
 commit is blocked. Read this before a definition of done leans on it.
 
-- **The dashboard runs first.** `pnpm install --frozen-lockfile`, `pnpm test` and
-  `pnpm build` in `src/dashboard`, before any .NET check — its own CI workflow is
-  path-filtered on `src/dashboard/**`, so a backend-only payload change never proved the
-  half that renders it. A tree with no `src/dashboard/package.json` has nothing to check
-  and says so; a tree that has one and no `pnpm` **blocks**, because a silent skip is
-  indistinguishable from a pass.
+- **The dashboard runs first.** `pnpm install --frozen-lockfile`, `pnpm gen:hub-events`,
+  `pnpm test` and `pnpm build` in `src/dashboard`, before any .NET check — its own CI
+  workflow is path-filtered on `src/dashboard/**`, so a backend-only payload change never
+  proved the half that renders it. A tree with no `src/dashboard/package.json` has nothing
+  to check and says so; a tree that has one and no `pnpm` **blocks**, because a silent skip
+  is indistinguishable from a pass.
+
+- **The generated mirror is checked, the generated outputs are not.** `gen:hub-events`
+  compares the C# event contracts under `src/backend/AgentSmith.Contracts/Events/` against
+  the dashboard's committed TypeScript mirror and writes nothing; a contract that outgrew
+  its mirror blocks the commit and the failure names the missing event. The token and
+  openapi generators need no step of their own — `pnpm build` already runs them, and
+  neither could detect drift, because what they emit is gitignored rather than committed.
+  Whether the step runs is read from `src/dashboard/package.json`, not from pnpm's exit
+  code: a tree that declares no `gen:hub-events` script predates the check and is skipped
+  with a line of its own. The `passed` ledger line still says only `dashboard`, so it
+  never claims a step that may not have run.
 
 - **One copy serves everyone.** `$CLAUDE_PROJECT_DIR` is the launching session's project
   directory, so a subagent in its own worktree runs the *shared checkout's* script — an

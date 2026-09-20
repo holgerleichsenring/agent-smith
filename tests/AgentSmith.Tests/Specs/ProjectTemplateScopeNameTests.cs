@@ -43,6 +43,24 @@ public sealed class ProjectTemplateScopeNameTests
             .Should().Be("template:default",
                 "a field the operator opened and left empty says nothing, not an empty repo");
 
+    [Fact]
+    public void Scopes_TheOwnerOfAnAddress_IsTheFirstDeclarationInTheFullList()
+    {
+        IReadOnlyList<ProjectTemplate> declarations =
+        [
+            Template("default", "Sample.Client"),
+            Template("default", "sample.client"),
+            Template("default", "Sample.Worker"),
+        ];
+
+        TemplateScopeName.Owns(declarations, 0).Should().BeTrue();
+        TemplateScopeName.Owns(declarations, 1).Should().BeFalse(
+            "the repository is a configured ref the catalog compares case-insensitively, so "
+            + "two spellings of it compose ONE address and the first of them owns it");
+        TemplateScopeName.Owns(declarations, 2).Should().BeTrue(
+            "another repository's declaration is another address, whatever order it is in");
+    }
+
     private static ProjectTemplate Template(string context, string? contextRepo) =>
         new(context, "server", Revision: null, new RepoConnection { Name = "reference" }, contextRepo);
 }

@@ -53,12 +53,17 @@ internal static class DockerSandboxRegistrations
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<IWireProtocolWatcher>(),
             sp.GetRequiredService<ILoggerFactory>()));
-        // p0269a: Docker capacity is a configured concurrent-sandbox cap (no
+        // p0269a: Docker capacity is a configured concurrent-sandbox bound (no
         // create-time signal on a limitless daemon). Replaces the Unbounded default.
+        // 2026-09-18-0f27: the bound is no longer baked into the eagerly-built options.
+        // The probe resolves it through the configuration loader at decision time, and
+        // reaches the config path the way AddSandboxGlobalConfig does — through the
+        // ServerContext, which ServerCompositionBuilder registers first.
         services.AddSingleton<ISandboxCapacityProbe>(sp => new DockerCapacityProbe(
             sp.GetRequiredService<IDockerClient>(),
             sp.GetRequiredService<DockerSandboxQuery>(),
-            sp.GetRequiredService<DockerSandboxOptions>(),
+            sp.GetRequiredService<IConfigurationLoader>(),
+            sp.GetRequiredService<ServerContext>(),
             sp.GetRequiredService<ILogger<DockerCapacityProbe>>()));
     }
 
@@ -105,10 +110,6 @@ internal static class DockerSandboxRegistrations
         RedisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
         DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? DockerSocketUriResolver.DefaultSocket,
         Network = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? "",
-        MaxConcurrentSandboxes =
-            int.TryParse(Environment.GetEnvironmentVariable("SANDBOX_MAX_CONCURRENT"), out var cap)
-                ? cap
-                : new DockerSandboxOptions().MaxConcurrentSandboxes,
         // p0407: warm package caches are what every run wants; the switch exists for
         // the operator who wants a provably cold restore or is short on disk.
         PackageCacheEnabled =

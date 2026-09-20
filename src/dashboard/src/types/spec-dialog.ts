@@ -28,6 +28,16 @@ export interface SpecDialogTurn {
   decision?: SpecDialogDecision | null;
 }
 
+/**
+ * 2026-09-20-3af8: one image the operator attached. Addressed rather than carried — the dialog
+ * view is re-read after every message, so inlined bytes would be re-sent on every reply.
+ */
+export interface SpecDialogImage {
+  id: number;
+  mediaType: string;
+  at: string;
+}
+
 export interface SpecDialogSession {
   sessionId: string;
   scope: SpecDialogProject;
@@ -40,6 +50,8 @@ export interface SpecDialogSession {
   filing: SpecDialogFilingPush | null;
   /** The index in `transcript` of the turn the proposal card belongs on. */
   proposalTurn: number | null;
+  /** The images attached to this conversation, oldest first. */
+  images: SpecDialogImage[];
 }
 
 /** What a conversation's latest filing created. Only a filing produces one. */

@@ -1,0 +1,167 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-3af8
+
+goal: "A design conversation accepts an image, keeps it, and gives it to the design partner — the one attachment kind that needs no converter, and the one an operator actually pastes."
+
+applies_to: "backend (the dialog ingest and its store, the turn seeds and the runner that builds them, the spec-dialog prompt factory, the branch that blanks the image parts) + dashboard (the composer and the transcript)"
+
+requires:
+  - 2026-09-17-c7aeb
+  - 2026-09-18-7a05
+
+scope:
+  in: >
+    An image arrives beside the text of a message, is stored against the conversation, is shown in the
+    transcript, and rides the NEXT master call as image content. The seam for that last part already
+    exists and is preset-agnostic — the handler feeds user image parts unconditionally, and the
+    spec-dialog branch replaces them with an empty list. Giving that branch something to pass is the
+    LAST step, not the whole of it: nothing upstream of it seeds an image today, so the turn's seeds,
+    the runner that builds them, the prompt factory's interface and the image builder's own ceiling
+    all change first. The kinds and the five-megabyte cap are the ticket path's, and so is the sentence a
+    non-vision agent is shown instead. The conversation delete sweeps the rows with the session, in
+    the transaction it already opens.
+  out: >
+    DOCUMENTS. A text-like document is CONVERTED, and the converter runs as a shell step inside a
+    sandbox — the backend host has no converter, and the only sandboxes a design turn holds are
+    read-only source scopes that refuse a run step. Named in prose as the phase that gives a design
+    turn a converter to read a document with.
+    PRESENTATIONS. They are the document path's question, not this one's, and the extension set they
+    are missing from is shared with every ticket — changing it changes what every run downloads.
+    A BYTE STORE. There is none in this estate: no persisted entity carries bytes, the run's own
+    attachments live inside a sandbox that is disposed with it, and the durable artifact slot holds a
+    nullable string. This phase stores an image as text in a column each provider maps to its own
+    large-text type; a real store is named in prose as the phase that gives the estate somewhere to
+    put bytes.
+    ATTACHING TO A FILED TICKET. The tracker's own attachment has a different owner.
+
+decisions:
+  - key: |
+      IMAGES FIRST BECAUSE THEY NEED NOTHING BUILT. An image reaches a model as content; a document
+      reaches it as text, and becoming text needs a converter that runs as a shell step in a sandbox.
+      A design turn holds read-only source scopes that refuse a run step on the first line of their
+      handler. So the document half needs a writable, converter-bearing sandbox before it needs
+      anything else, while the image half needs one branch to stop passing an empty list. Shipping
+      both together would hold the cheap half hostage to the expensive one.
+  - key: |
+      THE SEAM AT THE END OF THE PATH IS UNCONDITIONAL, WHICH IS WHY THE PHASE IS SMALL AND NOT WHY IT
+      IS DONE. The master handler passes user image parts into every loop request; only the spec-dialog
+      arm substitutes an empty list for them, alongside the conversation and attachment sections it
+      also blanks. Nothing about the loop, the request or the chat client is preset-aware. What still
+      has to be built is everything UPSTREAM of that substitution, which the decision on the path sets out.
+  - key: |
+      STORED AS TEXT IN A COLUMN THIS PHASE HAS TO MAKE UNBOUNDED, WHICH THIS TABLE'S OTHERS ARE NOT. The
+      conversation row carries its transcript and its repositories as strings with no length declared.
+      But that is true about the TYPE and proves nothing about CAPACITY, and the difference is fatal on
+      one provider: the shared migration set is generated from SQLite and emits its column types as
+      literals, so three providers run it verbatim — and on MySQL that literal means sixty-four
+      kilobytes. An encoded five-megabyte image is roughly a hundred times over it, which errors in
+      strict mode and TRUNCATES SILENTLY otherwise. The transcript sits on that same column today and
+      has simply never been large enough to find out. The fix is not a per-provider literal — one
+      literal is provider-blind and the wrong word on two of them, and a conditional one makes the
+      model diverge from the single snapshot the shared assembly holds. The column declares NO type at
+      all: the scaffolded literal is REMOVED, and each provider's own convention maps an unbounded
+      string to its own large-text type. That is what the first cut asserted and could not deliver. That is not a
+      byte store and the phase does not pretend it is; it is the smallest thing that keeps an operator's
+      screenshot after the turn that carried it.
+  - key: |
+      THE SEAM IS UNCONDITIONAL AND THE PATH TO IT IS NOT, WHICH THE FIRST CUT CONFLATED. The loop, the
+      request and the chat client carry image parts for every preset, and only one branch substitutes
+      an empty list. But nothing SEEDS them for a design turn: the turn's seeds set no attachment key,
+      and the runner that builds them holds no repository to read rows with — and sits one line under
+      the hard file limit, so the loading lands elsewhere. And the sentence a non-vision agent is shown
+      reaches the prompt through a factory the spec-dialog arm calls with the pipeline alone, so that
+      interface changes too — and it carries the two NUMBERS, how many exist and how many are carried,
+      not a rendered sentence, because the vision flag and the ceiling are applied in the handler while
+      the wording belongs beside the viewability note. The ticket path's image builder cannot be reused
+      unchanged either: its ten is a constant compiled into the take, so the dialog passes its own
+      count or gets its own builder. The dialog needs a third branch the ticket path
+      has no use for: vision on, carried fewer than existing. Reusing the ticket section whole would also put a ticket heading into a
+      design conversation: the SENTENCE is reusable, the section is not.
+  - key: |
+      THE UPLOAD RESOLVES ITS SESSION, OPENS ONE WHEN NONE IS OPEN, AND REFUSES ONLY ANOTHER'S —
+      WHICH THE INGEST ROUTE DOES NEITHER. That
+      route authorises through a check that returns TRUE when no open session is found — safe for a
+      watch, because nothing is delivered into an id nobody holds, and stated as such where it lives.
+      A WRITE keyed on something that check never looked at is the asymmetry the conversation delete
+      was written about: mint a dialog id, upload, repeat, and there is no session to key the row on,
+      no conversation to bound it and no delete to sweep it. The upload takes the delete's posture —
+      resolve the open session inside the request and store before answering, not in the dispatch that
+      follows. But an absent session cannot simply refuse, because of a race the page walks into on
+      the very first message: the page opens a conversation by POSTing the open command to this same
+      route, which answers 202 BEFORE the session exists, and the two posts are independent background
+      dispatches with no ordering. A refusal would lose exactly the opening screenshot. So the upload
+      carries the project and OPENS the session when none is open, which is what the message path
+      already does — and the refusal then narrows to a session that exists and is not the caller's,
+      which is the delete's posture without the race. The verb matters: the upload resolves-or-opens
+      under the command handler's own guard, which returns without opening when a session is already
+      open on the thread — it must NEVER call the session manager's open, because opening over an
+      existing row IS the fork, and an upload that lost the race would then close the very conversation
+      this decision exists to protect. One consequence is accepted: once an upload wins the race, the
+      page's own open command lands on an open session and is answered "already open here" — a line an
+      operator has not seen on a fresh conversation before, and one they see without the question,
+      because the page posts that command without echoing it. That refusal is DISTINGUISHABLE from the
+      forbidden answer, deliberately unlike the delete's three-way sameness: a delete must not tell a
+      stranger which conversations exist, while an upload is to a conversation the caller is in, and
+      the page must be able to recover.
+  - key: |
+      KEYED ON THE SESSION, BECAUSE THE DIALOG ID IS A TAB. The ingest route knows only the dialog id,
+      and a resume moves a conversation onto a new dialog id while keeping its session id. An
+      attachment keyed on the dialog id would be orphaned by the next resume.
+  - key: |
+      THE DELETE ALREADY OPENS THE TRANSACTION, AND THESE ROWS ARE IN IT. The conversation delete
+      sweeps the session row and the durable answers in one unit of work. Attachments stored as rows
+      in the same database join that sweep for free — which is the second reason not to reach for a
+      store outside it in this phase.
+  - key: |
+      A NON-VISION AGENT IS TOLD, BECAUSE THE TICKET PATH ALREADY TELLS IT. Vision is an operator
+      setting that defaults on. The ticket path degrades by saying how many images exist and that this
+      model cannot view them; the design turn says the same rather than dropping the operator's
+      screenshot in silence.
+  - key: |
+      THE PROMPT'S IMAGE CEILING IS FOUR, AND IT BOUNDS A TURN, NOT A CONVERSATION. A long
+      conversation may hold more than four images; one call carries four. Which four is a decision the
+      phase makes rather than discovers: the most recent, because the operator attached
+      them to the message they are asking about — and the transcript is rendered flat, so nothing ties
+      an image to a turn anyway. Two things follow. The prompt SAYS how many exist and how many are
+      carried, as the ticket path says its count, so an operator whose early diagram dropped out is
+      told. And the number is not inherited: ten bounds one RUN's ticket, while a conversation re-sends
+      its whole prompt every turn, on a surface with neither a cost fence nor an iteration ceiling. The
+      dialog's ceiling is FOUR, not ten: ten bounds a ticket read once in a run, while four is what a
+      person attaches to one question, and whatever number is chosen is multiplied by the length of
+      the conversation rather than paid once.
+  - key: |
+      WHAT BOUNDS AN UPLOAD IS NOT WHAT BOUNDS A DOWNLOAD. The ticket path's cap is checked after a
+      tracker's response is buffered, which an upload route must not copy: the size is refused before
+      the body is read. The declared media type is attacker-supplied here where it was tracker-supplied
+      there, so the kind is decided from the bytes, not from what the client called them.
+
+steps:
+  - id: a-message-may-carry-images
+    action: "The dialog ingest accepts images beside the text, refusing an over-size body by the mechanism that acts BEFORE binding — the inverse of the archive route's raised ceiling, or a filter on the declared length — and deciding the kind from the bytes rather than from what the client called them."
+  - id: they-are-kept
+    action: "An image is stored as one row against the conversation's session id, and survives a reload and a resume."
+  - id: the-partner-sees-them
+    action: "The spec-dialog branch passes the conversation's most recent images as user image parts instead of an empty list, and a non-vision agent is told they exist."
+  - id: the-delete-sweeps-them
+    action: "The conversation delete removes the attachment rows in the unit of work it already opens."
+
+tests:
+  - "Dialog_AMessageWithAnImage_StoresItAgainstTheSession"
+  - "Dialog_AnImage_RidesTheNextMasterCallAsImageContent"
+  - "Dialog_ANonVisionAgent_IsToldTheImagesExist"
+  - "Dialog_MoreImagesThanTheCeiling_CarriesTheMostRecent"
+  - "Dialog_AnImageOverTheCap_IsRefusedBeforeTheBodyIsBound"
+  - "Dialog_AnUploadWithNoOpenSession_OpensOneRatherThanLosingTheImage"
+  - "Dialog_AnUploadToAnotherPrincipalsConversation_IsRefusedDistinguishably"
+  - "Dialog_TheAttachmentColumn_MapsToEachProvidersLargeTextType"
+  - "Dialog_MoreImagesThanTheCeiling_SaysHowManyExistAndHowManyAreCarried"
+  - "Dialog_AKindTheBytesDoNotSupport_IsRefused"
+  - "Dialog_AResume_KeepsTheConversationsImages"
+  - "Dialog_DeletingTheConversation_SweepsItsImages"
+  - "dashboard: the composer takes an image and the transcript shows it"
+
+done:
+  - "an operator can show the design partner what they are looking at"
+  - "the screenshot is still there after a reload and after a resume"
+  - "no model is handed an image it cannot see without being told"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"

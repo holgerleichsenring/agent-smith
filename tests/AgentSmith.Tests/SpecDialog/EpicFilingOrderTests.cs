@@ -204,7 +204,7 @@ public sealed class EpicFilingOrderTests
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
-            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, false, CancellationToken.None);
     }
 
@@ -248,7 +248,7 @@ public sealed class EpicFilingOrderTests
             throw new NotSupportedException();
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels,
+            string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken)
         {
             if (ThrowOnCreate is not null) throw ThrowOnCreate;

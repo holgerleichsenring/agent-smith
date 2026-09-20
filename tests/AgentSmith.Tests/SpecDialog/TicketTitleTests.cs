@@ -82,7 +82,8 @@ public sealed class TicketTitleTests
     {
         var provider = new Mock<ITicketProvider>();
         provider.Setup(p => p.CreateAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
 
         var report = await Filer(provider.Object).FileAsync(
@@ -91,7 +92,7 @@ public sealed class TicketTitleTests
         report.Error.Should().BeNull("a title over the tracker's limit no longer fails the create");
         provider.Verify(p => p.CreateAsync(
             It.Is<string>(t => t.Length <= TicketTitle.MaxLength && t.EndsWith('…')),
-            It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()));
+            It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()));
     }
 
     [Fact]
@@ -99,14 +100,16 @@ public sealed class TicketTitleTests
     {
         var provider = new Mock<ITicketProvider>();
         provider.Setup(p => p.CreateAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(Config());
         var handler = new CreateTicketIntentHandler(
-            Mock.Of<IPlatformAdapter>(), loader.Object, factory.Object, NullLogger<CreateTicketIntentHandler>.Instance);
+            Mock.Of<IPlatformAdapter>(), loader.Object, factory.Object, ApprovedSetDoubles.Kinds(),
+            NullLogger<CreateTicketIntentHandler>.Instance);
 
         await handler.HandleAsync(new CreateTicketIntent
         {
@@ -115,7 +118,7 @@ public sealed class TicketTitleTests
 
         provider.Verify(p => p.CreateAsync(
             It.Is<string>(t => t.Length <= TicketTitle.MaxLength), It.IsAny<string>(),
-            It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()));
+            It.IsAny<IReadOnlyList<string>>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()));
     }
 
     private static AgentSmithConfig Config() => new()
@@ -134,7 +137,7 @@ public sealed class TicketTitleTests
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
-            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
     }
 
     private static ConversationState State() => new()

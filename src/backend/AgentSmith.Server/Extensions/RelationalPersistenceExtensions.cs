@@ -82,7 +82,7 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<RunArtifactRepository>();
         // p0315a: spec-dialog sessions are DB-authoritative (volatile Redis must
         // never be the only holder of a design transcript).
-        services.AddScoped<SpecDialogSessionRepository>();
+        services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogAttachmentRepository>();
 
         services.RemoveAll<IActiveRunLease>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();

@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-15-6f8d
+
+goal: "One statement says which declaration owns a template address, so a proof stops being read out of another declaration's checkout and a duplicated declaration stops being offered as a second template."
+
+applies_to: "backend (the template address statement, the scope selection, the proof report, the dialog's project catalog)"
+
+requires:
+  - 2026-09-16-4df5
+
+scope:
+  in: >
+    TemplateScopeName gains the second half of the statement it already carries: an address is owned
+    by the FIRST declaration, in the project's declaration order, that resolves to the same address
+    under the comparer the catalog already uses for configured names — computed over the project's FULL declaration list by every reader, so a reader that
+    filters first and a reader that does not still get one answer. The scope selection and the proof report both read that
+    statement instead of each applying its own rule. TODAY the report iterates declarations and
+    resolves each to the same scope, so a genuine duplicate makes it READ the second declaration's
+    template-context path out of the first declaration's checkout; after this phase a declaration
+    that does not own its address is not read at all, and the skip is recorded under the
+    declaration's ordinal, which is the only thing that stays unique when two losers are identical in
+    every field. The dialog's project catalog stops projecting one row per declaration and projects
+    one per address, on the shared helper both of its reads use.
+  out: >
+    HOW AN ADDRESS IS RESOLVED. This statement decides OWNERSHIP — which of a project's declarations
+    owns an address — and not RESOLUTION, which is whether a string the MODEL wrote names an address
+    that was opened. The derivation look's gate keys its opened set and its merged map ordinally and
+    decides from them what may be opened and which allowance it is charged to; the dialog's stamp
+    keys its declared map ordinally too. Neither changes here and neither breaks, for two DIFFERENT
+    reasons. The gate is handed the deduplicated set, so it receives one key per address and copies
+    it faithfully. The stamp is not: it builds its map from every DECLARATION, so two spellings still
+    put two entries in it — but it looks up by a key taken from the deduplicated opened set, which is
+    the owner's own written string and is therefore present by construction. What stays true either
+    way is that a model writing a different casing than the one opened is still refused, as it always
+    has been. The successor cannot be template-shaped: the gate holds targets and templates in ONE
+    dictionary with ONE comparer, and it resolves against that map BEFORE it ever consults the
+    template set, so a mis-cased template address fails at resolution and never reaches the allowance
+    check. Target repository names are configured catalog names compared case-insensitively
+    everywhere else and resolved ordinally there too. Named in prose as the phase that makes the
+    derivation gate resolve every name the way the catalog compares it.
+    THE DASHBOARD. The collapse is server-side; no component changes. Picking the owner in the page
+    would be a third copy of the precedence rule, written where the statement cannot reach it.
+    REFUSING THE DUPLICATE AT LOAD. Not local: ProjectTemplateResolver drops the project's ENTIRE
+    template list when any rule breaks, so refusing one duplicate takes every working template on
+    that project with it. Named in prose as the phase that makes a broken template rule cost only the
+    template it names.
+    THE CONFIG STUDIO'S FORM. It shows one row per DECLARATION and keeps doing so — an editor must
+    show what can be deleted, while the dialog's panel must show what a run can open. After this
+    phase the two surfaces report different template counts for one project, which is intended.
+    THE STALE PREMISE IN 2026-09-15-a2d0's SCOPE-OUT, which repeats the three-disagreement claim
+    2026-09-16-4df5 falsified. Named in prose as the phase that retires the template-disagreement
+    premise from the record.
+    QUALIFYING THE SECOND DECLARATION AUTOMATICALLY. Guessing which repository an operator meant is a
+    heuristic for a field they can fill.
+
+decisions:
+  - key: |
+      THE CRASH THIS PHASE WAS CUT FOR IS GONE, AND THE FIRST CUT DID NOT KNOW IT. 2026-09-16-4df5
+      landed one shared builder that all three consumers call and replaced the dialog stamp's throwing
+      ToDictionary with Dictionary and TryAdd. "Three consumers disagree and one throws on every
+      dialog turn" was true on 2026-09-15 and false on 2026-09-16. One defect survived, in the report.
+  - key: |
+      OWNERSHIP IS A MISSING STATEMENT, NOT A MISSING FIELD. Nothing records which declaration a
+      materialised scope came from: the scope selection stores a sandbox and discards the declaration,
+      and the sandbox carries a repository name, a materialisation flag and a resolved sha. Comparing
+      the target repository name is ambiguous in exactly the duplicate case, because two declarations
+      differing only in template context or revision name the same repository; recomputing first-wins
+      in the report is a SECOND copy of the precedence rule. The statement goes where the other half
+      of it already lives, as an ADDITIVE overload taking the declaration list — every caller already
+      holds it, so no signature on the existing address builders changes.
+  - key: |
+      OVER THE FULL LIST, OR IT IS TWO ANSWERS AGAIN. The scope selection applies its discovered and
+      wanted filters BEFORE its dedup; the report iterates the project's declarations unfiltered. The
+      two agree today only because those filters key on the context alone and a genuine duplicate
+      shares it — a coincidence of the current filter, not a property. Ownership is computed over the
+      full declaration list in both readers, which is the one sentence that makes the statement a
+      statement.
+  - key: |
+      ONE COMPARER, BECAUSE THE CONTRADICTION IS THREE LINES WIDE AND THE FIFTH CUT FROZE IT. Inside
+      the one method this phase edits, both admission filters are built CASE-INSENSITIVELY and the
+      result dictionary is keyed ORDINALLY. So two declarations of one context differing only in case
+      pass a single filter check as one context and then become two addresses, opening two clones of
+      one template repository for one discovered context. The fifth cut called that "read in their own
+      checkouts, which is correct"; it is not correct, it is the defect, and ordinal ownership would
+      have frozen it. The qualified half says the same thing from the other side: the repository a
+      declaration names IS a configured ref, validated by the catalog's own case-insensitive
+      comparison, so two spellings of it denote one repository and compose two addresses. The two
+      halves get their answer from different places that happen to AGREE: the context half from the
+      discovery filter that admitted it, the repository half from the catalog that validated it,
+      both case-insensitive. That coincidence is what makes one comparer possible at all. The composed name keeps the casing it was
+      written with, because it is shown to an operator and to the model; only the comparison changes.
+  - key: |
+      THE CONTEXT NAME HAS NO RULES-LAYER DIVERGENCE TO DEFER, AND THE FIFTH CUT INVENTED ONE. The
+      template rules say in their own words that a context name is not among the things they can
+      check — neither the project entity nor the catalog carries contexts, because they are
+      discovered inside a run. Every case-insensitive comparison in that file is of a repository ref
+      or a project name. So the successor the fifth cut named, about configured names being
+      case-sensitive everywhere or nowhere, was aimed at a question the context name is not part of,
+      and it is withdrawn. What governs the context name is the discovery filter, and this phase
+      matches it.
+  - key: |
+      AN ADDRESS WHOSE OWNER THE FILTERS EXCLUDE IS NOT OPENED, AND THAT IS A CHANGE. Two declarations
+      can share an address WITHOUT sharing a context: an unqualified context written with a slash and
+      a qualified one compose the same address, and nothing refuses that today. The selection's
+      filters key on the CONTEXT, so the owner can be filtered out while the other survives — and
+      after this phase the address is then not opened at all, where today the survivor opens it. That
+      is the honest consequence of one ownership answer, it is narrow, and the pair that produces it
+      ought to be refused at load: named in prose as the phase that refuses two template declarations
+      that compose one address.
+  - key: |
+      FIRST-WINS IS 4df5's OWN ANSWER, AND DECLARATION ORDER IS WHAT MAKES IT WELL-DEFINED. The scope
+      selection's own comment says the skip "is now only reachable for a genuine duplicate — the same
+      context declared twice with the same qualification — where taking the first is still right". The
+      resolver preserves declaration order, which 2026-09-15-a2d0 already treats as load-bearing.
+      Without naming that order, "first" means nothing.
+  - key: |
+      THE SKIP IS KEYED ON THE ORDINAL, BECAUSE EVERY OTHER FIELD CAN REPEAT. Evidence is deduplicated
+      on the repository and what-was-done, and the report passes the ADDRESS as the repository — shared
+      by every declaration of a duplicate. So the skip's distinguishability rests entirely on
+      what-was-done. Naming the template context separates skips only when the losers' template
+      contexts DIFFER; an operator who adds a template twice and fills the same values produces two
+      losers identical in every field, and the third line vanishes — failing this phase's own promise
+      that a declaration says so however many share its address. The declaration's ordinal position is
+      the only candidate that is unique per declaration AND stable across the deriver's retry loop,
+      which is why the remember-once call stays as it is rather than becoming an unconditional write.
+      The ordinal is a DISCRIMINATOR, not a meaning: the skip carries the template context as well,
+      because after the catalog collapse the model is shown only the owner's address, so a line
+      naming "declaration two" alone names an entity the reader was never given a list of.
+  - key: |
+      THE SECOND PROOF REACHES THE MODEL ONLY FOR DECLARATIONS THAT DIFFER, WHICH IS WHY THE FIX IS
+      NOT THE EVIDENCE LINE. Both declarations resolve to the same scope, so the resolved sha is
+      identical and what-was-done differs only by the template-context path. Two declarations sharing
+      a template context are already deduplicated away — the wrong read still HAPPENS and is simply
+      never reported. So the thing to stop is the READ against a scope the declaration does not own,
+      not the minting of a line; a test that asserts no evidence is minted for that case passes today
+      and proves nothing.
+  - key: |
+      THE PANEL IS A DISPLAY AND ITS ROW IS NOT THE FIX. The dialog's scope panel renders templates as
+      read-only marks keyed on the address, so a genuine duplicate collides with itself on the key and
+      the test id — but collapsing the rows on the server removes the duplicate before it is rendered,
+      and then the key is unique again. Keying the row differently and collapsing it are two fixes
+      that annihilate each other, and only one of them can pick the owner without writing the
+      precedence rule a third time. The collapse lands in the catalog's shared helper, so it serves
+      both of that catalog's reads, not only the open session's panel.
+  - key: |
+      ROOM, NAMED CONCRETELY. TemplateProofReport is 116 lines against a hard 120 and is absent from
+      the ratchet baseline. The read helper and the declaration-outcome helper at the tail of the file
+      move to their own file beside it, which leaves the recording loop near 65 lines with room for the
+      ownership check and the skip record. The two read-outcome constants are used on BOTH sides of
+      that cut, so they move with the tail and the loop refers to them there.
+
+steps:
+  - id: one-statement-of-ownership
+    action: "The empty sibling of the scope map and the look's default are keyed the same way as the populated one, so the two paths cannot disagree. TemplateScopeName gains an additive statement that an address is owned by the first declaration in the project's full declaration order that resolves to it; the scope selection and the proof report both read it."
+  - id: the-read-helper-moves
+    action: "The proof report's read helper, the declaration-outcome helper below it and the two read-outcome constants move to their own file, making room in the recording loop."
+  - id: no-read-outside-the-owner
+    action: "AFTER the existing materialisation guard, a declaration that does not own its address is not read; the skip is recorded under that declaration's ordinal position AND its template context."
+  - id: the-catalog-collapses
+    action: "The dialog's project catalog projects one template per address, carrying the owner's repository and revision, on the shared helper both of its reads use."
+
+tests:
+  - "Proof_TwoDeclarationsOfOneAddress_IssueOneReadAndItIsTheOwnersPath"
+  - "Proof_TwoContextSpellingsOfOneDiscoveredContext_OpenOneScopeAndAreMeasuredOnce"
+  - "Scopes_TwoSpellingsOfTheQualifyingRepository_ResolveToOneOwnerAndOpenOneScope"
+  - "Proof_TheSkippedDeclaration_IsRecordedUnderItsOrdinalAndItsTemplateContext"
+  - "Proof_ThreeIdenticalDeclarations_ProduceThreeDistinguishableLines"
+  - "Proof_DistinctlyQualifiedTemplates_AreBothStillMeasured"
+  - "Scopes_TheOwnerOfAnAddress_IsTheFirstDeclarationInTheFullList"
+  - "Catalog_TwoDeclarationsOfOneAddress_ProjectOneTemplateCarryingTheOwners"
+
+done:
+  - "one statement says who owns a template address, and every reader of OWNERSHIP reads it over the same list"
+  - "no file is read out of a checkout the declaration does not own"
+  - "a declaration that could not be proven says so, however many share its address and however alike"
+  - "a run's openable templates are listed once each"
+  - "build green, full suite green, file-length ratchet green"

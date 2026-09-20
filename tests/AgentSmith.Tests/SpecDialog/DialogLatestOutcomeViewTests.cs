@@ -274,7 +274,8 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         (await new SpecDialogViewReader(
                 _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
-                new SpecDialogTurnGate(TimeProvider.System))
+                new SpecDialogTurnGate(TimeProvider.System),
+                new SpecDialogAttachmentRepository(_context))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
 
     private static PhaseOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));
@@ -307,7 +308,8 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var provider = new Mock<ITicketProvider>();
         provider.Setup(p => p.CreateAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
@@ -315,7 +317,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             Loader().LoadConfig(string.Empty), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             TestSupport.ApprovedSetDoubles.EpicFiler(),
             TestSupport.ApprovedSetDoubles.Recorder(),
-            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
             filer, _sessions, messenger, composer, channel, latest,

@@ -11,6 +11,7 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Init;
+using AgentSmith.Server.Services.Sandbox;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
@@ -290,6 +291,24 @@ public sealed class InitRunLauncherTests : IDisposable
         BodyOf(unknown).Reason.Should().Contain("not-configured");
     }
 
+    // 2026-09-18-0f27: the manual init is the ONE path that hands the probe's reason to
+    // the operator verbatim — the spawn funnel and the mid-run escalation log it and drop
+    // it, and the capacity queue never asks the probe at all. Driven against the real
+    // Docker probe, because the sentence that names the bound is written there.
+    [Fact]
+    public async Task Init_RefusedForCapacity_NamesTheResolvedBound()
+    {
+        // Three sandboxes of this store are already running against a bound of two.
+        _probe = DockerProbeAtBound(bound: 2, running: 3);
+
+        var refused = await ProjectInitEndpoints.InitAsync(
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
+
+        StatusOf(refused).Should().Be(StatusCodes.Status503ServiceUnavailable);
+        BodyOf(refused).Reason.Should().Contain("2", "a refused init says the number it was refused against");
+        BodyOf(refused).Reason.Should().Contain("concurrent-sandbox cap");
+    }
+
     [Fact]
     public async Task Start_AlreadyRunning_StillAnswersImmediately()
     {
@@ -371,6 +390,37 @@ public sealed class InitRunLauncherTests : IDisposable
         probe.Setup(p => p.HasCapacityAsync(It.IsAny<RunFootprint>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(CapacityDecision.Admit());
         return probe.Object;
+    }
+
+    // The real Docker probe over a daemon already at the bound, with the bound named in
+    // the catalog the probe resolves through — so the refusal carries the resolved number.
+    private static ISandboxCapacityProbe DockerProbeAtBound(int bound, int running)
+    {
+        var containers = Enumerable.Range(0, running)
+            .Select(i => new Docker.DotNet.Models.ContainerListResponse
+            {
+                ID = $"c{i}",
+                Labels = new Dictionary<string, string>
+                {
+                    [DockerContainerSpecBuilder.JobIdLabel] = $"job{i}",
+                },
+            })
+            .ToList();
+        var ops = new Mock<Docker.DotNet.IContainerOperations>();
+        ops.Setup(c => c.ListContainersAsync(
+                It.IsAny<Docker.DotNet.Models.ContainersListParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IList<Docker.DotNet.Models.ContainerListResponse>)containers);
+        var docker = new Mock<Docker.DotNet.IDockerClient>();
+        docker.SetupGet(d => d.Containers).Returns(ops.Object);
+
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(
+            new AgentSmithConfig { Sandbox = new SandboxGlobalConfig { MaxConcurrentSandboxes = bound } });
+
+        return new DockerCapacityProbe(
+            docker.Object, new DockerSandboxQuery(new SandboxOwnerIdentity("store-0123456789abcdef")),
+            loader.Object, new ServerContext("agentsmith.yml"),
+            NullLogger<DockerCapacityProbe>.Instance);
     }
 
     private static ISandboxCapacityProbe DenyingProbe(string reason)

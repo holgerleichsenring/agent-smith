@@ -387,7 +387,7 @@ public sealed class FiledWorkStartTests
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             ApprovedSetDoubles.EpicFiler(store, starter), ApprovedSetDoubles.Recorder(store),
-            starter, NullLogger<OutcomeTicketFiler>.Instance);
+            starter, ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), proposal, mayStartRuns, CancellationToken.None);
     }
 
@@ -501,7 +501,7 @@ public sealed class FiledWorkStartTests
             Task.FromResult(new Ticket(ticketId, "t", string.Empty, null, _status, ProviderType, []));
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels, CancellationToken ct)
+            string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken ct)
         {
             _statuses.Add(title);
             return Task.FromResult(new CreatedTicket(

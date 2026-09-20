@@ -34,7 +34,9 @@ public sealed record TrackerEntity(
     IReadOnlyDictionary<string, string>? LifecycleStatusNames = null,
     // 2026-09-16-a4d7: APPENDED, never inserted — ToTracker calls this record positionally.
     string? DefaultPipeline = null,
-    string? ParentLinkType = null)
+    string? ParentLinkType = null,
+    // 2026-09-18-b4f0: role -> native work-item/issue type for the tickets agent-smith files.
+    IReadOnlyDictionary<string, string>? WorkItemKinds = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }

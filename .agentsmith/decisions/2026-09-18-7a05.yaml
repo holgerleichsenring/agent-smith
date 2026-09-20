@@ -1,0 +1,144 @@
+phase: 2026-09-18-7a05
+decisions:
+  - id: the-terminal-answer-is-204
+    chose: >
+      Success, not-yours, not-there and already-deleted all answer 204 No Content. The one
+      asymmetry, a conversation whose hold cannot be taken, answers 409 Conflict with the
+      sentence that a turn is running.
+    alternative: >
+      404 for the whole uniform set, or 200 with a body. The spec left the code open and ruled
+      out exactly one — 403.
+    why: >
+      204 is the house shape for a delete (RunDeletionEndpoints answers it) and the uniform set
+      is a delete that succeeded as far as the caller may know, so a body saying anything at all
+      would be the disclosure the uniformity exists to prevent. 403 is the one code that cannot
+      be used: the authorization layer already answers 403 for a missing permission, so a route
+      answering it itself would satisfy DialogConversationDeletePermissionTests with
+      `.Needs(DialogWrite)` taken off the map call — the permission would become a comment.
+      409 for the held case is a different code by necessity: it is the only outcome the caller
+      is meant to tell apart, because it is the only one they can act on by waiting.
+  - id: the-list-read-in-flight-is-invalidated-by-the-counter
+    chose: >
+      The delete bumps `listReads.current` before it removes the row, so every list read now
+      outstanding is superseded and none of them can put the row back.
+    alternative: >
+      A tombstone set of deleted session ids that the list reducer filters against.
+    why: >
+      The guard the page already runs is `issued !== listReads.current`, and it drops a read
+      only when a NEWER read has been issued. A read issued before the delete and landing after
+      it therefore lands unguarded today. Bumping the counter is one line and reuses the
+      mechanism rather than adding a second one beside it. A tombstone set is strictly more
+      machinery for the same effect and brings a question the counter does not: when an entry
+      leaves it. Kept forever it grows for the life of the tab; expired on the next read it is
+      the counter with extra steps; and a stale tombstone would hide a conversation the server
+      still has. The counter cannot go stale, because it only ever moves forward.
+  - id: the-owner-check-is-its-own-and-keyed-on-the-session-id
+    chose: >
+      SpecDialogOwnership.MayDeleteAsync, over a new platform-scoped by-session lookup, in which
+      an absent row is a refusal.
+    alternative: >
+      Reusing MayWatchAsync, which the other three dialog routes use.
+    why: >
+      MayWatchAsync is an authorisation bypass for this route, and the reason is not that thread
+      ids and session ids are disjoint — the dialog id is client-supplied, checked only for
+      emptiness, and becomes the thread id verbatim. It returns true on BOTH branches: no row
+      carries the victim's session id as its thread id, so the lookup misses and a miss is a
+      pass; or the attacker opened their own conversation under that id first, so the lookup
+      finds a row they own. DialogConversationDeleteTests pins both branches, and the bypass is
+      the mutation they were watched failing against.
+  - id: the-delete-acquires-the-hold-and-the-owner-check-runs-first
+    chose: >
+      The route calls the gate's existing TryEnter, refuses when it fails, and exits in a
+      finally — the shape SpecDialogResumer already uses. The owner check runs BEFORE it.
+    alternative: >
+      Reading a held flag off the gate, and/or ordering the acquire first because it is cheaper.
+    why: >
+      A read is a check-then-act: the gate answers not-held, the router enters a microsecond
+      later, and the delete commits against a session a turn is now running on. The failed
+      acquire IS the held answer, so no gate API is added. The ordering is a denial-of-service
+      guard as much as an oracle guard: acquiring first would let any holder of the dialog
+      permission take the gate on a session they do not own, and a loop of refused deletes would
+      bounce that owner's turns off it. The span is the HOLD, not the computing flag — the
+      approval wait and the filing run after the runner returns and inside the hold — which is
+      why the test says "even when the turn is not computing" and the mutation that reads
+      Liveness().Computing kills it.
+  - id: the-database-work-sits-behind-an-interface
+    chose: >
+      ISpecDialogConversationDeleter, implemented by SpecDialogConversationDeleter, which opens
+      the unit of work's transaction and clears the session row and the durable answers in it.
+    alternative: >
+      The two repository calls inline in the endpoint, or a second RunDeletion-style repository
+      in the persistence project.
+    why: >
+      Delete_ThatFailsAfterTakingTheHold_LeavesTheConversationUsable needs a failure that happens
+      AFTER the hold is taken, and work written inline in the route leaves nowhere to put one —
+      the seam is what makes the finally provable. It sits in the server rather than in
+      persistence because the transaction spans two aggregates that already have repositories of
+      their own; a third repository over both would be a copy of what the unit of work is for.
+  - id: the-approved-set-is-not-swept-and-the-answers-are
+    chose: >
+      The session row and every DialogueAnswerEntry keyed to its id go. The ApprovedSpecSet rows
+      and the filed tickets stay.
+    alternative: >
+      Sweeping the approved set with the conversation that ratified it.
+    why: >
+      Every work ticket the dialog files carries the approved stamp, and a stamped ticket with no
+      stored set is refused at the spec gate on every trigger, with the gate's own reason. A
+      swept set therefore leaves the filed ticket permanently unworkable with no route to restore
+      it — not a silent loss but an irreversible one. The answers are the opposite case: nothing
+      reaches those rows once the session is gone, because the only route that touches that table
+      resolves its id from a run checkpoint rather than from a URL, so leaving them is an
+      undeletable copy of operator prose keyed to nothing. A session id cannot collide with a
+      run's dialogue identity in that shared table: a session id is eight lowercase hex, while a
+      run's is a twelve-hex spawned job id or a twenty-four character timestamped run id.
+  - id: the-confirmation-is-worded-by-the-filings-kind
+    chose: >
+      Three sentences in conversationDelete.ts — a phase or an epic parent says the sentence in
+      the ticket naming this conversation will stop resolving; a bug says only that the tickets
+      and the approved specification stay; a filing with no kind, and a conversation that filed
+      nothing, get the sentence true of every filing. A conversation with no turns is deleted
+      without a confirmation.
+    alternative: >
+      One sentence for every case, or a fourth for the conversation that filed nothing.
+    why: >
+      A bug ticket's body carries no sentence naming the conversation, so warning about one would
+      be a warning about nothing. The kind is nullable — it falls back to the latest proposal,
+      which is cleared when a proposal is rejected or times out — so the third branch is real and
+      has to be true whatever was filed; that same sentence therefore covers a conversation that
+      filed nothing, and a fourth branch would be a fourth string saying what the third already
+      says. Turns are the line for confirming at all, not filings: the filing marker is younger
+      than the conversations that filed real tickets before it existed, so confirming anything
+      with turns is the cheap side of that error.
+  - id: the-row-stops-being-a-button
+    chose: >
+      The conversation row is a container with the open control and the delete control as
+      siblings; the delete is a plain button that needs no propagation trick.
+    alternative: >
+      The run list's shape — the delete INSIDE the row's control, surviving by stopping
+      propagation.
+    why: >
+      A control nested in a control is invalid markup and warns, and the nested shape is the
+      mutation SpecDialog_TheDeleteControl_DoesNotOpenTheConversation was watched failing
+      against: the click reaches both handlers, so the row opens on its way to being deleted.
+      Siblings make that impossible rather than handled.
+  - id: the-callback-lives-in-the-hook
+    chose: >
+      useSpecDialog exports `remove`, beside `open` and `startNew`, and routes the open
+      conversation's deletion through the hook-local switch with no queued command.
+    alternative: >
+      A delete in DialogConversations, calling the exported new-conversation callback afterwards.
+    why: >
+      The switch that clears every pane and mints a fresh dialog id in one act is hook-local and
+      not exported. What IS exported is the new-conversation callback, which OPENS a conversation
+      on the fresh id — the opposite of a delete — so the list component has no way to leave a
+      dialog id that now names a dead thread.
+  - id: the-permission-is-the-surfaces-own
+    chose: >
+      dialog.write, with its row in the route-permission baseline.
+    alternative: >
+      A dialog.delete of its own, the way the run delete names runs.delete.
+    why: >
+      Reusing the surface's write permission is the dominant shape here — people, config
+      entities and secrets all do it — and the run delete is the single exception. A caller who
+      may post into a conversation may already approve its filing, which starts real runs; being
+      able to forget the conversation afterwards is not a larger grant than that.

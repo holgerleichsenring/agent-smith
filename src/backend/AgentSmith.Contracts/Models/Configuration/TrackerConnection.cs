@@ -78,4 +78,16 @@ public sealed record TrackerConnection
     /// </summary>
     public IReadOnlyDictionary<string, string> LifecycleStatusNames { get; init; } =
         new Dictionary<string, string>();
+
+    /// <summary>
+    /// 2026-09-18-b4f0 (YAML key <c>work_item_kinds</c>): maps the ROLE a filing plays —
+    /// work / record / bug / phase / chat — to the native work-item type (Azure DevOps) or
+    /// issue type (Jira) that role is created as. One kind for the whole tracker would raise
+    /// a slice record to the level of the work ticket it hangs under, so the choice is per
+    /// role. An unmapped role creates what the provider created before this key existed;
+    /// empty (default) means every role does. Ignored by GitHub and GitLab, which have no
+    /// kind whose state list this choice would change.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> WorkItemKinds { get; init; } =
+        new Dictionary<string, string>();
 }

@@ -5,17 +5,24 @@ import { HubConnectionState } from "@microsoft/signalr";
 import { HUB_URL } from "@/hooks/useJobsHub";
 import { getJobsHubClient } from "@/lib/JobsHubClient";
 import {
+  deleteSpecDialogConversation,
   fetchSpecDialog,
   fetchSpecDialogConversations,
   postSpecDialogMessage,
+  uploadSpecDialogImage,
 } from "@/lib/specDialogApi";
 import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
+// 2026-09-18-7a05: what a deletion does not undo, worded by what the conversation filed.
+import { deletionWarning } from "@/components/dialog/conversationDelete";
+// 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
+import { withImages } from "@/components/dialog/transcriptImages";
 import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
+  SpecDialogImage,
   SpecDialogProposalPush,
   SpecDialogActivityPush,
   SpecDialogQuestionPush,
@@ -41,7 +48,7 @@ import type {
 // it says what was stored: the entry then becomes that decision, or goes, and the question card comes
 // back from the same read when the question is still open.
 
-export type DialogEntryKind = "user" | "agent" | "decision";
+export type DialogEntryKind = "user" | "agent" | "decision" | "image";
 
 export interface DialogEntry {
   key: string;
@@ -55,6 +62,8 @@ export interface DialogEntry {
   decision?: SpecDialogDecision;
   /** Set on a decision the page showed before any read confirmed the server stored it. */
   pending?: PendingDecision;
+  /** 2026-09-20-3af8: set on an image entry — what the operator attached, by its address. */
+  image?: SpecDialogImage;
 }
 
 export interface PendingDecision {
@@ -102,6 +111,12 @@ export interface SpecDialogState {
   startNew: (project?: string) => Promise<void>;
   /** Continues a past conversation in this tab, on a dialog id of its own. */
   open: (sessionId: string, openDialogId?: string | null) => Promise<void>;
+  /** 2026-09-18-7a05: deletes a conversation the caller owns, after saying what that does not
+   *  undo. Deleting the one open here clears the surface and mints a fresh dialog id. */
+  remove: (sessionId: string) => Promise<void>;
+  /** 2026-09-20-3af8: an image beside what the operator is saying. It is stored against the
+   *  conversation at once — opening one if none is open — and rides the NEXT turn. */
+  attach: (file: File, project?: string) => Promise<void>;
 }
 
 export function useSpecDialog(): SpecDialogState {
@@ -408,6 +423,26 @@ export function useSpecDialog(): SpecDialogState {
     [dialogId, view, post],
   );
 
+  // 2026-09-20-3af8: the image is stored BEFORE any message follows it, and the server opens
+  // the conversation when none is open — so an image pasted as the very first act is kept
+  // rather than lost to the opening post it is racing. The read that follows is what puts it
+  // in the transcript, and it is also what tells this page the conversation now exists.
+  const attach = useCallback(
+    async (file: File, project?: string) => {
+      if (!dialogId) return;
+      try {
+        await uploadSpecDialogImage(dialogId, project ?? "", file);
+        // The read has to RESEED: the image is not something this page said, so there is
+        // nothing to echo locally, and an unarmed read leaves the entries as they were.
+        reseed.current = true;
+        await load(dialogId);
+      } catch (thrown) {
+        setFailure(asError(thrown));
+      }
+    },
+    [dialogId, load],
+  );
+
   // A fresh dialog id with a command queued for it: the command waits for the subscription,
   // so its answer lands in a group this page has joined.
   const switchTo = useCallback((command: string | null, awaited: boolean | string, to?: string) => {
@@ -456,11 +491,39 @@ export function useSpecDialog(): SpecDialogState {
     [view, switchTo],
   );
 
+  // 2026-09-18-7a05: a conversation the operator started by mistake, gone. It lives HERE rather
+  // than in the list, because deleting the conversation open in the surface has to clear every
+  // pane and mint a fresh dialog id — the held one now names a dead thread — and the switch that
+  // does that in one act is local to this hook. What the list exports is the NEW-conversation
+  // callback, which opens one on the fresh id: the opposite of a delete.
+  const remove = useCallback(
+    async (sessionId: string) => {
+      const listed = conversations.find((held) => held.sessionId === sessionId);
+      const warning = listed ? deletionWarning(listed) : null;
+      if (warning !== null && !window.confirm(warning)) return;
+      try {
+        await deleteSpecDialogConversation(sessionId);
+      } catch (thrown) {
+        setFailure(asError(thrown));
+        return;
+      }
+      // A list read ISSUED BEFORE THE DELETE AND LANDING AFTER IT still carries the row. The
+      // sequence guard drops a read only when a NEWER read has been issued, so the counter is
+      // bumped here: every read now outstanding is superseded and none of them can put the row
+      // back. For the open conversation the switch below issues one of its own; for a row that
+      // is not open nothing else would.
+      listReads.current += 1;
+      setConversations((held) => held.filter((row) => row.sessionId !== sessionId));
+      if (sessionId === view?.session?.sessionId) switchTo(null, true);
+    },
+    [conversations, view, switchTo],
+  );
+
   working.current = awaiting || computing;
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
     working: working.current, workingSince,
-    readings, activity, send, startNew, open,
+    readings, activity, send, startNew, open, remove, attach,
   };
 }
 
@@ -482,8 +545,14 @@ function upsertReading(
   return held.map((line, index) => (index === at ? reading : line));
 }
 
-/** A turn that was only a draft is kept when the card belongs on it, and dropped otherwise. */
+/** A turn that was only a draft is kept when the card belongs on it, and dropped otherwise.
+ *  2026-09-20-3af8: the conversation's images take their place among the turns by their moment. */
 function seed(view: SpecDialogView): DialogEntry[] {
+  const session = view.session;
+  return withImages(turns(view), session?.images ?? []);
+}
+
+function turns(view: SpecDialogView): DialogEntry[] {
   const session = view.session;
   return (session?.transcript ?? [])
     .map((turn, index): DialogEntry => ({

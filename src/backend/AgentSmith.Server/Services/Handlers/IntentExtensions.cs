@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Factories;
@@ -37,6 +38,9 @@ internal static class IntentExtensions
 
     internal static IServiceCollection AddIntentHandlers(this IServiceCollection services)
     {
+        // 2026-09-18-b4f0: which work-item kind a filed role creates. Shared by the
+        // spec-dialog filers and by the chat-filed ticket below, so it registers here.
+        services.AddTransient<TicketKindResolver>();
         services.AddSpecDialogServices();
         services.AddScoped<FixTicketIntentHandler>();
         services.AddScoped<ListTicketsIntentHandler>();

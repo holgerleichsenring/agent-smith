@@ -42,6 +42,34 @@ public sealed class SpecDialogOwnership(
     }
 
     /// <summary>
+    /// 2026-09-18-7a05: whether this principal may DELETE this conversation. Keyed on the
+    /// session id and scoped to the dashboard platform, and an absent row is a REFUSAL — the
+    /// opposite of the watch check above, and deliberately not that check.
+    /// <para>
+    /// The watch check is keyed on the THREAD id and passes on a miss, because the id a page
+    /// mints for the dialog it is about to open has nothing delivered into it yet. A delete
+    /// opens nothing, so no such id exists here. Reusing it would authorise a delete twice
+    /// over: a dialog id is client-supplied and checked only for emptiness, so a caller
+    /// passing another principal's SESSION id meets a lookup that either misses — and passes —
+    /// or finds the conversation they themselves opened under it, which they own.
+    /// </para>
+    /// </summary>
+    public Task<bool> MayDeleteAsync(string sessionId, string owner, CancellationToken ct) =>
+        OwnsAsync(sessionId, owner, ct);
+
+    /// <summary>
+    /// 2026-09-20-3af8: whether this principal owns the conversation with this SESSION id.
+    /// An absent row is a refusal, which is what makes it safe for a write and for serving
+    /// back what a write stored.
+    /// </summary>
+    public async Task<bool> OwnsAsync(string sessionId, string owner, CancellationToken ct)
+    {
+        var session = await sessions.GetBySessionOnPlatformAsync(
+            DispatcherDefaults.PlatformDashboard, sessionId, ct);
+        return session is not null && session.UserId == owner;
+    }
+
+    /// <summary>
     /// Whether this principal may send this text into this dialog. "/spec resume &lt;id&gt;"
     /// re-binds an EXISTING session onto this dialog id, so the resumed session's owner is
     /// checked as well — an unguarded resume is the same takeover as posting into the

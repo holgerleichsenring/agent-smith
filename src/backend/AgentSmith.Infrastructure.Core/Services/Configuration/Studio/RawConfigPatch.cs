@@ -81,6 +81,10 @@ public static class RawConfigPatch
         if (entity.ZeroMatchComment is { } zeroMatch) tracker.ZeroMatchComment = zeroMatch;
         if (entity.LifecycleStatusNames is { } lifecycle)
             tracker.LifecycleStatusNames = lifecycle.ToDictionary(kv => kv.Key, kv => kv.Value);
+        // 2026-09-18-b4f0: only ever assigned from what the entity CARRIES. A resolved default
+        // written back here would persist on the first unrelated save and end "changes nothing".
+        if (entity.WorkItemKinds is { } kinds)
+            tracker.WorkItemKinds = kinds.ToDictionary(kv => kv.Key, kv => kv.Value);
         if (entity.Polling is { } polling)
             tracker.Polling = new RawPollingEntry
             {

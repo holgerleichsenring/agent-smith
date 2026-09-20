@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.SpecDialog;
@@ -13,7 +14,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
-    SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns)
+    SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns,
+    SpecDialogAttachmentRepository attachments)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -25,9 +27,12 @@ public sealed class SpecDialogViewReader(
             ? SpecDialogLatestOutcome.None
             : await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
         var asked = state is null ? null : Asked(dialogId, state);
+        var images = state is null
+            ? []
+            : await Images(state.JobId, cancellationToken);
         return new SpecDialogView(
             dialogId,
-            state is null ? null : Session(dialogId, state, latest),
+            state is null ? null : Session(dialogId, state, latest, images),
             projects.All(),
             asked,
             state is null || asked is not null
@@ -51,14 +56,25 @@ public sealed class SpecDialogViewReader(
                 dialogId, pending.Question, state.LastActivityAt, pending.ExpiresAt)
             : null;
 
+    /// <summary>
+    /// 2026-09-20-3af8: the conversation's images, addressed rather than inlined — this read is
+    /// issued after every message, so the bytes would be re-sent on every reply.
+    /// </summary>
+    private async Task<IReadOnlyList<SpecDialogImageView>> Images(
+        string sessionId, CancellationToken cancellationToken) =>
+        [.. (await attachments.ListAsync(sessionId, cancellationToken))
+            .Select(row => new SpecDialogImageView(row.Id, row.MediaType, row.At))];
+
     private SpecDialogSessionView Session(
-        string dialogId, ConversationState state, SpecDialogLatestOutcome latest)
+        string dialogId, ConversationState state, SpecDialogLatestOutcome latest,
+        IReadOnlyList<SpecDialogImageView> images)
     {
         var card = latest.Proposal is null ? null : SpecDialogShownTranscript.CardTurn(state.Transcript);
         return new(state.JobId,
             projects.Of(state.Project, state.Scope?.Repos ?? []),
             SpecDialogShownTranscript.Turns(state.Transcript),
             state.LastActivityAt,
+            images,
             latest.Proposal is null
                 ? null
                 // The proposal was made by the turn that carried it, so that turn's moment is its own.

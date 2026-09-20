@@ -23,7 +23,7 @@ public sealed class SpecDialogDiscussionPromptTests
     [Fact]
     public void DesignPrompt_TurnThatMayNotPropose_SaysSo()
     {
-        var prompt = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")));
+        var prompt = new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "update everything")), 0, 0);
 
         prompt.Should().Contain("MAY NOT propose").And.Contain("When the operator asks for work, answer with")
             .And.Contain("the edge cases").And.Contain("A question is answered as it is asked")
@@ -36,7 +36,7 @@ public sealed class SpecDialogDiscussionPromptTests
         var prompt = new SpecDialogPromptFactory().Build(With(
             new SpecDialogTurn("user", "update everything"),
             new SpecDialogTurn("assistant", "found three libraries", SpecDialogTurnKind.Answer),
-            new SpecDialogTurn("user", "all three, one phase")));
+            new SpecDialogTurn("user", "all three, one phase")), 0, 0);
 
         prompt.Should().Contain("MAY propose").And.NotContain("MAY NOT propose");
     }
@@ -57,7 +57,7 @@ public sealed class SpecDialogDiscussionPromptTests
                 ],
             });
 
-        var prompt = new SpecDialogPromptFactory().Build(pipeline);
+        var prompt = new SpecDialogPromptFactory().Build(pipeline, 0, 0);
 
         prompt.Should().Contain("What the review of your last proposal found")
             .And.Contain("p9999 — false premise: the endpoint is already there")
@@ -71,10 +71,10 @@ public sealed class SpecDialogDiscussionPromptTests
         reviewedClean.Set<OutcomeProposal>(ContextKeys.SpecDialogRevisedProposal,
             new PhaseOutcome(new PhaseDraft("p9999", "widget goal", "phase: p9999", [])));
 
-        new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "and now the next one")))
+        new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "and now the next one")), 0, 0)
             .Should().NotContain("the review of your last proposal",
                 "only an edit turn is handed a proposal, and only the router knows a turn is one");
-        new SpecDialogPromptFactory().Build(reviewedClean)
+        new SpecDialogPromptFactory().Build(reviewedClean, 0, 0)
             .Should().NotContain("What the review of your last proposal found",
                 "a clean review has nothing to show the master");
     }

@@ -14,6 +14,10 @@ namespace AgentSmith.Server.Models;
 /// proposed yet, or the last one rejected.</param>
 /// <param name="Filing">What the latest filing attempt created. Its moment tells a filing of
 /// <paramref name="Proposal"/> from a filing of an earlier proposal.</param>
+/// <param name="Images">
+/// 2026-09-20-3af8: the images the operator attached to this conversation, oldest first,
+/// addressed rather than inlined.
+/// </param>
 /// <param name="ProposalTurn">
 /// The index in <paramref name="Transcript"/> of the turn the proposal card belongs on — the
 /// last assistant turn that carried a draft. Null when there is no proposal.
@@ -23,6 +27,7 @@ public sealed record SpecDialogSessionView(
     SpecDialogProjectView Scope,
     IReadOnlyList<SpecDialogTurnView> Transcript,
     DateTimeOffset LastActivityAt,
+    IReadOnlyList<SpecDialogImageView> Images,
     SpecDialogProposalPush? Proposal = null,
     SpecDialogFilingPush? Filing = null,
     int? ProposalTurn = null);
