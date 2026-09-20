@@ -38,6 +38,16 @@ public sealed class DialogueAnswerRepository(
         }
     }
 
+    /// <summary>
+    /// 2026-09-18-7a05: every answer stored against one dialogue identity. A design
+    /// conversation's session id IS that identity, so deleting the conversation takes the
+    /// operator's own answers with it — inside the caller's transaction.
+    /// </summary>
+    public Task<int> DeleteByJobAsync(string dialogueJobId, CancellationToken ct) =>
+        unitOfWork.Set<DialogueAnswerEntry>()
+            .Where(a => a.DialogueJobId == dialogueJobId)
+            .ExecuteDeleteAsync(ct);
+
     public async Task<DialogAnswer?> GetAsync(string dialogueJobId, string questionId, CancellationToken ct)
     {
         var row = await unitOfWork.Set<DialogueAnswerEntry>().AsNoTracking()

@@ -65,6 +65,7 @@ export function SpecDialogSurface() {
               onPicked={setPicked}
               onStartNew={(chosen) => void dialog.startNew(chosen)}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
+              onDelete={(sessionId) => void dialog.remove(sessionId)}
             />
             <section className="ecard inert min-w-0">
               <div className="d-head">
