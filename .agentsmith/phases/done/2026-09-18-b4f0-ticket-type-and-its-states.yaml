@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-b4f0
+
+goal: "An operator chooses which kind of work item each filed role creates, on the two trackers that send one, defaulting to what each creates today so no installation changes behaviour."
+
+applies_to: "backend (a role-to-kind resolver on the filing side, the ticket port, the Azure DevOps create's seam, the tracker configuration, the config studio descriptor) + dashboard (the tracker form's new map field)"
+
+scope:
+  in: >
+    The KIND crosses the provider interface, and the ROLE never does. One create serves five call
+    sites at three hierarchy levels — the work ticket an epic files, the record filed per slice and
+    then LINKED AS ITS CHILD, a lone phase ticket, a bug, and the ticket a chat request files — so a
+    single tracker-wide kind would raise the records to the level of the ticket they hang under. A
+    resolver on the FILING side turns the role into a kind before the call; the provider's whole job
+    is the configured kind or the literal it sends today. The configuration carries a role-to-kind
+    MAP, not one field per role, in the shape the lifecycle status names already use. The Azure
+    DevOps create moves behind a delegate a test can substitute, in the shape every finalizer in this
+    codebase already takes its writes; the Jira create moves for the ratchet alone, because its
+    payload is already substitutable at the HTTP boundary and a second seam there would be a wrapper.
+    The default is resolved at the provider and never written back into the operator's configuration
+    on an unrelated save.
+  out: >
+    GITHUB AND GITLAB. Neither has a kind whose state list this choice would change — one applies any
+    status that is not open or closed as a label, the other accepts exactly two state events, close
+    and reopen. They declare no field rather than one that answers "cannot".
+    WHETHER THE CONFIGURED LIFECYCLE STATUSES EXIST FOR THE CHOSEN KIND. Named in prose as the phase
+    that checks a configured lifecycle status against the kinds a tracker can claim. It does not, on
+    its own, prevent the incident below: a status a Task lacks is usually carried by some other kind
+    in the same project, so a check that only reported a status no kind accepts would stay silent.
+    CHOOSING THE KIND FROM THE WORK. Named in prose as the phase that proposes a work-item kind from
+    the outcome and holds the proposal to that check.
+    DECLARING THE MAP'S LEGAL KEYS. No capability field can carry a key set today, so the roles
+    render as free-text keys like the lifecycle map's do. Named in prose as the phase that lets a
+    capability map declare its legal keys and renders both maps as fixed rows.
+    GITHUB AND GITLAB READING THE KIND. They read nothing and declare no field — but their create
+    signatures change anyway, because the parameter is on the port. Both have room. Saying so stops a
+    reviewer reading "for no others" as "and no other file is touched".
+    ASSERTING WHAT GITHUB SENDS. Its create is an SDK call on an internally built client, which is
+    why the existing test pins the payload builder instead; this phase pins the builder and the
+    descriptor, not a send.
+    HIERARCHY RULES. Whether a kind may parent another is the tracker's own process rule.
+    TICKETS ALREADY FILED. A kind is chosen for what is created next.
+    THE DOCUMENTATION THAT PROMISES LIFECYCLE STATUS NAMES ON EVERY TRACKER. Four pages tell
+    operators the status map works on their tracker while the code applies it only to Jira. Named in
+    prose as the phase that makes the tracker documentation match which fields each provider reads.
+
+decisions:
+  - key: |
+      ONE KIND FOR THREE LEVELS WOULD DEFEAT THE PHASE'S OWN MOTIVE. The single create is called for
+      the epic's work ticket, for each slice record — which is then linked as a CHILD of that work
+      ticket — for a lone phase, for a bug, and for a chat-filed ticket. A tracker-wide field raises
+      all of them together, so the parent and its children become one kind and the link becomes a
+      same-level link. The observed incident was a Task in the wrong STATE; the other half is that a
+      Task is the wrong LEVEL for a ticket carrying records beneath it.
+  - key: |
+      THE KIND CROSSES THE PORT, NOT THE ROLE — AND THE FOURTH CUT HAD IT BACKWARDS. Three reasons,
+      any one of which decides it. The port is tracker vocabulary throughout, so a filing-domain role
+      would be the first of its kind on it and two of the four providers would accept it only to
+      ignore it. The two provider files sit one line from their baselines: with the kind crossing
+      they hold NOTHING, because the default is applied in one clause, while with the role crossing
+      each would hold three configured kinds and the factory would pass three. And it decides whether
+      the two epic tests are writable at all — the existing epic test drives a whole filing through a
+      recording fake provider and asserts the work ticket and its records separately, so a fake that
+      records the KIND pins both tests where they are named, whereas a fake that records a role pins
+      a role while the test name promises a kind. The parameter carries NO DEFAULT VALUE, so the
+      compiler enumerates every one of the five call sites. Declared with one, the implementations
+      would still break while the call sites kept compiling untouched — every filing would silently
+      take the literal, and the done criterion about an unconfigured installation would pass over a
+      dead feature.
+  - key: |
+      A MAP, NOT THREE FIELDS. The descriptor already declares
+      a string-to-string map — the lifecycle status names — and the generic form already renders it. Three
+      fields would mean three configuration properties, three APPENDED entity parameters, three lines
+      in the positional mapping, three in the patch and six field declarations across two descriptor
+      arms in a file with one line of room: roughly twenty-one lines against a map's six. The map
+      also makes the missing role below a key rather than a nine-file change. Declaring the map for
+      two provider types and not the other two is legal because the coverage test UNIONS across
+      types, so a field declared on two arms still counts as declared.
+  - key: |
+      THE KEYS ARE FREE TEXT HERE, AND THAT IS A COST THIS PHASE ACCEPTS RATHER THAN HIDES. A role
+      key is a closed set and ought to render as fixed rows — but nothing in the capability contract
+      can declare a map's legal keys today: the closed-set capability that exists is a TOP-LEVEL list
+      wired to one hardcoded form, a capability field carries no key set, and the generic map control
+      is free-text key inputs whose own header records a data-loss incident. Closing that means
+      widening the capability field itself, which touches the contract, the generic renderer and the
+      map control, and which pays back on the lifecycle map too — a separate slice, named in prose as
+      the phase that lets a capability map declare its legal keys. Until it lands, a mistyped role
+      key saves cleanly, renders cleanly and silently files the literal, warned about only where the
+      lifecycle map warns about its own unknown keys — WHICH MEANS THE RESOLVER MUST LOG ONE, because
+      today nothing does. Claiming parity while shipping something quieter than the precedent would
+      be the worse half of both worlds: the lifecycle map at least says "unknown key ignored" in a
+      log, and a wrong role key is LESS observable than a wrong lifecycle one, since a wrong
+      lifecycle key falls back to label mode and shows up in the tracker within a run, while a wrong
+      role key files at the wrong hierarchy level and surfaces only as a failed parent link. One line
+      in a new file buys the parity the sentence claims.
+  - key: |
+      FIVE CALL SITES, AND THE BUG IS ITS OWN ROLE. A bug is the one filing for which both trackers
+      ship a dedicated native type, and this codebase already treats it apart — its filer is a
+      separate method precisely because a bug carries no framework label and the project's own rules
+      decide which pipeline claims it. Folding it into "a single ticket" would ship a per-role choice
+      that cannot express the most obvious choice an operator would make. The chat-filed ticket is the
+      fifth site and is named here rather than left for the implementer to invent.
+  - key: |
+      THE ROLE CANNOT BE SNIFFED FROM THE LABELS, AND THE PROOF IS IN THE TREE. An implementer might
+      resolve the role inside the provider by reading the labels argument. It cannot be done: the
+      epic work ticket and the lone phase ticket send IDENTICAL labels. Saying so is what stops
+      somebody trying.
+  - key: |
+      THE SEAM IS A DELEGATE, AND THE CODEBASE ALREADY USES THAT SHAPE FOR EXACTLY THIS. Extraction
+      alone does not make the Azure DevOps kind assertable: the kind is passed to a call on a client
+      the provider builds in its own constructor, and moving the create carries the unseamed call
+      with it. The SDK client factory is not the answer either — it returns the same concrete type.
+      Every finalizer in this codebase takes its write as a delegate, and a test already constructs
+      one with a fake, so the create takes its underlying call the same way and the test pins what the
+      collaborator hands the delegate.
+  - key: |
+      JIRA MOVES FOR THE RATCHET, NOT FOR THE SEAM — THE FOURTH CUT LOST THAT DISTINCTION. Jira's
+      create is already substitutable at the HTTP boundary and an existing test reads the issue type
+      straight out of the payload it recorded. A second seam behind that one would be a wrapper over
+      a working boundary, which this project's rules forbid. Its create moves out only to buy the line
+      the ratchet refuses to give.
+  - key: |
+      THE DEFAULT IS A CONSTANT IN EACH CREATE COLLABORATOR. The configuration layer has one flat
+      tracker type for all four providers with the type as a discriminator only, so there is no
+      per-provider shape for a default to sit in — and under this cut the connection records carry
+      nothing either, since the resolver reads the tracker off the resolved project. The literal is a
+      private constant in the collaborator, applied in the one clause that reads the configured kind,
+      which is consistent with the delegate seam and with the test that pins the unconfigured case.
+      Both collaborators carry the SAME literal today and that duplication is correct: the day one
+      diverges is the day they must be separate.
+  - key: |
+      THE DEFAULT MUST NOT BE MATERIALISED INTO THE OPERATOR'S CONFIGURATION. If an unset key is ever
+      written back as the literal, the studio's save round-trip persists it on the operator's first
+      unrelated save, turning an unset map into a set one and quietly ending the "changes nothing
+      until you choose" promise.
+  - key: |
+      ROOM, AND THE FILE THE CENTRAL DECISION CANNOT AVOID. The two provider files have one line each
+      against their baselines and the config studio capability descriptor has one against its own, so
+      its field list moves out with it — to a file the decision record names. The one the earlier
+      cuts missed is the PORT: it sits one line under its baseline, and the kind's parameter fits on
+      the existing declaration at zero cost while a documentation line for it does NOT. A
+      null-means-the-literal parameter on a port with four implementations may not ship undocumented,
+      and the block above that declaration has no slack — so one sentence comes OUT to make room: the
+      one recording what the create path looked like before a numbered phase repaired it. Phase
+      history belongs in the decision record, not in a comment, and this project's documentation is
+      governed as code. What survives is what the block must say: what the method does, what the kind
+      means, and the not-a-default-member rule with its refusal. The tracker entity's constructor takes TWENTY arguments POSITIONALLY
+      with nullable reference types trailing, so a new parameter is APPENDED and never inserted: a
+      shift compiles silently, and the file already carries that warning.
+  - key: |
+      THE ROUTE QUESTION IS DEAD, AND THE FOURTH CUT LEFT IT STANDING. Nine-against-eleven files was
+      cut four's arithmetic, where the PROVIDER held the kinds. Under this cut the resolver sits on
+      the filing side and reads the tracker off the resolved project, so the provider factory and
+      both connection records drop out of the thread entirely. What remains open is one thing only:
+      whether the configuration schema declares the key. The precedent is split — the nearest
+      analogue declares its key there, another does not — and that is what the decision file closes
+      before the first line, along with which file the descriptor's field list moves to.
+  - key: |
+      TWO EXISTING CREATE TESTS MOVE WITH THE CREATE. The Azure DevOps payload builder and the Jira
+      issue-type assertion are both pinned today; relocating the create relocates them.
+
+steps:
+  - id: the-decision-file-first
+    action: "The decision file records whether the configuration schema declares the key, and which file the descriptor's field list moves to, before any code is written."
+  - id: the-filing-side-resolves-the-role
+    action: "A resolver turns the filed role into a kind at the five call sites; the role never crosses the provider interface."
+  - id: the-create-takes-the-kind
+    action: "The provider create takes the kind and applies the literal it sends today when none is given; the Azure DevOps create moves behind a delegate a test substitutes, and the Jira create moves for the ratchet."
+  - id: the-kind-is-configured
+    action: "The tracker configuration carries a role-to-kind map, unset by default, never written back on save."
+  - id: the-form-carries-it
+    action: "The config studio descriptor declares the map for the two provider types that send a kind, and for no others."
+
+tests:
+  - "Create_ConfiguredKind_IsWhatTheAzureDevOpsCreateHandsItsDelegate"
+  - "Create_ConfiguredKind_IsWhatTheJiraPayloadCarries"
+  - "Create_NoConfiguredKind_IsTheLiteralEachProviderSendsToday"
+  - "Create_AnEpicFiling_UsesTheWorkKindForTheTicketAndTheRecordKindForItsSlices"
+  - "Create_AConfiguredWorkKind_DoesNotRaiseTheSliceRecords"
+  - "Create_ABugFiling_SendsTheBugKind_AndALonePhaseFilingSendsTheSingleTicketKind"
+  - "Resolve_AnUnknownRoleKey_IsLoggedAndFallsBackToTheLiteral"
+  - "Create_AChatFiledTicket_SendsTheKindConfiguredForThatRole"
+  - "Create_GitLab_BuildsNoKindIntoItsPayload_AndNeitherDeclaresTheField"
+  - "Config_ASaveThatDidNotTouchTheMap_LeavesItUnset"
+  - "Descriptor_TheKindMap_IsDeclaredOnlyForTheProvidersThatSendOne"
+  - "Capabilities_TheRealDescriptorPayload_DeclaresTheMapForTwoTypesAndNotTheOthers"
+
+done:
+  - "the decision file records the schema question and the descriptor's field-list destination before the first line of code"
+  - "an operator chooses the kind of work item each filed role creates, on the two trackers that have one"
+  - "a configured work-item kind does not drag the slice records up with it"
+  - "an installation that configures nothing creates exactly what it creates today, and still has nothing configured after an unrelated save"
+  - "a test can assert the kind Azure DevOps creates, which it cannot today"
+  - "build green, full suite green, dashboard tests green, file-length ratchet green"

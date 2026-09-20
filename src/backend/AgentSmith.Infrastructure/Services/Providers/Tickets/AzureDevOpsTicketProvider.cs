@@ -31,6 +31,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private readonly ILogger _logger;
     private readonly TrackerParentLink _parentLink;
     private readonly AzureDevOpsTicketFinalizer _finalizer;
+    private readonly AzureDevOpsTicketCreator _creator;
 
     public string ProviderType => "AzureDevOps";
 
@@ -53,6 +54,11 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         _logger = logger;
         _parentLink = new TrackerParentLink("Azure DevOps", logger);
         _finalizer = new AzureDevOpsTicketFinalizer(_doneStatus, WriteFinalizeAsync, logger);
+        _creator = new AzureDevOpsTicketCreator(
+            connection.OrganizationUrl, connection.Project,
+            (patch, type, ct) => _connections.CreateClient()
+                .CreateWorkItemAsync(patch, connection.Project, type, cancellationToken: ct),
+            logger);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -117,34 +123,11 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // "Task" exists in every process template; System.Description renders HTML, so markdown is converted.
-    public async Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
-    {
-        var patch = BuildCreatePatch(title, ToHtml(description), labels);
-        _logger.LogInformation(
-            "TICKET WRITE create ({Project}): fields[{Paths}] <- {Caller}",
-            _project, string.Join(", ", patch.Select(p => p.Path)), TicketWriteAudit.Caller());
-        var workItem = await _connections.CreateClient().CreateWorkItemAsync(
-            patch, _project, "Task", cancellationToken: cancellationToken);
-        var id = workItem.Id
-            ?? throw new InvalidOperationException("Azure DevOps returned a created work item without an id.");
-        return new CreatedTicket(new TicketId(id.ToString()), WorkItemWebUrl(_organizationUrl, _project, id));
-    }
-
-    internal static JsonPatchDocument BuildCreatePatch(
-        string title, string descriptionHtml, IReadOnlyList<string> labels)
-    {
-        var patch = new JsonPatchDocument { Op("/fields/System.Title", title) };
-        if (!string.IsNullOrEmpty(descriptionHtml))
-            patch.Add(Op("/fields/System.Description", descriptionHtml));
-        if (labels.Count > 0)
-            patch.Add(Op("/fields/System.Tags", string.Join("; ", labels)));
-        return patch;
-    }
-
-    internal static string WorkItemWebUrl(string organizationUrl, string project, int id) =>
-        $"{organizationUrl.TrimEnd('/')}/{Uri.EscapeDataString(project)}/_workitems/edit/{id}";
+    // System.Description renders HTML, so the markdown is converted before it travels.
+    public Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels, string? kind,
+        CancellationToken cancellationToken) =>
+        _creator.CreateAsync(title, ToHtml(description), labels, kind, cancellationToken);
 
     public async Task<ParentLinkResult> LinkToParentAsync(
         CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>

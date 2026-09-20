@@ -1,11 +1,15 @@
 using System.Net;
 using System.Text.Json;
+using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
+using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 
 namespace AgentSmith.Tests.Providers.Tickets;
 
@@ -29,7 +33,7 @@ public sealed class TicketProviderCreateTests
         var sut = BuildGitLabSut(handler);
 
         var created = await sut.CreateAsync(
-            "New widget", "Widget body", ["phase", "backlog"], CancellationToken.None);
+            "New widget", "Widget body", ["phase", "backlog"], kind: null, CancellationToken.None);
 
         handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
         handler.LastRequest.RequestUri!.ToString()
@@ -52,7 +56,7 @@ public sealed class TicketProviderCreateTests
         var sut = BuildJiraSut(handler, projectKey: "PROJ");
 
         var created = await sut.CreateAsync(
-            "New widget", "line one\nline two", ["phase"], CancellationToken.None);
+            "New widget", "line one\nline two", ["phase"], kind: null, CancellationToken.None);
 
         handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
         handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/rest/api/3/issue");
@@ -77,7 +81,7 @@ public sealed class TicketProviderCreateTests
         var handler = new RecordingHandler();
         var sut = BuildJiraSut(handler, projectKey: null);
 
-        var act = () => sut.CreateAsync("t", "d", [], CancellationToken.None);
+        var act = () => sut.CreateAsync("t", "d", [], kind: null, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>()
             .WithMessage("*project key*");
@@ -97,7 +101,7 @@ public sealed class TicketProviderCreateTests
     [Fact]
     public void AzureDevOpsCreateAsync_BuildsCreatePatchAndWebUrl()
     {
-        var patch = AzureDevOpsTicketProvider.BuildCreatePatch(
+        var patch = AzureDevOpsTicketCreator.BuildCreatePatch(
             "New widget", "<p>Widget body</p>", ["phase", "backlog"]);
 
         patch.Select(op => (op.Path, (string)op.Value!)).Should().Equal(
@@ -105,19 +109,119 @@ public sealed class TicketProviderCreateTests
             ("/fields/System.Description", "<p>Widget body</p>"),
             ("/fields/System.Tags", "phase; backlog"));
 
-        AzureDevOpsTicketProvider.WorkItemWebUrl("https://dev.azure.com/org/", "My Project", 77)
+        AzureDevOpsTicketCreator.WorkItemWebUrl("https://dev.azure.com/org/", "My Project", 77)
             .Should().Be("https://dev.azure.com/org/My%20Project/_workitems/edit/77");
     }
 
     [Fact]
     public void AzureDevOpsCreateAsync_EmptyDescriptionAndLabels_OmitsOptionalFields()
     {
-        var patch = AzureDevOpsTicketProvider.BuildCreatePatch("Just a title", "", []);
+        var patch = AzureDevOpsTicketCreator.BuildCreatePatch("Just a title", "", []);
 
         patch.Select(op => op.Path).Should().Equal("/fields/System.Title");
     }
 
+    /// <summary>
+    /// 2026-09-18-b4f0. The work-item TYPE is an argument to a call on a client the provider
+    /// builds in its own constructor, so it was assertable nowhere: the incident that named
+    /// this phase — a Task filed into a project whose configured failed_status a Task does not
+    /// have — could not be written as a test. The create takes that call as a delegate now.
+    /// </summary>
+    [Fact]
+    public async Task Create_ConfiguredKind_IsWhatTheAzureDevOpsCreateHandsItsDelegate()
+    {
+        var call = new RecordingWorkItemCall();
+        var sut = BuildAzureDevOpsSut(call);
+
+        await sut.CreateAsync("New widget", "<p>body</p>", ["phase"], "Product Backlog Item", CancellationToken.None);
+
+        call.Type.Should().Be("Product Backlog Item",
+            "the kind the filing side resolved is what the work item is created as");
+    }
+
+    [Fact]
+    public async Task Create_ConfiguredKind_IsWhatTheJiraPayloadCarries()
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ => JsonResponse("""{ "id": "10001", "key": "PROJ-7" }"""),
+        };
+        var sut = BuildJiraSut(handler, projectKey: "PROJ");
+
+        await sut.CreateAsync("New widget", "body", ["phase"], "Story", CancellationToken.None);
+
+        using var body = JsonDocument.Parse(handler.LastRequestBody!);
+        body.RootElement.GetProperty("fields").GetProperty("issuetype").GetProperty("name")
+            .GetString().Should().Be("Story");
+    }
+
+    /// <summary>
+    /// The promise this phase makes to every installation that configures nothing: the create
+    /// is exactly the create it was. The default is a constant in each collaborator, applied in
+    /// the one clause that reads the configured kind.
+    /// </summary>
+    [Fact]
+    public async Task Create_NoConfiguredKind_IsTheLiteralEachProviderSendsToday()
+    {
+        var call = new RecordingWorkItemCall();
+        var handler = new RecordingHandler
+        {
+            Responder = _ => JsonResponse("""{ "id": "10001", "key": "PROJ-7" }"""),
+        };
+
+        await BuildAzureDevOpsSut(call).CreateAsync("t", "d", [], kind: null, CancellationToken.None);
+        await BuildJiraSut(handler, projectKey: "PROJ")
+            .CreateAsync("t", "d", [], kind: null, CancellationToken.None);
+
+        call.Type.Should().Be("Task", "what Azure DevOps created before an operator could choose");
+        using var body = JsonDocument.Parse(handler.LastRequestBody!);
+        body.RootElement.GetProperty("fields").GetProperty("issuetype").GetProperty("name")
+            .GetString().Should().Be("Task", "what Jira created before an operator could choose");
+    }
+
+    /// <summary>
+    /// GitLab's create signature carries the kind because the parameter is on the PORT, and it
+    /// reads nothing: an issue there accepts exactly two state events, so there is no kind whose
+    /// state list an operator's choice would change. Its form says so by declaring no field.
+    /// </summary>
+    [Fact]
+    public async Task Create_GitLab_BuildsNoKindIntoItsPayload_AndNeitherDeclaresTheField()
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ => JsonResponse("""{ "iid": 33, "web_url": "https://gitlab.com/g/p/-/issues/33" }"""),
+        };
+
+        await BuildGitLabSut(handler).CreateAsync(
+            "New widget", "body", ["phase"], "Product Backlog Item", CancellationToken.None);
+
+        handler.LastRequestBody.Should().NotContain("Product Backlog Item");
+        var capabilities = ConfigStudioCapabilities.Build(["claude"]);
+        capabilities.TrackerTypes.Single(t => t.Type == "gitlab").Fields
+            .Should().NotContain(f => f.Key == "workItemKinds");
+        capabilities.TrackerTypes.Single(t => t.Type == "github").Fields
+            .Should().NotContain(f => f.Key == "workItemKinds");
+    }
+
     // ---- suts + plumbing (mirrors the ListByLifecycle test conventions) ----
+
+    /// <summary>
+    /// The creator with its SDK call substituted — the shape AzureDevOpsTicketFinalizer's write
+    /// is substituted in. The org url and project are the creator's own, not a connection's.
+    /// </summary>
+    private static AzureDevOpsTicketCreator BuildAzureDevOpsSut(RecordingWorkItemCall call) =>
+        new("https://dev.azure.com/org", "My Project", call.InvokeAsync, NullLogger.Instance);
+
+    private sealed class RecordingWorkItemCall
+    {
+        public string? Type { get; private set; }
+
+        public Task<WorkItem> InvokeAsync(JsonPatchDocument patch, string type, CancellationToken ct)
+        {
+            Type = type;
+            return Task.FromResult(new WorkItem { Id = 77 });
+        }
+    }
 
     private static GitLabTicketProvider BuildGitLabSut(HttpMessageHandler handler)
     {

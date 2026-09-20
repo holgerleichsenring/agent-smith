@@ -404,6 +404,11 @@ export interface StudioTracker {
   // 2026-09-17-042ea: Jira only — the issue link type a filed slice record is linked to its
   // epic's work ticket with (2026-09-17-0e79d).
   parentLinkType?: string;
+  // 2026-09-18-b4f0: Azure DevOps and Jira only — which native work-item/issue type each filed
+  // role (work | record | bug | phase | chat) is created as. Rendered from the capabilities
+  // descriptor as a generic map, so the keys are free text until a capability field can declare
+  // a key set. Absent means every role is created as what the provider created before.
+  workItemKinds?: Record<string, string>;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to

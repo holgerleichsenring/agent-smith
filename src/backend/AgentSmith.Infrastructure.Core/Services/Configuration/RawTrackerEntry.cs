@@ -60,6 +60,14 @@ public sealed class RawTrackerEntry
     /// <summary>Jira-only (YAML key <c>parent_link_type</c>): the issue link type a filed child
     /// is linked to its parent with.</summary>
     public string? ParentLinkType { get; set; }
+
+    /// <summary>
+    /// 2026-09-18-b4f0 (YAML key <c>work_item_kinds</c>): role -> native work-item/issue
+    /// type for the tickets agent-smith files (work / record / bug / phase / chat). Unset
+    /// roles create what the provider created before the key existed. Azure DevOps and Jira
+    /// only.
+    /// </summary>
+    public Dictionary<string, string>? WorkItemKinds { get; set; }
 }
 
 /// <summary>

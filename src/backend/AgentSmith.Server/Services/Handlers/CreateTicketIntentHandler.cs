@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -18,6 +19,7 @@ public sealed class CreateTicketIntentHandler(
     IPlatformAdapter adapter,
     IConfigurationLoader configLoader,
     ITicketProviderFactory ticketFactory,
+    TicketKindResolver kinds,
     ILogger<CreateTicketIntentHandler> logger)
 {
     public async Task HandleAsync(CreateTicketIntent intent, CancellationToken cancellationToken)
@@ -40,6 +42,7 @@ public sealed class CreateTicketIntentHandler(
                 TicketTitle.Fit(intent.Title),
                 intent.Description ?? string.Empty,
                 labels: [],
+                kinds.For(projectConfig, TicketFilingRole.Chat),
                 cancellationToken);
 
             await SendConfirmationAsync(intent, created, cancellationToken);
