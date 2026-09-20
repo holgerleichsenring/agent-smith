@@ -78,6 +78,11 @@ internal static class CapacityTestDoubles
         return gate.Object;
     }
 
+    // 2026-09-20-9f00: the run-list nudge a capacity deferral fires. The pre-existing
+    // spawn tests exercise admission, not the announcement — that has its own tests.
+    public static AgentSmith.Contracts.Services.IRunListNudge NoNudge() =>
+        new AgentSmith.Application.Services.Events.NoOpRunListNudge();
+
     // p0336: a budget that admits every reservation — the admit path, mirroring
     // the old AlwaysAdmit probe double.
     public static ICapacityBudget AlwaysReserve()
