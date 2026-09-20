@@ -36,7 +36,25 @@ public sealed class SpecDialogProjectCatalog(IConfigurationLoader configLoader)
     private IReadOnlyDictionary<string, ResolvedProject> Projects() =>
         configLoader.LoadConfig(DispatcherDefaults.ConfigPath).Projects;
 
-    private static IReadOnlyList<SpecDialogTemplateView> Templates(ResolvedProject project) =>
-        [.. project.Templates.Select(template => new SpecDialogTemplateView(
-            TemplateScopeName.For(template), template.Repo.Name, template.Revision ?? string.Empty))];
+    /// <summary>
+    /// 2026-09-15-6f8d: one row per ADDRESS, not per declaration — a run opens one scope per
+    /// address, so listing a duplicated declaration twice offers a template that cannot be
+    /// opened a second time, and the panel collides with itself on the row key. The owner is
+    /// picked by the one ownership statement, here as everywhere; the editor's form still
+    /// shows every declaration, because what can be deleted is a different question from what
+    /// a run can read.
+    /// </summary>
+    private static IReadOnlyList<SpecDialogTemplateView> Templates(ResolvedProject project)
+    {
+        var views = new List<SpecDialogTemplateView>();
+        for (var ordinal = 0; ordinal < project.Templates.Count; ordinal++)
+        {
+            if (!TemplateScopeName.Owns(project.Templates, ordinal)) continue;
+            var template = project.Templates[ordinal];
+            views.Add(new SpecDialogTemplateView(
+                TemplateScopeName.For(template), template.Repo.Name,
+                template.Revision ?? string.Empty));
+        }
+        return views;
+    }
 }
