@@ -88,6 +88,7 @@ public sealed class SlackModalSubmissionHandlerTests
             _adapter.Object,
             _configLoader.Object,
             _ticketFactory.Object,
+            TestSupport.ApprovedSetDoubles.Kinds(),
             NullLogger<CreateTicketIntentHandler>.Instance);
 
         var initHandler = new InitProjectIntentHandler(

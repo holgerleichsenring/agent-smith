@@ -615,7 +615,7 @@ public sealed partial class SpecDialogOutcomeTests
             throw new NotSupportedException();
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels,
+            string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken)
         {
             lock (_created)

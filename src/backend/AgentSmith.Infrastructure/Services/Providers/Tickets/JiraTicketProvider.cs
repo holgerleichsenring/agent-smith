@@ -31,6 +31,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
     private readonly ILogger<JiraTicketProvider> _logger;
     private readonly TrackerParentLink _parentLink;
     private readonly JiraTicketFinalizer _finalizer;
+    private readonly JiraTicketCreator _creator;
     private readonly AgentSmith.Contracts.Models.Configuration.JiraEndpoints _endpoints;
     private readonly string _parentLinkType;
 
@@ -57,6 +58,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
         _transitioner = new JiraTransitioner(_http, _baseUrl, _endpoints, logger);
         _finalizer = new JiraTicketFinalizer(_doneStatus, UpdateStatusAsync, CloseAndReportAsync,
             (ticket, status, ct) => _transitioner.TransitionAsync(ticket, status, null, ct));
+        _creator = new JiraTicketCreator(_http, _baseUrl, _endpoints.Create, _projectKey, logger);
     }
 
     // "Who am I": the cheapest authenticated call that proves the credentials and the site.
@@ -132,31 +134,10 @@ public sealed class  JiraTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // "Task" exists in every project template; the description travels as line-preserving ADF.
-    public async Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(_projectKey))
-            throw new ConfigurationException(
-                "Jira ticket creation requires a project key on the tracker connection.");
-        var body = new
-        {
-            fields = new
-            {
-                project = new { key = _projectKey },
-                summary = title,
-                issuetype = new { name = "Task" },
-                description = JiraAdfRenderer.FromMultilineText(description),
-                labels,
-            },
-        };
-        using var doc = await _http.SendForJsonOrThrowAsync(
-            HttpMethod.Post, $"{_baseUrl}{_endpoints.Create}", body, cancellationToken);
-        var key = doc.RootElement.GetProperty("key").GetString()
-            ?? throw new InvalidOperationException("Jira returned a created issue without a key.");
-        _logger.LogInformation("Jira created issue {Key} in project {Project}", key, _projectKey);
-        return new CreatedTicket(new TicketId(key), $"{_baseUrl}/browse/{key}");
-    }
+    public Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels, string? kind,
+        CancellationToken cancellationToken) =>
+        _creator.CreateAsync(title, description, labels, kind, cancellationToken);
 
     // A missing link type or disabled linking is the site's refusal, and a Failed link.
     public Task<ParentLinkResult> LinkToParentAsync(

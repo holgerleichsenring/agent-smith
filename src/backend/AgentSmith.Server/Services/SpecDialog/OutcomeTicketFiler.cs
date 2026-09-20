@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -10,12 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// p0315c: files a confirmed outcome into the ACTIVE SCOPE's tracker via the
-/// existing provider factory. Bug → the fix-bug ticket shape (title + body,
-/// no label — the same shape the create-ticket chat intent files). Phase →
-/// one `phase`-labelled ticket. Epic → EpicTicketFiler, which owns the whole
-/// work-ticket-and-records shape. Sequential on purpose: a failure reports exactly
-/// what was created.
+/// p0315c: files a confirmed outcome into the ACTIVE SCOPE's tracker via the existing provider
+/// factory. Bug → the fix-bug ticket shape (title + body, no label — the same shape the create-ticket
+/// chat intent files). Phase → one `phase`-labelled ticket. Epic → EpicTicketFiler, which owns the
+/// whole work-ticket-and-records shape. Sequential on purpose: a failure reports exactly what was created.
 /// <para>
 /// 2026-09-17-0e79a: filing a PHASE also stores the approved set under the created ticket's spec
 /// key. The ticket body carries no spec any more, so the record is what the run works from —
@@ -36,7 +35,7 @@ public sealed class OutcomeTicketFiler(
     BugTicketRenderer bugRenderer,
     EpicTicketFiler epicFiler,
     ApprovedPhaseSetRecorder approvals,
-    FiledWorkStarter starter,
+    FiledWorkStarter starter, TicketKindResolver kinds,
     ILogger<OutcomeTicketFiler> logger)
 {
     public async Task<FilingReport> FileAsync(
@@ -94,7 +93,8 @@ public sealed class OutcomeTicketFiler(
         // body before this runs, and two copies of it would drift apart.
         var body = bugRenderer.RenderBody(ticket);
         var title = TicketTitle.Fit(ticket.Title);
-        var created = await provider.CreateAsync(title, body, labels: [], ct);
+        var created = await provider.CreateAsync(
+            title, body, labels: [], kinds.For(project, TicketFilingRole.Bug), ct);
         filed.Add(Entry(created, title, project));
         await starter.StampAsync(provider, project, created, [], mayStartRuns, filed, ct);
     }
@@ -105,7 +105,8 @@ public sealed class OutcomeTicketFiler(
     {
         var content = renderer.RenderPhase(draft, state.JobId);
         string[] labels = [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp];
-        var created = await provider.CreateAsync(content.Title, content.Body, labels, ct);
+        var created = await provider.CreateAsync(
+            content.Title, content.Body, labels, kinds.For(project, TicketFilingRole.Phase), ct);
         filed.Add(Entry(created, content.Title, project));
         await approvals.RecordAsync(state, project, created.Id.Value, [draft], ct);
         await starter.StampAsync(provider, project, created, labels, mayStartRuns, filed, ct);

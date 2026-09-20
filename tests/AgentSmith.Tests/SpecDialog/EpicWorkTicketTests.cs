@@ -323,6 +323,71 @@ public sealed class EpicWorkTicketTests
         notice.Should().NotContain("child phases", "no child of an epic is picked up by a run");
     }
 
+    /// <summary>
+    /// 2026-09-18-b4f0: ONE create serves three hierarchy levels. The work ticket and the slice
+    /// records that hang UNDER it are filed by the same method, so a single tracker-wide kind
+    /// would make the parent and its children one kind and the link between them a same-level
+    /// link. The role is a property of the CALL SITE, which is why each site can name its own.
+    /// </summary>
+    [Fact]
+    public async Task Create_AnEpicFiling_UsesTheWorkKindForTheTicketAndTheRecordKindForItsSlices()
+    {
+        var provider = new RecordingProvider();
+
+        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")), kinds: Kinds(
+            ("work", "Feature"), ("record", "Task")));
+
+        provider.Created[0].Kind.Should().Be("Feature", "the work ticket is the level a run picks up");
+        provider.Created.Skip(1).Should().OnlyContain(c => c.Kind == "Task",
+            "each record hangs under that ticket and must not be raised to its level");
+    }
+
+    /// <summary>
+    /// The half of the incident that is not about states: raising the work ticket must not drag
+    /// the records up with it. An unmapped role creates what it created before — it does not
+    /// inherit the kind chosen for the ticket it is linked to.
+    /// </summary>
+    [Fact]
+    public async Task Create_AConfiguredWorkKind_DoesNotRaiseTheSliceRecords()
+    {
+        var provider = new RecordingProvider();
+
+        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")), kinds: Kinds(("work", "Epic")));
+
+        provider.Created[0].Kind.Should().Be("Epic");
+        provider.Created.Skip(1).Should().OnlyContain(c => c.Kind == null,
+            "an unmapped role sends no kind, and the provider creates what it created before");
+    }
+
+    /// <summary>
+    /// A bug is its own role: it is the one filing both trackers ship a dedicated native type
+    /// for, and this codebase already files it apart. A lone phase is a fourth role again — it
+    /// carries the same labels as an epic's work ticket, so nothing but the call site can tell
+    /// the two apart.
+    /// </summary>
+    [Fact]
+    public async Task Create_ABugFiling_SendsTheBugKind_AndALonePhaseFilingSendsTheSingleTicketKind()
+    {
+        var kinds = Kinds(("bug", "Bug"), ("phase", "User Story"), ("work", "Feature"));
+        var bugs = new RecordingProvider();
+        var phases = new RecordingProvider();
+
+        var bugReport = await FileRawAsync(
+            bugs, new BugOutcome(new BugTicketDraft("The widget is lost", "It vanished.", null)),
+            ApprovedSetDoubles.Store(), kinds);
+        var phaseReport = await FileRawAsync(
+            phases, new PhaseOutcome(Slice("p9000a")), ApprovedSetDoubles.Store(), kinds);
+
+        bugReport.Error.Should().BeNull();
+        phaseReport.Error.Should().BeNull();
+        bugs.Created.Should().ContainSingle().Which.Kind.Should().Be("Bug");
+        phases.Created.Should().ContainSingle().Which.Kind.Should().Be("User Story",
+            "a lone phase is not an epic's work ticket, even though their labels are identical");
+    }
+
+    private static Dictionary<string, string> Kinds(params (string Role, string Kind)[] entries) =>
+        entries.ToDictionary(e => e.Role, e => e.Kind, StringComparer.Ordinal);
+
     private static IReadOnlyList<ProjectMatch> Resolve(IReadOnlyList<string> labels) =>
         new ProjectResolver(new AgentSmithMetrics(), new PipelineResolver())
             .Resolve(RoutingConfig(), Envelope(labels));
@@ -378,33 +443,40 @@ public sealed class EpicWorkTicketTests
     }
 
     private static async Task<FilingReport> FileAsync(
-        RecordingProvider provider, EpicOutcome epic, ISpecApprovalStore? store = null)
+        RecordingProvider provider, EpicOutcome epic, ISpecApprovalStore? store = null,
+        IReadOnlyDictionary<string, string>? kinds = null)
     {
-        var report = await FileRawAsync(provider, epic, store);
+        var report = await FileRawAsync(provider, epic, store, kinds);
         report.Error.Should().BeNull();
         return report;
     }
 
     private static async Task<FilingReport> FileRawAsync(
-        RecordingProvider provider, OutcomeProposal proposal, ISpecApprovalStore? store = null)
+        RecordingProvider provider, OutcomeProposal proposal, ISpecApprovalStore? store = null,
+        IReadOnlyDictionary<string, string>? kinds = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var filer = new OutcomeTicketFiler(
-            Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            Config(kinds), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             ApprovedSetDoubles.EpicFiler(store), ApprovedSetDoubles.Recorder(store),
-            FiledWorkDoubles.Starter(), NullLogger<OutcomeTicketFiler>.Instance);
+            FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), proposal, false, CancellationToken.None);
     }
 
-    private static AgentSmithConfig Config() => new()
+    private static AgentSmithConfig Config(IReadOnlyDictionary<string, string>? kinds = null) => new()
     {
         Projects = new Dictionary<string, ResolvedProject>
         {
             ["proj"] = new()
             {
                 Name = "proj",
-                Tracker = new TrackerConnection { Name = "sample-tracker", Type = TrackerType.AzureDevOps },
+                Tracker = new TrackerConnection
+                {
+                    Name = "sample-tracker",
+                    Type = TrackerType.AzureDevOps,
+                    WorkItemKinds = kinds ?? new Dictionary<string, string>(),
+                },
                 Repos = [new RepoConnection { Name = "sample-api" }],
             },
         },
@@ -433,10 +505,11 @@ public sealed class EpicWorkTicketTests
 
     private sealed class RecordingProvider : ITicketProvider
     {
-        private readonly List<(string Title, string Body, IReadOnlyList<string> Labels)> _created = [];
+        private readonly List<(string Title, string Body, IReadOnlyList<string> Labels, string? Kind)> _created = [];
         private int _attempts;
 
-        public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels)> Created => _created;
+        /// <summary>2026-09-18-b4f0: the KIND is recorded too — it is what crosses the port.</summary>
+        public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels, string? Kind)> Created => _created;
 
         public List<(string Ticket, string Comment)> Comments { get; } = [];
 
@@ -454,11 +527,12 @@ public sealed class EpicWorkTicketTests
             throw new NotSupportedException();
 
         public Task<CreatedTicket> CreateAsync(
-            string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+            string title, string description, IReadOnlyList<string> labels, string? kind,
+            CancellationToken cancellationToken)
         {
             if (++_attempts == ThrowOnCreateNumber)
                 throw CreateError ?? new InvalidOperationException("the tracker refused it");
-            _created.Add((title, description, labels));
+            _created.Add((title, description, labels, kind));
             return Task.FromResult(new CreatedTicket(
                 new TicketId(_created.Count.ToString()), $"https://tracker.test/{_created.Count}"));
         }
