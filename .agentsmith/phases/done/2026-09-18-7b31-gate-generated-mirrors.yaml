@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-7b31
+
+goal: "The phase gate runs the one generated-mirror check it is missing, so a C# event contract that outgrew its TypeScript mirror blocks the commit instead of the pull request."
+
+applies_to: "the phase gate hook (.claude/hooks/phase-gate.sh) and its fixture tests in .claude/hooks/test_commit_message.py"
+
+requires:
+  - 2026-09-17-042eh
+
+scope:
+  in: >
+    ONE step joins the gate's dashboard block, AFTER install and through pnpm, so the fixtures' stub
+    intercept it — it answers the three existing steps with its exit code and this one by execing the
+    real generator: the hub-event mirror check,
+    declared in the dashboard's package.json as a node run of the repository's own generator in check
+    mode. Whether the step runs is decided by READING that package.json for the script name, not by
+    interpreting pnpm's exit code; a tree that predates this phase declares no such script and is
+    skipped with a log line. The step list stops being a literal word list and becomes an array, which
+    is what makes one member conditional. The blocked ledger line names the step already, because the
+    gate's failure message renders the step word. The regression is fenced by two fixture shapes —
+    one drifted, one intact — for which the stub gains a per-step branch that execs the real generator
+    and the fixture's package.json gains the script.
+  out: >
+    THE TOKEN AND OPENAPI GENERATORS. They already run: src/dashboard/package.json:8 makes `build`
+    run `gen:tokens && gen:types && next build`, and phase-gate.sh:181 already runs `pnpm build`.
+    They are also not checks — both WRITE, their outputs are gitignored
+    (src/dashboard/.gitignore:8-9, .gitignore:70-71), and src/types/api.ts is imported by nothing in
+    the repository, so neither could ever detect drift.
+    NAMING THE STEP IN THE PASSED LEDGER LINE. Its detail is a coarse literal in which `dashboard`
+    already stands for install, test and build without naming any of them, so adding one member is
+    inconsistent granularity — and worse, on a tree that skips the step the literal would claim the
+    mirror was checked, reproducing inside the log the very thing the script's header forbids: a
+    silent skip indistinguishable from a pass. A conditional detail would be honest but unassertable,
+    because no fixture reaches a passed line at all. Left alone, and the skip stays visible where it
+    belongs, in the block's own log line. The passed line at phase-gate.sh:229 and the
+    validate-skills one at :166 are both untouched.
+    A `passed` LEDGER ASSERTION. Unreachable: that line comes after dotnet build, the full suite, four
+    CLI dry-runs and every harness preset; no fixture stubs dotnet, and the one fixture that reaches
+    `passed` has no solution file and never enters the dashboard block. Named in prose as the phase
+    that lets a gate fixture reach a passing ledger line.
+    LINT. The workflow carries continue-on-error on it (dashboard.yml:59), so it is not a gate.
+    RUNNING THE HOOK TESTS ANYWHERE. Nothing in CI or in the hook runs test_commit_message.py — the
+    only python in CI is the fingerprint gate — so these cases run when a person types the command.
+    Named in prose as the phase that puts the hook's own tests in front of a machine.
+    ENFORCING THE GATE'S DOCUMENTATION. No test reads the ledger's detail field, so CLAUDE.md's list
+    of what the gate covers can drift from the script silently. Named in prose as the phase that holds
+    the gate's description to the gate.
+
+decisions:
+  - key: |
+      THE FIRST CUT MEASURED THE HOLE AT THREE STEPS AND IT IS ONE. `pnpm build` already runs the
+      token emit and the openapi types, so two thirds of what the first cut proposed runs on every
+      phase commit today. Only the hub-event mirror is absent — which is why the incident happened
+      and why nothing caught it: the two steps that DO run cannot detect drift, because neither has a
+      committed file to drift against.
+  - key: |
+      THROUGH PNPM AND AFTER INSTALL, BOTH FOR A TEST THAT EXISTS. The CI workflow invokes the tool as
+      bare node; the gate's dashboard fixture stubs pnpm but has a real node and no tools directory,
+      so a bare-node step would fail there and the trace would never record the steps after it. And
+      the step must not go FIRST: an existing test asserts the stderr of a failing dashboard reads
+      "dashboard: pnpm install", which a step ahead of install would change. The workflow's own order
+      is install, then the rest.
+  - key: |
+      THE CHECK WRITES NOTHING AT ALL, WHICH IS STRONGER THAN A PLACEMENT ARGUMENT. The generator
+      imports only reading primitives; there is no write path in the file. So a dashboard test that
+      explains itself by saying the gate runs tests before the build that writes the tokens stays true
+      under ANY placement, and a hook that rewrote a source file before the commit it gates cannot
+      arise here. Measured cost: 0.21 seconds against a gate that already runs the full suite.
+  - key: |
+      "NO SUCH SCRIPT" IS READ FROM package.json, NOT FROM pnpm's EXIT CODE. Real pnpm answers a
+      missing script with exit 254 and drift with exit 1 — distinguishable in principle, but 254 is an
+      undocumented version constant and the gate treats any non-zero as failure. Gating on it would
+      block exactly the worktree cut before this phase that the skip exists to protect. The read is
+      the script's existing python, not a new tool: the fixtures build their PATH from a hard-coded
+      list of everything the gate shells out to, so reaching for a JSON tool would break the test
+      that proves a missing toolchain fails loudly.
+  - key: |
+      ONE CONDITIONAL MEMBER MEANS THE LIST STOPS BEING A LITERAL. The three steps are a literal word
+      list in the for statement, and the loop relies on unquoted expansion to split the install step
+      from its flag. Making one member conditional is therefore a small restructure — an array built
+      before the loop, iterated with that same splitting preserved — and not the shape of the existing
+      if/else around the whole block, which this was first written as if it were.
+  - key: |
+      THE FIXTURE NEEDS THE SCRIPT BEFORE IT NEEDS ANYTHING ELSE. Today's dashboard fixture writes a
+      package.json with a name and no scripts at all, so under this phase's own read every existing
+      fixture would SKIP the mirror — and both new tests would assert nothing while passing. The
+      fixture's package.json declaring the script is the precondition for the generator, the enum and
+      the mirror mattering at all.
+  - key: |
+      TWO SHAPES, BECAUSE ONE OF THE TESTS IS THE NEGATIVE. A drifted fixture proves the block; an
+      intact one proves the step RAN and that whatever blocks afterwards is not the mirror's doing.
+      It cannot prove an unblocked commit — no fixture can, for the same reason the passed ledger
+      line is out of scope: the gate goes on to a dotnet build against a solution file that is not
+      one. So the intact case asserts the trace and the step's own line, never a return code, which
+      is the shape the existing dashboard marker test already uses. The fixture is parameterised the way the existing one already takes its
+      exit code. The generator accepts a small tree: it resolves its root from its own location, exits
+      2 when the events directory is missing, warns and continues when the system-event file is
+      absent, and passes the record comparison when none are declared — so a two-entry enum against a
+      one-entry mirror is the whole drift, and the failure text reaches the committer because the
+      block captures stderr into its log and tails it on failure.
+
+steps:
+  - id: the-step-list-becomes-an-array
+    action: "The dashboard block's step list becomes an array built before the loop, preserving the unquoted split the install step relies on."
+  - id: the-step-joins-the-block
+    action: "The hub-event mirror check runs through pnpm after install when the dashboard's package.json declares it, and is skipped with a log line when it does not."
+  - id: the-fixture-can-fail-one-step
+    action: "The dashboard fixture's package.json declares the script, its stub pnpm gains a per-step branch that execs the real generator, and the fixture takes a drifted or intact mirror."
+  - id: the-fence
+    action: "Cases in .claude/hooks/test_commit_message.py: drift blocks and names the event; an intact mirror runs and whatever follows is not the mirror's doing; a package.json without the script is not blocked by the mirror step."
+
+tests:
+  - "Gate_MirrorDrift_BlocksTheCommitAndNamesTheEvent"
+  - "Gate_MirrorIntact_RunsTheStepAndBlocksOnlyLater"
+  - "Gate_DashboardWithoutTheScript_SaysNothingToCheckAndIsNotBlockedByTheMirrorStep"
+  - "Gate_TheBlockedLedgerLine_NamesTheMirrorStep"
+
+done:
+  - "a C# run event without its TypeScript mirror cannot be committed under a phase id"
+  - "the gate gains one step and no redundant run of one it already has"
+  - "a tree that predates the check is not blocked by it"
+  - "the passed ledger line makes no claim about a step that may not have run"
+  - "the existing gate fixture tests pass unchanged when a person runs them"

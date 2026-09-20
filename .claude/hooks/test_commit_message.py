@@ -23,6 +23,7 @@ import tempfile
 import traceback
 
 HOOKS_DIR = pathlib.Path(__file__).resolve().parent
+REPOSITORY_ROOT = HOOKS_DIR.parent.parent
 RESOLVER_PATH = HOOKS_DIR / "commit-message.py"
 GATE_PATH = HOOKS_DIR / "phase-gate.sh"
 GATE_ENTERED = "nothing to gate"
@@ -278,23 +279,69 @@ def Gate_MalformedDateMintedMarker_PassesThrough():
         assert completed.stderr == "", completed.stderr
 
 
+# 2026-09-18-7b31: the smallest tree the repository's own mirror generator accepts. It
+# resolves its root from its own location, exits 2 when the events directory is missing,
+# warns and carries on when the system-event file is absent, and passes the record
+# comparison when no records are declared — so a two-entry C# enum against a TypeScript
+# mirror that carries one entry is the whole of the drift, and nothing else is needed.
+_MIRROR_EVENT_TYPE_CSHARP = """namespace AgentSmith.Contracts.Events;
+
+public enum EventType
+{
+    Alpha = 0,
+    Beta = 1,
+}
+"""
+_MIRROR_HUB_EVENTS_TS = {
+    "intact": "export enum EventType {\n  Alpha = 0,\n  Beta = 1,\n}\n",
+    "drifted": "export enum EventType {\n  Alpha = 0,\n}\n",
+}
+_MIRROR_SCRIPT = "node ../../tools/build-hub-event-types.mjs --check"
+
+
 @contextlib.contextmanager
-def _dashboard_repository(dashboard_exit=0):
+def _dashboard_repository(dashboard_exit=0, mirror=None):
     """A throwaway repository shaped like THIS one — it carries an AgentSmith.sln, so
     the gate runs the solution checks, and a src/dashboard whose pnpm is a stub that
     exits as told. The dashboard step runs first, so a failing stub blocks the phase
-    commit before a single .NET command is reached."""
+    commit before a single .NET command is reached.
+
+    `mirror` gives the tree a generated mirror to check: this repository's own generator,
+    a C# event enum and a TypeScript mirror that either keeps up with it ("intact") or has
+    fallen behind it ("drifted"), and the package.json script that is what makes the gate
+    run the step at all. Without it the package.json declares no such script, which is the
+    shape of every tree cut before 2026-09-18-7b31 — and, until that phase, of every
+    fixture here."""
     with _repository("seed") as repo:
         root = pathlib.Path(repo)
         (root / "AgentSmith.sln").write_text("# not a real solution\n")
         (root / "src" / "dashboard").mkdir(parents=True)
-        (root / "src" / "dashboard" / "package.json").write_text('{"name":"dashboard"}\n')
+        package = {"name": "dashboard"}
+        if mirror:
+            package["scripts"] = {"gen:hub-events": _MIRROR_SCRIPT}
+            (root / "tools").mkdir()
+            shutil.copy(REPOSITORY_ROOT / "tools" / "build-hub-event-types.mjs",
+                        root / "tools" / "build-hub-event-types.mjs")
+            events = root / "src" / "backend" / "AgentSmith.Contracts" / "Events"
+            events.mkdir(parents=True)
+            (events / "EventType.cs").write_text(_MIRROR_EVENT_TYPE_CSHARP)
+            types = root / "src" / "dashboard" / "src" / "types"
+            types.mkdir(parents=True)
+            (types / "hub-events.ts").write_text(_MIRROR_HUB_EVENTS_TS[mirror])
+        (root / "src" / "dashboard" / "package.json").write_text(json.dumps(package) + "\n")
         stub_dir = root / "stub-bin"
         stub_dir.mkdir()
         pnpm = stub_dir / "pnpm"
         pnpm.write_text(
             "#!/usr/bin/env bash\n"
             'echo "pnpm $*" >>"$PNPM_TRACE"\n'
+            # One exit code cannot serve every step once one of them has to do real work.
+            # The gate runs each step through pnpm from src/dashboard, so the mirror check
+            # runs the real generator from there exactly as the dashboard's own script
+            # does; every other step still answers with the code the fixture was given.
+            'if [ "$1" = "gen:hub-events" ]; then\n'
+            f'  exec {_MIRROR_SCRIPT}\n'
+            'fi\n'
             f"exit {dashboard_exit}\n")
         pnpm.chmod(0o755)
         _git(repo, "add", "-A")
@@ -341,6 +388,76 @@ def Gate_TheDashboardTestsFail_BlocksTheCommit():
         assert completed.returncode == 2, completed
         assert "dashboard: pnpm install" in completed.stderr, completed.stderr
         assert [line[1] for line in _ledger(ledger)] == ["blocked"], _ledger(ledger)
+
+
+def Gate_MirrorDrift_BlocksTheCommitAndNamesTheEvent():
+    """2026-09-18-7b31: a C# event contract outgrew its TypeScript mirror, this gate let
+    the commit through and CI failed on the pull request — install, test and build cannot
+    see drift in a file the dashboard never imports. The gate runs the check itself now,
+    and the committer reads which event went missing without opening the log."""
+    with _dashboard_repository(mirror="drifted") as (repo, stub_dir), \
+            tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "pnpm.trace"
+        trace.write_text("")
+        completed = _run_gate_with_stub_pnpm(
+            f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace)
+        assert completed.returncode == 2, completed
+        assert "pnpm gen:hub-events" in trace.read_text(), trace.read_text()
+        assert "missing in TS: Beta" in completed.stderr, completed.stderr
+        assert "dashboard: pnpm gen:hub-events" in completed.stderr, completed.stderr
+
+
+def Gate_MirrorIntact_RunsTheStepAndBlocksOnlyLater():
+    """The negative of the case above: the step ran, it passed, and whatever the gate
+    blocks on afterwards is not the mirror's doing. It cannot assert an allowed commit —
+    the gate goes on to a dotnet build against a solution file that is not one — so it
+    asserts the trace and the step's own line, the shape the dashboard marker case
+    already uses. The step sits after install, where the existing stderr assertion on a
+    failing dashboard needs it, and in the order the dashboard's own workflow runs."""
+    with _dashboard_repository(mirror="intact") as (repo, stub_dir), \
+            tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "pnpm.trace"
+        trace.write_text("")
+        completed = _run_gate_with_stub_pnpm(
+            f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace)
+        assert trace.read_text().splitlines() == [
+            "pnpm install --frozen-lockfile", "pnpm gen:hub-events",
+            "pnpm test", "pnpm build"], trace.read_text()
+        assert "dashboard: pnpm gen:hub-events ok" in completed.stderr, completed.stderr
+        assert "missing in TS" not in completed.stderr, completed.stderr
+
+
+def Gate_DashboardWithoutTheScript_SaysNothingToCheckAndIsNotBlockedByTheMirrorStep():
+    """A tree cut before this phase declares no gen:hub-events script. Whether the step
+    runs is read from package.json rather than inferred from pnpm's exit code, which
+    answers a missing script with a non-zero this gate reads as a failure — so such a
+    tree is skipped, says so, and whatever blocks it later is something else."""
+    with _dashboard_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "pnpm.trace"
+        trace.write_text("")
+        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        completed = _run_gate_with_stub_pnpm(
+            f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace, ledger)
+        assert "no gen:hub-events script" in completed.stderr, completed.stderr
+        assert "nothing to check" in completed.stderr, completed.stderr
+        assert "gen:hub-events" not in trace.read_text(), trace.read_text()
+        assert [line[5] for line in _ledger(ledger)] == ["build"], _ledger(ledger)
+
+
+def Gate_TheBlockedLedgerLine_NamesTheMirrorStep():
+    """The ledger is what tells a pass from an absence once the run's output is gone, so a
+    commit blocked by the mirror has to read as that in the line itself. It does without
+    new code: the failure message renders the step word, and the mirror step is one word."""
+    with _dashboard_repository(mirror="drifted") as (repo, stub_dir), \
+            tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "pnpm.trace"
+        trace.write_text("")
+        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        completed = _run_gate_with_stub_pnpm(
+            f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace, ledger)
+        assert completed.returncode == 2, completed
+        assert [(line[1], line[5]) for line in _ledger(ledger)] == [
+            ("blocked", "dashboard: pnpm gen:hub-events")], _ledger(ledger)
 
 
 # Everything the gate itself shells out to. A PATH assembled from exactly these —
