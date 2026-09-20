@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-20-b5af
+
+decisions:
+  - category: Scope
+    chose: "The C# delta declares NO artefacts, in the wording rust and typescript already carry"
+    over: "The same two files with severities the target tree already passes, ratcheted upward"
+    reason: |
+      The delta shipped an `.editorconfig` whose severities are all `error` and a
+      `Directory.Build.props` setting TreatWarningsAsErrors, EnforceCodeStyleInBuild and
+      GenerateDocumentationFile into any repository an init run touched. On a tree written
+      before the rules existed that is a build failure on the first pipeline after the init
+      pull request merges, and the operator saw it land in a real pull request. The ruling is
+      that doing this unagreed makes no sense and most teams enforce these rules with their own
+      tooling; a ratchet was explicitly rejected, because a ratchet is still a second place for
+      the rules to disagree. Both files go, not just the props file: the editor configuration
+      sets CS0162 (a COMPILER diagnostic) and CA1051 (an SDK analyzer) to error, and a build
+      honours both from that file with no code-style switch involved.
+    alternatives:
+      - "Removing the artefact mechanism: it is correct machinery and a later delta may legitimately declare a file"
+      - "Weakening the severities to warning: an advisory file is the second place to disagree with no benefit"
+
+  - category: Architecture
+    chose: "The delta FORMAT is corrected by a criterion — every sentence whose force is that a build must read the artefact"
+    over: "Fixing the three or four places an earlier reading counted"
+    reason: |
+      Fixing only the C# delta fixes the instance and leaves the rule, and the next delta author
+      follows the format. A COUNT becomes the instruction, so a locus found after it reads as
+      out of scope — which is how the fourth escaped the earlier cut. Applying the criterion and
+      sweeping the whole catalog found five: the section's purpose sentence ("so this delta's
+      rules are CHECKED rather than described"), the example list ("a ruleset, an editor
+      configuration, a build property file"), the entry template's "<which rule ... makes
+      checkable>", the clause placing an artefact "where the stack's build already looks, not
+      beside the composed principles, which no build reads", and the sentence declaring an
+      artefact that arrives red a FINDING because the framework writes the file and does not
+      rewrite the repository to satisfy it. One rule replaces all five: an artefact must not
+      change what the target compiles to. The fifth — the entry template — is beyond the four
+      the spec names and is the criterion earning its keep.
+    alternatives:
+      - "Leaving the format and fixing only csharp.md: the rule survives its instance"
+
+  - category: Implementation
+    chose: "The parser keeps its mechanism and gains five unit tests of its own"
+    over: "Deleting the parser and the writer along with the declaration"
+    reason: |
+      With no delta declaring a file, every production call takes the empty early return: the
+      per-artefact apply — all four write outcomes and the refusal short-circuit — and the pull
+      request body's artefact lines are unreachable until some delta declares again. That is
+      accepted; it is the ruling. It is also why the only LIVE positive case disappears, so the
+      declared-entry path is proven by fixture instead: one entry with its content, two entries,
+      a heading with no fenced block (which must not swallow the next entry's content and file
+      it under the wrong path), an unterminated fence, and the section-stated-empty case that
+      production now takes on every run.
+    alternatives:
+      - "Leaving the parser unexercised: machinery nothing covers is machinery nobody can change safely"
+
+  - category: Implementation
+    chose: "The golden's artefact assertions are retargeted, not deleted wholesale"
+    over: "Dropping the whole test that asserted a non-empty artefact list"
+    reason: |
+      Three assertions travelled the artefact data path in one file. `NotBeEmpty` went red the
+      moment the section left, and its neighbour `OnlyContain(a => a.Content.Length > 0)` became
+      vacuous over an empty list — both go. The sibling `NotContain("## Artefacts")` is about a
+      different thing (the section must not be restated in the rendered principles file) and
+      stays, under a name that says so. The rust-only emptiness test becomes a Theory over all
+      three deltas, because emptiness is now the answer for all three. The golden RENDERINGS do
+      not move: the splitter deletes to the next top-level heading whatever it contains, and the
+      Artefacts section is last in the C# delta before and after, so the composed file is
+      byte-identical.
+
+  - category: Tooling
+    chose: "The pin moves v5.5.0 -> v5.6.1, skipping no release"
+    over: "Cutting a release that carries only this change"
+    reason: |
+      The catalog was already a release ahead of the pin (v5.6.0, the drafted-phase facts and
+      assumptions in spec-derivation-master), so the bump that delivers this removal delivers
+      that too. The alternative is a pin that names a release the catalog never had. The full
+      suite is the proof that the extra release carries nothing the backend reads differently.
