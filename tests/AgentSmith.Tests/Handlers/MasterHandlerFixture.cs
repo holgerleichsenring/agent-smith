@@ -207,7 +207,9 @@ internal static class MasterHandlerFixture
 
     internal sealed class NoOpDecisionLogger : IDecisionLogger
     {
-        public Task LogAsync(string? repoPath, DecisionCategory category, string decision,
-            CancellationToken cancellationToken = default, string? sourceLabel = null) => Task.CompletedTask;
+        public Task<DecisionLogOutcome> LogAsync(
+            ISandboxFileReader? repositoryFiles, DecisionCategory category, string decision,
+            CancellationToken cancellationToken = default, string? sourceLabel = null)
+            => Task.FromResult(DecisionLogOutcome.Recorded);
     }
 }

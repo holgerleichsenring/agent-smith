@@ -245,7 +245,7 @@ public sealed class SetupRegistryAuthHandlerTests
 
         result.IsSuccess.Should().BeTrue("stager failure is fail-soft — the run proceeds");
         decisions.Verify(d => d.LogAsync(
-                It.IsAny<string?>(), It.IsAny<DecisionCategory>(),
+                It.IsAny<ISandboxFileReader?>(), It.IsAny<DecisionCategory>(),
                 It.Is<string>(s => s.Contains(WidgetHost) && s.Contains("NOT staged")),
                 It.IsAny<CancellationToken>(), It.IsAny<string?>()),
             Times.Once, "the gap must be visible on the run's decisions channel, never silent");

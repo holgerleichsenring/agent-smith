@@ -4,8 +4,8 @@ using AgentSmith.Contracts.Events;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Shared decision → event mapping for both <see cref="InMemoryDecisionLogger"/>
-/// and <see cref="FileDecisionLogger"/>. Today's IDecisionLogger signature is
+/// The decision → event mapping <see cref="RepositoryDecisionLogger"/> publishes through — the
+/// run's own record of a decision, of which the repository file is a copy. Today's signature is
 /// single-string ("chose X over Y because Z"); we mirror that into Chose with
 /// Over=null and Reason=sourceLabel for now. A follow-up phase can split the
 /// signature into structured fields without re-shaping the event contract.

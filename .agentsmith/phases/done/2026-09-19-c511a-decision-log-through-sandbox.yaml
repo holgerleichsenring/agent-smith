@@ -1,0 +1,146 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-19-c511a
+
+goal: "A decision is written where the repository actually is — through the run's sandbox — so logging one lands in the checkout instead of failing on the server's own filesystem."
+
+applies_to: "backend (the decision logger, its contract, the four places that build the log tool, and the two callers that have no repository)"
+
+scope:
+  in: >
+    IDecisionLogger stops taking a repository PATH and takes the repository's FILE SURFACE — an
+    ISandboxFileReader, or null for a caller that has no repository — and reports what it managed to
+    record. The one implementation mirrors the decision into the run's event stream exactly as today and
+    then reads, appends and writes .agentsmith/decisions/<label>.yaml through that surface: the seam
+    MemoryStore (AgenticMasterHandler.cs:252-253), the phase record (WritePhaseRecordHandler.cs:28) and
+    the spec set already write the target repository's .agentsmith/ tree through. A file that exists but
+    cannot be read is NOT replaced. The four builders of LogDecisionToolHost each pass the surface of
+    the sandbox they hold (AgenticMasterHandler.cs:247, GenerateDocsHandler.cs:61,
+    GenerateTestsHandler.cs:61, BootstrapToolHostFactory.cs:40); three of them gain the reader factory
+    to make one, and RepoDiffPartition carries the first changed repo's sandbox, because its dictionary
+    is keyed by sandbox KEY while its names are repo NAMES. The name FileDecisionLogger goes with the
+    host filesystem it named, and InMemoryDecisionLogger goes with the second implementation there is
+    no longer a use for.
+  out: >
+    THE FILE FORMAT, THE LABEL RULE AND THE EVENT MIRROR. decision.schema.json, DecisionFileLabel and
+    DecisionEventMirror are untouched; only WHERE the bytes are written changes, and what the caller
+    is told about it.
+    WHAT A FAILED WRITE DOES TO THE RUN. 2026-09-19-c511b — and until it lands, a failed SANDBOX write
+    ends the run the same way the host write did (SandboxFileReader.cs:40-42 throws IOException into the
+    same call site), so the two ship together.
+    THE DECISION FILE'S NAME. 2026-09-09-3d2a wants it named like its spec; this phase writes the name
+    that exists today to a different filesystem.
+    AN APPEND STEP IN THE SANDBOX PROTOCOL. StepKind has Read, Write and List and no Append
+    (StepKind.cs:12-19); adding one is a wire change this phase does not need.
+
+decisions:
+  - key: |
+      THE BUG IS THAT A SANDBOX PATH WAS HANDED TO System.IO. Repository.LocalPath is the constant
+      "/work" (Repository.cs:16) — the mount inside the sandbox, not a directory of the server process.
+      Every builder of LogDecisionToolHost passes it, SpawnAgentToolHost spells it literally (:181), and
+      FileDecisionLogger feeds it to Path.Combine, Directory.CreateDirectory and File.WriteAllTextAsync
+      (:51, :57, :61) in the SERVER process, where /work does not exist and / is not writable. Run
+      2026-09-17T14-41-51-a3e2 died there at step 21 with UnauthorizedAccessException on '/work', $2.29
+      into the run and $2.17 into that step, with four of five ledger items done and a draft pull
+      request already open.
+  - key: |
+      THE RUN SURVIVED THREE LOG CALLS BECAUSE THE FRAMEWORK TOLERATES THREE, AND THAT IS WHY THE
+      DECISIONS ARE IN THE STREAM. FunctionInvokingChatClient.MaximumConsecutiveErrorsPerRequest
+      defaults to 3 and rethrows on the fourth (Microsoft.Extensions.AI 10.3.0, the property's own
+      documentation); the repo sets only MaximumIterationsPerRequest (ChatClientFactory.cs:177). The
+      mirror runs BEFORE the write (FileDecisionLogger.cs:29), so each of the four attempts published
+      its decision and only the fourth throw escaped — which is exactly the four decisions and three
+      rewordings the run recorded between 14:53:10 and 14:53:16.
+  - key: |
+      IT SURVIVED IN TESTING BECAUSE NO TEST EVER PASSES Repository.LocalPath. FileDecisionLoggerTests
+      hands it a real temp directory it created (:26-28), which is the one shape that cannot fail. The
+      CLI is not the reason: FileDecisionLogger never touches a sandbox, so the CLI wrote to the host's
+      /work too — it simply ran as root in a container where creating /work succeeds. The new tests
+      therefore assert the SEAM (writes arrive at the sandbox surface), and one asserts the rule
+      repo-wide.
+  - key: |
+      THE PARAMETER BECOMES THE THING IT NEEDS, AND THREE BUILDERS GAIN THE FACTORY THAT MAKES ONE.
+      Only AgenticMasterHandler already holds an ISandboxFileReaderFactory (:65); GenerateDocsHandler
+      (:23-31), GenerateTestsHandler (:23-31) and BootstrapToolHostFactory (:24-34) hold a sandbox but
+      no factory, so they gain one constructor dependency each. The alternative — passing ISandbox and
+      letting the logger own the factory — would put a pipeline-layer collaborator into a singleton that
+      hosts without a pipeline also resolve. The default value on the path parameter
+      (LogDecisionToolHost.cs:19) does NOT come along: a default is how the next construction site
+      silently writes nothing.
+  - key: |
+      A FILE THAT CANNOT BE READ IS NOT REWRITTEN, BECAUSE THE SURFACE CANNOT TELL MISSING FROM BROKEN.
+      SandboxFileReader.TryReadAsync returns null for EVERY non-zero exit (:22-26), and the agent fails a
+      read over 1 MB (FileStepHandler.cs:55-60) or on non-UTF-8 content (:76-79) — so a blind
+      read-modify-write would see "absent", write header plus one item, and destroy every earlier
+      decision, where System.IO threw. ExistsAsync is no help: it is the same ReadFile probe (:16-20).
+      ListFiles is, because it names files without reading them: the file is looked up in the listing of
+      .agentsmith/decisions, and a file that is listed but reads back null is left alone with a warning.
+      Nor is a listing that hit the agent's 1000-entry cap evidence of absence (SizeLimits.cs:7, enforced
+      in directory order BEFORE any sort at FileStepHandler.cs:196) — this repository's own decisions
+      directory holds 720 files today, so at the cap the lookup says nothing and the file is left alone.
+  - key: |
+      InMemoryDecisionLogger IS DELETED, AND ITS TWO TESTS MOVE. It is registered nowhere — the only
+      registration is ServiceCollectionExtensions.cs:93 — but it is constructed by
+      InMemoryDecisionLoggerTests.cs:10 and by EventSequenceCompletenessTests.cs:149-151, where it
+      stands in as the thing that proves a decision reaches the event stream. With a null surface the
+      one remaining implementation does exactly what it did, so both tests move onto it rather than
+      keeping a second implementation alive to be tested.
+  - key: |
+      THE LOCK STAYS GLOBAL AND THE WAIT IS BOUNDED HERE. Sub-agents of one run share that run's
+      decisions/<runId>.yaml, so the read-append-write still needs serialising, and one semaphore covers
+      the several readers each tool host builds over the same sandbox. Its cost to OTHER runs is NOT the
+      30 seconds the first cut of this decision claimed: the critical section holds up to three sandbox
+      round-trips, each a 30-second step the host waits 60 seconds for (SandboxStepCap.cs:19, 26-27), so
+      a wedged sandbox could stall every other run's log_decision for three minutes inside its model
+      call. The lock is therefore taken with a 30-second wait, and a run that does not get it gives up
+      its COPY with a warning. A per-file semaphore would remove the coupling and add a dictionary entry
+      per run id that nothing in a month-long server process ever removes.
+  - key: |
+      THE FILE NOW APPEARS IN THE WORKING TREE, WHERE THE PRODUCT ALREADY CLASSIFIES IT AS A RECORD.
+      RunRecordPaths.IsRunRecordPath matches any .agentsmith path (:36-40) and is the ONE definition the
+      keystone's real-code-change signal, the commit's hasCode and result.md's Changed Files share, and
+      UnverifiedWorkReverter exempts those paths from reverting (:96). CommitAndPR force-stages
+      .agentsmith (CommitAndPRHandler.cs:46, :248), so the decision file is committed with the work and
+      counted as none of it. The master already writes its run record into the same tree, so "a repo
+      shows a working change made by bookkeeping" is the state of the world, not something this phase
+      introduces; the probe that would care, RepoDiffPartitioner (:47), is reached only from
+      GenerateDocs and GenerateTests, and neither command is in any preset today.
+
+steps:
+  - id: the-contract
+    action: "IDecisionLogger.LogAsync takes an ISandboxFileReader? in place of the repository path and returns what it recorded; the XML doc says the surface is the repository's, not the host's."
+  - id: the-logger
+    action: "The single implementation mirrors to the event stream, then appends the decision YAML through the given surface, leaving a file it could not read alone; renamed off the host filesystem it no longer touches."
+  - id: the-second-implementation-goes
+    action: "InMemoryDecisionLogger is deleted and its two test sites move onto the one implementation with a null surface."
+  - id: the-tool-host
+    action: "LogDecisionToolHost holds the surface instead of a path, with no default, and reports what the logger recorded."
+  - id: the-builders
+    action: "The master passes the surface it already makes; the docs pass, the tests pass and the bootstrap factory gain the reader factory and make one from the sandbox they hold."
+  - id: the-callers-without-a-repository
+    action: "SpawnAgentToolHost drops its literal /work and RegistryAuthFailureReporter keeps its null; both mirror to the event stream only."
+
+tests:
+  - "DecisionLog_WithARepositorySurface_WritesTheYamlThroughTheSandboxNotTheHostFilesystem"
+  - "DecisionLog_RunScoped_WritesDecisionsRunIdYamlAtTheRepositoryRoot"
+  - "DecisionLog_PhaseLabelled_WritesDecisionsPhaseYaml"
+  - "DecisionLog_SecondDecisionOnOneLabel_AppendsToTheFileItReadBack"
+  - "DecisionLog_FileListedButUnreadable_LeavesItAloneAndSaysSo"
+  - "DecisionLog_ListingInTheSandboxsAbsoluteShape_IsRecognisedAsTheSameFile"
+  - "DecisionLog_ListingAtTheEntryCap_IsInconclusiveAndWritesNothing"
+  - "DecisionLog_ListingBelowTheEntryCap_StillStartsAnAbsentFile"
+  - "DecisionLog_FileNotListed_StartsItFromTheHeader"
+  - "DecisionLog_WithNoSurface_MirrorsToTheEventStreamAndWritesNothing"
+  - "DecisionLog_WithNoRunScopeAndNoPhaseLabel_WritesNothing"
+  - "DecisionLog_EveryDecision_ReachesTheEventStreamWhateverTheSurface"
+  - "DecisionLog_TwoRuns_EachDecisionLandsOnItsOwnRunsSurface"
+  - "MasterLoop_LogDecision_WritesIntoTheRunsSandboxTree"
+  - "BootstrapRound_LogDecision_WritesIntoTheRoundsSandboxTree"
+  - "SpawnAgent_SpawnLine_IsMirroredAndNamesNoRepositoryPath"
+  - "NoHostFileSystemCall_InApplicationOrInfrastructureCore_ComposesAPathFromTheSandboxWorkPath"
+
+done:
+  - "a decision logged inside a container run lands in .agentsmith/decisions/ of the checkout the run is changing, and is committed with it"
+  - "no code path in the application or core infrastructure hands the sandbox mount /work to System.IO, and a test says so repo-wide"
+  - "a decisions file that cannot be read is never replaced by a fresh one"
+  - "the event stream carries every decision exactly as before, with or without a repository"
+  - "build green, full suite green"
