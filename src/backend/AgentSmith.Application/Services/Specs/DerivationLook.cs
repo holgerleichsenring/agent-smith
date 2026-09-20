@@ -28,20 +28,27 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-09-15-ffa7: a look has a holder. The cut reviewer is handed one of its own, per
 /// attempt, on <see cref="DerivationLookTerms.CutReview"/>.
 /// </para>
+/// <para>
+/// 2026-09-20-9c74: one holder may also RUN a verify stage its repository declared. The
+/// capability is withheld by the COLLABORATOR — a look built without one carries no such
+/// tool, whatever its terms say — and named to the holder by the terms.
+/// </para>
 /// </summary>
 public sealed class DerivationLook : IAsyncDisposable
 {
     private readonly IReadOnlyDictionary<string, ISourceScopeSandbox> _templates;
     private readonly DerivationLookGate _gate;
+    private readonly DerivationLookStages? _stages;
 
     public DerivationLook(
         IReadOnlyDictionary<string, ISandbox> sandboxes, ISandboxFileReaderFactory files,
         IPackageEcosystemDetector ecosystems, ILogger logger,
         IReadOnlyDictionary<string, ISourceScopeSandbox>? templates = null,
         DerivationLookTerms? terms = null, bool audits = true,
-        TurnActivityTools? activity = null)
+        TurnActivityTools? activity = null, DerivationLookStages? stages = null)
     {
         ArgumentNullException.ThrowIfNull(sandboxes);
+        _stages = stages;
         _templates = templates
             ?? new Dictionary<string, ISourceScopeSandbox>(TemplateScopeName.Comparer);
         Terms = terms ?? DerivationLookTerms.Derivation;
@@ -50,7 +57,9 @@ public sealed class DerivationLook : IAsyncDisposable
         var tools = DerivationTools.Over(
             new RepositorySearchTool(this, logger),
             new RepositoryFileReadTool(this, files, logger),
-            audits ? new DependencyAuditTool(this, files, ecosystems, logger) : null);
+            audits ? new DependencyAuditTool(this, files, ecosystems, logger) : null,
+            Terms.MayRunAStage && stages is not null
+                ? new VerifyStageRunTool(this, stages, logger) : null);
         // 2026-09-17-042ee: a look reports what it reads to whoever set an observer. Nobody
         // has during a derivation; a design turn's proposal review runs inside one that has.
         Tools = activity?.Reporting(tools) ?? tools;
@@ -66,6 +75,12 @@ public sealed class DerivationLook : IAsyncDisposable
     /// 2026-09-13-9f84: the scopes themselves, because the framework reads what each one
     /// declares as its own proof and a name cannot be read from.</summary>
     public IReadOnlyDictionary<string, ISourceScopeSandbox> Templates => _templates;
+
+    /// <summary>2026-09-20-9c74: the verify stage LABELS one repository DECLARED, as declared
+    /// and read synchronously — what the prompt lists while it is being written, before any
+    /// sandbox has been asked. Empty for a look that carries no declaration.</summary>
+    public IReadOnlyList<string> DeclaredStageLabels(string repository) =>
+        _stages?.Labels(repository) ?? [];
 
     /// <summary>One allowance for the whole look — never re-opened.</summary>
     public DerivationLookBudget Budget => _gate.Budget;
