@@ -15,7 +15,8 @@ internal static class DerivationTools
     internal static IList<AITool>? For(DerivationLook? look) => look?.Tools;
 
     internal static IList<AITool> Over(
-        RepositorySearchTool search, RepositoryFileReadTool read, DependencyAuditTool? audit) =>
+        RepositorySearchTool search, RepositoryFileReadTool read, DependencyAuditTool? audit,
+        VerifyStageRunTool? stage = null) =>
         [
             BoundedResultTool.Wrap(AIFunctionFactory.Create(
                 search.SearchRepository, RepositorySearchTool.Name, search.Description)),
@@ -25,11 +26,23 @@ internal static class DerivationTools
                 ? []
                 : new[] { BoundedResultTool.Wrap(AIFunctionFactory.Create(
                     audit.AuditDependencies, DependencyAuditTool.Name, audit.Description)) },
+            // 2026-09-20-9c74: and, for the one holder handed the collaborator, a run of one
+            // verify stage the repository DECLARED. The tool tails its own output, so the
+            // wrapper's larger FRONT-keeping bound never reaches it.
+            .. stage is null
+                ? []
+                : new[] { BoundedResultTool.Wrap(AIFunctionFactory.Create(
+                    stage.RunVerifyStage, VerifyStageRunTool.Name, stage.Description)) },
         ];
 
-    /// <summary>2026-09-17-042ed: what the tools a look carries are, in the prompt's words.</summary>
+    /// <summary>2026-09-17-042ed: what the tools a look carries are, in the prompt's words.
+    /// 2026-09-20-9c74: the stage run is named off the TERMS — the collaborator is what
+    /// withholds the capability, and the term is what the holder is told.</summary>
     internal static string Named(DerivationLook look) =>
-        look.Tools.Any(tool => tool.Name == DependencyAuditTool.Name)
+        (look.Tools.Any(tool => tool.Name == DependencyAuditTool.Name)
             ? "a search, a file read, the ecosystem's own dependency audit"
-            : "a search and a file read";
+            : "a search and a file read")
+        + (look.Terms.MayRunAStage
+            ? ", and a run of ONE verify stage a repository declared"
+            : string.Empty);
 }

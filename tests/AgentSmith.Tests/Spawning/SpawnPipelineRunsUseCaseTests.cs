@@ -195,16 +195,100 @@ public sealed class SpawnPipelineRunsUseCaseTests
         harness.RecordedRunId.Should().NotBeNullOrEmpty();
     }
 
+    // 2026-09-20-9f00: the deferral path writes a visible "queued" run row and publishes no
+    // run event — a deferred run is outside the active set the broadcaster drains, so an event
+    // would die in its stream. The surface is nudged directly instead, the way the delete
+    // endpoint already does, and the Queued counter moves as the row is written.
+    [Fact]
+    public async Task Spawn_ARunThatDefers_NudgesTheSurface()
+    {
+        var nudge = new RecordingNudge();
+        var harness = new Harness(fits: false, nudge: nudge);
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        var result = await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+
+        result.ClaimResults.Should().ContainSingle().Which.Outcome.Should().Be(ClaimOutcome.Queued);
+        nudge.RunIds.Should().ContainSingle()
+            .Which.Should().Be(harness.EnqueuedRunId, "the nudge names the row that was just written");
+    }
+
+    // The row is the thing that matters; the announcement is not. A hub that is down must
+    // never cost the queue entry, so the write comes first and the nudge is best-effort.
+    [Fact]
+    public async Task Spawn_ANudgeThatThrows_StillLeavesTheQueueEntryWritten()
+    {
+        var harness = new Harness(fits: false, nudge: new ThrowingNudge());
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        var result = await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+
+        result.ClaimResults.Should().ContainSingle().Which.Outcome.Should().Be(ClaimOutcome.Queued);
+        harness.EnqueuedRunId.Should().NotBeNullOrEmpty("the queue entry is written before the nudge");
+        harness.RecordedRunId.Should().Be(harness.EnqueuedRunId,
+            "the capacity budget record also precedes the nudge");
+    }
+
+    private sealed class RecordingNudge : IRunListNudge
+    {
+        public List<string> RunIds { get; } = [];
+
+        public Task RunsChangedAsync(string runId, CancellationToken cancellationToken)
+        {
+            RunIds.Add(runId);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingNudge : IRunListNudge
+    {
+        public Task RunsChangedAsync(string runId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("hub unreachable");
+    }
+
+    // Records what the deferral actually enqueued — NoOpCapacityQueue keeps nothing, and a
+    // test about a row being announced has to see the row.
+    private sealed class RecordingQueue : ICapacityQueue
+    {
+        private readonly List<CapacityQueueCandidate> _entries = [];
+
+        public string? LastReservedRunId { get; private set; }
+
+        public Task<string> EnqueueAsync(CapacityQueueCandidate candidate, CancellationToken cancellationToken)
+        {
+            _entries.Add(candidate);
+            LastReservedRunId = candidate.CandidateRunId;
+            return Task.FromResult(candidate.CandidateRunId);
+        }
+
+        public Task<CapacityQueueEntry?> PeekHeadAsync(CancellationToken cancellationToken)
+            => Task.FromResult<CapacityQueueEntry?>(null);
+
+        public Task RemoveAsync(string project, string ticketId, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public Task<int> CountAsync(CancellationToken cancellationToken)
+            => Task.FromResult(_entries.Count);
+
+        public Task<IReadOnlyDictionary<string, int>> GetPositionsByRunIdAsync(CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
+    }
+
     private sealed class Harness
     {
+        private readonly RecordingQueue _queue = new();
+
         public SpawnPipelineRunsUseCase Sut { get; }
         public int CallCount { get; private set; }
         public ClaimRequest? LastRequest { get; private set; }
         public RunFootprintBreakdown? RecordedFootprint { get; private set; }
         public string? RecordedRunId { get; private set; }
+        public string? EnqueuedRunId => _queue.LastReservedRunId;
 
         public Harness(bool fits = true, RunFootprintBreakdown? footprint = null,
-            ISandboxCapacityProbe? quotaProbe = null)
+            ISandboxCapacityProbe? quotaProbe = null, IRunListNudge? nudge = null)
         {
             var claimService = new Mock<ITicketClaimService>();
             claimService.Setup(c => c.ClaimAsync(
@@ -235,10 +319,11 @@ public sealed class SpawnPipelineRunsUseCaseTests
 
             Sut = new SpawnPipelineRunsUseCase(
                 claimService.Object, calculator.Object, budget.Object,
-                CapacityTestDoubles.EmptyQueue(),
+                _queue,
                 CapacityTestDoubles.NoCorpses(), quotaProbe ?? CapacityTestDoubles.AlwaysAdmit(),
                 CapacityTestDoubles.NoPredecessors(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
+                nudge ?? CapacityTestDoubles.NoNudge(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }

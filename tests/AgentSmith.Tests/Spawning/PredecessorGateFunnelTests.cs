@@ -153,6 +153,7 @@ public sealed class PredecessorGateFunnelTests
                 queue.Object, CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
                 new PredecessorGate(factory.Object, NullLogger<PredecessorGate>.Instance),
                 TestSupport.ApprovedSetDoubles.Carrier(),
+                CapacityTestDoubles.NoNudge(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 

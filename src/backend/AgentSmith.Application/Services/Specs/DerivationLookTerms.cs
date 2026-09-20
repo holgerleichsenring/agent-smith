@@ -17,9 +17,15 @@ namespace AgentSmith.Application.Services.Specs;
 /// number in front of every line. A holder that reports a LINE needs them — the read tool
 /// returns raw content, so an unnumbered line number is a figure nobody can check — and a
 /// holder that only quotes text does not, and pays no tokens for them.</param>
+/// <param name="MayRunAStage">2026-09-20-9c74: whether this holder may RUN one verify stage a
+/// repository declared, by label. The tool itself is withheld by the collaborator — a look
+/// built without one has none, whatever its terms say — and this term is what the prompt
+/// sentence is rendered from, so a holder knows whether it may ask. Both, so a mistake in
+/// either one fails closed. Every holder names its own value: one of the five is defined AS
+/// another with fields replaced, and a default would reach it silently.</param>
 public sealed record DerivationLookTerms(
     string Actor, int Allowance, string EvidencePrefix, string Settle, string CiteRule,
-    bool NumberedReads = false)
+    bool NumberedReads = false, bool MayRunAStage = false)
 {
     /// <summary>Looks one derivation may take, across every attempt of its retry loop.</summary>
     public const int DerivationAllowance = 12;
@@ -31,17 +37,19 @@ public sealed record DerivationLookTerms(
     public static DerivationLookTerms Derivation { get; } = new(
         "derivation", DerivationAllowance, "L",
         "Write the work order on what you have; state as an assumption what you could not settle.",
-        "a fact you state cites that id, and a fact that cites none is recorded as an assumption.");
+        "a fact you state cites that id, and a fact that cites none is recorded as an assumption.",
+        MayRunAStage: false);
 
     public static DerivationLookTerms CutReview { get; } = new(
         "cut review", CutReviewAllowance, "R",
         "Judge the cut on what you have; report no false premise you did not look at.",
-        "a false premise you report cites that id in \"cites\", and one that cites none is discarded.");
+        "a false premise you report cites that id in \"cites\", and one that cites none is discarded.",
+        MayRunAStage: false);
 
     /// <summary>2026-09-17-042ed: a design turn's proposal, reviewed inside the turn. The cut
     /// review's allowance and rules, under its own name and letter.</summary>
     public static DerivationLookTerms ProposalReview { get; } =
-        CutReview with { Actor = "proposal review", EvidencePrefix = "P" };
+        CutReview with { Actor = "proposal review", EvidencePrefix = "P", MayRunAStage = false };
 
     /// <summary>2026-09-17-0e79c: the check a phase's own stated premises are put to before
     /// its work starts. Its own letter M — L is the derivation's and P is the proposal
@@ -52,7 +60,8 @@ public sealed record DerivationLookTerms(
     public static DerivationLookTerms PremiseCheck { get; } = new(
         "premise check", CutReviewAllowance, "M",
         "Judge the premises on what you have; report as unproven any you could not look at.",
-        "a premise you report as no longer holding cites that id in \"cites\", and one that cites none is recorded unproven.");
+        "a premise you report as no longer holding cites that id in \"cites\", and one that cites none is recorded unproven.",
+        MayRunAStage: true);
 
     /// <summary>2026-09-17-042eh: looks one phase review may take. Eight against the cut
     /// review's six: it judges a DIFF, so every file it reports on is a file it must open,
@@ -70,5 +79,5 @@ public sealed record DerivationLookTerms(
         "phase review", PhaseReviewAllowance, "P",
         "Report only on the files you did read; say nothing about the rest.",
         "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
-        NumberedReads: true);
+        NumberedReads: true, MayRunAStage: false);
 }

@@ -16,11 +16,18 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class VerifyCommandRunner(ILogger<VerifyCommandRunner> logger)
 {
-    // Build and test on a cold sandbox are the slowest deterministic steps in the run.
-    // The sandbox backend still applies the operator's sandbox.step_timeout_seconds cap,
-    // so this is a ceiling rather than a second knob.
-    private const int VerifyTimeoutSeconds = 1800;
-    private const int OutputTailChars = 4000;
+    /// <summary>
+    /// Build and test on a cold sandbox are the slowest deterministic steps in the run.
+    /// The sandbox backend still applies the operator's sandbox.step_timeout_seconds cap,
+    /// so this is a ceiling rather than a second knob. 2026-09-20-9c74: visible, because a
+    /// reviewer running one of these same declared commands asks for the same ceiling — the
+    /// step runner's own sixty-second fallback would time out every one of them.
+    /// </summary>
+    public const int VerifyTimeoutSeconds = 1800;
+
+    /// <summary>How much of a stage's output is worth carrying. 2026-09-20-9c74: visible for
+    /// the reason the ceiling is.</summary>
+    public const int OutputTailChars = 4000;
 
     public async Task<VerifyOutcome> RunAsync(
         string key, string stage, ISandbox sandbox, string workingDirectory,
@@ -78,6 +85,14 @@ public sealed class VerifyCommandRunner(ILogger<VerifyCommandRunner> logger)
         string.Join("\n", new[] { outputContent, errorMessage }
             .Where(part => !string.IsNullOrWhiteSpace(part)));
 
-    private static string Tail(string text, int maxChars) =>
-        text.Length <= maxChars ? text : text[^maxChars..];
+    /// <summary>
+    /// The END of an output, never its beginning: a failing build or test puts its reason
+    /// last. 2026-09-20-9c74: shared as a METHOD rather than copied as one expression beside
+    /// a shared constant, which would be the worse half of both options.
+    /// </summary>
+    public static string Tail(string text, int maxChars)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return text.Length <= maxChars ? text : text[^maxChars..];
+    }
 }
