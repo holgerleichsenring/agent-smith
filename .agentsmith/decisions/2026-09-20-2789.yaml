@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-20-2789
+
+decisions:
+  - category: Implementation
+    chose: "A detail whose ancestor evaluated valid contributes no clause"
+    over: "A list of keywords whose losing branches may be dropped (oneOf, anyOf, if)"
+    reason: |
+      The filter is structural, so it needs to know no keyword. Measured through the shipped
+      phase-spec schema: a draft with eight `requires`, eight `decisions` and eight steps plus
+      ONE real error reported ten clauses, nine of them false and the tenth dropped by the cap;
+      the same draft now reports the one real clause. The same check reaches three more callers
+      a keyword list would have had to name separately — plan, bootstrap and discovery each
+      carry an `allOf` of `if`/`then` pairs, and a failing `if` leaked `status: Expected
+      "complete"` into refusals about something else. diff, the one schema with no branching,
+      is byte-identical: that was proven by running the new tests against the ORIGINAL
+      formatter, where `ASchemaWithNoBranching_IsUnchanged` passed unchanged along with the two
+      preservation tests, and the other six failed.
+    alternatives:
+      - "Evaluating with a different OutputFormat: changes what all five callers receive, and the spec rules it out"
+
+  - category: Implementation
+    chose: "An unknown property is an `additionalProperties` evaluation path carrying an EMPTY error key"
+    over: "Matching the keyword alone, or matching the library's English about a false subschema"
+    reason: |
+      Two phase-spec nodes (`dep-graph`, `pipeline-presets`) use `additionalProperties` as a
+      SCHEMA. Probed: an unknown key reports at path `/properties/scope/additionalProperties`
+      with error key `""`; a wrongly-typed value under the schema-valued form reports at
+      `/properties/dep-graph/additionalProperties` with error key `type`. The empty key is what
+      separates "this property is not allowed here" from a property that IS allowed with a
+      wrong value, and the type error survives. Matching the English would bind the product to
+      a library's wording and would also catch every other keyword that emits an empty key.
+
+  - category: Scope
+    chose: "The ten-clause bound stays, and a cut report says it was cut"
+    over: "Raising or removing the bound now that the noise is gone"
+    reason: |
+      Ten clauses is a sensible bound on a string that is fed back into a model's context. What
+      was wrong was what filled it. A reader — operator or model — who sees exactly ten clauses
+      must not read them as all of them, so the tail clause names the bound and the number
+      dropped.
+
+  - category: Tooling
+    chose: "The tests drive the shipped validators, not the internal formatter"
+    over: "Making SchemaValidator visible to the test assembly"
+    reason: |
+      SpecDraftValidator, PlanOutputValidator and DiffOutputValidator are the path the operator's
+      refusal actually travels, and the existing validator tests already enter there. One test
+      beyond the spec's list was added — `ASchemaValuedAdditionalProperties_StillReportsItsTypeError`
+      — because the spec's `done` demands that half of the unknown-key rule and no listed test
+      covered it; the spec itself was not edited.
