@@ -21,12 +21,16 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogConversationDeleter(
     IUnitOfWork unitOfWork,
     SpecDialogSessionRepository sessions,
-    DialogueAnswerRepository answers) : ISpecDialogConversationDeleter
+    DialogueAnswerRepository answers,
+    SpecDialogAttachmentRepository attachments) : ISpecDialogConversationDeleter
 {
     public async Task DeleteAsync(string sessionId, CancellationToken cancellationToken)
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         await answers.DeleteByJobAsync(sessionId, cancellationToken);
+        // 2026-09-20-3af8: and the images the operator attached, which are keyed on this same
+        // session id and join the unit of work this already opens.
+        await attachments.DeleteBySessionAsync(sessionId, cancellationToken);
         await sessions.DeleteBySessionOnPlatformAsync(
             DispatcherDefaults.PlatformDashboard, sessionId, cancellationToken);
         await transaction.CommitAsync(cancellationToken);

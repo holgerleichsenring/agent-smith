@@ -1,0 +1,142 @@
+phase: 2026-09-20-3af8
+decisions:
+  - id: a-dialog-image-is-its-own-model
+    chose: >
+      A DialogImage of its own (media type + bytes) in Contracts/Models, with DialogImageSet
+      carrying it beside the count of what the conversation holds. The supported KINDS and the
+      five-megabyte CAP stay on TicketImageAttachment and are reused from there.
+    alternative: >
+      Borrowing TicketImageAttachment whole, which already reaches a model as vision input.
+    why: >
+      TicketImageAttachment is built around an AttachmentRef — a file name, a declared mime
+      type, a size and a download URL, all of them a TRACKER's answer. A design conversation has
+      no tracker behind it, so every one of those fields would have to be invented to reuse the
+      shape, and an invented ref is a lie a later reader would act on. What is worth sharing is
+      not the record but the two things the ticket path DECIDED rather than described: which
+      image kinds this estate hands a model, and how large one may be. Those stay in one place
+      and are called from both, so a new kind is added once.
+  - id: the-dialog-side-renderer-is-its-own
+    chose: >
+      DialogImageNote (Application/Services/SpecDialog) renders the sentence for a design turn,
+      in three branches: all carried, none carried (no vision), and fewer carried than exist.
+      TicketAttachmentPromptSection is left exactly as it is.
+    alternative: >
+      Extracting the ticket section's image sentence into a shared renderer with the noun
+      parameterised, and calling it from both.
+    why: >
+      The section itself was never reusable — its "## Ticket attachments" heading has no place
+      in a design conversation — so what was on offer was sharing the SENTENCE. That sentence
+      names a ticket twice ("N ticket image(s)", "exist on the ticket") and points the model at
+      ask_human about a ticket's attachments. Parameterising the noun to share four words
+      couples two prompts that are worded for different readers, and it would silently change
+      what a ticket with more than ten images is told — a behaviour change this phase has no
+      business making. The third branch is the one the ticket path has no use for: a ticket is
+      read once under a ceiling nothing reaches, while a conversation accumulates.
+  - id: the-ceiling-is-applied-through-a-value-not-in-the-handler-body
+    chose: >
+      DialogImageParts.From(context) applies the vision flag and the four-image ceiling and
+      returns the parts with the two numbers. AgenticMasterHandler calls it on ONE line and
+      passes the numbers to the prompt factory.
+    alternative: >
+      The flag and the ceiling written out in the handler, as the ticket path writes them.
+    why: >
+      The decision that the interface carries NUMBERS rather than a rendered sentence is about
+      where the wording lives, and it is honoured either way: nothing about the sentence is
+      handler-side. What decides the shape is the handler's own ratchet — it is baselined and
+      may only shrink — so the three lines this would have added had to become one. The
+      substitution is net zero: the empty-list ternary the spec-dialog arm used to carry is now
+      the call.
+      TakeLast, not Take: the set arrives oldest-first, so the most recent sit at its end. The
+      first cut of this took from the front and the ceiling test caught it.
+  - id: the-row-loading-lands-in-a-loader-the-runner-injects
+    chose: >
+      SpecDialogTurnImages reads the rows and maps them; SpecDialogTurnRunner takes it as one
+      more constructor parameter and the PipelineRequest block is re-wrapped to pay for that
+      line. The runner lands on 120 lines exactly.
+    alternative: >
+      A pipeline STEP that loads them (the shape 2026-09-19-4c1f used for grounding), or the
+      seeds builder becoming an injected service.
+    why: >
+      The seeds are pure functions over values and the runner holds no repository, so the
+      reading had to land in a third place either way. A pipeline step would have to cross
+      Application, which does not reference Persistence — so a port, an implementation, a
+      command name, a preset entry, a context record and five command-map entries, all to read
+      four rows the server already has a scoped repository for. Making the seeds a service
+      would turn a pure function into a DI node and change every test that calls it. One
+      constructor parameter is the smallest thing that keeps the loading out of the runner.
+  - id: the-upload-resolves-or-opens-and-refuses-only-anothers
+    chose: >
+      A route of its own that resolves the open session inside the request, OPENS one through
+      SpecDialogCommandHandler when none is open, and answers 409 Conflict for a session that
+      exists and is not the caller's.
+    alternative: >
+      Reusing the message route's MayPostAsync check and its fire-and-forget dispatch, or
+      refusing outright when no session is open.
+    why: >
+      That check passes when no open session is found, which is safe for a watch and unsafe for
+      a WRITE: mint a dialog id, upload, repeat, and the rows are keyed on no conversation,
+      bounded by nothing and swept by no delete. Refusing an absent session loses the opening
+      screenshot instead — the page opens its conversation by posting the open command to the
+      message route, which answers before the session exists, and the upload is an unordered
+      second post. Opening goes through the command handler because its guard returns WITHOUT
+      opening when a session is already open; the session manager's own open would fork the
+      conversation the upload was racing into. One consequence is accepted: an upload that wins
+      the race leaves the page's own open command answered "already open here".
+  - id: the-refusal-is-distinguishable-unlike-the-deletes
+    chose: >
+      409 Conflict with a sentence, for a conversation that exists and belongs to someone else.
+      The image SERVE answers 404 for both "not yours" and "not there".
+    alternative: >
+      The delete's three-way sameness, or 403.
+    why: >
+      A delete must not tell a stranger which session ids exist; an upload is to a conversation
+      the caller believes they are in, and the page has to tell "somebody else's" from "a
+      permission you do not hold" to recover rather than retry forever. 403 is the one code
+      that cannot be used: the authorization layer already answers it for a missing permission,
+      so a route answering it itself would pass its permission test with `.Needs(...)` removed.
+      The serve is the opposite case — an image id is a number a caller can guess — so there the
+      two answers are made the same on purpose.
+  - id: the-size-refusal-acts-before-anything-binds
+    chose: >
+      The route binds NO body. SpecDialogImageBody lowers the request's own ceiling, refuses a
+      declared Content-Length over five megabytes without touching the stream, and reads what is
+      left against the same bound.
+    alternative: >
+      Binding the payload and checking its length in the handler.
+    why: >
+      That check would pass a test named "refused before the body is bound" while binding the
+      body first — the refusal has to act before anything reads it, which is the archive
+      upload's ceiling inverted (it raises the limit for the one route that needs a larger one;
+      this lowers it for the one route that needs a smaller one, and the archive route likewise
+      binds nothing). Two mechanisms because a client picks which one it meets: a declared
+      length is refused unread, and an undeclared body is refused as it passes the bound. The
+      test hands the route a stream that throws when read, so "unread" is proven rather than
+      asserted. The kind is decided from the bytes for the same reason: here the declared media
+      type is attacker-supplied, where the ticket path's was tracker-supplied.
+  - id: the-column-declares-no-type
+    chose: >
+      The scaffolded `type:` argument is REMOVED from the shared migration's content column, and
+      the property declares no max length.
+    alternative: >
+      A per-provider literal, or a conditional one.
+    why: >
+      The shared set is generated from SQLite and emits column types as literals, which three
+      providers run verbatim — and "TEXT" means 65,535 bytes on MySQL, about a hundredth of an
+      encoded five-megabyte image: an error in strict mode and a SILENT truncation otherwise.
+      One literal is provider-blind by construction (LONGTEXT is not a Postgres type) and a
+      conditional one would make the model diverge from the single snapshot the shared assembly
+      holds. Untyped, each provider's own convention maps it — TEXT, text, longtext, and
+      nvarchar(max) in SQL Server's own set, which is generated for SQL Server alone and keeps
+      its literal rightly.
+  - id: the-transcript-addresses-the-images-rather-than-carrying-them
+    chose: >
+      The dialog view lists id, kind and moment; the bytes come from a GET of their own. The
+      transcript places an image by its moment, after the last turn said before it.
+    alternative: >
+      Inlining the bytes as data URLs in the dialog view.
+    why: >
+      That view is re-read after EVERY message, so inlined images would re-send every megabyte
+      of them on every reply, for the life of the conversation. Placing by moment is the only
+      tie that exists: the upload is a post of its own racing the message it was attached to,
+      and the durable transcript holds text — which is also why the prompt's ceiling takes the
+      most recent rather than the ones belonging to a turn.

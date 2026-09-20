@@ -9,6 +9,7 @@ import {
   fetchSpecDialog,
   fetchSpecDialogConversations,
   postSpecDialogMessage,
+  uploadSpecDialogImage,
 } from "@/lib/specDialogApi";
 import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
@@ -16,9 +17,12 @@ import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialo
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
 // 2026-09-18-7a05: what a deletion does not undo, worded by what the conversation filed.
 import { deletionWarning } from "@/components/dialog/conversationDelete";
+// 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
+import { withImages } from "@/components/dialog/transcriptImages";
 import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
+  SpecDialogImage,
   SpecDialogProposalPush,
   SpecDialogActivityPush,
   SpecDialogQuestionPush,
@@ -44,7 +48,7 @@ import type {
 // it says what was stored: the entry then becomes that decision, or goes, and the question card comes
 // back from the same read when the question is still open.
 
-export type DialogEntryKind = "user" | "agent" | "decision";
+export type DialogEntryKind = "user" | "agent" | "decision" | "image";
 
 export interface DialogEntry {
   key: string;
@@ -58,6 +62,8 @@ export interface DialogEntry {
   decision?: SpecDialogDecision;
   /** Set on a decision the page showed before any read confirmed the server stored it. */
   pending?: PendingDecision;
+  /** 2026-09-20-3af8: set on an image entry — what the operator attached, by its address. */
+  image?: SpecDialogImage;
 }
 
 export interface PendingDecision {
@@ -108,6 +114,9 @@ export interface SpecDialogState {
   /** 2026-09-18-7a05: deletes a conversation the caller owns, after saying what that does not
    *  undo. Deleting the one open here clears the surface and mints a fresh dialog id. */
   remove: (sessionId: string) => Promise<void>;
+  /** 2026-09-20-3af8: an image beside what the operator is saying. It is stored against the
+   *  conversation at once — opening one if none is open — and rides the NEXT turn. */
+  attach: (file: File, project?: string) => Promise<void>;
 }
 
 export function useSpecDialog(): SpecDialogState {
@@ -414,6 +423,26 @@ export function useSpecDialog(): SpecDialogState {
     [dialogId, view, post],
   );
 
+  // 2026-09-20-3af8: the image is stored BEFORE any message follows it, and the server opens
+  // the conversation when none is open — so an image pasted as the very first act is kept
+  // rather than lost to the opening post it is racing. The read that follows is what puts it
+  // in the transcript, and it is also what tells this page the conversation now exists.
+  const attach = useCallback(
+    async (file: File, project?: string) => {
+      if (!dialogId) return;
+      try {
+        await uploadSpecDialogImage(dialogId, project ?? "", file);
+        // The read has to RESEED: the image is not something this page said, so there is
+        // nothing to echo locally, and an unarmed read leaves the entries as they were.
+        reseed.current = true;
+        await load(dialogId);
+      } catch (thrown) {
+        setFailure(asError(thrown));
+      }
+    },
+    [dialogId, load],
+  );
+
   // A fresh dialog id with a command queued for it: the command waits for the subscription,
   // so its answer lands in a group this page has joined.
   const switchTo = useCallback((command: string | null, awaited: boolean | string, to?: string) => {
@@ -494,7 +523,7 @@ export function useSpecDialog(): SpecDialogState {
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
     working: working.current, workingSince,
-    readings, activity, send, startNew, open, remove,
+    readings, activity, send, startNew, open, remove, attach,
   };
 }
 
@@ -516,8 +545,14 @@ function upsertReading(
   return held.map((line, index) => (index === at ? reading : line));
 }
 
-/** A turn that was only a draft is kept when the card belongs on it, and dropped otherwise. */
+/** A turn that was only a draft is kept when the card belongs on it, and dropped otherwise.
+ *  2026-09-20-3af8: the conversation's images take their place among the turns by their moment. */
 function seed(view: SpecDialogView): DialogEntry[] {
+  const session = view.session;
+  return withImages(turns(view), session?.images ?? []);
+}
+
+function turns(view: SpecDialogView): DialogEntry[] {
   const session = view.session;
   return (session?.transcript ?? [])
     .map((turn, index): DialogEntry => ({

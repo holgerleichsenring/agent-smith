@@ -25,7 +25,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
         + "you read), the edge cases, and the open questions only the operator can decide. "
         + "A question is answered as it is asked.";
 
-    public string Build(PipelineContext pipeline)
+    public string Build(PipelineContext pipeline, int imagesExisting, int imagesCarried)
     {
         var transcript = pipeline.TryGet<IReadOnlyList<SpecDialogTurn>>(
             ContextKeys.SpecDialogTranscript, out var t) && t is not null ? t : [];
@@ -46,6 +46,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             Write the reply text now — it is delivered verbatim to the chat thread.
             Answer from the code map above when it suffices; read source files through
             your tools only when the question needs real file content.
+            {DialogImageNote.Render(imagesExisting, imagesCarried)}
             {ProposalContract(SpecDialogProposalRule.MayPropose(transcript))}
             """;
     }

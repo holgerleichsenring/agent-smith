@@ -274,7 +274,8 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         (await new SpecDialogViewReader(
                 _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
-                new SpecDialogTurnGate(TimeProvider.System))
+                new SpecDialogTurnGate(TimeProvider.System),
+                new SpecDialogAttachmentRepository(_context))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
 
     private static PhaseOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));

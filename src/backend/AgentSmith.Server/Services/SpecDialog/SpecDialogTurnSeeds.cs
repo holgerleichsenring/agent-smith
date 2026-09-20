@@ -36,13 +36,17 @@ internal static class SpecDialogTurnSeeds
 
     internal static Dictionary<string, object> Build(
         ConversationState state, IReadOnlyList<RepoConnection> scopeRepos,
-        Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot)
+        Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
         {
             [ContextKeys.SpecDialogTranscript] = MapTranscript(state.Transcript),
             [ContextKeys.SpecDialogReplySlot] = slot,
+            // 2026-09-20-3af8: the operator's screenshots. Seeded unconditionally, empty set
+            // and all: the master applies the vision flag and the per-turn ceiling, and a turn
+            // that seeded nothing is indistinguishable from one whose images were dropped.
+            [ContextKeys.SpecDialogImages] = images,
             [ContextKeys.DialogueJobId] = state.JobId,
             [ContextKeys.Sandboxes] = (IReadOnlyDictionary<string, ISandbox>)sandboxes,
             // A template is addressed by its own name, like every other entry: the master
