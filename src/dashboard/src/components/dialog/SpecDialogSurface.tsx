@@ -116,6 +116,7 @@ export function SpecDialogSurface() {
                 disabled={!dialog.dialogId || mustPick}
                 hint={mustPick ? "Pick a project first — that is what a conversation reads." : undefined}
                 onSend={(text) => void dialog.send(text, project)}
+                onAttach={(file) => void dialog.attach(file, project)}
               />
             </section>
             <DialogPane

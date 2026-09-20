@@ -349,7 +349,8 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
     private SpecDialogViewReader Reader() =>
         new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending,
             new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
-            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), _turns);
+            new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), _turns,
+            new SpecDialogAttachmentRepository(_context));
 
     /// <summary>A clock the test moves by hand, so no assertion about elapsed seconds waits
     /// on a real one.</summary>

@@ -69,6 +69,12 @@ internal static class SpecDialogExtensions
         // 2026-09-18-7a05: and the delete of one, over the same scoped unit of work — the
         // transaction the session row and its durable answers are swept in is that unit's.
         services.AddScoped<ISpecDialogConversationDeleter, SpecDialogConversationDeleter>();
+        // 2026-09-20-3af8: the images an operator attaches — bounded before the body is read,
+        // read for their kind, stored against the conversation, and seeded into its next turn.
+        services.AddSingleton<SpecDialogImageBody>();
+        services.AddSingleton<ImageKindFromBytes>();
+        services.AddScoped<SpecDialogImageConversation>();
+        services.AddScoped<SpecDialogTurnImages>();
         // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
         // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.
         services.AddScoped<FiledWorkFiling>();

@@ -42,6 +42,13 @@ public static partial class ContextKeys
     public const string SpecDialogRevisedProposal = "SpecDialogRevisedProposal";
 
     /// <summary>
+    /// <c>DialogImageSet</c> — 2026-09-20-3af8: the images the operator attached to this
+    /// conversation, seeded by the turn runner. The master applies the vision flag and the
+    /// per-turn ceiling to it; the set carries how many exist so the prompt can say so.
+    /// </summary>
+    public const string SpecDialogImages = "SpecDialogImages";
+
+    /// <summary>
     /// Job id the master's ask_human questions publish under on the dialogue
     /// transport (spec-dialog: the session id, so answers from the same chat
     /// thread reach the waiting loop). Absent → ask_human reports itself

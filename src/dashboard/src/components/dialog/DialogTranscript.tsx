@@ -2,8 +2,9 @@
 
 import type { ReactNode } from "react";
 import { Markdown } from "@/components/ui/Markdown";
+import { specDialogImageUrl } from "@/lib/specDialogApi";
 import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
-import type { SpecDialogProposalPush } from "@/types/spec-dialog";
+import type { SpecDialogImage, SpecDialogProposalPush } from "@/types/spec-dialog";
 import { DialogProposalCard } from "./DialogProposalCard";
 
 // 2026-09-15-cb3e: the conversation in order. What the agent sent is MARKDOWN and is
@@ -19,6 +20,8 @@ import { DialogProposalCard } from "./DialogProposalCard";
 // the message it was.
 // 2026-09-17-042ef: the eyebrows are the studio's field label and the speaker's initials are a
 // mark of this page's own — the studio's card icon leads a card, this leads a line.
+// 2026-09-20-3af8: an image the operator attached is one of their own lines, shown where they
+// attached it. The bytes come from a route of their own, so the transcript read stays small.
 
 export function DialogTranscript({
   entries,
@@ -74,6 +77,7 @@ function Turn({
   onInspect: (proposal: SpecDialogProposalPush) => void;
 }) {
   if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
+  if (entry.kind === "image" && entry.image) return <Attached image={entry.image} />;
   const mine = entry.kind !== "agent";
   const said = entry.text.trim().length > 0;
   return (
@@ -84,6 +88,19 @@ function Turn({
         said && <Markdown>{entry.text}</Markdown>
       )}
       {entry.proposal && <DialogProposalCard proposal={entry.proposal} onInspect={onInspect} />}
+    </DialogMessage>
+  );
+}
+
+function Attached({ image }: { image: SpecDialogImage }) {
+  return (
+    <DialogMessage who="user" testId="dialog-turn-image">
+      <img
+        data-testid={`dialog-image-${image.id}`}
+        src={specDialogImageUrl(image.id)}
+        alt="Attached by you"
+        className="max-h-64 max-w-full"
+      />
     </DialogMessage>
   );
 }

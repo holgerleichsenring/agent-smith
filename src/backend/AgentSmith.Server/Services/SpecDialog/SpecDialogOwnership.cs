@@ -54,7 +54,15 @@ public sealed class SpecDialogOwnership(
     /// or finds the conversation they themselves opened under it, which they own.
     /// </para>
     /// </summary>
-    public async Task<bool> MayDeleteAsync(string sessionId, string owner, CancellationToken ct)
+    public Task<bool> MayDeleteAsync(string sessionId, string owner, CancellationToken ct) =>
+        OwnsAsync(sessionId, owner, ct);
+
+    /// <summary>
+    /// 2026-09-20-3af8: whether this principal owns the conversation with this SESSION id.
+    /// An absent row is a refusal, which is what makes it safe for a write and for serving
+    /// back what a write stored.
+    /// </summary>
+    public async Task<bool> OwnsAsync(string sessionId, string owner, CancellationToken ct)
     {
         var session = await sessions.GetBySessionOnPlatformAsync(
             DispatcherDefaults.PlatformDashboard, sessionId, ct);

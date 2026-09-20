@@ -73,6 +73,10 @@ const postSpecDialogMessage = vi.fn<(dialogId: string, text: string) => Promise<
 const fetchSpecDialogConversations = vi.fn();
 const fetchFiledWork = vi.fn();
 const deleteSpecDialogConversation = vi.fn<(sessionId: string) => Promise<void>>(async () => {});
+// 2026-09-20-3af8: the upload and the address the transcript reads an image back from.
+const uploadSpecDialogImage =
+  vi.fn<(dialogId: string, project: string, file: File) => Promise<unknown>>(
+    async () => ({ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }));
 vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: () => fetchSpecDialogConversations(),
@@ -80,6 +84,9 @@ vi.mock("@/lib/specDialogApi", () => ({
   postSpecDialogMessage: (dialogId: string, text: string) =>
     postSpecDialogMessage(dialogId, text),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
+  uploadSpecDialogImage: (dialogId: string, project: string, file: File) =>
+    uploadSpecDialogImage(dialogId, project, file),
+  specDialogImageUrl: (imageId: number) => `/api/spec-dialog/images/${imageId}`,
 }));
 
 const SAMPLE_SCOPE = {
@@ -101,6 +108,7 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
       proposal: null,
       filing: null,
       proposalTurn: null,
+      images: [],
     },
     projects: [SAMPLE_SCOPE],
     ...overrides,
@@ -2552,5 +2560,53 @@ describe("SpecDialogSurface", () => {
 
     expect(screen.queryByTestId("dialog-proposal")).not.toBeInTheDocument();
     expect(screen.getByTestId("dialog-scope")).toBeInTheDocument();
+  });
+
+  // 2026-09-20-3af8: an operator shows the design partner what they are looking at. The image is
+  // uploaded the moment it is picked — not held until Send — and the read that follows is what
+  // puts it in the transcript, which is also what makes it survive a reload.
+  it("SpecDialog_TheComposer_TakesAnImageAndTheTranscriptShowsIt", async () => {
+    await renderSurface();
+    fetchSpecDialog.mockResolvedValue(view({
+      session: {
+        ...view().session!,
+        transcript: [turn("what is wrong with this")],
+        images: [{ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }],
+      },
+    }));
+
+    fireEvent.change(screen.getByTestId("dialog-composer-image"), {
+      target: { files: [new File(["png-bytes"], "shot.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => expect(uploadSpecDialogImage).toHaveBeenCalled());
+    const [dialogId, project, file] = uploadSpecDialogImage.mock.calls[0];
+    expect(dialogId).toBe(heldDialogId());
+    expect(project).toBe("sample");
+    expect(file.name).toBe("shot.png");
+    const shown = await screen.findByTestId("dialog-image-7");
+    expect(shown).toHaveAttribute("src", "/api/spec-dialog/images/7");
+  });
+
+  // Nothing ties an image to a turn: the upload is a post of its own and the durable transcript
+  // holds text. Both carry a moment, so the image sits after what was said before it.
+  it("SpecDialog_AnAttachedImage_SitsAfterTheTurnItFollowed", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: {
+        ...view().session!,
+        transcript: [
+          { role: "user", text: "before the screenshot", at: "2026-09-15T09:00:00Z" },
+          { role: "user", text: "after the screenshot", at: "2026-09-15T10:00:00Z" },
+        ],
+        images: [{ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }],
+      },
+    }));
+    await renderSurface();
+
+    const transcript = await screen.findByTestId("dialog-transcript");
+    const shown = within(transcript).getAllByTestId(/dialog-turn-(user|image)/);
+    expect(shown.map((entry) => entry.getAttribute("data-testid"))).toEqual([
+      "dialog-turn-user", "dialog-turn-image", "dialog-turn-user",
+    ]);
   });
 });

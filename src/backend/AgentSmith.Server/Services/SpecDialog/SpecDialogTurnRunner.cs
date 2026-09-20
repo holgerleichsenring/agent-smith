@@ -32,6 +32,7 @@ public sealed class SpecDialogTurnRunner(
     ExecutePipelineUseCase pipelineUseCase,
     ISourceScopeSandboxFactory sourceSandboxFactory,
     SpecDialogTemplateScopes templateScopes,
+    SpecDialogTurnImages images,
     SpecDialogQuestionPump questionPump,
     SpecDialogPendingQuestions pendingQuestions,
     SpecDialogTurnGate gate,
@@ -49,11 +50,11 @@ public sealed class SpecDialogTurnRunner(
             scopeRepos, r => sourceSandboxFactory.Create(project, r), templates);
 
         var slot = new SpecDialogReplySlot();
+        var seeds = SpecDialogTurnSeeds.Build(
+            state, scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken));
         var request = new PipelineRequest(
-            ProjectName: state.Project,
-            PipelineName: PipelinePresets.SpecDialogName,
-            Headless: true,
-            Context: SpecDialogTurnSeeds.Build(state, scopeRepos, sandboxes, slot));
+            ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,
+            Headless: true, Context: seeds);
 
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pump = questionPump.PumpAsync(state, pumpCts.Token);
