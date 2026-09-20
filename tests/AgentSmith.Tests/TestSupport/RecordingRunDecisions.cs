@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Tests.TestSupport;
 
@@ -8,11 +9,11 @@ internal sealed class RecordingRunDecisions : IDecisionLogger
 {
     internal List<string> Decisions { get; } = [];
 
-    public Task LogAsync(
-        string? repoPath, DecisionCategory category, string decision,
+    public Task<DecisionLogOutcome> LogAsync(
+        ISandboxFileReader? repositoryFiles, DecisionCategory category, string decision,
         CancellationToken cancellationToken = default, string? sourceLabel = null)
     {
         Decisions.Add(decision);
-        return Task.CompletedTask;
+        return Task.FromResult(DecisionLogOutcome.Recorded);
     }
 }

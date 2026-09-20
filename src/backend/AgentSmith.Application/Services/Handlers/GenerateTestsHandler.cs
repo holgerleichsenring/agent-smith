@@ -23,8 +23,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class GenerateTestsHandler(
     IChatClientFactory chatClientFactory,
     AgentPromptBuilder promptBuilder,
-    IDecisionLogger decisionLogger,
-    IDialogueTransport? dialogueTransport,
+    PostExecutePassTools passTools,
     IRunContextAccessor runContext,
     RepoDiffPartitioner repoDiffPartitioner,
     AgenticToolSurface toolSurface,
@@ -56,10 +55,7 @@ public sealed class GenerateTestsHandler(
             context.Changes.Count, changedFiles);
 
         var plan = BuildSyntheticPlan(context.Changes);
-        var fs = new FilesystemToolHost(
-            partition.ChangedSandboxes, partition.ChangedRepoNames[0], context.Repository.LocalPath);
-        var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
-        var human = new HumanToolHost(dialogueTransport);
+        var (fs, log, human) = passTools.For(partition, context.Repository.LocalPath);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             context.CodingPrinciples, context.RepoCodeMaps, context.ProjectContext);
