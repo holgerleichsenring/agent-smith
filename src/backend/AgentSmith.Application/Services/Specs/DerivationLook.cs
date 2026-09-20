@@ -42,7 +42,8 @@ public sealed class DerivationLook : IAsyncDisposable
         TurnActivityTools? activity = null)
     {
         ArgumentNullException.ThrowIfNull(sandboxes);
-        _templates = templates ?? new Dictionary<string, ISourceScopeSandbox>(StringComparer.Ordinal);
+        _templates = templates
+            ?? new Dictionary<string, ISourceScopeSandbox>(TemplateScopeName.Comparer);
         Terms = terms ?? DerivationLookTerms.Derivation;
         _gate = new DerivationLookGate(sandboxes, _templates, Terms);
         Evidence = new DerivationEvidence(Terms.EvidencePrefix, $"the {Terms.Actor}");
