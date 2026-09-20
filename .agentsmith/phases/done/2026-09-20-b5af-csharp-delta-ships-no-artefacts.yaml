@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-b5af
+
+goal: "The C# delta stops shipping build-breaking artefacts, so an init run no longer changes what a repository compiles to without anyone agreeing to it."
+
+applies_to: "skills catalog (the C# delta and the delta format that instructs it) + the tests that read the packaged catalog + the embedded pin"
+
+scope:
+  in: >
+    The C# delta's `## Artefacts` section is removed and replaced with what its two sibling deltas
+    already say in the same words: no artefacts, because the stack's own toolchain enforces these
+    rules and a file restating them is a second place for them to disagree. That section is the only
+    one in the catalog that ships a build-affecting file, and it ships two: an editorconfig whose
+    severities are all `error`, and a props file setting warnings-as-errors, code-style-in-build and
+    documentation-file. Dropped into a repository that was written before the rules existed, those
+    two turn every missing documentation comment and every style deviation into a build failure on
+    the first pipeline run after the init pull request merges.
+    The FORMAT that instructs delta authors is corrected in the same change, because fixing only
+    C# fixes the instance and leaves the rule: the format lists "a build property file" among its
+    canonical artefact examples and states outright that an artefact arriving red is a finding
+    because the framework writes the file and does not rewrite the repository to satisfy it. That
+    sentence is the rejected policy written as a rule, and the next delta author follows it.
+    Two test changes come with the removal. One golden asserts the C# delta declares a NON-EMPTY
+    artefact list, so it goes red the moment the section leaves; its sibling assertion that the
+    section is stripped from the rendered principles keeps earning its keep and stays. And the
+    parser that reads an artefact section loses its only live positive case, so it gains a unit
+    test of its own rather than being left as machinery nothing exercises.
+    The catalog is released and the embedded pin moves with it, which is the whole of the backend
+    change. This lands AFTER the sibling pin bump already committed in this series: both touch the
+    same two pin lines and the same committed tarball, so the second to merge rebases rather than
+    conflicting by surprise. The artefact writer stays: it is a general mechanism, and with no delta declaring an
+    artefact it writes nothing.
+  out: >
+    REMOVING THE ARTEFACT MECHANISM. It is correct machinery — it decides preserve-or-write per
+    path, and a later delta may legitimately declare a file. What was wrong is the content one
+    delta declared, not the ability to declare.
+    A RATCHET OR A MEASURED SEVERITY. An earlier reading of this defect proposed landing the same
+    artefacts with severities the existing tree already passes, ratcheting upward, the way this
+    repository handles its own file-length rule. The operator's ruling is simpler and is taken:
+    doing this unagreed makes no sense, and most teams enforce these rules with their own tooling
+    anyway. A ratchet is still a second place for the rules to disagree.
+    RE-AIMING THE TWO PHASES THIS INVALIDATES. A second one names an editor configuration and a
+    build property file as its model artefacts and requires the ecosystem delta to declare at least
+    one; its work has in fact already shipped into the catalog's own validator, so it is a misfiled
+    done phase and that is why nobody noticed it. It is 2026-09-13-fcc1 and it is named here with
+    the other.
+    RE-AIMING THE PHASE THIS INVALIDATES. A planned phase would have a declared verify stage say
+    which written artefact it covers, and reports an artefact no stage claims. With no delta
+    declaring one, two of its three tests have nothing to construct from. It is 2026-09-15-a238,
+    it stays planned, and this phase names it rather than leaving it to be discovered — deciding
+    whether it is withdrawn or re-aimed at the verify block alone is its own author's call, not a
+    note dropped here.
+    THE CORE PRINCIPLES. Nothing in the language-agnostic core changes; the rules themselves are
+    not in question, only whether this product writes a switch that enforces them into someone
+    else's build.
+    THE INIT RUN'S MISSING VERIFICATION. The init pipeline has no verify step at all, which is why
+    a change to a repository's build configuration could ship without anything noticing. Named in
+    prose as the phase that makes an init run prove the tree still builds.
+
+decisions:
+  - key: |
+      THE TWO SIBLING DELTAS ALREADY CARRY THE ARGUMENT, VERBATIM. Rust and TypeScript both say:
+      no artefacts, the toolchain the stack already runs enforces these rules by default, and a
+      file restating them would be a second place for them to disagree. C# is the only delta that
+      says otherwise, and it says so for a reason it states out loud — that without the build
+      switch the editor rules are advisory. That reason is true and is not the question. The
+      question is whether this product flips that switch in a repository it was invited into, and
+      the answer is no.
+      AND THE EDITOR CONFIGURATION BREAKS A BUILD ON ITS OWN. An earlier cut treated the props file
+      as the dangerous half and the editor configuration as its advisory companion. It is not: the
+      declared severities include a COMPILER diagnostic for unreachable code and an SDK analyzer for
+      public fields, and a build honours both from that file with no code-style switch involved —
+      that switch gates only the editor-style rules. So removing one file and leaving the other
+      licensed in the format's examples would have left the smaller half of the same defect.
+  - key: |
+      PRINCIPLES ARE AUTHORITATIVE; A BUILD SWITCH IS NOT A PRINCIPLE. The phase that inverted this
+      model ruled that principles are authored gold and the code moves toward them. That holds for
+      a rule a person follows. A build property is not advice the code can move toward at its own
+      pace — it fails the compilation the moment it lands, on code written before the rule existed.
+      The inverted model was never asked what happens when it meets a tree that has not followed it
+      yet: the phase that established it names no existing, adopted, brownfield or migrated
+      repository anywhere in its text.
+  - key: |
+      NOTHING BOUNDS WHAT THE FRAMEWORK ITSELF WRITES INTO A TARGET. There IS a path guard that
+      refuses a bootstrap write outside the context file and the principles file, by name — but it
+      governs the MODEL's write tool, not the framework: its only consumer chain is the bootstrap
+      tool host, and the init preset says so in its own words. The framework's legitimate write of
+      principles.md goes through the same unguarded write step the artefact writer uses. So the
+      correct statement is not that a rule was bypassed; it is that no rule was ever positioned
+      here. The only write this product bounds is the model's, and it is bounded to two metadata
+      files; the artefact writer is the first framework write outside that directory and nothing
+      existed to object. An earlier cut of this decision cited the guard as a rule the writer
+      evaded — the citation was real and its JURISDICTION was not checked, which is how a borrowed
+      authority survives being replaced. Removing the declaration is still the fix: with nothing
+      declared there is nothing for either path to write.
+  - key: |
+      THE MECHANISM WAS BUILT FOR EXACTLY THE REPOSITORIES IT BREAKS. The artefact writer's own
+      note says it decides per path because a set-wide answer "would suppress every artefact in any
+      repository that already carries a ratified principles.md — which is exactly the established
+      repositories the artefacts exist for." The care went into making sure established
+      repositories DO receive them. Established repositories are the ones with code predating the
+      rules.
+  - key: |
+      THE REMOVAL IS IN THE CATALOG; WHAT THE BACKEND LOSES IS REACH, NOT CORRECTNESS. The
+      artefacts are literal blocks in a skill document and the writer parses whatever a delta
+      declares, so removing the section is the whole behavioural change and the pin bump delivers
+      it. But an earlier cut said no code path becomes dead "which is the state rust and typescript
+      are already in", and that reason is wrong: those two declaring nothing did not make the path
+      dead precisely BECAUSE C# declared something. After this, every production call takes the
+      empty early return, so the whole per-artefact apply — all four write outcomes, the written one
+      included, and the refusal short-circuit beside it — plus the pull-request body's artefact
+      lines are unreachable in production until some delta declares a file again. That is accepted — it is the ruling — and it is why the parser gets a unit test
+      in this phase instead of relying on a live case that no longer exists.
+  - key: |
+      TWO TEST FILES ARE SAFE AND A THIRD IS NOT, AND THE SWEEP THAT MISSED IT WENT OVER THE WRONG
+      THING. The two files naming an editorconfig and a props file construct artefacts by hand to
+      exercise the writer and the pull-request body; they stand in for "a delta declared something"
+      and survive untouched. The third asserts the COMPOSED C# delta yields a non-empty artefact
+      list, and it goes red the moment the section leaves. An earlier cut swept the tests for the
+      two FILE NAMES — the vocabulary — and concluded no test moves. Sweeping the data path
+      instead, the property the artefacts actually travel through, returns three hits in one file
+      and names neither filename. The sibling assertion in that same test, that the section is
+      stripped from the rendered principles, is about a different thing and stays.
+      THE GOLDEN RENDERINGS DO NOT MOVE, FOR A REASON WORTH STATING. The section splitter deletes
+      everything to the next top-level heading whatever it contains, and the Artefacts section is
+      last in the C# delta before and after, so the rendered principles file is byte-identical.
+
+steps:
+  - id: the-delta-says-what-its-siblings-say
+    action: "The C# delta's Artefacts section is replaced with the no-artefacts wording its two sibling deltas already carry."
+  - id: the-format-stops-instructing-it
+    action: "EVERY sentence in the delta format whose force is that a build must read the artefact is corrected — the criterion, not a count. An earlier cut named three places and a fourth escaped between them, because a number becomes the instruction and the next site found reads as out of scope. Known today: the section's purpose sentence, the whole example list (dropping one noun leaves an editor configuration licensed twice), the clause saying an artefact belongs where the build already looks rather than beside principles no build reads, and the sentence licensing an artefact that arrives red. What replaces them is the rule: an artefact must not change what the target compiles to."
+  - id: the-golden-stops-requiring-an-artefact
+    action: "The composed-principles golden stops asserting the C# delta declares a non-empty artefact list and keeps asserting the section is stripped from the rendered principles."
+  - id: the-parser-keeps-its-proof
+    action: "The artefact-section parser gains a fixture-based unit test — one declared entry, two entries, a heading with no fenced block, an unterminated fence — because the removal takes away its only live positive case."
+  - id: the-catalog-is-released
+    action: "The catalog ships a release carrying the removal."
+  - id: the-pin-moves
+    action: "The embedded skills pin and its checksum move to that release, and the committed tarball is replaced."
+
+tests:
+  - "EveryDelta_DeclaresNoArtefacts"
+  - "ComposedPrinciples_TheCsharpDelta_StillStripsTheSectionFromTheRenderedFile"
+  - "DeltaFormat_LicensesNoneOfTheRemovedArtefactKinds"
+  - "DeltaArtefactSection_ADeclaredEntry_IsParsedWithItsContent"
+  - "DeltaArtefactSection_TwoEntries_AreBothParsed"
+  - "DeltaArtefactSection_AHeadingWithNoFencedBlock_YieldsNoEntry"
+  - "DeltaArtefactSection_AnUnterminatedFence_YieldsNoEntry"
+  - "DeltaArtefactSection_ASectionStatedEmpty_YieldsNoEntry"
+
+done:
+  - "an init run writes no file that can change what a target repository compiles to"
+  - "all three deltas agree on why, in the same words"
+  - "the format no longer instructs a future delta author to write one — neither in its purpose sentence, nor in its examples, nor in the sentence that licensed a red artefact — and a test over the packaged format holds it there"
+  - "the artefact writer is unchanged, and the parser that feeds it is proven by a test rather than by a live case"
+  - "the catalog carries a release with the removal, and the embedded pin and its checksum name that release"
+  - "build green, full suite green — including the golden that changes in this phase"
+
+facts:
+  - claim: "The C# delta ships two build-affecting artefacts as literal blocks: an editorconfig whose severities are error, and a props file setting Nullable, ImplicitUsings, TreatWarningsAsErrors, EnforceCodeStyleInBuild, AnalysisLevel and GenerateDocumentationFile."
+    evidence: "principles/deltas/csharp.md:105, :154 in the pinned catalog tarball named by src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+  - claim: "It states its own reason: without EnforceCodeStyleInBuild the IDE rules are advisory and a pipeline never sees them."
+    evidence: "principles/deltas/csharp.md (the Directory.Build.props section preamble) in the pinned catalog tarball"
+  - claim: "The rust and typescript deltas both declare no artefacts, in identical wording, because the stack's own toolchain enforces the rules and a file restating them would be a second place to disagree."
+    evidence: "principles/deltas/rust.md, principles/deltas/typescript.md (their Artefacts sections) in the pinned catalog tarball"
+  - claim: "The phase that made principles authoritative names no existing, adopted, brownfield or migrated repository anywhere in its text."
+    evidence: ".agentsmith/phases/done/p0379-universal-agnostic-coding-principles.yaml"
+  - claim: "The artefact writer decides per path specifically so that repositories already carrying a ratified principles file still receive the artefacts, and names those as the repositories the artefacts exist for."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapArtefactWriter.cs:10-19"
+  - claim: "The init pipeline runs thirteen steps and contains no verify step, so nothing checks that the tree it changed still builds."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.InitProject.cs:21-33"
+  - claim: "The two test files naming these artefacts construct them by hand to exercise the writer and the pull-request body, and do not assert what the C# delta declares."
+    evidence: "tests/AgentSmith.Tests/Handlers/BootstrapArtefactWriterTests.cs:24, :26, tests/AgentSmith.Tests/Handlers/InitPullRequestBodyTests.cs:25"
+  - claim: "This repository solved the same shape for its own code with a ratchet rather than a switch, recording that 187 files already exceeded the rule."
+    evidence: ".agentsmith/phases/done/p0403-principles-with-teeth.yaml"
+  - claim: "A golden test reads the PACKAGED catalog and asserts the composed C# delta yields a non-empty artefact list; its sibling asserts a delta declaring none yields none rather than failing."
+    evidence: "tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:60-63, :67-73"
+  - claim: "Sweeping the data path rather than the file names returns three hits, all in that one file, and none of them names an editorconfig or a props file."
+    evidence: "tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:60, :62, :71"
+  - claim: "The delta format lists a build property file among its canonical artefact examples and states that an artefact arriving red is a finding because the framework writes the file and does not rewrite the repository to satisfy it."
+    evidence: "principles/DELTA-FORMAT.md:43-46, :66-70, :77-78 in the pinned catalog tarball"
+  - claim: "A planned phase matches written enforcement artefacts against declared verify stages, and two of its three tests have nothing to construct from once no delta declares one."
+    evidence: ".agentsmith/phases/planned/2026-09-15-a238-verify-stage-declares-coverage.yaml:4, :6"
+  - claim: "No other file in the packaged catalog declares a build-affecting artefact; a sweep for every such filename and property returns hits only in the C# delta, plus read-only manifest references in the discovery and analyzer skills."
+    evidence: "principles/deltas/csharp.md:105, :154, :157, :165-168 in the pinned catalog tarball"
+  - claim: "A path guard refuses any bootstrap-phase write outside the context file and the principles file of the named context, and the artefact writer does not consult it — it writes through a sandbox file reader at a repository-root-relative path."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/PathWriteGuard.cs:29-35, :40-50, src/backend/AgentSmith.Application/Services/BootstrapArtefactWriter.cs:26, :52"
+  - claim: "The declared editor configuration alone can fail a build: it sets a compiler diagnostic for unreachable code and an SDK analyzer for public fields to error, neither of which needs the code-style-in-build switch."
+    evidence: "principles/deltas/csharp.md:124, :150-151 in the pinned catalog tarball"
+  - claim: "The format's own purpose sentence states the rejected premise, and its example list names a ruleset and an editor configuration beside the build property file."
+    evidence: "principles/DELTA-FORMAT.md:45-48, :68-71 in the pinned catalog tarball"
+  - claim: "A second planned phase requires the ecosystem delta to declare at least one artefact and names an editor configuration and a build property file as the models; its work already shipped into the catalog validator."
+    evidence: ".agentsmith/phases/planned/2026-09-13-fcc1-delta-carries-its-gate.yaml:38-43, :72-73, :83"
