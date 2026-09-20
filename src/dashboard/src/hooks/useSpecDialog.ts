@@ -5,6 +5,7 @@ import { HubConnectionState } from "@microsoft/signalr";
 import { HUB_URL } from "@/hooks/useJobsHub";
 import { getJobsHubClient } from "@/lib/JobsHubClient";
 import {
+  deleteSpecDialogConversation,
   fetchSpecDialog,
   fetchSpecDialogConversations,
   postSpecDialogMessage,
@@ -13,6 +14,8 @@ import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialo
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
+// 2026-09-18-7a05: what a deletion does not undo, worded by what the conversation filed.
+import { deletionWarning } from "@/components/dialog/conversationDelete";
 import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
@@ -102,6 +105,9 @@ export interface SpecDialogState {
   startNew: (project?: string) => Promise<void>;
   /** Continues a past conversation in this tab, on a dialog id of its own. */
   open: (sessionId: string, openDialogId?: string | null) => Promise<void>;
+  /** 2026-09-18-7a05: deletes a conversation the caller owns, after saying what that does not
+   *  undo. Deleting the one open here clears the surface and mints a fresh dialog id. */
+  remove: (sessionId: string) => Promise<void>;
 }
 
 export function useSpecDialog(): SpecDialogState {
@@ -456,11 +462,39 @@ export function useSpecDialog(): SpecDialogState {
     [view, switchTo],
   );
 
+  // 2026-09-18-7a05: a conversation the operator started by mistake, gone. It lives HERE rather
+  // than in the list, because deleting the conversation open in the surface has to clear every
+  // pane and mint a fresh dialog id — the held one now names a dead thread — and the switch that
+  // does that in one act is local to this hook. What the list exports is the NEW-conversation
+  // callback, which opens one on the fresh id: the opposite of a delete.
+  const remove = useCallback(
+    async (sessionId: string) => {
+      const listed = conversations.find((held) => held.sessionId === sessionId);
+      const warning = listed ? deletionWarning(listed) : null;
+      if (warning !== null && !window.confirm(warning)) return;
+      try {
+        await deleteSpecDialogConversation(sessionId);
+      } catch (thrown) {
+        setFailure(asError(thrown));
+        return;
+      }
+      // A list read ISSUED BEFORE THE DELETE AND LANDING AFTER IT still carries the row. The
+      // sequence guard drops a read only when a NEWER read has been issued, so the counter is
+      // bumped here: every read now outstanding is superseded and none of them can put the row
+      // back. For the open conversation the switch below issues one of its own; for a row that
+      // is not open nothing else would.
+      listReads.current += 1;
+      setConversations((held) => held.filter((row) => row.sessionId !== sessionId));
+      if (sessionId === view?.session?.sessionId) switchTo(null, true);
+    },
+    [conversations, view, switchTo],
+  );
+
   working.current = awaiting || computing;
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
     working: working.current, workingSince,
-    readings, activity, send, startNew, open,
+    readings, activity, send, startNew, open, remove,
   };
 }
 

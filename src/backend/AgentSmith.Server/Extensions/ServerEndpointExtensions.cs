@@ -42,6 +42,7 @@ internal static class ServerEndpointExtensions
         app.MapRunControlEndpoints(); // p0506: cancel / answer / retry
         app.MapSpecDialogEndpoints(); // 2026-09-15-9033: the dashboard's spec-dialog channel
         app.MapSpecDialogViewEndpoints(); // 2026-09-15-cb3e: what is on the dialog page
+        app.MapSpecDialogDeletionEndpoints(); // 2026-09-18-7a05: a conversation the operator owns, gone
         app.MapRunQueryEndpoints();
         app.MapPullRequestQueryEndpoints(); // p0347: the Pull Requests page read surface
         app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)
