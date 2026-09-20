@@ -13,6 +13,7 @@ namespace AgentSmith.Application.Services.Claim;
 /// </summary>
 public sealed class TicketClaimService(
     IRedisClaimLock claimLock,
+    IUnmovedTicketStore unmovedTickets,
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
     IActiveRunLease lease,
@@ -27,6 +28,11 @@ public sealed class TicketClaimService(
 
         var rejection = ClaimPreChecker.Check(request, config);
         if (rejection is not null) return LogOne(request, ClaimResult.Rejected(rejection.Value));
+
+        // 2026-09-18-c1a7: the ticket the last run could not move is refused here, before the
+        // lock and before any tracker write — one claim, not one per poll cycle.
+        var refusal = await new UnmovedTicketGate(unmovedTickets).RefusalAsync(request, config, ct);
+        if (refusal is not null) return LogOne(request, refusal);
 
         return await ClaimUnderLockAsync(request, config, ct);
     }

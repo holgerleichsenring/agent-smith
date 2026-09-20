@@ -51,14 +51,14 @@ export function DialogScopePanel({
 function Grounding({ project }: { project: SpecDialogProject }) {
   return (
     <div data-testid={`dialog-scope-project-${project.name}`} className="mb-3">
-      <div className="ec-name">{project.name}</div>
+      <div className="ec-name given">{project.name}</div>
       <div className="fl mt-2">Repositories</div>
       {project.repos.length === 0 ? (
         <div className="ec-sub">no repositories</div>
       ) : (
         <div className="ec-marks">
           {project.repos.map((repo) => (
-            <span key={repo} data-testid={`dialog-scope-repo-${repo}`} className="ec-mark">
+            <span key={repo} data-testid={`dialog-scope-repo-${repo}`} className="ec-mark given">
               {repo}
             </span>
           ))}
@@ -73,7 +73,7 @@ function Grounding({ project }: { project: SpecDialogProject }) {
             <span
               key={template.name}
               data-testid={`dialog-scope-template-${template.name}`}
-              className="ec-mark"
+              className="ec-mark given"
             >
               <span className="mn">{template.name}</span>
               {template.revision ? `${template.repo}@${template.revision}` : template.repo}

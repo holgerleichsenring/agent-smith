@@ -25,7 +25,7 @@ public sealed class SpecDialogAnswerAdmissionTests : IDisposable
     private readonly AgentSmithDbContext _context;
     private readonly SpecDialogSessionManager _sessions;
     private readonly SwitchableClock _clock = new();
-    private readonly SpecDialogPendingQuestions _pending = new();
+    private readonly SpecDialogPendingQuestions _pending = new(new SpecDialogTurnGate(TimeProvider.System));
     private readonly Mock<IDialogueTransport> _transport = new();
     private readonly SpecDialogAnswerAdmission _admission;
 

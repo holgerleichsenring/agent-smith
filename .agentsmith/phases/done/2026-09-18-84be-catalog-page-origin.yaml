@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-18-84be
+
+goal: "The catalog page names the resolved origin of the skills it is showing, so a reader can tell which text is actually running and where a change to it is made."
+
+applies_to: "backend (the catalog contents response and its reader) + dashboard (the catalog surface)"
+
+scope:
+  in: >
+    The catalog read returns the origin the server resolved — the phrase the resolver already mints,
+    which names the source mode, the version or path it landed on, and the overlay fingerprint when a
+    local file is layered over it. The catalog surface renders that phrase where the contents are
+    shown, so the question a reader of this page actually has is answered on the page. Where a skill's
+    body is displayed, the surface says where a change to it is made: the catalog source is a setting
+    in this dashboard, and the text itself comes from whatever that setting resolves to. A guard
+    asserts that every route under the catalog prefix is a GET, so the page's claim that nothing is
+    edited here cannot go stale the day someone adds a write route.
+  out: >
+    EDITING A SKILL FROM THIS PAGE. An installation that needs its own text already has the overlay,
+    which carries its own fingerprint and shows up in the origin phrase; a second editing path would
+    fork the catalog with no provenance.
+    CHANGING THE SOURCE FROM THIS PAGE. It is a settings singleton with its own form and its own
+    permission; this page names where that is, and links no further.
+    INVALIDATING THE CATALOG CACHE. See decisions — the phrase says when it was resolved, and making
+    the reader reload on a source change is a phase of its own, named in prose as the phase that
+    re-resolves the catalog when its source setting changes.
+    THE CATALOG'S CONTENT.
+
+decisions:
+  - key: |
+      THE PAGE SHOWS CONTENTS AND NOT WHERE THEY CAME FROM, MEASURED. The catalog response carries
+      readiness, masters, skills and concepts — no version, no source, no root, no overlay. The
+      resolver mints a single operator-checkable phrase for exactly this and it has no HTTP surface,
+      so the page cannot name what it is rendering even though the server knows.
+  - key: |
+      "THE PINNED RELEASE" IS THE WRONG WORDING AND THIS REPOSITORY ALREADY RETIRED IT. There are four
+      source modes and the default is the embedded catalog with no pin at all; in path mode the path
+      is the version. An earlier phase records that with four modes "the pin" names nothing an operator
+      can go and look at. So the page renders the resolver's own phrase rather than a second, less
+      careful one minted here.
+  - key: |
+      THE OVERLAY ALREADY SHIPPED, AND IGNORING IT WOULD MAKE THE NEW LINE FALSE. An installation can
+      lay its own file over the catalog, and on an overlaid install the body this page renders may be
+      the operator's file rather than the source's. The phrase already carries the overlay fingerprint;
+      rendering it is what keeps the sentence true.
+  - key: |
+      THE SOURCE IS CHANGED IN THIS DASHBOARD, NOT BY A REBUILD. The skills source is an editable
+      settings singleton with a form and a permission; saving it bumps the configuration epoch. A page
+      telling the operator to go cut a release and rebuild would be a confidently wrong instruction —
+      the failure this phase exists to prevent, authored by the phase itself. It names the settings
+      surface and stops there.
+  - key: |
+      THE CONTENTS ARE RESOLVED ONCE, SO THE PHRASE SAYS WHEN. The reader caches roles and vocabulary
+      for the process lifetime and nothing invalidates them on a source change. Printing a version
+      beside stale contents would be a new false witness, so the phrase is presented as what was
+      resolved at startup, and re-resolution is named as its own phase rather than half-built here.
+  - key: |
+      A SENTENCE GOES STALE; A GUARD DOES NOT. Asserting that a rendered string is present proves only
+      that someone typed it. What keeps "nothing is edited here" true is that no write route exists, so
+      the test enumerates the routes under the catalog prefix and asserts every one is a GET. That test
+      fails on the day the claim stops being true, which a render assertion never would.
+  - key: |
+      THE BORROWED CLASS GOES. The expand control on this surface carries the config studio's edit
+      affordance class on a page that edits nothing — the most plausible reason a reader would believe
+      this page saves. The existing parity assertion for that class is scoped to the studio root, so
+      renaming it here costs nothing.
+
+steps:
+  - id: the-origin-reaches-the-page
+    action: "The catalog response carries the resolver's origin phrase; the reader fills it."
+  - id: the-page-names-it
+    action: "The catalog surface renders the phrase with the contents, and says where the source is changed."
+  - id: the-borrowed-class-goes
+    action: "The expand control stops carrying the config studio's edit affordance class."
+  - id: the-guard
+    action: "A test enumerates the routes under the catalog prefix and asserts each is a GET."
+
+tests:
+  - "Catalog_Response_CarriesTheResolvedOrigin"
+  - "Catalog_OverlaidInstallation_TheOriginNamesTheOverlay"
+  - "Catalog_EmbeddedDefault_TheOriginNamesTheEmbeddedSource"
+  - "Catalog_EveryRouteUnderThePrefix_IsAGet"
+  - "dashboard: the catalog surface renders the resolved origin"
+  - "dashboard: the catalog surface says where the source is changed"
+  - "dashboard: the expand control carries no edit affordance class"
+
+done:
+  - "a reader of the catalog page can tell which skill text the server actually resolved, including an overlay"
+  - "the page points at the setting that changes it, not at a rebuild"
+  - "a write route added under the catalog prefix fails a test"
+  - "build green, full suite green, dashboard tests green"

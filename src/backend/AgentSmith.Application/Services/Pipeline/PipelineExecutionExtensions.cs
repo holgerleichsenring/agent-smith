@@ -40,9 +40,10 @@ public static class PipelineExecutionExtensions
         services.AddTransient<PipelineCommandList>();
         services.AddTransient<IPipelineStepRunner, PipelineStepRunner>();
         services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
+        services.TryAddSingleton<IUnmovedTicketStore, Persistence.InMemoryUnmovedTicketStore>();
+        services.AddTransient<Lifecycle.UnmovedTicketReport>();
         services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();
-        // p0201: per-pipeline-run liveness supervisor. Default no-op so InProcess /
-        // unit-test compositions stay quiet; Server overrides in DockerSandboxRegistrations.
+        // p0201: liveness supervisor. No-op default; Server overrides in DockerSandboxRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddPipelineExecutor();
         services.AddResumeServices();

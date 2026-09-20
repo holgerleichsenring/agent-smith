@@ -23,14 +23,25 @@ public sealed record PendingQuestion(DialogQuestion Question, DateTimeOffset? Ex
 /// wait has expired, so without it an expired card keeps offering a button whose click is
 /// no longer an answer.
 /// </para>
+/// <para>
+/// 2026-09-18-2f8b: SETTING ONE STOPS THE TURN'S CLOCK AND TAKING IT STARTS IT AGAIN. A design
+/// turn's ask_human blocks INSIDE the turn's execution, so the turn outlives the wait and a
+/// duration measured from its start instant would count it: a person who took twenty minutes
+/// to answer would then be shown a turn that had "worked" for twenty minutes. The boundary is
+/// HERE rather than at the three sites that ask and answer, because this class is what "a turn
+/// is blocked" means and a fourth site would otherwise have to remember the rule.
+/// </para>
 /// </summary>
-public sealed class SpecDialogPendingQuestions
+public sealed class SpecDialogPendingQuestions(SpecDialogTurnGate turns)
 {
     private readonly ConcurrentDictionary<string, PendingQuestion> _pending =
         new(StringComparer.Ordinal);
 
-    public void Set(string sessionId, DialogQuestion question, DateTimeOffset? expiresAt) =>
+    public void Set(string sessionId, DialogQuestion question, DateTimeOffset? expiresAt)
+    {
         _pending[sessionId] = new PendingQuestion(question, expiresAt);
+        turns.Blocked(sessionId);
+    }
 
     /// <summary>
     /// A design turn's own ask_human, which arrives off the bus as an id and a line of text.
@@ -51,8 +62,17 @@ public sealed class SpecDialogPendingQuestions
     /// Consumes the question only while it is still the one that was peeked, so an answer is
     /// recorded by what it answered and never handed to a question that replaced it (2026-09-17-042el).
     /// </summary>
-    public bool TryTake(string sessionId, PendingQuestion peeked) =>
-        _pending.TryRemove(KeyValuePair.Create(sessionId, peeked));
+    public bool TryTake(string sessionId, PendingQuestion peeked)
+    {
+        if (!_pending.TryRemove(KeyValuePair.Create(sessionId, peeked))) return false;
+        turns.Resumed(sessionId);
+        return true;
+    }
 
-    public void Clear(string sessionId) => _pending.TryRemove(sessionId, out _);
+    /// <summary>The wait is over without an answer — a timeout, or the turn ending.</summary>
+    public void Clear(string sessionId)
+    {
+        _pending.TryRemove(sessionId, out _);
+        turns.Resumed(sessionId);
+    }
 }

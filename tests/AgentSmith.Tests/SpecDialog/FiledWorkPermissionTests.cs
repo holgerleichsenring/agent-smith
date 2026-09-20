@@ -41,8 +41,8 @@ public sealed class FiledWorkPermissionTests : IDisposable
     private readonly SpecDialogRouter _router;
     private readonly Mock<IOutcomeSink> _sink = new();
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner = new();
-    private readonly SpecDialogTurnGate _turnGate = new();
-    private readonly SpecDialogPendingQuestions _pending = new();
+    private readonly SpecDialogTurnGate _turnGate = new(TimeProvider.System);
+    private readonly SpecDialogPendingQuestions _pending = new(new SpecDialogTurnGate(TimeProvider.System));
 
     public FiledWorkPermissionTests()
     {

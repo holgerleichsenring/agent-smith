@@ -104,3 +104,95 @@ describe("Dialog joins", () => {
     expect(rulesIn("@media (max-width:1px){.a,.b{padding:0}}")[0].selector).toBe(".a,.b");
   });
 });
+
+// 2026-09-18-e63d: text this page did not choose — a repository, a template, a project, a
+// revision — was clipped at the card edge, and the fix is one rule this file's own guards
+// allow in exactly one shape: a trailing modifier inside the own structure block, because a
+// bare .mock-dialog .ec-mark or .ec-name would trip the redefinition guard above. Both halves
+// of it are asserted here, and so is the reach of every OTHER rule that could make the same
+// four classes wrap on the Projects page. This project builds no CSS for a test and resolves
+// no cascade: what a stylesheet guard can see is the declarations that were typed.
+
+/** The modifier, and the four borrowed classes it must land on. A rule carrying the modifier
+ *  on the mark alone would leave the heading one line above it sliced. */
+const GIVEN = ".given";
+const BORROWED = ["ec-mark", "ec-name", "ec-sub", "fv"];
+
+/** A page root. .mock-shell is NOT one — it is on every mock page, so a rule scoped only to
+ *  the shell reaches the Projects page like an unscoped one does. */
+const PAGE_ROOTS = ["mock-config", "mock-dialog", "mock-runs", "mock-viewer", "mock-system",
+  "mock-access", "mock-overview", "mock-diagnostic"];
+
+/** A property that lets a long unbroken token break, or that lifts a nowrap. */
+const BREAKS = /(^|;)\s*(overflow-wrap|word-wrap|word-break|line-break|hyphens)\s*:/;
+const WRAPS = /(^|;)\s*white-space\s*:\s*(normal|pre-wrap|pre-line)\s*(;|$)/;
+
+/** The borrowed classes this selector part names, as a class and not as a prefix of a longer
+ *  one — `.ec-marks` is a row, not a mark, and `.fv` is not `.fvx`. */
+export function borrowedIn(part: string): string[] {
+  return BORROWED.filter((cls) => new RegExp(`\\.${cls}(?![\\w-])`).test(part));
+}
+
+/** Whether this selector part can match an element on the Projects page: it either names that
+ *  page, or it names no page at all and so applies on every one of them. The second half is
+ *  the hole a `.mock-config`-only check leaves — `.mock-shell .ec-mark` is on every page root
+ *  and sits later in the file than the rule it would override. */
+export function reachesProjects(part: string): boolean {
+  return part.includes(".mock-config") || !PAGE_ROOTS.some((root) => part.includes(`.${root}`));
+}
+
+describe("Given text wraps, and only on this page", () => {
+  it("MockParity_TheGivenTextModifier_CarriesNormalWhiteSpaceAndOverflowWrapAnywhere", () => {
+    const modifier = rulesIn(css).filter((r) =>
+      r.selector.split(",").every((one) => one.trim().endsWith(GIVEN)) && r.selector.includes(GIVEN));
+    expect(modifier, `no rule whose every selector ends in ${GIVEN}`).toHaveLength(1);
+
+    // All four surfaces, or the heading is sliced while the marks below it wrap cleanly.
+    const covered = modifier[0].selector.split(",").flatMap((one) => borrowedIn(one.trim()));
+    expect([...covered].sort()).toEqual([...BORROWED].sort());
+
+    // The reset. Without it the break property below has no soft-wrap opportunity to use.
+    expect(modifier[0].body, "the modifier must lift the mark rule's nowrap").toMatch(WRAPS);
+    // `anywhere` and not `break-word`: these are flex items, and break-word does not
+    // contribute to min-content sizing, so they would refuse to shrink and stay clipped.
+    expect(modifier[0].body, "overflow-wrap must be anywhere, not break-word")
+      .toMatch(/(^|;)\s*overflow-wrap\s*:\s*anywhere\s*(;|$)/);
+  });
+
+  // Named as the absence it is. Nothing here resolves a cascade, so "the Projects page renders
+  // exactly as it did" is not observable. What IS observable: every rule in this sheet that can
+  // reach one of the four borrowed classes on that page is free of a break or wrap declaration,
+  // and the mark rule it shares with this page still says nowrap.
+  it("MockParity_NoRuleReachingTheProjectsPage_LetsABorrowedClassWrap", () => {
+    const shared = rulesIn(css).find((r) => r.selector === ".mock-config .ec-mark, .mock-dialog .ec-mark");
+    expect(shared, "the shared mark rule is gone").toBeDefined();
+    expect(shared!.body, "the shared mark rule must still pin a mark to one line")
+      .toMatch(/(^|;)\s*white-space\s*:\s*nowrap\s*(;|$)/);
+
+    const wrapping = rulesIn(css)
+      .filter((r) => BREAKS.test(r.body) || WRAPS.test(r.body))
+      .filter((r) => r.selector.split(",").map((one) => one.trim())
+        .some((one) => reachesProjects(one) && borrowedIn(one).length > 0))
+      .map((r) => r.selector);
+
+    expect(wrapping, `a borrowed class was made to wrap on the Projects page:\n${wrapping.join("\n")}`)
+      .toEqual([]);
+  });
+
+  it("Rule_HasTeeth_AShellScopedRuleIsSeenAndAnotherPagesIsNot", () => {
+    expect(reachesProjects(".mock-config .ec-mark")).toBe(true);
+    expect(reachesProjects(".mock-shell .ec-mark")).toBe(true);
+    expect(reachesProjects(".ec-mark")).toBe(true);
+    expect(reachesProjects(".mock-dialog .ec-mark.given")).toBe(false);
+    expect(reachesProjects(".mock-viewer .ident .fv")).toBe(false);
+    expect(borrowedIn(".mock-config .ec-marks")).toEqual([]);
+    expect(borrowedIn(".mock-config .ec-mark.warn")).toEqual(["ec-mark"]);
+    expect(borrowedIn(".mock-config .fields .fv.link")).toEqual(["fv"]);
+    expect(borrowedIn(".mock-config .tpl-ctx")).toEqual([]);
+    expect(BREAKS.test("overflow-wrap: anywhere")).toBe(true);
+    expect(BREAKS.test("font-size: 11px; word-break: break-all")).toBe(true);
+    expect(BREAKS.test("border-radius: 4px")).toBe(false);
+    expect(WRAPS.test("white-space: normal")).toBe(true);
+    expect(WRAPS.test("white-space: nowrap")).toBe(false);
+  });
+});

@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Pipeline;
@@ -84,6 +86,8 @@ internal sealed class PipelineExecutorTestBuilder
             FactoryMock.Object,
             TicketFactoryMock.Object,
             new FailureTicketComment(),
+            new UnmovedTicketReport(
+                new InMemoryUnmovedTicketStore(), NullLogger<UnmovedTicketReport>.Instance),
             NullLogger<PipelineErrorHandler>.Instance);
 
         // SandboxCoordinator owns mutable per-run state; the executor resolves a

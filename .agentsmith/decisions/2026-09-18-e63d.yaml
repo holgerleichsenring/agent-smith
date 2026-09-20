@@ -1,0 +1,147 @@
+phase: 2026-09-18-e63d
+decisions:
+  - id: a-trailing-modifier-because-both-obvious-placements-are-forbidden
+    chose: >
+      .mock-dialog .ec-mark.given, .ec-name.given, .ec-sub.given and .fv.given, one rule
+      declared inside the Work-it-out own-structure block of mock-parity.css, and applied by
+      the markup that needs it.
+    alternative: >
+      .mock-dialog .ec-mark above the own block, or .mock-dialog .d-scope .ec-mark inside it.
+    why: >
+      2026-09-17-042ef's guard leaves exactly one shape. Above the own block every .mock-dialog
+      selector must also name .mock-config or .mock-runs, so a dialog-only rule there fails the
+      join guard; inside the own block no selector may END in a borrowed class, so a bare
+      .mock-dialog .ec-mark, .ec-name, .ec-sub or .fv fails the redefinition guard, and so does
+      a descendant form such as .mock-dialog .d-scope .ec-mark. A trailing modifier passes
+      both, and the sheet already establishes the shape with .mock-dialog .ec-mark.filed. That
+      constraint is why the phase has a markup step at all: the rule cannot reach the text on
+      its own.
+  - id: two-declarations-because-either-one-alone-is-inert
+    chose: >
+      The one rule sets BOTH white-space: normal and overflow-wrap: anywhere, and the guard
+      asserts each separately.
+    alternative: >
+      The break property alone, leaning on the shared rule; or white-space: normal alone,
+      leaning on the name having a space in it somewhere.
+    why: >
+      Under the shared rule's white-space: nowrap no soft-wrap opportunity is taken, so a break
+      property alone changes nothing. And a template mark has no soft-wrap opportunity of its
+      own — the name span is followed immediately by repo@revision with no text node between —
+      so the reset alone changes nothing either. A rule carrying one of the two would leave
+      every test in this phase green and the page unchanged.
+  - id: overflow-wrap-anywhere-not-break-word
+    chose: >
+      overflow-wrap: anywhere, named literally in the rule, in the guard and in the stylesheet
+      comment.
+    alternative: >
+      overflow-wrap: break-word, the reflex choice; or word-break: break-all.
+    why: >
+      These are flex items — a mark and a pull-request value in .ec-marks, the run head line in
+      a flex row — and .ec-name is a block in the same column, so their automatic minimum size
+      is their min-content size. break-word does not contribute to min-content sizing: the item's minimum would stay
+      the width of the whole unbroken token, it would refuse to shrink, and it would still be
+      clipped — with every assertion in this phase satisfied. anywhere does contribute, and is
+      what the sheet already uses for the two config rules that face the same problem
+      (.tpl-ctx, .tpl-target). word-break: break-all would work too but breaks eagerly even
+      where a space is available.
+  - id: the-fix-is-in-the-stylesheet-never-in-a-utility
+    chose: >
+      One CSS rule plus a bare class token in the JSX.
+    alternative: >
+      whitespace-normal and wrap-anywhere Tailwind utilities on the seven elements.
+    why: >
+      mock-parity.css is imported unlayered, so it beats every Tailwind utility by cascade
+      layer. A utility would have had no effect, raised no error, and the dialog surface scan
+      does not ban those two — nothing in the suite would have caught it.
+  - id: the-config-claim-is-written-as-an-absence-and-scoped-by-reach-not-by-a-literal
+    chose: >
+      MockParity_NoRuleReachingTheProjectsPage_LetsABorrowedClassWrap — the shared mark rule
+      still carries white-space: nowrap, and no rule in the sheet that can MATCH one of the
+      four borrowed classes on the Projects page carries a break or a wrap declaration. A rule
+      reaches that page if its selector part names .mock-config, or names no page root at all
+      and so applies on every mock page; .mock-shell is not a page root.
+    alternative: >
+      Requiring the literal .mock-config in the selector part, which is what the first cut of
+      this guard did.
+    why: >
+      The literal check left a hole an adversarial review found: `.mock-shell .ec-mark {
+      overflow-wrap: anywhere; white-space: normal; }` appended to the sheet names no page,
+      sits later in the file than the rule at :531, and would make every mark on the Projects
+      page wrap — while passing a guard that greps for .mock-config. Scoping by REACH closes
+      it and keeps .mock-viewer .ident .fv (:908), which cannot touch the Projects page, out of
+      scope. The claim stays an absence: nothing here resolves a cascade, so "the Projects page
+      renders as it did" is not observable — only that no rule exists that could change it.
+  - id: the-spec-names-a-test-that-is-not-in-the-tree
+    chose: >
+      The spec file is left exactly as ratified. Its `tests:` list names
+      MockParity_TheDialogMarkModifier_CarriesNormalWhiteSpaceAndOverflowWrapAnywhere and
+      MockParity_NoConfigSelector_CarriesABreakDeclaration; the tree carries
+      MockParity_TheGivenTextModifier_CarriesNormalWhiteSpaceAndOverflowWrapAnywhere and
+      MockParity_NoRuleReachingTheProjectsPage_LetsABorrowedClassWrap.
+    alternative: >
+      Editing the spec's test names to match, or bending the tests to the spec's names.
+    why: >
+      A phase spec is not mutated after it is written. But a reader of the spec alone would go
+      looking for two names that are not there, so the mapping is recorded HERE, where the
+      deviation belongs. Both renames are for accuracy: the guard no longer covers the mark
+      alone, and "no config selector" is false of a sheet in which .mock-config .tpl-ctx (:618)
+      and .mock-config .tpl-target (:625) both carry overflow-wrap: anywhere today.
+  - id: the-conversation-list-is-in-scope-and-the-config-pages-are-not
+    chose: >
+      Seven elements across three panes take the modifier: the scope panel's project heading,
+      repositories and templates, the conversation list's project, and the filed pane's run
+      project and two pull-request repository values. The Projects page's own are untouched.
+    alternative: >
+      The scope panel alone, which is where the clipping was measured; or every .ec-mark in the
+      product.
+    why: >
+      The conversation list's column is 220px, 140px narrower than the pane this phase
+      measured, its mark carries an operator-chosen name, and the title one line above it
+      already needs truncation — it is the likelier case of the same bug, not an exception, and
+      leaving it out while claiming the class of bug closed would be a false claim. The config
+      pages clip the same way and for the same reason, but how the Projects page renders is
+      that surface's decision; it is named in the spec's `out` as its own phase.
+  - id: the-modifier-is-named-for-the-text-not-for-the-declarations
+    chose: >
+      `given` — the text was given to this page by somebody else and it cannot know how long it
+      is or where it may break.
+    alternative: >
+      `wraps`, which the first cut used.
+    why: >
+      Every other modifier in this sheet names a state or a role — filed, warn, bad, inert,
+      sans, link, on, row — and the .mn comment three lines above already argues that a class
+      says what a thing IS. `wraps` names the declaration, so it would have to be renamed the
+      day the fix becomes a truncation or a measure cap, and it says nothing about WHICH text
+      qualifies. `given` answers that: a repository, a template, a project, a revision take it;
+      a phase id this page mints does not, and a test asserts that it does not.
+  - id: the-defect-was-text-being-cut-off-not-marks-being-cut-off
+    chose: >
+      The modifier also lands on the scope panel's project heading (.ec-name) and on the filed
+      pane's run project (.ec-sub) and pull-request repositories (.fv).
+    alternative: >
+      Keeping the fix to .ec-mark, as the spec's steps name, and narrowing done[0] to marks.
+    why: >
+      done[0] promises that a template, repository OR PROJECT name wider than its column reads
+      in full, and two of those still clipped on the surface this phase shipped: the heading is
+      14.5px mono with no wrap help of its own, so it was sliced while the repository marks one
+      line below it wrapped cleanly; and the filed pane renders the same operator-chosen
+      repository names as flex items inside the same clipping card. Extending the fix is
+      cheaper and truer than narrowing the claim. Nothing new was needed to do it — the same
+      one rule, the same two declarations, the same trailing-modifier shape the redefinition
+      guard forces, and the sheet had already settled the identical case at :908.
+  - id: the-rendered-outcome-was-checked-by-eye-because-nothing-here-can-see-it
+    chose: >
+      Recorded as evidence: the build was served against a stand-in backend and /spec-dialog
+      was photographed in Chrome at 1600px — the width at which the three columns stand — with
+      a template named service-dotnet-background-worker-default plus a repository and a
+      40-character revision, one unbroken token. It wraps across three lines and reads in full;
+      the repository marks beside it are unchanged; the conversation list is unchanged.
+    alternative: >
+      Leaving done[0] resting on the automated assertions alone.
+    why: >
+      The dashboard suite runs in jsdom, which has no layout engine — no box widths, no
+      flex min-content resolution, no overflow — and the stylesheet guards read mock-parity.css
+      as TEXT with readFileSync; nothing in this project compiles CSS for a test. So every
+      automated assertion in this phase stops at "the element asks to wrap". A browser at that
+      width is the only evidence that it does, which is why the spec put the eye-check in
+      done[0] and why the observation is written down rather than left in a session.

@@ -473,9 +473,9 @@ public sealed class EpicWorkTicketTests
             return Task.CompletedTask;
         }
 
-        public Task FinalizeAsync(
+        public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+            Task.FromResult(TicketFinalizeResult.Moved());
     }
 
     /// <summary>Records how much had been filed at the moment the set was written.</summary>

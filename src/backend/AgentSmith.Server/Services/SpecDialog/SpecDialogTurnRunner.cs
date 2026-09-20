@@ -34,6 +34,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogTemplateScopes templateScopes,
     SpecDialogQuestionPump questionPump,
     SpecDialogPendingQuestions pendingQuestions,
+    SpecDialogTurnGate gate,
     DashboardReadingChannel reading,
     DashboardActivityChannel activity,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
@@ -56,14 +57,16 @@ public sealed class SpecDialogTurnRunner(
 
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pump = questionPump.PumpAsync(state, pumpCts.Token);
-        // Set before the pipeline runs, so both the scope repos and the templates it opens
-        // report through the flow; any run that sets none reports nothing.
+        // Set before the pipeline runs, so the scope repos and the templates it opens both
+        // report through the flow; a run that sets none reports nothing. 2026-09-17-042ee: and
+        // what it DOES with them. 2026-09-18-2f8b: the turn COMPUTES from here to the finally
+        // below, its steps kept on it for a page arriving mid-turn; the activity scope opens
+        // INSIDE the try, so a throw there cannot leave the span open with nothing to close it.
         using var observing = reading.Observe(state);
-        // 2026-09-17-042ee: and what it does with them — its tools, its model calls, its
-        // review and each re-prompt. Same flow, same dialog, same silence off the dashboard.
-        using var reporting = activity.Observe(state);
+        var computing = gate.Begin(state.JobId);
         try
         {
+            using var reporting = activity.Observe(state, computing);
             var result = await pipelineUseCase.ExecuteAsync(request, serverContext.ConfigPath, cancellationToken);
             // CollectSpecDialogReply writes reply + outcome together; a failed
             // run left both empty and resolves to an answer-shaped failure note.
@@ -77,6 +80,7 @@ public sealed class SpecDialogTurnRunner(
         }
         finally
         {
+            gate.Finish(state.JobId, computing);
             pumpCts.Cancel();
             await pump;
             pendingQuestions.Clear(state.JobId);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { HubConnectionState } from "@microsoft/signalr";
 import { HUB_URL } from "@/hooks/useJobsHub";
 import { getJobsHubClient } from "@/lib/JobsHubClient";
 import {
@@ -9,6 +10,9 @@ import {
   postSpecDialogMessage,
 } from "@/lib/specDialogApi";
 import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
+// 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
+// "which steps belong to the turn running now" is a rule of its own with its own tests.
+import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
 import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
@@ -36,11 +40,6 @@ import type {
 // The post is accepted before the message is routed, so a click is PENDING until a read issued after
 // it says what was stored: the entry then becomes that decision, or goes, and the question card comes
 // back from the same read when the question is still open.
-
-// 2026-09-17-042ee: how many of the turn's steps the page keeps. A turn that reads twenty
-// files reports twenty lines, and all but the last few are folded away; keeping every one of
-// an unbounded series would be a leak in a tab someone leaves open.
-const ACTIVITY_KEPT = 50;
 
 export type DialogEntryKind = "user" | "agent" | "decision";
 
@@ -85,6 +84,14 @@ export interface SpecDialogState {
   failure: Error | null;
   /** True between a post and the answer it will get. */
   awaiting: boolean;
+  /** 2026-09-18-2f8b: whether the working line belongs on the page at all — this page's own
+   *  post OR a turn the view says is computing. The local flag is the FLOOR: no read is
+   *  issued after a post, so a page rendering only from the view would go dark for the whole
+   *  turn it just started. */
+  working: boolean;
+  /** The moment, on THIS browser's clock, the working line counts up from — derived once from
+   *  the seconds the server says the turn has computed. Null when no turn is known to run. */
+  workingSince: number | null;
   /** The repositories the running turn opened, one per repository at its latest state, in
    *  the order they were first opened. Empty again when a new turn starts or the answer arrives. */
   readings: SpecDialogReadingPush[];
@@ -114,6 +121,13 @@ export function useSpecDialog(): SpecDialogState {
   // happening?". The page does not need the server for this: it posted, and it has had
   // no reply yet.
   const [awaiting, setAwaiting] = useState(false);
+  // 2026-09-18-2f8b: what the VIEW says about the turn — what a page that did not post the
+  // message has instead of the flag above, and what a page that did post adds to it.
+  const [computing, setComputing] = useState(false);
+  const [workingSince, setWorkingSince] = useState<number | null>(null);
+  // Whether the page is showing the working line at all, for the subscription below to ask
+  // without being torn down and rebuilt every time the answer changes.
+  const working = useRef(false);
   // 2026-09-17-c7aec: while awaiting, the server says which repositories the turn opened, so
   // the minute names what is being read.
   const [readings, setReadings] = useState<SpecDialogReadingPush[]>([]);
@@ -164,6 +178,16 @@ export function useSpecDialog(): SpecDialogState {
       const next = await fetchSpecDialog(id);
       if (issued !== reads.current) return;
       setView(next);
+      // 2026-09-18-2f8b: the turn as the server has it. The elapsed seconds are turned into a
+      // moment on THIS clock once, so the counter below differences nothing across machines.
+      // Read defensively: a payload from a server that does not carry the turn yet must leave
+      // the page working, not raise a page-wide failure over a field.
+      const turn = next.turn ?? null;
+      setComputing(turn?.computing ?? false);
+      if (turn?.computing) {
+        setWorkingSince(Date.now() - turn.elapsedSeconds * 1000);
+        setActivity((held) => mergedSteps(ofTurn(held, turn.turnStartedAt), turn.steps));
+      }
       // The question lives only in this state and in the server's in-memory wait, so a
       // reload has to take it back from the read or the approval gate loses its card.
       if (askedAtRead.current === null || askedAtRead.current < issued) setQuestion(next.question);
@@ -212,6 +236,7 @@ export function useSpecDialog(): SpecDialogState {
     // first repository may be announced before this line would otherwise run.
     setReadings([]);
     setActivity([]);
+    setWorkingSince(Date.now());
     try {
       await postSpecDialogMessage(id, text);
       if (echo === true) append("user", text, new Date().toISOString());
@@ -293,6 +318,8 @@ export function useSpecDialog(): SpecDialogState {
       // Every message is answered — a reply, a refusal, or the turn-failed notice — so
       // this is where the waiting ends, whatever the answer turned out to be.
       setAwaiting(false);
+      setComputing(false);
+      setWorkingSince(null);
       setReadings([]);
       setActivity([]);
       // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
@@ -323,10 +350,23 @@ export function useSpecDialog(): SpecDialogState {
       if (reading.dialogId === dialogId) setReadings((held) => upsertReading(held, reading));
     });
     const offActivity = client.specDialogActivity.add((step) => {
-      if (step.dialogId === dialogId) setActivity((held) => [...held, step].slice(-ACTIVITY_KEPT));
+      if (step.dialogId !== dialogId) return;
+      setActivity((held) => mergedSteps(held, [step]));
+      // 2026-09-18-2f8b: a SECOND SCREEN that was already open when the turn started. The
+      // computing flag comes off a read, and the only unconditional read is the one this page
+      // made when it mounted — so a tab opened before the post folds in every step and renders
+      // nothing at all. A step arriving while the page shows no working line is evidence a
+      // turn is running, and the read is what turns that into the line and its clock.
+      if (!working.current) void load(dialogId);
     });
     const offFiled = client.specDialogFilings.add((filing) => {
       if (filing.dialogId === dialogId) setFiled(filing);
+    });
+    // Everything pushed while the connection was down is gone — the reply that ends the turn
+    // included. Without a read on the way back the page would keep counting up for a turn that
+    // finished during the gap, and the next turn's steps would meet a list that outlived it.
+    const offConnection = client.connectionState.add((connection) => {
+      if (connection === HubConnectionState.Connected) void load(dialogId);
     });
     client.subscribeSpecDialog(dialogId)
       .then((cancel) => {
@@ -345,6 +385,7 @@ export function useSpecDialog(): SpecDialogState {
       offFiled();
       offReading();
       offActivity();
+      offConnection();
       void stop?.();
     };
   }, [dialogId, append, load, post, loadConversations, listIsBehind]);
@@ -380,6 +421,8 @@ export function useSpecDialog(): SpecDialogState {
     setFiled(null);
     setView(null);
     setAwaiting(false);
+    setComputing(false);
+    setWorkingSince(null);
     setReadings([]);
     setActivity([]);
     pending.current = command;
@@ -413,8 +456,10 @@ export function useSpecDialog(): SpecDialogState {
     [view, switchTo],
   );
 
+  working.current = awaiting || computing;
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
+    working: working.current, workingSince,
     readings, activity, send, startNew, open,
   };
 }

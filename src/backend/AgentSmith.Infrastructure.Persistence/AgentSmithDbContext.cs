@@ -51,6 +51,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     // 2026-08-26-7a51: the callers this installation has seen, so a role is granted to a
     // person picked from a list rather than to an identifier typed from a console.
     public DbSet<ObservedCallerEntity> ObservedCallers => Set<ObservedCallerEntity>();
+    public DbSet<UnmovedTicket> UnmovedTickets => Set<UnmovedTicket>(); // 2026-09-18-c1a7
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,6 +60,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
         modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
         modelBuilder.ApplyConfiguration(new TicketSpecSetConfiguration()); // p0390
+        modelBuilder.ApplyConfiguration(new UnmovedTicketConfiguration()); // 2026-09-18-c1a7
         modelBuilder.ApplyConfiguration(new ApprovedSpecSetConfiguration()); // 2026-09-17-0e79a
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
