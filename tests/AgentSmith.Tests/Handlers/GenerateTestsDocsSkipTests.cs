@@ -59,7 +59,10 @@ public sealed class GenerateTestsDocsSkipTests
         var (repo, changes) = Inputs();
         var handler = new GenerateTestsHandler(
             _chatFactory.Object, new AgentPromptBuilder(Mock.Of<IPromptCatalog>()),
-            Mock.Of<IDecisionLogger>(), null, Mock.Of<IRunContextAccessor>(),
+            new PostExecutePassTools(
+                Mock.Of<IDecisionLogger>(),
+                new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory(), null),
+            Mock.Of<IRunContextAccessor>(),
             NewPartitioner(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<GenerateTestsHandler>.Instance);
         var context = new GenerateTestsContext(
             repo, changes, "principles", new AgentConfig(), PipelineWithCleanRepo());
@@ -77,7 +80,10 @@ public sealed class GenerateTestsDocsSkipTests
         var (repo, changes) = Inputs();
         var handler = new GenerateDocsHandler(
             _chatFactory.Object, new AgentPromptBuilder(Mock.Of<IPromptCatalog>()),
-            Mock.Of<IDecisionLogger>(), null, Mock.Of<IRunContextAccessor>(),
+            new PostExecutePassTools(
+                Mock.Of<IDecisionLogger>(),
+                new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory(), null),
+            Mock.Of<IRunContextAccessor>(),
             NewPartitioner(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<GenerateDocsHandler>.Instance);
         var context = new GenerateDocsContext(
             repo, changes, "principles", new AgentConfig(), PipelineWithCleanRepo());

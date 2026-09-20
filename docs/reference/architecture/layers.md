@@ -202,7 +202,7 @@ Shared infrastructure that does not require external SDKs. Configuration loading
 | `StorageReaderRegistry` | Registers storage backends |
 | `YamlSkillLoader` | Loads skill definitions from YAML |
 | `ContextValidator` | Validates context files |
-| `FileDecisionLogger` | Logs decisions to file |
+| `RepositoryDecisionLogger` | Records a decision on the run, and copies it into the repository through its sandbox |
 
 ### Language Detectors
 

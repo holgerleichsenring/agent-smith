@@ -1,0 +1,65 @@
+phase: 2026-09-19-c511b
+decisions:
+  - id: the-guard-sits-at-the-sink
+    chose: >
+      RepositoryDecisionLogger and RepositoryDecisionFile catch what their bodies can throw, log a
+      WARN naming the file, the reason and the decision, and return an outcome. None of the three
+      callers gets an exception.
+    alternative: >
+      A try/catch at each caller, or a fault-converting decorator around every tool in the loop.
+    why: >
+      All three callers are audit paths — the log tool (LogDecisionToolHost.cs:42), the spawn line
+      (SpawnAgentToolHost.cs:180) and RegistryAuthFailureReporter.cs:24, which is itself the
+      fail-soft reporter for another failure. One guard at the sink covers them and the fourth
+      call site nobody has written yet. The general decorator is a different, wider question and
+      is specified separately as 2026-09-19-c511c, which found that the framework already converts
+      a tool throw for the first three consecutive failures.
+  - id: the-two-records-fail-separately-so-they-are-reported-separately
+    chose: >
+      DecisionLogOutcome has three values — Recorded, RecordedWithoutRepositoryCopy, NotRecorded —
+      and log_decision answers success for the first two and "Decision NOT recorded" for the third.
+    alternative: >
+      Swallowing both failures behind one "Decision logged", which is one enum and one branch
+      fewer.
+    why: >
+      The adversarial review of this spec caught the contradiction: the phase justifies keeping
+      quiet about a lost FILE by arguing the decision is recorded anyway — the mirror runs first
+      (RepositoryDecisionLogger's MirrorAsync) and the dashboard reads the stream, not the file. If
+      the mirror is swallowed too, that argument is gone and the tool would report success for a
+      decision recorded nowhere. That is the one case where the answer would be a flat lie, and it
+      is the case an operator most needs to see.
+  - id: the-model-is-not-told-about-a-lost-copy
+    chose: >
+      A failed repository write returns the SAME text as a successful one.
+    alternative: >
+      Handing the model the error, as the framework did in production.
+    why: >
+      The failed run is the experiment: the write threw, the framework fed the model a generic
+      error — IncludeDetailedErrors is set nowhere, so not even the path reached it — and the
+      model rewrote the same decision four times in six seconds, each shorter than the last,
+      because rewording is the only repair a model has for a tool it cannot fix. $2.29 for three
+      rewordings and a dead run. What the model cannot act on goes to the operator's log.
+  - id: cancellation-is-not-a-failure-to-swallow
+    chose: >
+      `ex is OperationCanceledException && ct.IsCancellationRequested` is rethrown; anything else
+      is warned about.
+    alternative: >
+      Catching every exception including cancellation, or rethrowing every
+      OperationCanceledException.
+    why: >
+      An operator cancel and the loop's own timeout both arrive as OperationCanceledException, and
+      a sink that ate a real cancel would keep a cancelled run walking for one more tool call and
+      mask the reason the master already names for the operator (MasterOutcomes.cs:52-62). One
+      raised while the token is NOT cancelled is an internal timeout of the sink's own call —
+      which is exactly the reading MasterOutcomes gives it — and the run should go on.
+  - id: four-failures-is-the-number-the-test-pins
+    chose: >
+      LogDecisionLoopTests drives the REAL FunctionInvokingChatClient over the real tool and asserts
+      the step after FOUR failing log_decision calls is still reached.
+    alternative: >
+      One failing call, which is what "it does not throw" needs.
+    why: >
+      Three is what the framework tolerates: MaximumConsecutiveErrorsPerRequest defaults to 3 and
+      rethrows the next one (Microsoft.Extensions.AI 10.3.0), and the repo sets only the iteration
+      cap (ChatClientFactory.cs:177). The production run died on its FOURTH log_decision. A test
+      that stopped at three would be green here and dead there.
