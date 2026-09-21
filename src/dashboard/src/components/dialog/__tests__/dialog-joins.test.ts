@@ -227,6 +227,9 @@ describe("The composer's glyph controls", () => {
     const off = dialogRules.filter((r) => /\.d-icon:disabled\s*$/.test(r.selector.trim()));
     expect(off, "the icon button carries no disabled appearance of its own").toHaveLength(1);
     expect(off[0].body).toMatch(/(^|;)\s*opacity\s*:/);
+  });
+});
+
 // 2026-09-20-4b0ae: the acknowledgement an inspect leaves is DRAWN, or the phase shipped two
 // attributes nothing paints. Both rules live in this page's own block — a new name below the
 // marker is the one shape the two guards above allow — and the focus one must be a plain
