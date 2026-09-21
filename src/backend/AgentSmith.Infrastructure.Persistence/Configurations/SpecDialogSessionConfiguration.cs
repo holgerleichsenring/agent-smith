@@ -22,6 +22,10 @@ public sealed class SpecDialogSessionConfiguration : IEntityTypeConfiguration<Sp
         builder.Property(s => s.ChannelId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(s => s.UserId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(s => s.Project).HasMaxLength(PersistenceLimits.IndexedString);
+        // 2026-09-20-4b0af: declared by LENGTH and by nothing else. This project's migrations
+        // are run by Sqlite, Postgres and MySQL alike, so a literal column type here would be
+        // provider-blind; a bounded string lets each provider's own convention pick the type.
+        builder.Property(s => s.Subject).HasMaxLength(PersistenceLimits.ConversationSubject);
         builder.HasIndex(s => s.SessionId).IsUnique();
         builder.HasIndex(s => new { s.Platform, s.ThreadId });
         builder.HasIndex(s => s.UserId);

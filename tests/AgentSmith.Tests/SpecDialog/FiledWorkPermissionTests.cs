@@ -14,6 +14,7 @@ using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.Server.Auth;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
@@ -222,6 +223,8 @@ public sealed class FiledWorkPermissionTests : IDisposable
                 new SpecDialogScopeResolver(Loader()), new SpecDialogReplyComposer(), messenger),
             turnRunner.Object, flow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pending, transport.Object),
+            SilentSubjectMinter.Over(repository, "proj"),
+            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }
 

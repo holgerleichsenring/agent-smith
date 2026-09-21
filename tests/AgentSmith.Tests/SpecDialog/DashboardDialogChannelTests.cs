@@ -13,6 +13,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -467,6 +468,8 @@ new DashboardOutcomeChannel(
                 composer, messenger),
             _turnRunner.Object, outcomeFlow, _turnGate,
             new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object),
+            SilentSubjectMinter.Over(_repository),
+            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             composer, messenger,
             NullLogger<SpecDialogRouter>.Instance);
     }
