@@ -1,0 +1,181 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-5c17
+
+goal: "Both admission doors carry the refusal they actually received, in one shared shape, so a waiting run names the gate that is holding it instead of a budget nobody consulted."
+
+applies_to: "backend (the spawn funnel's reservation, the init admission it duplicates, and the deferral's waiting reason)"
+
+scope:
+  in: >
+    An operator on a host with no resource limits read "waiting for capacity — footprint 15Gi / 6
+    cpu exceeds the remaining budget" and went looking for a limit that does not exist. On that
+    host admission is a COUNT of concurrent sandboxes against a configured bound, and the probe
+    says in its own words that the resource quantities are ignored.
+    Two gates decide admission: the sandbox probe, and the internal capacity ledger. The probe
+    explains itself — "Docker host at the concurrent-sandbox cap (3 running + 3 needed > 4)". The
+    funnel's reservation logs that sentence and returns a bare boolean, so the deferral, which
+    cannot know what refused it, composes a replacement out of the footprint. The two gates are
+    distinguishable in the code and indistinguishable in the text. On the operator's host the
+    ledger cannot even have been the refuser: with no configured budget it fails OPEN, so the
+    sentence they read described a gate that had said yes.
+    The same decision is made a second time, forty lines away, for a manually launched run — and
+    that copy already carries the probe's words correctly while producing the identical false
+    sentence for the ledger. This phase makes one shape serve both doors, carries the probe's own
+    refusal, gives the ledger one honest sentence written in one place, and puts the part an
+    operator can act on at the FRONT, because the surface that shows it clips the tail.
+  out: >
+    THE BOUND'S VALUE, and where it is resolved from. Configuration; unchanged.
+    THE LEDGER LEARNING TO EXPLAIN ITSELF. Its contract answers with a boolean and its only real
+    implementation throws away the four numbers it compared. Teaching it to speak means changing
+    that contract and three further call sites, and it would buy one sentence that the funnel can
+    already write truthfully from the footprint it holds. Named in prose as the phase that makes
+    the capacity ledger say which limit it hit.
+    THE QUEUE-POSITION BRANCH. "Waiting in line behind another project's head" is the funnel's own
+    knowledge, it is true, and it stays.
+    THE RUN DETAIL PAGE. It renders a hardcoded "waiting for capacity" for a queued run and shows
+    the summary only for failed and cancelled ones. Real, and a surface change of its own; named in
+    prose as the phase that gives a queued run its reason on its own page.
+    THE PUMP'S OWN DOOR. A third caller reserves against the ledger when it launches the queue
+    head, never consults the probe, and on refusal returns without writing any reason — it is
+    re-trying a run whose reason the funnel already wrote. Named in prose as the phase that gives
+    the pump's own refusal a sentence.
+    A RESUMED ENTRY. It reuses a run row that is not queued, so no waiting reason ever reaches a
+    run row for it. Pre-existing and out of scope; named in prose.
+
+decisions:
+  - key: |
+      ONE SHAPE, TWO DOORS — AND THE SECOND DOOR IS WHY THIS IS NOT A LOCAL FIX. The init admission
+      already returns a decision carrying the probe's words with a fallback, and already composes a
+      separate ledger sentence. Writing the same thing again in the funnel would leave two copies
+      of one rule, and the copy that exists carries the very sentence this phase is removing. The
+      shape is shared and the ledger's sentence is written once.
+  - key: |
+      THE PROBE'S WORDS ARE CARRIED; THE LEDGER'S ARE COMPOSED, AND THE SPEC SAYS SO OUT LOUD. The
+      probe knows why it refused and says it for an operator. The ledger's contract cannot carry a
+      reason at all. So the two halves are not symmetric, and pretending they are is how a spec
+      ends up asking for something unbuildable: the probe's sentence is carried verbatim, the
+      ledger's is composed from the footprint — which is the one gate the footprint quantities are
+      actually true for.
+  - key: |
+      A REFUSAL WITH NO WORDS IS STILL A SENTENCE. The decision type allows a denial with a null
+      reason, the queue entry's reason is non-nullable, the column is required, and the surface
+      renders an empty element for an empty string — which is worse for the operator than today's
+      wrong sentence. Every carried refusal passes through one fallback, and no empty reason can
+      reach the row.
+  - key: |
+      THE RESERVATION IS STILL NOT ATTEMPTED BEHIND THE QUEUE, AND THAT IS LOAD-BEARING. The call
+      is short-circuited today, so a run behind another project's head triggers no pod listing, no
+      corpse reap and no probe. A richer return type invites a rewrite that evaluates it first and
+      pays all three on every behind-queue spawn, every poll. The reservation is attempted only
+      when the run is not behind the queue, and the deferral falls back to the queue-position
+      sentence when no refusal was received.
+  - key: |
+      WHAT THE SENTENCE MAY NAME IS PART OF THE PHASE, AND THE EXPOSURE IS ALREADY LIVE. The
+      Kubernetes probe refuses with the quota object's name and the namespace. Those are estate
+      identifiers, and that text already leaves the log today: the manual launch door passes it
+      verbatim into a refusal that a test pins arriving in an HTTP response body. It would also
+      reach a database column and a rendered row.
+      STRIPPING THEM MUST RELOCATE THEM, NOT DESTROY THEM. The probe builds that string in one
+      place, is a pure static with no logger, and writes no line of its own on a denial — so simply
+      removing the identifiers would leave a cluster operator with three quotas in one namespace
+      unable to learn which refused. The probe therefore LOGS the identifier-bearing sentence
+      itself and RETURNS the stripped one, which means the deny branch moves back to where the
+      namespace and the quota object are in scope. Its evaluator's namespace parameter is then
+      unused by the returned text and the phase says what becomes of it rather than leaving a dead
+      argument and nine call sites passing it for nothing.
+  - key: |
+      THE ACTIONABLE HALF GOES FIRST, WHERE THE GATE HAS ONE. The run row shows the reason in a
+      fixed-width, ellipsised, nowrap element and hides it entirely at small widths, so a sentence
+      that opens with advice and ends with the numbers loses exactly the numbers. The rule is
+      scoped to the CARRIED probe sentence: a bound and its usage lead, and the advice follows.
+      The ledger's composed sentence has no bound to lead with — the contract it answers through
+      returns a boolean and the quantities it compared are discarded — so it leads with the
+      footprint it does hold, and the criterion says so rather than demanding a number nobody kept.
+      WHAT IS SHARED IS THE DECISION TYPE AND THE LEDGER'S SENTENCE, NOT THE SEQUENCE. The decision
+      type already lives in Contracts and both doors already use it, so no type moves; what moves is
+      one private sentence-builder, DOWN out of the server into the layer the funnel can see. The
+      two doors' sequences differ on purpose and stay different: the corpse reap is deliberately
+      absent from the manual door, because it made an operator wait through two namespace-wide pod
+      listings for a verdict none of it decides, and the reservation release is deliberately absent
+      from the funnel, because the deferral re-records it. Unifying the sequence would revert both.
+
+steps:
+  - id: one-admission-shape-serves-both-doors
+    action: "The funnel's reservation answers with the same decision the init admission already answers with: admitted, or refused with a reason. The probe's reason is carried verbatim through one non-empty fallback; the ledger's is composed in one place from the footprint and shared by both doors. The log line loses the Kubernetes wording on a host that has no namespaces."
+  - id: the-carried-reason-leads-with-what-can-be-acted-on
+    action: "The refusal text names the limit and the usage first. The Kubernetes refusal stops naming the quota object and the namespace on a text that reaches an operator surface."
+  - id: the-deferral-carries-it-instead-of-composing
+    action: "The deferral uses the carried refusal as the run's waiting reason. The queue-position branch is unchanged, and is what is used when no refusal was received because none was attempted."
+
+tests:
+  - "Admission_TheSandboxProbeRefuses_TheRunWaitsWithTheBoundAndUsageItNamed"
+  - "Admission_TheLedgerRefuses_TheRunWaitsWithADifferentSentenceThanTheProbeGives"
+  - "Admission_AProbeThatRefusesWithNoWords_StillProducesANonEmptyReason"
+  - "Admission_TheKubernetesRefusal_NamesNoQuotaObjectAndNoNamespace"
+  - "Admission_TheKubernetesRefusal_StillNamesThemInTheLog"
+  - "Spawn_ARunBehindAQueueHead_AttemptsNoReservationAndKeepsItsPositionSentence"
+  - "Spawn_TheProbesOwnSentence_IsWhatReachesTheRunRowOnTheFirstEnqueue"
+  - "Spawn_ARunThatIsAdmitted_IsUnaffected"
+  - "InitAdmission_UsesTheSameLedgerSentenceAsTheFunnel"
+
+done:
+  - "a queued run names the gate that refused it, in that gate's own words where it has them"
+  - "the two gates produce different sentences, so an operator can tell which is holding the run"
+  - "the bound and its usage lead the sentence wherever the gate has them, so the row does not clip them away"
+  - "no refusal reaches a run row empty"
+  - "the Kubernetes refusal names no estate object on an operator surface, and still names them in the log"
+  - "the identifiers stop reaching the manual launch door's response body, where a test pins them today"
+  - "a run behind the queue head still triggers no probe, no reap and no listing"
+  - "the manual-launch door and the poll door give the same ledger sentence"
+  - "no admission decision changes"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The funnel's reservation logs the refusal's reason and returns a bare boolean, discarding it."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:115-126"
+  - claim: "The call is short-circuited, so nothing in it runs for a run that is behind the queue."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:77"
+  - claim: "The deferral composes its own waiting reason from the footprint's memory and cpu totals."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/CapacityDeferral.cs:51-60"
+  - claim: "A second admission door already returns a decision, carries the probe's reason with a fallback, and composes its own ledger sentence from the footprint."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs:29-47"
+  - claim: "On a Docker host the decision is a count against a configured bound and the resource quantities are explicitly ignored."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs:9-17"
+  - claim: "The Docker refusal names the bound, what is running and what the run needs."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs:63-70"
+  - claim: "The Kubernetes refusal names the quota object and the namespace."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs:63-72"
+  - claim: "The capacity ledger answers with a boolean and its implementation discards the four quantities it compared."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ICapacityBudget.cs:22, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunCapacityRepository.cs:34-47, :60-67"
+  - claim: "With no configured budget the ledger fails open, so it cannot have been the refuser on a host that declares none."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunCapacityRepository.cs:60-67"
+  - claim: "A capacity decision may deny with a null reason."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISandboxCapacityProbe.cs:60-66"
+  - claim: "The queue entry's reason is a non-nullable record parameter and its column is required; the run row's summary column is nullable."
+    evidence: "src/backend/AgentSmith.Contracts/Models/CapacityQueueEntry.cs:18, src/backend/AgentSmith.Infrastructure.Persistence/Entities/QueuedTicket.cs:19, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:27"
+  - claim: "The waiting reason is written to the run row on the first enqueue, and refreshed on later ones."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:95-108, :85-93"
+  - claim: "The run row renders the summary for a queued run in a fixed-width, ellipsised element that is hidden at small widths."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:80-91, src/dashboard/src/styles/mock-parity.css:226"
+  - claim: "The run detail page renders a hardcoded waiting sentence for a queued run rather than its summary."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:352-387"
+  - claim: "The decision type already lives in Contracts and both doors already use it, so nothing has to move up; the ledger's sentence is one private static with a single caller."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISandboxCapacityProbe.cs:60-66, src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs:40, :45-47"
+  - claim: "The corpse reap is deliberately absent from the manual launch door, and the reservation release is deliberately absent from the funnel."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs:14-21, :51-56, src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:118"
+  - claim: "The Kubernetes probe is a pure static with no logger and writes no line of its own when it denies."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs:45-75"
+  - claim: "A fourth caller also consults the probe and logs its reason verbatim."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:98-99"
+  - claim: "The pump reserves against the ledger when it launches the head, never consults the probe, and returns without writing a reason."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:94"
+  - claim: "The run row already carries the reason on first enqueue today, so a test that only asserts a sentence arrives cannot fail on revert."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-108"
+  - claim: "The probe double used by the spawn tests denies with a Kubernetes-flavoured default that names no bound and no usage."
+    evidence: "tests/AgentSmith.Tests/Spawning/CapacityTestDoubles.cs:38"
+  - claim: "No production probe can deny with an empty reason; the fallback is defensive."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs:63-70, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs:63-72"
+  - claim: "Existing tests pin the ledger sentence's tail and the Docker sentence's bound phrase."
+    evidence: "tests/AgentSmith.Tests/Server/InitRunLauncherTests.cs:119, :309"
+  - claim: "A resume entry reuses a run row that is not queued, so no waiting reason reaches a run row for it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:28-35"

@@ -3,9 +3,12 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using FluentAssertions;
+using k8s;
+using k8s.Autorest;
 using k8s.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -35,8 +38,7 @@ public sealed class CapacityProbeTests
     [Fact]
     public void Evaluate_NoQuotas_Admits()
     {
-        KubernetesCapacityProbe.Evaluate(quotas: null, Footprint(), "ns")
-            .Admitted.Should().BeTrue();
+        KubernetesCapacityProbe.Evaluate(quotas: null, Footprint()).Should().BeNull();
     }
 
     [Fact]
@@ -46,8 +48,8 @@ public sealed class CapacityProbeTests
         var quota = Quota("compute", hard: new() { ["requests.cpu"] = "4", ["requests.memory"] = "8Gi" },
                                    used: new() { ["requests.cpu"] = "1", ["requests.memory"] = "2Gi" });
 
-        KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, Footprint(), "ns")
-            .Admitted.Should().BeTrue();
+        KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, Footprint())
+            .Should().BeNull();
     }
 
     [Fact]
@@ -57,11 +59,10 @@ public sealed class CapacityProbeTests
         var quota = Quota("compute", hard: new() { ["requests.cpu"] = "1" },
                                    used: new() { ["requests.cpu"] = "1" });
 
-        var decision = KubernetesCapacityProbe.Evaluate(
-            new List<V1ResourceQuota> { quota }, Footprint(), "ns");
+        var shortfall = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, Footprint());
 
-        decision.Admitted.Should().BeFalse();
-        decision.Reason.Should().Contain("requests.cpu");
+        shortfall.Should().NotBeNull();
+        shortfall!.Reason.Should().Contain("requests.cpu");
     }
 
     [Fact]
@@ -69,8 +70,8 @@ public sealed class CapacityProbeTests
     {
         var quota = Quota("pods", hard: new() { ["pods"] = "2" }, used: new() { ["pods"] = "2" });
 
-        KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, Footprint(), "ns")
-            .Admitted.Should().BeFalse();
+        KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, Footprint())
+            .Should().NotBeNull();
     }
 
     // ---- Kubernetes: p0320b full-run footprint math ----
@@ -85,14 +86,13 @@ public sealed class CapacityProbeTests
         var orchestrator = new ResourceLimits("500m", "1", "256Mi", "512Mi");
 
         var fits = new RunFootprint(orchestrator, [SandboxSize(), SandboxSize(), SandboxSize()]);
-        KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, fits, "ns")
-            .Admitted.Should().BeTrue();
+        KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, fits).Should().BeNull();
 
         var tooBig = new RunFootprint(
             orchestrator, [SandboxSize(), SandboxSize(), SandboxSize(), SandboxSize()]);
-        var decision = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, tooBig, "ns");
-        decision.Admitted.Should().BeFalse();
-        decision.Reason.Should().Contain("requests.cpu");
+        var shortfall = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, tooBig);
+        shortfall.Should().NotBeNull();
+        shortfall!.Reason.Should().Contain("requests.cpu");
     }
 
     [Fact]
@@ -103,10 +103,10 @@ public sealed class CapacityProbeTests
         var orchestrator = new ResourceLimits("100m", "500m", "128Mi", "256Mi");
         var run = new RunFootprint(orchestrator, [SandboxSize(), SandboxSize(), SandboxSize()]);
 
-        var decision = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, run, "ns");
+        var shortfall = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, run);
 
-        decision.Admitted.Should().BeFalse();
-        decision.Reason.Should().Contain("pods");
+        shortfall.Should().NotBeNull();
+        shortfall!.Reason.Should().Contain("pods");
     }
 
     // ---- Kubernetes: p0332 requests-only quota shape ----
@@ -128,15 +128,15 @@ public sealed class CapacityProbeTests
         var hugeLimits = new ResourceLimits("100m", "8", "1Gi", "64Gi");
 
         KubernetesCapacityProbe.Evaluate(
-                new List<V1ResourceQuota> { quota }, new RunFootprint(null, [hugeLimits]), "ns")
-            .Admitted.Should().BeTrue("limits.* keys are absent from the quota, so limits must not count");
+                new List<V1ResourceQuota> { quota }, new RunFootprint(null, [hugeLimits]))
+            .Should().BeNull("limits.* keys are absent from the quota, so limits must not count");
 
         // Requests still enforce: 3 x 1Gi = 3Gi > the 2Gi free requests.memory.
         var tooManyRequests = new RunFootprint(null, [hugeLimits, hugeLimits, hugeLimits]);
         var denied = KubernetesCapacityProbe.Evaluate(
-            new List<V1ResourceQuota> { quota }, tooManyRequests, "ns");
-        denied.Admitted.Should().BeFalse();
-        denied.Reason.Should().Contain("requests.memory");
+            new List<V1ResourceQuota> { quota }, tooManyRequests);
+        denied.Should().NotBeNull();
+        denied!.Reason.Should().Contain("requests.memory");
 
         // And pods stays the deterministic backpressure knob of the shape:
         // 3 pod slots free, but tiny-request pods still count 1 slot each.
@@ -145,10 +145,38 @@ public sealed class CapacityProbeTests
             used: new() { ["requests.cpu"] = "0", ["requests.memory"] = "0", ["pods"] = "2" });
         var tiny = new ResourceLimits("100m", "8", "128Mi", "64Gi");
         var fourPods = new RunFootprint(tiny, [tiny, tiny, tiny]);
-        var podDenied = KubernetesCapacityProbe.Evaluate(
-            new List<V1ResourceQuota> { podQuota }, fourPods, "ns");
-        podDenied.Admitted.Should().BeFalse();
-        podDenied.Reason.Should().Contain("pods");
+        var podDenied = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { podQuota }, fourPods);
+        podDenied.Should().NotBeNull();
+        podDenied!.Reason.Should().Contain("pods");
+    }
+
+    // ---- 2026-09-21-5c17: what a refusal may name, and where ----
+
+    [Fact]
+    public async Task Admission_TheKubernetesRefusal_NamesNoQuotaObjectAndNoNamespace()
+    {
+        // The refusal is CARRIED now — to a queued run's row, to the manual launch door's
+        // response body, into a database column. Estate identifiers do not belong on any of them.
+        var (probe, _) = ProbeOverAnExhaustedQuota();
+
+        var decision = await probe.HasCapacityAsync(Footprint(), CancellationToken.None);
+
+        decision.Admitted.Should().BeFalse();
+        decision.Reason.Should().NotContain(QuotaObject).And.NotContain(QuotaNamespace);
+        decision.Reason.Should().Contain("requests.cpu", "it still says which resource is full");
+    }
+
+    [Fact]
+    public async Task Admission_TheKubernetesRefusal_StillNamesThemInTheLog()
+    {
+        // Stripping them must RELOCATE them: a cluster operator with three quotas in one
+        // namespace has to be able to learn which one refused, and the probe wrote no line of
+        // its own before this phase.
+        var (probe, logger) = ProbeOverAnExhaustedQuota();
+
+        await probe.HasCapacityAsync(Footprint(), CancellationToken.None);
+
+        logger.Lines.Should().ContainSingle(l => l.Contains(QuotaObject) && l.Contains(QuotaNamespace));
     }
 
     // ---- Kubernetes: quota-rejection message mapping at the factory boundary ----
@@ -258,6 +286,37 @@ public sealed class CapacityProbeTests
     }
 
     // ---- helpers ----
+
+    private const string QuotaObject = "compute-quota";
+    private const string QuotaNamespace = "sample-namespace";
+
+    // The real probe over a namespace whose only quota has no cpu left — the deny branch,
+    // driven through the client so the line it writes is observable.
+    private static (KubernetesCapacityProbe Probe, CapturingLogger<KubernetesCapacityProbe> Logger)
+        ProbeOverAnExhaustedQuota()
+    {
+        var quota = Quota(QuotaObject,
+            hard: new() { ["requests.cpu"] = "1" }, used: new() { ["requests.cpu"] = "1" });
+        var core = new Mock<ICoreV1Operations>();
+        core.Setup(c => c.ListNamespacedResourceQuotaWithHttpMessagesAsync(
+                It.IsAny<string>(), It.IsAny<bool?>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<bool?>(), It.IsAny<int?>(), It.IsAny<bool?>(), It.IsAny<bool?>(),
+                It.IsAny<IReadOnlyDictionary<string, IReadOnlyList<string>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new HttpOperationResponse<V1ResourceQuotaList>
+            {
+                Request = new HttpRequestMessage(),
+                Response = new HttpResponseMessage(),
+                Body = new V1ResourceQuotaList { Items = [quota] },
+            });
+        var client = new Mock<IKubernetes>();
+        client.SetupGet(c => c.CoreV1).Returns(core.Object);
+        var logger = new CapturingLogger<KubernetesCapacityProbe>();
+        return (
+            new KubernetesCapacityProbe(
+                client.Object, new KubernetesSandboxOptions { Namespace = QuotaNamespace }, logger),
+            logger);
+    }
 
     private static V1ResourceQuota Quota(
         string name, Dictionary<string, string> hard, Dictionary<string, string> used) =>
