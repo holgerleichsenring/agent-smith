@@ -74,11 +74,11 @@ public static class ParkedTicketFixture
             TicketId ticketId, CancellationToken cancellationToken = default) =>
             Task.FromResult(comments);
 
-        public Task TransitionToAsync(
+        public Task<bool> TransitionToAsync(
             TicketId ticketId, string statusName, CancellationToken cancellationToken)
         {
             Transitions.Add(statusName);
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
 
         public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>

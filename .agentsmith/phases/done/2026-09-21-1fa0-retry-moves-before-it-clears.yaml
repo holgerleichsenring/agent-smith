@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-1fa0
+
+goal: "The operator retry moves the ticket before it drops the hold and reports what the tracker actually did, so it cannot answer success while leaving a ticket held by nothing and claimable by nobody."
+
+applies_to: "backend (the operator retry service and the endpoint that reports it)"
+
+scope:
+  in: >
+    An operator retry is the release for a ticket a run could not move: it clears the standing
+    refusal the claim gate reads and moves the ticket back to a trigger status, where the ordinary
+    poller claims it. It does those two things in the wrong order and then reports an outcome it
+    did not check.
+    It clears the record FIRST and transitions SECOND, and it discards what the transition
+    answered. Its log line then states that the ticket was moved back, unconditionally, and it
+    returns true; the endpoint turns that into a success body. On one tracker the transition
+    returns false when no workflow transition matches and the provider drops that answer on the
+    floor; on another the patch throws, so the hold is already gone when the request fails.
+    Either way the ticket ends in no trigger status with no hold: the poller will not claim it
+    because its status does not trigger, and nothing holds it any more to say why. It is invisible
+    in exactly the way the hold existed to prevent, and the operator was told it worked.
+    This phase moves the ticket first, drops the hold only when the move landed, and reports the
+    tracker's own answer.
+  out: >
+    DRAWING THE RETRY ON THE SURFACE. The dashboard offers no control for this endpoint, which is
+    why an operator sat beside a working release for hours. That is a surface phase and it must not
+    go first: drawing a button that reports false success would spread the defect rather than fix
+    it. Named in prose as the phase that shows a held ticket its release.
+    RE-CHECKING THE HOLD AUTOMATICALLY. A separate question, and an adversarial review already
+    refused one shape of it.
+    WHAT THE GATE REFUSES AND WHY. Unchanged.
+    THE HAND-BACK RESET. The retry also resets the repeat guard that counts how often a ticket has
+    been handed back. Pre-existing, deliberate as far as the code says, and named here because this
+    phase reads that method and the next reader should not have to rediscover that the release
+    button also clears a counter nobody mentioned.
+
+decisions:
+  - key: |
+      THE ORDER IS THE DEFECT, AND IT IS THE CHEAPER HALF TO FIX. Clearing a hold before the act
+      that justifies clearing it has exactly one failure mode and it is the worst one available:
+      the ticket loses both the status that would get it claimed and the record that would explain
+      why it was not. Moving first and clearing on success leaves, at worst, a ticket that still
+      carries its hold and an operator who is told the move failed — which is the state they were
+      in before they pressed the button.
+  - key: |
+      THE TRANSITION'S ANSWER IS ALREADY THERE AND IS THROWN AWAY. One tracker's transitioner
+      returns false when no workflow transition matches and only warns; the provider that wraps it
+      discards the boolean. So the retry cannot learn what happened from the call it already makes
+      — the provider must stop swallowing it. That is the whole mechanism: nothing new is asked of
+      any tracker.
+  - key: |
+      A THROWN PATCH IS NOT A SUCCESS EITHER. On the tracker whose patch throws, the exception
+      today escapes after the record is already gone. With the order reversed it escapes before
+      anything was cleared, so the failure is the honest one: the hold stands and the request
+      reports an error.
+  - key: |
+      THE LOG LINE MUST STOP ASSERTING THE MOVE. It states that the ticket was moved back to the
+      target status whatever happened, which is how this survived: the one artefact an operator
+      would consult to check says the thing the code never verified.
+  - key: |
+      THE ENDPOINT REPORTS THE OUTCOME, NOT THE ATTEMPT. It answers a success body on anything but
+      a missing trigger status. It gains the case it is missing — the tracker refused the move —
+      and says so rather than reporting a retry that did not happen.
+
+steps:
+  - id: the-transition-answer-stops-being-swallowed
+    action: "The provider that wraps a transitioner returning a boolean stops discarding it, so a caller can learn that no workflow transition matched. Nothing new is asked of any tracker; an answer that already exists stops being dropped."
+  - id: the-retry-moves-then-clears
+    action: "The retry transitions the ticket first and clears the standing refusal only when the move landed. A move that is refused or throws leaves the hold standing. The log line states what happened rather than asserting the move."
+  - id: the-endpoint-reports-what-happened
+    action: "The endpoint distinguishes a retry that moved the ticket from one the tracker refused, and says which."
+
+tests:
+  - "Retry_AMoveThatLands_ClearsTheHoldAndReportsIt"
+  - "Retry_AMoveTheTrackerRefuses_LeavesTheHoldStandingAndSaysSo"
+  - "Retry_AMoveThatThrows_LeavesTheHoldStanding"
+  - "Retry_AProjectWithNoTriggerStatus_StillReportsThatAndClearsNothing"
+  - "Retry_TheLogLine_DoesNotAssertAMoveThatDidNotHappen"
+  - "TicketProvider_ATransitionWithNoMatchingWorkflowStep_IsReportedRatherThanSwallowed"
+
+done:
+  - "a retry that could not move the ticket leaves the hold in place"
+  - "a retry that moved the ticket clears the hold, as it does today"
+  - "the operator is told which of the two happened"
+  - "no ticket can end in a non-trigger status with its hold already dropped"
+  - "the log line no longer states a move it did not verify"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The retry clears the standing refusal and then transitions the ticket, discarding what the transition answered."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/NotImplementableRetryService.cs:39-45"
+  - claim: "It then logs that the ticket was moved back to the target status, unconditionally, and returns true."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/NotImplementableRetryService.cs:46-49"
+  - claim: "The endpoint turns that into a success body and reports failure only when the project declares no trigger status."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:54-64"
+  - claim: "The retry is the operator's documented way back for a parked verdict, and needs the run-control permission."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:38-41"
+  - claim: "One tracker's transition returns false when no workflow transition matches, warning only that the ticket will remain in its current state."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTransitioner.cs:33-40"
+  - claim: "The provider that wraps it returns a Task and discards that boolean."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:190"
+  - claim: "Another tracker's transition is a patch that throws when the tracker refuses it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:184-185"
+  - claim: "The claim gate refuses from the standing record, so a ticket whose record is gone is refused by nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:14-30"
+  - claim: "The poller claims only tickets whose native status is in the trigger statuses."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:138-147"
+  - claim: "The retry also resets the hand-back case and the repeat count on the ticket's spec-set pointer."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/NotImplementableRetryService.cs:52-63"
+  - claim: "The dashboard references the retry endpoint nowhere."
+    evidence: "src/dashboard/src"

@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-21-5c17
+
+decisions:
+  - category: Architecture
+    chose: "The spawn funnel's reservation answers with CapacityDecision — the type the manual init door already answers with"
+    over: "Composing a truthful sentence inside the deferral from what the funnel happens to hold"
+    reason: |
+      Two gates decide admission and only one of them can explain itself. The sandbox probe names
+      the bound it refused against; the capacity ledger answers through a bool and its only real
+      implementation discards the four quantities it compared. The funnel logged the probe's
+      sentence and returned a bare boolean, so the deferral — which could not know what had
+      refused — wrote "waiting for capacity — footprint 15Gi / 6 cpu exceeds the remaining budget"
+      for BOTH. On a host that declares no budget the ledger fails open and cannot have refused
+      anything, so that sentence described a gate that had said yes, and an operator went looking
+      for a limit that does not exist.
+      The decision type already lives in Contracts and both doors already used it, so nothing had
+      to move up. Widening the funnel's private ReserveAsync to return it costs one call site and
+      makes the deferral's input the refusal it actually received.
+    alternatives:
+      - "Teaching ICapacityBudget to explain itself: changes the contract and three further call sites to buy one sentence the funnel can already write truthfully from the footprint it holds. Named in prose as the phase that makes the capacity ledger say which limit it hit"
+      - "Fixing only the deferral's wording: leaves the second door's copy of the same rule untouched, and that copy carries the very sentence this phase removes"
+
+  - category: Implementation
+    chose: "The probe's words are CARRIED verbatim; the ledger's sentence is COMPOSED once, in CapacityReasons, and shared by both doors"
+    over: "One symmetric path that treats the two gates alike"
+    reason: |
+      The two halves are not symmetric and the code now says so. CapacityReasons.Carried passes a
+      probe's own refusal through and substitutes a sentence only when there are no words at all;
+      CapacityReasons.LedgerFull writes the budget refusal from the footprint, which is the one
+      gate those numbers are actually true for. Both doors call both, so the manual launch door
+      and the poll door give the identical ledger sentence and a test pins that they do.
+      What moved is exactly one private sentence-builder, DOWN out of the Server into the
+      Application layer the funnel can see. No type moved and the two doors' SEQUENCES were left
+      different on purpose: the corpse reap stays out of the manual door (it made an operator wait
+      through two namespace-wide pod listings for a verdict none of it decides) and the
+      reservation release stays out of the funnel (the deferral re-records it). Unifying the
+      sequence would have reverted both.
+
+  - category: Implementation
+    chose: "The reservation is still attempted only when the run is NOT behind the queue head"
+    over: "Evaluating the decision first and branching on it, which a richer return type invites"
+    reason: |
+      The old call was short-circuited inside a boolean &&. A richer return type makes it tempting
+      to compute the decision unconditionally and then check the queue, which would pay a corpse
+      reap, a namespace-wide pod listing and a budget write on EVERY behind-queue spawn on EVERY
+      poll. The decision is therefore null when the run is behind the queue, and the deferral's
+      queue-position branch — its own knowledge, and true — is what answers then. A test counts
+      probe calls, reap calls and reserve calls and pins all three at zero.
+
+  - category: Security
+    chose: "The Kubernetes probe LOGS the quota object and the namespace and RETURNS a sentence naming neither"
+    over: "Deleting the identifiers from the refusal text"
+    reason: |
+      The refusal is now carried to operator surfaces — a queued run's row, the manual launch
+      door's HTTP body where a test already pins it arriving, a required database column. Estate
+      identifiers do not belong on any of them. But deleting them would leave a cluster operator
+      with three quotas in one namespace unable to learn which refused, and the probe wrote no
+      line of its own when it denied.
+      So the deny branch moved back to HasCapacityAsync, where the namespace and the quota object
+      are in scope and a logger exists. The pure evaluator now returns a QuotaShortfall (null when
+      the run fits) instead of a decision, and its namespace parameter is GONE rather than left
+      dead: it no longer writes a sentence that could name one, and the ten test call sites that
+      passed "ns" stopped passing it.
+    alternatives:
+      - "Keeping Evaluate's CapacityDecision return and logging from a second entry point: two entry points into one piece of math, one of them existing only for the tests"
+
+  - category: TradeOff
+    chose: "The bound and its usage LEAD the carried probe sentence; the ledger's leads with the footprint"
+    over: "Requiring every refusal to open with a bound"
+    reason: |
+      The run row renders the reason in a fixed-width, ellipsised, nowrap element and hides it
+      entirely at small widths, so a sentence that opens with advice and ends with the numbers
+      loses exactly the numbers. The Docker refusal now opens "3 running + 2 needed exceeds the
+      concurrent-sandbox cap of 4" and the Kubernetes one "requests.cpu is at its limit: hard 2,
+      used 2".
+      The rule is scoped to the CARRIED sentence. The ledger has no bound to lead with — its
+      contract returns a bool and the quantities are discarded — so it leads with the footprint it
+      does hold, and the criterion says so rather than demanding a number nobody kept.
+
+  - category: Scope
+    chose: "Four adjacent gaps left standing and named"
+    reason: |
+      The run detail page still renders a hardcoded "waiting for capacity" for a queued run and
+      shows the summary only for failed and cancelled ones — a surface change of its own, named in
+      prose as the phase that gives a queued run its reason on its own page.
+      The capacity-queue pump reserves against the ledger when it launches the head, never
+      consults the probe, and on refusal returns without writing any reason; it is re-trying a run
+      whose reason the funnel already wrote. Named in prose as the phase that gives the pump's own
+      refusal a sentence.
+      A resumed entry reuses a run row that is not queued, so no waiting reason reaches a run row
+      for it at all. Pre-existing.
+      A Kubernetes shortfall sentence still states hard and used without what the run needs,
+      because the requirement is held in nanoCPUs and bytes and printing it raw would be worse
+      than omitting it. Unchanged from the text this phase replaced.

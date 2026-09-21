@@ -13,15 +13,14 @@ namespace AgentSmith.Application.Services.Spawning;
 /// ITicketClaimService.ClaimAsync. The unified-run model: one ticket = one
 /// pipeline run over all configured repos (no per-repo fan-out).
 ///
-/// p0336: admission is now PREDICTABLE. The run's COMPLETE footprint (every
-/// toolchain-group sandbox at its resolved limit + the orchestrator) is computed
-/// from the remote context inventory, recorded for visibility, and reserved
-/// atomically against the capacity budget BEFORE the claim — a run only starts
-/// when its full footprint fits, so it can never fail for capacity mid-run.
-/// A denied ticket (footprint does not fit) or any ticket behind a non-empty
-/// queue (strict FIFO, no overtaking) is upserted as ONE queue entry with ONE
-/// visible "queued" Run row and returns Queued without claiming. The reservation
-/// is freed on terminal status (RunEventApplier) or if the claim fails.
+/// p0336: admission is now PREDICTABLE. The run's COMPLETE footprint (every toolchain-group
+/// sandbox at its resolved limit + the orchestrator) is computed from the remote context
+/// inventory, recorded for visibility, and reserved atomically against the capacity budget
+/// BEFORE the claim — a run only starts when its full footprint fits, so it can never fail for
+/// capacity mid-run. A denied ticket (footprint does not fit) or any ticket behind a non-empty
+/// queue (strict FIFO, no overtaking) is upserted as ONE queue entry with ONE visible "queued"
+/// Run row and returns Queued without claiming. The reservation is freed on terminal status
+/// (RunEventApplier) or if the claim fails.
 ///
 /// 2026-09-13-a72a: an epic child whose predecessor has not left the working set is
 /// declined BEFORE any of that — it stays in the tracker, holds no run row and no
@@ -62,8 +61,7 @@ public sealed class SpawnPipelineRunsUseCase(
         // row and a budget record, and the pump then claims it DIRECTLY; a gate placed after
         // that branch would leave state behind and be bypassed by a second, ungated door.
         var predecessors = await predecessorGate.CheckAsync(project, envelope, ct);
-        if (predecessors.Blocked)
-            return new SpawnResult([ClaimResult.Queued(predecessors.Reason!)]);
+        if (predecessors.Blocked) return new SpawnResult([ClaimResult.Queued(predecessors.Reason!)]);
 
         ValidateForSpawn(project, envelope);
         var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, ct);
@@ -74,7 +72,9 @@ public sealed class SpawnPipelineRunsUseCase(
         var runId = isHead ? head!.ReservedRunId! : RunIdGenerator.Generate(DateTimeOffset.UtcNow);
         var behindQueue = head is not null && !isHead;
 
-        if (!behindQueue && await ReserveAsync(runId, footprint, ct))
+        // Still NOT attempted behind the queue: no footprint record, no corpse reap, no pod listing.
+        var admission = behindQueue ? null : await ReserveAsync(runId, footprint, ct);
+        if (admission is { Admitted: true })
             return await StartAsync(
                 config, project, pipelineName, envelope, matchedTrigger, planAnswers, runId, isHead, ct);
 
@@ -93,7 +93,7 @@ public sealed class SpawnPipelineRunsUseCase(
         }
 
         return await _deferral.DeferAsync(
-            project, pipelineName, envelope, matchedTrigger, planAnswers, footprint, head, runId, ct);
+            project, pipelineName, envelope, matchedTrigger, planAnswers, footprint, head, runId, admission, ct);
     }
 
     private static void ValidateForSpawn(ResolvedProject project, IncomingTicketEnvelope envelope)
@@ -107,22 +107,27 @@ public sealed class SpawnPipelineRunsUseCase(
                 $"Project '{project.Name}' has no repos; cannot spawn pipeline runs.");
     }
 
-    // p0355: reconcile-then-admit. BEFORE reserving, reap corpse sandbox pods (a
-    // crashed replica's pod still holds the namespace ResourceQuota) so headroom
-    // reflects reality, then reconcile with the REAL namespace quota — QUEUE a run
-    // k8s can't fit instead of admitting it and having the pod-create killed with
-    // "exceeded quota". The internal budget ledger stays the lag-free gate on top.
-    private async Task<bool> ReserveAsync(string runId, RunFootprintBreakdown footprint, CancellationToken ct)
+    // p0355: reconcile-then-admit. BEFORE reserving, reap corpse sandbox pods (a crashed
+    // replica's pod still holds the namespace ResourceQuota) so headroom reflects reality, then
+    // reconcile with the REAL namespace quota — QUEUE a run k8s can't fit instead of admitting it
+    // and having the pod-create killed with "exceeded quota". The internal budget ledger stays
+    // the lag-free gate on top.
+    // 2026-09-21-5c17: the answer is the same decision the manual init door answers with, so the
+    // deferral names the gate that actually refused instead of composing a budget sentence for a
+    // gate that may have said yes. The probe's words are carried; the ledger's are composed.
+    private async Task<CapacityDecision> ReserveAsync(
+        string runId, RunFootprintBreakdown footprint, CancellationToken ct)
     {
         await capacityBudget.RecordAsync(runId, footprint, ct);
         await corpseReaper.ReapCorpsesAsync(ct);
         var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)
         {
-            logger.LogInformation("Admission denied by namespace quota for run {RunId}: {Reason}", runId, quota.Reason);
-            return false;
+            logger.LogInformation("Admission denied by the sandbox host for run {RunId}: {Reason}", runId, quota.Reason);
+            return CapacityDecision.Deny(CapacityReasons.Carried(quota.Reason));
         }
-        return await capacityBudget.TryReserveAsync(runId, ct);
+        return await capacityBudget.TryReserveAsync(runId, ct)
+            ? CapacityDecision.Admit() : CapacityDecision.Deny(CapacityReasons.LedgerFull(footprint));
     }
 
     private async Task<SpawnResult> StartAsync(
