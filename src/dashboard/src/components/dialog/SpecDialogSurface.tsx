@@ -84,7 +84,6 @@ export function SpecDialogSurface() {
     if (warning !== null && !(await confirmation.ask(warning, { confirmLabel: "Delete" }))) return;
     await dialog.remove(sessionId);
   }
-  const title = session
   // 2026-09-20-4b0af: the heading says what the conversation is ABOUT, and falls back to the
   // first line the person wrote — which is what it always said, and what the row beside it still
   // says. The subject rides the SESSION, re-read after every reply, so the heading corrects
