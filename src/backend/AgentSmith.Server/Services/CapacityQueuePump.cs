@@ -1,6 +1,5 @@
 using System.Text.Json;
 using AgentSmith.Application.Services.Triggers;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -28,7 +27,9 @@ public sealed class CapacityQueuePump(
     ITicketProviderFactory ticketFactory,
     ICapacityBudget capacityBudget,
     ISandboxCorpseReaper corpseReaper,
-    IEventPublisher events,
+    // 2026-09-21-c724c: a dropped entry's run is FINISHED where its row lives, not merely
+    // announced into a stream nothing drains. Order and collaborators live in that class.
+    CapacityQueueDrop drop,
     IRunCancelStateReader cancelState,
     ResumeRunLauncher resumeLauncher,
     IConfigurationLoader configLoader,
@@ -62,7 +63,7 @@ public sealed class CapacityQueuePump(
         if (!string.IsNullOrEmpty(head.ReservedRunId)
             && await cancelState.IsCancelRequestedAsync(head.ReservedRunId!, ct))
         {
-            await DropAsync(head, "cancelled by operator", ct);
+            await drop.DropAsync(head, "cancelled by operator", ct);
             return;
         }
         if (head.InitialContextJson is null) return; // TOCTOU-backstop entry — poller launches it
@@ -70,7 +71,7 @@ public sealed class CapacityQueuePump(
         var config = configLoader.LoadConfig(configPath);
         if (!config.Projects.TryGetValue(head.Project, out var project))
         {
-            await DropAsync(head, $"project '{head.Project}' is no longer configured", ct);
+            await drop.DropAsync(head, $"project '{head.Project}' is no longer configured", ct);
             return;
         }
         // p0327: a resume entry skips the trigger-status re-validation — the
@@ -78,7 +79,7 @@ public sealed class CapacityQueuePump(
         // would cancel a run that merely asked a question.
         if (!head.IsResume && !await IsStillTriggeredAsync(project, head, ct))
         {
-            await DropAsync(head, "ticket left its trigger statuses", ct);
+            await drop.DropAsync(head, "ticket left its trigger statuses", ct);
             return;
         }
 
@@ -104,7 +105,7 @@ public sealed class CapacityQueuePump(
         else if (head.ReservedRunId is not null) await capacityBudget.ReleaseAsync(head.ReservedRunId, ct);
         // c1a7: a rejection is permanent, and this pump looks only at the head — it must not stay.
         if (result.Outcome == ClaimOutcome.Rejected)
-            await DropAsync(head, result.Error ?? $"{result.Rejection}", ct);
+            await drop.DropAsync(head, result.Error ?? $"{result.Rejection}", ct);
         logger.LogInformation("Capacity-queue head {Project}/#{Ticket} (run {RunId}) launch → {Outcome}",
             head.Project, head.TicketId, head.ReservedRunId, result.Outcome);
     }
@@ -120,21 +121,6 @@ public sealed class CapacityQueuePump(
             .GetTicketAsync(new TicketId(head.TicketId), ct);
         return trigger.TriggerStatuses.Count == 0
             || trigger.TriggerStatuses.Contains(ticket.Status, StringComparer.OrdinalIgnoreCase);
-    }
-
-    // Stale entry: remove it and finish its queued Run row as cancelled — nothing
-    // is executing, so the terminal event is the whole teardown (it also nudges
-    // the dashboard).
-    private async Task DropAsync(CapacityQueueEntry head, string reason, CancellationToken ct)
-    {
-        await queue.RemoveAsync(head.Project, head.TicketId, ct);
-        if (!string.IsNullOrEmpty(head.ReservedRunId))
-            await events.PublishAsync(new RunFinishedEvent(
-                head.ReservedRunId!, "cancelled", null,
-                $"dropped from capacity queue: {reason}", DateTimeOffset.UtcNow), ct);
-        logger.LogInformation(
-            "Capacity-queue entry {Project}/#{Ticket} dropped: {Reason}",
-            head.Project, head.TicketId, reason);
     }
 
     private static ClaimRequest ToClaimRequest(CapacityQueueEntry head) => new(
