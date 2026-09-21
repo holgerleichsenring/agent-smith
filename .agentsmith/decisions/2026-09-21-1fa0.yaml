@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-21-1fa0
+
+decisions:
+  - category: Architecture
+    chose: "ITicketProvider.TransitionToAsync answers Task<bool> — whether the ticket moved"
+    over: "Reading the status back after the move, or a second port member that reports"
+    reason: |
+      The retry reaches a tracker only through ITicketProvider, so the answer has to cross that
+      port; a narrower seam that leaves the port returning a bare Task cannot exist. Two shapes
+      were available. A status read-back is what FiledWorkStarter already does and needs no
+      signature change, but it asks every tracker for a round-trip it was not asked for before
+      and invents a new failure mode: a tracker that answers its own write with a lagging read
+      would report a refusal for a move that landed, leaving a ticket in a trigger status with
+      its hold still standing. The boolean asks nothing new of any tracker — Jira's transitioner
+      has always answered it and the provider was the only thing dropping it — and adds no
+      failure mode at all. It is also the port's own idiom, one day old: AddLabelAsync (2ba8)
+      answers whether the label is on the ticket and defaults to false for the same reason.
+      A parallel "TryTransitionTo" member was refused: two members meaning one thing is the
+      wrapper shim the principles forbid, and the old one would stay reachable.
+
+  - category: Implementation
+    chose: "The default stays a no-op and now answers false"
+    over: "Keeping Task.CompletedTask semantics by defaulting to true"
+    reason: |
+      A provider that overrides nothing performs no transition, so it moved nothing. True would
+      make the silent default the one answer a caller must not trust, which is the defect this
+      phase exists to remove. Every shipped provider overrides the member, so the default is
+      reached only by a test double that does not care.
+
+  - category: Implementation
+    chose: "The order, not a try/catch: transition, then clear on a move that landed"
+    over: "Clearing first and restoring the record when the move fails"
+    reason: |
+      Restoring a dropped record is a second write that can fail on its own, and the window
+      between the two is exactly the state that has to be impossible. Moving first has one
+      worst case — the hold still stands and the operator is told the move failed — and that is
+      the state they were in before they pressed the button. It also fixes the throwing tracker
+      for free: the exception now escapes before anything has been cleared.
+
+  - category: Implementation
+    chose: "The hand-back reset moved behind the same gate as the hold"
+    over: "Leaving it where it was, ahead of the move"
+    reason: |
+      The spec names the hand-back reset as pre-existing and out of scope, and what it does is
+      unchanged for a retry that works. But a retry that did not happen must not reset the
+      repeat counter that guards the next attempt either — the same rule, and leaving it ahead
+      of the move would have applied half of this phase.
+
+  - category: Architecture
+    chose: "A three-valued RetryOutcome, not a bool"
+    over: "Widening the existing bool or throwing on the refusal"
+    reason: |
+      There are three outcomes and the endpoint has to tell them apart: no trigger status is a
+      configuration fault, a refused move is a tracker fault with the hold intact, and a landed
+      move is the success. The bool already carried two of them and was read as the third,
+      which is how the endpoint answered retried:true over a ticket that had not moved. An
+      exception for the refusal would put a normal, expected tracker answer on the error path.
+
+  - category: Implementation
+    chose: "Paid the file-length ratchet with reflows and two de-duplications in the providers"
+    over: "Adding a shared helper, or raising the baseline entries"
+    reason: |
+      GitHub and GitLab sat exactly at their baselines and Azure DevOps one line below, so an
+      explicit `return true` had nowhere to go. GitLab's UpdateStatusAsync rebuilt an issue URL
+      IssueUrl already composes and CloseTicketAsync re-sent the PUT TransitionToAsync makes —
+      both are now one call, which is shorter and truer. Azure DevOps and GitHub paid with
+      whitespace reflows inside the file's own width. A `Task -> Task<bool>` combinator would
+      have been line-neutral everywhere and is precisely the wrapper the principles refuse; a
+      raised baseline entry is the ratchet running backwards.
