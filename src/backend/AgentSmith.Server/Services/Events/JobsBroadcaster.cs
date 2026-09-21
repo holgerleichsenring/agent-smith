@@ -79,7 +79,11 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             var db = redis.GetDatabase();
             await RehydrateActiveAsync(db, ct);
             await RehydrateRecentAsync(db, ct);
-            if (unfinishedRuns is not null) await _cursors.AnchorUnfinishedAsync(db, unfinishedRuns, ct);
+            if (unfinishedRuns is not null)
+            {
+                var unread = await _cursors.AnchorUnfinishedAsync(db, unfinishedRuns, ct);
+                await ReconcileUnreadTailsAsync(unread, ct);
+            }
             await _system.RehydrateAsync(db, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -126,6 +130,29 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             // Recent runs are terminal — never drained — so the cursor is unused here.
             _recent.Upsert(rehydrated.Value.Snapshot);
             await ReconcileTerminalAsync(rehydrated.Value.Terminal, ct);
+        }
+    }
+
+    // 2026-09-21-de50: the anchor above lands ON each unfinished run's tail and the drain
+    // reads strictly after it, so that entry is the one the run will never see. A terminal
+    // event there means the previous process died between publishing and persisting, and the
+    // recent-runs walk cannot mend it: that list is a fifty-entry ring every terminal publish
+    // pushes onto, so a row falls out of it while its stream — a day long — is still there.
+    // The repair is RECONCILIATION, not delivery. Handing the event to the drain instead
+    // would mint a second trail row, fan a content-free snapshot to the overview for a run
+    // that was never in the active set, and, for a 'queued' terminal, re-create the very
+    // capacity-queue entry the drop had just removed.
+    private async Task ReconcileUnreadTailsAsync(IReadOnlyList<StreamEntry> tails, CancellationToken ct)
+    {
+        foreach (var tail in tails)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (DeserializeEntry(tail) is not RunFinishedEvent terminal) continue;
+            // Asked here, and asked again by the reconciler. A pause is not an ending, and the
+            // intent belongs where the decision is made — not only in the collaborator that
+            // would have caught it.
+            if (RunStatuses.IsWaiting(terminal.Status)) continue;
+            await ReconcileTerminalAsync(terminal, ct);
         }
     }
 
