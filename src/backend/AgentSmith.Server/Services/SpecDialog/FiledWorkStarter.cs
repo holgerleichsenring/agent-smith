@@ -18,9 +18,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// it would sit in a trigger status no poll ever claims, and reporting it started would be false.
 /// So it reports NOT STARTED and says WHICH of the resolver's three silent drops happened — a
 /// blocking startup finding, a resolution the ticket does not satisfy, or the project's own
-/// pipeline rules — because those want three different things done about them. Stamping the
-/// resolution tag on what it files is a successor's.
+/// pipeline rules — because those want three different things done about them.
 /// </para>
+/// <para>2026-09-20-2ba8: the routing tag goes on FIRST, through <see cref="FiledWorkTagger"/> —
+/// here, where the start already is and the approved set is therefore already stored — and the
+/// envelope is resolved against the labels tagging actually left on the ticket.</para>
 /// <para>
 /// MOVING A TICKET STARTS A RUN, so it needs runs.control. Where the created status already
 /// triggers, the ticket starts as it always did — the permission governs the MOVE and nothing
@@ -31,22 +33,22 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class FiledWorkStarter(
     AgentSmithConfig config,
     IEnvelopeProjectResolver resolver,
+    FiledWorkTagger tagger,
     ILogger<FiledWorkStarter> logger,
     IStartupFindings? findings = null)
 {
-    /// <summary>
-    /// Starts the ticket if it can be started, and stamps what happened onto its entry in
-    /// <paramref name="filed"/>. Never throws: a tracker that refuses the move is a reason on the
-    /// report, and the rest of the filing carries on.
-    /// </summary>
+    /// <summary>Tags the ticket, starts it if it can be started, and stamps what happened onto its
+    /// entry in <paramref name="filed"/>. Never throws: a tracker that refuses the tag or the move
+    /// is a reason on the report, and the rest of the filing carries on.</summary>
     public async Task StampAsync(
         ITicketProvider provider, ResolvedProject project, CreatedTicket ticket,
-        IReadOnlyList<string> labels, bool mayStartRuns, List<FiledTicket> filed,
-        CancellationToken cancellationToken)
+        IReadOnlyList<string> labels, bool mayStartRuns, List<FiledTicket> filed, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(filed);
-        var start = await StartAsync(provider, project, ticket, labels, mayStartRuns, cancellationToken);
+        var tagged = await tagger.ApplyAsync(provider, project, ticket, labels, cancellationToken);
+        var start = tagged.Explaining(await StartAsync(
+            provider, project, ticket, tagged.Labels, mayStartRuns, cancellationToken));
         logger.LogInformation(
             "Filed ticket {Ticket} is {State}: {Reason}", ticket.Id.Value, start.State, start.Reason);
         var at = filed.FindIndex(t => t.TicketId == ticket.Id.Value);
@@ -54,8 +56,7 @@ public sealed class FiledWorkStarter(
     }
 
     private async Task<FiledWorkStart> StartAsync(
-        ITicketProvider provider, ResolvedProject project, CreatedTicket ticket,
-        IReadOnlyList<string> labels, bool mayStartRuns, CancellationToken ct)
+        ITicketProvider provider, ResolvedProject project, CreatedTicket ticket, IReadOnlyList<string> labels, bool mayStartRuns, CancellationToken ct)
     {
         var platform = project.Tracker.Type.ToString().ToLowerInvariant();
         var envelope = new IncomingTicketEnvelope
@@ -77,8 +78,7 @@ public sealed class FiledWorkStarter(
     }
 
     private async Task<FiledWorkStart> MoveAsync(
-        ITicketProvider provider, ResolvedProject project, CreatedTicket ticket,
-        WebhookTriggerConfig trigger, bool mayStartRuns, CancellationToken ct)
+        ITicketProvider provider, ResolvedProject project, CreatedTicket ticket, WebhookTriggerConfig trigger, bool mayStartRuns, CancellationToken ct)
     {
         var status = await StatusAsync(provider, ticket, ct);
         if (status is null) return NotStarted(FiledWorkReasons.StatusUnreadable);
@@ -105,8 +105,7 @@ public sealed class FiledWorkStarter(
 
     // A status nobody could read is a ticket nobody may claim started; it is never an exception,
     // because the tickets it is about exist and the report has to name every one of them.
-    private async Task<string?> StatusAsync(
-        ITicketProvider provider, CreatedTicket ticket, CancellationToken ct)
+    private async Task<string?> StatusAsync(ITicketProvider provider, CreatedTicket ticket, CancellationToken ct)
     {
         try { return (await provider.GetTicketAsync(ticket.Id, ct)).Status; }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
