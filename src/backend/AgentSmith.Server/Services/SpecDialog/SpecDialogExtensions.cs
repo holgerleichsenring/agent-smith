@@ -47,6 +47,8 @@ internal static class SpecDialogExtensions
         services.AddScoped<EpicSliceRecordFiler>();
         services.AddScoped<EpicTicketFiler>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
+        // 2026-09-20-2ba8: the tag that lets it resolve at all goes on in the same step.
+        services.AddScoped<FiledWorkTagger>();
         services.AddScoped<FiledWorkStarter>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();

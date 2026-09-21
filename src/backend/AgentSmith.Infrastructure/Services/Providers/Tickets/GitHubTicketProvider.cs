@@ -71,16 +71,14 @@ public sealed class GitHubTicketProvider : ITicketProvider
         catch (NotFoundException) { throw new TicketNotFoundException(ticketId); }
     }
 
-    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
-        TicketId ticketId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) return [];
         try { return GitHubAttachmentLoader.ParseRefs((await _client.Issue.Get(_owner, _repo, n)).Body); } catch { return []; }
     }
 
     // Transport failures propagate — FetchTicketHandler owns fail-soft.
-    public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
-        TicketId ticketId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) return [];
         return _commentMapper.MapMany(await _client.Issue.Comment.GetAllForIssue(_owner, _repo, n));
@@ -95,20 +93,27 @@ public sealed class GitHubTicketProvider : ITicketProvider
     // GitHub has no work-item kind: any status that is not open or closed is applied as a
     // label, so the kind the port carries is not something this tracker can express.
     public async Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels, string? kind,
-        CancellationToken cancellationToken)
+        string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken cancellationToken)
     {
         var issue = await _client.Issue.Create(_owner, _repo, BuildNewIssue(title, description, labels));
         _logger.LogInformation("GitHub created issue #{Number} in {Owner}/{Repo}", issue.Number, _owner, _repo);
         return Created(issue);
     }
 
+    // Issues carry labels natively and the add is idempotent, so the label is sent whole with no
+    // read first. A number that does not parse is an id this tracker never issued: nothing lands.
+    public async Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken ct)
+    {
+        if (!TryParseIssueNumber(ticketId, out var n)) return false;
+        await _client.Issue.Labels.AddToIssue(_owner, _repo, n, [label]);
+        return true;
+    }
+
     // The database id rides along: a sub-issue link names the child by it, not by its number.
     internal static CreatedTicket Created(Issue issue) =>
         new(new TicketId(issue.Number.ToString()), issue.HtmlUrl) { NativeId = issue.Id.ToString() };
 
-    public async Task<ParentLinkResult> LinkToParentAsync(
-        CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
+    public async Task<ParentLinkResult> LinkToParentAsync(CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(parent, out var n) || !long.TryParse(child.NativeId, out var childId))
             return ParentLinkResult.Failed("A sub-issue link needs the parent's number and the child's database id.");
@@ -117,16 +122,14 @@ public sealed class GitHubTicketProvider : ITicketProvider
             _client.Connection.Post(request.Path, request.Body, GitHubSubIssueRequest.Accepts, cancellationToken), cancellationToken);
     }
 
-    internal static NewIssue BuildNewIssue(
-        string title, string description, IReadOnlyList<string> labels)
+    internal static NewIssue BuildNewIssue(string title, string description, IReadOnlyList<string> labels)
     {
         var issue = new NewIssue(title) { Body = description };
         foreach (var label in labels) issue.Labels.Add(label);
         return issue;
     }
 
-    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
-        TicketId ticketId, CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         await TicketDocumentAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);

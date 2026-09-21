@@ -55,16 +55,24 @@ public sealed class FiledWorkStartTests
         provider.Moves.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// 2026-09-20-2ba8: a tag the project resolves by is now PUT ON the ticket, so "a tag it does
+    /// not carry" is no longer a way to make a filed ticket unresolvable. What still is: a
+    /// resolution no label can satisfy, because a polled envelope carries labels, ticket id and
+    /// platform and nothing else. That is the premise these two now stand on.
+    /// </summary>
     [Fact]
     public async Task WorkTicket_InTriggerStatusButUnresolvable_ReportsNotStarted()
     {
         var provider = new StartProvider("To Do");
 
         var report = await FileAsync(
-            provider, Phase(), Routing("something-else", "To Do"), mayStartRuns: true);
+            provider, Phase(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            mayStartRuns: true);
 
         Work(report).Start!.State.Should().Be(FiledStartState.NotStarted,
             "sitting in a trigger status is not being started when no project claims it");
+        provider.Labels.Should().BeEmpty("no label can put an area path on a polled envelope");
     }
 
     [Fact]
@@ -72,7 +80,9 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("New");
 
-        await FileAsync(provider, Phase(), Routing("something-else", "To Do"), mayStartRuns: true);
+        await FileAsync(
+            provider, Phase(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            mayStartRuns: true);
 
         provider.Moves.Should().BeEmpty(
             "moving it would leave it in a trigger status no poll ever claims");
@@ -127,6 +137,12 @@ public sealed class FiledWorkStartTests
     /// ProjectResolver is ambiguous by design and TrackerPoller spawns for every match, so a
     /// ticket that resolves elsewhere IS routed — just not as the work this conversation filed.
     /// "Nothing would route it" would be false, and the operator would go looking for a tag.
+    /// <para>
+    /// 2026-09-20-2ba8: the filing project resolves by an AREA PATH now. Its own tag would be put
+    /// on the ticket and it would match itself, so the only way it loses to a neighbour is a
+    /// resolution a label cannot satisfy — and the neighbour's tag is one the ticket already
+    /// carries, exactly as a hand-tagged ticket would.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task WorkTicket_ResolvingOnlyToAnotherProject_NamesThatProject()
@@ -134,7 +150,8 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("New");
 
         var report = await FileAsync(
-            provider, Phase(), Routing("not-on-this-ticket", "To Do", otherProjectTag: ByTag),
+            provider, Phase(),
+            Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets", otherProjectTag: ByTag),
             mayStartRuns: true);
 
         var start = Work(report).Start!;
@@ -145,8 +162,14 @@ public sealed class FiledWorkStartTests
 
     /// <summary>
     /// The third silent drop: the resolution matched and the project's own pipeline_from_label did
-    /// not. Reached directly, because nothing the filer creates today can carry an operator label —
-    /// a work ticket is hard-bound to phase execution and a bug carries no label at all.
+    /// not. Reached directly, with the tag already among the labels — which is what the starter
+    /// hands its own resolution once the tagging has landed.
+    /// <para>
+    /// 2026-09-20-2ba8: the sentence that used to stand here — that nothing the filer creates can
+    /// carry an operator label — is false now, and the filer-level case it excused is pinned by
+    /// <see cref="FiledWorkStart_ABugOnAProjectWithAPipelineMapThatIgnoresTheTag_IsStillNotRouted"/>.
+    /// A tag the ticket already carries is not written twice, so this call still writes nothing.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task Ticket_CarryingTheTagButNoPipelineRule_SaysThePipelineRulesDroppedIt()
@@ -164,6 +187,207 @@ public sealed class FiledWorkStartTests
         filed[0].Start!.Reason.Should().Contain("pipeline_from_label")
             .And.Contain("carries the tag 'operator-tag'");
         provider.Moves.Should().BeEmpty();
+        provider.Labels.Should().BeEmpty("the ticket already carries the tag");
+    }
+
+    // ---- 2026-09-20-2ba8: the routing tag, put on just before the resolution reads it ----
+
+    [Fact]
+    public async Task FiledWorkStart_AProjectResolvingByTag_TagsTheTicketAndReportsItRouted()
+    {
+        var provider = new StartProvider("To Do");
+
+        var report = await FileAsync(
+            provider, Phase(), Routing("operator-tag", "To Do"), mayStartRuns: true);
+
+        provider.Labels.Should().Equal([("1", "operator-tag")],
+            "the filers stamp framework labels only; the value the project resolves by is this");
+        var start = Work(report).Start!;
+        start.State.Should().Be(FiledStartState.Started);
+        start.Reason.Should().StartWith("the tag 'operator-tag' was added to it; ");
+    }
+
+    /// <summary>
+    /// The ORDER is the phase: a resolution run before the tag is written answers what the poller
+    /// would have answered yesterday, and the ticket is reported not started while carrying the
+    /// very tag that routes it.
+    /// </summary>
+    [Fact]
+    public async Task FiledWorkStart_AProjectResolvingByTag_TagsBeforeItResolves()
+    {
+        var provider = new StartProvider("To Do");
+        var config = Routing("operator-tag", "To Do");
+        var resolver = new LabelWatchingResolver(FiledWorkDoubles.Resolver(), () => provider.Labels.Count);
+
+        await FileAsync(provider, Phase(), config, mayStartRuns: true, resolver: resolver);
+
+        resolver.LabelsWhenResolved.Should().Equal([1],
+            "the tag is on the ticket before the envelope it is resolved from is built");
+    }
+
+    /// <summary>
+    /// The value defaults to empty and only the config-studio write path refuses an empty one, so
+    /// a file-based configuration can carry it. An empty label on a customer's tracker is junk
+    /// nobody asked for, and it would route nothing anyway.
+    /// </summary>
+    [Fact]
+    public async Task FiledWorkStart_AnEmptyResolutionValue_IsNeverWrittenToTheTracker()
+    {
+        var provider = new StartProvider("To Do");
+
+        var report = await FileAsync(provider, Phase(), Routing("", "To Do"), mayStartRuns: true);
+
+        provider.Labels.Should().BeEmpty();
+        var start = Work(report).Start!;
+        start.State.Should().Be(FiledStartState.NotStarted);
+        start.Reason.Should().Contain("its value is empty").And.Contain("project_resolution.value");
+    }
+
+    /// <summary>
+    /// A create or an update the tracker REFUSES would cost the filing itself, turning "filed but
+    /// not started" into "nothing was filed" — strictly worse than the defect being fixed. So a
+    /// value the tracker's own label grammar cannot carry is skipped and named.
+    /// </summary>
+    [Theory]
+    [InlineData(TrackerType.GitLab, "widgets,api", "a comma")]
+    [InlineData(TrackerType.AzureDevOps, "widgets;api", "a semicolon")]
+    [InlineData(TrackerType.Jira, "widget team", "whitespace")]
+    public async Task FiledWorkStart_ATagTheTrackerCannotCarry_IsSkippedAndReported(
+        TrackerType tracker, string tag, string what)
+    {
+        var provider = new StartProvider("To Do");
+
+        var report = await FileAsync(
+            provider, Phase(), Routing(tag, "To Do", tracker: tracker), mayStartRuns: true);
+
+        provider.Labels.Should().BeEmpty("a refused write costs the filing, not just the start");
+        var start = Work(report).Start!;
+        start.State.Should().Be(FiledStartState.NotStarted);
+        start.Reason.Should().Contain($"the tag '{tag}' was NOT written").And.Contain(what);
+    }
+
+    [Fact]
+    public async Task FiledWorkStart_ATaggingCallThatThrows_StillReportsTheTicket()
+    {
+        var provider = new StartProvider("To Do")
+        {
+            LabelError = new InvalidOperationException("the tracker refused the label"),
+        };
+
+        var report = await FileAsync(
+            provider, Phase(), Routing("operator-tag", "To Do"), mayStartRuns: true);
+
+        report.Error.Should().BeNull("the ticket exists; a tag that failed is a reason, not a failure");
+        var start = Work(report).Start!;
+        start.State.Should().Be(FiledStartState.NotStarted, "the tag is not on the ticket");
+        start.Reason.Should().Contain("the tracker refused the label")
+            .And.Contain("everything else was filed anyway");
+    }
+
+    /// <summary>
+    /// A tracker the port's default answers for: the tag was not written, so it must not join the
+    /// envelope either — a resolution that matched on a label nobody wrote would move the ticket
+    /// into a trigger status it then sits in forever, reported as started.
+    /// </summary>
+    [Fact]
+    public async Task FiledWorkStart_ATrackerThatCannotLabel_ReportsTheTagAsNotAdded()
+    {
+        var provider = new StartProvider("New") { CanLabel = false };
+
+        var report = await FileAsync(
+            provider, Phase(), Routing("operator-tag", "To Do"), mayStartRuns: true);
+
+        provider.Moves.Should().BeEmpty("nothing routes a ticket that never got the tag");
+        var start = Work(report).Start!;
+        start.State.Should().Be(FiledStartState.NotStarted);
+        start.Reason.Should().Contain("the tag 'operator-tag' was not added")
+            .And.Contain("added by hand");
+    }
+
+    [Fact]
+    public async Task FiledWorkStart_AProjectResolvingByAreaPath_TagsNothing()
+    {
+        var provider = new StartProvider("To Do");
+
+        await FileAsync(
+            provider, Phase(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            mayStartRuns: true);
+
+        provider.Labels.Should().BeEmpty("an area path is not something a label can carry");
+    }
+
+    [Fact]
+    public async Task FiledWorkStart_AProjectWithNoProjectResolution_TagsNothing()
+    {
+        var provider = new StartProvider("To Do");
+
+        await FileAsync(
+            provider, Phase(), Routing(ByTag, "To Do", noResolution: true), mayStartRuns: true);
+
+        provider.Labels.Should().BeEmpty("there is no resolution to read a tag out of");
+    }
+
+    [Fact]
+    public async Task FiledWorkStart_ATagTheTicketAlreadyCarries_IsNotAddedTwice()
+    {
+        var provider = new StartProvider("To Do");
+
+        var report = await FileAsync(provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: true);
+
+        provider.Labels.Should().BeEmpty("the phase label IS the tag this project resolves by");
+        Work(report).Start!.State.Should().Be(FiledStartState.Started);
+    }
+
+    /// <summary>
+    /// A bug is filed with no framework label deliberately, so the project's own rules decide which
+    /// pipeline claims it. The routing tag binds no pipeline: it is what makes the project claim
+    /// the ticket at all, and a declared pipeline_from_label that does not name it still drops it.
+    /// </summary>
+    [Fact]
+    public async Task FiledWorkStart_ABugOnAProjectWithAPipelineMapThatIgnoresTheTag_IsStillNotRouted()
+    {
+        var provider = new StartProvider("New");
+        var config = Routing(
+            "operator-tag", "To Do",
+            pipelineFromLabel: new Dictionary<string, string> { ["something-else"] = "code" });
+
+        var report = await FileAsync(provider, Bug(), config, mayStartRuns: true);
+
+        provider.Labels.Should().Equal([("1", "operator-tag")], "a bug is tagged like any other work");
+        var start = report.Filed.Should().ContainSingle().Subject.Start!;
+        start.State.Should().Be(FiledStartState.NotStarted);
+        start.Reason.Should().Contain("pipeline_from_label");
+        provider.Moves.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// By CONSTRUCTION, not by a carve-out: a record's filer stamps the record state itself and
+    /// never calls the starter, and the starter is the only thing that tags. A tagged record would
+    /// be fetched by every poll on all four trackers and refused every time.
+    /// </summary>
+    [Fact]
+    public async Task EpicSliceRecord_IsNeverTagged_BecauseItNeverReachesTheStarter()
+    {
+        var provider = new StartProvider("New");
+
+        var report = await FileAsync(
+            provider, Epic(), Routing("operator-tag", "To Do"), mayStartRuns: true);
+
+        report.Filed.Skip(1).Should().HaveCount(2).And.OnlyContain(t => t.Start!.State == FiledStartState.Record);
+        provider.Labels.Should().Equal([("1", "operator-tag")], "only the work ticket is ever tagged");
+    }
+
+    [Fact]
+    public async Task Filing_ApprovedSetIsStoredBeforeTheTicketIsTagged()
+    {
+        var provider = new StartProvider("New");
+        var store = new MoveWatchingStore(() => provider.Moves.Count, () => provider.Labels.Count);
+
+        await FileAsync(provider, Epic(), Routing("operator-tag", "To Do"), mayStartRuns: true, store: store);
+
+        store.LabelsWhenSaved.Should().Equal([0],
+            "a tagged ticket with no stored set is claimed by the poller and derives its own spec");
+        provider.Labels.Should().ContainSingle("the tag did land, after the set was stored");
     }
 
     [Fact]
@@ -265,16 +489,24 @@ public sealed class FiledWorkStartTests
             .And.NotContain("ask someone who holds runs.control");
     }
 
+    /// <summary>
+    /// 2026-09-20-2ba8: a bug is CREATED with no framework label — deliberately, so the project's
+    /// own rules decide which pipeline claims it — and the starter then puts the routing tag on,
+    /// which is what makes the project claim it at all. Until this phase no tag-resolved project
+    /// could ever claim a bug this dialog filed, and the reason said so every time.
+    /// </summary>
     [Fact]
-    public async Task BugOutcome_CarriesNoLabels_ReportsNotStartedNamingTheMissingTag()
+    public async Task BugOutcome_CarriesNoLabelsAtCreation_IsTaggedByTheStarterAndRoutes()
     {
         var provider = new StartProvider("To Do");
 
-        var report = await FileAsync(provider, Bug(), Routing(ByTag, "To Do"), mayStartRuns: true);
+        var report = await FileAsync(
+            provider, Bug(), Routing("operator-tag", "To Do"), mayStartRuns: true);
 
+        provider.Labels.Should().Equal([("1", "operator-tag")]);
         var start = report.Filed.Should().ContainSingle().Subject.Start!;
-        start.State.Should().Be(FiledStartState.NotStarted);
-        start.Reason.Should().Contain(ByTag, "a bug carries no label, so no tag project claims it");
+        start.State.Should().Be(FiledStartState.Started);
+        start.Reason.Should().StartWith("the tag 'operator-tag' was added to it; ");
     }
 
     [Fact]
@@ -282,9 +514,12 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("New");
 
-        await FileAsync(provider, Bug(), Routing(ByTag, "To Do"), mayStartRuns: true);
+        await FileAsync(
+            provider, Bug(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            mayStartRuns: true);
 
         provider.Moves.Should().BeEmpty();
+        provider.Labels.Should().BeEmpty("no label can satisfy an area-path resolution");
     }
 
     [Fact]
@@ -379,11 +614,12 @@ public sealed class FiledWorkStartTests
 
     private static async Task<FilingReport> FileAsync(
         StartProvider provider, OutcomeProposal proposal, AgentSmithConfig config,
-        bool mayStartRuns, ISpecApprovalStore? store = null, IStartupFindings? findings = null)
+        bool mayStartRuns, ISpecApprovalStore? store = null, IStartupFindings? findings = null,
+        IEnvelopeProjectResolver? resolver = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
-        var starter = FiledWorkDoubles.Starter(config, findings);
+        var starter = FiledWorkDoubles.Starter(config, findings, resolver);
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
             ApprovedSetDoubles.EpicFiler(store, starter), ApprovedSetDoubles.Recorder(store),
@@ -420,8 +656,10 @@ public sealed class FiledWorkStartTests
             DefaultPipeline = "code",
             Tracker = new TrackerConnection { Name = "sample-tracker", Type = tracker },
             Repos = [new RepoConnection { Name = "sample-api" }],
-            GithubTrigger = tracker == TrackerType.GitHub && !noTrigger ? trigger : null,
-            AzuredevopsTrigger = tracker == TrackerType.GitHub || noTrigger ? null : trigger,
+            GithubTrigger = Slot(tracker, TrackerType.GitHub, trigger, noTrigger),
+            GitlabTrigger = Slot(tracker, TrackerType.GitLab, trigger, noTrigger),
+            AzuredevopsTrigger = Slot(tracker, TrackerType.AzureDevOps, trigger, noTrigger),
+            JiraTrigger = Slot(tracker, TrackerType.Jira, AsJira(trigger), noTrigger),
         };
         var projects = new Dictionary<string, ResolvedProject>(StringComparer.Ordinal)
         {
@@ -449,6 +687,20 @@ public sealed class FiledWorkStartTests
             PipelineTriggers = PipelineTriggerMap.Empty,
         };
     }
+
+    /// <summary>2026-09-20-2ba8: the trigger hangs off the slot its TRACKER reads, because the
+    /// tagger selects the trigger by platform exactly as the starter and the poller do.</summary>
+    private static T? Slot<T>(TrackerType tracker, TrackerType slot, T trigger, bool noTrigger)
+        where T : WebhookTriggerConfig => tracker == slot && !noTrigger ? trigger : null;
+
+    /// <summary>Jira's slot takes its own subtype; everything this fixture sets lives on the base.</summary>
+    private static JiraTriggerConfig AsJira(WebhookTriggerConfig trigger) => new()
+    {
+        DefaultPipeline = trigger.DefaultPipeline,
+        PipelineFromLabel = trigger.PipelineFromLabel,
+        TriggerStatuses = trigger.TriggerStatuses,
+        ProjectResolution = trigger.ProjectResolution,
+    };
 
     private static PhaseOutcome Phase() => new(Draft("p9000a"));
 
@@ -480,6 +732,11 @@ public sealed class FiledWorkStartTests
     /// A tracker that creates, is read back for its status, and remembers every move asked of it.
     /// The status it reports AFTER a move is the point: "started" is claimed from what the tracker
     /// says, never from the fact that a request was sent.
+    /// <para>
+    /// 2026-09-20-2ba8: it takes a LABEL on an existing ticket too, because all four shipped
+    /// providers do. <see cref="CanLabel"/> is the one that cannot — the port's do-nothing
+    /// default — and it must never be mistaken for a tag that landed.
+    /// </para>
     /// </summary>
     private sealed class StartProvider(string status) : ITicketProvider
     {
@@ -487,6 +744,12 @@ public sealed class FiledWorkStartTests
         private string _status = status;
 
         public List<(string Ticket, string Status)> Moves { get; } = [];
+
+        public List<(string Ticket, string Label)> Labels { get; } = [];
+
+        public bool CanLabel { get; init; } = true;
+
+        public Exception? LabelError { get; init; }
 
         public bool MoveTakesEffect { get; init; } = true;
 
@@ -506,6 +769,14 @@ public sealed class FiledWorkStartTests
             _statuses.Add(title);
             return Task.FromResult(new CreatedTicket(
                 new TicketId(_statuses.Count.ToString()), $"https://tracker.test/{_statuses.Count}"));
+        }
+
+        public Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken ct)
+        {
+            if (LabelError is not null) throw LabelError;
+            if (!CanLabel) return Task.FromResult(false);
+            Labels.Add((ticketId.Value, label));
+            return Task.FromResult(true);
         }
 
         public Task<ParentLinkResult> LinkToParentAsync(
@@ -528,10 +799,14 @@ public sealed class FiledWorkStartTests
             Task.FromResult(TicketFinalizeResult.Moved());
     }
 
-    /// <summary>Records how many moves had been made at the moment the set was written.</summary>
-    private sealed class MoveWatchingStore(Func<int> movesSoFar) : ISpecApprovalStore
+    /// <summary>Records how many moves — and, since 2026-09-20-2ba8, how many tags — had been
+    /// written at the moment the set was stored. Both must be zero.</summary>
+    private sealed class MoveWatchingStore(Func<int> movesSoFar, Func<int>? labelsSoFar = null)
+        : ISpecApprovalStore
     {
         public List<int> MovesWhenSaved { get; } = [];
+
+        public List<int> LabelsWhenSaved { get; } = [];
 
         public Task<SpecApprovalRecord?> GetAsync(string tracker, string key, CancellationToken ct) =>
             Task.FromResult<SpecApprovalRecord?>(null);
@@ -539,7 +814,23 @@ public sealed class FiledWorkStartTests
         public Task SaveAsync(SpecApprovalRecord record, CancellationToken ct)
         {
             MovesWhenSaved.Add(movesSoFar());
+            LabelsWhenSaved.Add(labelsSoFar?.Invoke() ?? 0);
             return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>Records how many labels were on the ticket at the moment the resolution ran, over
+    /// the REAL resolver — what it answers has to be what the poller would answer.</summary>
+    private sealed class LabelWatchingResolver(IEnvelopeProjectResolver inner, Func<int> labelsSoFar)
+        : IEnvelopeProjectResolver
+    {
+        public List<int> LabelsWhenResolved { get; } = [];
+
+        public IReadOnlyList<ProjectMatch> Resolve(
+            AgentSmithConfig config, IncomingTicketEnvelope envelope)
+        {
+            LabelsWhenResolved.Add(labelsSoFar());
+            return inner.Resolve(config, envelope);
         }
     }
 

@@ -21,10 +21,17 @@ namespace AgentSmith.Tests.TestSupport;
 internal static class FiledWorkDoubles
 {
     internal static FiledWorkStarter Starter(
-        AgentSmithConfig? routing = null, IStartupFindings? findings = null) =>
+        AgentSmithConfig? routing = null, IStartupFindings? findings = null,
+        IEnvelopeProjectResolver? resolver = null) =>
         new(routing ?? new AgentSmithConfig(),
-            new ProjectResolver(
-                new AgentSmithMetrics(), new PipelineResolver(),
-                NullLogger<ProjectResolver>.Instance, findings),
+            resolver ?? Resolver(findings), Tagger(),
             NullLogger<FiledWorkStarter>.Instance, findings);
+
+    /// <summary>2026-09-20-2ba8: the REAL tagger — what it writes is what the resolver then reads,
+    /// so a double here would prove nothing about the ticket a poll has to pick up.</summary>
+    internal static FiledWorkTagger Tagger() => new(NullLogger<FiledWorkTagger>.Instance);
+
+    internal static ProjectResolver Resolver(IStartupFindings? findings = null) =>
+        new(new AgentSmithMetrics(), new PipelineResolver(),
+            NullLogger<ProjectResolver>.Instance, findings);
 }
