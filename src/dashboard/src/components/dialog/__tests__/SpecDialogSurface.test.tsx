@@ -105,6 +105,7 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
       scope: SAMPLE_SCOPE,
       transcript: [],
       lastActivityAt: "2026-09-15T10:00:00Z",
+      subject: null,
       proposal: null,
       filing: null,
       proposalTurn: null,
@@ -874,6 +875,60 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_TheConversationList_IsNotReadWhileTheRowAlreadyNamesTheConversation", async () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),
+    ]);
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+    const read = fetchSpecDialog.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(fetchSpecDialog.mock.calls.length).toBeGreaterThan(read));
+    expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
+  });
+
+  // 2026-09-20-4b0af: the heading says what the conversation is ABOUT. The subject rides the
+  // SESSION, which this page re-reads after every message, so it is there on the read that
+  // follows the first reply — and the row beside it still says the first line the person wrote.
+  it("SpecDialog_AConversationWithASubject_HeadsWithIt", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, subject: "Das Widget, das das Hauptbuch liest" },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger" }),
+    ]);
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-heading"))
+      .toHaveTextContent("Das Widget, das das Hauptbuch liest");
+    expect(screen.getByTestId("dialog-conversation-s-1"))
+      .toHaveTextContent("a widget that reads the ledger");
+  });
+
+  it("SpecDialog_AConversationWithout_HeadsWithTheFirstLineAsBefore", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger" }),
+    ]);
+
+    await renderSurface();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-heading"))
+        .toHaveTextContent("a widget that reads the ledger"));
+  });
+
+  // The list read is the expensive one and its predicate keys on a null TITLE. A subject that
+  // may legitimately stay null forever must never join that predicate, or every reply of every
+  // subjectless conversation would pay for the list again.
+  it("SpecDialog_ASubjectlessConversation_DoesNotTriggerAFurtherListRead", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, subject: null, transcript: [turn("one"), turn("two")] },
     }));
     fetchSpecDialogConversations.mockResolvedValue([
       conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),

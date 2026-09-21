@@ -40,9 +40,14 @@ export function SpecDialogSurface() {
   // 2026-09-17-042ej: the conversation follows what it filed. A read of its own rather than a
   // field on the dialog view, which is refetched after every reply.
   const work = useFiledWork(dialog.dialogId, dialog.filed);
-  const title = session
+  // 2026-09-20-4b0af: the heading says what the conversation is ABOUT, and falls back to the
+  // first line the person wrote — which is what it always said, and what the row beside it still
+  // says. The subject rides the SESSION, re-read after every reply, so the heading corrects
+  // itself on the next read; the list keeps being read only while its own predicate says so.
+  const listed = session
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;
+  const title = session?.subject ?? listed;
 
   return (
     <div className="mock-shell mock-dialog" data-testid="spec-dialog">
@@ -74,7 +79,9 @@ export function SpecDialogSurface() {
                     on the open session's project would stop a new conversation on another one —
                     so this is where a person reads what the conversation they are in is about. */}
                 <div className="d-head-t">
-                  <h2 className="ec-name sans min-w-0">{title ?? "New conversation"}</h2>
+                  <h2 data-testid="dialog-heading" className="ec-name sans min-w-0">
+                    {title ?? "New conversation"}
+                  </h2>
                   {session && (
                     <span data-testid="dialog-exchange-project" className="ec-sub">
                       in <span className="fv">{session.scope.name}</span>

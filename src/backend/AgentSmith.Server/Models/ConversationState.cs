@@ -44,6 +44,14 @@ public sealed record ConversationState
     public ActiveScope? Scope { get; init; }
 
     /// <summary>
+    /// 2026-09-20-4b0af: what this conversation is about, minted once from its opening
+    /// exchange. Carried on the state so a later turn can see that one already exists
+    /// without a second read of the row. Null until one is minted, and for every
+    /// conversation that predates the mint.
+    /// </summary>
+    public string? Subject { get; init; }
+
+    /// <summary>
     /// 2026-09-17-042ed: the proposal THIS turn is revising, set by the router when an edit note
     /// sends the turn round again — with the findings its review reported, which the re-prompted
     /// master is shown. Never stored: it belongs to the turn about to run, and the stored
