@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-21-de50
+
+decisions:
+  - category: Architecture
+    chose: "The unread tail is handed to RunTerminalReconciler — the repair route is RECONCILIATION"
+    over: "Anchoring one entry earlier so the live drain delivers the event"
+    reason: |
+      An adversarial review refused the delivery cut and the refusal is the design. The drain reads
+      strictly AFTER the stored position, so delivering the tail would mean anchoring at its
+      PREDECESSOR — whose id is not in hand and would have to be fetched — and then the event would
+      travel the full drain path and do three things the repair must not do. It would mint a SECOND
+      trail row through RunDbProjector's own max(seq)+1 numbering, on top of the one the reconciler
+      appends. It would fan a content-free RunSnapshot.Empty to the overview for a run that was
+      never in the active set — the "unknown, no repos" card this tree already documents as a
+      defect. And for a terminal event whose status is "queued" it would run
+      RunFinalizationProjection's TOCTOU backstop and RE-CREATE the very capacity-queue entry
+      2026-09-21-c724c had just dropped.
+      The reconciler avoids all three by construction: it finalizes only a row with no finish time,
+      appends a terminal trail row only when none exists, and touches nothing else. It was already
+      a field on the broadcaster, documented in its own comment as the cold-start terminal repair,
+      with the envelope reader beside it and the anchoring four lines away. The repair was in the
+      building; this phase walks it to the one place that never called it.
+    alternatives:
+      - "Widening the recent-runs list: it is a fifty-entry ring every terminal publish pushes onto, so growing it moves the eviction boundary without removing it — and the class this phase repairs is exactly what falls off whatever boundary is chosen"
+      - "A boot-time sweep that re-reads every unfinished run's whole stream: the same repair at the cost of the replay p0258 exists to prevent"
+
+  - category: Architecture
+    chose: "AnchorUnfinishedAsync RETURNS the tail entries it anchored fresh; the broadcaster decides what they mean"
+    over: "Making the decision inside RunStreamCursors, or passing it a callback"
+    reason: |
+      The status decides both the waiting case and the queued case, and a stream payload is an
+      envelope whose type tag alone does not carry it — so the entry must be fully read, not
+      sniffed. RunStreamCursors takes an IDatabase and nothing else: it cannot deserialize an
+      envelope, and giving it a serializer would make the cursor bookkeeping a second reader of run
+      events. A callback was the other way to keep the decision outside; a return value says the
+      same thing without the indirection, and names what the list IS — the one entry per run that
+      the anchor lands ON and the drain therefore reads past forever. Runs continued from a stored
+      position contribute nothing, because that position was reached by reading past it.
+
+  - category: Implementation
+    chose: "The broadcaster asks the waiting question ITSELF before calling the reconciler"
+    over: "Leaning on the reconciler's own waiting guard, which would also have caught it"
+    reason: |
+      The intent must be visible where the decision is made, not only in the collaborator that
+      would have saved it. The reason this is not belt-and-braces is one line away:
+      RunFinalizationProjection — the projection a DRAINED terminal event reaches — has NO waiting
+      guard at all. It writes status, summary and cost and merely leaves the finish time null. A
+      parked run whose tail is its own park event would have been re-applied and pushed off the
+      active surface had the delivery cut shipped. Stating the guard here records which of the two
+      routes is safe and why.
+
+  - category: Scope
+    chose: "The class repaired is narrow and named: unfinished, stream still alive, terminal event the recent list no longer points at"
+    over: "Repairing every unfinished run, or auditing every producer of a terminal event"
+    reason: |
+      Three bands, and only the middle one is this phase's. A run still on the recent-runs list is
+      already mended by the cold start's first repair, which walks that list. A run older than the
+      stream's twenty-four hours cannot be repaired from a stream that no longer exists, by any
+      means, and the done criteria do not pretend otherwise. What is left is the run whose stream
+      is there and whose row the ring evicted — which is every run, given enough terminal publishes.
+      It costs one stream entry read and one deserialization per unfinished run per boot, and the
+      store's unfinished source has no cap, no window and no status filter. That price is stated
+      rather than discovered; the read is the tail the anchoring already fetches.
+
+  - category: Testing
+    chose: "End-to-end over the existing fake-Redis + real-SQLite harness, with a spy WRAPPING the real reconciler"
+    over: "A unit test on the broadcaster with a mocked reconciler alone"
+    reason: |
+      Two of the seven claims are about what does NOT happen — a waiting tail is not reconciled, a
+      queued tail creates no queue entry — and both are true today for a second reason: the
+      reconciler declines a waiting status as well. Asserting only the database state would have
+      left those tests VACUOUS against a break of this phase's own guard. So the spy records what
+      the cold start hands the reconciler and still performs the real repair, and the tests assert
+      both the call and its effect.
+      Two harness facts cost an hour each and are recorded here. The trail is written in BATCHES —
+      twenty-five events, or a RunFinished — and this harness runs no background flusher, so a
+      first process that publishes only a RunStarted leaves no trail rows at all and there is no
+      history for the anchor to be proven not to replay. And a run must be left with NO stored
+      cursor: a park stores one, and a stored position is continued rather than anchored, so the
+      tail is never read.
+      Mutation-proved, four breaks over seven tests: dropping the reconcile call fails three;
+      removing the broadcaster's waiting guard fails the waiting and queued tests; anchoring at the
+      stream start instead of the tail — the refused delivery cut — fails four, including the
+      queued test, which then finds the re-created queue entry; reordering the cold start so the
+      anchor looks before the recent-runs walk fails the already-repaired test.

@@ -58,10 +58,17 @@ public sealed class WaitingRunHarness : IDisposable
         File.Delete(_dbPath);
     }
 
-    public JobsBroadcaster NewServerProcess()
+    /// <summary>
+    /// A server process. <paramref name="decorate"/> wraps the REAL reconciler the provider
+    /// builds, so a test can watch what the cold start hands it without losing the repair.
+    /// </summary>
+    public JobsBroadcaster NewServerProcess(
+        Func<IRunTerminalReconciler, IRunTerminalReconciler>? decorate = null)
     {
         var provider = BuildProvider();
         _providers.Add(provider);
+        var reconciler = provider.GetRequiredService<IRunTerminalReconciler>();
+        if (decorate is not null) reconciler = decorate(reconciler);
         var router = new RunEventRouter(
             Mock.Of<IRunEventFanout>(), new SandboxExpansionRegistry(),
             new SandboxDetailEventClassifier(), new SandboxActivityCoalescer(),
@@ -70,19 +77,25 @@ public sealed class WaitingRunHarness : IDisposable
         return new JobsBroadcaster(
             _redis.Connection, Mock.Of<IRunEventFanout>(), router,
             NullLogger<JobsBroadcaster>.Instance, new EventEnvelopeSerializer(),
-            provider.GetRequiredService<IRunTerminalReconciler>(),
+            reconciler,
             provider.GetRequiredService<IUnfinishedRunSource>());
     }
 
-    public Task PublishStartAsync() => _publisher.PublishAsync(new RunStartedEvent(
-        RunId, "ticket", "add-feature", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
+    /// <summary>A project name is what lets a "queued" terminal event mint a queue entry at
+    /// all, so a test that denies one must first make one possible.</summary>
+    public Task PublishStartAsync(string? project = null) => _publisher.PublishAsync(new RunStartedEvent(
+        RunId, "ticket", "add-feature", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42",
+        Project: project, Platform: project is null ? null : "tracker"));
 
     /// <summary>Start a run and prove the drain discovered it before anything else happens.</summary>
-    public async Task<bool> StartAndAwaitDiscoveryAsync()
+    public async Task<bool> StartAndAwaitDiscoveryAsync(string? project = null)
     {
-        await PublishStartAsync();
+        await PublishStartAsync(project);
         return await WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId), CiSafeWait);
     }
+
+    /// <summary>The trail is written in batches of this many events, or on a RunFinished.</summary>
+    public const int TrailFlushThreshold = 25;
 
     /// <summary>Relaunch, and stay in the active set long enough for the drain to poll.</summary>
     public async Task RelaunchAsync()
@@ -96,6 +109,40 @@ public sealed class WaitingRunHarness : IDisposable
         for (var i = 0; i < count; i++)
             await _publisher.PublishAsync(
                 new GateCheckedEvent(RunId, $"gate-{i}", true, "ok", DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>The terminal event a dead process leaves in the stream and never persists.</summary>
+    public Task PublishFinishAsync(string status) => _publisher.PublishAsync(new RunFinishedEvent(
+        RunId, status, null, $"terminal: {status}", DateTimeOffset.UtcNow, 0.5m));
+
+    /// <summary>The recent-runs ring evicted the run — fifty entries, and every terminal
+    /// publish pushes onto it.</summary>
+    public void EvictFromRecentList() =>
+        Redis.ListRemove(EventStreamKeys.RecentRunsList, RunId);
+
+    /// <summary>The active-set pointer is gone while the stream survives (a flushed index).</summary>
+    public void DropActivePointer() =>
+        Redis.SetRemove(EventStreamKeys.ActiveRunsSet, RunId);
+
+    public Task<bool> AwaitFinishedAsync() =>
+        WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null), CiSafeWait);
+
+    public string RunStatus()
+    {
+        using var ctx = new AgentSmithDbContext(Options());
+        return ctx.Runs.Single(r => r.Id == RunId).Status;
+    }
+
+    public int TerminalTrailRows()
+    {
+        using var ctx = new AgentSmithDbContext(Options());
+        return ctx.Set<TrailRow>().Count(e => e.RunId == RunId && e.Type == nameof(EventType.RunFinished));
+    }
+
+    public int QueueEntries()
+    {
+        using var ctx = new AgentSmithDbContext(Options());
+        return ctx.QueuedTickets.Count();
     }
 
     public Task PublishParkAsync() => _publisher.PublishAsync(new RunFinishedEvent(
