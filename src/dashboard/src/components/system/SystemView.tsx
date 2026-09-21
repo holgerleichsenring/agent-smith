@@ -1,6 +1,7 @@
 "use client";
 
 import { useJobsHub } from "@/hooks/useJobsHub";
+import type { ApiRefusal } from "@/lib/apiResponse";
 import { useSubsystemEvents } from "@/hooks/useSubsystemEvents";
 import {
   useSubsystemActivity,
@@ -58,7 +59,7 @@ const STREAM_META: Record<"tracker" | "webhooks" | "chat", { title: string; sub:
 };
 
 export function SystemView({ segment }: { segment: string | null }) {
-  const { connectionState, systemActivity } = useJobsHub();
+  const { connectionState, systemActivity, refusal } = useJobsHub();
 
   const subsystem: SubsystemId =
     segment != null && (SUBSYSTEM_IDS as string[]).includes(segment)
@@ -90,7 +91,7 @@ export function SystemView({ segment }: { segment: string | null }) {
             <PageHead
               title="Config file reads"
               sub="How agent-smith is wired, and every config file the runtime actually read. Secrets are never sent to the dashboard."
-              right={<ConnectionState state={connectionState} />}
+              right={<ConnectionState state={connectionState} refusal={refusal} />}
             />
             <ConfigView activity={activity[subsystem]} />
           </>
@@ -100,6 +101,7 @@ export function SystemView({ segment }: { segment: string | null }) {
             activity={activity[subsystem]}
             snapshot={systemActivity}
             connectionState={connectionState}
+            refusal={refusal}
           />
         )}
       </main>
@@ -115,17 +117,23 @@ function SubsystemPage({
   activity,
   snapshot,
   connectionState,
+  refusal,
 }: {
   id: "tracker" | "webhooks" | "chat";
   activity: SubsystemActivity;
   snapshot: SystemActivitySnapshot | null;
   connectionState: HubConnectionState;
+  refusal: ApiRefusal | null;
 }) {
   const meta = STREAM_META[id];
   const cells = streamKpis(id, snapshot);
   return (
     <>
-      <PageHead title={meta.title} sub={meta.sub} right={<ConnectionState state={connectionState} />} />
+      <PageHead
+        title={meta.title}
+        sub={meta.sub}
+        right={<ConnectionState state={connectionState} refusal={refusal} />}
+      />
       {cells && <SystemMetricStrip testId={`system-kpis-${id}`} cells={cells} />}
       <SubsystemDetail activity={activity} heading="Event stream" />
     </>

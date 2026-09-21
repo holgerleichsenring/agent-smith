@@ -13,6 +13,7 @@ import { MetricStrip } from "./mission/MetricStrip";
 import { NeedsYouCard } from "./mission/NeedsYouCard";
 import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
+import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { cn } from "@/lib/utils";
 
 // p0343: mission control — the home screen ranks tickets-worked-as-jobs by what
@@ -36,7 +37,7 @@ const EMPTY_LINE: Record<RunBucket, string> = {
 
 export function MissionControl() {
   const { filter } = useRunBucketFilter();
-  const { connectionState, overview } = useJobsHub();
+  const { connectionState, overview, refusal } = useJobsHub();
   // p0355: the runs list is no longer hard-capped. `older` holds runs paged in
   // beyond the live window via "Load more"; they merge with the live overview
   // (live wins on id) so the Finished section can reach every run, newest-first.
@@ -69,10 +70,23 @@ export function MissionControl() {
     }
   }, [loadingMore, runs]);
 
+  // 2026-09-21-291b: a skeleton that cannot resolve. With nothing read and the
+  // server refusing this caller, the pulse below was the whole screen — for as
+  // long as the tab stayed open — and the one action that resolves it was never
+  // offered. RefusalSurface is the answer the REST path already had.
+  if (overview === null && refusal) {
+    return (
+      <div className="space-y-4" data-testid="mission-refused">
+        <ConnectionState state={connectionState} refusal={refusal} />
+        <RefusalSurface refusal={refusal} surface="your runs" />
+      </div>
+    );
+  }
+
   if (overview === null && connectionState !== HubConnectionState.Connected) {
     return (
       <div className="space-y-4" data-testid="mission-skeleton">
-        <ConnectionState state={connectionState} />
+        <ConnectionState state={connectionState} refusal={refusal} />
         <div className="health">
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className="metric h-16 animate-pulse" />
@@ -85,7 +99,7 @@ export function MissionControl() {
   if (runs.length === 0) {
     return (
       <div className="space-y-4" data-testid="mission-empty">
-        <ConnectionState state={connectionState} />
+        <ConnectionState state={connectionState} refusal={refusal} />
         <div className="rows">
           <div className="rrow" style={{ cursor: "default", justifyContent: "center", display: "flex" }}>
             No runs yet. Trigger one via the CLI, a webhook, or a poller.

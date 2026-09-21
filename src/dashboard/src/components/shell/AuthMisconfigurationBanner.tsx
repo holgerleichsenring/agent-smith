@@ -35,13 +35,23 @@ export function AuthMisconfigurationBanner() {
       data-half={missing.half}
       className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
     >
-      <p className="font-medium">Sign-in is configured on one side only.</p>
+      <p className="font-medium">{missing.heading}</p>
       <p className="mt-1">{missing.reason}</p>
     </aside>
   );
 }
 
-type MissingHalf = { half: "dashboard" | "server" | "both"; reason: string };
+type MissingHalf = {
+  half: "dashboard" | "server" | "both";
+  /** 2026-09-21-291b: the heading belongs to the CASE. "configured on one side
+   *  only" stood above all three, and the case that renders most often is the one
+   *  where both sides are configured and disagree — where it is simply untrue. */
+  heading: string;
+  reason: string;
+};
+
+const ONE_SIDE = "Sign-in is configured on one side only.";
+const TWO_AUTHORITIES = "The two halves of sign-in name different authorities.";
 
 // Trailing slashes are how the same issuer is written two ways — an authority
 // copied out of a discovery document carries one and the one typed by hand does
@@ -61,12 +71,17 @@ function missingHalf(
   const dashboard = normalize(configured);
 
   if (server === null && dashboard === null) return null;
-  if (dashboard === null) return { half: "dashboard", reason: dashboardHalf(requirements) };
-  if (server === null) return { half: "server", reason: serverHalf(dashboard) };
+  if (dashboard === null) {
+    return { half: "dashboard", heading: ONE_SIDE, reason: dashboardHalf(requirements) };
+  }
+  if (server === null) {
+    return { half: "server", heading: ONE_SIDE, reason: serverHalf(dashboard) };
+  }
   if (server === dashboard) return null;
-  if (!twoAuthoritiesAreAProblem(requirements, holdsToken)) return null;
+  if (!twoAuthoritiesAreAProblem(requirements, holdsToken, server, dashboard)) return null;
   return {
     half: "both",
+    heading: TWO_AUTHORITIES,
     reason:
       `This dashboard signs in against ${dashboard}, and the server validates tokens from `
       + `${server}. A token minted by one is refused by the other; one of the two is wrong.`,
@@ -90,10 +105,44 @@ function missingHalf(
 function twoAuthoritiesAreAProblem(
   requirements: AuthRequirements,
   holdsToken: boolean,
+  server: string,
+  dashboard: string,
 ): boolean {
   const refusal = requirements.tokenRefusal;
-  if (refusal === null) return !holdsToken;
+  if (refusal === null) return !holdsToken && !oneDirectoryOnTwoEndpoints(server, dashboard);
   return refusal === "audience" || refusal === "issuer";
+}
+
+// 2026-09-21-291b: one directory publishes two endpoints and they write two
+// strings — the sign-in endpoint carries a version suffix the resource endpoint
+// does not. recogniseShape names that very pair as a way OUT of a fault: "the
+// audience api://{id} and the authority without its /v2.0 suffix, whose discovery
+// document names the v1 issuer". Accusing it is accusing the fixed state.
+//
+// This belongs HERE and not in normalize(), for two mechanical reasons. missingHalf
+// returns on equal strings BEFORE it consults the refusal, so normalising the suffix
+// away would silence the banner for a token actually refused on its issuer; and the
+// sentence prints the normalised strings, so an operator would be shown an authority
+// they never configured. The question the suffix answers is only ever "is a
+// difference we have no token to test a reason to accuse", which is this branch.
+//
+// LITERAL, never pattern-shaped. A realm at .../realms/v2 is a different realm from
+// .../realms, and a version-shaped pattern would read a real two-realm mistake as one
+// directory. And this is not a claim that the two endpoints interoperate — whether a
+// v2-minted token is accepted by a v1-configured resource is decided by the API
+// registration's requested token version, which no browser can see. It is a refusal to
+// call the pair broken on evidence that cannot settle it: let such a token be minted
+// and refused, and tokenRefusal names the issuer or the audience and the banner speaks.
+const VERSION_ENDPOINT_SUFFIX = "/v2.0";
+
+function oneDirectoryOnTwoEndpoints(server: string, dashboard: string): boolean {
+  return withoutVersionEndpoint(server) === withoutVersionEndpoint(dashboard);
+}
+
+function withoutVersionEndpoint(authority: string): string {
+  return authority.endsWith(VERSION_ENDPOINT_SUFFIX)
+    ? authority.slice(0, -VERSION_ENDPOINT_SUFFIX.length)
+    : authority;
 }
 
 function dashboardHalf(requirements: AuthRequirements): string {

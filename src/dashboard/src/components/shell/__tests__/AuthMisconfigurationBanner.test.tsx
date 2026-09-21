@@ -148,6 +148,80 @@ describe("AuthMisconfigurationBanner", () => {
     expect(await bannerOrNothing()).toBeNull();
   });
 
+  // 2026-09-21-291b: the measured false positive. One directory publishes two
+  // endpoints and they write two strings; recogniseShape names the bare authority
+  // beside an api:// audience as a way OUT of a fault, so the banner was accusing
+  // the fixed state — on every load of an enforcing installation, where no token is
+  // ever held before the first sign-in.
+  it("Banner_AuthoritiesDifferOnlyByTheVersionSuffixAndNoTokenHeld_SaysNothing", async () => {
+    server.requirements.mockResolvedValue(
+      requirements({ enforced: true, authority: "https://login.example/tenant/" }),
+    );
+
+    renderBanner("https://login.example/tenant/v2.0");
+
+    expect(await bannerOrNothing()).toBeNull();
+  });
+
+  it("Banner_VersionSuffixPairAndIssuerRefused_NamesTheConflict", async () => {
+    // The suffix answers only "is a difference we have no token to test a reason to
+    // accuse". A token that WAS minted and refused on its issuer settles it, and the
+    // sentence must still print the operator's own two strings.
+    tab.token.mockReturnValue("a-token-this-server-refused");
+    server.requirements.mockResolvedValue(
+      requirements({
+        enforced: true,
+        authority: "https://login.example/tenant",
+        tokenRefusal: "issuer",
+      }),
+    );
+
+    renderBanner("https://login.example/tenant/v2.0");
+
+    const banner = await screen.findByTestId("auth-misconfiguration-banner");
+    expect(banner).toHaveAttribute("data-half", "both");
+    expect(banner).toHaveTextContent("https://login.example/tenant/v2.0");
+  });
+
+  it("Banner_AuthoritiesDifferByAnotherVersionLikeSegment_StillNamesTheConflict", async () => {
+    // The suffix is LITERAL for this reason: a realm at /realms/v2 is a different
+    // realm from /realms, and a version-shaped pattern would read a real two-realm
+    // mistake as one directory on two endpoints.
+    server.requirements.mockResolvedValue(
+      requirements({ enforced: true, authority: "https://kc.example/realms" }),
+    );
+
+    renderBanner("https://kc.example/realms/v2");
+
+    const banner = await screen.findByTestId("auth-misconfiguration-banner");
+    expect(banner).toHaveAttribute("data-half", "both");
+  });
+
+  it("Banner_BothConfiguredAndDisagreeing_DoesNotSayOneSideOnly", async () => {
+    // The heading stood above all three cases, and in this one both sides ARE
+    // configured — it was the most-rendered sentence in the component and untrue.
+    server.requirements.mockResolvedValue(
+      requirements({ enforced: true, authority: "https://login.example/realm-a" }),
+    );
+
+    renderBanner("https://login.example/realm-b");
+
+    const banner = await screen.findByTestId("auth-misconfiguration-banner");
+    expect(banner).toHaveTextContent("name different authorities");
+    expect(banner).not.toHaveTextContent("configured on one side only");
+  });
+
+  it("Banner_OneHalfUnconfigured_KeepsItsHeading", async () => {
+    server.requirements.mockResolvedValue(
+      requirements({ enforced: true, authority: "https://login.example/realm" }),
+    );
+
+    renderBanner("");
+
+    const banner = await screen.findByTestId("auth-misconfiguration-banner");
+    expect(banner).toHaveTextContent("Sign-in is configured on one side only.");
+  });
+
   it("Banner_BothHalvesAgree_ShowsNothing", async () => {
     server.requirements.mockResolvedValue(
       requirements({ enforced: true, authority: "https://login.example/realm/" }),
