@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   fetchInstallationIdentity,
+  type CatalogBinding,
   type InstallationIdentity,
   type SandboxAgentRelease,
 } from "@/lib/installationApi";
@@ -21,6 +22,7 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 // server — the findings request carries the revision only.
 
 const NOT_STATED = "not stated by this build";
+const NO_VERSION = "no version stated";
 
 export function InstallationIdentityView() {
   const [data, setData] = useState<InstallationIdentity | null>(null);
@@ -42,7 +44,7 @@ export function InstallationIdentityView() {
     <div data-testid="installation-view">
       <PageHead
         title="Installation"
-        sub="Which build of agent-smith this installation runs — server, dashboard and sandbox agent — and the database behind them. Server, dashboard and agent are published together; a release they do not share is a redeploy waiting to happen."
+        sub="Which build of agent-smith this installation runs — server, dashboard and sandbox agent — the database behind them, and the skill catalog they run on. Server, dashboard and agent are published together; a release they do not share is a redeploy waiting to happen."
       />
 
       {refusal ? (
@@ -58,6 +60,7 @@ export function InstallationIdentityView() {
       ) : (
         <>
           <Components data={data} />
+          <Catalog data={data} />
           <Database data={data} />
         </>
       )}
@@ -104,6 +107,46 @@ function Components({ data }: { data: InstallationIdentity }) {
       </div>
     </section>
   );
+}
+
+// 2026-09-20-4981: two facts, never one. The binding is what this server RESOLVED; the
+// floor is what its binary was built against, and on three of the four source modes they
+// differ by design — so the floor is labelled as the floor and never stands in for the
+// answer. A catalog that would not resolve still says what was configured, because that
+// is the moment this page is being read.
+function Catalog({ data }: { data: InstallationIdentity }) {
+  const { catalog } = data;
+  return (
+    <section data-testid="installation-catalog">
+      <div className="section-head">
+        <h2>Skill catalog</h2>
+      </div>
+      <div style={{ height: 14 }} />
+      <div className="list">
+        <Row
+          testId="installation-catalog-binding"
+          name="Bound to"
+          value={bindingValue(catalog)}
+          sub={
+            catalog.resolved
+              ? "resolved by this server"
+              : "configured — this catalog did not resolve"
+          }
+        />
+        <Row
+          testId="installation-catalog-floor"
+          name="Embedded floor"
+          value={data.embeddedCatalogVersion ?? NOT_STATED}
+          sub="the catalog version this binary was built against"
+        />
+      </div>
+    </section>
+  );
+}
+
+function bindingValue(catalog: CatalogBinding): string {
+  const base = `${catalog.source} ${catalog.version ?? NO_VERSION}`;
+  return catalog.overlay ? `${base} + overlay ${catalog.overlay}` : base;
 }
 
 function Database({ data }: { data: InstallationIdentity }) {

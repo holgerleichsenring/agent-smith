@@ -1,0 +1,152 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-4b0ac
+
+goal: "The composer carries attachment as a plus at its lower left and sending as an arrow, so the two controls read as what every chat composer has rather than as two words competing with the text."
+
+applies_to: "dashboard (the Work it out composer and the dialog block of the mock-parity stylesheet)"
+
+scope:
+  in: >
+    The composer puts two word buttons to the right of the textarea — "Image" and "Send" — aligned
+    to its bottom edge and sized by their labels. An operator reading the surface finds the
+    attachment control where nothing else on any composer they use puts it, and finds it named by
+    the kind of file it takes rather than by the act.
+    This phase gives the composer the arrangement the rest of the world settled on: attachment as a
+    plus at the lower left of the writing area, opening a small menu of what can be attached, and
+    send as an arrow at the lower right. Send keeps its accessible name; the attachment control is
+    renamed from "Image" to "Attach", which is the act rather than the file kind.
+    The menu and the two icon buttons are drawn in the stylesheet, not in utilities, because this
+    page's own guard forbids drawing a surface out of theme utilities — and the menu opens UPWARD,
+    over the exchange, because the card it sits in clips its own box.
+  out: >
+    WHAT CAN BE ATTACHED. The picker still accepts the same four image types and the upload path is
+    untouched; the menu has one entry today because there is one thing to attach. It exists because
+    a plus with no menu is a mystery and because the next attachable kind should not need this
+    control redesigned again.
+    PASTE AND DROP. Attaching by pasting an image into the textarea, or dropping one on it, is a
+    real convenience and is not this: it is a second input path with its own failure modes. Named
+    in prose as the phase that lets an image be pasted into the composer.
+    THE UPLOAD ITSELF. The composer does not upload — it reports the picked file to the surface,
+    which stores it the moment it is picked. Unchanged.
+    THE TEXTAREA. Its size, its Enter-sends rule and its placeholder are unchanged.
+    THE ACCOUNT MENU. The one popover this dashboard already has is scoped to the topbar shell and
+    does not reach this page; it is also dismissed by neither Escape nor an outside click. It is
+    left alone rather than generalised, and what this phase builds is what that one lacks. Named in
+    prose as the phase that gives the account menu the same dismissal.
+
+decisions:
+  - key: |
+      THE MENU IS CLIPPED BY THE CARD UNLESS IT OPENS UPWARD. The composer is the last child of the
+      exchange card, and the dialog shell's entity card sets overflow hidden. The one escape in the
+      sheet is scoped to the config studio's expanded card, so nothing on this page lifts it. A menu
+      anchored to a plus at the bottom of the card and opening DOWNWARD is cut off at the card edge.
+      It therefore opens upward, over the body, where the card has room.
+      IF IT CAN STILL EXCEED THE CARD, THE LIFT IS A TRAILING MODIFIER. The dialog block's own law
+      is that a rule joins the existing one rather than restating it, and the joins test refuses a
+      redefinition of an existing selector — so the lift may only take the form of a modifier class
+      on the card, which is the shape the sheet already uses elsewhere for exactly this.
+  - key: |
+      THE MENU CANNOT BE DRAWN IN UTILITIES, SO THE STYLESHEET IS PART OF THE WORK. The dialog
+      directory is scanned by a test that fails on the very utilities a popover needs — a fill, a
+      card line and a corner — and the check is a substring match, so a near-miss name is caught
+      too. The menu and both icon buttons are therefore new rules in the dialog block of the
+      mock-parity stylesheet, below its own-structure marker. This is a step of its own rather than
+      an implementation detail, because a spec that does not name it invites a build that fights
+      its own guard for an hour.
+  - key: |
+      LOSING THE BUTTON CLASS LOSES THE DISABLED LOOK, AND THAT IS IN THE STYLESHEET. The disabled
+      appearance of these controls is a stylesheet rule bound to the shared button class, not
+      anything the component carries. An icon button on a new class would be disabled in the DOM
+      and look identical to an enabled one. The new class carries its own disabled declaration.
+  - key: |
+      THE ARROW AND THE PLUS ARE DRAWN INLINE, AND NOT BECAUSE THERE IS NO ICON PACKAGE. There is
+      one — lucide is a dependency and is used by the run-status icon. It is confined to that one
+      component, and every glyph on the ported mock surfaces is hand-drawn to one shape: a 16-unit
+      view box, no fill, current colour as stroke, a stroke width just over one, hidden from the
+      accessibility tree. These two follow that shape, because they sit on a ported surface and a
+      lucide glyph beside a hand-drawn one is visible.
+  - key: |
+      THE ACCESSIBLE NAME SURVIVES THE ICON, AND ONE OF THE TWO NAMES CHANGES. Send is named Send
+      today and stays. The attach control is named "Image" today — its text content, which wins over
+      its title attribute — and becomes "Attach": the act, not the file kind. Nothing queries it by
+      the old name, so the rename breaks nothing; the spec says it rather than claiming both names
+      are kept.
+  - key: |
+      THE PLUS OPENS A MENU RATHER THAN THE FILE PICKER DIRECTLY. One step more for the operator
+      today, and it is what makes the plus honest: a plus means "add something", and a plus that
+      always opens the same file dialog is an image button wearing a plus. The menu is where a
+      second kind arrives without another redesign. It is not a modal and does not use the dialog
+      element another phase builds: nothing here needs focus containment or a backdrop.
+  - key: |
+      THE HIDDEN FILE INPUT STAYS EXACTLY AS IT IS. It is already hidden by a utility and driven by
+      a click from a real button, for the reason the code gives: a file control styled by the
+      browser cannot be made to read as this page's own. The menu entry clicks the same input.
+  - key: |
+      THE TESTS NEED A FILE OF THEIR OWN. Every composer behaviour is tested today through the
+      surface's suite, whose names all begin with the surface. A component rendered directly needs
+      its own file, and the names begin with the component so a reader can tell which suite a
+      failure came from.
+
+steps:
+  - id: the-dialog-block-gains-the-menu-and-the-icon-buttons
+    action: "New rules in the dialog block of the mock-parity stylesheet, below its own-structure marker: an icon button carrying its own disabled declaration, and an upward-opening anchored menu. No theme utility draws any of it, because the directory's surface scan forbids exactly those utilities. If the menu can exceed the card, the clipping is lifted by a trailing modifier class on the card rather than by redefining the card's own rule."
+  - id: the-attach-plus-and-its-menu
+    action: "The attachment control becomes a plus button at the lower left of the composer row, accessibly named Attach, opening the anchored menu whose single entry picks an image and clicks the existing hidden input. Escape, choosing an entry and a click outside all close it."
+  - id: send-becomes-an-arrow
+    action: "The send control becomes an icon button at the lower right carrying an upward arrow and keeping its accessible name. Its disabled rule and its behaviour are unchanged."
+
+tests:
+  - "DialogComposer_TheAttachControl_IsNamedAttachAndSitsBeforeTheTextarea"
+  - "DialogComposer_TheAttachControl_OpensAMenuRatherThanThePickerDirectly"
+  - "DialogComposer_TheMenuEntry_PicksAnImage"
+  - "DialogComposer_TheMenu_ClosesOnEscape"
+  - "DialogComposer_TheMenu_ClosesOnAClickAway"
+  - "DialogComposer_TheSendControl_IsNamedSend"
+  - "DialogComposer_Sending_StillClearsTheFieldAndReportsTheText"
+  - "DialogComposer_WhenDisabled_NeitherControlActs"
+  - "MockParity_TheDialogMenu_OpensUpwardAndTheIconButtonHasADisabledState"
+
+done:
+  - "attachment is a plus at the lower left of the composer, accessibly named Attach, opening a menu"
+  - "send is an upward arrow at the lower right, still named Send"
+  - "the menu opens upward and is not cut off by the card that clips its box"
+  - "the menu and both icon buttons are drawn in the dialog block of the stylesheet; the directory's surface scan passes"
+  - "a disabled icon button still looks disabled"
+  - "the hidden file input, the accepted types and the path the picked file takes are unchanged"
+  - "dashboard tests green, build green, full suite green"
+
+facts:
+  - claim: "The composer renders the textarea, then the hidden file input, then a button whose text is Image, then a button whose text is Send, all in one bottom-aligned row."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:45-96"
+  - claim: "The attach button's accessible name is its text content, Image, and its title attribute says something else."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:80, :85"
+  - claim: "The file input is hidden by a utility and clicked by the attach button."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:70, :81"
+  - claim: "The picker accepts png, jpeg, gif and webp, and the composer reports the picked file rather than uploading it."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:69, :71-75"
+  - claim: "The surface is what stores the picked image, the moment it is picked."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:119, src/dashboard/src/hooks/useSpecDialog.ts:430-444"
+  - claim: "Enter sends and shift+Enter keeps writing."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:53-60"
+  - claim: "Both controls are disabled by the same flag the textarea is."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:50, :82, :91"
+  - claim: "The composer is the last child of the exchange card, and the dialog shell's entity card sets overflow hidden."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:70, :115, src/dashboard/src/styles/mock-parity.css:512"
+  - claim: "The only rule in the sheet that lifts that clipping is scoped to the config studio's expanded card."
+    evidence: "src/dashboard/src/styles/mock-parity.css:517-519"
+  - claim: "The disabled appearance of these controls is a stylesheet rule bound to the shared button class."
+    evidence: "src/dashboard/src/styles/mock-parity.css:503"
+  - claim: "A test scans every file in the dialog directory and fails on the utilities a popover would need for a fill, a line and a corner, by substring."
+    evidence: "src/dashboard/src/components/dialog/__tests__/dialog-surfaces.test.ts:20-37"
+  - claim: "The dialog block's law is that a rule joins the existing one rather than restating it, and the joins test refuses a redefinition of an existing selector."
+    evidence: "src/dashboard/src/components/dialog/__tests__/dialog-joins.test.ts:63-82"
+  - claim: "lucide is a dependency of this dashboard and is used by the run-status icon."
+    evidence: "src/dashboard/package.json:20, src/dashboard/src/components/jobs/StatusIcon.tsx:3"
+  - claim: "Glyphs on the ported mock surfaces are hand-drawn to one shape: a 16-unit view box, no fill, current colour as stroke, hidden from the accessibility tree."
+    evidence: "src/dashboard/src/components/shell/AppHeader.tsx:45-63"
+  - claim: "This dashboard already has one anchored menu, scoped to the topbar shell, and it is dismissed by neither Escape nor an outside click."
+    evidence: "src/dashboard/src/components/shell/HeaderIdentity.tsx:37-51, :82-100, src/dashboard/src/styles/mock-parity.css:98-104"
+  - claim: "Composer behaviour is tested today through the surface's own suite, whose test names begin with the surface."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:390"
+  - claim: "No test queries the composer's buttons by accessible name; the dialog suite's one role-by-name query is elsewhere."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:2204"

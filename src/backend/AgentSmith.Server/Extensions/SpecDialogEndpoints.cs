@@ -21,8 +21,11 @@ internal static class SpecDialogEndpoints
         return app;
     }
 
-    /// <summary>One message from a browser: the dialog id the page minted, and the text.</summary>
-    internal sealed record SpecDialogMessageRequest(string DialogId, string Text);
+    /// <summary>One message from a browser: the dialog id the page minted, the text, and —
+    /// 2026-09-20-4b0aa — the project the page holds, so a FIRST message can open its own
+    /// conversation. A caller that names none is answered exactly as it always was.</summary>
+    internal sealed record SpecDialogMessageRequest(
+        string DialogId, string Text, string? Project = null);
 
     internal static async Task<IResult> IngestAsync(
         SpecDialogMessageRequest body, HttpContext ctx)
@@ -39,7 +42,7 @@ internal static class SpecDialogEndpoints
         }
 
         await EmitChatAsync(ctx, body.DialogId, actioned: true, skipReason: null);
-        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx));
+        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx), body.Project);
         return Results.Accepted();
     }
 
@@ -65,7 +68,8 @@ internal static class SpecDialogEndpoints
     /// would abort the conversation the moment the tab closed.
     /// </summary>
     private static void Dispatch(
-        HttpContext ctx, string dialogId, string text, string owner, bool mayStartRuns)
+        HttpContext ctx, string dialogId, string text, string owner, bool mayStartRuns,
+        string? project)
     {
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
@@ -76,7 +80,8 @@ internal static class SpecDialogEndpoints
             {
                 using var scope = scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>()
-                    .DispatchAsync(dialogId, text, owner, mayStartRuns, CancellationToken.None);
+                    .DispatchAsync(
+                        dialogId, text, owner, mayStartRuns, project, CancellationToken.None);
             }
             catch (Exception ex)
             {

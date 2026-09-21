@@ -47,6 +47,8 @@ internal static class SpecDialogExtensions
         services.AddScoped<EpicSliceRecordFiler>();
         services.AddScoped<EpicTicketFiler>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
+        // 2026-09-20-2ba8: the tag that lets it resolve at all goes on in the same step.
+        services.AddScoped<FiledWorkTagger>();
         services.AddScoped<FiledWorkStarter>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
@@ -55,6 +57,12 @@ internal static class SpecDialogExtensions
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
+        // 2026-09-20-4b0af: the subject a conversation is headed with, minted by the router in
+        // the same act that persists the first assistant turn. Scoped for the session
+        // repository's unit of work, which is where it stores what it minted. The edit re-entry
+        // shares that unit of work for the same reason.
+        services.AddScoped<SpecDialogSubjectMinter>();
+        services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
         // 2026-09-15-9033: the dashboard channel. The ownership guard rides the same
         // scoped unit of work as the session manager it reads through; the dispatcher is
@@ -73,7 +81,7 @@ internal static class SpecDialogExtensions
         // read for their kind, stored against the conversation, and seeded into its next turn.
         services.AddSingleton<SpecDialogImageBody>();
         services.AddSingleton<ImageKindFromBytes>();
-        services.AddScoped<SpecDialogImageConversation>();
+        services.AddScoped<SpecDialogConversationResolver>();
         services.AddScoped<SpecDialogTurnImages>();
         // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
         // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.

@@ -1,0 +1,97 @@
+phase: 2026-09-20-4b0ac
+decisions:
+  - id: the-menu-opens-upward-and-no-clipping-is-lifted
+    chose: >
+      The attach menu is absolutely positioned against the plus and anchored by its BOTTOM
+      (bottom: calc(100% + 6px)), with no top anchor. The card's overflow:hidden is left exactly
+      as it is; no modifier class was added to the card.
+    alternative: >
+      A downward menu plus a trailing .mock-dialog .ecard modifier lifting the clipping, in the
+      shape the sheet already uses for the studio's expanded card at :519.
+    why: >
+      Upward, the menu grows into the card's own body — above the plus sit the composer's
+      66px-minimum text area, the card body and the card head, so a 150px-wide, single-entry
+      menu cannot reach the card's top edge and nothing needs lifting. The modifier was the
+      contingency the spec allowed IF the menu could still exceed the card; it cannot, and a
+      lift that is not needed is a second page's card losing its clipping for nothing. The
+      stylesheet guard asserts BOTH halves — the bottom anchor and the card still clipping — so
+      if either premise moves, the rule that depends on it fails rather than the page.
+  - id: the-controls-are-a-class-of-their-own-carrying-their-own-disabled
+    chose: >
+      .mock-dialog button.d-icon — a 34px square with the studio's card line and fill, .send
+      taking the accent the primary button had, and its OWN `:disabled { opacity: 0.5; cursor:
+      not-allowed; }`.
+    alternative: >
+      Keeping className="btn" on both buttons and narrowing it with an icon modifier.
+    why: >
+      .btn is sized by a label (9px 15px of padding around a 13px word) and these carry none;
+      narrowing it would mean overriding four declarations to get a square. The reason the
+      disabled rule is repeated rather than joined is that it CANNOT be joined: the joins guard
+      refuses a rule whose selector ends in .btn, which is exactly what a join to :503 would be.
+      Dropping .btn silently drops :503 with it, and a disabled control that looks enabled is
+      the regression a rendering test cannot see — so the class declares it and a stylesheet
+      test holds it there. The send hover reasserts the accent line and ink for the same reason
+      in the other direction: the plain hover's ink is the accent fill's own colour, and an
+      arrow that vanishes under the pointer is what that would draw.
+  - id: the-plus-opens-a-menu-and-the-file-input-is-untouched
+    chose: >
+      The plus toggles a one-entry menu (role="menu", entry "Image"); the entry closes the menu
+      and clicks the same hidden input, whose accept list, onChange and onAttach path are
+      unchanged. Escape, choosing, and a mousedown outside the control all close it.
+    alternative: >
+      The plus opening the file picker directly, with the menu deferred until a second kind of
+      attachment exists.
+    why: >
+      A plus that always opens the same file dialog is an image button wearing a plus — the
+      glyph would promise a choice that is not there, and the second attachable kind would need
+      this control redesigned again rather than a line added. The press is watched on mousedown
+      rather than click so a control under the menu is not acted on before the menu leaves.
+  - id: the-glyphs-are-hand-drawn-though-lucide-is-present
+    chose: >
+      PlusGlyph and ArrowGlyph inline in the component: 16-unit view box, fill none, stroke
+      currentColor at 1.4, aria-hidden, matching AppHeader's gear.
+    alternative: >
+      lucide-react's Plus and ArrowUp, which are already a dependency.
+    why: >
+      lucide is confined to the run-status icon; every glyph on a ported mock surface is drawn
+      to the one shape above, and a packaged glyph's stroke weight and cap style beside a
+      hand-drawn one is visible at 16px. The buttons carry the accessible name, so the drawing
+      is hidden from the accessibility tree.
+  - id: the-attach-control-is-renamed-from-image-to-attach
+    chose: >
+      aria-label="Attach" on the plus (aria-haspopup="menu", aria-expanded), with the kind named
+      on the menu entry instead. Send keeps its name.
+    alternative: >
+      Keeping the name "Image" on the control now that it is a glyph.
+    why: >
+      The control no longer opens a picker — it opens a choice — so naming it by the file kind
+      would name the wrong act, and the kind is now said by the entry. Nothing queries either
+      button by accessible name (the whole surface suite goes through data-testid), so the
+      rename breaks no test and no other caller. Both glyphs also carry a title of the same one
+      word, so the hover hint the worded buttons had is not lost with their labels.
+  - id: a-menu-left-standing-when-the-composer-is-disabled-closes-with-it
+    chose: >
+      The effect that watches for Escape and an outside press closes the menu when `disabled`
+      turns true, and the test list grew by one, beyond the eight the spec named:
+      DialogComposer_WhenDisabledWhileTheMenuStandsOpen_TheMenuGoesWithIt.
+    alternative: >
+      Leaving it: the spec's test list is the contract, and the window is narrow.
+    why: >
+      Found reviewing this phase's own diff. `disabled` is not only a state the composer is
+      rendered in, it is one it ARRIVES at — the session can close under it — and the hidden
+      file input carries no disabled of its own, so an entry in a menu left standing would still
+      reach the picker and upload after writing had stopped being possible. Two lines close it,
+      and production code that no test holds is worse than a test list that grew by one.
+  - id: the-composer-gets-a-suite-of-its-own
+    chose: >
+      src/components/dialog/__tests__/DialogComposer.test.tsx, names beginning DialogComposer_;
+      the stylesheet assertion joins dialog-joins.test.ts, which already reads the sheet.
+    alternative: >
+      Adding all of it to SpecDialogSurface.test.tsx, where every composer behaviour is tested
+      today.
+    why: >
+      That suite mounts the whole page — hub, fetches, subscription — to reach a control that
+      needs none of it, and its names all begin with the surface, so a failure in the menu would
+      read as a failure of the page. The stylesheet assertion is not a component test at all: it
+      belongs with the other rules that read mock-parity.css, because jsdom resolves no cascade
+      and lays nothing out, and what a stylesheet guard can see is the declarations typed.

@@ -69,7 +69,10 @@ vi.mock("@/lib/JobsHubClient", () => ({
 }));
 
 const fetchSpecDialog = vi.fn();
-const postSpecDialogMessage = vi.fn<(dialogId: string, text: string) => Promise<void>>(async () => {});
+// 2026-09-20-4b0aa: the project rides on the post, so the server can open the conversation and
+// route the message in one ordered act. The mock takes it so a test can say it travelled.
+const postSpecDialogMessage =
+  vi.fn<(dialogId: string, text: string, project?: string) => Promise<void>>(async () => {});
 const fetchSpecDialogConversations = vi.fn();
 const fetchFiledWork = vi.fn();
 const deleteSpecDialogConversation = vi.fn<(sessionId: string) => Promise<void>>(async () => {});
@@ -81,8 +84,8 @@ vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: () => fetchSpecDialogConversations(),
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
-  postSpecDialogMessage: (dialogId: string, text: string) =>
-    postSpecDialogMessage(dialogId, text),
+  postSpecDialogMessage: (dialogId: string, text: string, project?: string) =>
+    postSpecDialogMessage(dialogId, text, project),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
   uploadSpecDialogImage: (dialogId: string, project: string, file: File) =>
     uploadSpecDialogImage(dialogId, project, file),
@@ -105,6 +108,7 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
       scope: SAMPLE_SCOPE,
       transcript: [],
       lastActivityAt: "2026-09-15T10:00:00Z",
+      subject: null,
       proposal: null,
       filing: null,
       proposalTurn: null,
@@ -399,6 +403,7 @@ describe("SpecDialogSurface", () => {
       expect(postSpecDialogMessage).toHaveBeenCalledWith(
         heldDialogId(),
         "a widget that reads the ledger",
+        "sample",
       ));
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent(
       "a widget that reads the ledger",
@@ -429,7 +434,7 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(await screen.findByTestId("dialog-answer-the reader"));
 
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "the reader"));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "the reader", "sample"));
   });
 
   it("SpecDialog_TheApprovalGate_OffersApproveAndRejectThoughItCarriesNoChoices", async () => {
@@ -441,7 +446,7 @@ describe("SpecDialogSurface", () => {
 
     expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve"));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
   });
 
   // 2026-09-17-042el: a click on the gate is a decision, and it reads as one — live and after a reload.
@@ -635,7 +640,8 @@ describe("SpecDialogSurface", () => {
 
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "/spec other"));
+      expect(postSpecDialogMessage)
+        .toHaveBeenCalledWith(heldDialogId(), "/spec other", undefined));
   });
 
   function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
@@ -730,7 +736,7 @@ describe("SpecDialogSurface", () => {
     await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
     const fresh = heldDialogId();
     expect(fresh).not.toBe(first);
-    expect(postSpecDialogMessage.mock.calls).toEqual([[fresh, "/spec resume s-9"]]);
+    expect(postSpecDialogMessage.mock.calls).toEqual([[fresh, "/spec resume s-9", undefined]]);
   });
 
   // 2026-09-17-c7aeb: a dialog id is a tab, not a conversation. Opening a past one mints a
@@ -789,7 +795,8 @@ describe("SpecDialogSurface", () => {
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     const fresh = heldDialogId();
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(fresh, "/spec resume s-9"));
+      expect(postSpecDialogMessage)
+        .toHaveBeenCalledWith(fresh, "/spec resume s-9", undefined));
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalledWith(fresh));
     act(() => messages.emit({
       dialogId: fresh, title: "Spec dialog",
@@ -891,6 +898,60 @@ describe("SpecDialogSurface", () => {
     expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
   });
 
+  // 2026-09-20-4b0af: the heading says what the conversation is ABOUT. The subject rides the
+  // SESSION, which this page re-reads after every message, so it is there on the read that
+  // follows the first reply — and the row beside it still says the first line the person wrote.
+  it("SpecDialog_AConversationWithASubject_HeadsWithIt", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, subject: "Das Widget, das das Hauptbuch liest" },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger" }),
+    ]);
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-heading"))
+      .toHaveTextContent("Das Widget, das das Hauptbuch liest");
+    expect(screen.getByTestId("dialog-conversation-s-1"))
+      .toHaveTextContent("a widget that reads the ledger");
+  });
+
+  it("SpecDialog_AConversationWithout_HeadsWithTheFirstLineAsBefore", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger" }),
+    ]);
+
+    await renderSurface();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-heading"))
+        .toHaveTextContent("a widget that reads the ledger"));
+  });
+
+  // The list read is the expensive one and its predicate keys on a null TITLE. A subject that
+  // may legitimately stay null forever must never join that predicate, or every reply of every
+  // subjectless conversation would pay for the list again.
+  it("SpecDialog_ASubjectlessConversation_DoesNotTriggerAFurtherListRead", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, subject: null, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),
+    ]);
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+    const read = fetchSpecDialog.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(fetchSpecDialog.mock.calls.length).toBeGreaterThan(read));
+    expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
+  });
+
   // And it comes back the moment the count falls behind what the page has already read, so the
   // row never drifts more than an exchange from the conversation it names.
   it("SpecDialog_TheConversationList_IsReadAgainOnceTheRowFallsBehind", async () => {
@@ -912,16 +973,99 @@ describe("SpecDialogSurface", () => {
       expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
   });
 
-  // 2026-09-18-7a05: an operator clears a conversation they started by mistake, and is told
-  // first what the deletion does NOT undo. The confirmation is the browser's own — there is no
-  // modal primitive here — and these are the first tests anywhere to assert the string it is
-  // given, which is the whole point of a warning.
-  function confirms(answer: boolean) {
-    return vi.spyOn(window, "confirm").mockImplementation(() => answer);
+  // 2026-09-18-7a05, rewritten by 2026-09-20-4b0ab: an operator clears a conversation they
+  // started by mistake, and is told first what the deletion does NOT undo. This was seven spies
+  // on window.confirm — the browser's own prompt, because no modal primitive existed — and it
+  // is now a dialog this page draws, so the warning is read off the page instead of off the
+  // argument a spy caught. The wording itself has a unit test of its own now
+  // (conversationDelete.test.ts); what is pinned HERE is that the ask carries the warning this
+  // conversation's filing earns, and that the answer given to it is acted on.
+  function answer(decision: "confirm" | "cancel") {
+    fireEvent.click(screen.getByTestId(`confirm-dialog-${decision}`));
   }
 
-  it("SpecDialog_AConversationWithNoTurns_IsDeletedWithoutAConfirmation", async () => {
-    const asked = confirms(true);
+  /** Open the ask for a conversation with this outcome and read what it says, then clear the
+   *  page again so the next outcome starts from nothing. */
+  async function askedAbout(outcome: SpecDialogSessionSummary["outcome"]): Promise<string> {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9", outcome })]);
+    await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    const said = (await screen.findByTestId("confirm-dialog")).textContent ?? "";
+    cleanup();
+    __forgetDialogIdForTests();
+    return said;
+  }
+
+  it("SpecDialog_DeletingAConversationWithTurns_AsksInThePage", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9", turns: 3 })]);
+    await renderSurface();
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+
+    // A dialog element on this page, not a prompt the browser named and drew.
+    const asked = await screen.findByTestId("confirm-dialog");
+    expect(asked.tagName).toBe("DIALOG");
+    expect(asked).toHaveTextContent("Delete \u201Ca widget that reads the ledger\u201D?");
+    // And the click that opened it deleted nothing on its own.
+    expect(deleteSpecDialogConversation).not.toHaveBeenCalled();
+  });
+
+  // The three variants the removed spies asserted out of the browser prompt, now asserted out
+  // of the rendered dialog: a phase (and the epic parent) names a sentence in the ticket that
+  // stops resolving, a bug is not given a sentence it never had, and a filing whose kind is
+  // gone falls back to the one true of every filing.
+  it("SpecDialog_TheAsk_CarriesTheWarningForWhatThatConversationFiled", async () => {
+    const phase = await askedAbout({ kind: "phase", tickets: 1, partial: false });
+    expect(phase).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
+    expect(phase).toContain("This cannot be undone");
+    expect(phase).toContain("The tickets it filed stay in the tracker");
+    expect(phase).toContain("the specification approved here stays with them");
+    expect(phase).toContain(
+      "the sentence in the ticket that names this conversation will stop resolving");
+
+    const bug = await askedAbout({ kind: "bug", tickets: 1, partial: false });
+    expect(bug).toContain("The tickets it filed stay in the tracker");
+    expect(bug).not.toContain("names this conversation");
+    expect(bug).not.toContain("stop resolving");
+
+    const noKind = await askedAbout({ kind: null, tickets: 2, partial: false });
+    expect(noKind).toContain(
+      "Whatever it filed stays in the tracker, and the map from this conversation to it stops"
+      + " resolving.");
+  });
+
+  it("SpecDialog_CancellingTheAsk_DeletesNothing", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9" })]);
+    await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+
+    answer("cancel");
+
+    await waitFor(() => expect(screen.queryByTestId("confirm-dialog")).toBeNull());
+    expect(deleteSpecDialogConversation).not.toHaveBeenCalled();
+    // And the row it was asked about is still there.
+    expect(screen.getByTestId("dialog-conversation-s-9")).toBeInTheDocument();
+  });
+
+  it("SpecDialog_ConfirmingTheAsk_DeletesThatConversation", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-9" }),
+      conversation({ sessionId: "s-8", title: "another conversation" }),
+    ]);
+    await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+
+    answer("confirm");
+
+    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
+    // THAT conversation and no other: the ask carries which row it is about.
+    expect(deleteSpecDialogConversation).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByTestId("confirm-dialog")).toBeNull());
+  });
+
+  it("SpecDialog_DeletingAnEmptyConversation_AsksNothing", async () => {
     fetchSpecDialogConversations.mockResolvedValue([
       conversation({ sessionId: "s-9", title: null, turns: 0 }),
     ]);
@@ -930,64 +1074,12 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
 
     await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
-    expect(asked).not.toHaveBeenCalled();
-    asked.mockRestore();
-  });
-
-  it("SpecDialog_AConversationThatFiledAPhase_IsConfirmedWithTheTicketSentenceThatStopsResolving", async () => {
-    const asked = confirms(true);
-    fetchSpecDialogConversations.mockResolvedValue([
-      conversation({ sessionId: "s-9", outcome: { kind: "phase", tickets: 1, partial: false } }),
-    ]);
-    await renderSurface();
-
-    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
-
-    const said = asked.mock.calls[0][0] as string;
-    expect(said).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
-    expect(said).toContain("This cannot be undone");
-    expect(said).toContain("The tickets it filed stay in the tracker");
-    expect(said).toContain("the specification approved here stays with them");
-    expect(said).toContain("the sentence in the ticket that names this conversation will stop resolving");
-    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
-    asked.mockRestore();
-  });
-
-  it("SpecDialog_AConversationThatFiledABug_IsConfirmedWithoutASentenceItNeverHad", async () => {
-    const asked = confirms(false);
-    fetchSpecDialogConversations.mockResolvedValue([
-      conversation({ sessionId: "s-9", outcome: { kind: "bug", tickets: 1, partial: false } }),
-    ]);
-    await renderSurface();
-
-    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
-
-    const said = asked.mock.calls[0][0] as string;
-    expect(said).toContain("The tickets it filed stay in the tracker");
-    expect(said).not.toContain("names this conversation");
-    expect(said).not.toContain("stop resolving");
-    expect(deleteSpecDialogConversation).not.toHaveBeenCalled();
-    asked.mockRestore();
-  });
-
-  it("SpecDialog_AFilingWithNoKind_IsConfirmedWithTheSentenceTrueOfEveryFiling", async () => {
-    const asked = confirms(false);
-    fetchSpecDialogConversations.mockResolvedValue([
-      conversation({ sessionId: "s-9", outcome: { kind: null, tickets: 2, partial: false } }),
-    ]);
-    await renderSurface();
-
-    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
-
-    expect(asked.mock.calls[0][0]).toContain(
-      "Whatever it filed stays in the tracker, and the map from this conversation to it stops resolving.");
-    asked.mockRestore();
+    expect(screen.queryByTestId("confirm-dialog")).toBeNull();
   });
 
   // The list is re-read on a reply while the listed row is behind, and that read's sequence guard
   // drops a read superseded by a NEWER one — not one issued BEFORE the delete and landing after.
   it("SpecDialog_AListReadInFlightWhenTheDeleteLands_DoesNotBringTheRowBack", async () => {
-    const asked = confirms(true);
     // The conversation open here is not listed at all, so every reply re-reads the list.
     fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9" })]);
     await renderSurface();
@@ -1001,18 +1093,18 @@ describe("SpecDialogSurface", () => {
     }));
 
     fireEvent.click(screen.getByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+    answer("confirm");
     await waitFor(() => expect(screen.queryByTestId("dialog-conversation-s-9")).toBeNull());
 
     await act(async () => releaseStale([conversation({ sessionId: "s-9" })]));
 
     expect(screen.queryByTestId("dialog-conversation-s-9")).toBeNull();
-    asked.mockRestore();
   });
 
   // The held dialog id now names a dead thread, so the surface leaves it: every pane is cleared
   // and a fresh id is minted, in the one act the new-conversation switch already performs.
   it("SpecDialog_DeletingTheOpenConversation_EmptiesEveryPaneAndChangesTheHeldDialogId", async () => {
-    const asked = confirms(true);
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("a widget that reads the ledger")] },
     }));
@@ -1025,18 +1117,18 @@ describe("SpecDialogSurface", () => {
       view({ dialogId, session: null }));
 
     fireEvent.click(await screen.findByTestId("dialog-delete-s-1"));
+    await screen.findByTestId("confirm-dialog");
+    answer("confirm");
 
     await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-1"));
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     await waitFor(() => expect(screen.queryByTestId("dialog-turn-user")).toBeNull());
     expect(screen.queryByTestId("dialog-proposal")).toBeNull();
-    asked.mockRestore();
   });
 
   // The row was a button, and a control nested in a button is invalid markup that warns. The two
   // controls are siblings, so the delete needs no propagation trick and the row never opens.
   it("SpecDialog_TheDeleteControl_DoesNotOpenTheConversation", async () => {
-    const asked = confirms(true);
     fetchSpecDialogConversations.mockResolvedValue([
       conversation({ sessionId: "s-9", openDialogId: null }),
     ]);
@@ -1044,11 +1136,12 @@ describe("SpecDialogSurface", () => {
     const first = heldDialogId();
 
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+    answer("confirm");
 
     await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
     expect(postSpecDialogMessage).not.toHaveBeenCalled();
     expect(heldDialogId()).toBe(first);
-    asked.mockRestore();
   });
 
   // The filing's own read went: the filing NOTICE is a framework message, so the list follows it
@@ -1102,7 +1195,8 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(screen.getByTestId("dialog-new"));
 
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(expect.any(String), "/spec other"));
+      expect(postSpecDialogMessage)
+        .toHaveBeenCalledWith(expect.any(String), "/spec other", undefined));
   });
 
   // 2026-09-15-cb3e, found by review: nothing is pushed when a wait expires — the confirmer
@@ -1505,10 +1599,11 @@ describe("SpecDialogSurface", () => {
     expect(result.current.readings).toEqual([]);
   });
 
-  // Writing with no session open reached the router as an ordinary message, and the router
-  // answered with the command tutorial a chat channel needs — on a page whose whole point
-  // is that nobody types a command.
-  it("SpecDialog_SendingWithNoSessionOpen_OpensOneOnThePickedProjectFirst", async () => {
+  // 2026-09-20-4b0aa: this used to be TWO posts — an opening command, then the message — and
+  // awaiting the first proved only that its background task had started, because the route
+  // answers before the turn runs. The project now rides on the one post and the server opens
+  // and routes in that order.
+  it("SpecDialog_AFirstMessage_IsPostedOnceAndNotPrecededByACommand", async () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null }));
     render(<SpecDialogSurface />);
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
@@ -1518,8 +1613,52 @@ describe("SpecDialogSurface", () => {
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
 
-    await waitFor(() => expect(postSpecDialogMessage.mock.calls.map((c) => c[1]))
-      .toEqual(["/spec sample", "update every dependency"]));
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    expect(postSpecDialogMessage.mock.calls)
+      .toEqual([[heldDialogId(), "update every dependency", "sample"]]);
+  });
+
+  /// The sentence that went missing. The reply's read carries the transcript as the server has it
+  /// stored, and a page that armed a reseed for the opening post replaced the whole exchange with
+  /// it — wiping the locally echoed turn, which no later read ever puts back. With one act there
+  /// is nothing to reseed for, so the read settles and leaves the turn alone.
+  it("SpecDialog_AFirstMessage_SurvivesTheReadThatFollowsTheReply", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+    render(<SpecDialogSurface />);
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
+    await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    expect(await screen.findByTestId("dialog-turn-user"))
+      .toHaveTextContent("update every dependency");
+
+    // The conversation exists now, and the read that follows the reply lags the turn that
+    // opened it: what it carries has no record of the sentence yet.
+    fetchSpecDialog.mockResolvedValue(view());
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "on it", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(screen.getByTestId("dialog-transcript")).toHaveTextContent("on it"));
+    expect(screen.getByTestId("dialog-turn-user")).toHaveTextContent("update every dependency");
+  });
+
+  // The other side of the same send: a conversation already open still posts once and still
+  // echoes once — the project travelling with it opens nothing.
+  it("SpecDialog_AMessageWithASessionOpen_IsStillEchoedOnce", async () => {
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    expect(postSpecDialogMessage.mock.calls)
+      .toEqual([[heldDialogId(), "update every dependency", "sample"]]);
+    expect(await screen.findAllByTestId("dialog-turn-user")).toHaveLength(1);
   });
 
   it("SpecDialog_APhaseProposal_RendersGoalStepsTestsAndDone", async () => {
@@ -2706,5 +2845,154 @@ describe("SpecDialogSurface", () => {
     expect(shown.map((entry) => entry.getAttribute("data-testid"))).toEqual([
       "dialog-turn-user", "dialog-turn-image", "dialog-turn-user",
     ]);
+  });
+});
+
+// 2026-09-20-4b0ae: INSPECT ACKNOWLEDGES ITSELF. An operator clicked Inspect on a proposal card
+// and nothing appeared to happen. Every part of the chain was right — the focus is set, the tab
+// is offered, the tab is selected — and none of it was visible, because the pane falls back to
+// the proposal tab whenever nothing has been filed, so the commonest state is the pane ALREADY
+// showing the proposal being inspected and the click renders the same document twice. What the
+// act leaves behind is asserted here: a mark on the pane, a nearest scroll, and the focus.
+describe("Inspecting reaches the pane", () => {
+  /** A conversation that has proposed and filed: the pane is on Filed, so the inspect moves it. */
+  async function proposedAndFiled() {
+    await renderSurface();
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
+    }));
+    act(() => proposals.emit(proposal()));
+    act(() => filings.emit(filing()));
+    await screen.findByTestId("dialog-filed");
+  }
+
+  /** A conversation that has proposed and filed NOTHING: the pane is already on that proposal. */
+  async function proposedOnly() {
+    await renderSurface();
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
+    }));
+    act(() => proposals.emit(proposal()));
+    await screen.findByTestId("dialog-proposal");
+  }
+
+  function inspectTheCard() {
+    fireEvent.click(within(screen.getByTestId("dialog-turn-agent")).getByTestId("dialog-card-inspect"));
+  }
+
+  it("SpecDialog_Inspecting_MarksThePane", async () => {
+    await proposedAndFiled();
+    expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+
+    inspectTheCard();
+
+    expect(screen.getByTestId("dialog-pane")).toHaveAttribute("data-inspected", "true");
+  });
+
+  // The case the whole phase exists for, and the one an earlier cut would have missed: the pane
+  // is showing this very proposal already, so the click changes NOTHING inside it. The mark is
+  // outside it — on the card's own element — which is why it still says the click landed.
+  it("SpecDialog_InspectingTheProposalAlreadyShown_StillMarksThePane", async () => {
+    await proposedOnly();
+    const pane = screen.getByTestId("dialog-pane");
+    expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
+    const unchanged = pane.innerHTML;
+
+    inspectTheCard();
+
+    expect(pane.innerHTML, "the inspected proposal is the one already shown").toBe(unchanged);
+    expect(pane).toHaveAttribute("data-inspected", "true");
+  });
+
+  // Nearest, and no behaviour option. The page's scroll container is the main region and the
+  // pane's top is the top of the grid, so a default start-aligned scroll would throw the page
+  // back to the top when Inspect is clicked at the bottom of a long transcript. The equality is
+  // exact, so a behaviour added later fails here rather than being read as an improvement.
+  it("SpecDialog_Inspecting_ScrollsThePaneIntoViewWithNearestAlignment", async () => {
+    await proposedAndFiled();
+    const scrolled = vi.spyOn(screen.getByTestId("dialog-pane"), "scrollIntoView");
+
+    inspectTheCard();
+
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+  });
+
+  // Where the act leaves the reader, and the half that works with no viewport at all.
+  it("SpecDialog_Inspecting_MovesFocusToThePanePanel", async () => {
+    await proposedAndFiled();
+    expect(document.activeElement).not.toBe(screen.getByRole("tabpanel"));
+
+    inspectTheCard();
+
+    expect(document.activeElement).toBe(screen.getByRole("tabpanel"));
+  });
+
+  // The routes into the pane that are NOT an act the operator just performed. A push moves the
+  // pane on its own, and yanking the viewport under someone who is reading is worse than the
+  // defect this phase fixes — so neither the proposal nor the filing that follows it scrolls or
+  // marks anything.
+  it("SpecDialog_ANewProposal_MovesThePaneWithoutScrollingToIt", async () => {
+    await renderSurface();
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      act(() => messages.emit({
+        dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
+      }));
+      act(() => proposals.emit(proposal()));
+
+      await screen.findByTestId("dialog-proposal");
+      expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
+      expect(scrolled).not.toHaveBeenCalled();
+      expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+
+      act(() => filings.emit(filing()));
+
+      await screen.findByTestId("dialog-filed");
+      expect(scrolled).not.toHaveBeenCalled();
+      expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+    } finally {
+      scrolled.mockRestore();
+    }
+  });
+
+  // A tab inside the pane means the pane is already in view: the operator just clicked it.
+  it("SpecDialog_ClickingAPaneTab_ScrollsNothing", async () => {
+    await proposedAndFiled();
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      fireEvent.click(screen.getByTestId("dialog-tab-proposal"));
+
+      expect(await screen.findByTestId("dialog-proposal")).toBeInTheDocument();
+      expect(scrolled).not.toHaveBeenCalled();
+      expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+    } finally {
+      scrolled.mockRestore();
+    }
+  });
+
+  // Found by reviewing this phase's own diff: every test above asserts the mark ARRIVES, and a
+  // mark that never leaves would pass all of them while ringing the pane for the rest of the
+  // session. It is an acknowledgement of one click, so it is over when the click is.
+  it("SpecDialog_TheMark_ClearsItselfWithoutAnotherAct", async () => {
+    await proposedAndFiled();
+
+    inspectTheCard();
+    expect(screen.getByTestId("dialog-pane")).toHaveAttribute("data-inspected", "true");
+
+    await waitFor(
+      () => expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected"),
+      { timeout: 4000 },
+    );
+    // The focus it moved is NOT transient: the reader is still where the act put them.
+    expect(document.activeElement).toBe(screen.getByRole("tabpanel"));
+  });
+
+  // Minus one and not zero: the panel is a destination for an act elsewhere on the page, not a
+  // stop a keyboard has to pass through on its way to the controls inside it.
+  it("DialogPane_ThePanel_IsFocusableWithoutJoiningTheTabOrder", async () => {
+    await renderSurface();
+
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("tabindex", "-1");
   });
 });

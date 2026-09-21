@@ -129,6 +129,23 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         CancellationToken cancellationToken) =>
         _creator.CreateAsync(title, ToHtml(description), labels, kind, cancellationToken);
 
+    // System.Tags is ONE semicolon-joined scalar and Azure DevOps has no append op for it, so the
+    // field is read and rewritten whole. A tag already on the work item is not written again — the
+    // rewrite would be a no-op PATCH that still bumps System.Rev for every concurrent observer.
+    public async Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken ct)
+    {
+        var patch = BuildAddTagPatch((await GetTicketAsync(ticketId, ct)).Labels, label);
+        if (patch is not null) await PatchAsync(ticketId, patch, ct);
+        return true;
+    }
+
+    /// <summary>Null when the tag is already there: rewriting it would be a no-op PATCH that still
+    /// bumps System.Rev and fails the next write of every concurrent observer with TF26071.</summary>
+    internal static JsonPatchDocument? BuildAddTagPatch(IReadOnlyList<string> tags, string label) =>
+        tags.Contains(label, StringComparer.OrdinalIgnoreCase)
+            ? null
+            : [Op("/fields/System.Tags", string.Join("; ", tags.Append(label)))];
+
     public async Task<ParentLinkResult> LinkToParentAsync(
         CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
         int.TryParse(parent.Value, out var parentId) && int.TryParse(child.Id.Value, out _)

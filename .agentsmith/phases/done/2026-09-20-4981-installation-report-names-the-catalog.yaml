@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-4981
+
+goal: "The anonymous installation report names the catalog binding this server resolved and the embedded floor, so the question survives a catalog that will not resolve and needs no catalog permission."
+
+applies_to: "backend (the installation identity report) and dashboard (the view that renders it)"
+
+scope:
+  in: >
+    The catalog IS reported today, and an earlier cut of this phase claimed it was not. A catalog
+    endpoint returns a one-phrase binding — source mode, version, overlay fingerprint and root — and
+    the system view renders it; every run shows the same on its load-catalog step; the boot log
+    states the embedded version; and the load handler logs the embedded pin when the resolved
+    catalog is older than it. What is missing is narrower and is exactly the case that sent an
+    operator to read a container image: the report built for "the question asked when nothing else
+    answers" carries the server build, the agent releases and the database, and no catalog at all.
+    That report is ANONYMOUS by design. The catalog endpoint needs a catalog permission, and it
+    returns nothing but a not-ready flag when resolution fails — which is precisely when the
+    question is being asked. So this phase puts two facts on the installation report: the binding
+    this server RESOLVED, and the version embedded in the binary, labelled as the floor it was built
+    against. Two facts, because on three of the four source modes they differ by design, and
+    reporting only the pin would be a confident false answer.
+  out: >
+    RELOADING THE CATALOG AT RUNTIME. The catalog is resolved from configuration that already lives
+    in the database and already live-reloads; nothing about when it is resolved changes here.
+    WARNING WHEN IT IS BEHIND. Comparing either version against the newest release would make this
+    surface depend on a call to a code host, which it does not do today. The load handler already
+    compares the resolved catalog against the embedded floor at resolution time. Named in prose as
+    the phase that tells an operator their catalog is behind.
+    THE CATALOG ENDPOINT AND THE SYSTEM CATALOG TAB. Both stay as they are; this phase adds a
+    second, unauthenticated place to read the same binding, and does not move it.
+    THE CLI. Its doctor check already prints the resolved catalog, and the server runs the same
+    checks at startup and surfaces them. Nothing here changes it.
+
+decisions:
+  - key: |
+      REPORTING THE EMBEDDED PIN ALONE WOULD BE A HALF-TRUTH, AND THIS REPOSITORY HAS ALREADY RULED
+      AGAINST EXACTLY THAT. The skills source has four modes plus an overlay, and only one of them
+      is the embedded catalog; the shipped example configuration pins a release, and the shipped
+      Kubernetes example mounts a path. An earlier phase recorded two operator configurations
+      pinning the catalog explicitly, and the binding record says in its own words that naming a
+      base version while an overlay replaced a master tells a half-truth about the skills that
+      actually ran. So the resolved binding is the primary fact.
+      THE EMBEDDED PIN IS STILL WORTH REPORTING, AS THE FLOOR. It is what the binary was built
+      against, it is the thing a rebuild changes, and the two together answer "is this server new
+      enough" in one read. Labelled as the floor, never as the answer.
+  - key: |
+      THE REPORT IS ANONYMOUS ON PURPOSE, AND THAT IS THE REASON TO PUT IT THERE RATHER THAN A
+      REASON NOT TO. Its endpoint declares itself anonymous with the sentence "which build an
+      installation runs is the question asked when nothing else answers"; the catalog endpoint needs
+      a catalog permission. Both values are public release tags of a public catalog, or an operator's
+      own mounted path — and a path is the one value that could name an internal directory, so the
+      binding is reported without its root on this surface.
+  - key: |
+      IT MUST SURVIVE A CATALOG THAT WILL NOT RESOLVE. The catalog endpoint answers not-ready and a
+      null binding when the source is unavailable, deliberately, rather than failing the dashboard.
+      That is the moment this report matters most, so it states what was CONFIGURED even when
+      resolution failed, and says that resolution failed — rather than going silent with it.
+  - key: |
+      THE TWO FACTS COME FROM TWO DIFFERENT TYPES AND THE SPEC NAMES BOTH. The embedded pin is a
+      build constant read from assembly metadata; the resolved binding is the singleton that
+      publishes the catalog path. They are different questions and an earlier cut of this phase
+      blurred them into "the catalog the server already resolves".
+
+steps:
+  - id: the-report-carries-both
+    action: "The installation identity report gains the resolved catalog binding — source mode, version or path, overlay fingerprint, and whether resolution succeeded, without the root — and the embedded catalog version as a separately named floor. A failed resolution reports what was configured and says the resolution failed."
+  - id: the-view-renders-them
+    action: "The installation view renders both, the floor labelled as what the binary was built against."
+
+tests:
+  - "InstallationReport_ReportsTheResolvedCatalogBindingAndTheEmbeddedFloor"
+  - "InstallationReport_AResolvedCatalogOtherThanTheEmbeddedOne_ReportsBothAndTheyDiffer"
+  - "InstallationReport_ACatalogThatWillNotResolve_StillNamesWhatWasConfigured"
+  - "InstallationReport_TheBinding_CarriesNoFilesystemRoot"
+  - "InstallationIdentityView_RendersTheBindingAndTheFloor"
+
+done:
+  - "an operator can read, without signing in and without catalog permission, which catalog binding this server resolved and which version its binary embeds"
+  - "the two are reported separately and the floor is labelled as the floor"
+  - "a catalog that fails to resolve still produces an answer"
+  - "no filesystem root appears on the anonymous surface"
+  - "build green, full suite green, dashboard tests green"
+
+facts:
+  - claim: "The catalog endpoint already returns a binding phrase — source mode, version, overlay fingerprint and root — and needs a catalog permission."
+    evidence: "src/backend/AgentSmith.Server/Extensions/CatalogEndpoints.cs:13-17, src/backend/AgentSmith.Contracts/Models/CatalogResolution.cs:30-39"
+  - claim: "That reader returns not-ready with a null binding when the catalog source is unavailable, deliberately."
+    evidence: "src/backend/AgentSmith.Server/Services/Catalog/CatalogContentsReader.cs:37-47, :82-88"
+  - claim: "The dashboard renders that binding in the system view."
+    evidence: "src/dashboard/src/components/system/CatalogOriginLine.tsx:9-21"
+  - claim: "The installation report is anonymous by design and says why."
+    evidence: "src/backend/AgentSmith.Server/Extensions/InstallationIdentityEndpoints.cs:14-20"
+  - claim: "The installation report carries the server build, the agent releases and the database, and no catalog."
+    evidence: "src/backend/AgentSmith.Server/Models/InstallationIdentityResponse.cs:14-18"
+  - claim: "The skills source has four modes plus an overlay, the default is a pulled release rather than the embedded catalog, and an unconfigured install infers embedded."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SkillsConfig.cs:14-30"
+  - claim: "The shipped example configuration pins a release version rather than running embedded."
+    evidence: "config/agentsmith.example.yml:501-503"
+  - claim: "The shipped Kubernetes example mounts a catalog path."
+    evidence: "deploy/k8s/examples/path-mode-deployment.yaml:43-46"
+  - claim: "An earlier phase recorded that operator configurations pin the catalog explicitly and that an explicit version wins over the embedded one."
+    evidence: ".agentsmith/phases/done/2026-08-28-7675-catalog-resolved-version-reported.yaml"
+  - claim: "The embedded version is a build constant read from assembly metadata, and the resolved path is published by a separate singleton."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/EmbeddedSkillsCatalog.cs:18-34, src/backend/AgentSmith.Contracts/Services/ISkillsCatalogPath.cs:12-18"
+  - claim: "The embedded catalog type is registered as a singleton and is resolvable from the server's graph."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/SkillsRegistrations.cs:19"
+  - claim: "The boot path logs the embedded version when it materialises the catalog, and the load handler logs it as a floor comparison."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/EmbeddedSourceHandler.cs:31-33, src/backend/AgentSmith.Application/Services/Handlers/LoadCatalogHandler.cs:81-85"
+  - claim: "The build re-verifies the catalog tarball's hash and fails when it does not match."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:76-92"
+  - claim: "The installation report has a producer and a view of its own, each with existing tests."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/InstallationIdentityReporter.cs:29-39, src/dashboard/src/components/system/InstallationIdentityView.tsx:68-89"

@@ -28,11 +28,30 @@ export interface DatabaseIdentity {
   error: string | null;
 }
 
+// 2026-09-20-4981: which skill catalog this installation is bound to. No root: this
+// report is read without signing in, and a mounted catalog's root is an operator's own
+// directory. The catalog browser, which needs a catalog permission, carries the full phrase.
+export interface CatalogBinding {
+  /** "default", "path", "url" or "embedded". */
+  source: string;
+  /** The resolved tag, or the configured pin when resolution failed; null when unpinned. */
+  version: string | null;
+  /** Fingerprint of a materialized overlay, or null. */
+  overlay: string | null;
+  /** False when this is only what was CONFIGURED — the catalog did not resolve. */
+  resolved: boolean;
+}
+
 export interface InstallationIdentity {
   serverRelease: string | null;
   serverRevision: string | null;
   agents: SandboxAgentRelease[];
   database: DatabaseIdentity;
+  /** What the server resolved — the primary fact. */
+  catalog: CatalogBinding;
+  /** The floor the binary was built against. Differs from the binding by design on three
+   * of the four source modes, which is why it is reported beside it and never instead. */
+  embeddedCatalogVersion: string | null;
 }
 
 export async function fetchInstallationIdentity(

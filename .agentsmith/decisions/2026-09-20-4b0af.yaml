@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=../decision-log.schema.json
+phase: 2026-09-20-4b0af
+
+decisions:
+  - category: Placement
+    chose: "The mint sits in SpecDialogRouter.RunTurnAsync, between persisting the assistant turn and sending the reply"
+    over: "Inside the turn, in the master handler's spec-dialog branch beside the proposal review"
+    reason: |
+      The trigger is "this conversation has no subject and had no assistant turn yet", and it is
+      only true AFTER the assistant turn is persisted — which the router does, after the pipeline
+      has already returned. Inside the pipeline a first turn still has zero persisted assistant
+      turns, and the pipeline has no path back to the session row either. The router holds the
+      conversation state, the turn's result and the session store, in that order, in one method.
+      It also has to land BEFORE the reply is sent: the page re-reads the dialog when the reply
+      push arrives, and a conversation that asks one question has no later read to correct.
+
+  - category: Serving
+    chose: "The subject is served on the SESSION VIEW and the heading prefers it over the listed title"
+    over: "Adding it to the conversation list the heading reads today"
+    reason: |
+      The list is read only while a predicate says the page is behind — no row, a null title, or
+      fewer turns than the page has read — which for a one-turn conversation fires exactly once.
+      A field that can legitimately stay null forever would turn that predicate into a poll that
+      never stops. The session view is the read the page issues after EVERY message, so the
+      heading corrects itself on the very next read and the predicate is untouched. The
+      conversations column keeps the first line, because that is how a person recognises the row
+      they wrote, and the delete control keeps quoting it.
+
+  - category: Derivation
+    chose: "The subject is ASKED of the model, on TaskType.Summarization, with an explicit 128-token ceiling and the first exchange only"
+    over: "Deriving it from the assistant's prose, or reusing a text the proposal already carries"
+    reason: |
+      Every short model-produced text a conversation owns rides its proposal, which arrives turns
+      later and never arrives at all for a conversation that only asked a question. Deriving a
+      heading from prose would be a heuristic over prose, which this tree does not do. The
+      summarization task type is routed to the small model by the registry; the ceiling is a
+      line's worth of tokens rather than the registry's summary budget, and the call is shown the
+      opening exchange rather than the turn's context.
+
+  - category: Admission
+    chose: "The answer is ADMITTED or DISCARDED — one line, no markup, non-empty after trim, within the column length"
+    over: "Truncating a long or malformed answer to the column width"
+    reason: |
+      The subject is minted once and never revised, so a model that answers with three sentences,
+      a fenced block, a bullet or a quoted string would leave a permanently mangled heading, and
+      truncation would only make it a shorter mangled one. A discarded answer stores nothing and
+      the heading falls back to the first line the person wrote — exactly today's behaviour, and
+      therefore a safe failure. A call that throws is swallowed the way the proposal review
+      swallows its own: a heading is not worth the reply the turn already produced.
+
+  - category: Language
+    chose: "The prompt asks for the subject in the CONVERSATION's language, not in English"
+    over: "Minting an English subject everywhere, per the repository's English-only rule"
+    reason: |
+      That rule governs artefacts committed to this repository. This is interface text standing
+      beside a row that renders the operator's own sentence, and an English heading over a German
+      conversation would read as a regression rather than as a policy. The code, its comments and
+      its tests stay English.
+
+  - category: Persistence
+    chose: "A nullable column declared by HasMaxLength(120) alone, with a migration pair whose shared half carries NO literal column type"
+    over: "Scaffolding the shared migration as generated, with type: \"TEXT\""
+    reason: |
+      There are two persistence projects but four providers: the default project's migrations are
+      run by Sqlite, Postgres and MySQL alike, and only SqlServer carries its own assembly. A
+      literal type in the shared migration is provider-blind — "TEXT" on MySQL is a blob type that
+      ignores the length beside it, and the length is this column's whole declaration. Untyped,
+      each provider's convention maps a bounded string to its own bounded-string type. The
+      SqlServer half keeps its literal nvarchar(120), as every migration in that assembly does.
+      The limit lives in PersistenceLimits so the admission rule and the column cannot disagree.
+      Both halves were generated with `dotnet ef migrations add`, so designer files and model
+      snapshots stay derived from the model; `has-pending-model-changes` reports none for either.
+
+  - category: Accounting
+    chose: "The mint's usage is tracked on a PipelineCostTracker of its own and its priced spend logged"
+    over: "Tracking on the TURN's cost tracker, as the spec asks"
+    reason: |
+      The turn's tracker is not reachable and cannot be made reachable without a layering
+      violation. It lives on the PipelineContext, which never leaves ExecutePipelineUseCase; the
+      only thing that crosses back is SpecDialogReplySlot, which is declared in AgentSmith.
+      Contracts — a project that cannot reference AgentSmith.Application, where PipelineCostTracker
+      lives. And a write to it after ExecuteAsync has returned would change nothing anyone reads:
+      the run's cost summary is built inside the pipeline, before the router is reached. So the
+      spend is priced against the project's own pricing config and logged, which is the only way
+      this call is accounted at all — the per-call LlmCall events are emitted only under a run id,
+      and a call outside a pipeline run has none.
+
+  - category: Structure
+    chose: "The edit re-entry moved out of the router into SpecDialogEditReload"
+    over: "Compressing the router's existing lines to fit the mint inside its length ratchet"
+    reason: |
+      SpecDialogRouter sat at 124 lines against a 120-line limit and a ratchet that lets a listed
+      file only shrink. The ratchet exists to force the extraction rather than the reflow: the
+      piece of RunTurnAsync that is not routing is the turn's re-entry after an edit note, with
+      its own read, its own stop condition and its own two log lines. The router is 119 lines now
+      and leaves the baseline.
+
+  - category: Scope
+    chose: "Conversations that exist today get no subject and keep the heading they have"
+    over: "Backfilling a subject for every stored conversation"
+    reason: |
+      There is nothing to mint one from without replaying their turns through a model, and the
+      fallback — the first line the person wrote — is what those headings already show.
+  - key: |
+      A FAILED TURN MINTS NOTHING, AND THE GUARD SITS WITH THE OTHER MINT CONDITIONS. When the
+      pipeline returns no reply the router still persists a failure note as the assistant turn,
+      which satisfies "the first assistant turn has just been persisted" as literally as a real
+      answer does. Because the subject is never re-minted, a heading named after half an exchange
+      would stand over the conversation for good — and the half it was named from is the half that
+      went wrong. The condition therefore joins the minter's own guard line rather than the call
+      site: when to mint is the minter's rule, and a caller that had to remember this one could
+      forget it. Proven by a mutation: removing the condition fails the new test and nothing else.
+    alternatives: |
+      Guard at the call site in the router (the caller then owns a rule that is not its own);
+      re-mint on a later successful turn (rejected with the rest of re-minting — a heading that
+      renames itself under a reader is worse than one that is a turn behind).

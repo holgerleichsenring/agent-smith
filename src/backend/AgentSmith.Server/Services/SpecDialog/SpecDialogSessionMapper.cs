@@ -38,6 +38,7 @@ internal static class SpecDialogSessionMapper
         Mode = ConversationMode.SpecDialog,
         ThreadId = session.ThreadId,
         Transcript = ReadTranscript(session.TranscriptJson),
+        Subject = session.Subject,
         Scope = new ActiveScope
         {
             Project = session.Project,

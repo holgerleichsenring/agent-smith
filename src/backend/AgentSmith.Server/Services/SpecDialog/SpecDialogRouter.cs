@@ -19,6 +19,8 @@ public sealed class SpecDialogRouter(
     SpecDialogOutcomeFlow outcomeFlow,
     SpecDialogTurnGate turnGate,
     SpecDialogAnswerAdmission admission,
+    SpecDialogSubjectMinter subjects,
+    SpecDialogEditReload edits,
     SpecDialogReplyComposer composer,
     SpecDialogMessenger messenger,
     ILogger<SpecDialogRouter> logger)
@@ -95,30 +97,23 @@ public sealed class SpecDialogRouter(
             }
 
             await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
+            // 2026-09-20-4b0af: between the two, and nowhere else. The trigger — a conversation
+            // with no subject and no assistant turn yet — is only true once its first assistant
+            // turn is persisted, and the reply below is what makes the page re-read the
+            // conversation, so a subject stored after it would be a read too late for a
+            // conversation that asks one question and never comes back.
+            await subjects.MintAsync(current, result.Kind, result.Reply, ct);
             await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
             // p0315e: a non-answer outcome is proposed + confirmed in-thread,
             // then handed to the outcome sink (p0315c: ticket filing). Runs
             // inside the turn gate; the pending-question branch above routes
             // the approval answer.
             var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, mayStartRuns, ct);
-            if (flowResult is not OutcomeFlowEditRequested edit) return;
-
-            // p0315c edit: the operator's note arrived as a thread message and
-            // was already appended to the durable transcript by its own
-            // inbound routing; re-load the state so the re-prompted master
-            // sees the note as the latest user turn.
-            var refreshed = await sessions.GetOpenByThreadAsync(platform, threadId, ct);
-            if (refreshed is null)
-            {
-                logger.LogWarning(
-                    "Session {SessionId} closed while an outcome edit was pending — stopping",
-                    current.JobId);
-                return;
-            }
-            logger.LogInformation(
-                "Re-running design turn for session {SessionId} with the operator's edit note",
-                current.JobId);
-            current = refreshed with { Revising = result.Outcome };
+            if (flowResult is not OutcomeFlowEditRequested) return;
+            // p0315c edit: the note arrived as a thread message of its own, so the turn runs
+            // again on a re-read state — or not at all, if the session closed meanwhile.
+            if (await edits.RefreshedAsync(current, result.Outcome, ct) is not { } refreshed) return;
+            current = refreshed;
         }
     }
 }

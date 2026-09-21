@@ -15,8 +15,6 @@ import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialo
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
-// 2026-09-18-7a05: what a deletion does not undo, worded by what the conversation filed.
-import { deletionWarning } from "@/components/dialog/conversationDelete";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages } from "@/components/dialog/transcriptImages";
 import type {
@@ -246,14 +244,22 @@ export function useSpecDialog(): SpecDialogState {
   // A command a CONTROL sent is not echoed: the operator clicked "new conversation", they
   // did not say "/spec". What they typed themselves is echoed, because the channel
   // delivers replies and never a copy of the message just sent.
-  const post = useCallback(async (id: string, text: string, echo: boolean | SpecDialogDecision) => {
+  const post = useCallback(async (
+    id: string,
+    text: string,
+    echo: boolean | SpecDialogDecision,
+    project?: string,
+  ) => {
     // Cleared before the post: the turn starts on the server before the post returns, and its
     // first repository may be announced before this line would otherwise run.
     setReadings([]);
     setActivity([]);
     setWorkingSince(Date.now());
     try {
-      await postSpecDialogMessage(id, text);
+      // 2026-09-20-4b0aa: the project the page holds. The server opens the conversation with it
+      // when none is open and routes this message after, in one task — so there is no second post
+      // to be ordered against. A post that names none is answered exactly as it always was.
+      await postSpecDialogMessage(id, text, project);
       if (echo === true) append("user", text, new Date().toISOString());
       else if (echo)
         append("decision", text, new Date().toISOString(), {
@@ -405,20 +411,21 @@ export function useSpecDialog(): SpecDialogState {
     };
   }, [dialogId, append, load, post, loadConversations, listIsBehind]);
 
-  /// Sending with no session open used to reach the router as an ordinary message, and
-  /// the router answered with the command tutorial a chat channel needs — on a page whose
-  /// whole point is that nobody types a command. So the session is opened first, on the
-  /// project the page already knows, and the message follows it.
+  /// 2026-09-20-4b0aa: ONE post, carrying the project. This used to be two — an opening command
+  /// and then the message — and awaiting the first proved only that its background task had been
+  /// STARTED, because the route answers before the turn runs. Whichever task won decided what the
+  /// operator saw: the message's, and their sentence was answered with the tutorial and never
+  /// stored; the opening's, and the reseed this path armed wiped the echoed turn with a
+  /// transcript read before it had landed. The server now opens and routes in one ordered act, so
+  /// there is no second post here and nothing to reseed around — the two remaining armings, a
+  /// switch to another conversation and an attachment, are untouched. The echo keeps its place.
   const send = useCallback(
     async (text: string, project?: string, decision?: SpecDialogDecision) => {
       const said = text.trim();
       if (!dialogId || said.length === 0) return;
-      if (!view?.session) {
-        if (!project) return;
-        reseed.current = true;
-        await post(dialogId, `/spec ${project}`, false);
-      }
-      await post(dialogId, said, decision ?? true);
+      // Nothing to open a conversation on, and nothing open: the page does not guess a project.
+      if (!view?.session && !project) return;
+      await post(dialogId, said, decision ?? true, project);
     },
     [dialogId, view, post],
   );
@@ -496,11 +503,13 @@ export function useSpecDialog(): SpecDialogState {
   // pane and mint a fresh dialog id — the held one now names a dead thread — and the switch that
   // does that in one act is local to this hook. What the list exports is the NEW-conversation
   // callback, which opens one on the fresh id: the opposite of a delete.
+  // 2026-09-20-4b0ab: the ASKING left. A hook cannot render, so as long as the confirmation
+  // lived here it could only be the browser's own prompt; the surface now puts the warning to
+  // the reader in a dialog it draws and calls this with a decision already taken. What did NOT
+  // move is the rule that writes the warning — conversationDelete.ts, which has a test of its
+  // own since this phase — so the next surface to delete a conversation asks the same question.
   const remove = useCallback(
     async (sessionId: string) => {
-      const listed = conversations.find((held) => held.sessionId === sessionId);
-      const warning = listed ? deletionWarning(listed) : null;
-      if (warning !== null && !window.confirm(warning)) return;
       try {
         await deleteSpecDialogConversation(sessionId);
       } catch (thrown) {
@@ -516,7 +525,7 @@ export function useSpecDialog(): SpecDialogState {
       setConversations((held) => held.filter((row) => row.sessionId !== sessionId));
       if (sessionId === view?.session?.sessionId) switchTo(null, true);
     },
-    [conversations, view, switchTo],
+    [view, switchTo],
   );
 
   working.current = awaiting || computing;

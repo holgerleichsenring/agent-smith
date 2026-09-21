@@ -1,0 +1,68 @@
+phase: 2026-09-20-4b0aa
+decisions:
+  - id: the-ordering-lives-on-the-server
+    chose: >
+      The message post carries the project, and the dispatched task opens the conversation and
+      then routes the message — one task, in that order. The endpoint still returns Accepted
+      before either has run.
+    alternative: >
+      Ordering the two posts from the page: awaiting the opening post for longer, waiting for the
+      reply push it produces, or retrying the message after a refusal.
+    why: >
+      The route returns Accepted after STARTING a background task, so awaiting the HTTP call
+      proves only that the task exists. Two accepted posts are two independent background tasks
+      against one dialog, and every client-side remedy is a guess about a race the client cannot
+      observe. Holding the connection instead was never an option: a design turn runs a master and
+      its approval gate waits up to fifteen minutes. What changes is that ONE dispatch does both
+      things in order, not that the dispatch became synchronous.
+  - id: it-goes-in-the-dispatcher-not-the-endpoint
+    chose: >
+      DashboardDialogDispatcher resolves-or-opens before it routes; SpecDialogEndpoints only
+      carries the project through to it.
+    alternative: >
+      Opening inside the request, the way the image upload does, and dispatching only the routing.
+    why: >
+      Opening a conversation is two database operations and could be awaited on the request. The
+      routing behind it is a whole turn and cannot. Splitting them across the boundary would put
+      half the act in the request and half in the task, and the ORDER this phase exists to
+      establish is between those two halves — so both belong on the same side of it.
+  - id: one-resolve-or-open-serves-both-writes
+    chose: >
+      The image upload's resolve-or-open is reused. It was renamed with its record —
+      SpecDialogImageConversation to SpecDialogConversationResolver, SpecDialogUploadTarget to
+      SpecDialogConversationTarget — and grew an overload taking the owner a dispatched task
+      already holds, beside the one taking the request's principal.
+    alternative: >
+      A second opening mechanism for the message path, leaving the image's untouched.
+    why: >
+      The message path takes the same two inputs and needs the same act: resolve, open only when
+      nothing is open, never open over an existing session — because opening over one IS the fork.
+      Two mechanisms for one question would drift, and the fork is what the drift would cost. The
+      rename is the price of the reuse: a message dispatcher depending on a type called
+      ImageConversation would misdescribe both callers. Names change; the behaviour does not.
+  - id: a-failed-open-is-not-answered-twice
+    chose: >
+      When a project was named and no session resulted, the dispatcher returns without routing —
+      so the tutorial does not follow. With no project named it routes exactly as before.
+    alternative: >
+      Always routing, and letting the tutorial be the fallback for every unopened dialog.
+    why: >
+      The command handler has already said why it could not open one: an unknown project, or
+      several to choose between. The tutorial on top of that is a second, vaguer answer to the
+      same question, and it names a button the operator already used. A message with no project
+      and no session is the caller that really has nothing to open — a page that lost its project,
+      or something that is not this page — and the tutorial is still right for it.
+  - id: removing-the-arm-is-what-fixes-the-wiped-sentence
+    chose: >
+      The send path stops arming a reseed. The local echo keeps its place after the post returns,
+      and the decision path's pending snapshot is untouched.
+    alternative: >
+      Moving the echo before the post, which was an earlier cut of this phase.
+    why: >
+      An armed read replaces the entries wholesale with what the read carries and only then spends
+      the arm, so the first read after the reply replaced the echoed turn with a transcript that
+      did not hold it yet — and no later read puts it back, because an unarmed read only settles
+      pending entries. Moving the echo would not have touched that, and would newly have created
+      an entry for a post the server refused, since the post helper swallows its own error and
+      returns. The other two armings — a switch to another conversation, and an attachment, which
+      has nothing local to echo — are genuine and stay.

@@ -5,7 +5,6 @@ using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Providers;
 
-
 /// <summary>
 /// Provides access to tickets from an external system (Azure DevOps, Jira, GitHub).
 /// </summary>
@@ -78,6 +77,16 @@ public interface ITicketProvider : ITypedProvider
         => Task.CompletedTask;
 
     /// <summary>
+    /// 2026-09-20-2ba8: adds ONE label to a ticket that already exists, and answers whether the
+    /// label is now on it. The label travels WHOLE — a provider that joins labels into one
+    /// delimited field must not split it, and a caller offering a value that tracker's grammar
+    /// cannot carry is the caller's bug to prevent. Default: false, the way the port's other
+    /// later members no-op, so a caller reports a tag it never wrote as NOT applied.
+    /// </summary>
+    Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken cancellationToken)
+        => Task.FromResult(false);
+
+    /// <summary>
     /// Post-PR finalize: in one provider-native step, post the summary comment
     /// AND move the ticket to <paramref name="doneStatus"/> (or close it when
     /// <paramref name="doneStatus"/> is null/empty). Reports whether the status
@@ -112,26 +121,19 @@ public interface ITicketProvider : ITypedProvider
     /// Comment bodies are ticket-origin text: callers treat them as UNTRUSTED input.
     /// </summary>
     Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
-        TicketId ticketId,
-        CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TicketComment>>([]);
 
-    /// <summary>
-    /// Returns attachment references found on the ticket.
-    /// Default: empty list (providers that have no attachments skip this).
-    /// </summary>
+    /// <summary>Returns attachment references found on the ticket. Default: empty list
+    /// (providers that have no attachments skip this).</summary>
     Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
-        TicketId ticketId,
-        CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<AttachmentRef>>(Array.Empty<AttachmentRef>());
 
-    /// <summary>
-    /// Downloads image attachments from the ticket, returning ready-to-use image objects.
-    /// Default: empty list. Providers override to handle platform-specific auth.
-    /// </summary>
+    /// <summary>Downloads image attachments from the ticket, returning ready-to-use image
+    /// objects. Default: empty list. Providers override to handle platform-specific auth.</summary>
     Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
-        TicketId ticketId,
-        CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TicketImageAttachment>>([]);
 
     /// <summary>
@@ -140,7 +142,6 @@ public interface ITicketProvider : ITypedProvider
     /// them by name + size only. Default: empty list.
     /// </summary>
     Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
-        TicketId ticketId,
-        CancellationToken cancellationToken = default)
+        TicketId ticketId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TicketDocumentAttachment>>([]);
 }
