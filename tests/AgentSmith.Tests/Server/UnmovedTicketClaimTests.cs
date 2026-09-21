@@ -241,6 +241,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         CapacityTestDoubles.NoPredecessors(),
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
+        _store,
         NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
     private CapacityQueuePump Pump(out Mock<IRedisJobQueue> resumeQueue)
@@ -257,7 +258,11 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         return new CapacityQueuePump(
             Queue(), ClaimService(), factory.Object,
             CapacityTestDoubles.AlwaysReserve(), CapacityTestDoubles.NoCorpses(),
-            Publisher(),
+            // 2026-09-21-c724c: the drop WRITES its run's terminal state through the real
+            // finalization projection and publishes as before.
+            new CapacityQueueDrop(
+                Queue(), new CancelTerminalWriter(_services), Publisher(),
+                CapacityTestDoubles.NoNudge(), NullLogger<CapacityQueueDrop>.Instance),
             new DbRunCancelStateReader(_services.GetRequiredService<IServiceScopeFactory>()),
             new ResumeRunLauncher(
                 _services, new NoOpActiveRunLease(), resumeQueue.Object, Queue(),
@@ -348,6 +353,9 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         services.AddScoped<QueuedTicketRepository>();
         services.AddScoped<RunRepository>();
         services.AddScoped<UnmovedTicketRepository>();
+        // 2026-09-21-c724c: what CancelTerminalWriter writes through.
+        services.AddSingleton<QueuedRunProjection>();
+        services.AddSingleton<RunFinalizationProjection>();
         return services.BuildServiceProvider();
     }
 }

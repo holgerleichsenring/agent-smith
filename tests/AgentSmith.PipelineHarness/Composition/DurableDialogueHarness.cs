@@ -121,7 +121,16 @@ public static class DurableDialogueHarness
             sp.GetRequiredService<AgentSmith.Contracts.Providers.ITicketProviderFactory>(),
             sp.GetRequiredService<AgentSmith.Contracts.Sandbox.ICapacityBudget>(),
             sp.GetRequiredService<AgentSmith.Contracts.Sandbox.ISandboxCorpseReaper>(),
-            sp.GetRequiredService<AgentSmith.Contracts.Events.IEventPublisher>(),
+            // 2026-09-21-c724c: the drop writes its run's terminal state before removing the
+            // entry — a run that never started has no cursor, so publishing alone reached nobody.
+            new CapacityQueueDrop(
+                sp.GetRequiredService<ICapacityQueue>(),
+                sp.GetRequiredService<
+                    AgentSmith.Infrastructure.Persistence.Services.CancelTerminalWriter>(),
+                sp.GetRequiredService<AgentSmith.Contracts.Events.IEventPublisher>(),
+                sp.GetRequiredService<IRunListNudge>(),
+                sp.GetRequiredService<
+                    Microsoft.Extensions.Logging.ILogger<CapacityQueueDrop>>()),
             sp.GetRequiredService<IRunCancelStateReader>(),
             new ResumeRunLauncher(
                 sp, sp.GetRequiredService<IActiveRunLease>(), jobQueue,
