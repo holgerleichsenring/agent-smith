@@ -36,6 +36,13 @@ internal static class MasterLoopHooksFactory
                 ? null
                 : () => startUsd + estimator.EstimateCostUsd() > cap.Usd
                     || startTokens + estimator.EffectiveBudgetTokens > cap.Tokens,
+            // 2026-09-22-7c41a: the fence's own numbers, said out loud. The cap and both
+            // frozen baselines are right here; the governor that throws has neither.
+            RenderBudgetStop: cap is null
+                ? null
+                : () => CostCapStop.Describe(
+                    cap, startUsd + estimator.EstimateCostUsd(),
+                    startTokens + estimator.EffectiveBudgetTokens),
             // p0341e: record EACH tool-loop iteration's usage into BOTH the pass-local fence
             // estimator AND the shared per-pipeline tracker — as it happens. This is the fix
             // for the run summary that showed $0.14 while the master truly spent $16.38: the

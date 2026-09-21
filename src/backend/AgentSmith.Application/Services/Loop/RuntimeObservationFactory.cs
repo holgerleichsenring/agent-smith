@@ -18,17 +18,17 @@ public sealed class RuntimeObservationFactory
     /// <summary>
     /// p0151d: cost-cap-exhausted observation emitted by SkillCallRuntime when
     /// the pipeline cost cap is reached and a skill call is short-circuited.
-    /// Carries the actual USD + token totals so the operator sees what the
-    /// pipeline consumed before the cap fired.
+    /// 2026-09-22-7c41a: takes the caller's rendered stop sentence, which names the CAP as
+    /// well as the spend — an operator reading "exhausted" without the ceiling cannot tell a
+    /// run that genuinely outspent its leash from one resumed onto the wrong number.
     /// </summary>
-    public SkillObservation BuildCostCapExhausted(string skillName, decimal usd, long tokens) =>
+    public SkillObservation BuildCostCapExhausted(string skillName, string stop) =>
         new(
             Id: 0,
             Role: "runtime",
             Concern: ObservationConcern.Risk,
             Description:
-                $"Skill '{skillName}' skipped: pipeline cost cap exhausted " +
-                $"(${usd:F4} spent / {tokens:N0} tokens). Compile + Deliver still ran; " +
+                $"Skill '{skillName}' skipped: {stop}. Compile + Deliver still ran; " +
                 $"raise pipeline_cost_cap in agentsmith.yml for deep audits.",
             Suggestion: "Raise pipeline_cost_cap.default (or the per-pipeline override) in agentsmith.yml.",
             Blocking: false,

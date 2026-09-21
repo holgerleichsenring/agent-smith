@@ -43,6 +43,10 @@ public sealed class ExecutePipelineUseCaseReposTests
                 new AgentSmith.Application.Services.Resume.PipelineContextSerializer(
                     NullLogger<AgentSmith.Application.Services.Resume.PipelineContextSerializer>.Instance),
                 NullLogger<AgentSmith.Application.Services.Resume.ResumeRequestReader>.Instance),
+            new AgentSmith.Application.Services.Resume.ResumedCapRecompute(
+                new AgentSmith.Tests.Sandbox.StubConfigResolver(),
+                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+                NullLogger<AgentSmith.Application.Services.Resume.ResumedCapRecompute>.Instance),
             _sourceOverriderMock.Object,
             new StubSkillsCatalogResolver(),
             new ConceptVocabularyLoader(

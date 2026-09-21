@@ -38,13 +38,17 @@ public sealed class ReviewPhaseDiffHandlerTests
         var result = await Handler(factory).ExecuteAsync(Context(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("cost cap is exhausted");
+        // 2026-09-22-7c41a: the refusal NAMES the cap and the spend — a resumed run carries
+        // the segment before it, so this reader can stop a run far earlier than its own
+        // record suggests, and "exhausted" on its own explains nothing.
+        result.Message.Should().Contain("is exhausted").And.Contain("cache-weighted tokens");
         factory.ResponseCounter.Should().BeEmpty("a skipped review costs nothing");
         var report = PhaseReviewLedger.ForThisPhase(pipeline);
         report.Reviewed.Should().BeFalse(
             "a skipped review recorded as an empty finding list reads exactly like a review "
             + "that read the whole diff and objected to nothing");
-        report.Why.Should().Be("the run's configured cost cap is exhausted");
+        report.Why.Should().Contain("cost cap").And.Contain("is exhausted")
+            .And.Contain("cache-weighted tokens spent");
     }
 
     [Fact]

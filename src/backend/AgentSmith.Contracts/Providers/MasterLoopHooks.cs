@@ -18,6 +18,10 @@ namespace AgentSmith.Contracts.Providers;
 ///   <item><see cref="IsBudgetExhausted"/> — the WITHIN-pass money fence: checked before
 ///     each iteration; true throws <see cref="MasterBudgetExhaustedException"/> to stop a
 ///     runaway single pass (the 200-iteration ceiling is only the anti-runaway net).</item>
+///   <item><see cref="RenderBudgetStop"/> — 2026-09-22-7c41a: what that fence stopped ON.
+///     The verdict alone is composed where neither the cap nor the spend is in scope, so
+///     the stop message could name neither; the factory holds both and renders the
+///     sentence. Null leaves the generic message exactly as it was.</item>
 ///   <item><see cref="RecordIterationUsage"/> — feeds each iteration's usage into the
 ///     pass-local budget estimator so the fence tracks the live spend.</item>
 ///   <item><see cref="RenderReminder"/> — the ledger discipline reminder, injected as a
@@ -28,6 +32,7 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public sealed record MasterLoopHooks(
     Func<bool>? IsBudgetExhausted = null,
+    Func<string>? RenderBudgetStop = null,
     Action<ChatResponse>? RecordIterationUsage = null,
     Func<string?>? RenderReminder = null,
     int ReminderEveryNIterations = 10,

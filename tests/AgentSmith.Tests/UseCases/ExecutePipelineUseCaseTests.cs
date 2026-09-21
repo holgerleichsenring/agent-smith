@@ -42,6 +42,9 @@ public class ExecutePipelineUseCaseTests
                 new AgentSmith.Application.Services.Resume.PipelineContextSerializer(
                     NullLogger<AgentSmith.Application.Services.Resume.PipelineContextSerializer>.Instance),
                 NullLogger<AgentSmith.Application.Services.Resume.ResumeRequestReader>.Instance),
+            new AgentSmith.Application.Services.Resume.ResumedCapRecompute(
+                new AgentSmith.Tests.Sandbox.StubConfigResolver(), _events,
+                NullLogger<AgentSmith.Application.Services.Resume.ResumedCapRecompute>.Instance),
             _sourceOverriderMock.Object,
             new StubSkillsCatalogResolver(),
             new ConceptVocabularyLoader(
@@ -89,6 +92,42 @@ public class ExecutePipelineUseCaseTests
             It.IsAny<ResolvedProject>(),
             It.Is<PipelineContext>(ctx => ctx.Has(ContextKeys.TicketId)),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // 2026-09-22-7c41a: the prologue's one seam — the restore has landed and nothing has
+    // read the cap yet. Without the recompute a resumed run meets the CONFIGURED cap
+    // instead of the raised one its own run row records, and dies at a fraction of it.
+    [Fact]
+    public async Task ExecuteAsync_ARunCarryingAComplexityTier_RunsOnTheRecomputedCap()
+    {
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
+        };
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        CostCapValues? capTheRunMet = null;
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Callback<IReadOnlyList<string>, ResolvedProject, PipelineContext, CancellationToken>(
+                (_, _, ctx, _) => ctx.TryGet("PipelineCostCap", out capTheRunMet))
+            .ReturnsAsync(CommandResult.Ok("Done"));
+
+        await _sut.ExecuteAsync(
+            new PipelineRequest("todo-list", "fix-bug",
+                Context: new Dictionary<string, object>
+                {
+                    [ContextKeys.ComplexityTier] = ComplexityTier.Large,
+                }),
+            "config.yml", CancellationToken.None);
+
+        capTheRunMet.Should().NotBeNull();
+        capTheRunMet!.Usd.Should().Be(25m, "the large tier raises the configured $5 default");
+        capTheRunMet.Tokens.Should().Be(5_000_000);
     }
 
     [Fact]

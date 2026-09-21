@@ -41,10 +41,12 @@ public sealed class MasterLoopGovernorChatClient(IChatClient inner, MasterLoopHo
     {
         // The within-pass money fence — checked BEFORE spending another iteration.
         if (hooks.IsBudgetExhausted?.Invoke() == true)
+            // 2026-09-22-7c41a: RenderBudgetStop names the cap and the spend that crossed it.
             throw new MasterBudgetExhaustedException(
-                "The per-pipeline cost budget was exhausted mid-pass — the coding loop was "
-                + "stopped on money (not the anti-runaway iteration ceiling). Partial work is "
-                + "preserved and the run is recorded as cost-cap-exhausted.");
+                (hooks.RenderBudgetStop?.Invoke() ?? "The per-pipeline cost budget was exhausted")
+                + " mid-pass — the coding loop was stopped on money (not the anti-runaway "
+                + "iteration ceiling). Partial work is preserved and the run is recorded as "
+                + "cost-cap-exhausted.");
 
         var list = messages as IList<ChatMessage> ?? messages.ToList();
         UpdateStreaks(list);
