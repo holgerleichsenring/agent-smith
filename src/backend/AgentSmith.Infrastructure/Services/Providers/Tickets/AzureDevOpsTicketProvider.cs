@@ -103,8 +103,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken) =>
         _lister.ListAsync(
-            $"[System.Tags] CONTAINS '{LifecycleLabels.For(status)}'",
-            $"lifecycle={status}", cancellationToken);
+            $"[System.Tags] CONTAINS '{LifecycleLabels.For(status)}'", $"lifecycle={status}", cancellationToken);
 
     public Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
@@ -181,8 +180,11 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
         => WriteFinalizeAsync(ticketId, resolution, _doneStatus, cancellationToken);
 
-    public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
-        => PatchAsync(ticketId, [Op("/fields/System.State", statusName)], cancellationToken);
+    public async Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    {
+        await PatchAsync(ticketId, [Op("/fields/System.State", statusName)], cancellationToken);
+        return true; // AzDO refuses a state it cannot write by throwing, so a PATCH that returned landed.
+    }
 
     // One PATCH: AzDO bumps System.Rev on every write, so a comment and a transition sent
     // apart race any concurrent observer and the second fails with TF26071.
@@ -191,8 +193,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         => _finalizer.FinalizeAsync(ticketId, comment, doneStatus, cancellationToken);
 
     private Task WriteFinalizeAsync(TicketId ticketId, string comment, string state, CancellationToken ct)
-        => PatchAsync(ticketId,
-            [Op("/fields/System.History", ToHtml(comment)), Op("/fields/System.State", state)], ct);
+        => PatchAsync(ticketId, [Op("/fields/System.History", ToHtml(comment)), Op("/fields/System.State", state)], ct);
 
     private async Task PatchAsync(TicketId ticketId, JsonPatchDocument patch, CancellationToken cancellationToken)
     {

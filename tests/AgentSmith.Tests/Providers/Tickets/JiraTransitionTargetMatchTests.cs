@@ -90,6 +90,29 @@ public sealed class JiraTransitionTargetMatchTests
         handler.Posts.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// 2026-09-21-1fa0: the transitioner has always answered "no transition matched"; the
+    /// provider that wraps it used to return a bare Task and drop that answer, so the retry
+    /// could not tell a move Jira made from one its workflow offered nowhere to make.
+    /// </summary>
+    [Fact]
+    public async Task TicketProvider_ATransitionWithNoMatchingWorkflowStep_IsReportedRatherThanSwallowed()
+    {
+        var handler = new TransitionsHandler(Transitions);
+        var provider = new JiraTicketProvider(
+            new JiraTicketConnection("https://jira.example.com", "u@example.com", "t", "PROJ", null),
+            new HttpClient(handler), new JiraFieldMapper(), NullLogger<JiraTicketProvider>.Instance);
+
+        var moved = await ((ITicketProvider)provider).TransitionToAsync(
+            new TicketId("PROJ-1"), "Triage", CancellationToken.None);
+
+        moved.Should().BeFalse("no workflow transition reaches 'Triage', so the ticket did not move");
+        handler.Posts.Should().BeEmpty();
+        (await ((ITicketProvider)provider).TransitionToAsync(
+                new TicketId("PROJ-1"), "In Progress", CancellationToken.None))
+            .Should().BeTrue("a move the workflow does offer still answers that it happened");
+    }
+
     [Fact]
     public async Task JiraFinalize_DoneStatusByTransitionName_StillTransitions()
     {
