@@ -6,6 +6,8 @@ import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { PageHead } from "@/components/system/PageHead";
+import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
+import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
@@ -40,6 +42,19 @@ export function SpecDialogSurface() {
   // 2026-09-17-042ej: the conversation follows what it filed. A read of its own rather than a
   // field on the dialog view, which is refetched after every reply.
   const work = useFiledWork(dialog.dialogId, dialog.filed);
+  // 2026-09-20-4b0ab: asking is the SURFACE's job, because a hook cannot render. The rule that
+  // decides whether a conversation needs confirming, and what the warning says, stays where it
+  // was; what changes is that the warning is now put to the reader in a dialog this page drew.
+  const confirmation = useConfirmDialog();
+  async function remove(sessionId: string) {
+    // The list renders a delete only for a row it holds, so the lookup finds one; a caller
+    // that reached this with an id the list does not hold deletes without confirming, which is
+    // what the hook did before the asking moved here.
+    const listed = dialog.conversations.find((held) => held.sessionId === sessionId);
+    const warning = listed ? deletionWarning(listed) : null;
+    if (warning !== null && !(await confirmation.ask(warning, { confirmLabel: "Delete" }))) return;
+    await dialog.remove(sessionId);
+  }
   const title = session
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;
@@ -65,7 +80,7 @@ export function SpecDialogSurface() {
               onPicked={setPicked}
               onStartNew={(chosen) => void dialog.startNew(chosen)}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
-              onDelete={(sessionId) => void dialog.remove(sessionId)}
+              onDelete={(sessionId) => void remove(sessionId)}
             />
             <section className="ecard inert min-w-0">
               <div className="d-head">
@@ -131,6 +146,9 @@ export function SpecDialogSurface() {
           </div>
         </div>
       </main>
+      {/* Inside this page's shell, because that is what the confirmation's rules are scoped
+          to; showModal lifts it to the top layer without moving it in the DOM. */}
+      <ConfirmDialog {...confirmation.dialog} />
     </div>
   );
 }
