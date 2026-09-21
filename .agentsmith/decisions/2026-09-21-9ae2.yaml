@@ -1,0 +1,78 @@
+phase: 2026-09-21-9ae2
+decisions:
+  - id: the-pattern-accepts-git-s-own-options-and-nothing-else
+    chose: >
+      Between `git` and `commit` the pattern accepts an option — a flag, plus the value after
+      the flags that take one (`-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace`,
+      `--exec-path`, `--super-prefix`, `--config-env`) — repeated any number of times.
+    alternative: >
+      "git … commit anywhere in the command", or an optional value after ANY flag.
+    why: >
+      Both widenings gate things that are not commits. The loose form gates a command that
+      merely mentions one, which the anchor exists to prevent and which already misfires once
+      a session through the separator case. The optional-value-after-any-flag form gates
+      `git -p log commit`, because `log` is then read as `-p`'s value. Only the flags that
+      really take a value may swallow the token after them; the table in
+      test_phase_gate_marker.py holds both directions.
+  - id: the-subcommand-ends-where-the-word-ends
+    chose: >
+      `commit` must be followed by whitespace, a shell separator or the end of the line.
+    alternative: >
+      Keep the `\b` the pattern used, which was enough while `commit` had to follow `git`
+      directly.
+    why: >
+      `\b` matches before a hyphen, so `git commit-graph write` was gated — harmlessly today
+      only because the resolver finds no `commit` token and reads the whole command line as
+      the message. Accepting options widens what can precede the word, so the word itself had
+      to stop being a prefix match. It is the one case where this phase gates strictly LESS.
+  - id: one-reading-of-the-command-decides-the-tree-and-the-message
+    chose: >
+      commit-message.py gained `--work-dir`, and the gate's tree resolution now asks it
+      instead of running its own `sed` for a leading `cd`. The resolver applies the `cd` and
+      then git's `-C`, in that order, for both the tree it reports and the files it reads.
+    alternative: >
+      Widen only the pattern and leave tree resolution alone — the phase's stated scope.
+    why: >
+      Recognising `git -C <tree> commit` while still checking the session's cwd would build,
+      test and record the WRONG tree — the exact failure the `cd` handling was written for,
+      and worse than not gating, because it writes a green ledger line for code the commit
+      does not contain. A subagent's cwd is the shared checkout, so this is the common case,
+      not the corner one. Two readings of one command line would also drift apart.
+  - id: the-gate-runs-the-hook-tests-of-the-tree-it-gates
+    chose: >
+      A step 0 running `.claude/hooks/test_*.py` from the target tree, before the dashboard,
+      the build and the suite; a red hook test blocks the commit.
+    alternative: >
+      A GitHub workflow; or running the copy that sits beside the running script.
+    why: >
+      A workflow would leave the hook unproven on the machine where it actually gates, which
+      is the whole of its job. Running the target tree's copy means a commit that changes the
+      hook is proven by the hook it ships — this phase's own commit is the first case. The
+      step costs about seven seconds against the minutes that follow it, and it runs first
+      because a gate that cannot prove itself has no business reporting on anything else.
+  - id: two-guards-keep-the-self-test-from-reaching-this-run
+    chose: >
+      The step exports PHASE_GATE_SELFTEST, which makes the gate the tests invoke skip the
+      step, and PHASE_GATE_LOG pointing at a scratch file inside the run's temp directory.
+    alternative: >
+      Rely on the fixtures, which already redirect their own ledger; or detect recursion by
+      depth or by comparing paths.
+    why: >
+      The tests drive the real gate dozens of times, so without the sentinel the step would
+      run them from inside themselves — the first thing this phase would have discovered as a
+      hang. The fixtures' own redirect protects the ledger only for the cases that pass a
+      path; a hook test written later could write a real line for a commit that never
+      happened, which is the ledger's one unrecoverable failure mode. Both guards are cheap
+      and independent, and a tree with no hook tests needs neither.
+  - id: the-amend-caveat-is-written-down-rather-than-worked-around
+    chose: >
+      CLAUDE.md now says the ledger's last field is the tree's HEAD when the hook ran, equal
+      to the new commit's parent for an ordinary commit and one older for an `--amend`.
+    alternative: >
+      Record the resulting commit instead (the hook runs before it exists), or ship the
+      branch check that joins lines to commits.
+    why: >
+      An earlier cut of this phase built that detector and measured it at four false alarms in
+      the last twenty-nine phase commits, because of exactly this field. Closing the slip the
+      detector was meant to find is the cheaper half; the caveat is what the next reader needs
+      before trying to join a line to a commit at all.

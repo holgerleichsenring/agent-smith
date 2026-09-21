@@ -11,6 +11,11 @@ argv[1]. Exit 0 prints the message on stdout; exit 3 prints, instead, why the
 message cannot be read yet (a bare commit, an editor amend, `-F -`) — those
 cases have no message to gate at this point, so the gate lets them through and
 says so.
+
+`--work-dir <cwd>` instead prints the directory the commit will run in, moved by
+a leading `cd` and by git's own `-C` (2026-09-21-9ae2). The gate reads it to
+decide which tree to check, so the tree that is built and the message that is
+read come from one definition of where the commit happens.
 """
 
 import os
@@ -20,6 +25,9 @@ import sys
 from dataclasses import dataclass, field
 
 EXIT_UNRESOLVABLE = 3
+COMMIT = "commit"
+DIRECTORY_OPTION = "-C"
+WORK_DIR_MODE = "--work-dir"
 SEPARATORS = (";", "&&", "||", "|", "&")
 PARAGRAPH_BREAK = "\n\n"
 VALUE_SHORT_OPTIONS = "mFtCc"
@@ -57,10 +65,18 @@ def resolve(command: str, cwd: str) -> Resolution:
     tokens = _split(command)
     if tokens is None:
         return Resolution(message=command)
-    arguments = _commit_arguments(tokens)
-    if arguments is None:
+    segment = _commit_segment(tokens)
+    if segment is None:
         return Resolution(message=command)
+    arguments = segment[segment.index(COMMIT) + 1:]
     return _decide(_scan(arguments), _effective_directory(tokens, cwd))
+
+
+def work_directory(command: str, cwd: str) -> str:
+    """The directory `command` will commit in: `cwd`, moved by a leading `cd` and by
+    git's own `-C`. A command that is not a commit at all moves nothing."""
+    tokens = _split(command)
+    return cwd if tokens is None else _effective_directory(tokens, cwd)
 
 
 def _split(command: str) -> list[str] | None:
@@ -71,11 +87,12 @@ def _split(command: str) -> list[str] | None:
         return None
 
 
-def _commit_arguments(tokens: list[str]) -> list[str] | None:
-    """The arguments after `commit` in the first `git ... commit` segment."""
+def _commit_segment(tokens: list[str]) -> list[str] | None:
+    """The first `git ... commit` segment — git, its global options, the subcommand
+    and its arguments."""
     for segment in _segments(tokens):
-        if segment and segment[0] == "git" and "commit" in segment:
-            return segment[segment.index("commit") + 1:]
+        if segment and segment[0] == "git" and COMMIT in segment:
+            return segment
     return None
 
 
@@ -105,11 +122,35 @@ def _split_on_semicolon(token: str) -> list[str]:
 
 
 def _effective_directory(tokens: list[str], cwd: str) -> str:
-    """The directory the commit runs in — a leading `cd` wins over the hook's cwd."""
+    """The directory the commit runs in — a leading `cd` moves it, and git's own `-C`
+    moves it again, in that order, because that is the order the shell and git apply
+    them. Each is joined onto the last, so repeated `-C` accumulates as git does."""
+    directory = cwd
     first = _segments(tokens)[0]
     if len(first) >= 2 and first[0] == "cd":
-        return os.path.join(cwd, os.path.expanduser(first[1]))
-    return cwd
+        directory = os.path.join(directory, os.path.expanduser(first[1]))
+    for path in _directory_options(tokens):
+        directory = os.path.join(directory, os.path.expanduser(path))
+    return directory
+
+
+def _directory_options(tokens: list[str]) -> list[str]:
+    """The paths of git's `-C` global options. Only the tokens BEFORE the subcommand
+    are read: `commit -C <rev>` reuses a message and names no directory at all."""
+    segment = _commit_segment(tokens)
+    if segment is None:
+        return []
+    paths: list[str] = []
+    expecting = False
+    for token in segment[1:segment.index(COMMIT)]:
+        if expecting:
+            paths.append(token)
+            expecting = False
+        elif token == DIRECTORY_OPTION:
+            expecting = True
+        elif token.startswith(DIRECTORY_OPTION):
+            paths.append(token[len(DIRECTORY_OPTION):])
+    return paths
 
 
 def _scan(arguments: list[str]) -> MessageSources:
@@ -193,7 +234,12 @@ def _from_revision(revision: str, work_dir: str) -> Resolution:
 
 
 def main() -> int:
-    cwd = sys.argv[1] if len(sys.argv) > 1 else "."
+    arguments = sys.argv[1:]
+    if arguments and arguments[0] == WORK_DIR_MODE:
+        cwd = arguments[1] if len(arguments) > 1 else "."
+        print(work_directory(sys.stdin.read(), cwd), end="")
+        return 0
+    cwd = arguments[0] if arguments else "."
     resolution = resolve(sys.stdin.read(), cwd)
     if resolution.message is None:
         print(resolution.reason, end="")

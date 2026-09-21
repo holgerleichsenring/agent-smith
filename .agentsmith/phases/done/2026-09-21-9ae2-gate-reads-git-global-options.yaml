@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-9ae2
+
+goal: "The gate recognises a commit invoked with git's global options, and its own tests are run by something, so the form an agent naturally writes stops slipping past it unnoticed."
+
+applies_to: "repo tooling (the phase-gate hook's command detection and the runner for the hook's own tests)"
+
+scope:
+  in: >
+    The gate decides whether to act by matching the command against a pattern that requires the
+    word git to be immediately followed by commit. Git's global options go between them, and one of
+    them is exactly what an agent working in a worktree writes: a commit addressed with a path
+    rather than by changing directory. Measured against the hook's own pattern, the plain form and
+    the leading-change-of-directory form are gated; the path-addressed form and the ones carrying
+    other global options are not — the hook exits without writing anything, so the commit lands and
+    the ledger records no line at all.
+    This was mistaken for something larger. The belief in this session was that the hook does not
+    run for a sub-session at all, and a whole way of working was built around it. The ledger
+    disproves it: forty-seven of its lines were written from sub-session worktree paths, forty-two
+    of them passing, over two weeks. The hook fires there. It was the command SHAPE that changed,
+    and the shape had been noticed before without reaching the pattern.
+    This phase accepts git's global options before the subcommand. And it gives the hook's own
+    tests a runner: two test files sit beside the hook with fixtures for a repository, a ledger and
+    a gate run, and NOTHING executes them — not the gate's five steps, not any workflow. A pattern
+    with no runner is how this one drifted from the forms it is supposed to catch.
+  out: >
+    DETECTING A MISSING LEDGER LINE AFTER THE FACT. An earlier cut of this phase built a branch
+    check that joins a phase commit to its ledger line. An adversarial review measured it at four
+    false alarms in the last twenty-nine phase commits and eighty-six over the history, because the
+    ledger records the tree's head at hook time rather than the resulting commit's parent, and an
+    amend makes those different. A detector for a slip that can simply be closed is the expensive
+    way round. Named in prose as the phase that makes a gate verdict joinable to a commit.
+    THE AMEND CAVEAT ITSELF. Unchanged, and now named where a reader will find it.
+    A LINE THAT NAMES NO COMMIT. The hook matches a command that merely contains the gated shape
+    after a separator, so a shell loop that mentions it writes a real passing line for a commit that
+    never happened — it happened twice in one session. Real, and a different question from the one
+    this phase answers. Named in prose as the phase that stops the gate acting on a mention.
+    WHAT THE GATE CHECKS. Unchanged.
+    CARRYING A VERDICT BETWEEN MACHINES. The ledger is local. Out of scope and named.
+
+decisions:
+  - key: |
+      THE CAUSE WAS MEASURED, NOT INFERRED, AND THE FIRST INFERENCE WAS WRONG. Three agents
+      committing without a ledger line looked like proof that sub-sessions are not hooked. The
+      ledger contains forty-seven lines from sub-session worktrees, so they are. What separates the
+      two populations is the command: a sub-session is told to use absolute paths, so it addresses
+      the repository with a path instead of changing directory — and that is the one form the
+      pattern rejects. A belief that survived a whole session did so because nobody asked the
+      ledger.
+  - key: |
+      THE PATTERN ACCEPTS OPTIONS, NOT ANYTHING. Widening it to "git … commit somewhere in the
+      command" would gate a line that merely mentions a commit, which the pattern deliberately
+      avoids and which already misfires once per session through the separator case. What is
+      accepted is git's own global options between the program and the subcommand — flags, and the
+      value that follows a flag taking one — and the phase proves it against a table of forms that
+      must gate and forms that must not.
+  - key: |
+      THE TESTS EXIST AND ARE THE REASON THIS DRIFTED. Two files beside the hook already build a
+      repository, run the gate with a redirected ledger and read the result back. They cover the
+      message forms thoroughly and the command shape not at all, and nothing has ever run them. A
+      pattern guarding every phase commit in the repository, with tests nobody executes, will drift
+      again; the runner is what makes this phase hold rather than repeat.
+  - key: |
+      THE RUNNER GOES WHERE THE GATE ALREADY LOOKS. The gate runs five steps before it allows a
+      phase commit, and the hook's own correctness is not among them. Adding it there costs a
+      second and is paid by the thing it protects; putting it in a workflow instead would leave the
+      hook unverified on the machine where it actually runs.
+      IT MUST NOT RECURSE. The gate's own tests invoke the gate. The step runs them with the
+      ledger redirected, the way the fixtures already do, and it must not gate itself — the phase
+      says how rather than discovering it as a hang.
+  - key: |
+      THE LEDGER'S PARENT FIELD IS RECORDED BEFORE THE COMMIT EXISTS, AND THIS PHASE ONLY WRITES
+      THAT DOWN. It is the tree's head at hook time, which equals the new commit's parent for an
+      ordinary commit and not for an amend. That is why the detector was refused, and a reader who
+      later tries to join a line to a commit needs to know it before they start.
+
+steps:
+  - id: the-pattern-accepts-git-s-global-options
+    action: "The hook's command detection accepts git's global options between the program and the subcommand, so a commit addressed with a path is gated like any other. The plain form, the leading-change-of-directory form and the separator forms keep working, and a command that merely mentions a commit is still not gated by the option shape."
+  - id: the-hook-s-tests-cover-the-command-shape
+    action: "The existing hook tests gain the command-shape table: the forms that must gate and the forms that must not, including the path-addressed form that slipped."
+  - id: something-runs-them
+    action: "The gate runs the hook's own tests as part of what it checks before allowing a phase commit, with the ledger redirected so the tests cannot write real lines and cannot gate themselves."
+
+tests:
+  - "Gate_ACommitAddressedWithAPath_IsGated"
+  - "Gate_ACommitCarryingAConfigOption_IsGated"
+  - "Gate_APlainCommit_IsStillGated"
+  - "Gate_ACommitAfterALeadingChangeOfDirectory_IsStillGated"
+  - "Gate_ACommandThatOnlyMentionsACommit_IsStillNotGated"
+  - "Gate_AGitSubcommandThatIsNotCommit_IsStillNotGated"
+  - "Gate_TheHookTests_AreRunByTheGate"
+  - "Gate_TheHookTestsRunByTheGate_WriteNoLedgerLine"
+
+done:
+  - "a commit addressed with a path is gated, like the form that changes directory first"
+  - "the forms that were gated before are still gated, and the ones that were ignored are still ignored"
+  - "the hook's own tests cover the command shape, not only the message forms"
+  - "the gate runs those tests before it allows a phase commit"
+  - "running them writes no line to the real ledger and does not gate itself"
+  - "the amend caveat is written where the next reader will find it"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The hook gates only a command where git is immediately followed by commit, at the start or after a shell separator, and exits silently otherwise."
+    evidence: ".claude/hooks/phase-gate.sh:98-102"
+  - claim: "The hook resolves the tree it gates from the call's working directory or a leading change of directory — the two forms the pattern was written for."
+    evidence: "CLAUDE.md:159-162"
+  - claim: "CLAUDE.md lists the gated message forms, the ones passed through loudly and one case as not covered at all, and names no command shape among them."
+    evidence: "CLAUDE.md:163-168"
+  - claim: "The hook states that a phase commit with no ledger line never met the gate, which is what tells a pass from an absence."
+    evidence: ".claude/hooks/phase-gate.sh:49-51"
+  - claim: "The ledger records the tree's head at hook time as the commit's parent."
+    evidence: ".claude/hooks/phase-gate.sh:82-84, :93"
+  - claim: "Two test files sit beside the hook with fixtures that build a repository, run the gate with a redirected ledger and read the ledger back."
+    evidence: ".claude/hooks/test_commit_message.py:62-102, .claude/hooks/test_phase_gate_marker.py:36-50"
+  - claim: "Those tests cover the message forms and the marker shapes."
+    evidence: ".claude/hooks/test_commit_message.py:104-136, .claude/hooks/test_phase_gate_marker.py:36-107"
+  - claim: "The gate's own checks are the dashboard, the build, the tests, the dry-runs and the harness presets; the hook's tests are not among them."
+    evidence: ".claude/hooks/phase-gate.sh:4-13"
+  - claim: "The hook is registered as a pre-tool hook on the shell tool with a fifteen-minute timeout."
+    evidence: ".claude/settings.json"

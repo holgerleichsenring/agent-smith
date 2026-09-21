@@ -7,6 +7,8 @@
 #
 # When it gates, the deterministic phase checks must all be green or the commit
 # is blocked (exit 2, stderr fed back to Claude):
+#   0. hook tests      — this gate's own command detection and message resolver, from
+#                        the tree being gated (2026-09-21-9ae2)
 #   1. dashboard       — pnpm install, the generated-mirror check, test and build in
 #                        src/dashboard (2026-08-25-39ab, 2026-09-18-7b31)
 #   2. build           — dotnet build (errors fail)
@@ -99,7 +101,21 @@ record() {
 # shell separator) whose message names a phase in either namespace. This
 # deliberately ignores commands that merely *mention* git commit (grep, echo,
 # this script's own tests).
-printf '%s' "$cmd" | grep -Eq '(^|[;&|]|&&)[[:space:]]*git[[:space:]]+commit\b' || exit 0
+#
+# 2026-09-21-9ae2: git's GLOBAL OPTIONS sit between the program and the subcommand, and
+# `git -C <tree> commit` is what an agent told to work in absolute paths writes instead
+# of changing directory first. Requiring `commit` immediately after `git` rejected every
+# such form, so the hook exited silently: no checks, no ledger line, nothing to tell the
+# skip from a pass. What is accepted between the two is an option — a flag, and, for the
+# flags that take one, the value after it — and nothing else, so `git -p log commit` and
+# `git -C <tree> rebase --continue` still pass through untouched. The subcommand ends at
+# whitespace, a separator or the line, because `commit-graph` is not `commit`.
+git_value="(\"[^\"]*\"|'[^']*'|[^[:space:]]+)"
+git_value_flag="(-[Cc]|--(git-dir|work-tree|namespace|exec-path|super-prefix|config-env))"
+git_option="(${git_value_flag}[[:space:]]*${git_value}|--[A-Za-z][A-Za-z0-9-]*(=[^[:space:]]*)?|-[A-Za-z]+)"
+printf '%s' "$cmd" \
+  | grep -Eq "(^|[;&|]|&&)[[:space:]]*git([[:space:]]+${git_option})*[[:space:]]+commit([[:space:]]|[;&|]|$)" \
+  || exit 0
 
 # Look for the marker in the message the commit will CARRY, not in the command
 # line. `--amend --no-edit`, `-F <file>`, `-t <template>` and `-C <rev>` keep the
@@ -142,11 +158,16 @@ fi
 # CLAUDE_PROJECT_DIR, so the old unconditional `cd "$CLAUDE_PROJECT_DIR"` built and
 # tested the main checkout and waved the worktree's changes through without ever
 # compiling them — the gate reported numbers from code the commit does not contain.
-# Resolution order: an explicit leading `cd <dir>` in the command, then the hook
-# payload's cwd, then the project dir; each resolved to its git top level.
+# Resolution order: the directory the commit itself runs in — the hook payload's cwd
+# moved by a leading `cd <dir>` and by git's own `-C <dir>` — then that cwd, then the
+# project dir; each resolved to its git top level. The resolver computes it, so the
+# tree that is built and the message that is read come from ONE reading of the command:
+# a `-C` that sent the commit elsewhere while the gate checked the session's tree would
+# report numbers from code the commit does not contain, which is the same failure the
+# `cd` case was written for (2026-09-21-9ae2).
 target_dir=""
 for candidate in \
-  "$(printf '%s' "$cmd" | sed -n 's/^[[:space:]]*cd[[:space:]]\{1,\}\([^&;|]*\).*/\1/p' | head -1 | sed 's/[[:space:]]*$//' | tr -d "\"'")" \
+  "$(printf '%s' "$cmd" | python3 "$resolver" --work-dir "${hook_cwd:-.}" 2>/dev/null)" \
   "$hook_cwd" \
   "${CLAUDE_PROJECT_DIR:-.}"
 do
@@ -159,6 +180,29 @@ cd "$target_dir" || { echo "phase-gate: cannot cd to $target_dir" >&2; exit 2; }
 tmp=$(mktemp -d 2>/dev/null || echo /tmp)
 log()  { echo "[phase-gate] $*" >&2; }
 fail() { record blocked "$target_dir" "$1"; echo "" >&2; echo "PHASE GATE BLOCKED COMMIT — $1 failed. Fix it before committing the phase." >&2; exit 2; }
+
+# 2026-09-21-9ae2: this gate's own tests, from the tree being gated — a commit that
+# changes the hook is proven by the hook it ships, not by the copy the session started
+# with. They existed for three phases with nothing running them, which is how the
+# command detection above drifted from the forms agents actually write.
+# The tests drive the gate against throwaway repositories, so two things keep that out
+# of this run: PHASE_GATE_LOG sends any line they write to a scratch file instead of the
+# ledger, and PHASE_GATE_SELFTEST makes the gate they invoke skip this step rather than
+# run the tests that invoked it. A tree carrying no hook tests says so and moves on.
+if [ -z "${PHASE_GATE_SELFTEST:-}" ]; then
+  log "0/5 hook tests (this gate's own detection and resolver)..."
+  hook_tests=$(ls .claude/hooks/test_*.py 2>/dev/null)
+  if [ -z "$hook_tests" ]; then
+    log "    no .claude/hooks/test_*.py in $target_dir — no hook tests to run"
+  fi
+  for hook_test in $hook_tests; do
+    if ! PHASE_GATE_SELFTEST=1 PHASE_GATE_LOG="$tmp/selftest-phase-gate.log" \
+        python3 "$hook_test" >"$tmp/hook-tests.log" 2>&1; then
+      tail -40 "$tmp/hook-tests.log" >&2; fail "hook tests: $(basename "$hook_test")"
+    fi
+    log "    hook tests: $(basename "$hook_test") ok"
+  done
+fi
 
 # A phase routinely spans both repos. The checks below are the .NET solution
 # checks plus the dashboard's own build and tests. In the skills catalog the equivalent gate is its own validator
