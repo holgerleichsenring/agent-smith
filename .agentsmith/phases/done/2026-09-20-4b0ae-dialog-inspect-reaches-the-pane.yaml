@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-4b0ae
+
+goal: "Inspecting a proposal from the transcript visibly acknowledges the click, so the control has an effect even when the pane it selects was already showing that proposal."
+
+applies_to: "dashboard (the Work it out surface, its pane, the dialog block of the mock-parity stylesheet, and the test setup)"
+
+scope:
+  in: >
+    An operator clicked Inspect on a proposal card and nothing appeared to happen. The handler
+    works: it sets the pane's focus to that proposal, the pane offers the proposal tab because a
+    shown proposal exists, and the tab becomes the selected one. The held focus survives the reads
+    that follow, because the proposal and filing objects it is compared against are not rebuilt per
+    read. Every part of that chain is correct and none of it is visible.
+    The reason is that the click usually changes NOTHING in the document. The pane selects the
+    proposal tab by fallback whenever nothing has been filed yet — so the commonest state is the
+    pane already showing the very proposal the operator is inspecting, and setting the focus to it
+    produces an identical render. A second, narrower cause compounds it: below roughly a thousand
+    pixels of container width the pane stacks under the exchange, so even a real change is off the
+    screen the operator is looking at.
+    This phase makes the act acknowledge itself: a transient mark on the pane, cleared on a timer
+    and drawn by a rule in this page's own stylesheet block; focus moved to the pane's panel with a
+    plain focus outline, because a programmatic focus after a mouse click matches no focus-visible
+    rule and nothing in the sheet styles a focused panel; and a nearest-scroll so a stacked pane
+    comes into view without yanking a reader who can already see it.
+  out: >
+    THE LAYOUT. Which column the pane is in at which width was settled by an earlier phase and is
+    not reopened. This phase does not move the pane.
+    THE FOCUS RULE. That the pane's held choice lasts only until the conversation's outcome changes
+    is unchanged.
+    THE OTHER ROUTES INTO THE PANE. A new proposal and a new filing move the pane on their own and
+    are neither scrolled to nor marked: they are not acts the operator just performed, and yanking
+    the viewport under someone who is reading is worse than the defect this fixes.
+    SCROLLING ON A TAB CLICK. Clicking a tab inside the pane means the pane is already in view.
+    MOTION PREFERENCE. The scroll is instant — no behaviour option is passed — so there is no
+    animation to make conditional and no media query to read at click time.
+
+decisions:
+  - key: |
+      THE HANDLER IS NOT BROKEN, AND THE STRONGEST CANDIDATE FOR IT BEING BROKEN WAS CHECKED AND
+      RULED OUT. The pane's held focus is compared by reference against the proposal and the filing,
+      which would discard it instantly if those were rebuilt on every read. They are not: the
+      proposal is set in three places and the reseeding branch is spent after the first load, so
+      every later read takes the early return and leaves both references alone. And the proposal
+      object a card hands to the handler is the same object the pane holds, on both the seeded and
+      the pushed path.
+  - key: |
+      THE UNIVERSAL CAUSE IS THAT THE DOM DOES NOT CHANGE, AND THE LAYOUT IS THE SECONDARY ONE. An
+      earlier cut led with the layout and would have shipped a fix that does nothing at the widths
+      the operator most likely had: the pane sits level with the top of the exchange from about a
+      thousand pixels of container width upward, where a scroll into view is a no-op and a
+      programmatic focus paints nothing. The acknowledgement has to be something that changes even
+      when the tab does not.
+  - key: |
+      SO THE ACT FIRES IT, NOT A DERIVED STATE CHANGE. If the acknowledgement were driven by the
+      focus state changing, the commonest case would still do nothing. The surface owns it, because
+      the hook holds no element references and the pane does not know it was clicked from outside.
+  - key: |
+      THE FOCUS OUTLINE IS A PLAIN FOCUS RULE, NOT FOCUS-VISIBLE. A programmatic focus following a
+      mouse click does not match focus-visible in the browsers this runs in, and the sheet's only
+      focus-visible rules are on a link and a close control. Without a plain focus rule on the panel
+      the focus move is invisible, which is the same defect one layer down.
+  - key: |
+      THE SCROLL IS NEAREST, EXPLICITLY. The page's scroll container is the main region, and in the
+      three-column layout the pane's top is the top of the grid — so a default start-aligned scroll
+      would jump the page to near the top when an operator clicks Inspect at the bottom of a long
+      transcript. That is exactly the yanking this phase's scope forbids. Nearest also makes the
+      in-view case a true no-op.
+  - key: |
+      THE TEST ENVIRONMENT IMPLEMENTS NO SCROLL-INTO-VIEW, AND TWO GREEN TESTS ALREADY CLICK
+      INSPECT. Its setup file is one import and stubs nothing. So the first call added would throw
+      inside two tests that pass today. Stubbing it in the setup file is a step of this phase, not
+      an implementation detail, because without it the phase lands red on tests it did not write.
+  - key: |
+      THE MARK IS A NEW CLASS IN THIS PAGE'S OWN BLOCK. A rule for this page written above the
+      own-structure marker must join a shared rule rather than restate one, and a rule below it may
+      not redefine a borrowed class. A new name below the marker satisfies both, and the dialog
+      directory's surface scan forbids drawing it out of theme utilities in the component.
+
+steps:
+  - id: the-test-setup-stubs-the-scroll
+    action: "The dashboard's test setup stubs scroll-into-view on the element prototype, so a call added anywhere in the tree does not throw in tests that never expected one."
+  - id: the-pane-can-be-marked-and-focused
+    action: "The pane's panel takes a tabindex of minus one so it can be focused programmatically without joining the tab order, and the pane takes a data attribute for the transient mark. New rules in the dialog block of the stylesheet, below its own-structure marker: the mark, and a plain focus outline on the panel."
+  - id: inspecting-acknowledges-itself
+    action: "The surface holds a reference to the pane and, on inspect, sets the mark, scrolls the pane into view with nearest alignment and moves focus to its panel. It fires on the act, not on a derived change, so it works when the inspected proposal is the one already shown. The mark clears on a timer."
+
+tests:
+  - "SpecDialog_Inspecting_MarksThePane"
+  - "SpecDialog_InspectingTheProposalAlreadyShown_StillMarksThePane"
+  - "SpecDialog_Inspecting_ScrollsThePaneIntoViewWithNearestAlignment"
+  - "SpecDialog_Inspecting_MovesFocusToThePanePanel"
+  - "SpecDialog_ANewProposal_MovesThePaneWithoutScrollingToIt"
+  - "SpecDialog_ClickingAPaneTab_ScrollsNothing"
+  - "DialogPane_ThePanel_IsFocusableWithoutJoiningTheTabOrder"
+  - "MockParity_TheDialogBlock_DrawsTheMarkAndAPlainFocusOutlineOnThePanel"
+
+done:
+  - "inspecting a proposal card visibly acknowledges the click, including when the pane already shows that proposal"
+  - "focus lands on the pane's panel and is drawn, so the act works without a viewport"
+  - "a stacked pane comes into view; a pane already in view is not moved"
+  - "a new proposal or filing still moves the pane without scrolling to it or marking it"
+  - "the two tests that already click Inspect still pass"
+  - "dashboard tests green, build green, full suite green"
+
+facts:
+  - claim: "The transcript's inspect handler sets the pane focus to the card's proposal, and the card is rendered for every entry that carries one."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:94-97, src/dashboard/src/components/dialog/DialogTranscript.tsx:90, src/dashboard/src/components/dialog/DialogProposalCard.tsx:27-35"
+  - claim: "The pane shows the focused proposal, offers the proposal tab whenever one is shown, and falls back to the proposal tab whenever nothing has been filed."
+    evidence: "src/dashboard/src/components/dialog/DialogPane.tsx:52-59"
+  - claim: "The held focus is compared by reference against the proposal and the filing."
+    evidence: "src/dashboard/src/components/dialog/DialogPane.tsx:130-142"
+  - claim: "The proposal is set in three places only, and after the first load every read takes the early return that leaves it alone."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:217, :239, :358, :211-222"
+  - claim: "A proposal push sets the filing to null, which is what makes the fallback select the proposal tab."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:358-361"
+  - claim: "The pane is the third column only at the widest container breakpoint, and the conversations column is what spans two below it."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:57-58, src/dashboard/src/components/dialog/DialogConversations.tsx:48-51"
+  - claim: "The pane is rendered after the exchange section, so in the stacked layout it sits below the transcript, the working indicator and the composer."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:70, :122-130"
+  - claim: "The pane's panel has no tabindex today."
+    evidence: "src/dashboard/src/components/dialog/DialogPane.tsx:95-100"
+  - claim: "The dashboard's test setup is a single import and stubs nothing."
+    evidence: "src/dashboard/vitest.setup.ts"
+  - claim: "Two tests already click Inspect and pass today."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:1845, :2187"
+  - claim: "A rule for this page above the own-structure marker must join a shared rule, and a rule below it may not redefine a borrowed class."
+    evidence: "src/dashboard/src/components/dialog/__tests__/dialog-joins.test.ts:63-82, src/dashboard/src/styles/mock-parity.css:1022-1033"
+  - claim: "The sheet's only focus-visible rules are on a link and a close control."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1068, :1081"
+  - claim: "The dialog directory's surface scan forbids drawing a surface out of theme utilities."
+    evidence: "src/dashboard/src/components/dialog/__tests__/dialog-surfaces.test.ts:20-37"
