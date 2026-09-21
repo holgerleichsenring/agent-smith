@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-21-c724c
+
+decisions:
+  - category: Architecture
+    chose: "The drop WRITES its run's terminal state through CancelTerminalWriter, and keeps publishing"
+    over: "Publishing the terminal event alone, as the drop did"
+    reason: |
+      An operator's surface showed thirteen runs waiting for capacity over an EMPTY queue table:
+      every entry had been dropped and every row still said "queued". The drop announced the end
+      by publishing a RunFinishedEvent, and a run that never started was never in the active set,
+      so no cursor is ever created for its stream and nothing drains it — the tree already states
+      this in IRunListNudge's own words, one day before the operator hit it.
+      The answer existed and was used twice: both cancel entry points write the terminal state
+      through CancelTerminalWriter, which goes through RunFinalizationProjection — the projection
+      the terminal event routes to and nothing else. It looks the row up and returns if absent,
+      refuses to finish a row twice, writes status, finish time and summary, takes the cost from
+      the event or sums the run's model calls (zero for a run that never called one), re-creates a
+      queue entry only for a QUEUED status which a drop never writes, and releases the run's
+      capacity. Widening that single writer by a third named caller is provably what a drained
+      event would have done, so this is not a second implementation of "a run ended".
+      The publish stays. The projection's set-once guard makes a later-drained event a harmless
+      no-op, which is what makes widening the writer safe; removing it would be a second decision
+      this phase does not need.
+      One consequence beyond the row: the projection releases the run's capacity, so the footprint
+      recorded at enqueue is now freed on EVERY drop path. The pump released only for a head whose
+      claim it had already made and lost; the other three paths — cancelled at the head, project no
+      longer configured, ticket left its trigger statuses — left the reservation standing, because
+      the release rode on an event nothing drained. The double release that path now performs is
+      idempotent for the reason the release-is-harmless decision below states.
+    alternatives:
+      - "Touching the run row directly from the pump: a second writer of what a terminal transition means, disagreeing with the first the day either changes"
+      - "Making the boot-time rehydration reliable: it can reach such a row through the recent list, and did not reach these — an unfinished row's cursor is anchored at the stream TAIL, so the pending terminal event is skipped. Opportunistic and cap-bounded; named in prose as the phase that anchors an unfinished run's cursor where its pending terminal event still is"
+
+  - category: Implementation
+    chose: "FINALIZE, then REMOVE the entry, then ANNOUNCE"
+    over: "Removing the entry first, as the drop did, and finalizing after"
+    reason: |
+      The two orders fail differently, and only one self-heals. Removing first and then failing to
+      finalize reproduces EXACTLY the state this phase exists to fix: entry gone, row queued,
+      nothing left to retry. Finalizing first and then failing to remove leaves the head in place;
+      the next tick peeks it, finalizes again as a no-op under the set-once guard, and retries the
+      removal. QueueDrop_AFinalizeThatThrows_LeavesTheEntryForTheNextTick pins it, and flipping the
+      two statements is what fails it.
+      The nudge sits after the removal and is best-effort, the way the deferral path already nudges:
+      a hub that is down must not fail a drop whose row is written and whose entry is gone.
+
+  - category: Architecture
+    chose: "The drop is a class of its own (CapacityQueueDrop), composed beside the pump in its hosted service"
+    over: "A private helper on CapacityQueuePump, or a DI registration"
+    reason: |
+      The drop now has an ORDER and four collaborators; the pump is the dequeue loop. The split
+      follows QueuedRunCancel, which left RunControlEndpoints for the same reason. It is also what
+      the file-length ratchet demands: CapacityQueuePump sits ON its baseline at 150 lines and may
+      only shrink — it is now 136 — and RelationalPersistenceExtensions sits on its own at 225, so
+      even a one-line registration there would have broken the ratchet.
+      Composing it in CapacityQueuePumpHostedService.Drop() is therefore not a workaround but the
+      honest place: that method is ALREADY the pump's composition root (the pump is hand-constructed
+      positionally there), and CancelTerminalWriter — registered by AddRunProjections — is only ever
+      resolvable in the composition that hosts this service at all.
+
+  - category: Testing
+    chose: "The idempotent double capacity release is RECORDED as a fact, not asserted by a test"
+    over: "A Times.Once assertion on the release"
+    reason: |
+      The pump releases the reservation for a head it could not claim, and the projection releases
+      again. The ledger releases by DELETING the row for that run id, so the second delete removes
+      nothing and the bound is a sum over the rows that remain: it cannot free capacity twice.
+      The obvious test — counting calls — passes only if the second releaser is wired away, which
+      defeats its own purpose. Stated here instead, where the next reader looks.
+
+  - category: Testing
+    chose: "The existing pump test loses its hand-applied event and is renamed ...RowCancelledFromTheTickAlone"
+    over: "Leaving it and adding the new tests beside it"
+    reason: |
+      Pump_TicketStatusLeftTriggerSet_EntryDropped_RowCancelled asserted the cancelled row only
+      AFTER hand-applying the published event — the production step that does not happen. It passed
+      today, it passes after the fix, and it passed on a tree carrying the defect: the suite claimed
+      coverage it did not have. The line is gone, so the assertion comes from the tick alone.
+      For that to be possible the pump's harness had to resolve the finalization projection — it
+      built its own provider with neither it nor QueuedRunProjection — following the shape
+      QueuedRunCancelTests already uses. The same went for UnmovedTicketClaimTests, the second site
+      that hand-constructs the pump.
+      Proven by mutation: deleting the terminal write fails six of the seven tests including this
+      one; flipping the order fails only the finalize-throws test; removing the nudge, removing its
+      try/catch, dropping the reason from the summary and removing the projection's set-once guard
+      each fail exactly the test named for them.
+
+  - category: Scope
+    chose: "The thirteen rows already standing are left to the operator's existing cancel endpoint"
+    over: "A migration or a boot-time repair that deletes or mends them"
+    reason: |
+      They are not stuck. The existing cancel endpoint accepts exactly a queued run with no finish
+      time, removes a queue entry that is already gone as a no-op, writes the terminal state through
+      this same writer and terminalizes the ticket — one call each, history intact. This phase stops
+      new ones being made.
+      Left alone and named so the next reader need not rediscover them: WHY the head is dropped at
+      all is the pump's own rule and is unchanged (that such a ticket should not have been deferred
+      in the first place is the sibling phase, and with it this drop becomes rare rather than once a
+      minute); and there may be other producers of a terminal event for a run with no cursor — this
+      phase fixes the one an operator measured, and the audit of every terminal event for a reader
+      is named in prose as its own phase.
