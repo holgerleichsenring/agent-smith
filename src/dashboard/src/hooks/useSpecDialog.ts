@@ -15,8 +15,6 @@ import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialo
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
-// 2026-09-18-7a05: what a deletion does not undo, worded by what the conversation filed.
-import { deletionWarning } from "@/components/dialog/conversationDelete";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages } from "@/components/dialog/transcriptImages";
 import type {
@@ -496,11 +494,13 @@ export function useSpecDialog(): SpecDialogState {
   // pane and mint a fresh dialog id — the held one now names a dead thread — and the switch that
   // does that in one act is local to this hook. What the list exports is the NEW-conversation
   // callback, which opens one on the fresh id: the opposite of a delete.
+  // 2026-09-20-4b0ab: the ASKING left. A hook cannot render, so as long as the confirmation
+  // lived here it could only be the browser's own prompt; the surface now puts the warning to
+  // the reader in a dialog it draws and calls this with a decision already taken. What did NOT
+  // move is the rule that writes the warning — conversationDelete.ts, which has a test of its
+  // own since this phase — so the next surface to delete a conversation asks the same question.
   const remove = useCallback(
     async (sessionId: string) => {
-      const listed = conversations.find((held) => held.sessionId === sessionId);
-      const warning = listed ? deletionWarning(listed) : null;
-      if (warning !== null && !window.confirm(warning)) return;
       try {
         await deleteSpecDialogConversation(sessionId);
       } catch (thrown) {
@@ -516,7 +516,7 @@ export function useSpecDialog(): SpecDialogState {
       setConversations((held) => held.filter((row) => row.sessionId !== sessionId));
       if (sessionId === view?.session?.sessionId) switchTo(null, true);
     },
-    [conversations, view, switchTo],
+    [view, switchTo],
   );
 
   working.current = awaiting || computing;
