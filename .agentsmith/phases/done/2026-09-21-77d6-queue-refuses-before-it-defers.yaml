@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-77d6
+
+goal: "A ticket the claim would refuse outright is refused instead of queued, so a refusal that repeats every poll stops minting a new waiting run each time it does."
+
+applies_to: "backend (the spawn funnel's deferral branch and the claim service's refusal checks)"
+
+scope:
+  in: >
+    An operator's surface showed thirteen runs waiting for capacity for ONE ticket, one a minute,
+    with the queue table empty behind them. The measurement says why: thirteen deferrals, each
+    followed within ten seconds by the pump claiming that head and being REJECTED, and the pump
+    drops a head it cannot claim because a rejection is permanent. With the entry gone, the next
+    poll finds no head, mints a fresh run id and defers again.
+    The refusal itself is correct and is meant to repeat — the poller retries a waiting ticket by
+    design, and the gate refuses one claim per cycle rather than one per run. What is wrong is that
+    the funnel DEFERS a ticket it could already know will be refused. The two refusals that produce
+    that outcome are a config pre-check and the standing-unmoved gate; both run in the claim service
+    before the lock, before any tracker write, off config and one store read. The funnel's deferral
+    branch returns before it ever reaches them.
+    This phase asks those same refusals before deferring. A ticket that would be refused is refused
+    now, with the reason it would have been given — no queue entry, no waiting run row, nothing for
+    the pump to drop and nothing for the next poll to duplicate.
+  out: >
+    THE REFUSAL REPEATING. The claim is still refused once per poll and the operator still sees the
+    same reason. Stopping the repetition means parking the ticket in a status discovery excludes,
+    which an adversarial review showed to be a much larger change than it looks: on one tracker the
+    comment and the status move are a single atomic patch, so a refused move posts nothing at all —
+    and that tracker's rule engine is what produces this very refusal. Named in prose as the phase
+    that parks a ticket no run can move.
+    MOVING THE CHECK EARLIER STILL. Placed before the footprint calculation it would also stop the
+    per-poll sandbox-language resolution a refused ticket triggers. Real waste, and a wider change
+    to a path that works. Named in prose as the phase that refuses before it measures.
+    THE CAPACITY BOUND, AND THE WAITING REASON'S WORDING. On a Docker host the decision is a slot
+    count while the reason quotes a cpu and memory budget that was never consulted. Both are their
+    own phases.
+    THE LEGITIMATE CAPACITY WAIT. A ticket genuinely waiting for room already behaves correctly: the
+    entry stands, the next poll recognises it as the head and reuses its reserved run id, and one
+    waiting ticket keeps one waiting run. Nothing here changes that path.
+    THE ROWS ALREADY STANDING. Ending a dropped waiting run is the sibling phase.
+
+decisions:
+  - key: |
+      THE DUPLICATION IS NOT A DEDUPLICATION BUG. The queue entry is keyed by project and ticket and
+      a retry of an already-queued ticket keeps its reserved run id, so a ticket that simply waits
+      produces exactly one row however long it waits. The rows multiply only because something
+      REMOVES the entry between polls, and on this path that something is the pump dropping a head
+      whose claim was permanently refused. Strengthening the deduplication would paper over a
+      deferral that should not have happened.
+  - key: |
+      THE REFUSALS ARE CHEAP AND SIDE-EFFECT FREE, WHICH IS WHY THEY CAN BE ASKED TWICE. The config
+      pre-check is a pure static function of the request and the configuration. The standing-unmoved
+      gate is one store lookup and its own comment says it runs before the lock and before any
+      tracker write. Asking them in the funnel costs one read and writes nothing.
+  - key: |
+      THE CLAIM PATH IS NOT TOUCHED, AND THAT IS DELIBERATE RATHER THAN CAUTIOUS. The gate sits in
+      the claim service because that is the one door the poller, the webhook dispatcher and the
+      capacity pump all pass through, and the pump claims its head directly. A check in the funnel
+      is a SECOND, earlier reading for one branch — it does not move the authority, and removing the
+      claim's own check would open the pump.
+  - key: |
+      THE CHECK GOES IMMEDIATELY BEFORE THE DEFERRAL, NOT AT THE TOP OF THE FUNNEL. At the top it
+      would also govern the path that goes on to claim, which already performs both checks itself —
+      the same refusal computed twice per poll, and a behaviour change on a path that works. Before
+      the deferral it governs exactly the branch that is wrong.
+  - key: |
+      A REFUSED TICKET RETURNS THE REFUSAL, NOT A QUEUED RESULT. The funnel's deferral branch reports
+      a queued outcome, which the poller deliberately does not count as a spawn. A refusal must be
+      reported as the rejection it is, so the poller's counters, its skip event and the operator's
+      log line say what happened rather than that the ticket is waiting for room it is not waiting
+      for.
+  - key: |
+      THE TWO REFUSAL SOURCES ARE ASKED THROUGH ONE SEAM, NOT COPIED. Both callers must agree
+      forever; two copies of "what the claim would refuse" is exactly the kind of pair that drifts.
+      The pre-check is already a static helper and the gate is already a type of its own — the seam
+      is a single call both the claim service and the funnel make.
+
+steps:
+  - id: one-seam-answers-what-the-claim-would-refuse
+    action: "The config pre-check and the standing-unmoved gate are reachable through one call that answers whether this request would be refused and with what result. The claim service keeps using it exactly where it uses them today, with unchanged behaviour and ordering."
+  - id: the-funnel-refuses-instead-of-deferring
+    action: "Immediately before deferring, the funnel asks that seam. A request it would refuse is returned as that refusal — no queue entry, no reserved run row, no budget record. A request it would not refuse is deferred exactly as today."
+
+tests:
+  - "Spawn_ATicketTheClaimWouldRefuse_IsNotDeferred"
+  - "Spawn_ATicketTheClaimWouldRefuse_ReportsTheRefusalRatherThanQueued"
+  - "Spawn_ATicketTheClaimWouldRefuse_WritesNoQueueEntryAndNoRunRow"
+  - "Spawn_ATicketWithNoStandingRefusal_IsStillDeferredWhenThereIsNoRoom"
+  - "Spawn_ATicketWaitingForRoomAcrossTwoPolls_KeepsOneReservedRun"
+  - "Spawn_AnUnknownPipeline_IsRefusedRatherThanQueued"
+  - "Claim_TheRefusalOrderAndOutcomes_AreUnchanged"
+
+done:
+  - "a ticket carrying a standing unmoved refusal is never deferred, so no waiting run is minted for it"
+  - "the funnel reports it as the refusal it is, not as waiting for capacity"
+  - "a ticket genuinely waiting for room still produces exactly one waiting run across repeated polls"
+  - "the claim service refuses the same things in the same order as before"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The claim service refuses on a config pre-check and then on the standing-unmoved gate, both before the lock and before any tracker write."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:24-37"
+  - claim: "The pre-check is a pure static function of the request and the configuration, returning one of three rejection reasons."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:11-25"
+  - claim: "The gate refuses from a standing record and says the refusal costs one claim, not one per poll cycle."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:14-30, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:32-33"
+  - claim: "The gate is where it is because the claim service is the one door the poller, the webhook dispatcher and the capacity pump all pass through, and a gate in the spawn funnel would leave the pump."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:7-13"
+  - claim: "The funnel's deferral branch returns before the claim is ever attempted."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:69-74"
+  - claim: "The deferral writes a queue entry, a queued run row and a budget reservation, and reports a queued outcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:124-148"
+  - claim: "The queue entry is keyed by project and ticket, and a retry of an already-queued ticket keeps its arrival order and its reserved run id rather than staging a second run row."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:21-48, :82-93"
+  - claim: "A ticket that is the queue head has its reserved run id reused instead of a fresh one being minted."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:64-66"
+  - claim: "The pump drops a head whose claim was rejected, calling the rejection permanent because it looks only at the head."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:105-107, :128-136"
+  - claim: "The poller retries a capacity-deferred ticket on the next poll by design and does not count it as a spawn."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:164-170"
+  - claim: "In-flight gating in the poller is the lease, not a lifecycle tag, and a deferred run holds no lease."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:149-162"
+  - claim: "Claimable discovery is built from trigger statuses and a routing criterion, never from the lifecycle label."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:10-33, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsDiscoveryWiqlBuilder.cs:35-44"
+  - claim: "On one tracker a park writes the comment and the status in a single patch, so a status the rule engine refuses posts no comment either."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:193-195, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketFinalizer.cs:9-14"
+  - claim: "The funnel computes the run footprint before it decides, which for a multi-repo project resolves every repository's sandbox language on every poll."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:61"

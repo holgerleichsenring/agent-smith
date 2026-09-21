@@ -30,7 +30,20 @@ namespace AgentSmith.Tests.Spawning;
 /// </summary>
 public sealed class CapacityQueueFunnelTests : IDisposable
 {
-    private static readonly AgentSmithConfig EmptyConfig = new();
+    // 2026-09-21-77d6: the funnel asks what the claim would refuse before it defers, and both
+    // refusals read config.Projects by name — a deferral test's config carries the project.
+    private static readonly AgentSmithConfig ClaimableConfig = new()
+    {
+        Projects = new Dictionary<string, ResolvedProject>
+        {
+            ["p1"] = new()
+            {
+                Name = "p1",
+                Tracker = new TrackerConnection { Name = "tracker-a", Type = TrackerType.GitHub },
+                GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" },
+            },
+        },
+    };
     private readonly SqliteConnection _connection;
 
     public CapacityQueueFunnelTests()
@@ -142,6 +155,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 CapacityTestDoubles.NoPredecessors(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 CapacityTestDoubles.NoNudge(),
+                CapacityTestDoubles.NoStandingRefusal(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 
@@ -149,7 +163,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
 
         public Task<SpawnResult> SpawnAsync(string ticketId) =>
             _sut.ExecuteAsync(
-                EmptyConfig, _project, "fix-bug",
+                ClaimableConfig, _project, "fix-bug",
                 new IncomingTicketEnvelope { TicketId = ticketId, Platform = "github" },
                 new WebhookTriggerConfig { DoneStatus = "closed" },
                 CancellationToken.None);
