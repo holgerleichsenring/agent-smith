@@ -1,0 +1,90 @@
+phase: 2026-09-20-4b0ae
+decisions:
+  - id: the-act-fires-the-acknowledgement
+    chose: >
+      The surface's inspect handler sets a mark, scrolls and focuses, directly on the click. The
+      mark is a count of inspects held in the surface, taken off again by a timer effect, and the
+      pane wears it as a data attribute.
+    alternative: >
+      Driving the acknowledgement off the focus state the click already sets — a transition in
+      useDialogPaneFocus, or an effect in DialogPane watching the focused proposal change.
+    why: >
+      The commonest state on this page is the pane ALREADY showing the proposal the card offers
+      to inspect: the pane falls back to the proposal tab whenever nothing has been filed, and a
+      push sets the filing to null. In that state the focus does not change, the tab does not
+      change and the rendered pane is identical — which is the reported defect. Anything derived
+      from a state change therefore fires in exactly the cases where something was already
+      visible, and stays silent in the case that needed it. The act is the only thing that
+      happens every time, so the act is what fires it. It also has to be the SURFACE: the hook
+      holds no element references, and the pane cannot know it was clicked from another column.
+  - id: the-scroll-is-nearest-and-instant
+    chose: >
+      scrollIntoView({ block: "nearest", inline: "nearest" }), with no behaviour option.
+    alternative: >
+      The default (start-aligned, which is what a bare scrollIntoView() does), or a smooth scroll
+      made conditional on prefers-reduced-motion.
+    why: >
+      The page's scroll container is the main region and, in the three-column layout, the pane's
+      top IS the top of the grid. A start-aligned scroll would therefore throw the page back to
+      the top of the transcript whenever Inspect is clicked near the bottom of a long one — the
+      exact yanking this phase's scope forbids for the push routes. Nearest also makes the
+      common case a true no-op: at the widths where the pane sits level with the exchange, it
+      scrolls nothing at all, which is why the mark and not the scroll is the load-bearing half.
+      Passing no behaviour leaves no animation to make conditional and no media query to read at
+      click time.
+  - id: a-plain-focus-rule-on-the-panel
+    chose: >
+      .mock-dialog .d-panel:focus draws an inset outline, and the panel takes tabIndex={-1}.
+    alternative: >
+      :focus-visible, which is what every other focus rule in this stylesheet uses.
+    why: >
+      The focus this draws is moved programmatically after a MOUSE click on a control in another
+      column, and that matches :focus-visible in none of the browsers this runs in. A
+      focus-visible rule here would have been the same defect one layer down — a fix that paints
+      nothing in the case it was written for. The cost is real and was weighed: because the panel
+      is focusable, clicking prose inside it focuses it and draws the outline too. That outline
+      is then telling the truth — the pane holds the focus — and it clears on the next click
+      elsewhere, which is a better trade than a focus destination a sighted operator cannot see.
+      Minus one, not zero: the panel is a destination for an act elsewhere on the page, not a
+      stop the keyboard must pass through on its way to the controls inside it.
+  - id: new-names-below-the-own-structure-marker
+    chose: >
+      Two new classes, .d-pane on the card and .d-panel on the tabpanel, with both rules written
+      below the own-structure marker in the dialog block of mock-parity.css. The mark itself is a
+      data attribute set by the surface, not a class.
+    alternative: >
+      Keying the rules off the classes that are already there — .mock-dialog .ecard and
+      .mock-dialog .d-body — or drawing the mark in theme utilities inside the component.
+    why: >
+      Two guards meet here and only one shape satisfies both: a .mock-dialog rule ABOVE the
+      marker must join a shared config or runs rule rather than stand alone, and a rule BELOW it
+      may not redefine a borrowed class. .ecard and .d-body are borrowed, so keying off them
+      bare is a redefinition; a new name below the marker is neither. The dialog directory's
+      surface scan independently forbids the third option, and it is right to: a mark drawn out
+      of theme utilities would be a second definition of a look this page borrows.
+  - id: the-scroll-stub-is-the-environments-not-a-tests
+    chose: >
+      vitest.setup.ts stubs Element.prototype.scrollIntoView when the environment has none.
+    alternative: >
+      Stubbing it in the one test file that asserts the scroll, or mocking the pane element.
+    why: >
+      jsdom resolves no layout and so implements no scrollIntoView at all. Two tests that click
+      Inspect were green before this phase and say nothing about scrolling; the first call added
+      anywhere in the tree throws inside them. That is not a property of the file that happens to
+      need the stub first — it is a property of the environment every test in the dashboard runs
+      in, which is where the setup file already puts the other thing jsdom lacks. It was proved
+      load-bearing by removing it: four tests fail with "scrollIntoView is not a function".
+  - id: the-mark-clears-itself-and-is-tested-doing-so
+    chose: >
+      A timer effect keyed on the inspect count clears the mark after 1.4 seconds, each click
+      restarts that timer because the count it depends on moved, and a test waits for the mark to
+      go away on its own.
+    alternative: >
+      A boolean with a one-shot timer (no restart on a second click), and no test for the
+      clearing, which is what the phase's test list asked for.
+    why: >
+      Found by reviewing this phase's own diff: every test the spec named asserts the mark
+      ARRIVES. Deleting the clearing effect passes all of them while ringing the pane for the
+      rest of the session, which is a worse page than the one this phase set out to fix. The
+      count rather than a boolean is what makes a second click restart the window instead of
+      inheriting the remains of the first one's.
