@@ -27,6 +27,10 @@ namespace AgentSmith.Application.Services.Spawning;
 /// declined BEFORE any of that — it stays in the tracker, holds no run row and no
 /// reservation, and is offered again on the next poll. The capacity queue is strict
 /// FIFO across all projects, so a dependency waiting at its head would stall the estate.
+///
+/// 2026-09-21-77d6: the decision is three ways, not two — start, REFUSE, defer. A ticket the
+/// claim would refuse outright is refused instead of queued; queuing it mints a waiting run the
+/// pump then drops, and the next poll mints another.
 /// </summary>
 public sealed class SpawnPipelineRunsUseCase(
     ITicketClaimService claimService,
@@ -38,8 +42,12 @@ public sealed class SpawnPipelineRunsUseCase(
     IPredecessorGate predecessorGate,
     Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: the run carries what was approved
     IRunListNudge runListNudge, // 2026-09-20-9f00: a deferred row announces itself
+    IUnmovedTicketStore unmovedTickets, // 2026-09-21-77d6: what the claim would refuse
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
+    private readonly CapacityDeferral _deferral =
+        new(capacityQueue, capacityBudget, approvedSets, runListNudge, logger);
+
     public async Task<SpawnResult> ExecuteAsync(
         AgentSmithConfig config,
         ResolvedProject project,
@@ -70,7 +78,21 @@ public sealed class SpawnPipelineRunsUseCase(
             return await StartAsync(
                 config, project, pipelineName, envelope, matchedTrigger, planAnswers, runId, isHead, ct);
 
-        return await DeferToQueueAsync(
+        // 2026-09-21-77d6: IMMEDIATELY before the deferral, not at the top of the funnel — the
+        // branch above goes on to claim, which asks this same seam itself. A ticket the claim
+        // would refuse must not be queued: the pump claims the head, is refused, drops the entry
+        // as permanent, and the next poll finds no head and mints another waiting run.
+        var probe = SpawnRequestBuilder.BuildRequest(
+            project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: null);
+        if (await new Claim.ClaimRefusal(unmovedTickets).ForAsync(probe, config, ct) is { } refusal)
+        {
+            logger.LogInformation(
+                "Spawn refused rather than queued for project={Project} ticket={Ticket}: {Rejection}",
+                project.Name, envelope.TicketId, refusal.Rejection);
+            return new SpawnResult([refusal]);
+        }
+
+        return await _deferral.DeferAsync(
             project, pipelineName, envelope, matchedTrigger, planAnswers, footprint, head, runId, ct);
     }
 
@@ -119,31 +141,5 @@ public sealed class SpawnPipelineRunsUseCase(
             "Spawn for project={Project} pipeline={Pipeline} ticket={Ticket} → outcome={Outcome}",
             project.Name, pipelineName, envelope.TicketId, result.Outcome);
         return new SpawnResult(new[] { result });
-    }
-
-    private async Task<SpawnResult> DeferToQueueAsync(
-        ResolvedProject project, string pipelineName, IncomingTicketEnvelope envelope,
-        WebhookTriggerConfig matchedTrigger, Dictionary<string, string>? planAnswers,
-        RunFootprintBreakdown footprint, CapacityQueueEntry? head, string candidateRunId, CancellationToken ct)
-    {
-        var isHead = head is not null && head.Project == project.Name && head.TicketId == envelope.TicketId;
-        var reason = head is not null && !isHead
-            ? $"waiting in line behind {head!.Project}/#{head.TicketId}"
-            : $"waiting for capacity — footprint {footprint.TotalMemLimit} / {footprint.TotalCpuLimit} cpu "
-              + "exceeds the remaining budget";
-        var candidate = SpawnRequestBuilder.BuildCandidate(
-            project, pipelineName, envelope, matchedTrigger, planAnswers, candidateRunId, reason,
-            approvedSetJson: await approvedSets.JsonForAsync(project.Tracker.Name, envelope.Platform, envelope.TicketId, ct));
-        var reservedRunId = await capacityQueue.EnqueueAsync(candidate, ct);
-        await capacityBudget.RecordAsync(reservedRunId, footprint, ct);
-        // 2026-09-20-9f00: a deferred run is outside the active set the broadcaster drains, so a
-        // published event would die there. Nudge the surface AFTER the write, and best-effort.
-        try { await runListNudge.RunsChangedAsync(reservedRunId, ct); }
-        catch (Exception ex) { logger.LogDebug(ex, "Queued-run nudge failed for {RunId}", reservedRunId); }
-        logger.LogInformation(
-            "Spawn deferred to capacity queue for project={Project} pipeline={Pipeline} "
-            + "ticket={Ticket} run={RunId}: {Reason}",
-            project.Name, pipelineName, envelope.TicketId, reservedRunId, reason);
-        return new SpawnResult(new[] { ClaimResult.Queued(reason) });
     }
 }

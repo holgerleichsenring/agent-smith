@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-21-77d6
+
+decisions:
+  - category: Architecture
+    chose: "One seam — ClaimRefusal — answers 'what would the claim refuse this request for',
+      and both the claim service and the spawn funnel ask it"
+    over: "Copying the two checks into the funnel, or moving the gate out of the claim service"
+    reason: |
+      The two callers must agree forever: a refusal the funnel does not know about is a ticket
+      queued for a claim that will reject it, which is the defect this phase fixes. The order
+      inside the seam is load-bearing rather than cosmetic — UnmovedTicketGate reads
+      config.Projects BY NAME, so an unknown project refused second throws a KeyNotFoundException
+      instead of returning UnknownProject. That is what Claim_TheRefusalOrderAndOutcomes_AreUnchanged
+      pins. The claim service keeps its own reading: the capacity pump claims its head directly,
+      so removing the authority from the claim service would open that door.
+
+  - category: Architecture
+    chose: "The funnel asks the seam IMMEDIATELY before the deferral"
+    over: "Asking it at the top of the funnel, before the footprint and the reservation"
+    reason: |
+      At the top it would also govern the branch that goes on to claim — the same refusal
+      computed twice per poll and a behaviour change on a path that works. Before the deferral it
+      governs exactly the branch that is wrong. The cost is that a refused ticket still pays for
+      its footprint calculation and one failed reservation attempt (which records a footprint row
+      for a run id that is then never used — see the note below); refusing before the measurement
+      is named in the spec as a phase of its own.
+
+  - category: Implementation
+    chose: "The refusal is returned as ClaimResult.Rejected, with the reason the claim would
+      have given"
+    over: "Returning ClaimResult.Queued with a refusal wording"
+    reason: |
+      The poller deliberately does not count a Queued outcome as a spawn, and its TicketTriggered
+      event carries the outcome to the operator's surface. Reporting a refusal as queued would
+      tell everyone downstream that the ticket is waiting for room it is not waiting for. The
+      funnel also logs the refusal, because it is the one path that no longer reaches the claim
+      service's own log line.
+
+  - category: Implementation
+    chose: "The deferral's writes moved into CapacityDeferral, hand-constructed by the funnel"
+    over: "Adding the refusal branch to SpawnPipelineRunsUseCase as it stood"
+    reason: |
+      The funnel sat at 149 lines against a 150-line ratchet baseline, so the file had one line of
+      headroom and the rule says to extract the responsibility rather than to grow. The deferral's
+      writes — queue entry, queued run row, budget record, surface nudge — are one cohesive unit,
+      and lifting them leaves the funnel reading as the three-way decision it now is: start,
+      refuse, defer. Hand-constructed from the funnel's own dependencies the way
+      TicketClaimService constructs SingleClaimRegionExecutor, so no caller and no test changed.
+
+  - category: TradeOff
+    chose: "A refused ticket can still leave a RunCapacity footprint row behind"
+    over: "Releasing or deleting the record the failed reservation attempt wrote"
+    reason: |
+      ReserveAsync records the footprint before it asks whether it fits, so a ticket refused after
+      a denied reservation leaves one row keyed by a run id that never becomes a run. Nothing
+      holds a reservation (TryReserveAsync returned false), no Run row exists, and the dashboard
+      joins these rows onto the run list, so an orphan is invisible. It is also strictly less
+      state than before this phase, which left the same row PLUS a queue entry and a cancelled
+      run row on every poll. Deleting it would mean a new store operation for an invisible row.
+
+  - category: Scope
+    chose: "The refusal still repeats once per poll"
+    over: "Parking the ticket in a status discovery excludes"
+    reason: |
+      Stopping the repetition means a tracker write, and on one tracker the comment and the status
+      move are a single atomic patch — so a status that tracker's rule engine refuses posts no
+      comment either, and that rule engine is what produces this very refusal. Named in the spec
+      as the phase that parks a ticket no run can move.

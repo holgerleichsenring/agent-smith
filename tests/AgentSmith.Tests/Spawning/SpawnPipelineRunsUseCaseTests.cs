@@ -20,7 +20,20 @@ namespace AgentSmith.Tests.Spawning;
 /// </summary>
 public sealed class SpawnPipelineRunsUseCaseTests
 {
-    private static readonly AgentSmithConfig EmptyConfig = new();
+    // 2026-09-21-77d6: the funnel asks what the claim would refuse before it defers, and both
+    // refusals read config.Projects by name — a deferral test's config carries the project.
+    private static readonly AgentSmithConfig ClaimableConfig = new()
+    {
+        Projects = new Dictionary<string, ResolvedProject>
+        {
+            ["p1"] = new()
+            {
+                Name = "p1",
+                Tracker = new TrackerConnection { Name = "tracker-a", Type = TrackerType.GitHub },
+                GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" },
+            },
+        },
+    };
 
     [Fact]
     public async Task SpawnPipelineRuns_OneRepo_EnqueuesOneRun()
@@ -29,7 +42,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         harness.CallCount.Should().Be(1);
         harness.LastRequest.Should().NotBeNull();
@@ -45,7 +58,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-a", "repo-b", "repo-c" });
 
         await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         harness.CallCount.Should().Be(1);
         harness.LastRequest.Should().NotBeNull();
@@ -67,7 +80,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         };
 
         await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         harness.LastRequest.Should().NotBeNull();
         harness.LastRequest!.PipelineName.Should().Be("fix-bug");
@@ -81,7 +94,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var trigger = new WebhookTriggerConfig { DoneStatus = "In Review" };
 
         await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
 
         harness.LastRequest.Should().NotBeNull();
         harness.LastRequest!.InitialContext.Should().NotBeNull();
@@ -97,7 +110,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var trigger = new WebhookTriggerConfig { DoneStatus = "In Review", FailedStatus = "Blocked" };
 
         await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
 
         harness.LastRequest!.InitialContext![ContextKeys.FailedStatus].Should().Be("Blocked");
     }
@@ -112,7 +125,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var trigger = new WebhookTriggerConfig { DoneStatus = "Resolved" }; // FailedStatus null
 
         await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
 
         harness.LastRequest!.InitialContext![ContextKeys.FailedStatus].Should().Be("Resolved");
     }
@@ -139,7 +152,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         var result = await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         harness.CallCount.Should().Be(0, "a run that does not fit the budget must not be claimed");
         result.ClaimResults.Should().ContainSingle()
@@ -156,7 +169,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         var result = await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         harness.CallCount.Should().Be(0, "a run the namespace quota cannot fit must not be claimed");
         result.ClaimResults.Should().ContainSingle()
@@ -170,7 +183,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         var result = await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         harness.CallCount.Should().Be(1);
         result.ClaimResults.Should().ContainSingle()
@@ -189,7 +202,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-a" });
 
         await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         harness.RecordedFootprint.Should().BeSameAs(footprint);
         harness.RecordedRunId.Should().NotBeNullOrEmpty();
@@ -207,7 +220,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         var result = await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         result.ClaimResults.Should().ContainSingle().Which.Outcome.Should().Be(ClaimOutcome.Queued);
         nudge.RunIds.Should().ContainSingle()
@@ -223,7 +236,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         var result = await harness.Sut.ExecuteAsync(
-            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+            ClaimableConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
         result.ClaimResults.Should().ContainSingle().Which.Outcome.Should().Be(ClaimOutcome.Queued);
         harness.EnqueuedRunId.Should().NotBeNullOrEmpty("the queue entry is written before the nudge");
@@ -324,6 +337,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
                 CapacityTestDoubles.NoPredecessors(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 nudge ?? CapacityTestDoubles.NoNudge(),
+                CapacityTestDoubles.NoStandingRefusal(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }
