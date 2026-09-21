@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Exercises what phase-gate.sh RECOGNISES as a phase commit (2026-09-09-8fce).
 
+Two things decide that: the MARKER the message carries, and the SHAPE of the
+command (2026-09-21-9ae2). Both tables live here — the forms that must gate and
+the forms that must not.
+
 Run it directly:  python3 .claude/hooks/test_phase_gate_marker.py
 
 The helpers come from test_commit_message.py, which owns the throwaway-repository
@@ -14,6 +18,7 @@ commit at all, without running a single .NET check.
 """
 
 import importlib.util
+import os
 import pathlib
 import tempfile
 import traceback
@@ -123,6 +128,74 @@ def Gate_AMalformedDateMintedMarker_StaysSilent():
         completed = _run_gate('git commit -m "chore: nightly (2026-13-99-zzzz)"', repo)
         assert completed.returncode == 0, completed
         assert completed.stderr == "", completed.stderr
+
+
+# The command-shape table (2026-09-21-9ae2). git's global options sit between the
+# program and the subcommand; a commit addressed with a path is the form an agent told
+# to use absolute paths writes, and it slipped the gate entirely — no checks, no ledger
+# line, nothing to tell the skip from a pass.
+SHAPED = "feat: the shape of the command (p9999)"
+
+
+def Gate_APlainCommit_IsStillGated():
+    with _repository("seed") as repo:
+        completed = _run_gate(f'git commit -m "{SHAPED}"', repo)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_ACommitAddressedWithAPath_IsGated():
+    """`git -C <tree> commit` — and it gates THAT tree, not the session's: a gate that
+    recognises the commit but checks somewhere else reports numbers from code the commit
+    does not contain."""
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate(f'git -C {repo} commit -m "{SHAPED}"', elsewhere, ledger)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+        lines = _ledger(ledger)
+        assert len(lines) == 1, lines
+        assert os.path.realpath(lines[0][3]) == os.path.realpath(repo), lines
+
+
+def Gate_ACommitCarryingAConfigOption_IsGated():
+    with _repository("seed") as repo:
+        completed = _run_gate(
+            f'git -c user.name=Someone commit -m "{SHAPED}"', repo)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_ACommitAfterALeadingChangeOfDirectory_IsStillGated():
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate(f'cd {repo} && git commit -m "{SHAPED}"', elsewhere, ledger)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+        lines = _ledger(ledger)
+        assert len(lines) == 1, lines
+        assert os.path.realpath(lines[0][3]) == os.path.realpath(repo), lines
+
+
+def Gate_ACommandThatOnlyMentionsACommit_IsStillNotGated():
+    """Accepting options must not become accepting anything: a command that merely
+    quotes the shape stays untouched, marker and all."""
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate(
+            f'echo "git -C {repo} commit -m \'{SHAPED}\'"', repo, ledger)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+        assert _ledger(ledger) == [], _ledger(ledger)
+
+
+def Gate_AGitSubcommandThatIsNotCommit_IsStillNotGated():
+    """`commit-graph` begins with the word and is a different subcommand. The marker in
+    the trailing comment is what makes the case bite: were the subcommand allowed to run
+    on past `commit`, the whole command line would be read as the message and gate."""
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        completed = _run_gate(
+            f'git -C {repo} commit-graph write  # {SHAPED}', repo, ledger)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+        assert _ledger(ledger) == [], _ledger(ledger)
 
 
 def main():

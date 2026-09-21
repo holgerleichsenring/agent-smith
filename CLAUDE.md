@@ -134,9 +134,16 @@ a namespace rather than an ordering. The product still mints a sentence slug fro
 ## Phase Gate — what it covers
 
 `.claude/hooks/phase-gate.sh` runs as a PreToolUse hook on every Bash call and gates a
-`git commit` whose message names a phase: the dashboard's own build and tests, the
-backend build, the full suite, CLI dry-runs and harness presets must be green, or the
-commit is blocked. Read this before a definition of done leans on it.
+`git commit` whose message names a phase: the hook's own tests, the dashboard's build and
+tests, the backend build, the full suite, CLI dry-runs and harness presets must be green,
+or the commit is blocked. Read this before a definition of done leans on it.
+
+- **The gate proves itself first.** `.claude/hooks/test_*.py` — the command detection and
+  the message resolver — run from the tree being gated, before anything else, so a commit
+  that changes the hook is proven by the hook it ships rather than by the copy the session
+  started with. They cost about ten seconds. A gate they drive skips this step instead of
+  running the tests that invoked it, and their ledger is redirected, so nothing they do
+  reaches `.claude/phase-gate.log`. A tree carrying no hook tests says so and moves on.
 
 - **The dashboard runs first.** `pnpm install --frozen-lockfile`, `pnpm gen:hub-events`,
   `pnpm test` and `pnpm build` in `src/dashboard`, before any .NET check — its own CI
@@ -159,7 +166,15 @@ commit is blocked. Read this before a definition of done leans on it.
 - **One copy serves everyone.** `$CLAUDE_PROJECT_DIR` is the launching session's project
   directory, so a subagent in its own worktree runs the *shared checkout's* script — an
   edit to the gate takes effect only once it lands in that working tree. It still gates
-  the tree the commit runs in, resolved from the call's `cwd` or a leading `cd`.
+  the tree the commit runs in, resolved from the call's `cwd`, a leading `cd` and git's
+  own `-C` — one reading of the command decides both which tree is built and which
+  message is read.
+- **Gated command shapes:** `git commit`, after a leading `cd` or a shell separator, and
+  with git's global options in between — `git -C <tree> commit`, `git -c <name>=<value>
+  commit`, `git --git-dir=<dir> commit`. Until 2026-09-21-9ae2 only `commit` straight
+  after `git` was recognised, so the path-addressed form an agent naturally writes was
+  skipped in silence. Still NOT gated: a command that merely mentions the shape
+  (`echo`, `grep`), and another subcommand — `git … log`, `git commit-graph write`.
 - **Gated message forms:** `-m`, repeated `-m`, a heredoc, `-F <file>`, `-t <template>`,
   `-C`/`-c <rev>`, `--amend --no-edit`.
 - **Passed through, loudly:** a bare commit or an editor amend (no message exists yet),
@@ -169,6 +184,11 @@ commit is blocked. Read this before a definition of done leans on it.
 - **Afterwards:** every recognised phase commit leaves one line in `.claude/phase-gate.log`
   of the shared checkout — verdict (`passed`/`blocked`/`not-gated`), phase id, the tree, and
   the commit's parent. A phase commit with no line never met the gate.
+- **Joining a line to a commit:** that last field is the tree's HEAD when the hook ran, not
+  the resulting commit's parent. For an ordinary commit they are the same sha; for an
+  `--amend` they are not — the amended commit's parent is one older. Any check that pairs
+  ledger lines with commits has to allow for that, or it reports false alarms on every
+  amended phase commit.
 
 ## Key Rules
 
