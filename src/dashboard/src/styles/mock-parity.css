@@ -1132,3 +1132,28 @@
 
 /* the text the operator writes: the studio's control, sized for several lines */
 .mock-dialog textarea.d-input { resize: vertical; min-height: 66px; }
+
+/* 2026-09-20-4b0ab: the confirmation a destructive act gets, on the native dialog element.
+   It is declared HERE rather than assembled out of theme utilities because the three scans
+   over components/dialog rule that out: a raw palette class is banned, a colour utility whose
+   token the design document does not define is banned — and it defines no danger colour at
+   all — and the surface utilities a panel would be drawn with are banned too. The shared
+   button vocabulary (:499) offers a default and a primary and nothing destructive, while this
+   sheet has carried --bad and --bad-wash since its first line (:42). So the surface and its
+   destructive button are the two rules below, and neither invents a colour.
+   The backdrop is the platform's own pseudo-element: with showModal it paints over the whole
+   viewport, which is what a hand-rolled scrim inside this page's container-queried grid could
+   not do without a z-index chosen against a layout it does not control. */
+.mock-dialog .d-confirm { width: calc(100vw - 48px); max-width: 420px; padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); color: var(--ink); box-shadow: 0 18px 44px rgba(32, 21, 21, 0.18); }
+.mock-dialog .d-confirm::backdrop { background: rgba(32, 21, 21, 0.38); }
+.mock-dialog .d-confirm-body { padding: 16px 18px 2px; display: flex; flex-direction: column; gap: 9px; }
+.mock-dialog .d-confirm-body p { margin: 0; }
+/* the first paragraph is the question; the rest is what it does not undo */
+.mock-dialog .d-confirm-t { font-size: 15px; font-weight: 640; letter-spacing: -0.01em; }
+.mock-dialog .d-confirm-p { font-size: 13px; color: var(--ink-2); }
+.mock-dialog .d-confirm-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 18px 16px; }
+
+/* the destructive button. A modifier on the shared button, not a second button: the size,
+   the radius and the type come from the rule at :499 and only the colour is this one's. */
+.mock-dialog .btn.bad { background: var(--bad-wash); color: var(--bad); border-color: var(--bad); }
+.mock-dialog .btn.bad:hover { background: var(--bad); color: var(--panel); border-color: var(--bad); }

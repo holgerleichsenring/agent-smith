@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-20-4b0ab
+
+decisions:
+  - category: Architecture
+    chose: "The native dialog element, opened by showModal from an effect on an element rendered WITHOUT the open attribute"
+    over: "A scrim-and-panel overlay of the kind three surfaces already ship"
+    reason: |
+      The top layer is the reason. The three overlays that ship today — the config studio's
+      entity drawer and two drawers on the run detail page — sit at a fixed stacking index in a
+      page whose layout they control. This confirmation has to appear over a three-column
+      container-queried grid it does not control, and a z-index chosen against a layout that
+      can restack is a guess. showModal also brings focus containment and a painted backdrop.
+      The ORDER is the load-bearing half and is why this is a decision rather than a detail:
+      showModal THROWS on an element that already carries the open attribute. So the element is
+      rendered without it, showModal is called when that method exists, and the attribute is the
+      fallback for an environment that has none. Written the other way round — render open, call
+      showModal if present — the test environment (jsdom 25 constructs an HTMLDialogElement and
+      implements neither showModal nor close) would take the fallback every time while a browser
+      threw, shipping a non-modal dialog with no top layer behind green tests. The test that
+      pins it stands a showModal in for the missing one and makes it throw exactly where the
+      platform's throws.
+    alternatives:
+      - "A portal to document.body: still needs a z-index, and loses focus containment"
+
+  - category: Implementation
+    chose: "Escape and the backdrop click are the component's own handlers, with onCancel kept beside them"
+    over: "Relying on the platform's close watcher and on a closedby/backdrop attribute"
+    reason: |
+      A native dialog does not close on a backdrop click at all: the backdrop's click event
+      targets the dialog element itself, so dismissal is a handler comparing event.target. The
+      attribute that would do it instead is far newer than this toolchain's baseline. And the
+      test environment runs no close watcher and fires no cancel event, so an Escape test can
+      only pass against a key handler the component owns.
+      onCancel is kept beside the key handler for the browser, which DOES run a close watcher:
+      without it a browser would close the element while the page still believed it was asking,
+      and the promise-shaped ask would never settle. Both paths land on one resolve that settles
+      once per ask, so the two firing together cannot answer twice.
+    alternatives:
+      - "Only onCancel: untestable here, and gives nothing for the backdrop"
+
+  - category: Implementation
+    chose: "The asking moves to the SURFACE; the rule that writes the warning stays in components/dialog and gains a unit test"
+    over: "Leaving the confirmation in the hook"
+    reason: |
+      A hook cannot render, so as long as the confirmation lived in useSpecDialog it could only
+      ever be window.confirm. The hook now deletes what it is asked to delete and the surface
+      decides whether to ask. What did NOT move is deletionWarning — which conversations need
+      confirming and what the warning says — so the next surface to delete a conversation asks
+      the same question.
+      That rule had NO test of its own: its only coverage was seven window.confirm spies on the
+      surface, three of which were the only assertions of the wording anywhere. The rule test
+      was therefore written FIRST, before the step that removes the spies, and all seven spies
+      were re-expressed against the rendered dialog rather than deleted.
+    alternatives:
+      - "Keeping the spies and adding the dialog beside them: the spy asserts a call the code no longer makes"
+
+  - category: Implementation
+    chose: "The surface uses the PROMISE-shaped ask; the callback-shaped component underneath it is what the promise is built on"
+    over: "The surface holding the conversation under confirmation in its own state"
+    reason: |
+      Both forms then have a live consumer instead of one of them being written for a caller
+      that does not exist yet. With the promise form the surface's delete reads exactly as it
+      did when it was window.confirm — ask, and return if the answer is no — which is also the
+      shape the two surfaces named out of scope need: the config studio's overwrite prompt and
+      the data archive's restore prompt are each a synchronous decision inside an async file
+      handler, one of them after the file input has been cleared, and neither drops into a
+      callback-shaped component without holding the pending file in state.
+      An ask arriving while one is open supersedes it and the superseded promise is settled no,
+      rather than left for nobody to settle.
+    alternatives:
+      - "Only a promise form: the component would have no way to be driven by state a caller already holds"
+
+  - category: Implementation
+    chose: "The dialog surface and its destructive button are declared in mock-parity.css, below the Work it out block's own-structure marker"
+    over: "Drawing them from the theme's utilities in the component"
+    reason: |
+      Three file scans over components/dialog rule the utilities out: raw palette classes are
+      banned, colour utilities whose token the design document does not define are banned — and
+      it defines no danger colour at all — and the surface utilities a panel would be drawn with
+      are banned too. The shared button vocabulary offers a default and a primary and nothing
+      destructive, while the sheet has carried --bad and --bad-wash since its first lines.
+      WHERE THE COMPONENT LIVES IS PART OF THE SAME DECISION: inside components/dialog it is
+      swept by all three scans. Putting it elsewhere would have evaded them and shipped a
+      surface drawn out of exactly the utilities this page has ruled out.
+      The destructive button is a MODIFIER on the shared button (.btn.bad), not a second button:
+      a rule ending in .btn would trip the joins guard, and a trailing modifier is the one shape
+      that guard allows inside the own-structure block.
+    alternatives:
+      - "A new colour token in DESIGN.md: a page-wide vocabulary change for one button"
+
+  - category: Scope
+    chose: "The other two window.confirm callers and the run's two-click confirm are left where they are"
+    over: "Migrating every browser prompt in this phase"
+    reason: |
+      The config studio's overwrite prompt and the data archive's restore prompt are a different
+      surface's file handlers; the run delete's two-click confirm is a judgement about a
+      different surface's density, and its own comment says it arms twice because no modal
+      primitive exists — which stops being true here. Both are named in prose as successors
+      rather than deferred silently: the phase that moves the remaining browser prompts onto
+      this component, and the phase that reconsiders the run delete's confirmation. Until then
+      the product confirms two destructive acts two ways, and this says so.
+      The hook's one unreachable branch — a delete reached with a session id the list does not
+      hold, which deletes without confirming — moved to the surface unchanged. The list renders
+      a delete only for a row it holds, so inventing a behaviour for it would be inventing a
+      caller.
+    alternatives:
+      - "Deleting the unreachable branch: it is the surface's only honest answer for an id it cannot describe"

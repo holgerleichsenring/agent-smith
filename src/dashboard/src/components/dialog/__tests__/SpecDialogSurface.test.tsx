@@ -918,16 +918,99 @@ describe("SpecDialogSurface", () => {
       expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
   });
 
-  // 2026-09-18-7a05: an operator clears a conversation they started by mistake, and is told
-  // first what the deletion does NOT undo. The confirmation is the browser's own — there is no
-  // modal primitive here — and these are the first tests anywhere to assert the string it is
-  // given, which is the whole point of a warning.
-  function confirms(answer: boolean) {
-    return vi.spyOn(window, "confirm").mockImplementation(() => answer);
+  // 2026-09-18-7a05, rewritten by 2026-09-20-4b0ab: an operator clears a conversation they
+  // started by mistake, and is told first what the deletion does NOT undo. This was seven spies
+  // on window.confirm — the browser's own prompt, because no modal primitive existed — and it
+  // is now a dialog this page draws, so the warning is read off the page instead of off the
+  // argument a spy caught. The wording itself has a unit test of its own now
+  // (conversationDelete.test.ts); what is pinned HERE is that the ask carries the warning this
+  // conversation's filing earns, and that the answer given to it is acted on.
+  function answer(decision: "confirm" | "cancel") {
+    fireEvent.click(screen.getByTestId(`confirm-dialog-${decision}`));
   }
 
-  it("SpecDialog_AConversationWithNoTurns_IsDeletedWithoutAConfirmation", async () => {
-    const asked = confirms(true);
+  /** Open the ask for a conversation with this outcome and read what it says, then clear the
+   *  page again so the next outcome starts from nothing. */
+  async function askedAbout(outcome: SpecDialogSessionSummary["outcome"]): Promise<string> {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9", outcome })]);
+    await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    const said = (await screen.findByTestId("confirm-dialog")).textContent ?? "";
+    cleanup();
+    __forgetDialogIdForTests();
+    return said;
+  }
+
+  it("SpecDialog_DeletingAConversationWithTurns_AsksInThePage", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9", turns: 3 })]);
+    await renderSurface();
+
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+
+    // A dialog element on this page, not a prompt the browser named and drew.
+    const asked = await screen.findByTestId("confirm-dialog");
+    expect(asked.tagName).toBe("DIALOG");
+    expect(asked).toHaveTextContent("Delete \u201Ca widget that reads the ledger\u201D?");
+    // And the click that opened it deleted nothing on its own.
+    expect(deleteSpecDialogConversation).not.toHaveBeenCalled();
+  });
+
+  // The three variants the removed spies asserted out of the browser prompt, now asserted out
+  // of the rendered dialog: a phase (and the epic parent) names a sentence in the ticket that
+  // stops resolving, a bug is not given a sentence it never had, and a filing whose kind is
+  // gone falls back to the one true of every filing.
+  it("SpecDialog_TheAsk_CarriesTheWarningForWhatThatConversationFiled", async () => {
+    const phase = await askedAbout({ kind: "phase", tickets: 1, partial: false });
+    expect(phase).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
+    expect(phase).toContain("This cannot be undone");
+    expect(phase).toContain("The tickets it filed stay in the tracker");
+    expect(phase).toContain("the specification approved here stays with them");
+    expect(phase).toContain(
+      "the sentence in the ticket that names this conversation will stop resolving");
+
+    const bug = await askedAbout({ kind: "bug", tickets: 1, partial: false });
+    expect(bug).toContain("The tickets it filed stay in the tracker");
+    expect(bug).not.toContain("names this conversation");
+    expect(bug).not.toContain("stop resolving");
+
+    const noKind = await askedAbout({ kind: null, tickets: 2, partial: false });
+    expect(noKind).toContain(
+      "Whatever it filed stays in the tracker, and the map from this conversation to it stops"
+      + " resolving.");
+  });
+
+  it("SpecDialog_CancellingTheAsk_DeletesNothing", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9" })]);
+    await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+
+    answer("cancel");
+
+    await waitFor(() => expect(screen.queryByTestId("confirm-dialog")).toBeNull());
+    expect(deleteSpecDialogConversation).not.toHaveBeenCalled();
+    // And the row it was asked about is still there.
+    expect(screen.getByTestId("dialog-conversation-s-9")).toBeInTheDocument();
+  });
+
+  it("SpecDialog_ConfirmingTheAsk_DeletesThatConversation", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-9" }),
+      conversation({ sessionId: "s-8", title: "another conversation" }),
+    ]);
+    await renderSurface();
+    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+
+    answer("confirm");
+
+    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
+    // THAT conversation and no other: the ask carries which row it is about.
+    expect(deleteSpecDialogConversation).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByTestId("confirm-dialog")).toBeNull());
+  });
+
+  it("SpecDialog_DeletingAnEmptyConversation_AsksNothing", async () => {
     fetchSpecDialogConversations.mockResolvedValue([
       conversation({ sessionId: "s-9", title: null, turns: 0 }),
     ]);
@@ -936,64 +1019,12 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
 
     await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
-    expect(asked).not.toHaveBeenCalled();
-    asked.mockRestore();
-  });
-
-  it("SpecDialog_AConversationThatFiledAPhase_IsConfirmedWithTheTicketSentenceThatStopsResolving", async () => {
-    const asked = confirms(true);
-    fetchSpecDialogConversations.mockResolvedValue([
-      conversation({ sessionId: "s-9", outcome: { kind: "phase", tickets: 1, partial: false } }),
-    ]);
-    await renderSurface();
-
-    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
-
-    const said = asked.mock.calls[0][0] as string;
-    expect(said).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
-    expect(said).toContain("This cannot be undone");
-    expect(said).toContain("The tickets it filed stay in the tracker");
-    expect(said).toContain("the specification approved here stays with them");
-    expect(said).toContain("the sentence in the ticket that names this conversation will stop resolving");
-    await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
-    asked.mockRestore();
-  });
-
-  it("SpecDialog_AConversationThatFiledABug_IsConfirmedWithoutASentenceItNeverHad", async () => {
-    const asked = confirms(false);
-    fetchSpecDialogConversations.mockResolvedValue([
-      conversation({ sessionId: "s-9", outcome: { kind: "bug", tickets: 1, partial: false } }),
-    ]);
-    await renderSurface();
-
-    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
-
-    const said = asked.mock.calls[0][0] as string;
-    expect(said).toContain("The tickets it filed stay in the tracker");
-    expect(said).not.toContain("names this conversation");
-    expect(said).not.toContain("stop resolving");
-    expect(deleteSpecDialogConversation).not.toHaveBeenCalled();
-    asked.mockRestore();
-  });
-
-  it("SpecDialog_AFilingWithNoKind_IsConfirmedWithTheSentenceTrueOfEveryFiling", async () => {
-    const asked = confirms(false);
-    fetchSpecDialogConversations.mockResolvedValue([
-      conversation({ sessionId: "s-9", outcome: { kind: null, tickets: 2, partial: false } }),
-    ]);
-    await renderSurface();
-
-    fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
-
-    expect(asked.mock.calls[0][0]).toContain(
-      "Whatever it filed stays in the tracker, and the map from this conversation to it stops resolving.");
-    asked.mockRestore();
+    expect(screen.queryByTestId("confirm-dialog")).toBeNull();
   });
 
   // The list is re-read on a reply while the listed row is behind, and that read's sequence guard
   // drops a read superseded by a NEWER one — not one issued BEFORE the delete and landing after.
   it("SpecDialog_AListReadInFlightWhenTheDeleteLands_DoesNotBringTheRowBack", async () => {
-    const asked = confirms(true);
     // The conversation open here is not listed at all, so every reply re-reads the list.
     fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9" })]);
     await renderSurface();
@@ -1007,18 +1038,18 @@ describe("SpecDialogSurface", () => {
     }));
 
     fireEvent.click(screen.getByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+    answer("confirm");
     await waitFor(() => expect(screen.queryByTestId("dialog-conversation-s-9")).toBeNull());
 
     await act(async () => releaseStale([conversation({ sessionId: "s-9" })]));
 
     expect(screen.queryByTestId("dialog-conversation-s-9")).toBeNull();
-    asked.mockRestore();
   });
 
   // The held dialog id now names a dead thread, so the surface leaves it: every pane is cleared
   // and a fresh id is minted, in the one act the new-conversation switch already performs.
   it("SpecDialog_DeletingTheOpenConversation_EmptiesEveryPaneAndChangesTheHeldDialogId", async () => {
-    const asked = confirms(true);
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("a widget that reads the ledger")] },
     }));
@@ -1031,18 +1062,18 @@ describe("SpecDialogSurface", () => {
       view({ dialogId, session: null }));
 
     fireEvent.click(await screen.findByTestId("dialog-delete-s-1"));
+    await screen.findByTestId("confirm-dialog");
+    answer("confirm");
 
     await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-1"));
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     await waitFor(() => expect(screen.queryByTestId("dialog-turn-user")).toBeNull());
     expect(screen.queryByTestId("dialog-proposal")).toBeNull();
-    asked.mockRestore();
   });
 
   // The row was a button, and a control nested in a button is invalid markup that warns. The two
   // controls are siblings, so the delete needs no propagation trick and the row never opens.
   it("SpecDialog_TheDeleteControl_DoesNotOpenTheConversation", async () => {
-    const asked = confirms(true);
     fetchSpecDialogConversations.mockResolvedValue([
       conversation({ sessionId: "s-9", openDialogId: null }),
     ]);
@@ -1050,11 +1081,12 @@ describe("SpecDialogSurface", () => {
     const first = heldDialogId();
 
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
+    await screen.findByTestId("confirm-dialog");
+    answer("confirm");
 
     await waitFor(() => expect(deleteSpecDialogConversation).toHaveBeenCalledWith("s-9"));
     expect(postSpecDialogMessage).not.toHaveBeenCalled();
     expect(heldDialogId()).toBe(first);
-    asked.mockRestore();
   });
 
   // The filing's own read went: the filing NOTICE is a framework message, so the list follows it

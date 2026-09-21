@@ -1,0 +1,163 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-4b0ab
+
+goal: "Deleting a conversation is confirmed by a dialog the page draws, so the warning it carries is readable and the act looks like part of the product."
+
+applies_to: "dashboard (the Work it out surface, its conversation list, the hook that deletes, and the dialog block of the mock-parity stylesheet)"
+
+scope:
+  in: >
+    The confirmation before a conversation is deleted is window.confirm. The warning it is given is
+    a three-paragraph text built for a reader — a quoted title, what cannot be undone, and what
+    survives in the tracker — and the browser renders it as an unstyled system alert with the origin
+    above it and two buttons named by the browser. It is the one modal moment on this page and the
+    one thing on it the page did not draw.
+    This phase puts the deletion behind a confirmation the page draws, on the native dialog element:
+    the top layer, focus containment and a painted backdrop come from the platform; Escape and
+    backdrop-dismiss are the component's own handlers, because the platform gives neither for free.
+    The hook stops asking; asking becomes the surface's job, because a hook cannot render. The hook
+    keeps the RULE — which conversations need confirming and what the warning says — and that rule
+    gains a direct test, because today its only coverage is the seven window.confirm spies this
+    phase removes.
+  out: >
+    THE OTHER TWO CONFIRMS. The config studio's overwrite prompt and the data archive's restore
+    prompt use window.confirm as well, and both are synchronous decisions taken inside an async
+    file handler — one of them after the file input has already been cleared. Neither drops into a
+    callback-shaped component without holding the pending value in state, which is why the component
+    this phase builds exposes a PROMISE-shaped ask as well: that is the shape those two would need.
+    Migrating them is named in prose as the phase that moves the remaining browser prompts onto it.
+    THE TWO-CLICK CONFIRM ON A RUN. The run delete arms on the first click and fires on the second,
+    and says in its own words that it does so because no modal primitive exists. After this phase
+    one exists. Whether that button should move onto it is a judgement about a different surface's
+    density and is named in prose as the phase that reconsiders the run delete's confirmation; until
+    then the product confirms two destructive acts two ways, and this spec says so rather than
+    leaving the next reader to find it.
+    THE WORDING. What the warning says was settled by an earlier phase and is unchanged; only who
+    draws it changes.
+    UNDO. There is no bin and no undo, which is why a confirmation exists at all.
+    THE TURNS-ZERO CASE. A conversation with no turns is deleted without ceremony today and still is.
+
+decisions:
+  - key: |
+      THE NATIVE DIALOG ELEMENT, AND THE RECIPE MATTERS MORE THAN THE CHOICE. showModal gives the
+      top layer, focus containment and the backdrop painting, and the top layer is what a hand-rolled
+      overlay inside a container-queried grid gets wrong. But the order is load-bearing: showModal
+      THROWS when the element already carries the open attribute. So the component renders the
+      element WITHOUT open, calls showModal when that method exists, and sets open only as the
+      fallback for an environment that has no showModal. An earlier cut had it the other way round —
+      render open, call showModal if present — which in the test environment never calls it and in a
+      browser throws, leaving a non-modal dialog with no top layer and no focus containment behind
+      eight green tests. close is absent in the same environment and is guarded the same way.
+  - key: |
+      ESCAPE AND THE BACKDROP ARE THE COMPONENT'S OWN, NOT THE PLATFORM'S. A native dialog does not
+      close on a backdrop click: the backdrop's click event targets the dialog itself, so dismissal
+      needs a handler comparing the event target, or an attribute far newer than this toolchain's
+      baseline. And the test environment implements no close-watcher and fires no cancel event, so
+      an Escape test can only pass against a handler the component owns. Both are therefore written,
+      and the two tests pin the component's behaviour rather than the platform's.
+  - key: |
+      THIS IS NOT THE DASHBOARD'S FIRST OVERLAY, AND SAYING SO IS PART OF THE SPEC. There is no
+      dialog element, no role=dialog and no aria-modal anywhere — but three scrim-and-panel overlays
+      ship today: the config studio's entity drawer and two drawers on the run detail page, one of
+      which already wires Escape by hand. The dialog element is chosen over that pattern for one
+      reason: those drawers sit at a fixed stacking index in a page whose layout they control, and
+      this confirmation has to appear over a three-column container-queried grid it does not. The
+      top layer is what makes that true without a z-index.
+  - key: |
+      THE RULE STAYS IN THE HOOK AND GAINS THE TEST IT NEVER HAD. deletionWarning already decides
+      whether a conversation needs confirming and what to say. It has NO direct test: its only
+      coverage is seven window.confirm spies on the surface, three of which are the only place the
+      warning's wording is asserted anywhere. This phase removes all seven, so it owes the rule a
+      unit test of its own first, and the dialog tests owe the three wording variants a successor
+      that reads them out of the rendered dialog.
+  - key: |
+      THE DESTRUCTIVE BUTTON HAS TO BE DRAWN IN THE STYLESHEET. Three file scans over the dialog
+      directory forbid raw palette classes, forbid any colour utility whose token is not in the
+      design document's colour block — which defines no danger colour at all — and forbid the
+      surface utilities a panel would be drawn with. The shared button vocabulary offers a default
+      and a primary and nothing destructive, while the sheet already carries a bad colour and its
+      wash as variables. So the dialog and its destructive button are new rules in the dialog block
+      of the stylesheet, below its own-structure marker, using those variables.
+      WHERE THE COMPONENT FILE LIVES IS THEREFORE A DECISION, NOT A DETAIL: inside the dialog
+      directory it is swept by all three scans, which is what this spec wants — the scans are the
+      reason the stylesheet step exists, and evading them by putting the file elsewhere would ship a
+      surface drawn out of utilities the page has ruled out.
+  - key: |
+      ONE BRANCH OF THE RULE HAS NOWHERE TO GO, AND IS LEFT AS IT IS. The hook's delete is reached
+      with a session id the list may not hold, and in that case it deletes without confirming. It is
+      unreachable from the interface — the list renders a delete only for a row it holds — and the
+      phase leaves it, saying so, rather than inventing a behaviour for a caller that does not exist.
+
+steps:
+  - id: the-rule-gains-a-test-of-its-own
+    action: "A direct unit test of the deletion-warning rule: the three wording variants and the no-warning case, as a pure function of a conversation summary. Written FIRST, because the seven spies that are its only coverage today are removed by the next step."
+  - id: the-dialog-block-gains-the-confirmation
+    action: "New rules in the dialog block of the mock-parity stylesheet, below its own-structure marker: the dialog surface, its backdrop and a destructive button built from the sheet's existing bad colour and wash. No theme utility draws any of it."
+  - id: a-confirm-dialog-the-page-draws
+    action: "A confirmation component on the native dialog element, living in the dialog directory so the surface scans apply to it. It renders the element without the open attribute, calls showModal when that method exists and falls back to the open attribute when it does not, and guards close the same way. Escape and a backdrop click are its own handlers. It offers a promise-shaped ask beside the callback form, so the two surfaces named out of scope can adopt it without a second component."
+  - id: the-conversation-delete-uses-it
+    action: "The hook's delete stops calling window.confirm and deletes what it is asked to delete. The surface holds which conversation is being confirmed, builds the warning from the rule, and deletes on confirm. The seven surface tests built on the window.confirm spy are re-expressed against the dialog, including the three that assert the wording."
+
+tests:
+  - "DeletionWarning_APhaseFiling_SaysWhatSurvivesInTheTracker"
+  - "DeletionWarning_ABugFiling_SaysItsOwnSentence"
+  - "DeletionWarning_AConversationThatFiledNothing_StillWarns"
+  - "DeletionWarning_AConversationWithNoTurns_NeedsNone"
+  - "ConfirmDialog_WhenNotAsking_RendersNothing"
+  - "ConfirmDialog_WhenAsking_OpensModallyRatherThanByTheOpenAttribute"
+  - "ConfirmDialog_Cancel_ReportsNoConfirmation"
+  - "ConfirmDialog_Confirm_ReportsOne"
+  - "ConfirmDialog_Escape_CancelsLikeTheCancelButton"
+  - "ConfirmDialog_ABackdropClick_Cancels"
+  - "SpecDialog_DeletingAConversationWithTurns_AsksInThePage"
+  - "SpecDialog_TheAsk_CarriesTheWarningForWhatThatConversationFiled"
+  - "SpecDialog_CancellingTheAsk_DeletesNothing"
+  - "SpecDialog_ConfirmingTheAsk_DeletesThatConversation"
+  - "SpecDialog_DeletingAnEmptyConversation_AsksNothing"
+
+done:
+  - "deleting a conversation with turns opens a dialog the page drew, carrying the same warning as before"
+  - "the warning's three variants are asserted out of the rendered dialog, as the removed spies asserted them out of the browser prompt"
+  - "cancelling it, by button, by backdrop or by Escape, deletes nothing"
+  - "an empty conversation is still deleted without a prompt"
+  - "the dialog opens modally rather than by the open attribute, proven by a test that fails if the order is reversed"
+  - "no window.confirm remains on the Work it out surface"
+  - "the deletion-warning rule has a test that does not depend on how the asking is done"
+  - "the three dialog-directory scans pass; the stylesheet carries the new rules"
+  - "dashboard tests green, build green, full suite green"
+
+facts:
+  - claim: "The conversation delete is gated by window.confirm in the hook."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:499-503"
+  - claim: "The warning is a multi-paragraph text with a quoted title, an undo sentence and a survival sentence chosen by what the conversation filed."
+    evidence: "src/dashboard/src/components/dialog/conversationDelete.ts:14-15, :24-27, :33-40"
+  - claim: "A conversation with no turns needs no confirmation at all."
+    evidence: "src/dashboard/src/components/dialog/conversationDelete.ts:25"
+  - claim: "The hook deletes without confirming when the session id is not in the list it holds."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:501-503"
+  - claim: "The list renders a delete control only for a row it holds."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:89-96, :144-153"
+  - claim: "There is no dialog element, no role=dialog and no aria-modal anywhere in the dashboard source."
+    evidence: "src/dashboard/src"
+  - claim: "Three scrim-and-panel overlays ship today, and one of them wires Escape by hand."
+    evidence: "src/dashboard/src/components/config/EntityDrawer.tsx:96-110, src/dashboard/src/app/jobs/[id]/page.tsx:142-152, :203-210"
+  - claim: "The run delete confirms with two clicks and says it does so because no modal primitive exists in the dashboard."
+    evidence: "src/dashboard/src/components/jobs/DeleteRunButton.tsx:5-7"
+  - claim: "Two other surfaces use window.confirm, each as a synchronous decision inside an async file handler."
+    evidence: "src/dashboard/src/components/config/ConfigStudio.tsx:168, src/dashboard/src/components/system/DataArchiveView.tsx:114"
+  - claim: "Seven surface tests are built on a window.confirm spy, and three of them are the only assertions of the warning's wording anywhere."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:915-921, :923, :937, :956, :973, :989, :1014, :1038"
+  - claim: "The dialog directory has no unit test of the deletion-warning rule."
+    evidence: "src/dashboard/src/components/dialog/__tests__"
+  - claim: "Three file scans over the dialog directory forbid raw palette classes, colour utilities whose token is not in the design document, and the surface utilities a panel would be drawn with."
+    evidence: "src/dashboard/src/components/dialog/__tests__/dialog-palette.test.ts, src/dashboard/src/components/dialog/__tests__/dialog-color-tokens.test.ts, src/dashboard/src/components/dialog/__tests__/dialog-surfaces.test.ts:20-37"
+  - claim: "The shared button vocabulary offers a default and a primary and nothing destructive."
+    evidence: "src/dashboard/src/styles/mock-parity.css:499-503"
+  - claim: "The sheet carries a bad colour and its wash as variables."
+    evidence: "src/dashboard/src/styles/mock-parity.css:42-43"
+  - claim: "The dialog block's own-structure marker is where this page's own rules begin."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1022-1033"
+  - claim: "The surface owns the delete callback it hands the conversation list, and the conversations it would build a warning from."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:63, :68"
+  - claim: "The hook has exactly one non-test consumer."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:30"
