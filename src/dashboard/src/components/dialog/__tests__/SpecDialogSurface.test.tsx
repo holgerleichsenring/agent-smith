@@ -69,7 +69,10 @@ vi.mock("@/lib/JobsHubClient", () => ({
 }));
 
 const fetchSpecDialog = vi.fn();
-const postSpecDialogMessage = vi.fn<(dialogId: string, text: string) => Promise<void>>(async () => {});
+// 2026-09-20-4b0aa: the project rides on the post, so the server can open the conversation and
+// route the message in one ordered act. The mock takes it so a test can say it travelled.
+const postSpecDialogMessage =
+  vi.fn<(dialogId: string, text: string, project?: string) => Promise<void>>(async () => {});
 const fetchSpecDialogConversations = vi.fn();
 const fetchFiledWork = vi.fn();
 const deleteSpecDialogConversation = vi.fn<(sessionId: string) => Promise<void>>(async () => {});
@@ -81,8 +84,8 @@ vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: () => fetchSpecDialogConversations(),
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
-  postSpecDialogMessage: (dialogId: string, text: string) =>
-    postSpecDialogMessage(dialogId, text),
+  postSpecDialogMessage: (dialogId: string, text: string, project?: string) =>
+    postSpecDialogMessage(dialogId, text, project),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
   uploadSpecDialogImage: (dialogId: string, project: string, file: File) =>
     uploadSpecDialogImage(dialogId, project, file),
@@ -399,6 +402,7 @@ describe("SpecDialogSurface", () => {
       expect(postSpecDialogMessage).toHaveBeenCalledWith(
         heldDialogId(),
         "a widget that reads the ledger",
+        "sample",
       ));
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent(
       "a widget that reads the ledger",
@@ -429,7 +433,7 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(await screen.findByTestId("dialog-answer-the reader"));
 
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "the reader"));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "the reader", "sample"));
   });
 
   it("SpecDialog_TheApprovalGate_OffersApproveAndRejectThoughItCarriesNoChoices", async () => {
@@ -441,7 +445,7 @@ describe("SpecDialogSurface", () => {
 
     expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve"));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
   });
 
   // 2026-09-17-042el: a click on the gate is a decision, and it reads as one — live and after a reload.
@@ -635,7 +639,8 @@ describe("SpecDialogSurface", () => {
 
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "/spec other"));
+      expect(postSpecDialogMessage)
+        .toHaveBeenCalledWith(heldDialogId(), "/spec other", undefined));
   });
 
   function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
@@ -730,7 +735,7 @@ describe("SpecDialogSurface", () => {
     await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
     const fresh = heldDialogId();
     expect(fresh).not.toBe(first);
-    expect(postSpecDialogMessage.mock.calls).toEqual([[fresh, "/spec resume s-9"]]);
+    expect(postSpecDialogMessage.mock.calls).toEqual([[fresh, "/spec resume s-9", undefined]]);
   });
 
   // 2026-09-17-c7aeb: a dialog id is a tab, not a conversation. Opening a past one mints a
@@ -789,7 +794,8 @@ describe("SpecDialogSurface", () => {
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     const fresh = heldDialogId();
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(fresh, "/spec resume s-9"));
+      expect(postSpecDialogMessage)
+        .toHaveBeenCalledWith(fresh, "/spec resume s-9", undefined));
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalledWith(fresh));
     act(() => messages.emit({
       dialogId: fresh, title: "Spec dialog",
@@ -1102,7 +1108,8 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(screen.getByTestId("dialog-new"));
 
     await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(expect.any(String), "/spec other"));
+      expect(postSpecDialogMessage)
+        .toHaveBeenCalledWith(expect.any(String), "/spec other", undefined));
   });
 
   // 2026-09-15-cb3e, found by review: nothing is pushed when a wait expires — the confirmer
@@ -1505,10 +1512,11 @@ describe("SpecDialogSurface", () => {
     expect(result.current.readings).toEqual([]);
   });
 
-  // Writing with no session open reached the router as an ordinary message, and the router
-  // answered with the command tutorial a chat channel needs — on a page whose whole point
-  // is that nobody types a command.
-  it("SpecDialog_SendingWithNoSessionOpen_OpensOneOnThePickedProjectFirst", async () => {
+  // 2026-09-20-4b0aa: this used to be TWO posts — an opening command, then the message — and
+  // awaiting the first proved only that its background task had started, because the route
+  // answers before the turn runs. The project now rides on the one post and the server opens
+  // and routes in that order.
+  it("SpecDialog_AFirstMessage_IsPostedOnceAndNotPrecededByACommand", async () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null }));
     render(<SpecDialogSurface />);
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
@@ -1518,8 +1526,52 @@ describe("SpecDialogSurface", () => {
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
 
-    await waitFor(() => expect(postSpecDialogMessage.mock.calls.map((c) => c[1]))
-      .toEqual(["/spec sample", "update every dependency"]));
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    expect(postSpecDialogMessage.mock.calls)
+      .toEqual([[heldDialogId(), "update every dependency", "sample"]]);
+  });
+
+  /// The sentence that went missing. The reply's read carries the transcript as the server has it
+  /// stored, and a page that armed a reseed for the opening post replaced the whole exchange with
+  /// it — wiping the locally echoed turn, which no later read ever puts back. With one act there
+  /// is nothing to reseed for, so the read settles and leaves the turn alone.
+  it("SpecDialog_AFirstMessage_SurvivesTheReadThatFollowsTheReply", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+    render(<SpecDialogSurface />);
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
+    await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    expect(await screen.findByTestId("dialog-turn-user"))
+      .toHaveTextContent("update every dependency");
+
+    // The conversation exists now, and the read that follows the reply lags the turn that
+    // opened it: what it carries has no record of the sentence yet.
+    fetchSpecDialog.mockResolvedValue(view());
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "on it", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(screen.getByTestId("dialog-transcript")).toHaveTextContent("on it"));
+    expect(screen.getByTestId("dialog-turn-user")).toHaveTextContent("update every dependency");
+  });
+
+  // The other side of the same send: a conversation already open still posts once and still
+  // echoes once — the project travelling with it opens nothing.
+  it("SpecDialog_AMessageWithASessionOpen_IsStillEchoedOnce", async () => {
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    expect(postSpecDialogMessage.mock.calls)
+      .toEqual([[heldDialogId(), "update every dependency", "sample"]]);
+    expect(await screen.findAllByTestId("dialog-turn-user")).toHaveLength(1);
   });
 
   it("SpecDialog_APhaseProposal_RendersGoalStepsTestsAndDone", async () => {

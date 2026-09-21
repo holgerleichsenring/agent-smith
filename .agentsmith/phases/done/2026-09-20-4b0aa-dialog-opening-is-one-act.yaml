@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-4b0aa
+
+goal: "A first message opens its conversation in one ordered act on the server, so it cannot lose a race against the command that was supposed to precede it."
+
+applies_to: "backend (the spec-dialog message endpoint and its dispatcher); the dashboard stops issuing the opening command"
+
+scope:
+  in: >
+    An operator typed their first sentence into a fresh conversation. The textarea emptied, the
+    scope-opening ran, and their sentence was nowhere — and on another attempt the page answered
+    with the tutorial that tells a person to press New conversation.
+    Both come from the same defect. With no session open the page posts TWICE: an opening command,
+    then the message. Neither post is ordered against the other, because the endpoint accepts a
+    message and dispatches it fire-and-forget on a fresh scope — deliberately, so a design turn does
+    not hold the connection. Two accepted posts are therefore two independent background tasks with
+    no ordering between them. When the message's task wins, the router finds no open session, hands
+    the message back, and the dispatcher answers with the tutorial: the operator's first sentence is
+    never stored and never runs. When the opening's task wins, the message runs — but the page has
+    meanwhile armed a blind reseed, and the first read that arrives replaces the whole transcript
+    with what the server has stored so far. If the message has not landed in that transcript yet,
+    the locally echoed turn is replaced by a transcript without it, and it never comes back: every
+    later read only settles pending entries and leaves the rest alone.
+    The server already knows how to do this properly for an IMAGE: the upload endpoint resolves or
+    OPENS the conversation inside the request, awaited, before it stores anything. This phase gives
+    the message path the same act. The message post carries the project; the dispatcher opens the
+    conversation when none is open and then routes the message, in that order, in one task. The page
+    then makes ONE post and arms no reseed, because there is no second act to reseed around.
+  out: >
+    THE FIRE-AND-FORGET DISPATCH. Holding the connection for a design turn is wrong for the reason
+    the code gives, and it stays. What changes is that ONE dispatch does both things in order, not
+    that the dispatch becomes synchronous.
+    THE TUTORIAL REPLY. It is still right for a message on a dialog whose project is unknown — a
+    page that lost its project, or a caller that is not this page. It stops being the answer to a
+    first message that names one.
+    THE LOCAL ECHO'S PLACE IN THE POST. It stays where it is, after the post returns. Moving it
+    earlier was an earlier cut of this phase and was wrong twice over: it does not touch the race,
+    and it would newly create a transcript entry for a post the server refused, because the post
+    helper swallows its own error and returns.
+    THE DECISION ECHO. The pending marker a decision entry carries is snapshotted after its post
+    returns, and any change to when it is taken would make a read issued during the post count as
+    being after it, which drops the entry and brings the question card back. Untouched.
+    THE RESEED MECHANISM ITSELF. Arming a reseed when the page genuinely switches conversations is
+    correct and stays; this phase removes one caller of it, not the mechanism.
+    IMAGES. The attachment path already opens the conversation server-side and already reseeds for
+    a reason of its own — there is nothing local to echo — and is unchanged.
+
+decisions:
+  - key: |
+      TWO ACCEPTED POSTS ARE NOT TWO ORDERED ACTS, AND NOTHING ON THE CLIENT CAN MAKE THEM ONE.
+      The endpoint returns Accepted after starting a background task; awaiting the HTTP call
+      therefore proves only that the task was STARTED. The page awaits the opening post and then
+      posts the message, and both tasks run against the same dialog with no ordering. Every
+      client-side remedy — waiting longer, waiting for the reply push, retrying — is a guess about
+      a race the client cannot observe. The ordering has to exist where the two acts are, which is
+      the server.
+  - key: |
+      THE PRECEDENT IS IN THE TREE AND IS EXACTLY THIS SHAPE. The image upload takes the dialog id
+      and the project, resolves or opens the conversation INSIDE the request, awaited, and refuses
+      with a named reason when it cannot. The message path takes the same two inputs and needs the
+      same resolve-or-open before it routes. Building a second, different mechanism for it would be
+      two answers to one question.
+      IT GOES IN THE DISPATCHER, NOT THE ENDPOINT. The endpoint must keep returning immediately;
+      opening a conversation is two database operations but the routing behind it is a whole turn.
+      So the open happens first inside the dispatched task, and the tutorial becomes the answer only
+      when there is no project to open one on.
+  - key: |
+      THE PAGE THEN MAKES ONE POST AND ARMS NO RESEED. With the open ordered on the server, the
+      opening command has no caller left on the message path and the reseed it armed has nothing to
+      reseed for: the transcript the next read carries will contain the operator's turn, because the
+      turn was admitted in the same act that opened the session. Removing the arm is what actually
+      fixes the wiped sentence — moving the echo would not have.
+      THE OTHER TWO ARMINGS STAY. A page that switches to another conversation arms one, and so does
+      an attachment. Both are genuine.
+  - key: |
+      THE FIRST READ AFTER THE REPLY IS STILL A REPLACEMENT, AND THAT IS NOW SAFE RATHER THAN LUCKY.
+      The reply push appends the agent's text and issues a read. Under this phase that read is
+      unarmed, so it settles pending entries and leaves the echoed turn alone; and even an armed one
+      would now find the turn in the transcript, because the open and the admission are one ordered
+      act. The done criterion says the turn is never absent, not that a particular entry object
+      survives.
+  - key: |
+      THE PROJECT TRAVELS ON THE POST, AND A POST WITHOUT ONE BEHAVES AS IT DOES TODAY. The page
+      knows the project; the server must not guess one. A message on a dialog with no open session
+      and no project named is answered with the tutorial, unchanged — that is the caller that really
+      has nothing to open.
+  - key: |
+      THE THIRD POST CALL SITE IS NOT THIS ONE AND MUST NOT BE SWEPT IN. A queued command is posted
+      when the subscription completes, for a conversation the operator opened by control rather than
+      by typing. It is a command, it is deliberately not echoed, and its reseed is armed by the
+      switch rather than by the send. This phase touches neither.
+
+steps:
+  - id: the-dispatcher-opens-before-it-routes
+    action: "The message post carries the project the page holds. The dispatcher, given a dialog with no open session and a project, opens the conversation and then routes the message — one task, in that order. With no project it answers with the tutorial exactly as it does today. The open reuses the resolve-or-open the image upload already performs rather than a second mechanism."
+  - id: the-page-posts-once
+    action: "The send path stops posting an opening command and stops arming a reseed for it. It posts the message with the project. The echo keeps its place after the post returns, and the decision path is untouched."
+
+tests:
+  - "SpecDialogDispatch_AFirstMessageNamingAProject_OpensTheConversationThenRoutesIt"
+  - "SpecDialogDispatch_AFirstMessage_IsStoredInTheTranscriptItOpened"
+  - "SpecDialogDispatch_AMessageWithNoProjectAndNoSession_StillAnswersWithTheTutorial"
+  - "SpecDialogDispatch_AMessageOnAnOpenSession_OpensNothingAndRoutesAsBefore"
+  - "SpecDialogDispatch_AProjectThatIsNotConfigured_IsRefusedWithAReasonRatherThanOpened"
+  - "SpecDialog_AFirstMessage_IsPostedOnceAndNotPrecededByACommand"
+  - "SpecDialog_AFirstMessage_SurvivesTheReadThatFollowsTheReply"
+  - "SpecDialog_AMessageWithASessionOpen_IsStillEchoedOnce"
+
+done:
+  - "a first message opens its conversation and runs, in that order, every time"
+  - "it can no longer be answered with the tutorial when the page named a project"
+  - "the operator's sentence is in the transcript after the reply's read, exactly once"
+  - "a message with no project and no session still gets the tutorial"
+  - "the page makes one post where it made two, and arms no reseed for it"
+  - "build green, full suite green, dashboard tests green"
+
+facts:
+  - claim: "The message endpoint returns Accepted after starting a fire-and-forget dispatch on a fresh scope, and says why: awaiting it would hold the connection for the whole turn."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:41-43, :62-86"
+  - claim: "With no session open the page posts an opening command and then the message, awaiting each HTTP call."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:412-424"
+  - claim: "A message the router cannot route on a dashboard dialog is answered with a tutorial naming the New conversation button."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DashboardDialogDispatcher.cs:23-25, :38-41"
+  - claim: "The image upload resolves or OPENS the conversation inside the request, awaited, before it stores anything, and refuses with named reasons when it cannot."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:61-80"
+  - claim: "Admitting a message requires an open session for the thread and returns null when there is none."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:29-38"
+  - claim: "The send path arms a reseed before the opening post."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:418"
+  - claim: "An armed read replaces the entries wholesale with what the read carries, and then spends the arm."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:211-222, :234"
+  - claim: "An unarmed read only settles pending entries and leaves the rest alone."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:210, :214-221"
+  - claim: "A reply push appends the agent's text and issues a read of the dialog."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:338-347"
+  - claim: "The local echo is written only after the post returns, and the post helper swallows its own error without rethrowing."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:255-268"
+  - claim: "A decision entry's pending marker is snapshotted after the post returns."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:259-262"
+  - claim: "A third caller posts a queued command when the subscription completes, unechoed, for a conversation opened by control."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:388-392, :446-449"
+  - claim: "The attachment path arms a reseed for a reason of its own: nothing it sent is echoed locally."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:430-444"
+  - claim: "The dashboard's rendering tests for this surface are named for the surface, not for the hook."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:390"

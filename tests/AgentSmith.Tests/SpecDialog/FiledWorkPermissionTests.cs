@@ -37,6 +37,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
 
     private readonly SqliteConnection _connection;
     private readonly AgentSmithDbContext _context;
+    private readonly SpecDialogSessionRepository _repository;
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogRouter _router;
     private readonly Mock<IOutcomeSink> _sink = new();
@@ -51,10 +52,10 @@ public sealed class FiledWorkPermissionTests : IDisposable
         _context = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
         _context.Database.Migrate();
-        var repository = new SpecDialogSessionRepository(_context);
+        _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
-        _router = Router(repository);
+            _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+        _router = Router(_repository);
     }
 
     [Fact]
@@ -158,9 +159,11 @@ public sealed class FiledWorkPermissionTests : IDisposable
     private async Task DispatchAsync(bool mayStartRuns)
     {
         var dispatcher = new DashboardDialogDispatcher(
-            _router, Messenger(), NullLogger<DashboardDialogDispatcher>.Instance);
-        await dispatcher.DispatchAsync(Dialog, "/spec", "U1", mayStartRuns, CancellationToken.None);
-        await dispatcher.DispatchAsync(Dialog, "draft it", "U1", mayStartRuns, CancellationToken.None);
+            _router, Conversations(), Messenger(), NullLogger<DashboardDialogDispatcher>.Instance);
+        await dispatcher.DispatchAsync(
+            Dialog, "/spec", "U1", mayStartRuns, null, CancellationToken.None);
+        await dispatcher.DispatchAsync(
+            Dialog, "draft it", "U1", mayStartRuns, null, CancellationToken.None);
         (await _sessions.GetOpenByThreadAsync(Dashboard, Dialog, CancellationToken.None))
             .Should().NotBeNull("the turn that files runs inside an open session");
     }
@@ -177,6 +180,18 @@ public sealed class FiledWorkPermissionTests : IDisposable
                 auth, [.. permissions.Select(p => (PermissionClaims.Type, p))]),
         };
     }
+
+    /// <summary>The dispatcher resolves-or-opens before it routes. These dispatches name no
+    /// project, so nothing is opened here — but the collaborator is real rather than null, so a
+    /// path that started consulting it would be exercised instead of throwing.</summary>
+    private SpecDialogConversationResolver Conversations() =>
+        new(_sessions,
+            new SpecDialogOwnership(_repository, new SpecCommandParser()),
+            new SpecDialogCommandHandler(
+                _sessions,
+                new SpecDialogResumer(_repository, _turnGate, _pending, TimeProvider.System,
+                    NullLogger<SpecDialogResumer>.Instance),
+                new SpecDialogScopeResolver(Loader()), new SpecDialogReplyComposer(), Messenger()));
 
     private static SpecDialogMessenger Messenger() =>
         new([], NullLogger<SpecDialogMessenger>.Instance);

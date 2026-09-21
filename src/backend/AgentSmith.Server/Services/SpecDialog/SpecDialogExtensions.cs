@@ -73,7 +73,7 @@ internal static class SpecDialogExtensions
         // read for their kind, stored against the conversation, and seeded into its next turn.
         services.AddSingleton<SpecDialogImageBody>();
         services.AddSingleton<ImageKindFromBytes>();
-        services.AddScoped<SpecDialogImageConversation>();
+        services.AddScoped<SpecDialogConversationResolver>();
         services.AddScoped<SpecDialogTurnImages>();
         // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
         // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.

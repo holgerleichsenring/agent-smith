@@ -11,6 +11,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class DashboardDialogDispatcher(
     SpecDialogRouter router,
+    SpecDialogConversationResolver conversations,
     SpecDialogMessenger messenger,
     ILogger<DashboardDialogDispatcher> logger)
 {
@@ -26,13 +27,22 @@ public sealed class DashboardDialogDispatcher(
 
     /// <summary>2026-09-17-042eg: <paramref name="mayStartRuns"/> is whether the signed-in
     /// principal holds runs.control — the permission that moves a filed ticket into a trigger
-    /// status, which is the one thing approving here does beyond filing.</summary>
+    /// status, which is the one thing approving here does beyond filing.
+    /// <para>
+    /// 2026-09-20-4b0aa: <paramref name="project"/> is the project the page holds, and it is what
+    /// lets the FIRST message open its own conversation. The page used to post an opening command
+    /// and then the message; the route answers before either has run, so the two were independent
+    /// background tasks with no ordering — and when the message won, it found no open session and
+    /// was answered with the tutorial instead of being stored. Both acts now happen here, in one
+    /// task, in order.
+    /// </para></summary>
     public async Task DispatchAsync(
         string dialogId, string text, string userId, bool mayStartRuns,
-        CancellationToken cancellationToken)
+        string? project, CancellationToken cancellationToken)
     {
         try
         {
+            if (!await OpenedAsync(dialogId, project, userId, cancellationToken)) return;
             // The dialog id is both channel and thread: a browser page holds exactly one
             // conversation and has no channel above it to group them by.
             if (await router.TryRouteAsync(
@@ -46,6 +56,27 @@ public sealed class DashboardDialogDispatcher(
             await TellAsync(dialogId, $"The spec dialog could not continue: {ex.Message}",
                 CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// Whether routing should go ahead. With no project named there is nothing to open on, so the
+    /// message takes its chances with the router exactly as it did before — an open session
+    /// continues, and a dialog with none gets the tutorial, which is the caller that really has
+    /// nothing to open. With a project named, the conversation is resolved or opened FIRST.
+    /// <para>
+    /// A resolve that yields no session has already been answered: the command handler names the
+    /// unknown project or the choice to be made, and a foreign conversation was refused by the
+    /// route before this task started. Routing on would only add the tutorial on top of a reason
+    /// that is already truer than it.
+    /// </para>
+    /// </summary>
+    private async Task<bool> OpenedAsync(
+        string dialogId, string? project, string userId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(project)) return true;
+        var target = await conversations.ResolveOrOpenAsync(
+            dialogId, project, userId, cancellationToken);
+        return target.SessionId is not null;
     }
 
     // The page is the only place this conversation exists, so failing to reach it leaves
