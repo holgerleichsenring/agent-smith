@@ -7,14 +7,13 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// p0269a: reads the namespace ResourceQuota(s) and answers whether a run of a
-/// given footprint still fits (hard - used >= required) for every quota that
-/// constrains cpu / memory / pods. p0320b: the footprint is the WHOLE run —
-/// orchestrator pod + one sandbox per repo, summed per quota key. If ANY quota
-/// would be exceeded, capacity is denied with the offending resource named. A
-/// namespace with no ResourceQuota is unconstrained → admit. Reads are fail-open:
-/// a transient API/RBAC read error admits, because the pod-create itself remains
-/// the hard guard (a real quota rejection there maps to CapacityExhaustedException).
+/// p0269a: reads the namespace ResourceQuota(s) and answers whether a run of a given
+/// footprint still fits (hard - used >= required) for every quota that constrains cpu /
+/// memory / pods. p0320b: the footprint is the WHOLE run — orchestrator pod + one sandbox
+/// per repo, summed per quota key. If ANY quota would be exceeded, capacity is denied with
+/// the offending resource named. A namespace with no ResourceQuota is unconstrained → admit.
+/// Reads are fail-open: a transient API/RBAC error admits, because the pod-create itself
+/// remains the hard guard (a real quota rejection there maps to CapacityExhaustedException).
 /// </summary>
 public sealed class KubernetesCapacityProbe(
     IKubernetes client,
@@ -37,17 +36,22 @@ public sealed class KubernetesCapacityProbe(
             return CapacityDecision.Admit();
         }
 
-        return Evaluate(quotas.Items, footprint, options.Namespace);
+        var shortfall = Evaluate(quotas.Items, footprint);
+        if (shortfall is null) return CapacityDecision.Admit();
+        // 2026-09-21-5c17: the estate identifiers are LOGGED here, where the quota object and the
+        // namespace are in scope, and left out of the text that reaches a run row and an HTTP body.
+        logger.LogInformation(
+            "Capacity denied by ResourceQuota '{Quota}' in namespace {Ns}: {Reason}",
+            shortfall.QuotaName, options.Namespace, shortfall.Reason);
+        return CapacityDecision.Deny(shortfall.Reason);
     }
 
-    // Pure: given the namespace quotas and the run footprint, decide fit. Extracted so
-    // the hard-vs-used math is unit-tested without a k8s client mock.
-    internal static CapacityDecision Evaluate(
-        IList<V1ResourceQuota>? quotas, RunFootprint footprint, string ns)
+    // Pure: name the first quota key the run does not fit under (null = it fits). Extracted so
+    // the hard-vs-used math is unit-tested without a k8s client mock, and it takes no namespace
+    // any more, because it no longer writes the sentence that would have named one.
+    internal static QuotaShortfall? Evaluate(IList<V1ResourceQuota>? quotas, RunFootprint footprint)
     {
-        if (quotas is null || quotas.Count == 0)
-            return CapacityDecision.Admit();
-
+        if (quotas is null || quotas.Count == 0) return null;
         foreach (var quota in quotas)
         {
             var hard = quota.Status?.Hard;
@@ -62,23 +66,19 @@ public sealed class KubernetesCapacityProbe(
                               && TryParse(need.QuotaKey, usedQty.ToString(), out var u) ? u : 0d;
 
                 if (hardVal - usedVal < need.Required)
-                {
-                    return CapacityDecision.Deny(
-                        $"Kubernetes ResourceQuota '{quota.Metadata?.Name}' in namespace "
-                        + $"'{ns}' is at capacity for {need.QuotaKey} "
-                        + $"(hard {hardQty}, used {FormatUsed(used, need.QuotaKey)}); waiting for room.");
-                }
+                    return new QuotaShortfall(
+                        quota.Metadata?.Name, need.QuotaKey,
+                        hardQty.ToString(), FormatUsed(used, need.QuotaKey));
             }
         }
 
-        return CapacityDecision.Admit();
+        return null;
     }
 
-    // p0320b: the WHOLE run expressed as the quota resources it consumes —
-    // orchestrator pod (when present) + every sandbox, summed per quota key. A
-    // quota may constrain either the prefixed ("requests.cpu") or bare ("cpu")
-    // form; emit both so whichever the quota uses matches. Every pod in the
-    // footprint consumes one pods / count/pods unit.
+    // p0320b: the WHOLE run expressed as the quota resources it consumes — orchestrator pod
+    // (when present) + every sandbox, summed per quota key. A quota may constrain either the
+    // prefixed ("requests.cpu") or bare ("cpu") form; emit both so whichever the quota uses
+    // matches. Every pod in the footprint consumes one pods / count/pods unit.
     private static IEnumerable<(string QuotaKey, double Required)> RequiredAmounts(RunFootprint f)
     {
         var totals = new Dictionary<string, double>(StringComparer.Ordinal);

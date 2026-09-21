@@ -65,9 +65,11 @@ public sealed class DockerCapacityProbe(
         // the bound mid-run.
         var needed = footprint.Sandboxes.Count;
         if (running + needed <= cap) return CapacityDecision.Admit();
+        // 2026-09-21-5c17: the bound and its usage LEAD — this sentence is carried to a queued
+        // run's row, which renders it ellipsised and drops whatever does not fit.
         return CapacityDecision.Deny(
-            $"Docker host at the concurrent-sandbox cap ({running} running + {needed} needed > {cap}); "
-            + "waiting for slots to free.");
+            $"{running} running + {needed} needed exceeds the concurrent-sandbox cap of {cap} "
+            + "— waiting for a slot on the Docker host.");
     }
 
     private ConcurrentSandboxBound ReportedBound()

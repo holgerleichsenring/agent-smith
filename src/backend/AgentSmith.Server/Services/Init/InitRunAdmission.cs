@@ -19,6 +19,12 @@ namespace AgentSmith.Server.Services.Init;
 /// on the housekeeping loop and in the capacity queue's own tick, which is where a
 /// sweep that frees quota for a QUEUED run belongs.
 /// </para>
+/// <para>
+/// 2026-09-21-5c17: the two sentences a refusal can carry are no longer written here. The
+/// spawn funnel's reservation now answers with this same decision type, and one copy of the
+/// ledger's sentence — and of the fallback that keeps a wordless denial off a run row —
+/// serves both doors. The corpse sweep's absence above is NOT part of what is shared.
+/// </para>
 /// </summary>
 public sealed class InitRunAdmission(
     IRunFootprintCalculator footprintCalculator,
@@ -34,17 +40,13 @@ public sealed class InitRunAdmission(
 
         var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)
-            return await RefuseAsync(runId, quota.Reason ?? "the namespace quota is full", ct);
+            return await RefuseAsync(runId, CapacityReasons.Carried(quota.Reason), ct);
 
         if (!await capacityBudget.TryReserveAsync(runId, ct))
-            return await RefuseAsync(runId, BudgetReason(footprint), ct);
+            return await RefuseAsync(runId, CapacityReasons.LedgerFull(footprint), ct);
 
         return CapacityDecision.Admit();
     }
-
-    private static string BudgetReason(RunFootprintBreakdown footprint) =>
-        $"no capacity — footprint {footprint.TotalMemLimit} / {footprint.TotalCpuLimit} cpu "
-        + "exceeds the remaining budget";
 
     // Releasing DELETES the recorded footprint row, so a refused launch is
     // indistinguishable from one that never happened.

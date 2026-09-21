@@ -28,9 +28,9 @@ internal sealed class CapacityDeferral(
         ResolvedProject project, string pipelineName, IncomingTicketEnvelope envelope,
         WebhookTriggerConfig matchedTrigger, Dictionary<string, string>? planAnswers,
         RunFootprintBreakdown footprint, CapacityQueueEntry? head, string candidateRunId,
-        CancellationToken ct)
+        CapacityDecision? refusal, CancellationToken ct)
     {
-        var reason = WaitReason(project, envelope, footprint, head);
+        var reason = WaitReason(project, envelope, refusal, head);
         var candidate = SpawnRequestBuilder.BuildCandidate(
             project, pipelineName, envelope, matchedTrigger, planAnswers, candidateRunId, reason,
             approvedSetJson: await approvedSets.JsonForAsync(
@@ -48,14 +48,19 @@ internal sealed class CapacityDeferral(
         return new SpawnResult(new[] { ClaimResult.Queued(reason) });
     }
 
+    // 2026-09-21-5c17: the refusal that was actually RECEIVED is what a waiting run says. The
+    // funnel composed a budget sentence for every deferral, so a host that declares no budget
+    // — where the ledger fails open and cannot have refused anything — told its operator to go
+    // looking for a limit that does not exist. The queue-position branch is the deferral's own
+    // knowledge and stays; it is also what answers when no refusal was received, because behind
+    // the queue no reservation is attempted at all.
     private static string WaitReason(
         ResolvedProject project, IncomingTicketEnvelope envelope,
-        RunFootprintBreakdown footprint, CapacityQueueEntry? head)
+        CapacityDecision? refusal, CapacityQueueEntry? head)
     {
         var isHead = head is not null && head.Project == project.Name && head.TicketId == envelope.TicketId;
         return head is not null && !isHead
             ? $"waiting in line behind {head!.Project}/#{head.TicketId}"
-            : $"waiting for capacity — footprint {footprint.TotalMemLimit} / {footprint.TotalCpuLimit} cpu "
-              + "exceeds the remaining budget";
+            : Sandbox.CapacityReasons.Carried(refusal?.Reason);
     }
 }
