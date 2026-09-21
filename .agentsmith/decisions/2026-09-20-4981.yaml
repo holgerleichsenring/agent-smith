@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-20-4981
+
+decisions:
+  - category: Architecture
+    chose: "The report READS the last published binding; it never resolves the catalog itself"
+    over: "Calling ISkillsCatalogResolver.EnsureResolvedAsync the way CatalogContentsReader does"
+    reason: |
+      The endpoint is anonymous and its whole reason to exist is the moment when resolving is
+      failing. A read that resolves would, on a cold cache, turn an unauthenticated GET into a
+      tarball pull over the network — and would throw exactly when the answer is wanted, which is
+      the behaviour this phase exists to remove. The resolver already publishes every binding it
+      produces to the SkillsCatalogPath singleton, and the server resolves at startup through the
+      skills-catalog preflight check, so the fact is already in memory by the time anyone reads the
+      page. A binding that is stale relative to a newly edited configuration is still the truth
+      about what this server is RUNNING: the loaders read files from that same root.
+
+  - category: Architecture
+    chose: "A second, one-member contract (IResolvedCatalogBinding) on the same singleton"
+    over: "Widening ISkillsCatalogPath with the binding, or injecting the concrete SkillsCatalogPath into the server"
+    reason: |
+      Every one of the dozen ISkillsCatalogPath readers wants a root to load files from; a dozen
+      implementations — four in the harness, half a dozen test stubs — would have had to answer a
+      member none of them has an answer for, and the harness paths that deliberately point at a
+      fixture directory have no resolution at all. Interface segregation is the principle this
+      repository already states ("One method per interface is perfectly fine"). The concrete class
+      lives in Infrastructure.Core, which the Server does not reference, so a contract was needed
+      either way.
+
+  - category: Design
+    chose: "TWO fields on the report: the resolved binding, and the embedded version as a separately named floor"
+    over: "One 'catalog version' field carrying the embedded pin, or carrying the resolved version alone"
+    reason: |
+      Only one of the four source modes IS the embedded catalog; the shipped example configuration
+      pins a release and the shipped Kubernetes example mounts a path, so on three of four modes
+      the pin names a catalog the server is not running. CatalogResolution says in its own words
+      that naming a base version while an overlay replaced a master tells a half-truth. The floor
+      is still worth stating — it is what a rebuild changes — so it is reported beside the binding
+      and labelled as what the binary was built against, never as the answer.
+
+  - category: Design
+    chose: "The binding is reported WITHOUT the root, and without the configured overlay directory"
+    over: "Reusing CatalogResolution.Origin, the one-phrase form the catalog endpoint already serves"
+    reason: |
+      The Origin phrase ends "at {Root}", and in path mode the root is an operator's own mounted
+      directory — the one value on this surface that could name an internal path. This endpoint is
+      anonymous; the catalog endpoint that serves the full phrase needs a catalog permission. So
+      this surface states source mode, version and overlay FINGERPRINT (a 12-hex digest, not a
+      path) and drops the root. The test serialises the whole report and asserts the root does not
+      appear in it, while asserting the same resolution's Origin does — the root was available and
+      was dropped, rather than never having been there.
+
+  - category: Implementation
+    chose: "A failed resolution reports the CONFIGURED source and version with resolved=false"
+    over: "Omitting the catalog, or reporting the embedded pin as a stand-in"
+    reason: |
+      The catalog endpoint answers not-ready with a null binding when the source is unavailable,
+      which is deliberate but leaves this question unanswered precisely when it is asked. What was
+      configured is knowable without resolving anything, and the flag keeps it from being read as
+      fact. The configured OVERLAY is reported as nothing: a fingerprint exists only once the
+      overlay has been materialised, and the configured value is a directory path this surface does
+      not carry. In embedded mode an unresolved binding names no version, because the configuration
+      names none — the floor row directly beneath it states the version that would have been used.

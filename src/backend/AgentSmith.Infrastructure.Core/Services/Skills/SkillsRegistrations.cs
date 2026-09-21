@@ -19,6 +19,8 @@ public static class SkillsRegistrations
         services.AddSingleton<IEmbeddedSkillsCatalog, EmbeddedSkillsCatalog>();
         services.AddSingleton<SkillsCatalogPath>();
         services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
+        // 2026-09-20-4981: the same singleton, asked for the binding rather than the root.
+        services.AddSingleton<IResolvedCatalogBinding>(sp => sp.GetRequiredService<SkillsCatalogPath>());
         // p0379: authored principles core+delta composition from the resolved catalog.
         services.AddSingleton<IPrinciplesTemplateSource, CatalogPrinciplesTemplateSource>();
         services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();

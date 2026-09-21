@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Diagnostics;
 
@@ -18,12 +19,20 @@ namespace AgentSmith.Server.Services.Startup;
 /// <see cref="PinnedAgentProbe"/> for a project pinned away from this release — and a second
 /// opinion on the same facts would be a second thing to keep true.
 /// </para>
+/// <para>
+/// 2026-09-20-4981: the catalog joins them as TWO facts — the binding this server resolved,
+/// read off the singleton the resolver publishes to rather than re-resolved (this endpoint
+/// is anonymous, and the moment it is read is the moment resolving is failing), and the
+/// version embedded in the binary, as the floor.
+/// </para>
 /// </summary>
 public sealed class InstallationIdentityReporter(
     BuildIdentity build,
     AgentSmithConfig config,
     IAgentVersionResolver versions,
     IPersistenceStateReader persistence,
+    IResolvedCatalogBinding catalog,
+    IEmbeddedSkillsCatalog embedded,
     ILogger<InstallationIdentityReporter> logger)
 {
     public async Task<InstallationIdentityResponse> ReadAsync(CancellationToken cancellationToken)
@@ -35,7 +44,9 @@ public sealed class InstallationIdentityReporter(
             [.. config.Projects.Select(p => AgentOf(p.Key, p.Value))],
             new DatabaseIdentity(
                 config.Persistence.Provider, database.Reachable,
-                database.PendingMigrations, database.Error));
+                database.PendingMigrations, database.Error),
+            CatalogBinding.From(catalog.Current, config.Skills),
+            Stated(embedded.Version));
     }
 
     private SandboxAgentRelease AgentOf(string project, ResolvedProject resolved)

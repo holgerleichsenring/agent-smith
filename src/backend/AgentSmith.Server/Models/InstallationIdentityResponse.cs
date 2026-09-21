@@ -10,9 +10,17 @@ namespace AgentSmith.Server.Models;
 /// one release. So the browser renders its own release from the constant its bundle was
 /// stamped with, labelled as its own, and this report never claims to know it.
 /// </para>
+/// <para>
+/// 2026-09-20-4981: the catalog is TWO facts, never one. <paramref name="Catalog"/> is the
+/// binding this server resolved; <paramref name="EmbeddedCatalogVersion"/> is the floor the
+/// binary was built against. They differ by design on three of the four source modes, so
+/// reporting the pin alone would be a confident false answer.
+/// </para>
 /// </summary>
 public sealed record InstallationIdentityResponse(
     string? ServerRelease,
     string? ServerRevision,
     IReadOnlyList<SandboxAgentRelease> Agents,
-    DatabaseIdentity Database);
+    DatabaseIdentity Database,
+    CatalogBinding Catalog,
+    string? EmbeddedCatalogVersion);

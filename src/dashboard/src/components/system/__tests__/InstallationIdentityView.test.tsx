@@ -16,6 +16,8 @@ const REPORT: InstallationIdentity = {
   serverRevision: "1111111111111111111111111111111111111111",
   agents: [{ project: "alpha", version: "1.2.3", source: "derived" }],
   database: { provider: "sqlite", reachable: true, pendingMigrations: 0, error: null },
+  catalog: { source: "default", version: "v5.1.0", overlay: null, resolved: true },
+  embeddedCatalogVersion: "v4.6.0",
 };
 
 function serving(report: InstallationIdentity) {
@@ -65,16 +67,49 @@ describe("InstallationIdentityView", () => {
 
   it("Surface_AnUnstampedServer_SaysSoInsteadOfShowingNothing", async () => {
     serving({
+      ...REPORT,
       serverRelease: null,
       serverRevision: null,
       agents: [{ project: "alpha", version: null, source: "underivable" }],
-      database: { provider: "sqlite", reachable: true, pendingMigrations: 0, error: null },
     });
 
     const server = await shown("installation-server");
 
     expect(server.textContent).toContain("not stated by this build");
     expect(screen.getByTestId("installation-agent-alpha").textContent).toContain("underivable");
+  });
+
+  it("InstallationIdentityView_RendersTheBindingAndTheFloor", async () => {
+    // The ordinary case: the binary embeds one catalog and the server runs another, with
+    // an operator overlay on top. Reporting the embedded pin alone would name a catalog
+    // this server is not running.
+    serving({
+      ...REPORT,
+      catalog: { source: "default", version: "v5.1.0", overlay: "9f2c1ab4", resolved: true },
+      embeddedCatalogVersion: "v4.6.0",
+    });
+
+    const binding = await shown("installation-catalog-binding");
+    const floor = screen.getByTestId("installation-catalog-floor");
+
+    expect(binding.textContent).toContain("default v5.1.0");
+    expect(binding.textContent).toContain("overlay 9f2c1ab4");
+    expect(binding.textContent).toContain("resolved by this server");
+    expect(floor.textContent).toContain("v4.6.0");
+    expect(floor.textContent).toContain("built against");
+  });
+
+  it("InstallationIdentityView_ACatalogThatWillNotResolve_StillNamesWhatWasConfigured", async () => {
+    serving({
+      ...REPORT,
+      catalog: { source: "path", version: "local", overlay: null, resolved: false },
+    });
+
+    const binding = await shown("installation-catalog-binding");
+
+    expect(binding.textContent).toContain("path local");
+    expect(binding.textContent).toContain("did not resolve");
+    expect(screen.getByTestId("installation-catalog-floor").textContent).toContain("v4.6.0");
   });
 
   it("Surface_ADatabaseThatDidNotAnswer_SaysTheCountIsUnknown", async () => {
