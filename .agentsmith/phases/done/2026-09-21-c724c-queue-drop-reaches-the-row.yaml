@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-c724c
+
+goal: "A queued run dropped from the capacity queue is finished where the row lives and the surface is told, so a run that has left the queue stops claiming to be waiting in it."
+
+applies_to: "backend (the capacity-queue pump's drop path and the test harness that covers it)"
+
+scope:
+  in: >
+    An operator's surface showed thirteen runs waiting for capacity while the queue table behind
+    them was empty: every entry had already been dropped. The rows still say queued because the drop
+    announces the end of the run by PUBLISHING a terminal event, and a run that never started has no
+    cursor on its stream, so nothing drains what is published there. The tree stated this one day
+    before the operator hit it, in the words of the port built for exactly this gap.
+    The answer already exists and is used twice. A run that paused leaves delivery behind in the same
+    way, so both cancel entry points WRITE the terminal state through the finalization projection
+    instead of publishing it. The drop path publishes. This phase makes it write — and then knock on
+    the same door the deferral already knocks on, because a row written outside the event fanout is
+    invisible to a connected dashboard until something unrelated happens.
+  out: >
+    WHY THE HEAD IS DROPPED AT ALL. That a permanently refused head must not stay at the head of the
+    queue is the pump's own rule and is unchanged. That such a ticket should not have been deferred
+    in the first place is the sibling phase, and with it in place this drop becomes rare rather than
+    once a minute.
+    THE THIRTEEN ROWS ALREADY STANDING. They are not stuck and need not be deleted: the existing
+    cancel endpoint accepts exactly a queued run with no finish time, removes a queue entry that is
+    already gone as a no-op, writes the terminal state through this same writer and terminalizes the
+    ticket. One call each, history intact. This phase stops new ones being made.
+    THE PUBLISH. It stays. The projection's set-once guard makes a later-drained event a harmless
+    no-op, which is what makes widening the writer safe; removing the publish would be a second
+    decision this phase does not need.
+    THE BOOT-TIME REPAIR. A restart can opportunistically mend such rows, and did not mend these.
+    Making that path reliable is a different phase, named in prose as the phase that anchors an
+    unfinished run's cursor where its pending terminal event still is.
+    EVERY OTHER PRODUCER OF A TERMINAL EVENT FOR A RUN WITH NO CURSOR. There may be more; this phase
+    fixes the one an operator measured. Named in prose as the phase that audits every terminal event
+    for a reader.
+
+decisions:
+  - key: |
+      THE DIAGNOSIS IS THE PORT'S OWN, AND THE EARLIER WORDING WAS LOOSE. The delivery gap is not
+      "the event dies in the stream" but "no cursor is ever created for that stream, so nothing
+      drains it" — the broadcaster drains the cursors it tracks, and the active set is only where
+      candidates are discovered. A boot-time rehydration CAN reach such a row, through the recent
+      list the finished event is pushed onto, and the anchor for an unfinished row is placed at the
+      stream TAIL — which is precisely why the pending terminal event is skipped and these rows
+      survived a restart. Opportunistic, cap-bounded, and not a remedy to rely on.
+  - key: |
+      WRITING THROUGH THE PROJECTION IS PROVABLY WHAT A DRAINED EVENT WOULD HAVE DONE, AND THE
+      AUDIT IS RECORDED HERE RATHER THAN LEFT TO THE BUILDER. The terminal event routes to this one
+      projection and nothing else. It looks the row up and returns if absent; it refuses to finish a
+      row twice; it writes status, finish time and summary — the summary being the drop's own reason,
+      so the row says what refused it; it takes the cost total from the event or sums the run's model
+      calls, which is zero for a run that never called one; it re-creates a queue entry only for a
+      QUEUED status, which a drop never writes; and it releases the run's capacity. Nothing about a
+      pull request, nothing about the ticket, no arithmetic over a start that never happened.
+  - key: |
+      THE DOUBLE RELEASE IS REAL AND HARMLESS, AND THE EARLIER SPEC BOTH DENIED IT AND ADMITTED IT
+      IN THE SAME BREATH. The pump releases the reservation for a head it could not claim, and the
+      projection releases again. The ledger releases by deleting the row for that run id, so the
+      second delete removes nothing, and the bound is a sum over the rows that remain. It cannot
+      free capacity twice. This is stated as a fact rather than demanded as a proof, because the
+      obvious test for it — counting calls — passes only if the second releaser is wired away.
+  - key: |
+      THE ORDER IS FINALIZE, THEN REMOVE, THEN ANNOUNCE, AND THE TWO ORDERS FAIL DIFFERENTLY.
+      Removing first and then failing to finalize reproduces exactly the state this phase exists to
+      fix: entry gone, row queued, nothing left to retry. Finalizing first and then failing to remove
+      leaves the head in place; the next tick peeks it, finalizes again as a no-op under the set-once
+      guard, and retries the removal. One order self-heals and the other does not.
+  - key: |
+      A CORRECT ROW NOBODY IS TOLD ABOUT IS HALF THE GOAL. The surface refetches on a nudge, on
+      reconnect or on mount; there is no poll. The deferral path already nudges after its write,
+      best-effort, for this exact reason. The drop writes the same kind of row through the same
+      blind door and knocks the same way — after the write, and never able to fail it.
+  - key: |
+      ONE EXISTING TEST HIDES THIS DEFECT AND MUST STOP. It asserts the row is cancelled after
+      HAND-APPLYING the published event — the production step that does not happen. It passes today,
+      it passes after the fix, and it passes on a reverted tree. Removing that hand-applied line is
+      part of this phase, or the suite goes on claiming coverage it does not have.
+
+steps:
+  - id: the-drop-writes-then-removes-then-announces
+    action: "The pump's drop path finalizes the run through the writer both cancel entry points use, then removes the entry, then publishes as before. The publish stays; the set-once guard makes it a no-op if it ever lands."
+  - id: the-drop-nudges-the-surface
+    action: "After the finalize, the drop nudges the run list the way the deferral already does — after the write and best-effort, so a hub that is down cannot fail a drop."
+  - id: the-harness-can-see-the-row
+    action: "The pump's test harness resolves the finalization projection so the terminal write happens for real, following the harness that already does this for the cancel path, and the existing test that hand-applies the published event loses that line so it asserts the tick alone."
+
+tests:
+  - "QueueDrop_ARefusedHead_LeavesItsRunFinishedRatherThanQueued"
+  - "QueueDrop_ARefusedHead_CarriesTheRefusalAsItsReason"
+  - "QueueDrop_ARefusedHead_NudgesTheSurface"
+  - "QueueDrop_ANudgeThatThrows_StillDropsTheEntry"
+  - "QueueDrop_AFinalizeThatThrows_LeavesTheEntryForTheNextTick"
+  - "QueueDrop_ADrainedEventArrivingLater_ChangesNothing"
+  - "Pump_TicketStatusLeftTriggerSet_EntryDropped_RowCancelledFromTheTickAlone"
+
+done:
+  - "a dropped queued run is finished, not left queued, without anything draining an event"
+  - "it carries the refusal that caused it"
+  - "a connected surface is told, rather than waiting for an unrelated event"
+  - "a failed finalize leaves the entry for the next tick instead of orphaning the row"
+  - "the existing pump test proves the cancellation from the tick alone and fails on a revert"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The drop removes the entry and then PUBLISHES a terminal event for the reserved run, passing its reason as the summary."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:125-136"
+  - claim: "The pump drops a head whose claim was rejected, calling the rejection permanent."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:105-107"
+  - claim: "The pump already releases the reservation itself for a head it could not claim."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:104"
+  - claim: "A deferred run was never in the active set, so no cursor is created for its stream and nothing drains it."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRunListNudge.cs:3-13"
+  - claim: "A writer exists solely to end a run whose terminal event nobody will deliver, and both cancel entry points call it; it goes through the finalization projection, which owns releasing capacity and computing the cost total, and whose set-once guard makes a drained event a harmless no-op."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/CancelTerminalWriter.cs:7-28"
+  - claim: "That writer is registered as a singleton and resolved by the queued-run cancel, the run-control endpoint and the cancel enforcer."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/RunProjectionsExtensions.cs:32, src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:21, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:106, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:29"
+  - claim: "The terminal event routes to the finalization projection alone."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:51"
+  - claim: "The projection returns when the row is absent, refuses to finish a row twice, writes status, finish time and summary, takes the cost from the event or sums the run's model calls, re-creates a queue entry only for a queued status, and releases the run's capacity."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:26-77"
+  - claim: "The capacity release deletes the row for that run id, so a second release removes nothing, and the bound is a sum over the rows that remain."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunCapacityRepository.cs:49-50, :60-67"
+  - claim: "The terminal event carries its summary in a named position the pump already fills with the drop's reason."
+    evidence: "src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs:44-51"
+  - claim: "The surface refetches on a nudge, on reconnect or on mount, and never polls."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:91-106"
+  - claim: "The deferral path nudges the run list after its write and best-effort, so a nudge that throws cannot lose the queue entry."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:139-142"
+  - claim: "The finished event removes the run from the active set and pushes it onto a recent list, and a boot-time rehydration walks that list and can reconcile a terminal state."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/RedisEventPublisher.cs:54-62, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:113-130"
+  - claim: "An unfinished row's cursor is anchored at the stream tail, so a terminal event already sitting in that stream is skipped."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunStreamCursors.cs:67-81"
+  - claim: "The existing pump test asserts the cancelled row only after hand-applying the published event."
+    evidence: "tests/AgentSmith.Tests/Server/CapacityQueuePumpTests.cs:84-89"
+  - claim: "The pump's test harness builds its own provider and does not register the finalization projection; the cancel path's tests show the shape that does."
+    evidence: "tests/AgentSmith.Tests/Server/CapacityQueuePumpTests.cs:203-213, tests/AgentSmith.Tests/Server/QueuedRunCancelTests.cs:217"
+  - claim: "The pump is hand-constructed positionally by its hosted service, so a new dependency lands there."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/CapacityQueuePumpHostedService.cs:41-51"
+  - claim: "The existing cancel endpoint accepts exactly a queued run with no finish time and clears it through the same writer."
+    evidence: "src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:24-38, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:111-114"
