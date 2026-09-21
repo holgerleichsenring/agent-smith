@@ -139,6 +139,15 @@ public sealed class  JiraTicketProvider : ITicketProvider
         CancellationToken cancellationToken) =>
         _creator.CreateAsync(title, description, labels, kind, cancellationToken);
 
+    // The issue update takes an "add" operation per field, so the label appends without a read.
+    // Jira refuses a label containing whitespace, which is why one never reaches this call.
+    public async Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken ct)
+    {
+        await _http.SendAsync(HttpMethod.Put, $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}",
+            new { update = new { labels = new[] { new { add = label } } } }, ct);
+        return true;
+    }
+
     // A missing link type or disabled linking is the site's refusal, and a Failed link.
     public Task<ParentLinkResult> LinkToParentAsync(
         CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>

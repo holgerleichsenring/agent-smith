@@ -94,8 +94,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
         TicketLifecycleStatus status, CancellationToken cancellationToken)
         => _lister.SearchAsync([LifecycleLabels.For(status)], $"lifecycle={status}", cancellationToken);
 
-    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
-        TicketId ticketId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         try
         {
@@ -108,8 +107,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
         catch { return []; }
     }
 
-    public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
-        TicketId ticketId, CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         await TicketImageAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
@@ -117,8 +115,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     // GitLab has no work-item kind: an issue accepts exactly two state events, close and
     // reopen, so the kind the port carries never reaches its payload.
     public async Task<CreatedTicket> CreateAsync(
-        string title, string description, IReadOnlyList<string> labels, string? kind,
-        CancellationToken cancellationToken)
+        string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken cancellationToken)
     {
         object body = labels.Count > 0
             ? new { title, description, labels = string.Join(",", labels) }
@@ -131,6 +128,14 @@ public sealed class GitLabTicketProvider : ITicketProvider
         return new CreatedTicket(new TicketId(iid.ToString()), webUrl);
     }
 
+    // add_labels appends without reading: the value is sent WHOLE, and a comma in it would split
+    // into two labels — which is why a value carrying one never reaches this call.
+    public async Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken ct)
+    {
+        await _http.SendAsync(HttpMethod.Put, IssueUrl(ticketId), new { add_labels = label }, ct);
+        return true;
+    }
+
     // relates_to is the one issue link the free tier offers; the body takes the decoded project path.
     public Task<ParentLinkResult> LinkToParentAsync(
         CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
@@ -138,8 +143,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
             new { target_project_id = Uri.UnescapeDataString(_projectPath), target_issue_iid = parent.Value, link_type = "relates_to" },
             cancellationToken), cancellationToken);
 
-    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
-        TicketId ticketId, CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         await TicketDocumentAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);

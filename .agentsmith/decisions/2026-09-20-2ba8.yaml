@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-20-2ba8
+
+decisions:
+  - category: Architecture
+    chose: "The tag is written by the STARTER, immediately before it resolves — not at creation"
+    over: "Stamping the routing tag into the label array CreateAsync is called with"
+    reason: |
+      Creation-time tagging makes the ticket claimable the instant it exists — on a project
+      whose created status already triggers, that is before its approved set is stored. The
+      poller claims it and the run derives its own spec, which is the one outcome the whole
+      set of phases exists to prevent; it is why the filing order is create, store the set,
+      file the records, THEN start. An earlier cut of this phase tagged at creation and
+      justified it backwards: it argued that a later tag leaves "a window in which a poll
+      could see an untagged ticket", but an untagged ticket is the SAFE state — it resolves
+      to nothing and is dropped. A tagged one with no stored set is the hazard. It would
+      fail loudly rather than silently, because the work ticket carries the approved-set
+      stamp and an early claim dies at the spec gate with a named missing set; but it dies
+      as a spawned run on a customer's tracker, parking the ticket, for a defect this phase
+      would have introduced. The order is cheap. Filing_ApprovedSetIsStoredBeforeTheTicketIsTagged
+      pins it, and FiledWorkStart_AProjectResolvingByTag_TagsBeforeItResolves pins the other
+      half — the resolution reads the labels the tagging actually left.
+
+  - category: Architecture
+    chose: "Slice records are excluded BY CONSTRUCTION: the starter is the only thing that tags, and a record never reaches it"
+    over: "A carve-out in the tagger that refuses the record label"
+    reason: |
+      EpicSliceRecordFiler stamps the record state itself and never calls the starter, so
+      putting the tag in the starter excludes records without a rule anyone could later
+      forget. A tagged record would be fetched by every poll on all four trackers — all four
+      express a tag criterion in their discovery query — and refused every time, because
+      ProjectResolver refuses the record label before every other rule. Making that
+      unreachable is better than making it recoverable.
+
+  - category: Architecture
+    chose: "ITicketProvider gains ONE member, AddLabelAsync, with a do-nothing default answering false"
+    over: "A member with no default that every implementation must change at once"
+    alternatives:
+      - "A separate ILabelWriter port — a second port for one call over the provider the starter already holds is a wrapper"
+    reason: |
+      The port's later members already carry defaults that do nothing, so the shape follows
+      its own convention: a provider that cannot add a label to an existing ticket inherits
+      the no-op and the starter reports the tag as NOT applied rather than claiming one it
+      never wrote. Azure DevOps, Jira, GitLab and GitHub — the four that can set labels at
+      creation — implement it. The bool is load-bearing: the label joins the envelope only
+      where the write landed. A tag the tracker did not take would resolve here and nowhere
+      else, and the ticket would be moved into a trigger status it then sits in forever,
+      reported as started — the exact falsehood "resolve first, move only what resolves"
+      exists to prevent.
+
+  - category: Security
+    chose: "The value is guarded before it is sent: never empty, and never one the tracker's own label grammar cannot carry"
+    over: "Sending it and letting the tracker answer"
+    alternatives:
+      - "Validate the value at config load — the right long-term home, but today only the config-studio write path checks non-emptiness and a file-based configuration can still carry an empty value"
+    reason: |
+      This writes operator text onto someone else's tracker. GitLab joins labels on a comma
+      and Azure DevOps on a semicolon, so a value carrying that delimiter arrives as two
+      labels that resolve to nothing; Jira rejects a label containing whitespace outright.
+      A refused value is SKIPPED and reported, never sent, because a create or an update the
+      tracker refuses would cost the FILING itself — turning "filed but not started" into
+      "nothing was filed", which is strictly worse than the defect being fixed. A tagging
+      call that throws is caught for the same reason and costs the filing nothing.
+
+  - category: Scope
+    chose: "The criterion is that a filed ticket RESOLVES to the filing project, not that it starts"
+    over: "Claiming every filed ticket now starts"
+    reason: |
+      A phase or epic-work ticket short-circuits the pipeline question through its phase
+      label; a bug does not, because it is filed with no framework label on purpose so the
+      project's own rules decide which pipeline claims it. The routing tag binds no pipeline
+      — it is what makes the project claim the ticket at all. Where a project declares a
+      pipeline_from_label map that does not name the tag, the resolver still drops the bug,
+      and a blocking startup finding still disables the trigger regardless of any tag. The
+      existing reasons still say which of those happened.
+
+  - category: TradeOff
+    chose: "A tag shared by two projects now produces two runs, and that is the operator's ambiguity made visible"
+    over: "Deduplicating matches, or refusing to tag when more than one project resolves by the value"
+    reason: |
+      ProjectResolver deliberately returns every project an envelope matches, the poller
+      spawns a run per match, and the lease is keyed per project so it does not deduplicate.
+      Today a filed ticket carries no tag, so this costs nothing and the starter reports "it
+      routes elsewhere"; after this phase a filed ticket routes everywhere its tag does. The
+      comparison is exact and ordinal case-insensitive, so a substring tag cannot misroute —
+      only a case variant collides, and that is the same collision the poller already has for
+      a ticket someone tagged by hand.
+
+  - category: Implementation
+    chose: "Five existing tests re-expressed, none deleted, and the doubles taught to add a label"
+    over: "Leaving StartProvider unable to label, which would have kept the old assertions green"
+    reason: |
+      Three tests needed a filed ticket to be UNRESOLVABLE — one in a trigger status, one
+      outside it and therefore not moved, one resolving only to a neighbour. All three now
+      use an area-path resolution, the case no label can satisfy because a polled envelope
+      carries labels, ticket id and platform only. Two bug tests asserted that a bug carries
+      no label and so no tag project claims it; a bug is still CREATED with none, but the
+      starter tags it, so they now assert that. A sixth carried a comment saying nothing the
+      filer creates can carry an operator label — false now; it was corrected and points at
+      the filer-level test that covers the case. A double that cannot do what all four
+      shipped providers do would have kept the old assertions passing for a reason unrelated
+      to the behaviour they name.
+
+  - category: Implementation
+    chose: "The tagging lives in its own FiledWorkTagger, and the per-ticket reason carries its note as a prefix"
+    over: "Another branch inside FiledWorkStarter"
+    reason: |
+      The starter was already at the 120-line ceiling the file-length ratchet enforces, and
+      the tagging is a responsibility of its own: decide whether the value can be carried,
+      write it, and say what happened. The note is a prefix rather than a separate field
+      because the operator already reads one line per filed ticket — a second field on the
+      report would have to be rendered on the pane, in the thread and in the transcript, and
+      the sentence is what they need either way. FiledWorkTagging carries the labels and the
+      note together so a tag that was not written cannot reach the envelope by accident.
