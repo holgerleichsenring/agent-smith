@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Persistence.Services;
 
 namespace AgentSmith.Server.Services.Hosting;
 
@@ -36,6 +37,17 @@ public sealed class CapacityQueuePumpHostedService(
             services, _health, LeaseKey, RunPumpAsync, retry, stoppingToken);
     }
 
+    // 2026-09-21-c724c: the drop is composed HERE, beside the pump it belongs to, rather than
+    // registered — this method is already the pump's composition root, and CancelTerminalWriter
+    // (which AddRunProjections registers) is only ever resolvable in the composition that hosts
+    // this service at all.
+    private CapacityQueueDrop Drop() => new(
+        services.GetRequiredService<ICapacityQueue>(),
+        services.GetRequiredService<CancelTerminalWriter>(),
+        services.GetRequiredService<IEventPublisher>(),
+        services.GetRequiredService<IRunListNudge>(),
+        services.GetRequiredService<ILogger<CapacityQueueDrop>>());
+
     private Task RunPumpAsync(CancellationToken ct)
     {
         var pump = new CapacityQueuePump(
@@ -44,7 +56,7 @@ public sealed class CapacityQueuePumpHostedService(
             services.GetRequiredService<ITicketProviderFactory>(),
             services.GetRequiredService<ICapacityBudget>(), // p0336: budget replaces the probe
             services.GetRequiredService<ISandboxCorpseReaper>(), // p0355: reap corpses before reserve
-            services.GetRequiredService<IEventPublisher>(),
+            Drop(), // 2026-09-21-c724c: a dropped entry's run is finished, not just announced
             services.GetRequiredService<IRunCancelStateReader>(),
             services.GetRequiredService<ResumeRunLauncher>(), // p0327
             configLoader, serverContext.ConfigPath,

@@ -105,7 +105,7 @@
 151	AgentSmith.Application/Services/Handlers/RunResultSectionWriter.cs
 150	AgentSmith.Application/Services/Handlers/SchemaFlattener.cs
 150	AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs
-150	AgentSmith.Server/Services/CapacityQueuePump.cs
+136	AgentSmith.Server/Services/CapacityQueuePump.cs
 150	AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs
 149	AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs
 148	AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs
