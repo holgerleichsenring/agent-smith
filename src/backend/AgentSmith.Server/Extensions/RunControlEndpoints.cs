@@ -58,10 +58,19 @@ internal static class RunControlEndpoints
         if (!config.Projects.TryGetValue(run.Project, out var project))
             return Results.BadRequest($"Project '{run.Project}' is not configured.");
 
-        var moved = await retry.RetryAsync(project, run.TicketId!, cancellationToken);
-        return moved
-            ? Results.Ok(new { runId, run.TicketId, retried = true })
-            : Results.BadRequest("The project's tracker declares no trigger status to move the ticket to.");
+        // 2026-09-21-1fa0: the outcome, not the attempt. A tracker that refused the move is the
+        // case this answered "retried: true" to, while the ticket sat in a status nothing polls.
+        var outcome = await retry.RetryAsync(project, run.TicketId!, cancellationToken);
+        return outcome switch
+        {
+            Services.Lifecycle.RetryOutcome.Retried =>
+                Results.Ok(new { runId, run.TicketId, retried = true }),
+            Services.Lifecycle.RetryOutcome.TrackerRefusedTheMove => Results.BadRequest(
+                "The tracker offered no move for this ticket, so it was not retried. "
+                + "It keeps the hold that says why it is not being picked up."),
+            _ => Results.BadRequest(
+                "The project's tracker declares no trigger status to move the ticket to."),
+        };
     }
 
     /// <summary>p0327 request body: the operator's answer text (+ optional comment).</summary>

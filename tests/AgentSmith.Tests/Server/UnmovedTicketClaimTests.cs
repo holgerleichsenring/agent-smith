@@ -193,6 +193,10 @@ public sealed class UnmovedTicketClaimTests : IDisposable
     {
         await RecordUnmovedAsync();
         var tickets = new Mock<ITicketProvider>();
+        // 2026-09-21-1fa0: the tracker says it moved the ticket, and only that answer releases it.
+        tickets.Setup(t => t.TransitionToAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
         var retry = new NotImplementableRetryService(
@@ -201,7 +205,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
 
         var moved = await retry.RetryAsync(Config().Projects[Project], Ticket, CancellationToken.None);
 
-        moved.Should().BeTrue();
+        moved.Should().Be(RetryOutcome.Retried);
         var result = await ClaimService().ClaimAsync(Request(), Config(), CancellationToken.None);
         result.Outcome.Should().Be(ClaimOutcome.Claimed);
     }

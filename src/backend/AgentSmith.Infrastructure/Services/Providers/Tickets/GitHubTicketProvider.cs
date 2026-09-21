@@ -163,15 +163,15 @@ public sealed class GitHubTicketProvider : ITicketProvider
         => _lister.ListByLabelsAsync(
             [LifecycleLabels.For(status)], ItemStateFilter.All, $"lifecycle={status}", cancellationToken);
 
-    public async Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    public async Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
     {
-        if (!TryParseIssueNumber(ticketId, out var n)) return;
+        if (!TryParseIssueNumber(ticketId, out var n)) return false;
         if (statusName.Equals("closed", StringComparison.OrdinalIgnoreCase))
             await _client.Issue.Update(_owner, _repo, n, new IssueUpdate { State = ItemState.Closed });
         else if (statusName.Equals("open", StringComparison.OrdinalIgnoreCase))
             await _client.Issue.Update(_owner, _repo, n, new IssueUpdate { State = ItemState.Open });
-        else
-            await _client.Issue.Labels.AddToIssue(_owner, _repo, n, [statusName]);
+        else await _client.Issue.Labels.AddToIssue(_owner, _repo, n, [statusName]);
+        return true;
     }
 
     public Task<TicketFinalizeResult> FinalizeAsync(
