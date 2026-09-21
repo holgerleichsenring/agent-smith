@@ -2708,3 +2708,152 @@ describe("SpecDialogSurface", () => {
     ]);
   });
 });
+
+// 2026-09-20-4b0ae: INSPECT ACKNOWLEDGES ITSELF. An operator clicked Inspect on a proposal card
+// and nothing appeared to happen. Every part of the chain was right — the focus is set, the tab
+// is offered, the tab is selected — and none of it was visible, because the pane falls back to
+// the proposal tab whenever nothing has been filed, so the commonest state is the pane ALREADY
+// showing the proposal being inspected and the click renders the same document twice. What the
+// act leaves behind is asserted here: a mark on the pane, a nearest scroll, and the focus.
+describe("Inspecting reaches the pane", () => {
+  /** A conversation that has proposed and filed: the pane is on Filed, so the inspect moves it. */
+  async function proposedAndFiled() {
+    await renderSurface();
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
+    }));
+    act(() => proposals.emit(proposal()));
+    act(() => filings.emit(filing()));
+    await screen.findByTestId("dialog-filed");
+  }
+
+  /** A conversation that has proposed and filed NOTHING: the pane is already on that proposal. */
+  async function proposedOnly() {
+    await renderSurface();
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
+    }));
+    act(() => proposals.emit(proposal()));
+    await screen.findByTestId("dialog-proposal");
+  }
+
+  function inspectTheCard() {
+    fireEvent.click(within(screen.getByTestId("dialog-turn-agent")).getByTestId("dialog-card-inspect"));
+  }
+
+  it("SpecDialog_Inspecting_MarksThePane", async () => {
+    await proposedAndFiled();
+    expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+
+    inspectTheCard();
+
+    expect(screen.getByTestId("dialog-pane")).toHaveAttribute("data-inspected", "true");
+  });
+
+  // The case the whole phase exists for, and the one an earlier cut would have missed: the pane
+  // is showing this very proposal already, so the click changes NOTHING inside it. The mark is
+  // outside it — on the card's own element — which is why it still says the click landed.
+  it("SpecDialog_InspectingTheProposalAlreadyShown_StillMarksThePane", async () => {
+    await proposedOnly();
+    const pane = screen.getByTestId("dialog-pane");
+    expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
+    const unchanged = pane.innerHTML;
+
+    inspectTheCard();
+
+    expect(pane.innerHTML, "the inspected proposal is the one already shown").toBe(unchanged);
+    expect(pane).toHaveAttribute("data-inspected", "true");
+  });
+
+  // Nearest, and no behaviour option. The page's scroll container is the main region and the
+  // pane's top is the top of the grid, so a default start-aligned scroll would throw the page
+  // back to the top when Inspect is clicked at the bottom of a long transcript. The equality is
+  // exact, so a behaviour added later fails here rather than being read as an improvement.
+  it("SpecDialog_Inspecting_ScrollsThePaneIntoViewWithNearestAlignment", async () => {
+    await proposedAndFiled();
+    const scrolled = vi.spyOn(screen.getByTestId("dialog-pane"), "scrollIntoView");
+
+    inspectTheCard();
+
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+  });
+
+  // Where the act leaves the reader, and the half that works with no viewport at all.
+  it("SpecDialog_Inspecting_MovesFocusToThePanePanel", async () => {
+    await proposedAndFiled();
+    expect(document.activeElement).not.toBe(screen.getByRole("tabpanel"));
+
+    inspectTheCard();
+
+    expect(document.activeElement).toBe(screen.getByRole("tabpanel"));
+  });
+
+  // The routes into the pane that are NOT an act the operator just performed. A push moves the
+  // pane on its own, and yanking the viewport under someone who is reading is worse than the
+  // defect this phase fixes — so neither the proposal nor the filing that follows it scrolls or
+  // marks anything.
+  it("SpecDialog_ANewProposal_MovesThePaneWithoutScrollingToIt", async () => {
+    await renderSurface();
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      act(() => messages.emit({
+        dialogId: heldDialogId(), title: "Spec dialog", text: "here it is", at: new Date().toISOString(),
+      }));
+      act(() => proposals.emit(proposal()));
+
+      await screen.findByTestId("dialog-proposal");
+      expect(screen.getByTestId("dialog-tab-proposal")).toHaveAttribute("aria-selected", "true");
+      expect(scrolled).not.toHaveBeenCalled();
+      expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+
+      act(() => filings.emit(filing()));
+
+      await screen.findByTestId("dialog-filed");
+      expect(scrolled).not.toHaveBeenCalled();
+      expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+    } finally {
+      scrolled.mockRestore();
+    }
+  });
+
+  // A tab inside the pane means the pane is already in view: the operator just clicked it.
+  it("SpecDialog_ClickingAPaneTab_ScrollsNothing", async () => {
+    await proposedAndFiled();
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      fireEvent.click(screen.getByTestId("dialog-tab-proposal"));
+
+      expect(await screen.findByTestId("dialog-proposal")).toBeInTheDocument();
+      expect(scrolled).not.toHaveBeenCalled();
+      expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected");
+    } finally {
+      scrolled.mockRestore();
+    }
+  });
+
+  // Found by reviewing this phase's own diff: every test above asserts the mark ARRIVES, and a
+  // mark that never leaves would pass all of them while ringing the pane for the rest of the
+  // session. It is an acknowledgement of one click, so it is over when the click is.
+  it("SpecDialog_TheMark_ClearsItselfWithoutAnotherAct", async () => {
+    await proposedAndFiled();
+
+    inspectTheCard();
+    expect(screen.getByTestId("dialog-pane")).toHaveAttribute("data-inspected", "true");
+
+    await waitFor(
+      () => expect(screen.getByTestId("dialog-pane")).not.toHaveAttribute("data-inspected"),
+      { timeout: 4000 },
+    );
+    // The focus it moved is NOT transient: the reader is still where the act put them.
+    expect(document.activeElement).toBe(screen.getByRole("tabpanel"));
+  });
+
+  // Minus one and not zero: the panel is a destination for an act elsewhere on the page, not a
+  // stop a keyboard has to pass through on its way to the controls inside it.
+  it("DialogPane_ThePanel_IsFocusableWithoutJoiningTheTabOrder", async () => {
+    await renderSurface();
+
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("tabindex", "-1");
+  });
+});

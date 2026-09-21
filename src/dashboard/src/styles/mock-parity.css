@@ -1132,3 +1132,21 @@
 
 /* the text the operator writes: the studio's control, sized for several lines */
 .mock-dialog textarea.d-input { resize: vertical; min-height: 66px; }
+
+/* 2026-09-20-4b0ae: the pane, and what says an inspect reached it. Clicking Inspect on a card
+   in the exchange usually selects the proposal the pane is ALREADY showing — the pane falls
+   back to the proposal tab whenever nothing has been filed — so the act changes nothing a
+   person can see, and the operator reads a dead control. The mark is the acknowledgement:
+   the card takes the accent line the waiting card takes, and a ring in the accent's own wash
+   so it reads at a glance from the other side of the page. The surface that set it takes it
+   off again, which is why nothing here fades it. The card's own shadow is repeated after the
+   ring rather than dropped: box-shadow is one property, and a ring alone would flatten the card
+   against the page for as long as the mark is on it. */
+.mock-dialog .d-pane[data-inspected="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash), var(--shadow); }
+
+/* and where the act leaves the reader. A PLAIN :focus, not :focus-visible: this focus follows a
+   mouse click on a control in another column, which matches no focus-visible rule in any browser
+   this runs in — an outline nothing paints would be the same invisible act one layer down. The
+   outline is drawn inside the panel's own edge, so it cannot be clipped by the card that
+   overflows hidden around it. */
+.mock-dialog .d-panel:focus { outline: 2px solid var(--accent); outline-offset: -3px; }
