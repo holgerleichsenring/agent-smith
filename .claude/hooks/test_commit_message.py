@@ -494,6 +494,105 @@ def Gate_NoPnpmForADashboardThatExists_FailsLoudlyInsteadOfSkipping():
         assert "pnpm" in completed.stderr, completed.stderr
 
 
+# 2026-09-21-9ae2: the gate runs the hook tests of the tree it gates, before anything
+# else it checks — the files below had sat beside it for three phases with nothing
+# running them, which is how its command detection drifted from the forms agents write.
+# A stand-in for one of those files: it records the environment the gate hands it, writes
+# a ledger line of its own the way a real fixture does, and drives the gate once more,
+# which is the recursion the step has to survive.
+_PROBE_HOOK_TEST = '''"""A stand-in hook test, run by the gate against its own tree."""
+import json
+import os
+import pathlib
+import subprocess
+
+ledger = os.environ.get("PHASE_GATE_LOG", "")
+with pathlib.Path(os.environ["PROBE_TRACE"]).open("a") as trace:
+    trace.write(f"ran\\tledger={ledger}\\n")
+if ledger:
+    with pathlib.Path(ledger).open("a") as handle:
+        handle.write("probe\\twritten-by-a-hook-test\\n")
+if not os.environ.get("PROBE_DEPTH"):
+    payload = json.dumps({"tool_input": {"command": os.environ["PROBE_COMMAND"]},
+                          "cwd": os.environ["PROBE_TREE"]})
+    subprocess.run(["bash", os.environ["PROBE_GATE"]], input=payload, text=True,
+                   cwd=os.environ["PROBE_TREE"], capture_output=True, timeout=120,
+                   env=dict(os.environ, PROBE_DEPTH="1"))
+'''
+_FAILING_HOOK_TEST = "raise SystemExit('the hook tests are red')\n"
+
+
+@contextlib.contextmanager
+def _repository_with_hook_tests(hook_test=_PROBE_HOOK_TEST):
+    """A throwaway repository carrying a skills validator — so the gate reaches a verdict
+    without a .NET build — and one hook test of its own for the gate to run."""
+    with _catalog_repository() as repo:
+        hooks = pathlib.Path(repo) / ".claude" / "hooks"
+        hooks.mkdir(parents=True)
+        (hooks / "test_probe.py").write_text(hook_test)
+        yield repo
+
+
+def _run_gate_over_hook_tests(repo, ledger, trace):
+    """Drive the gate against a tree whose hook test is the probe, telling the probe how
+    to drive the gate again."""
+    payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
+                          "cwd": repo})
+    environment = _environment()
+    environment["PHASE_GATE_LOG"] = str(ledger)
+    environment["PROBE_TRACE"] = str(trace)
+    environment["PROBE_GATE"] = str(GATE_PATH)
+    environment["PROBE_TREE"] = str(repo)
+    environment["PROBE_COMMAND"] = f'git commit -m "{MARKER_MESSAGE}"'
+    return subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=repo,
+                          env=environment, capture_output=True, text=True)
+
+
+def Gate_TheHookTests_AreRunByTheGate():
+    with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "probe.trace"
+        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        completed = _run_gate_over_hook_tests(repo, ledger, trace)
+        assert completed.returncode == 0, completed
+        assert trace.read_text().startswith("ran\t"), trace.read_text()
+        assert "hook tests: test_probe.py ok" in completed.stderr, completed.stderr
+
+
+def Gate_TheHookTestsRunByTheGate_WriteNoLedgerLine():
+    """The tests drive the gate against throwaway repositories, so their verdicts must
+    not reach this one — a ledger line that names no commit is worse than none."""
+    with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "probe.trace"
+        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        _run_gate_over_hook_tests(repo, ledger, trace)
+        recorded = trace.read_text().partition("ledger=")[2].strip()
+        assert recorded and recorded != str(ledger), trace.read_text()
+        assert [line[1] for line in _ledger(ledger)] == ["passed"], _ledger(ledger)
+
+
+def Gate_TheHookTestsRunByTheGate_AreNotRunAgainByTheGateTheyDrive():
+    """The gate they invoke skips this step instead of running the tests that invoked
+    it — the probe therefore runs once, not once per level."""
+    with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "probe.trace"
+        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        _run_gate_over_hook_tests(repo, ledger, trace)
+        assert len(trace.read_text().splitlines()) == 1, trace.read_text()
+
+
+def Gate_RedHookTests_BlockTheCommit():
+    """A step that never blocks is decoration; the gate that cannot prove itself does
+    not let the phase commit past."""
+    with _repository_with_hook_tests(_FAILING_HOOK_TEST) as repo, \
+            tempfile.TemporaryDirectory() as scratch:
+        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
+        assert completed.returncode == 2, completed
+        assert "the hook tests are red" in completed.stderr, completed.stderr
+        assert [(line[1], line[5]) for line in _ledger(ledger)] == [
+            ("blocked", "hook tests: test_probe.py")], _ledger(ledger)
+
+
 def _cases():
     return [(name, case) for name, case in list(globals().items())
             if callable(case) and (name.startswith("Resolve_") or name.startswith("Gate_"))]
