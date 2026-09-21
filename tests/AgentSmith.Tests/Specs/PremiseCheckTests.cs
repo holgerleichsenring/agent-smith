@@ -253,7 +253,10 @@ public sealed class PremiseCheckTests
         var result = await h.RunAsync();
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("cost cap is exhausted");
+        // 2026-09-22-7c41a: the skip NAMES the cap and the cache-weighted spend that crossed
+        // it — this reader lets the phase through UNCHECKED, so it must say on what.
+        result.Message.Should().Contain("is exhausted")
+            .And.Contain("10,000 cache-weighted tokens");
         h.Provider.Turns.Should().Be(0);
     }
 

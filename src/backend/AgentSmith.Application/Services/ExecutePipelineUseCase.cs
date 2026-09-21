@@ -21,6 +21,7 @@ public sealed class ExecutePipelineUseCase(
     IIntentParser intentParser,
     IPipelineExecutor pipelineExecutor,
     Resume.ResumeRequestReader resumeReader,
+    Resume.ResumedCapRecompute capRecompute,
     ISourceConfigOverrider sourceConfigOverrider,
     ISkillsCatalogResolver catalogResolver,
     ConceptVocabularyLoader vocabularyLoader,
@@ -274,8 +275,7 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.RunStartedAt, runStartedAt);
         // p0230/p0495: resolve the sandbox timeout pair once, in ONE pass — the default a
         // run_command gets, and the operator's step cap, the ceiling it may ask for.
-        pipeline.Set(ContextKeys.RunCommandTimeoutSeconds,
-            configResolver.ResolveRunCommandTimeout(projectConfig).Value);
+        pipeline.Set(ContextKeys.RunCommandTimeoutSeconds, configResolver.ResolveRunCommandTimeout(projectConfig).Value);
         pipeline.Set(ContextKeys.StepTimeoutSeconds, configResolver.ResolveStepTimeout(projectConfig).Value);
         // p0205: the visible LoadCatalog step reads this binding to emit the
         // per-run CatalogLoaded event. EnsureResolvedAsync above is the loader;
@@ -340,8 +340,7 @@ public sealed class ExecutePipelineUseCase(
                 pipeline.Set(key, value);
 
             // Map ScanBranch to CheckoutBranch if not already set
-            if (request.Context.ContainsKey(ContextKeys.ScanBranch)
-                && !pipeline.Has(ContextKeys.CheckoutBranch))
+            if (request.Context.ContainsKey(ContextKeys.ScanBranch) && !pipeline.Has(ContextKeys.CheckoutBranch))
             {
                 pipeline.Set(ContextKeys.CheckoutBranch, request.Context[ContextKeys.ScanBranch]);
             }
@@ -357,8 +356,9 @@ public sealed class ExecutePipelineUseCase(
         // p0327: a resume launch rehydrates the checkpointed context ON TOP of
         // the standard seeding (restored run state wins) and re-enters at the
         // serialized step cursor instead of the preset's first command.
-        return new RunPrologue(
-            config, projectConfig, repos, commands, pipeline, resumeReader.TryRead(pipeline));
+        var resume = resumeReader.TryRead(pipeline);
+        await capRecompute.ApplyAsync(pipeline, request.PipelineName, config, cancellationToken);
+        return new RunPrologue(config, projectConfig, repos, commands, pipeline, resume);
     }
 
     // p0515: only a launch that RESERVED a run id owns a row to terminalize. A terminal

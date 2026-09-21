@@ -52,7 +52,7 @@ public sealed class ReviewPhaseDiffHandler(
         var tracker = PipelineCostTracker.GetOrCreate(pipeline);
         if (tracker.IsBudgetExhausted)
             return await NotTakenAsync(
-                pipeline, draft, "the run's configured cost cap is exhausted", cancellationToken);
+                pipeline, draft, CostCapStop.Describe(tracker), cancellationToken);
         if (!sandboxTargets.TryResolve(pipeline, out var sandboxes, out _))
             return await NotTakenAsync(
                 pipeline, draft, "no sandbox was in the pipeline context", cancellationToken);
