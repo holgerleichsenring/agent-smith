@@ -6,6 +6,7 @@ import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { DegradedBanner } from "@/components/shell/DegradedBanner";
 import { BuildMismatchBanner } from "@/components/shell/BuildMismatchBanner";
 import { AuthMisconfigurationBanner } from "@/components/shell/AuthMisconfigurationBanner";
+import { SignInGate } from "@/components/shell/SignInGate";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { RunBucketFilterProvider } from "@/lib/RunBucketFilter";
@@ -79,7 +80,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <RenderBoundary surface="sign-in configuration banner">
                       <AuthMisconfigurationBanner />
                     </RenderBoundary>
-                    {children}
+                    {/* 2026-09-21-291b: the routes, and only the routes. The header
+                      keeps its own sign-in button and the banners keep explaining a
+                      half-configured installation — a gate that took those with it
+                      would remove the two surfaces that say WHY nothing is visible. */}
+                    <RenderBoundary surface="sign-in gate">
+                      <SignInGate>{children}</SignInGate>
+                    </RenderBoundary>
                   </main>
                 </div>
               </RunBucketFilterProvider>

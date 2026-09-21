@@ -4,13 +4,17 @@ import { HubConnectionState } from "@microsoft/signalr";
 import type { OverviewSnapshot, PendingQuestionInfo, RunSnapshot } from "@/types/hub-events";
 
 let mockOverview: OverviewSnapshot | null = null;
+let mockConnection: HubConnectionState = HubConnectionState.Connected;
+// 2026-09-21-291b: why this caller is seeing nothing, when the server refused them.
+let mockRefusal: ApiRefusal | null = null;
 
 vi.mock("@/hooks/useJobsHub", () => ({
   useJobsHub: () => ({
     client: {},
-    connectionState: HubConnectionState.Connected,
+    connectionState: mockConnection,
     overview: mockOverview,
     systemActivity: null,
+    refusal: mockRefusal,
   }),
 }));
 
@@ -19,6 +23,7 @@ vi.mock("@/lib/runsApi", () => ({
   fetchRunsBefore: (...args: unknown[]) => fetchRunsBeforeMock(...args),
 }));
 
+import { ApiRefusal } from "@/lib/apiResponse";
 import { MissionControl } from "../MissionControl";
 
 const question: PendingQuestionInfo = {
@@ -61,6 +66,8 @@ function snap(runId: string, status: string, over: Partial<RunSnapshot> = {}): R
 describe("MissionControl", () => {
   beforeEach(() => {
     mockOverview = null;
+    mockConnection = HubConnectionState.Connected;
+    mockRefusal = null;
     fetchRunsBeforeMock.mockReset();
   });
 
@@ -175,5 +182,46 @@ describe("MissionControl", () => {
     await waitFor(() =>
       expect(screen.queryByTestId("runs-load-more")).not.toBeInTheDocument(),
     );
+  });
+});
+
+// 2026-09-21-291b: the screen an enforcing installation showed an anonymous
+// caller — a pulse that could never resolve, for as long as the tab stayed open,
+// with the one action that resolves it nowhere on it.
+describe("MissionControl when the server refused this caller", () => {
+  beforeEach(() => {
+    mockOverview = null;
+    mockConnection = HubConnectionState.Disconnected;
+    mockRefusal = null;
+  });
+
+  it("MissionControl_RefusedForSignIn_ShowsTheRefusalSurfaceWithItsButton", () => {
+    mockRefusal = new ApiRefusal("/api/runs", 401, "sign-in", []);
+
+    render(<MissionControl />);
+
+    expect(screen.getByTestId("mission-refused")).toBeInTheDocument();
+    expect(screen.queryByTestId("mission-skeleton")).toBeNull();
+    expect(screen.getByTestId("refusal-sign-in")).toBeInTheDocument();
+  });
+
+  it("MissionControl_RefusedForAPermission_NamesThePermissionInsteadOfOffline", () => {
+    mockRefusal = new ApiRefusal("/api/runs", 403, "permission", ["runs.read"]);
+
+    render(<MissionControl />);
+
+    expect(screen.getByTestId("refusal-missing-permissions")).toHaveTextContent("runs.read");
+    expect(screen.getByTestId("hub-connection-state")).not.toHaveTextContent("offline");
+  });
+
+  it("MissionControl_MerelyConnecting_StillShowsTheSkeleton", () => {
+    // Nothing has been refused, so nothing has gone wrong — a connection being
+    // opened is the state the skeleton was built for and it keeps it.
+    mockConnection = HubConnectionState.Connecting;
+
+    render(<MissionControl />);
+
+    expect(screen.getByTestId("mission-skeleton")).toBeInTheDocument();
+    expect(screen.queryByTestId("mission-refused")).toBeNull();
   });
 });
