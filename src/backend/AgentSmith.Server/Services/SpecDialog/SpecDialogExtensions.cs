@@ -55,6 +55,12 @@ internal static class SpecDialogExtensions
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
+        // 2026-09-20-4b0af: the subject a conversation is headed with, minted by the router in
+        // the same act that persists the first assistant turn. Scoped for the session
+        // repository's unit of work, which is where it stores what it minted. The edit re-entry
+        // shares that unit of work for the same reason.
+        services.AddScoped<SpecDialogSubjectMinter>();
+        services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
         // 2026-09-15-9033: the dashboard channel. The ownership guard rides the same
         // scoped unit of work as the session manager it reads through; the dispatcher is
