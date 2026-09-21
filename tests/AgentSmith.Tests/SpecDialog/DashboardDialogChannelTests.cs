@@ -40,6 +40,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
     private const string Owner = "person-a";
     private const string Intruder = "person-b";
     private const string CannedReply = "canned design answer";
+    private const string FirstSentence = "a widget that reads the ledger";
+    private const string NoOpenDialog = "No spec dialog is open here";
 
     private readonly SqliteConnection _connection;
     private readonly AgentSmithDbContext _context;
@@ -79,7 +81,9 @@ public sealed class DashboardDialogChannelTests : IDisposable
             NullLogger<SpecDialogMessenger>.Instance);
         _ownership = new SpecDialogOwnership(_repository, new SpecCommandParser());
         _services = Services(new DashboardDialogDispatcher(
-            Router(messenger), messenger, NullLogger<DashboardDialogDispatcher>.Instance));
+            Router(messenger),
+            new SpecDialogConversationResolver(_sessions, _ownership, Commands(messenger)),
+            messenger, NullLogger<DashboardDialogDispatcher>.Instance));
     }
 
     [Fact]
@@ -431,6 +435,97 @@ public sealed class DashboardDialogChannelTests : IDisposable
         answer.Should().Contain("project", "the picker decides the scope when there are several");
     }
 
+    // 2026-09-20-4b0aa: the page used to post an opening command and then the message, and the
+    // route answers before either has run — so the two were independent background tasks with no
+    // ordering, and whichever won decided whether the operator's first sentence existed at all.
+    // The project now rides on the message and the two acts happen in one task, in that order.
+    [Fact]
+    public async Task SpecDialogDispatch_AFirstMessageNamingAProject_OpensTheConversationThenRoutesIt()
+    {
+        var before = _hub.Pushes.Count;
+
+        await Ingest(FirstSentence, Owner, Dialog, "sample");
+        await Settle(before + 2);
+
+        (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
+            .Should().NotBeNull("the message that named a project opened its own conversation");
+        _turnRunner.Verify(runner => runner.RunTurnAsync(
+            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Once,
+            "and then ran, in the same task that opened it");
+        LastText().Should().Be(CannedReply);
+        AllTexts().Should().NotContain(text => text.Contains(NoOpenDialog, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The order is what this proves: admitting a message needs an open session for the thread and
+    /// returns null when there is none, so a sentence routed before the open is never stored — and
+    /// no later read brings it back.
+    /// </summary>
+    [Fact]
+    public async Task SpecDialogDispatch_AFirstMessage_IsStoredInTheTranscriptItOpened()
+    {
+        var before = _hub.Pushes.Count;
+
+        await Ingest(FirstSentence, Owner, Dialog, "sample");
+        await Settle(before + 2);
+
+        var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        state!.Transcript.Select(turn => turn.Text).Should()
+            .Equal(FirstSentence, CannedReply);
+    }
+
+    // The caller that really has nothing to open: a page that lost its project, or something that
+    // is not this page at all. The tutorial is still the right answer to it.
+    [Fact]
+    public async Task SpecDialogDispatch_AMessageWithNoProjectAndNoSession_StillAnswersWithTheTutorial()
+    {
+        await SendAsync(FirstSentence);
+
+        LastText().Should().Contain(NoOpenDialog);
+        (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
+            .Should().BeNull("nothing was named to open a conversation on");
+        _turnRunner.Verify(runner => runner.RunTurnAsync(
+            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // Opening over an open session IS the fork, so the resolve must stop at the session it found —
+    // otherwise every message after the first would close the conversation it was sent into.
+    [Fact]
+    public async Task SpecDialogDispatch_AMessageOnAnOpenSession_OpensNothingAndRoutesAsBefore()
+    {
+        await SendAsync("/spec");
+        var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        var before = _hub.Pushes.Count;
+
+        await Ingest(FirstSentence, Owner, Dialog, "sample");
+        await Settle(before + 1);
+
+        ForgetTracked();
+        var still = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        still!.JobId.Should().Be(opened!.JobId, "the conversation it was sent into is the one it runs in");
+        _hub.Pushes.Skip(before).Select(TextOf).Should()
+            .ContainSingle("nothing announced a second opening").Which.Should().Be(CannedReply);
+    }
+
+    // The command handler already says why — an unknown project, or several to choose between —
+    // and the tutorial on top of that would be a second, vaguer answer to the same question.
+    [Fact]
+    public async Task SpecDialogDispatch_AProjectThatIsNotConfigured_IsRefusedWithAReasonRatherThanOpened()
+    {
+        var before = _hub.Pushes.Count;
+
+        await Ingest(FirstSentence, Owner, Dialog, "no-such-project");
+        await Settle(before + 1);
+
+        LastText().Should().Contain("Unknown project").And.Contain("no-such-project");
+        (await StaysAtAsync(before + 1)).Should().BeTrue(
+            "the reason is the whole answer — the tutorial does not follow it");
+        (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
+            .Should().BeNull("a project nobody configured opens nothing");
+        _turnRunner.Verify(runner => runner.RunTurnAsync(
+            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task Ingest_PublishesTheChatIngestionSystemEvent()
     {
@@ -445,6 +540,13 @@ public sealed class DashboardDialogChannelTests : IDisposable
             systemEvent => systemEvent.ToString()!.Contains("/spec", StringComparison.Ordinal),
             "the ingestion event carries metadata only, never the message");
     }
+
+    /// <summary>The real command handler — the one thing that opens a conversation. The router
+    /// reaches it through a typed "/spec", the resolver through a first message that named a
+    /// project; its own guard is what keeps the second from forking over the first.</summary>
+    private SpecDialogCommandHandler Commands(SpecDialogMessenger messenger) =>
+        new(_sessions, _resumer, new SpecDialogScopeResolver(SingleProjectLoader()),
+            new SpecDialogReplyComposer(), messenger);
 
     private SpecDialogRouter Router(SpecDialogMessenger messenger)
     {
@@ -461,10 +563,7 @@ new DashboardOutcomeChannel(
             new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
-            new SpecCommandParser(), _sessions,
-            new SpecDialogCommandHandler(
-                _sessions, _resumer, new SpecDialogScopeResolver(SingleProjectLoader()),
-                composer, messenger),
+            new SpecCommandParser(), _sessions, Commands(messenger),
             _turnRunner.Object, outcomeFlow, _turnGate,
             new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object),
             composer, messenger,
@@ -507,9 +606,10 @@ new DashboardOutcomeChannel(
         return result;
     }
 
-    private Task<IResult> Ingest(string text, string caller, string dialogId = Dialog) =>
+    private Task<IResult> Ingest(
+        string text, string caller, string dialogId = Dialog, string? project = null) =>
         SpecDialogEndpoints.IngestAsync(
-            new SpecDialogEndpoints.SpecDialogMessageRequest(dialogId, text),
+            new SpecDialogEndpoints.SpecDialogMessageRequest(dialogId, text, project),
             new DefaultHttpContext { RequestServices = _services, User = Principal(caller) });
 
     // The endpoint dispatches fire-and-forget, so a test waits for the effect it is about
@@ -525,8 +625,28 @@ new DashboardOutcomeChannel(
         reached().Should().BeTrue("the dispatched turn never produced what it was waited on for");
     }
 
-    private string LastText() => _hub.Pushes.Last().Args
-        .OfType<SpecDialogChannelMessage>().Single().Text;
+    private string LastText() => TextOf(_hub.Pushes.Last());
+
+    private IEnumerable<string> AllTexts() => _hub.Pushes.Select(TextOf);
+
+    private static string TextOf(RecordingDialogHub.HubPush push) =>
+        push.Args.OfType<SpecDialogChannelMessage>().Single().Text;
+
+    /// <summary>
+    /// That the pushes STOP here. One dispatch is one task, so anything else it would say follows
+    /// immediately — waiting for a push that must not come is what turns "and nothing else was
+    /// said" into an assertion rather than a snapshot taken early.
+    /// </summary>
+    private async Task<bool> StaysAtAsync(int pushes)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddMilliseconds(500);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (_hub.Pushes.Count != pushes) return false;
+            await Task.Delay(10);
+        }
+        return _hub.Pushes.Count == pushes;
+    }
 
     private static void Refusal(IResult result) =>
         result.Should().BeOfType<StatusCodeHttpResult>()

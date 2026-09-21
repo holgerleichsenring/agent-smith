@@ -14,14 +14,11 @@ namespace AgentSmith.Server.Extensions;
 /// authorises through a check that passes when no open session is found — safe for a WATCH,
 /// because nothing is delivered into an id nobody holds, and unsafe for a WRITE, which would
 /// otherwise store rows keyed on no conversation, bounded by nothing and swept by no delete.
-/// An absent session cannot simply refuse either: the page opens a conversation by posting the
-/// open command to the message route, which answers before the session exists, and the two
-/// posts are independent background dispatches with no ordering between them — so a refusal
-/// would lose exactly the opening screenshot. The upload therefore carries the project and
-/// resolves-or-opens through <see cref="SpecDialogCommandHandler"/>'s own guard, which returns
-/// WITHOUT opening when a session is already open on the thread. It must never call the session
-/// manager's open: opening over an existing session IS the fork, so an upload that lost the race
-/// would close the very conversation this exists to protect.
+/// An absent session cannot simply refuse either: an image pasted as the very first act on a
+/// fresh dialog id has no conversation yet, and a refusal would lose exactly the opening
+/// screenshot. The upload therefore carries the project and resolves-or-opens through
+/// <see cref="SpecDialogConversationResolver"/> — the same act the typed first message makes,
+/// which is why neither has to be ordered against the other.
 /// </para>
 /// <para>
 /// AND THE REFUSAL IS DISTINGUISHABLE, deliberately unlike the delete's three-way sameness. A
@@ -64,7 +61,7 @@ internal static class SpecDialogImageEndpoints
         string? project,
         SpecDialogImageBody body,
         ImageKindFromBytes kinds,
-        SpecDialogImageConversation conversation,
+        SpecDialogConversationResolver conversation,
         SpecDialogAttachmentRepository attachments,
         CancellationToken cancellationToken)
     {
