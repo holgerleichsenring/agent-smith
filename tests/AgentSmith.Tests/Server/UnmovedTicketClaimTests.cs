@@ -241,6 +241,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         CapacityTestDoubles.NoPredecessors(),
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
+        _store,
         NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
     private CapacityQueuePump Pump(out Mock<IRedisJobQueue> resumeQueue)

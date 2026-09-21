@@ -83,6 +83,11 @@ internal static class CapacityTestDoubles
     public static AgentSmith.Contracts.Services.IRunListNudge NoNudge() =>
         new AgentSmith.Application.Services.Events.NoOpRunListNudge();
 
+    // 2026-09-21-77d6: a store holding no standing refusal — the funnel asks it immediately
+    // before it defers. The pre-existing spawn tests exercise admission, not the refusal.
+    public static AgentSmith.Contracts.Services.IUnmovedTicketStore NoStandingRefusal() =>
+        new AgentSmith.Application.Services.Persistence.InMemoryUnmovedTicketStore();
+
     // p0336: a budget that admits every reservation — the admit path, mirroring
     // the old AlwaysAdmit probe double.
     public static ICapacityBudget AlwaysReserve()

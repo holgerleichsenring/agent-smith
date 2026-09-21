@@ -26,12 +26,10 @@ public sealed class TicketClaimService(
     {
         using var scope = logger.BeginScope("ticket={Ticket}", request.TicketId.Value);
 
-        var rejection = ClaimPreChecker.Check(request, config);
-        if (rejection is not null) return LogOne(request, ClaimResult.Rejected(rejection.Value));
-
-        // 2026-09-18-c1a7: the ticket the last run could not move is refused here, before the
-        // lock and before any tracker write — one claim, not one per poll cycle.
-        var refusal = await new UnmovedTicketGate(unmovedTickets).RefusalAsync(request, config, ct);
+        // 2026-09-21-77d6: the config pre-check and the standing-unmoved gate, in that order,
+        // through the seam the spawn funnel also asks before it defers. Same refusals, same
+        // order, same place — before the lock and before any tracker write.
+        var refusal = await new ClaimRefusal(unmovedTickets).ForAsync(request, config, ct);
         if (refusal is not null) return LogOne(request, refusal);
 
         return await ClaimUnderLockAsync(request, config, ct);
