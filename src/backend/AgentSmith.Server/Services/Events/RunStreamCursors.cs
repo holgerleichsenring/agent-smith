@@ -63,10 +63,18 @@ public sealed class RunStreamCursors
     /// not list — a run that paused left that set, so no rehydration from Redis can see it. A
     /// live stream with no recorded position is anchored at the TAIL: skipping history is the
     /// p0258 stance, replaying it is the defect this exists to prevent.
+    /// <para>
+    /// 2026-09-21-de50: returns the tail entry of every run anchored that way — the one entry
+    /// the run will never be delivered, because the anchor lands ON it and the drain reads
+    /// strictly after it. What that entry MEANS is the caller's to decide: this type holds a
+    /// database handle and cannot read an envelope. Runs continued from a stored position
+    /// contribute nothing, because their stored position was reached by reading past it.
+    /// </para>
     /// </summary>
-    public async Task AnchorUnfinishedAsync(
+    public async Task<IReadOnlyList<StreamEntry>> AnchorUnfinishedAsync(
         IDatabase db, IUnfinishedRunSource source, CancellationToken ct)
     {
+        var unread = new List<StreamEntry>();
         foreach (var runId in await source.GetUnfinishedRunIdsAsync(ct))
         {
             ct.ThrowIfCancellationRequested();
@@ -76,7 +84,10 @@ public sealed class RunStreamCursors
             var stored = await db.StringGetAsync(EventStreamKeys.RunCursor(runId));
             if (stored.HasValue) { TrackAt(runId, stored.ToString()); continue; }
             var tail = await db.StreamRangeAsync(key, "-", "+", 1, Order.Descending);
-            if (tail.Length > 0) TrackAt(runId, tail[0].Id.ToString());
+            if (tail.Length == 0) continue;
+            TrackAt(runId, tail[0].Id.ToString());
+            unread.Add(tail[0]);
         }
+        return unread;
     }
 }

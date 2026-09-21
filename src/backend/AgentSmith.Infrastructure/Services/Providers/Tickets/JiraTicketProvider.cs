@@ -186,7 +186,10 @@ public sealed class  JiraTicketProvider : ITicketProvider
         return await _transitioner.TransitionAsync(ticket, _doneStatus, _closeTransitionName, ct);
     }
 
-    public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    // 2026-09-21-1fa0: the transitioner has always answered whether a workflow transition
+    // matched; this used to drop that answer on the floor, and a caller could not tell a move
+    // Jira made from one its workflow offered nowhere to make.
+    public Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         => _transitioner.TransitionAsync(ticketId, statusName, null, cancellationToken);
 
     public Task<TicketFinalizeResult> FinalizeAsync(

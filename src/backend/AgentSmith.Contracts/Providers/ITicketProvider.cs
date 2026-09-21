@@ -72,9 +72,9 @@ public interface ITicketProvider : ITypedProvider
     Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
-    /// <summary>Transitions the ticket to the named status; no-op where transitions are unsupported.</summary>
-    Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    /// <summary>Moves the ticket to the named status and answers whether it moved. Default: false.</summary>
+    Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
+        => Task.FromResult(false);
 
     /// <summary>
     /// 2026-09-20-2ba8: adds ONE label to a ticket that already exists, and answers whether the

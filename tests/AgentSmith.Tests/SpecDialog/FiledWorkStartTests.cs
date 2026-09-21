@@ -786,12 +786,12 @@ public sealed class FiledWorkStartTests
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken ct) =>
             Task.CompletedTask;
 
-        public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken ct)
+        public Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken ct)
         {
             if (MoveError is not null) throw MoveError;
             Moves.Add((ticketId.Value, statusName));
             if (MoveTakesEffect) _status = statusName;
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
 
         public Task<TicketFinalizeResult> FinalizeAsync(

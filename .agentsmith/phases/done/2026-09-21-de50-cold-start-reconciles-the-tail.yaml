@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-de50
+
+goal: "A cold start reconciles an unfinished run whose stream still holds its unread terminal event, so a row the recent list no longer names is repaired instead of waiting forever."
+
+applies_to: "backend (the broadcaster's cold-start repair of unfinished runs)"
+
+scope:
+  in: >
+    An operator's surface showed thirteen runs waiting for a queue they had already left. Two
+    cold-start repairs exist and neither reached them. The first walks the recent-runs list and
+    reconciles each run's terminal event — but that list holds fifty entries and evicts, and every
+    terminal publish churns it, so a row can fall out of it while its stream is still there. The
+    second gives every unfinished run a stream position and anchors it at the TAIL, which is
+    deliberate — skipping history is the stated stance — and which therefore anchors PAST the one
+    event the row has never seen.
+    So the class this phase repairs is narrow and can be named: an unfinished run whose stream
+    still exists and whose terminal event the recent list no longer points at. Older than the
+    stream's day of life, nothing can repair it; still on the list, the first repair already does.
+    The repair is already in the building. The broadcaster holds the terminal reconciler as a field
+    whose own comment calls it the cold-start terminal repair, and the envelope reader beside it,
+    and the anchoring runs four lines away. This phase reads the tail entry at the moment the
+    anchor is chosen and, when it is a non-waiting terminal event for a run the store still calls
+    unfinished, hands it to that reconciler. The cursor is anchored exactly where it is today.
+  out: >
+    MOVING THE CURSOR. An earlier cut anchored one entry earlier so the live drain would deliver
+    the event. An adversarial review refused it: the drain reads strictly after the stored
+    position, so the predecessor's id would have to be fetched rather than being in hand — and
+    delivering through the drain mints a SECOND trail row, fans a content-free snapshot to the
+    overview for a run that was never in the active set, and, for a terminal event whose status is
+    queued, RE-CREATES the capacity-queue entry another phase had just dropped. The reconciler
+    avoids all four by construction.
+    REPLAYING HISTORY. Untouched. Nothing about where the cursor lands changes.
+    THE RECENT-LIST REPAIR. Untouched. This phase covers the runs it has evicted, not its job.
+    A STREAM THAT HAS EXPIRED. A stream lives a day; a row older than that cannot be repaired from
+    it by any means, and the done criteria do not pretend otherwise.
+    THE PUBLISH THAT THE QUEUE DROP STILL MAKES. The drop writes its terminal state directly AND
+    publishes; the publish is what this repair may later find in the stream. Unchanged.
+
+decisions:
+  - key: |
+      THE REPAIR ROUTE IS RECONCILIATION, NOT DELIVERY, AND THE DIFFERENCE IS FOUR SIDE EFFECTS.
+      The reconciler finishes the row, appends the trail row ONLY IF ONE IS MISSING, and touches
+      nothing else. The drained path instead mints a new trail sequence, builds an empty snapshot
+      for a run that was never in the active set and fans it to the overview — the very
+      "unknown, no repos" card this tree documents elsewhere as a defect — and re-upserts a queue
+      entry for a terminal event whose status is queued. Choosing the reconciler is what makes the
+      idempotence claims in this spec true rather than hoped for.
+  - key: |
+      THE WAITING GUARD IS IN THE RECONCILER AND NOWHERE ELSE ON THIS PATH, WHICH IS ANOTHER REASON
+      TO USE IT. The projection that a drained terminal event reaches has no waiting guard at all;
+      it writes status, summary and cost and merely leaves the finish time null. So a parked run
+      whose tail is its own park event would be re-applied and pushed off the active surface if the
+      event were delivered. The reconciler declines a waiting status outright.
+      THE PHASE ALSO ASKS THE QUESTION ITSELF rather than leaning only on that guard: the entry is
+      reconciled only when its status is not a waiting one, so the intent is visible where the
+      decision is made and not only in the collaborator that would have caught it.
+  - key: |
+      THE ENTRY MUST BE FULLY READ, NOT SNIFFED. The stream payload is an envelope whose type tag
+      alone does not carry the status, and the status is what decides both the waiting case and the
+      queued case. So the entry is deserialized with the reader the broadcaster already holds, and
+      the decision therefore belongs in the broadcaster rather than inside the cursor bookkeeping,
+      which takes only a database handle.
+  - key: |
+      IT COSTS ONE ENTRY PER UNFINISHED RUN PER BOOT, AND THE SET IS UNBOUNDED. The store's
+      unfinished source has no cap, no window and no status filter, so this reads and deserializes
+      one stream entry for every run that never finished, at every cold start. That is the price
+      and it is stated rather than discovered; the read is the tail the anchoring already fetches.
+  - key: |
+      A SECOND RECONCILIATION CHANGES NOTHING. The projection refuses to finish a row that already
+      has a finish time, and the trail append is conditional on no terminal row existing. So a run
+      the recent-list repair has already mended, moments earlier in the same cold start, is
+      reconciled again without effect.
+
+steps:
+  - id: an-unread-terminal-tail-is-reconciled-at-cold-start
+    action: "When a run the store calls unfinished has no recorded position and its stream's tail entry deserializes to a terminal event whose status is not a waiting one, the cold start hands that event to the terminal reconciler it already holds. The cursor is then anchored exactly as today."
+
+tests:
+  - "ColdStart_AnUnfinishedRunWhoseTailIsItsTerminalEvent_FinishesTheRow"
+  - "ColdStart_TheRepairedRun_HasExactlyOneTerminalTrailRow"
+  - "ColdStart_AnUnfinishedRunWhoseTailIsNotTerminal_IsLeftAlone"
+  - "ColdStart_AWaitingTerminalTail_LeavesTheRunUnfinished"
+  - "ColdStart_AQueuedTerminalTail_CreatesNoQueueEntry"
+  - "ColdStart_ARunAlreadyRepairedFromTheRecentList_IsUnchangedBySecondReconciliation"
+  - "ColdStart_TheCursor_IsStillAnchoredAtTheTail"
+
+done:
+  - "a run whose stream still holds its unread terminal event is finished by the next cold start"
+  - "its trail carries exactly one terminal row"
+  - "a parked run is not finished and does not leave the active surface"
+  - "no capacity-queue entry is re-created"
+  - "the cursor lands exactly where it does today, so no history is replayed"
+  - "a run repaired by the recent-list pass is unaffected by this one"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The cold start rehydrates the active set, then the recent list, then anchors unfinished runs, in that order."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:76-83"
+  - claim: "The broadcaster already holds the envelope reader and the terminal reconciler, the latter documented as the cold-start terminal repair."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:24-28"
+  - claim: "The anchoring gives a position to runs the store calls unfinished but the active set does not list, and anchors a live stream with no recorded position at its tail because skipping history is the stated stance."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunStreamCursors.cs:61-81"
+  - claim: "The anchoring already fetches that tail entry."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunStreamCursors.cs:78-79"
+  - claim: "The cursor bookkeeping takes only a database handle, so it cannot deserialize an entry."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:35"
+  - claim: "The reconciler declines a waiting status, returns when the row is absent, finalizes only a row with no finish time, and appends a terminal trail row only when none exists."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTerminalReconciler.cs:24-33, :43-52"
+  - claim: "The projection a drained terminal event reaches has no waiting guard: it writes status, summary and cost and only leaves the finish time null for a waiting status."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:26-66"
+  - claim: "That projection re-creates a capacity-queue entry for a terminal event whose status is queued."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:60-66"
+  - claim: "The drain reads strictly after the stored position."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:208-214"
+  - claim: "The recent-runs list is walked at cold start and is a bounded ring that every terminal publish pushes onto."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:113-122, src/backend/AgentSmith.Infrastructure/Services/Events/RedisEventPublisher.cs:54-62"
+  - claim: "The store's unfinished source returns every run with no finish time, with no cap, window or status filter."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/UnfinishedRunSource.cs:15-23"
+  - claim: "A stream lives twenty-four hours, so a position is meaningless without its stream."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventStreamKeys.cs:17-32"
+  - claim: "The capacity-queue drop writes its terminal state directly AND still publishes it."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueueDrop.cs"
+  - claim: "A waiting status is decided by one shared helper."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:24"

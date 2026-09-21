@@ -159,20 +159,20 @@ public sealed class GitLabTicketProvider : ITicketProvider
     }
 
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken) =>
-        _http.SendAsync(HttpMethod.Post,
-            $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}/notes",
+        _http.SendAsync(HttpMethod.Post, $"{IssueUrl(ticketId)}/notes",
             new { body = comment }, cancellationToken);
 
     public async Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
         await UpdateStatusAsync(ticketId, resolution, cancellationToken);
-        await _http.SendAsync(HttpMethod.Put, IssueUrl(ticketId),
-            new { state_event = "close" }, cancellationToken);
+        await TransitionToAsync(ticketId, "closed", cancellationToken);
     }
 
-    public Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken) =>
-        _http.SendAsync(HttpMethod.Put, IssueUrl(ticketId),
-            new { state_event = ToStateEvent(statusName) }, cancellationToken);
+    public async Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
+    {
+        await _http.SendAsync(HttpMethod.Put, IssueUrl(ticketId), new { state_event = ToStateEvent(statusName) }, cancellationToken);
+        return true; // GitLab fails the request when it refuses the state_event, so a PUT that returned landed.
+    }
 
     // GitLab issues have no rev-guard; sequential note + state change is safe.
     public Task<TicketFinalizeResult> FinalizeAsync(
