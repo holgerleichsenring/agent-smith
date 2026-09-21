@@ -1,0 +1,172 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-2ba8
+
+goal: "The starter puts the project's own routing tag on a filed work ticket just before it resolves it, so the filing can start what it filed without making the ticket claimable before its set exists."
+
+applies_to: "backend (the ticket providers' tagging capability and the spec-dialog filed-work starter)"
+
+scope:
+  in: >
+    Filing creates a ticket and then tries to start it, by resolving the ticket the way the poller
+    would and moving it only if that resolution names the project that filed it. The envelope the
+    poller builds carries labels, ticket id and platform and nothing else, so of the four resolution
+    strategies only Tag can be satisfied by a filing at all. And the filers stamp only framework
+    labels — the phase label and the approved-set stamp — never the value the project's own trigger
+    resolves by. So on a tag-resolved project whose tag is anything else, every filed ticket reports
+    that it was not started and names the tag it does not carry. The product explains the defect in
+    a sentence and then files the next ticket the same way.
+    The tag is added by the STARTER, immediately before it resolves — not at creation. Providers
+    gain one capability for that: put a label on a ticket that already exists. Four providers can
+    set labels at creation today; none can add one afterwards.
+  out: >
+    TAGGING AT CREATION. An earlier cut of this phase did exactly that and would have reopened the
+    invariant the filing order exists to protect: the work ticket is created, its approved set is
+    stored under its id, its records are filed, and only THEN is it started — because a ticket that
+    becomes claimable before its set exists is claimed by the poller and the run derives its own
+    spec, which is the one outcome the whole set of phases exists to prevent. An untagged ticket is
+    unresolvable and therefore harmless in that window; a tagged one is not. So the tag goes where
+    the start already goes, which is after the set is stored.
+    THE OTHER THREE STRATEGIES. An area path, a source repo and a to-address are not on a polled
+    envelope, so no label can satisfy them. The starter's reason already says exactly that and stays.
+    Named in prose as the phase that files into a resolvable area path.
+    THE SLICE RECORDS, BY CONSTRUCTION RATHER THAN BY A RULE. A record never reaches the starter —
+    its filer stamps the record state itself and never calls it — so putting the tag in the starter
+    excludes records without a carve-out anyone could later forget. A tagged record would be fetched
+    by every poll on all four trackers, because all four express a tag criterion in their discovery
+    query, and refused every time, because the record label is refused before every other rule.
+    THE LABEL NOTE. It explains the labels a ticket is filed WITH, composed when the body is
+    written. The routing tag is added afterwards, so the note cannot name it and is untouched. What
+    the operator reads instead is the starter's own reason line, which already reports per ticket
+    what happened to it and gains the tagging.
+    THE PIPELINE RULES. A ticket that resolves to the project and is then dropped by its
+    pipeline_from_label map is a different failure the starter already distinguishes, and it still
+    happens — see the decision on bugs.
+    HAND-FILED TICKETS. A ticket filed by hand never reaches the starter, so the reason text about a
+    tag the ticket does not carry was never shown to a hand-filer. It stays, because the starter can
+    still be called with a ticket whose tagging was skipped.
+
+decisions:
+  - key: |
+      THE WINDOW IS THE WHOLE REASON THIS IS NOT DONE AT CREATION, AND THE JUSTIFICATION AN EARLIER
+      CUT GAVE WAS INVERTED. That cut argued for creation because a later tag leaves "a window in
+      which a poll could see an untagged ticket". An untagged ticket seen by a poll is the SAFE
+      state — it resolves to nothing and is dropped. A tagged ticket with no stored set is the
+      hazard, and on a project whose created status already triggers, creation-time tagging makes
+      the ticket claimable the instant it exists, before the set is stored.
+      IT WOULD FAIL LOUDLY RATHER THAN SILENTLY, AND THAT IS STILL NOT GOOD ENOUGH. The work ticket
+      carries the approved-set stamp, so an early claim dies at the spec gate with a named missing
+      set rather than deriving a spec. But it dies as a spawned run on a customer's tracker that
+      fails and parks the ticket, for a defect this phase introduced. The order is cheap; take it.
+  - key: |
+      PROVIDERS GAIN ONE CAPABILITY, AND IT IS OPTIONAL THE WAY THE OTHERS ARE. The ticket port is
+      a wide interface whose later members carry default implementations, so a provider that cannot
+      add a label to an existing ticket inherits a no-op and the starter reports the tag as not
+      applied. Four providers can set labels at creation and each will implement the addition;
+      the shape follows the port's own convention rather than making every provider change at once.
+  - key: |
+      THE VALUE IS OPERATOR TEXT GOING ONTO A CUSTOMER'S TRACKER, SO IT IS GUARDED BEFORE IT IS SENT.
+      The resolution value defaults to empty and only the config-studio write path checks that it is
+      non-empty; a file-based configuration can carry an empty one, harmlessly today because an empty
+      tag never matches. It must never be written. Beyond empty, each tracker has its own grammar:
+      two providers join labels into one delimited string, so a value containing that delimiter would
+      split into junk; and one tracker rejects a label containing whitespace outright. A value the
+      tracker cannot carry is SKIPPED and reported, never sent — because a create or an update the
+      tracker refuses would cost the filing itself, turning "filed but not started" into "nothing was
+      filed", which is strictly worse than the defect being fixed.
+  - key: |
+      A BUG IS TAGGED TOO, AND THE ACCEPTANCE CRITERION IS QUALIFIED BECAUSE OF IT. A bug is filed
+      with no framework label deliberately, so the project's own rules decide which pipeline claims
+      it. The routing tag is not a framework label and binds no pipeline; it is what makes the
+      project claim the ticket at all. But a phase or epic-work ticket short-circuits the pipeline
+      question through its phase label, and a bug does not: where a project declares a
+      pipeline_from_label map that does not name the routing tag, the resolver still drops the bug.
+      So the criterion is "resolves to the filing project", not "starts" — the existing reasons still
+      say which of the remaining drops happened, and a blocking startup finding still disables the
+      trigger regardless of any tag.
+  - key: |
+      A TAG SHARED BY TWO PROJECTS NOW PRODUCES TWO RUNS, AND THAT IS THE OPERATOR'S AMBIGUITY MADE
+      VISIBLE. The resolver deliberately returns every project a ticket matches, the poller spawns a
+      run per match, and the lease is keyed per project so it does not deduplicate. Today a filed
+      ticket carries no tag, so this costs nothing and the starter reports "it routes elsewhere".
+      After this phase a filed ticket routes everywhere its tag does. The comparison is exact and
+      case-insensitive, so a substring tag does not misroute — only a case variant collides, and
+      that is the same collision the poller already has for a hand-tagged ticket.
+  - key: |
+      FOUR EXISTING TESTS CHANGE MEANING AND ARE NAMED HERE RATHER THAN DISCOVERED. Three pin
+      behaviour that depended on a filed ticket being unresolvable — an unresolvable ticket in a
+      trigger status, an unresolvable ticket outside one that is therefore not moved, and a ticket
+      resolving only to another project. All three now resolve. A fourth passes unchanged because it
+      calls the starter directly, but its own comment says nothing the filer creates can carry an
+      operator label, and that sentence becomes false.
+
+steps:
+  - id: a-provider-can-tag-a-ticket-that-exists
+    action: "The ticket port gains one member: add a label to an existing ticket. It carries a default that does nothing and reports that it did nothing, the way the port's other later members do. The four providers that can set labels at creation implement it."
+  - id: the-starter-tags-before-it-resolves
+    action: "Before it builds the envelope, the starter reads the trigger it already reads. When the trigger resolves by Tag and the value is one this tracker can carry, it adds the tag and includes it in the envelope's labels. A value that is empty, or that the tracker's label grammar cannot carry, is skipped. A tagging call that fails is reported and does not fail the filing."
+  - id: the-reason-says-what-was-tagged
+    action: "The starter's per-ticket reason gains the tagging: that the tag was added, or that it was skipped and why. It is the line the operator already reads for every filed ticket."
+
+tests:
+  - "FiledWorkStart_AProjectResolvingByTag_TagsTheTicketAndReportsItRouted"
+  - "FiledWorkStart_AProjectResolvingByTag_TagsBeforeItResolves"
+  - "FiledWorkStart_AnEmptyResolutionValue_IsNeverWrittenToTheTracker"
+  - "FiledWorkStart_ATagTheTrackerCannotCarry_IsSkippedAndReported"
+  - "FiledWorkStart_ATaggingCallThatThrows_StillReportsTheTicket"
+  - "FiledWorkStart_AProjectResolvingByAreaPath_TagsNothing"
+  - "FiledWorkStart_AProjectWithNoProjectResolution_TagsNothing"
+  - "FiledWorkStart_ATagTheTicketAlreadyCarries_IsNotAddedTwice"
+  - "FiledWorkStart_ABugOnAProjectWithAPipelineMapThatIgnoresTheTag_IsStillNotRouted"
+  - "EpicSliceRecord_IsNeverTagged_BecauseItNeverReachesTheStarter"
+
+done:
+  - "a phase, epic-work or bug ticket filed into a tag-resolved project carries that project's tag before the starter resolves it"
+  - "the resolution then names the filing project — unless the project's pipeline rules drop it, which only a bug can hit, or a blocking startup finding disabled the trigger; the existing reasons still say which"
+  - "the tag is never applied before the approved set is stored"
+  - "an empty tag, or one the tracker's label grammar cannot carry, is never sent and is reported instead"
+  - "a tagging call that fails costs the filing nothing"
+  - "slice records carry no routing tag, because the starter is the only thing that tags and they never reach it"
+  - "the four tests whose premise this inverts are re-expressed rather than deleted"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The starter resolves the filed ticket with an envelope carrying labels, ticket id and platform only, and moves it only when a match names the filing project."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:56-77"
+  - claim: "The starter's own summary names stamping the resolution tag as a successor's work."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:11-23"
+  - claim: "The reason text says only the tag strategy can be satisfied by a polled envelope, and names the tag the ticket does not carry."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReasons.cs:66-80"
+  - claim: "The epic work ticket is started LAST, after the set is stored and the records are filed, because a ticket claimable before its set exists makes the run derive its own spec."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicTicketFiler.cs:47-52, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:25-29"
+  - claim: "The filing order is create, store the set, file the records, then start."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicTicketFiler.cs:80, :83, :85, :89, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:108, :111, :112"
+  - claim: "A slice record never reaches the starter: its filer stamps the record state itself."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicSliceRecordFiler.cs:45-52"
+  - claim: "A record must not route, and the record label is refused before every other resolver rule."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicSliceRecordFiler.cs:66-69, src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:37-42"
+  - claim: "A phase-labelled ticket short-circuits the pipeline question; anything else goes through the pipeline resolver and is dropped when a declared map does not match."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:62-79"
+  - claim: "The resolver returns every project the envelope matches."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:81-85"
+  - claim: "The tag match is exact and ordinal case-insensitive."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:114-130"
+  - claim: "The resolution value defaults to empty and the strategy defaults to Tag."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ProjectResolutionConfig.cs:9-19"
+  - claim: "The file-config validator checks only that a project resolution is present, not that its value is non-empty; the non-empty check lives on the config-studio write path."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs:39-53, src/backend/AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs:94-104"
+  - claim: "Two providers join labels into one delimited string — a comma and a semicolon respectively — so a value containing that delimiter would split."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs:123-125, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketCreator.cs:56-57"
+  - claim: "One provider sends labels as a list and one adds them individually."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketCreator.cs:35-45, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:120-126"
+  - claim: "The ticket port has no way to add a label to an existing ticket, and its later members carry default implementations that do nothing."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:56-78, :104-106"
+  - claim: "The trigger for a platform is selected by one shared helper the starter already calls."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/TriggerSelectionHelper.cs:13-20, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:63"
+  - claim: "The starter reports a per-ticket state and reason, logged and stamped onto the filing report."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:42-54"
+  - claim: "The label note is composed from the labels a ticket is filed with, when its body is written."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketLabelNote.cs:62-76, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:105-109"
+  - claim: "All four trackers express a tag criterion in their discovery query."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsDiscoveryWiqlBuilder.cs:51, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraDiscoveryJqlBuilder.cs:45, src/backend/AgentSmith.Contracts/Models/Triggers/DiscoveryQueryExtensions.cs:17-27"
+  - claim: "Three existing tests pin behaviour that depends on a filed ticket being unresolvable, and a fourth carries a comment saying nothing the filer creates can carry an operator label."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/FiledWorkStartTests.cs:63-69, :72-79, :132-145, :151-172"
