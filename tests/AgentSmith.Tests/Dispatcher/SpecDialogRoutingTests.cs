@@ -9,6 +9,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -86,6 +87,8 @@ new DashboardOutcomeChannel(
             new SpecCommandParser(), _sessions, commandHandler,
             _turnRunner.Object, outcomeFlow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pendingQuestions, _dialogueTransport.Object),
+            SilentSubjectMinter.Over(repository),
+            new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }
 

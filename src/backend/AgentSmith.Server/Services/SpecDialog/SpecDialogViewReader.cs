@@ -75,6 +75,7 @@ public sealed class SpecDialogViewReader(
             SpecDialogShownTranscript.Turns(state.Transcript),
             state.LastActivityAt,
             images,
+            state.Subject,
             latest.Proposal is null
                 ? null
                 // The proposal was made by the turn that carried it, so that turn's moment is its own.

@@ -44,6 +44,12 @@ export interface SpecDialogSession {
   /** Assistant turns come without their draft — the pane shows it; operator turns as written. */
   transcript: SpecDialogTurn[];
   lastActivityAt: string;
+  /**
+   * 2026-09-20-4b0af: what the conversation is ABOUT, minted once from its opening exchange and
+   * in the conversation's own language. Null until the first reply mints one, and for every
+   * conversation older than the mint — the heading then falls back to the listed first line.
+   */
+  subject: string | null;
   /** The proposal under discussion; null when nothing is, including after a rejection. */
   proposal: SpecDialogProposalPush | null;
   /** What the latest filing created. Older than `proposal` means it filed an earlier one. */
