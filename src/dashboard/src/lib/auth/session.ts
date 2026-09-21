@@ -2,6 +2,7 @@ import { loadRuntimeSettings } from "@/lib/runtimeSettings/runtimeSettings";
 import { AuthSession } from "./AuthSession";
 import { getAccessToken, getAccessTokenStore } from "./AccessTokenStore";
 import { createAuthorityClient } from "./createAuthorityClient";
+import { rememberTheAuthorityWasReached } from "./signInSentinel";
 
 // 2026-08-25-2de1: one loop per tab, resolved once. Two would give the tab two
 // tokens and a window in which the REST calls and the hub disagree about who is
@@ -78,6 +79,20 @@ function isCallback(redirectPath: string): boolean {
   return answer.has("code") || answer.has("error");
 }
 
+/**
+ * 2026-09-21-291b: resolves once this tab's sign-in boot has done everything it
+ * does unprompted — after the code exchange on a callback load, after the silent
+ * attempt on a restore, at once when a token was already held and at once when no
+ * authority is configured. Until it resolves, "the store is empty" does not yet
+ * mean "nobody is signed in": begin() settles while restore()'s silent attempt is
+ * still in flight, and a surface reading the gap would act over a sign-in that was
+ * about to succeed.
+ */
+export async function signInSettled(): Promise<void> {
+  const session = await startAuthSession();
+  await session?.attempted;
+}
+
 /** The token an outgoing call carries, once the loop has settled. */
 export async function currentAccessToken(): Promise<string | null> {
   await startAuthSession();
@@ -93,6 +108,13 @@ export async function signIn(returnTo?: string): Promise<void> {
 /** Ends the local session, and the authority's where it publishes one. */
 export async function signOut(): Promise<void> {
   const session = await startAuthSession();
+  // 2026-09-21-291b: the directory's own session usually outlives this one — the
+  // authority is asked to end its session only where it publishes an endpoint for
+  // it. An enforcing installation's gate, seeing a tab with no token, would send
+  // this person straight back through a live directory session and sign them in
+  // again: a sign-out button that does nothing. Marking the tab first is what makes
+  // the gate offer the door instead of walking them through it.
+  rememberTheAuthorityWasReached();
   await session?.signOut();
 }
 

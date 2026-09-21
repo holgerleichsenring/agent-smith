@@ -20,6 +20,18 @@ export class AuthSession {
   /** The route this tab was on when the redirect took it away. */
   returnTo = HOME;
 
+  /**
+   * 2026-09-21-291b: when this tab's own UNPROMPTED attempt has finished — the
+   * silent one restore() fires and deliberately does not await (2026-08-28-0f46:
+   * awaiting it is the ten seconds every load used to pay). Resolved from the
+   * start, so a tab that held a token, or completed a code exchange, or was never
+   * given an authority at all, has nothing to wait for.
+   *
+   * Only a surface that must not act before the answer is in may await this. No
+   * request does, so the latency 0f46 removed stays removed.
+   */
+  attempted: Promise<void> = Promise.resolve();
+
   /** What the authority refused with, for whichever surface reports it. */
   error: string | null = null;
 
@@ -44,7 +56,7 @@ export class AuthSession {
   async restore(): Promise<void> {
     const held = await this.held();
     if (!held) {
-      void this.attemptSilently();
+      this.attempted = this.attemptSilently();
       return;
     }
     if (held.expired !== true) {

@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-291b
+
+goal: "An enforcing installation nobody is signed into stops misreporting itself: the banner accuses only what it can prove, a refusal is not called offline, and the person is sent to sign in."
+
+applies_to: "default (dashboard: misconfiguration banner, mission-control refusal surface, shell sign-in gate)"
+
+requires:
+  - 2026-08-25-2de1
+  - 2026-08-25-4530
+  - 2026-08-28-0f46
+  - 2026-09-14-c72e
+
+scope:
+  in: "What the dashboard renders while the server enforces and this tab holds no token: the evidence the banner accuses from and the heading it accuses under, what mission control shows instead of a skeleton that cannot resolve, and whether a person who can see nothing is taken to the one action that resolves it."
+  out: "The validation itself, the role mapping and the identity page's comparison are untouched. RunDetailHeader takes its connection state as a prop from the run-detail page and is not reworked here. A hub INVOCATION refused for a missing permission (HubPermissionFilter throws a HubException on a connection that stays up) is a different cause on a different surface. Nothing here changes what the server enforces."
+
+decisions:
+  - key: |
+      THE BANNER ACCUSES A CORRECT INSTALLATION, AND THIS REPOSITORY ALREADY DOCUMENTS IT AS
+      CORRECT. twoAuthoritiesAreAProblem returns !holdsToken when nothing was refused
+      (AuthMisconfigurationBanner.tsx:95), so under enforcement — where no token is ever held on
+      a first load — a server on a tenant's bare authority and a dashboard on the same tenant's
+      /v2.0 endpoint are accused on every load. recogniseShape.ts:60-62 names that exact server
+      configuration as a way OUT of a fault: "the audience api://{id} and the authority without
+      its /v2.0 suffix, whose discovery document names the v1 issuer". The banner accuses the
+      fixed state.
+  - key: |
+      THE EQUIVALENCE GOES IN THE NO-REFUSAL BRANCH, NOT IN normalize(). Two reasons, both
+      mechanical. missingHalf returns null on `server === dashboard` BEFORE it consults the
+      refusal (:66 before :67), so normalising the suffix away would silence the banner for a
+      token actually refused on issuer — the opposite of what c72e built. And missingHalf prints
+      the NORMALISED strings in its sentence (:71-72), so an operator would be shown an authority
+      they never configured. Inside twoAuthoritiesAreAProblem the equivalence answers exactly the
+      question it belongs to: is a difference we have no token to test a reason to accuse.
+  - key: |
+      THE SUFFIX IS LITERAL. "/v2.0" and nothing pattern-shaped: a Keycloak realm at
+      .../realms/v2 is a different realm from .../realms, and a loose version pattern would
+      swallow a genuine two-realm misconfiguration. The equivalence is not a claim that the two
+      endpoints interoperate — whether a v2-minted token is accepted by a v1-configured resource
+      depends on the API registration's requested token version, which the browser cannot see.
+      It is a refusal to call the pair broken on evidence that cannot settle it. When such a
+      token is minted and refused, tokenRefusal names issuer or audience and the banner speaks.
+  - key: |
+      THE HEADING IS FALSE IN THE CASE IT MOST OFTEN RENDERS. "Sign-in is configured on one side
+      only." is hard-coded above all three cases (:38) and the "both" case is the one where both
+      sides ARE configured. A phase whose goal is that the banner accuses only what it can prove
+      cannot leave the sentence above the accusation saying something else.
+  - key: |
+      THE HUB CANNOT SAY WHY IT WAS REFUSED, SO IT IS NOT ASKED. The obvious source for "the
+      server answered 401" is the failure out of conn.start(). It is not available:
+      HttpConnection.js:248-256 catches the HttpError — the only type carrying statusCode — and
+      rejects with a FailedToNegotiateWithServerError, a plain Error whose message is the status
+      TEXT. Classifying on that message is the string-matching principles.md forbids and a proxy
+      error page defeats. The REST half already has the fact typed: fetchRuns rejects with an
+      ApiRefusal carrying kind and status (apiResponse.ts), and useJobsHub.ts:73 throws it away
+      in a bare catch under a comment claiming "connection state surfaces errors". The evidence
+      was already in hand on the same surface; it was discarded.
+  - key: |
+      THE SURFACE TO FIX IS MISSION CONTROL, NOT THE RUN LIST. app/page.tsx:20 renders
+      MissionControl and its header says it supersedes the flat RunsList table; nothing imports
+      RunsList as a component (only its mergeNewestFirst helper is imported). Its skeleton at
+      :37-48 is real code that is never reached, and the never-resolving skeleton the operator
+      photographed is MissionControl.tsx:72-83.
+  - key: |
+      THE REFUSAL REACHES EVERY SURFACE THAT ASKS THE HOOK, NOT A PROP THREADED THROUGH SEVEN
+      CALL SITES. MissionControl and SystemView both call useJobsHub() directly, so returning the
+      refusal beside the connection state reaches both with no signature change above them.
+      RunDetailHeader is given its state as a prop and stays as it is, which is why the done
+      criterion names the surfaces in scope rather than claiming all of them.
+  - key: |
+      THE REDIRECT IS GATED ON WHAT THE SERVER SAYS. AuthSession's header rejects an automatic
+      interactive redirect for two reasons: a loop, and taking over a dashboard whose server
+      enforces nothing. The second is dead — /api/auth/requirements reports `enforced`, today
+      read in exactly one place for one sentence in a banner. The first is answered by a sentinel
+      written BEFORE the redirect leaves: a return that still holds no token renders the sign-in
+      page instead of redirecting again.
+  - key: |
+      THE GATE WAITS FOR THE BOOT'S OWN SETTLING, WHICH IS NOT restore(). 2026-08-28-0f46 made
+      startAuthSession() settle without awaiting attemptSilently(), so "the boot is done and the
+      store is empty" is briefly true while a silent sign-in that is about to succeed is still in
+      flight — a gate reading that redirects over its own working sign-in. But the promise cannot
+      hang off restore() either: session.ts:39-47 runs complete() INSTEAD of restore() on a
+      callback load, which is the return leg of the gate's own redirect (the compose stack's
+      redirect path is "/", so the authority returns to the home route with a code). So the
+      promise is a property of the boot: it resolves after the code exchange on a callback load,
+      after the silent attempt on a restore, and at once when a token was held or no authority is
+      configured at all.
+  - key: |
+      THE GATE RENDERS THE APPLICATION WHILE IT DOES NOT KNOW. It sits above every route, and
+      signinSilent's default timeout is ten seconds — a gate that held the tree back until the
+      answer arrived would put that wait in front of the whole dashboard, including installations
+      that enforce nothing. It renders its children and acts only once both answers are in. A
+      brief empty dashboard before the redirect is the same cost 0f46 chose deliberately.
+  - key: |
+      A SESSION THAT ENDED IS NOT A SESSION THAT NEVER BEGAN, AND NEITHER IS A SIGN-OUT.
+      AccessTokenStore carries the reason (state().ended, "expired" or "renewal-refused") for
+      exactly this distinction, and HeaderIdentity already renders it. Redirecting on a bare
+      "no token" would yank a person out of their work when a token expires, and would walk a
+      person who just signed out straight back in through a directory session that is still
+      alive — signOut() clears the store locally and only reaches the authority where one
+      publishes an end-session endpoint. So an ended session and a deliberate sign-out both land
+      on the sign-in page with its button, never on an automatic redirect.
+  - key: |
+      A HIDDEN SILENT-RETURN FRAME MUST NEVER NAVIGATE. The silent renewal loads this whole
+      application into an iframe, which useJobsHub already refuses to open a connection from
+      (isSilentReturnFrame). A gate redirecting from inside it would drive the frame rather than
+      the tab, and the tab would wait for an answer nobody delivers.
+
+steps:
+  - id: one-directory-on-two-endpoints-is-not-two-directories
+    action: "In the branch that runs when nothing was refused, treat two authorities that are equal but for a literal trailing /v2.0 as one authority, leaving every other difference accusing as it does today; the comparison that short-circuits on equal strings and the sentence that prints them are untouched, so a token refused on issuer or audience still names the conflict in the operator's own strings."
+  - id: the-heading-names-the-case-below-it
+    action: "Give the case where both sides are configured and disagree its own heading, leaving the two half-configured cases with the one they have."
+  - id: the-refused-caller-keeps-the-refusal
+    action: "Keep the refusal the run fetch already rejects with instead of discarding it, and return it from the hub hook beside the connection state, cleared as soon as a fetch succeeds."
+  - id: a-refusal-is-not-an-absent-server
+    action: "On mission control, render the existing refusal surface with its sign-in button in place of the skeleton that cannot resolve, and let the connection indicator say a refusal is a refusal rather than 'offline' while one is in hand."
+  - id: the-boot-says-when-it-has-finished-trying
+    action: "Expose when this tab's sign-in boot has done everything it will do unprompted — after the code exchange on a callback load, after the silent attempt on a restore, at once when a token was already held or no authority is configured — without putting that wait in front of any request."
+  - id: an-enforcing-installation-sends-the-person-to-sign-in
+    action: "Above the routes: once the server has said it enforces and the boot has finished trying with no token, redirect to the authority exactly once per tab, recorded before the redirect leaves and cleared when a token lands, never from a silent-return frame, and never for a session that ended or a sign-out that was asked for; anything the redirect cannot resolve renders a sign-in page naming what happened, and until both answers are in the application renders as it does today."
+
+tests:
+  - "Banner_AuthoritiesDifferOnlyByTheVersionSuffixAndNoTokenHeld_SaysNothing"
+  - "Banner_AuthoritiesDifferAndNoTokenHeld_StillNamesTheConflict"
+  - "Banner_VersionSuffixPairAndIssuerRefused_NamesTheConflict"
+  - "Banner_AuthoritiesDifferByAnotherVersionLikeSegment_StillNamesTheConflict"
+  - "Banner_BothConfiguredAndDisagreeing_DoesNotSayOneSideOnly"
+  - "Banner_OneHalfUnconfigured_KeepsItsHeading"
+  - "JobsHub_RunFetchRefused_ReturnsTheRefusal"
+  - "JobsHub_RunFetchFailedWithoutARefusal_ReturnsNone"
+  - "JobsHub_ALaterFetchSucceeds_ClearsTheRefusal"
+  - "MissionControl_RefusedForSignIn_ShowsTheRefusalSurfaceWithItsButton"
+  - "MissionControl_RefusedForAPermission_NamesThePermissionInsteadOfOffline"
+  - "MissionControl_MerelyConnecting_StillShowsTheSkeleton"
+  - "ConnectionState_RefusedForSignIn_DoesNotSayOffline"
+  - "ConnectionState_RefusedForAPermission_SaysNotAllowed"
+  - "ConnectionState_ConnectedDespiteARefusal_SaysConnected"
+  - "ConnectionState_NoRefusal_StillSaysOffline"
+  - "AuthBoot_SilentAttemptRuns_SettlesAfterItRatherThanBeforeIt"
+  - "AuthBoot_TokenAlreadyHeld_SettlesWithoutAttemptingAnything"
+  - "AuthBoot_CallbackLoad_SettlesAfterTheCodeExchange"
+  - "AuthBoot_NoAuthorityConfigured_SettlesAtOnce"
+  - "SignInGate_EnforcedAndNoTokenOnceTheBootHasFinished_RedirectsOnce"
+  - "SignInGate_EnforcedAndTheRedirectReturnedEmpty_RendersTheSignInPageAndDoesNotRedirect"
+  - "SignInGate_EnforcedAndATokenLands_ForgetsThatItRedirected"
+  - "SignInGate_EnforcedAndTheSessionExpired_RendersTheSignInPageAndDoesNotRedirect"
+  - "SignInGate_EnforcedAndTheUserSignedOut_DoesNotSignThemBackIn"
+  - "SignInGate_EnforcedAndTheBootHasNotFinished_RendersTheApplication"
+  - "SignInGate_NotEnforced_NeverRedirectsAndRendersTheApplication"
+  - "SignInGate_TheServerDidNotAnswer_RendersTheApplication"
+  - "SignInGate_InsideASilentReturnFrame_NeverRedirects"
+  - "SignOut_MarksTheTabSoAGateDoesNotWalkThemBackIn"
+
+done:
+  - "A server on a tenant's bare authority beside a dashboard on that tenant's /v2.0 endpoint renders no banner while signed out; any other difference still does, and a refusal on issuer or audience still does."
+  - "A dashboard whose server enforces and whose tab holds no token reaches the authority by itself, at most once per tab, and says what happened when it comes back empty."
+  - "Signing out of an enforcing installation leaves the person signed out, and an expiring session does not throw them at the authority mid-work."
+  - "Mission control offers the refusal and its button instead of a skeleton that cannot resolve, and neither it nor the system view calls a refusing server offline."
+  - "Dashboard build and tests, backend build and the full suite are green."

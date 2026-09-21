@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-21-291b
+
+decisions:
+  - category: Architecture
+    chose: "The version-endpoint equivalence lives in the no-refusal branch of twoAuthoritiesAreAProblem"
+    over: "Normalising the /v2.0 suffix away in normalize(), beside the trailing slash"
+    reason: |
+      normalize() looks like the natural home — it already folds a trailing slash away for the
+      same stated reason, that one issuer gets written two ways. It is the wrong home twice over.
+      missingHalf returns null on `server === dashboard` BEFORE it consults the refusal, so
+      folding the suffix there would silence the banner for a token actually refused on its
+      issuer — deleting the case 2026-09-14-c72e built. And missingHalf composes its sentence out
+      of the normalised strings, so an operator would be shown an authority they never typed.
+      The suffix answers exactly one question — is a difference we have no token to test a reason
+      to accuse — and that question is this branch and nowhere else.
+
+  - category: Design
+    chose: "The suffix is the literal string /v2.0"
+    over: "A version-shaped pattern over the last path segment"
+    reason: |
+      A Keycloak realm at .../realms/v2 is a different realm from .../realms, and that pair is a
+      genuine two-realm misconfiguration the banner exists to catch. A pattern would read it as
+      one directory on two endpoints. The literal costs an installation on some future /v3.0 a
+      false accusation while no token is held — visible, one line to fix, and self-correcting the
+      moment a token is minted and refused.
+
+  - category: Architecture
+    chose: "The refusal is read off the run fetch and returned from useJobsHub"
+    over: "Reading the HTTP status out of the failure SignalR throws from conn.start()"
+    reason: |
+      The status is not there. HttpConnection.js catches the HttpError — the only type carrying
+      statusCode — and rejects with a FailedToNegotiateWithServerError, a plain Error whose
+      message is the status TEXT ("Error: Unauthorized"), because ASP.NET's 401 challenge has an
+      empty body. Telling 401 from 403 would mean matching on an exception message, which
+      principles.md forbids and which any proxy's own error page defeats. A custom httpClient
+      passed to withUrl() could observe the negotiate response before SignalR loses it, and that
+      is real work for a fact the tab already has: fetchRuns rejects with a typed ApiRefusal
+      carrying kind and status, and useJobsHub discarded it in a bare catch under a comment
+      claiming the connection state surfaced it. The evidence was in hand on the same surface.
+
+  - category: Design
+    chose: "Mission control gets the refusal surface; RunsList is left alone"
+    over: "Fixing the skeleton in RunsList, where the same code sits"
+    reason: |
+      app/page.tsx renders MissionControl, whose own header says it supersedes the flat RunsList
+      table. Nothing imports RunsList as a component — only its mergeNewestFirst helper — so its
+      byte-identical skeleton is real code that is never reached. Fixing it would have gone green
+      on every test with the operator's screen unchanged.
+
+  - category: Architecture
+    chose: "The refusal reaches surfaces through useJobsHub's return value"
+    over: "A prop threaded down to every ConnectionState call site"
+    reason: |
+      MissionControl and SystemView both call useJobsHub() directly, so one field on the result
+      reaches both with no signature change above them; SubsystemPage takes one prop because
+      SystemView already hands it its connection state. RunDetailHeader is given its state by the
+      run-detail page and is left as it is rather than opening a fourth signature for a surface
+      this phase was not measured on.
+
+  - category: Architecture
+    chose: "The gate waits on a promise hung off the BOOT, exposed as signInSettled()"
+    over: "Hanging it off AuthSession.restore(), or having the gate read the token alone"
+    reason: |
+      Reading the token alone redirects over a working sign-in: 2026-08-28-0f46 made
+      startAuthSession() settle WITHOUT awaiting attemptSilently(), so for about a second an empty
+      store means "not yet" rather than "nobody". But restore() is not the place either —
+      session.ts runs complete() INSTEAD of restore() on a callback load, which is the return leg
+      of the gate's own redirect (the reply URL is often the bare origin, so the home route IS the
+      callback). A promise hung off restore() would never settle on the one load the gate most
+      needs it. On the boot it covers all four shapes: after the exchange, after the silent
+      attempt, at once for a held token, at once for no authority at all.
+
+  - category: Design
+    chose: "The gate renders its children until both answers are in"
+    over: "Holding the tree back behind a spinner while it decides"
+    reason: |
+      It sits above every route and signinSilent's default timeout is ten seconds. A gate that
+      waited would put that wait in front of the whole dashboard — including every installation
+      that enforces nothing and will never redirect anybody. A brief empty dashboard before the
+      redirect is the same trade 0f46 made deliberately.
+
+  - category: Design
+    chose: "An ended session and a deliberate sign-out both land on the sign-in page, never on a redirect"
+    over: "Redirecting whenever the tab holds no token"
+    reason: |
+      The directory's session usually outlives this one — signOut() clears the store locally and
+      only reaches the authority where one publishes an end-session endpoint — so a bare
+      "no token" rule would walk the same person straight back in and make the sign-out button do
+      nothing. AccessTokenStore already carries WHY a session ended, for exactly this distinction,
+      and HeaderIdentity already renders it; an expiry mid-work deserves a button, not a
+      navigation nobody asked for. signOut() therefore writes the sentinel before it clears.
+
+  - category: Design
+    chose: "The sentinel is sessionStorage, written before the redirect leaves"
+    over: "localStorage, or recording the attempt when it returns"
+    reason: |
+      A redirect that fails AT the authority never comes back to write anything, which is exactly
+      what a loop is made of — so the mark goes down first. sessionStorage because the fact is
+      about THIS tab's attempt: a second tab has made none and must be free to make one. A
+      duplicated tab inheriting the mark is the safe direction to be wrong in, because the
+      consequence is a button instead of a navigation. A browser that refuses storage reads as a
+      tab that has reached nobody, for the same reason.
+
+  - category: Design
+    chose: "The 'both halves disagree' case gets its own heading"
+    over: "Keeping 'Sign-in is configured on one side only.' above all three cases"
+    reason: |
+      It is the case where both sides ARE configured, and it is the one that renders most often.
+      A phase whose goal is that the banner accuses only what it can prove cannot leave the
+      sentence above the accusation saying something else.

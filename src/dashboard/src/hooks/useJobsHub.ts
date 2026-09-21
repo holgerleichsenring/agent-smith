@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { getJobsHubClient, JobsHubClient } from "@/lib/JobsHubClient";
 import { isSilentReturnFrame } from "@/lib/auth/silentReturnFrame";
+import { refusalIn, type ApiRefusal } from "@/lib/apiResponse";
 import { fetchRuns } from "@/lib/runsApi";
 import type {
   OverviewSnapshot,
@@ -41,6 +42,15 @@ export interface UseJobsHubResult {
   connectionState: HubConnectionState;
   overview: OverviewSnapshot | null;
   /**
+   * 2026-09-21-291b: why this caller is seeing nothing, when the reason is that the
+   * server refused them. The hub cannot answer it — SignalR catches the HttpError that
+   * carries the status and rejects start() with a FailedToNegotiateWithServerError whose
+   * only evidence is prose — but the run fetch beside it already rejects with a typed
+   * ApiRefusal, and this hook used to discard it in a bare catch under a comment claiming
+   * the connection state surfaced it. Null when nothing has been refused.
+   */
+  refusal: ApiRefusal | null;
+  /**
    * p0175-fix: server-truth 24h rollup. Pushed on SubscribeOverview and
    * refreshed via SystemActivityUpdated after each system event batch.
    * Null only until the first push lands.
@@ -53,6 +63,7 @@ export function useJobsHub(): UseJobsHubResult {
   const [connectionState, setConnectionState] = useState<HubConnectionState>(client.state());
   const [runs, setRuns] = useState<RunList | null>(null);
   const [systemActivity, setSystemActivity] = useState<SystemActivitySnapshot | null>(null);
+  const [refusal, setRefusal] = useState<ApiRefusal | null>(null);
 
   useEffect(() => {
     // 2026-08-28-0f46: a silent sign-in loads this whole application into a
@@ -69,8 +80,17 @@ export function useJobsHub(): UseJobsHubResult {
       const ctrl = new AbortController();
       inFlight = ctrl;
       fetchRuns(ctrl.signal)
-        .then((r) => { if (!cancelled) setRuns({ active: r.active, recent: r.recent }); })
-        .catch(() => { /* connection state surfaces errors; next nudge retries */ });
+        .then((r) => {
+          if (cancelled) return;
+          setRuns({ active: r.active, recent: r.recent });
+          // A fetch that landed is the only proof the refusal is over. Clearing it
+          // anywhere else would clear it on the abort that every nudge issues.
+          setRefusal(null);
+        })
+        .catch((thrown: unknown) => {
+          const refused = refusalIn(thrown);
+          if (!cancelled && refused !== null) setRefusal(refused);
+        });
     };
 
     // p0246f: a live run with N sandboxes emits many events/sec, and the backend
@@ -124,7 +144,7 @@ export function useJobsHub(): UseJobsHubResult {
     );
   }, [runs, systemActivity]);
 
-  return { client, connectionState, overview, systemActivity };
+  return { client, connectionState, overview, systemActivity, refusal };
 }
 
 function isDebugMode(): boolean {

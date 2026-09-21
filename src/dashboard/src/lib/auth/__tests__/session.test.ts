@@ -199,7 +199,73 @@ describe("signIn", () => {
   });
 });
 
+// 2026-09-21-291b: "the boot has settled" and "this tab has finished trying" are
+// two different moments, and 0f46 is why: restore() fires the silent attempt and
+// deliberately does not await it. A gate acting in that gap redirects over its own
+// working sign-in.
+describe("signInSettled", () => {
+  it("AuthBoot_SilentAttemptRuns_SettlesAfterItRatherThanBeforeIt", async () => {
+    let land: (user: unknown) => void = () => {};
+    const outstanding = new Promise<unknown>((resolve) => { land = resolve; });
+    const client = { ...fakeClient(), signinSilent: vi.fn(() => outstanding) };
+    const { module } = await bootWith(AUTHORITY, client);
+
+    let finished = false;
+    void module.signInSettled().then(() => { finished = true; });
+    await module.startAuthSession();
+    await settle();
+
+    // The boot is done; the attempt is not, and neither is this.
+    expect(finished).toBe(false);
+
+    land(live());
+    await settle();
+    expect(finished).toBe(true);
+  });
+
+  it("AuthBoot_TokenAlreadyHeld_SettlesWithoutAttemptingAnything", async () => {
+    const client = fakeClient(live());
+    const { module } = await bootWith(AUTHORITY, client);
+
+    await expect(module.signInSettled()).resolves.toBeUndefined();
+    expect(client.signinSilent).not.toHaveBeenCalled();
+  });
+
+  it("AuthBoot_CallbackLoad_SettlesAfterTheCodeExchange", async () => {
+    // The return leg of the gate's own redirect: session.ts runs complete()
+    // INSTEAD of restore(), so a promise hung off restore() would never settle on
+    // the one load the gate is mounted for.
+    window.history.replaceState({}, "", "/signin-callback?code=abc&state=xyz");
+    const client = fakeClient();
+    const { module } = await bootWith(
+      { ...AUTHORITY, redirectPath: "/signin-callback" }, client);
+
+    await expect(module.signInSettled()).resolves.toBeUndefined();
+    expect(client.signinCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it("AuthBoot_NoAuthorityConfigured_SettlesAtOnce", async () => {
+    const { module } = await bootWith({}, null);
+
+    await expect(module.signInSettled()).resolves.toBeUndefined();
+  });
+});
+
 describe("signOut", () => {
+  it("SignOut_MarksTheTabSoAGateDoesNotWalkThemBackIn", async () => {
+    // The directory's session usually outlives this one, so a gate seeing a tab
+    // with no token would sign the same person straight back in — a sign-out
+    // button that does nothing.
+    const client = fakeClient();
+    const { module } = await bootWith(AUTHORITY, client);
+    const sentinel = await import("../signInSentinel");
+    sentinel.forgetTheAuthorityWasReached();
+
+    await module.signOut();
+
+    expect(sentinel.theAuthorityWasReached()).toBe(true);
+  });
+
   it("SignOut_NoAuthorityConfigured_DoesNothingAndDoesNotThrow", async () => {
     const { module } = await bootWith({}, null);
 
