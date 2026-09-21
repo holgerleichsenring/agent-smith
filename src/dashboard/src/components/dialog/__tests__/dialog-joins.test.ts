@@ -227,5 +227,29 @@ describe("The composer's glyph controls", () => {
     const off = dialogRules.filter((r) => /\.d-icon:disabled\s*$/.test(r.selector.trim()));
     expect(off, "the icon button carries no disabled appearance of its own").toHaveLength(1);
     expect(off[0].body).toMatch(/(^|;)\s*opacity\s*:/);
+// 2026-09-20-4b0ae: the acknowledgement an inspect leaves is DRAWN, or the phase shipped two
+// attributes nothing paints. Both rules live in this page's own block — a new name below the
+// marker is the one shape the two guards above allow — and the focus one must be a plain
+// :focus, because the focus it draws follows a mouse click on a control in another column and
+// matches no :focus-visible rule. Nothing here resolves a cascade; what is observable is the
+// declarations that were typed.
+describe("Inspecting is drawn", () => {
+  it("MockParity_TheDialogBlock_DrawsTheMarkAndAPlainFocusOutlineOnThePanel", () => {
+    const own = dialogRules.filter((r) => r.at >= ownFrom);
+
+    const mark = own.filter((r) => r.selector.includes('[data-inspected="true"]'));
+    expect(mark, "no rule draws the mark an inspect puts on the pane").toHaveLength(1);
+    expect(mark[0].selector).toContain(".d-pane");
+    expect(mark[0].body, "the mark must change something a person can see")
+      .toMatch(/(^|;)\s*(border-color|box-shadow|outline|background)\s*:/);
+
+    const focused = own.filter((r) => /\.d-panel:focus(?![\w-])/.test(r.selector));
+    expect(focused, "no rule draws the focus the inspect moves to the panel").toHaveLength(1);
+    expect(focused[0].body, "the focused panel must be outlined").toMatch(/(^|;)\s*outline\s*:/);
+
+    // The one that would have shipped an invisible fix: a programmatic focus after a mouse
+    // click matches :focus-visible in none of the browsers this runs in.
+    const visibleOnly = own.filter((r) => /\.d-panel:focus-visible/.test(r.selector));
+    expect(visibleOnly, "the panel's focus rule may not be a focus-visible one").toEqual([]);
   });
 });
