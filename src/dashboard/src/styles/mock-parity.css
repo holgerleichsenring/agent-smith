@@ -1157,3 +1157,29 @@
    the radius and the type come from the rule at :499 and only the colour is this one's. */
 .mock-dialog .btn.bad { background: var(--bad-wash); color: var(--bad); border-color: var(--bad); }
 .mock-dialog .btn.bad:hover { background: var(--bad); color: var(--panel); border-color: var(--bad); }
+/* 2026-09-20-4b0ac: the composer's two controls are GLYPHS — a plus at the lower left that
+   opens what can be attached, and the arrow that sends. Their own class and not .btn: that
+   button is sized by a label (9px 15px around a 13px word) and these carry none, and the rule
+   is joined rather than restated everywhere else on this page, so a square control cannot be
+   had by narrowing it. What .btn also carries is the DISABLED look (:503) — an icon button
+   that dropped the class would be inert in the DOM and identical to an enabled one — so this
+   class declares its own. */
+.mock-dialog button.d-icon { font: inherit; flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink-2); cursor: pointer; box-shadow: var(--shadow); }
+.mock-dialog .d-icon:hover { border-color: var(--ink-3); color: var(--ink); }
+.mock-dialog .d-icon.send { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* the send hover reasserts what the plain hover above it would otherwise take: that rule
+   darkens the line and the ink for a control on the panel fill, and on the accent fill the
+   ink it sets is the fill's own colour — the arrow would vanish under the pointer. */
+.mock-dialog .d-icon.send:hover { filter: brightness(1.05); border-color: var(--accent); color: var(--accent-ink); }
+.mock-dialog .d-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* the menu the plus opens, anchored to the plus. It opens UPWARD, and that is not a taste:
+   the composer is the last child of the exchange card, whose rule clips its box (:512), and
+   the one escape from that clipping in this sheet is scoped to the studio's expanded card
+   (:519). A menu dropping BELOW the plus would be cut off at the card's lower edge; above the
+   plus is the card's own body, where the room is. Its bottom is therefore what is anchored,
+   and there is no top anchor to fight it. */
+.mock-dialog .d-attach { position: relative; flex: none; }
+.mock-dialog .d-menu { position: absolute; left: 0; bottom: calc(100% + 6px); min-width: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(32, 21, 21, 0.08); padding: 4px; display: flex; flex-direction: column; z-index: 40; }
+.mock-dialog button.d-menu-item { font: inherit; font-size: 12.5px; font-weight: 520; text-align: left; white-space: nowrap; color: var(--ink-2); background: none; border: 0; border-radius: 7px; padding: 8px 10px; cursor: pointer; }
+.mock-dialog .d-menu-item:hover { background: var(--panel-2); color: var(--ink); }

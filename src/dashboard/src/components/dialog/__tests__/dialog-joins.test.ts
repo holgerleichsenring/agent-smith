@@ -196,3 +196,36 @@ describe("Given text wraps, and only on this page", () => {
     expect(WRAPS.test("white-space: nowrap")).toBe(false);
   });
 });
+
+// 2026-09-20-4b0ac: the composer's plus and arrow are drawn here rather than in utilities,
+// because the surface scan beside this file forbids every utility a menu would need. Two
+// properties of those rules are what keep the controls usable, and neither is observable in
+// jsdom — which resolves no cascade and lays nothing out. They are asserted on the text.
+
+describe("The composer's glyph controls", () => {
+  it("MockParity_TheDialogMenu_OpensUpwardAndTheIconButtonHasADisabledState", () => {
+    const menu = dialogRules.find((r) => r.selector === ".mock-dialog .d-menu");
+    expect(menu, "no rule draws the menu the composer's plus opens").toBeDefined();
+    expect(menu!.at, "the menu is this page's own structure, not a borrowed rule")
+      .toBeGreaterThan(ownFrom);
+    expect(menu!.body).toMatch(/(^|;)\s*position\s*:\s*absolute\s*(;|$)/);
+    // UPWARD: its BOTTOM is anchored to the plus's top edge. The card this composer closes
+    // clips its box, so a menu anchored by its top drops past the card's lower edge and is cut
+    // off there — and the one rule in this sheet that lifts that clipping is the studio's.
+    expect(menu!.body, "the menu must be anchored by its bottom, above the plus")
+      .toMatch(/(^|;)\s*bottom\s*:\s*calc\(\s*100%/);
+    expect(menu!.body, "a top anchor opens it downward, into the edge the card clips at")
+      .not.toMatch(/(^|;)\s*top\s*:/);
+
+    const card = rulesIn(css).find((r) => r.selector === ".mock-config .ecard, .mock-dialog .ecard");
+    expect(card, "the card rule the menu opens upward to avoid is gone").toBeDefined();
+    expect(card!.body, "if the card stopped clipping, the reason for opening upward changed")
+      .toMatch(/(^|;)\s*overflow\s*:\s*hidden\s*(;|$)/);
+
+    // The icon buttons are not .btn, so .btn:disabled does not reach them: a disabled control
+    // would be inert in the DOM and look exactly like an enabled one.
+    const off = dialogRules.filter((r) => /\.d-icon:disabled\s*$/.test(r.selector.trim()));
+    expect(off, "the icon button carries no disabled appearance of its own").toHaveLength(1);
+    expect(off[0].body).toMatch(/(^|;)\s*opacity\s*:/);
+  });
+});
