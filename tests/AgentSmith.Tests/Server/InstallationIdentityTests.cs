@@ -1,5 +1,7 @@
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Skills;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Diagnostics;
@@ -150,7 +152,17 @@ public sealed class InstallationIdentityTests : IDisposable
         string provider = "sqlite") =>
         new(new BuildIdentity(ServerRevision, serverRelease), ConfigWith(provider),
             Versions(pinned, serverRelease), persistence ?? CurrentSchema(),
+            new SkillsCatalogPath(), EmbeddedCatalog(),
             NullLogger<InstallationIdentityReporter>.Instance);
+
+    // The catalog halves have their own suite (InstallationReportCatalogTests); here they
+    // are only wiring, so this holder publishes nothing and the report says "not resolved".
+    private static IEmbeddedSkillsCatalog EmbeddedCatalog()
+    {
+        var catalog = new Mock<IEmbeddedSkillsCatalog>();
+        catalog.SetupGet(c => c.Version).Returns("v4.6.0");
+        return catalog.Object;
+    }
 
     private static IAgentVersionResolver Versions(string pinned, string? serverRelease) =>
         new AgentVersionResolver(
