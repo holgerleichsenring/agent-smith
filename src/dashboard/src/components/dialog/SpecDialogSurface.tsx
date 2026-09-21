@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import type { SpecDialogProposalPush } from "@/types/spec-dialog";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { PageHead } from "@/components/system/PageHead";
+import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
+import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
@@ -26,6 +29,10 @@ import { DialogWorking } from "./DialogWorking";
 
 export const WORK_IT_OUT = "Work it out";
 
+/** How long the pane wears the mark an inspect puts on it. Long enough to be read as an answer
+ *  to the click, short enough that it is gone before the operator reads what it selected. */
+const MARK_MS = 1400;
+
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
   // The picked project lives here rather than in the list, because SENDING needs it too: a
@@ -37,12 +44,54 @@ export function SpecDialogSurface() {
   const session = dialog.view?.session ?? null;
   const mustPick = !session && project === "";
   const [focus, setFocus] = useDialogPaneFocus(dialog.proposal, dialog.filed);
+  // 2026-09-20-4b0ae: INSPECT ACKNOWLEDGES ITSELF. The pane selects the proposal tab by
+  // fallback whenever nothing has been filed, so the commonest state is the pane already
+  // showing the very proposal the card is offering to inspect — setting the focus to it then
+  // renders identically and the control looks dead. The act fires the acknowledgement, not a
+  // change derived from it: a count of inspects, taken off again on a timer, and each click
+  // restarts that timer because the count it depends on moved.
+  const pane = useRef<HTMLElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [inspects, setInspects] = useState(0);
+  useEffect(() => {
+    if (inspects === 0) return;
+    const timer = window.setTimeout(() => setInspects(0), MARK_MS);
+    return () => window.clearTimeout(timer);
+  }, [inspects]);
+  const inspect = (proposal: SpecDialogProposalPush) => {
+    setFocus({ tab: "proposal", proposal });
+    setInspects((seen) => seen + 1);
+    // Nearest, and no behaviour: the page's scroll container is the main region and the pane's
+    // top is the top of the grid, so a start-aligned scroll would throw the page back to the top
+    // of a long transcript the operator was reading at the bottom of. A pane already in view is
+    // not moved at all.
+    pane.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    panel.current?.focus();
+  };
   // 2026-09-17-042ej: the conversation follows what it filed. A read of its own rather than a
   // field on the dialog view, which is refetched after every reply.
   const work = useFiledWork(dialog.dialogId, dialog.filed);
-  const title = session
+  // 2026-09-20-4b0ab: asking is the SURFACE's job, because a hook cannot render. The rule that
+  // decides whether a conversation needs confirming, and what the warning says, stays where it
+  // was; what changes is that the warning is now put to the reader in a dialog this page drew.
+  const confirmation = useConfirmDialog();
+  async function remove(sessionId: string) {
+    // The list renders a delete only for a row it holds, so the lookup finds one; a caller
+    // that reached this with an id the list does not hold deletes without confirming, which is
+    // what the hook did before the asking moved here.
+    const listed = dialog.conversations.find((held) => held.sessionId === sessionId);
+    const warning = listed ? deletionWarning(listed) : null;
+    if (warning !== null && !(await confirmation.ask(warning, { confirmLabel: "Delete" }))) return;
+    await dialog.remove(sessionId);
+  }
+  // 2026-09-20-4b0af: the heading says what the conversation is ABOUT, and falls back to the
+  // first line the person wrote — which is what it always said, and what the row beside it still
+  // says. The subject rides the SESSION, re-read after every reply, so the heading corrects
+  // itself on the next read; the list keeps being read only while its own predicate says so.
+  const listed = session
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;
+  const title = session?.subject ?? listed;
 
   return (
     <div className="mock-shell mock-dialog" data-testid="spec-dialog">
@@ -65,7 +114,7 @@ export function SpecDialogSurface() {
               onPicked={setPicked}
               onStartNew={(chosen) => void dialog.startNew(chosen)}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
-              onDelete={(sessionId) => void dialog.remove(sessionId)}
+              onDelete={(sessionId) => void remove(sessionId)}
             />
             <section className="ecard inert min-w-0">
               <div className="d-head">
@@ -74,7 +123,9 @@ export function SpecDialogSurface() {
                     on the open session's project would stop a new conversation on another one —
                     so this is where a person reads what the conversation they are in is about. */}
                 <div className="d-head-t">
-                  <h2 className="ec-name sans min-w-0">{title ?? "New conversation"}</h2>
+                  <h2 data-testid="dialog-heading" className="ec-name sans min-w-0">
+                    {title ?? "New conversation"}
+                  </h2>
                   {session && (
                     <span data-testid="dialog-exchange-project" className="ec-sub">
                       in <span className="fv">{session.scope.name}</span>
@@ -93,7 +144,7 @@ export function SpecDialogSurface() {
               <div className="d-body flex flex-col gap-4">
                 <DialogTranscript
                   entries={dialog.entries}
-                  onInspect={(proposal) => setFocus({ tab: "proposal", proposal })}
+                  onInspect={inspect}
                 />
                 {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
                     so a page arriving mid-turn is not shown a conversation that looks over. */}
@@ -127,10 +178,16 @@ export function SpecDialogSurface() {
               work={work}
               focus={focus}
               onFocus={setFocus}
+              paneRef={pane}
+              panelRef={panel}
+              marked={inspects > 0}
             />
           </div>
         </div>
       </main>
+      {/* Inside this page's shell, because that is what the confirmation's rules are scoped
+          to; showModal lifts it to the top layer without moving it in the DOM. */}
+      <ConfirmDialog {...confirmation.dialog} />
     </div>
   );
 }

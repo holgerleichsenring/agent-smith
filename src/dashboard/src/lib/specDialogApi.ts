@@ -84,12 +84,20 @@ export function specDialogImageUrl(imageId: number): string {
 /**
  * One message into the dialog. The reply does NOT come back here — a design turn runs a
  * master and can take minutes, so the server accepts the message and answers on the hub.
+ *
+ * 2026-09-20-4b0aa: the project rides along for the same reason the upload's does. A message may
+ * be the FIRST thing on a dialog id, and the server opens the conversation and routes the message
+ * in one ordered act — which two posts, each only accepted, could never order between themselves.
  */
-export async function postSpecDialogMessage(dialogId: string, text: string): Promise<void> {
+export async function postSpecDialogMessage(
+  dialogId: string,
+  text: string,
+  project?: string,
+): Promise<void> {
   const res = await apiFetch(MESSAGES_PATH, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dialogId, text }),
+    body: JSON.stringify({ dialogId, text, project: project ?? null }),
   });
   if (!res.ok) throw await refused(res, MESSAGES_PATH);
 }

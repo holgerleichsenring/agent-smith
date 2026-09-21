@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import type { Ref } from "react";
 import type {
   FiledWork,
   SpecDialogFilingPush,
@@ -38,6 +39,9 @@ export function DialogPane({
   work,
   focus,
   onFocus,
+  paneRef,
+  panelRef,
+  marked = false,
 }: {
   session: SpecDialogSession | null;
   projects: SpecDialogProject[];
@@ -48,6 +52,12 @@ export function DialogPane({
   /** The operator's own choice, kept only while the conversation's outcome is unchanged. */
   focus: DialogPaneFocus | null;
   onFocus: (focus: DialogPaneFocus) => void;
+  /** 2026-09-20-4b0ae: the card itself, for the surface to scroll to and to mark. */
+  paneRef?: Ref<HTMLElement>;
+  /** The panel, for the surface to move focus to. It is what an inspected proposal is read in. */
+  panelRef?: Ref<HTMLDivElement>;
+  /** Whether the pane is wearing the mark an inspect just put on it. */
+  marked?: boolean;
 }) {
   const shownProposal = focus?.tab === "proposal" && focus.proposal ? focus.proposal : proposal;
   const offered: DialogPaneTab[] = [
@@ -62,10 +72,15 @@ export function DialogPane({
   const panelId = `${ids}-panel`;
 
   return (
+    // 2026-09-20-4b0ae: an inspect from the exchange usually selects the proposal the pane is
+    // already showing, so the act leaves this card's contents identical. data-inspected is what
+    // says it happened, and the surface that set it takes it off again.
     <aside
+      ref={paneRef}
       data-testid="dialog-pane"
       data-tab={tab}
-      className="ecard inert"
+      data-inspected={marked ? "true" : undefined}
+      className="ecard inert d-pane"
     >
       <div className="d-head items-center">
         <div role="tablist" className="flex flex-wrap gap-1">
@@ -92,11 +107,16 @@ export function DialogPane({
           {statusOf(tab, shownProposal, proposal, filed)}
         </span>
       </div>
+      {/* 2026-09-20-4b0ae: tabIndex minus one is focusable programmatically and only so — it
+          keeps the panel out of the tab order the tablist and the controls inside it already
+          provide, while letting an inspect from the exchange land the reader on what it selected. */}
       <div
+        ref={panelRef}
         role="tabpanel"
         id={panelId}
         aria-labelledby={offered.includes(tab) ? tabId(tab) : undefined}
-        className="d-body"
+        tabIndex={-1}
+        className="d-body d-panel"
       >
         {tab === "filed" && filed && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "proposal" && shownProposal && <DialogProposalPanel proposal={shownProposal} />}

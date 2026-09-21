@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-20-4b0af
+
+goal: "An open conversation is headed by a subject minted once from its opening exchange, instead of repeating verbatim the sentence the person typed and already reads in the column beside it."
+
+applies_to: "backend (the spec-dialog router, the session row and the session view); the dashboard's heading reads the new field"
+
+scope:
+  in: >
+    The heading over the open conversation is the first prose line the person wrote, cut at 120
+    characters — and the conversations column to its left renders the same string, so the operator
+    sees their own sentence twice, once as a row and once as a heading, with the heading
+    contributing nothing the row did not.
+    A heading should say what the conversation is ABOUT, and the tree has no such text: no session
+    column, no transcript field, no store. The only model-produced short texts per conversation ride
+    the proposal, which arrives turns later and never arrives at all for a conversation that only
+    asked a question. So this phase mints one — a short subject asked of the model once, by the
+    ROUTER, in the same act that persists the first assistant turn and before the reply that
+    triggers the page's next read. It is stored on the session, served on the session view the page
+    already re-reads after every message, and preferred by the heading. The conversations column
+    keeps the first line, because that is how a person recognises the row they wrote.
+  out: >
+    RE-MINTING. The subject is minted once and not revised as the conversation turns. A heading that
+    renames itself under a reader is worse than one a turn behind, and a conversation that genuinely
+    changed subject is a new conversation.
+    THE LIST ROW AND ITS READ. The row keeps the first line, the delete control keeps quoting it,
+    and the predicate that decides whether to re-read the expensive conversation list is NOT
+    touched — it keys on a null title and on the row being behind the page's turn count, and
+    adding a field that can legitimately stay null forever would turn it into a poll that never
+    stops.
+    THE PIPELINE. The mint does not go inside the turn. Every extra model call in a spec-dialog turn
+    today goes through a framework-owned port so the harness can answer it, and six harness
+    assertions pin the turn's exact model-call count. The router is outside that path — the harness
+    drives the turn runner directly — so minting there disturbs none of it.
+    BACKFILL. Conversations that exist today get no subject and keep the heading they have; there is
+    nothing to mint from without replaying their turns through a model.
+    THE FILED TICKET TITLES. Composed from the draft's own goal, unaffected.
+
+decisions:
+  - key: |
+      THE ROUTER IS THE ONLY PLACE THE TRIGGER IS BOTH TRUE AND ACTIONABLE. An earlier cut put the
+      call inside the master handler's spec-dialog branch, next to the proposal review, and gave the
+      trigger as "the session has exactly one assistant turn". That is false there twice over: the
+      assistant turn is persisted by the ROUTER after the pipeline has already returned, so at that
+      point a first turn has zero persisted assistant turns; and the pipeline has no path back to
+      the session row, whose only writer on the turn path takes no subject. The router holds the
+      conversation state, the turn's result and the session writer, in that order, in one method.
+  - key: |
+      AND IT MUST LAND BEFORE THE REPLY IS SENT, WHICH IS THE OTHER THING THE ROUTER MAKES POSSIBLE.
+      The page re-reads the dialog when the reply push arrives. A subject persisted after that push
+      would be a read too late, and for a conversation that only ever asks one question there is no
+      later read to correct it. So the mint sits between persisting the assistant turn and sending
+      the reply.
+  - key: |
+      IT IS SERVED ON THE SESSION VIEW, NOT ON THE CONVERSATION LIST. The heading reads the list
+      today, and the list is read only when a predicate says the page is behind — which for a
+      one-turn conversation fires exactly once. Serving the subject on the session view instead puts
+      it on the read the page issues after EVERY message, so the heading corrects itself on the very
+      next read and the list predicate stays exactly as it is.
+  - key: |
+      THERE IS NOTHING TO DERIVE IT FROM, SO IT IS ASKED FOR — WITH THE CHEAPEST TASK TYPE AND A
+      CEILING. Every short text that exists per conversation belongs to the proposal, and a
+      conversation that asks a question proposes nothing. Deriving a heading from the assistant's
+      prose would be a heuristic over prose, which this tree does not do. The call is made on the
+      summarization task type, which the model registry routes to the small model, with an explicit
+      output ceiling, and it is given the first exchange only rather than the turn's context. Its
+      usage is tracked on the turn's cost tracker, because a raw chat call is tracked by nothing
+      else.
+  - key: |
+      A CAP IS NOT AN ADMISSION RULE, AND WITHOUT ONE A BAD ANSWER IS STORED FOREVER. Since the
+      subject is never re-minted, a model that answers with three sentences, a fenced block or a
+      quoted string would leave a permanently mangled heading. So the answer is ADMITTED or
+      discarded: one line, no fence and no markdown, non-empty after trimming, within the column's
+      length. Anything else stores nothing, and the heading falls back to the first line — which is
+      exactly today's behaviour and therefore a safe failure. A call that throws is swallowed the
+      way the proposal review swallows its own.
+  - key: |
+      THE SUBJECT IS IN THE CONVERSATION'S LANGUAGE, NOT ENGLISH. The repository's English-only rule
+      governs artefacts committed here; this is interface text standing beside a row that renders the
+      operator's own sentence, and an English heading over a German conversation would read as a
+      regression rather than a policy. The prompt says so explicitly.
+  - key: |
+      THE COLUMN IS CAPPED BY LENGTH, NOT BY A PROVIDER TYPE, AND THE MIGRATION IS A PAIR. There are
+      two persistence projects but four providers: the default project's migrations are run by
+      Sqlite, Postgres and MySQL alike, and only SqlServer carries its own assembly. The tree's own
+      most recent migration warns that a literal column type there is provider-blind. So the column
+      is declared by a maximum length in the EF configuration and scaffolded without a literal type,
+      and both projects get a migration, their designer files and their model snapshots, on top of
+      the attachments pair that is the current baseline.
+      The conversation state and its mapper carry the subject too, so the next turn can see that one
+      already exists without a second read.
+
+steps:
+  - id: the-session-carries-a-subject
+    action: "A capped, nullable subject column on the spec-dialog session, declared by maximum length rather than a literal type: the entity, its EF configuration, the conversation state and its mapper, and a migration in each of the two persistence projects with their designer files and model snapshots."
+  - id: the-router-mints-it-before-it-replies
+    action: "A minter injected into the router. After the first assistant turn is persisted and before the reply is sent, on a conversation whose state carries no subject and whose transcript held no assistant turn, it asks the model for a subject in the conversation's own language, admits or discards the answer, and stores it. It resolves the project's own agent configuration rather than fabricating one, uses the summarization task type with an explicit output ceiling, tracks its usage, and swallows its own failure."
+  - id: the-session-view-serves-it-and-the-heading-prefers-it
+    action: "The session view carries the subject. The surface heads the open conversation with it and falls back to the list title. The conversations column, the delete control's name and the list-read predicate are untouched."
+
+tests:
+  - "SpecDialogRouter_AFirstTurn_MintsASubjectBeforeItSendsTheReply"
+  - "SpecDialogRouter_ALaterTurn_MintsNothing"
+  - "SpecDialogRouter_AFailedTurn_MintsNothing"
+  - "SpecDialogRouter_AConversationThatAlreadyHasASubject_MintsNothing"
+  - "SpecDialogRouter_AMinterThatThrows_StillPersistsTheTurnAndSendsTheReply"
+  - "ConversationSubject_AParagraphOrAFencedAnswer_IsDiscarded"
+  - "ConversationSubject_AnEmptyAnswer_IsDiscarded"
+  - "ConversationSubject_AnOverlongAnswer_IsDiscarded"
+  - "SpecDialogSessionView_ASessionWithASubject_ServesIt"
+  - "SpecDialog_AConversationWithASubject_HeadsWithIt"
+  - "SpecDialog_AConversationWithout_HeadsWithTheFirstLineAsBefore"
+  - "SpecDialog_ASubjectlessConversation_DoesNotTriggerAFurtherListRead"
+
+done:
+  - "the heading over an open conversation says what it is about, from the first reply onward"
+  - "the conversations column still shows the first line the person wrote"
+  - "the subject is minted once, before the reply that triggers the page's read, and never revised"
+  - "an answer that is not a single short line is discarded and the heading falls back, exactly as today"
+  - "a mint that fails costs the turn nothing"
+  - "a turn that FAILED mints nothing, so half an exchange cannot name a conversation for good"
+  - "the page does not re-read the conversation list because of the new field"
+  - "both persistence projects carry the column; build green, full suite green, dashboard tests green"
+
+facts:
+  - claim: "The conversation title is the first prose line of the first operator turn, cut at 120 characters, read from the transcript rather than stored, with exactly one producer."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationTitle.cs:12-35, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs:36-44"
+  - claim: "The surface heads the open conversation with the string it finds in the conversation LIST, not in the session view."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:43-45, :77"
+  - claim: "The conversations column renders it too and reuses it as the delete control's accessible name."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:120, :130, :147"
+  - claim: "The list is re-read only when a predicate says the page is behind, evaluated on the reply push before the dialog read."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:317-324, :343-347"
+  - claim: "The page issues a dialog read after every reply."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:346"
+  - claim: "The router persists the assistant turn and then sends the reply, in that order, holding the conversation state and the turn result."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:77-98"
+  - claim: "The router's collaborators are injected, so a minter joins them the way the others did."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:14-24"
+  - claim: "The turn runner resolves the project's own configuration from the server context."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:93-99"
+  - claim: "The session entity has no subject, intent or summary column."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:10-48"
+  - claim: "Indexed strings in that table are capped by a shared limit in the EF configuration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/SpecDialogSessionConfiguration.cs:16-28"
+  - claim: "Two persistence projects serve four providers: the default project's migrations run for Sqlite, Postgres and MySQL, and only SqlServer has its own migrations assembly."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:29-33"
+  - claim: "The tree's most recent migration warns that a literal column type is provider-blind."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260920105644_AddSpecDialogAttachments.cs:22-28"
+  - claim: "Adding a column to that table is an established pattern with a pair of migrations."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260917092828_AddSpecDialogLatestOutcome.cs:13-23, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20260917092833_AddSpecDialogLatestOutcome.cs:13-23"
+  - claim: "A transcript turn carries role, text, moment, kind and decision and no title slot."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:10-12"
+  - claim: "The latest-outcome store holds a proposal and a filing and nothing else."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcome.cs:10"
+  - claim: "Every short model-produced text per conversation belongs to the proposal; a phase draft has no title field at all."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:9-13, src/backend/AgentSmith.Contracts/Models/BugTicketDraft.cs:8-11, src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:32-44"
+  - claim: "The model's own one-sentence intent exists per step but is never persisted."
+    evidence: "src/backend/AgentSmith.Contracts/Turns/TurnActivity.cs:21, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:23-39"
+  - claim: "The extra model call inside a spec-dialog turn goes through a framework-owned reviewer and swallows its own failures."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:26-63, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:462-464"
+  - claim: "The harness drives the turn runner directly and asserts the turn's exact model-call count."
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/SpecDialogOutcomeTests.ProposalReview.cs:40"
+  - claim: "The task types include a summarization one, and the model registry routes it to the small model with its own token ceiling."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/TaskType.cs:7-16, src/backend/AgentSmith.Contracts/Models/Configuration/ModelRegistryConfig.cs:29-33"
+  - claim: "The one server-side precedent for reaching a model outside the pipeline fabricates a bare agent config in DI."
+    evidence: "src/backend/AgentSmith.Server/Services/Handlers/IntentExtensions.cs:26-33"
+  - claim: "Filed ticket titles are composed from the draft's goal rather than asked for."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:115"

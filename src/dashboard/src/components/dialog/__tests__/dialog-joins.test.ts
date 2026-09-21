@@ -196,3 +196,63 @@ describe("Given text wraps, and only on this page", () => {
     expect(WRAPS.test("white-space: nowrap")).toBe(false);
   });
 });
+
+// 2026-09-20-4b0ac: the composer's plus and arrow are drawn here rather than in utilities,
+// because the surface scan beside this file forbids every utility a menu would need. Two
+// properties of those rules are what keep the controls usable, and neither is observable in
+// jsdom — which resolves no cascade and lays nothing out. They are asserted on the text.
+
+describe("The composer's glyph controls", () => {
+  it("MockParity_TheDialogMenu_OpensUpwardAndTheIconButtonHasADisabledState", () => {
+    const menu = dialogRules.find((r) => r.selector === ".mock-dialog .d-menu");
+    expect(menu, "no rule draws the menu the composer's plus opens").toBeDefined();
+    expect(menu!.at, "the menu is this page's own structure, not a borrowed rule")
+      .toBeGreaterThan(ownFrom);
+    expect(menu!.body).toMatch(/(^|;)\s*position\s*:\s*absolute\s*(;|$)/);
+    // UPWARD: its BOTTOM is anchored to the plus's top edge. The card this composer closes
+    // clips its box, so a menu anchored by its top drops past the card's lower edge and is cut
+    // off there — and the one rule in this sheet that lifts that clipping is the studio's.
+    expect(menu!.body, "the menu must be anchored by its bottom, above the plus")
+      .toMatch(/(^|;)\s*bottom\s*:\s*calc\(\s*100%/);
+    expect(menu!.body, "a top anchor opens it downward, into the edge the card clips at")
+      .not.toMatch(/(^|;)\s*top\s*:/);
+
+    const card = rulesIn(css).find((r) => r.selector === ".mock-config .ecard, .mock-dialog .ecard");
+    expect(card, "the card rule the menu opens upward to avoid is gone").toBeDefined();
+    expect(card!.body, "if the card stopped clipping, the reason for opening upward changed")
+      .toMatch(/(^|;)\s*overflow\s*:\s*hidden\s*(;|$)/);
+
+    // The icon buttons are not .btn, so .btn:disabled does not reach them: a disabled control
+    // would be inert in the DOM and look exactly like an enabled one.
+    const off = dialogRules.filter((r) => /\.d-icon:disabled\s*$/.test(r.selector.trim()));
+    expect(off, "the icon button carries no disabled appearance of its own").toHaveLength(1);
+    expect(off[0].body).toMatch(/(^|;)\s*opacity\s*:/);
+  });
+});
+
+// 2026-09-20-4b0ae: the acknowledgement an inspect leaves is DRAWN, or the phase shipped two
+// attributes nothing paints. Both rules live in this page's own block — a new name below the
+// marker is the one shape the two guards above allow — and the focus one must be a plain
+// :focus, because the focus it draws follows a mouse click on a control in another column and
+// matches no :focus-visible rule. Nothing here resolves a cascade; what is observable is the
+// declarations that were typed.
+describe("Inspecting is drawn", () => {
+  it("MockParity_TheDialogBlock_DrawsTheMarkAndAPlainFocusOutlineOnThePanel", () => {
+    const own = dialogRules.filter((r) => r.at >= ownFrom);
+
+    const mark = own.filter((r) => r.selector.includes('[data-inspected="true"]'));
+    expect(mark, "no rule draws the mark an inspect puts on the pane").toHaveLength(1);
+    expect(mark[0].selector).toContain(".d-pane");
+    expect(mark[0].body, "the mark must change something a person can see")
+      .toMatch(/(^|;)\s*(border-color|box-shadow|outline|background)\s*:/);
+
+    const focused = own.filter((r) => /\.d-panel:focus(?![\w-])/.test(r.selector));
+    expect(focused, "no rule draws the focus the inspect moves to the panel").toHaveLength(1);
+    expect(focused[0].body, "the focused panel must be outlined").toMatch(/(^|;)\s*outline\s*:/);
+
+    // The one that would have shipped an invisible fix: a programmatic focus after a mouse
+    // click matches :focus-visible in none of the browsers this runs in.
+    const visibleOnly = own.filter((r) => /\.d-panel:focus-visible/.test(r.selector));
+    expect(visibleOnly, "the panel's focus rule may not be a focus-visible one").toEqual([]);
+  });
+});

@@ -266,7 +266,7 @@ public sealed class DialogImageUploadTests : IDisposable
             http, Dialog, Project,
             new SpecDialogImageBody(NullLogger<SpecDialogImageBody>.Instance),
             new ImageKindFromBytes(),
-            new SpecDialogImageConversation(_sessions, _ownership, Commands()),
+            new SpecDialogConversationResolver(_sessions, _ownership, Commands()),
             _attachments, CancellationToken.None);
     }
 
