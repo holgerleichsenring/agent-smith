@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
 
@@ -8,23 +7,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Builds sandbox-side git Steps for the checkout flow. Each step runs inside
 /// the per-repo sandbox where /work is the repo root (p0158e), so the workdir
-/// is always /work — no per-call target directory parameter.
+/// is always /work — no per-call target directory parameter. The credential the
+/// remote-facing ones carry is <see cref="GitStepCredentials"/>'.
 /// </summary>
 internal static class CheckoutStepFactory
 {
     private const int CloneTimeoutSeconds = 300;
     private const int CheckoutTimeoutSeconds = 60;
-
-    private const string CredHelper =
-        "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
-
-    private static IReadOnlyDictionary<string, string>? TokenEnv(RepoConnection config)
-    {
-        var token = GitTokenResolver.Resolve(config.Type);
-        return token is null
-            ? null
-            : new Dictionary<string, string> { ["GIT_TOKEN"] = token };
-    }
 
     /// <summary>
     /// The RUN's clone: the whole history, because a run diffs against a base, reads its own
@@ -44,9 +33,9 @@ internal static class CheckoutStepFactory
     private static Step Clone(RepoConnection config, string[] narrowing) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", CredHelper, "clone", .. narrowing, config.Url!, "."],
+            Args: ["-c", GitStepCredentials.Helper, "clone", .. narrowing, config.Url!, "."],
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(config),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     /// <summary>
@@ -59,9 +48,9 @@ internal static class CheckoutStepFactory
     public static Step BuildFetchRevisionStep(RepoConnection config, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: new[] { "-c", CredHelper, "fetch", "origin", revision },
+            Args: new[] { "-c", GitStepCredentials.Helper, "fetch", "origin", revision },
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(config),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     /// <summary>
@@ -74,9 +63,9 @@ internal static class CheckoutStepFactory
     public static Step BuildFetchRevisionAtDepthStep(RepoConnection config, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", CredHelper, "fetch", "--depth", "1", "origin", revision],
+            Args: ["-c", GitStepCredentials.Helper, "fetch", "--depth", "1", "origin", revision],
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(config),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     /// <summary>2026-09-13-9802: what the tree is actually on, asked of the clone.</summary>
@@ -95,9 +84,9 @@ internal static class CheckoutStepFactory
     public static Step BuildCreateRemoteBranchStep(RepoConnection config, string atRef, string branch) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: new[] { "-c", CredHelper, "push", "origin", $"{atRef}:refs/heads/{branch}" },
+            Args: new[] { "-c", GitStepCredentials.Helper, "push", "origin", $"{atRef}:refs/heads/{branch}" },
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(config),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     public static Step BuildCheckoutStep(string branch) =>

@@ -19,7 +19,7 @@ public sealed class DockerSandbox(
     SandboxRedisChannel channel,
     int stepTimeoutCapSeconds,
     string toolchainImage,
-    ILogger logger) : ISandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage, ISandboxForceRemoval
+    ILogger logger) : IHoldableSandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 

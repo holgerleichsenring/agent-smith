@@ -55,7 +55,8 @@ public sealed class FiledWorkPermissionTests : IDisposable
         _context.Database.Migrate();
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
         _router = Router(_repository);
     }
 

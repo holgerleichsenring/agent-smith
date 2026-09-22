@@ -16,9 +16,11 @@ internal sealed class RecordingHeldSandboxes : IHeldSandboxRegister
 
     public void Hold(HeldSandbox held) => throw new NotSupportedException();
 
-    public bool Take(string key) => throw new NotSupportedException();
+    public Task<IHoldableSandbox?> TakeAsync(string key, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 
-    public void Release(string key) => throw new NotSupportedException();
+    public Task ReleaseConversationAsync(string conversationId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 
     public Task<int> EvictAsync(CancellationToken cancellationToken)
     {

@@ -73,6 +73,11 @@ internal static class ServerSandboxExtensions
         services.AddSingleton<HeldConversationReader>();
         services.RemoveAll<IConversationLivenessReader>();
         services.AddSingleton<IConversationLivenessReader, DbConversationLivenessReader>();
+        // 2026-09-22-2d11b: and the heartbeat a turn verifies a held sandbox through. Redis is
+        // the agent's own liveness signal whichever backend runs the container, so it is
+        // registered here beside the rail rather than per backend.
+        services.RemoveAll<ISandboxHeartbeatProbe>();
+        services.AddSingleton<ISandboxHeartbeatProbe, RedisSandboxHeartbeatProbe>();
         switch (backend)
         {
             case SandboxBackend.Kubernetes: KubernetesSandboxRegistrations.Register(services); break;

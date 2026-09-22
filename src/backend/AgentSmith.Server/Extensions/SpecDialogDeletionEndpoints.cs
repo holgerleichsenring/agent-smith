@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Services.SpecDialog;
 
 namespace AgentSmith.Server.Extensions;
@@ -52,6 +53,7 @@ internal static class SpecDialogDeletionEndpoints
         SpecDialogOwnership ownership,
         SpecDialogTurnGate turnGate,
         ISpecDialogConversationDeleter deleter,
+        IHeldSandboxRegister holds,
         CancellationToken cancellationToken)
     {
         if (!await ownership.MayDeleteAsync(sessionId, ownership.OwnerOf(user), cancellationToken))
@@ -61,6 +63,9 @@ internal static class SpecDialogDeletionEndpoints
         try
         {
             await deleter.DeleteAsync(sessionId, cancellationToken);
+            // 2026-09-22-2d11b: the conversation is gone, so what it was holding between turns
+            // is nobody's. The removals are detached: this route runs inside the turn gate.
+            _ = holds.ReleaseConversationAsync(sessionId, CancellationToken.None);
         }
         finally
         {

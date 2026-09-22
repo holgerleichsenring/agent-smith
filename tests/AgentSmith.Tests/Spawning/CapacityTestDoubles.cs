@@ -47,6 +47,7 @@ internal static class CapacityTestDoubles
     // precedes every probe releases nothing and the admission is what it always was.
     public static IHeldSandboxRegister NoHolds() =>
         new AgentSmith.Application.Services.Sandbox.HeldSandboxRegister(
+            new AgentSmith.Application.Services.Sandbox.NoSandboxHeartbeatProbe(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<
                 AgentSmith.Application.Services.Sandbox.HeldSandboxRegister>.Instance);
 

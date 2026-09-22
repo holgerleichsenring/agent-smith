@@ -14,9 +14,9 @@ namespace AgentSmith.Tests.Sandbox;
 /// <summary>
 /// 2026-09-22-2d11a: a source-scope sandbox is stamped with the conversation it
 /// belongs to, beside the job, run and owner labels — on the container and on the pod,
-/// so one rail judges both backends. Nothing passes a conversation until
-/// 2026-09-22-2d11b holds one, and a spec that names none carries no label at all,
-/// which is what keeps every reaper verdict exactly what it is today.
+/// so one rail judges both backends. 2026-09-22-2d11b: a design turn is what passes one;
+/// a spec that names none carries no label at all, which is what keeps every reaper
+/// verdict over a RUN'S sandbox exactly what it was.
 /// </summary>
 public sealed class SandboxConversationLabelTests
 {
@@ -75,7 +75,7 @@ public sealed class SandboxConversationLabelTests
         await Scopes(factory).Create(Project, RepoWithUrl()).MaterializeAsync(CancellationToken.None);
 
         factory.Spawned.Should().ContainSingle().Which.Spec.ConversationId.Should().BeNull(
-            "nothing holds a conversation yet, so no sandbox carries the label");
+            "a scope that names no conversation carries no label — every caller but a design turn");
     }
 
     private static ISourceScopeSandboxFactory Scopes(StubSandboxFactory factory)
@@ -87,8 +87,9 @@ public sealed class SandboxConversationLabelTests
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         return new SourceScopeSandboxFactory(
             new SourceScopeOpener(
-                new SourceScopeMaterialiser(), factory, specBuilder, runContext.Object),
-            new AsyncLocalSourceScopeObserverAccessor(), NullLogger<SourceScopeSandbox>.Instance);
+                new SourceScopeMaterialiser(new SourceScopeRefresh()), factory, specBuilder, runContext.Object),
+            new AsyncLocalSourceScopeObserverAccessor(), Holds.None(),
+            NullLogger<SourceScopeSandbox>.Instance);
     }
 
     private static Docker.DotNet.Models.CreateContainerParameters Toolchain(string? conversationId) =>

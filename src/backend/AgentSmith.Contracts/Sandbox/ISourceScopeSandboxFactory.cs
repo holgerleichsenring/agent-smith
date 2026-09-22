@@ -17,8 +17,10 @@ public interface ISourceScopeSandboxFactory
     /// </param>
     /// <param name="conversationId">
     /// 2026-09-22-2d11a: the design conversation this scope belongs to, stamped on the
-    /// sandbox as a label. Null — what every caller passes until 2026-09-22-2d11b holds
-    /// one — leaves the label off, and the reapers' third rail out of reach.
+    /// sandbox as a label. Null leaves the label off and the reapers' third rail out of
+    /// reach — what a RUN passes. 2026-09-22-2d11b: a design turn names its conversation,
+    /// and the scope then takes the sandbox that conversation already holds and hands it
+    /// back when the turn ends.
     /// </param>
     ISourceScopeSandbox Create(
         ResolvedProject project, RepoConnection repo, string? revision = null,

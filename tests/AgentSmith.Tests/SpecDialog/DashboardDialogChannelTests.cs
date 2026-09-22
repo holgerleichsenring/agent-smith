@@ -68,7 +68,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
         _resumer = new SpecDialogResumer(
             _repository, _turnGate, _pendingQuestions, TimeProvider.System,
             NullLogger<SpecDialogResumer>.Instance);

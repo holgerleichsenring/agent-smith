@@ -52,7 +52,8 @@ public sealed class SpecDialogRoutingTests : IDisposable
         _adapter.SetupGet(a => a.Platform).Returns(Platform);
         var repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
         var messenger = new SpecDialogMessenger(
             [_adapter.Object], NullLogger<SpecDialogMessenger>.Instance);
         var turnGate = _turnGate;

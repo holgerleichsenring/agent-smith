@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -43,8 +44,11 @@ public sealed class SpecDialogTemplateTests
         result.Reply.Should().Contain("Three slices");
         var spawned = harness.StubSandboxFactory!.Spawned;
         spawned.Should().ContainSingle("only the template was read; the scope's repo was not");
+        // 2026-09-22-2d11b: the first step asks the work path who it is a clone of; the
+        // clone is the one that names a remote.
         var steps = spawned[0].Sandbox.RanSteps;
-        steps[0].Args.Should().Contain("https://stub.test/spec-dialog-template-fixture",
+        steps.Should().Contain(s => s.Args != null
+                && s.Args.Contains("https://stub.test/spec-dialog-template-fixture"),
             "the analysis clones the TEMPLATE's repository, not the target's");
         steps.Should().Contain(s => s.Args != null && s.Args.Contains(Revision),
             "a template is read at the revision the project declared, not at whatever HEAD is");
@@ -65,24 +69,32 @@ public sealed class SpecDialogTemplateTests
 
         var spawned = harness.StubSandboxFactory!.Spawned;
         spawned.Should().ContainSingle("a project with no template addresses what it did before");
-        spawned[0].Sandbox.RanSteps[0].Args.Should().Contain("https://stub.test/spec-dialog-fixture");
+        spawned[0].Sandbox.RanSteps.Should().Contain(s => s.Args != null
+            && s.Args.Contains("https://stub.test/spec-dialog-fixture"));
         FlattenPrompt(harness).Should().NotContain("template:",
             "a project that declared none is told about none");
     }
 
     [Fact]
-    public async Task SpecDialogTurn_Ends_DisposesTemplateSandboxes()
+    public async Task SpecDialogTurn_Ends_HoldsTemplateSandboxesForTheNextTurn()
     {
         await using var harness = BuildHarness();
         harness.ChatClient
             .EnqueueToolCall("read_file", $$"""{"path": "{{Address}}/src/Api/Order.cs"}""")
             .EnqueueText("Cut along the template's seams.");
+        var state = State(TemplateProject);
 
-        await RunTurnAsync(harness, State(TemplateProject));
+        await RunTurnAsync(harness, state);
 
-        harness.StubSandboxFactory!.Spawned.Should().OnlyContain(s => s.Sandbox.Disposed,
-            "the turn owns every scope it opened — a foreign read-only checkout left "
-            + "running is a container nobody owns any more");
+        // 2026-09-22-2d11b: it was disposed until this phase. A template checkout is no
+        // longer left running with nobody owning it — the CONVERSATION owns it, the reapers'
+        // third rail spares it while the hold window lasts, and a capacity door may evict it.
+        harness.StubSandboxFactory!.Spawned.Should().OnlyContain(s => !s.Sandbox.Disposed);
+        var held = await harness.Services.GetRequiredService<IHeldSandboxRegister>()
+            .TakeAsync(
+                HeldSandbox.KeyFor(state.JobId, "spec-dialog-template-fixture", Revision),
+                CancellationToken.None);
+        held.Should().NotBeNull("the next turn of this conversation reads through it");
     }
 
     [Fact]
@@ -110,6 +122,10 @@ public sealed class SpecDialogTemplateTests
             services.AddSingleton<ISkillsCatalogResolver>(new StubSkillsCatalogResolver());
             services.RemoveAll<IProjectMapStore>();
             services.AddSingleton<IProjectMapStore>(new EmptyProjectMapStore());
+            // 2026-09-22-2d11b: the stub sandbox runs no agent, so the heartbeat a hold is
+            // verified through is answered here.
+            services.RemoveAll<ISandboxHeartbeatProbe>();
+            services.AddSingleton<ISandboxHeartbeatProbe>(new AliveSandboxHeartbeat());
         });
 
     private static async Task<SpecDialogTurnResult> RunTurnAsync(
