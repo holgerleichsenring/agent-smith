@@ -1,0 +1,209 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-f237b
+
+requires:
+  - 2026-09-21-f237a
+
+goal: "Every conversation the caller holds gets a page of its own, with an address that opens one, so a past conversation stops being findable only by scrolling the panel it happens to still be in."
+
+applies_to: "the dashboard (a second route on the Work it out surface, and the address that opens a conversation); backend (the list read admits a limit and says how many there are)"
+
+scope:
+  in: >
+    The caller's conversations are reachable in exactly one place: a panel beside the open
+    conversation, holding the fifty most recently created. There is no page, no search and no
+    address — a conversation that scrolled out of that panel is gone as far as the operator is
+    concerned.
+    This phase gives them a page at /spec-dialog/conversations: the caller's conversations as rows
+    with room for the subject f237a put on them, the project, the turn count, when each was last
+    active, what it filed and whether it is still open — reading the SAME route the panel reads,
+    with a limit it names.
+    OPENING ONE IS THE WORK. Today nothing addresses a conversation. The panel's row calls a hook
+    callback that mints a dialog id into localStorage and, for a closed conversation, QUEUES a
+    "/spec resume" command until the page has joined that id's hub group — a link cannot do any of
+    it. So the surface learns to accept a session id handed to it in its address, and the page's
+    rows are links that hand one over. That is the mechanism this phase exists to build; the page
+    is what it is built for.
+    DELETING BELONGS HERE TOO. The delete control lives on the panel row and nowhere else, so a
+    conversation the panel does not draw cannot be deleted at all. The page carries the same
+    control and the same confirmation, which is also what lets f237c bound the panel.
+    THE LIST SAYS HOW MANY THERE ARE. A page that shows a ceiling-worth of rows has to say so, and
+    "I received exactly the number I asked for" is a guess that is wrong for the caller who has
+    exactly that many. The route answers the rows and the owner's total.
+  out: >
+    SEARCH AND FILTERS. A query box and a project filter over rows nobody can currently reach at
+    all would be built before anyone has said which they reach for. The page is the reaching.
+    CURSOR PAGING. A cursor is incoherent over this query: the cap is taken by Id and the order is
+    by last activity, so page two of a cursor would not continue page one. Paging is the phase
+    after the ordering phase, not before it.
+    THE ORDERING DEFECT ITSELF. ListByOwnerAsync takes its cap BY ID because SQLite throws on an
+    ORDER BY over a DateTimeOffset, then sorts the taken set by activity in memory. So the rows are
+    the most recently CREATED, ordered by activity, and a conversation started long ago and resumed
+    today can fall outside the cap on either read. The ceiling makes it rarer, never impossible.
+    Fixing it means an orderable activity column and a migration pair — a phase about the
+    repository, named here in prose and minted when it is cut. Until then the page says "the most
+    recent", never "all", and `done:` is bounded the same way.
+    A SECOND RAIL ENTRY. The rail names surfaces and this is a second view of one. It gets a PLACES
+    entry, because a route the table does not name leaves the header with nothing to say, and the
+    rail's own active mark learns that the surface's subtree is still the surface.
+    THE PANEL'S SHAPE. Its heading, its width and how many rows it draws are 2026-09-21-f237c. This
+    phase adds one link to it and changes what it reads only where the response shape forces it.
+
+decisions:
+  - key: |
+      THE ADDRESS IS A QUERY PARAMETER ON THE SURFACE, NOT A ROUTE PER CONVERSATION. A conversation
+      is not a page: it is what the one surface currently holds, with its hub subscription, its
+      composer and its panel. /spec-dialog?open=<sessionId> hands the surface a session id and lets
+      it do exactly what the panel's row does with it — including the queued resume, which only the
+      hook can perform because only the hook knows when the subscription joined. A route per
+      conversation would have to rebuild all of that a second time.
+      The cost is named: this repository already recorded that a search-param hook fails the build
+      for every statically rendered route, and the dashboard builds standalone with this page
+      prerendered. The read goes behind a Suspense boundary, which is the price of an address.
+  - key: |
+      ONE ROUTE WITH AN OPTIONAL LIMIT, CLAMPED, BECAUSE THAT IS ALREADY THIS TREE'S CONVENTION.
+      RunQueryEndpoints and RunStepQueryEndpoints both take `int? limit` and apply
+      Math.Clamp(limit ?? Default, 1, Max) against constants on the composer — 50 and 200. A second
+      endpoint would duplicate the owner filter, the outcome read and the summary mapping, which
+      are the three things that make this read expensive; a refusal on a zero limit would make this
+      the one route in the tree that refuses where the others clamp. Same shape, same numbers, and
+      the clamp is exposed as its own function so a test can prove it without creating 201 sessions.
+  - key: |
+      THE CEILING IS SMALL BECAUSE THE READ PARSES EVERY TRANSCRIPT. This read walks each listed
+      session's transcript JSON and two further JSON documents per row. An unbounded "all" would
+      grow one page load with the operator's whole history and get slower every week with nothing
+      on screen to explain it. Two hundred is what a person scrolls and what the tree already calls
+      a page ceiling elsewhere.
+  - key: |
+      THE TOTAL IS A FIELD, NOT AN INFERENCE, AND IT COSTS A COUNT RATHER THAN A PARSE. Deriving
+      "there are more" from `rows.length === limit` is a heuristic that is wrong for exactly the
+      caller who has the ceiling exactly — and the missing field IS the fix. The route's answer
+      becomes an object carrying the rows and the owner's count, which is a COUNT query over the
+      indexed owner columns and touches no transcript. The panel's client and the dashboard's
+      helper move to the new shape in the same step, because the old shape stops existing.
+  - key: |
+      THE PAGE REUSES THE PANEL'S ROW DTO, NOT ITS ROW MARKUP. One summary shape serves both, so a
+      field added for one is there for the other; what the two DRAW differs by design, because a
+      panel row is a strip and a page row has room. Where `done:` says "one row shape" it means the
+      DTO.
+      An open conversation and a closed one still differ the way the summary says they do: the page
+      hands over a session id either way, and the surface decides — go to the dialog the open one
+      lives on, or queue the resume — with the one implementation the panel already uses.
+  - key: |
+      THE PAGE MUST SAY "REFUSED", NOT "EMPTY". The list route needs the dialog permission and the
+      rail shows Work it out to every caller with no capability gate, so a caller without it must
+      read a refusal rather than a page that looks like a person with no conversations. The
+      surface's FailedSurface and the pull-requests page's refusalIn/RefusalSurface are both
+      precedents; the page uses the latter, being a page.
+  - key: |
+      THE OPEN CONVERSATION MAY NOT BE IN THE PANEL'S FIFTY, AND THAT IS THIS PHASE'S PROBLEM
+      BECAUSE THIS PHASE CREATES IT. Once the page can open a conversation the panel's read does
+      not contain, the page's predicate finds no row for it and answers "behind" on every reply for
+      the rest of that conversation — the expensive read becomes a poll, which is the outcome the
+      predicate exists to avoid. The predicate is given a memory: an absent row justifies ONE read
+      per conversation opened, not a read per reply. A row that is present and behind its turn
+      count keeps triggering reads as it does today, because that one is guaranteed to be fixed by
+      reading.
+
+steps:
+  - id: the-list-read-admits-a-limit-and-says-how-many
+    action: "SpecDialogConversationList takes the count it is to read and answers the rows together with the owner's total, counted rather than parsed. Its constants become a default and a ceiling with a clamp function beside them, following RunListComposer. The route takes int? limit and clamps. The dashboard's fetch helper takes a limit and returns the new shape; the panel's caller and the SpecDialogSessionSummary[] typing follow. Two test projects move with it: DialogConversationListTests' direct calls to ListAsync and to the route handler and its two reads of the Cap constant, and SpecDialogSurface.test.tsx's thirty-five conversation-mock sites — whose vi.mock wrapper passes no arguments through and whose mockResolvedValue calls answer a bare array, so the shape change fails them at RUNTIME while the typecheck stays green."
+  - id: a-conversation-has-an-address
+    action: "/spec-dialog?open=<sessionId> — and, for a conversation the row says is open, the dialog id it lives on — opens that conversation: the surface reads the parameters behind a Suspense boundary and hands both to the hook's existing open, which keeps deciding between going to that dialog id and queueing a resume. The parameters are consumed once, so a reload does not reopen what the operator has since left."
+  - id: the-predicate-stops-polling-for-a-row-that-is-not-there
+    action: "listIsBehind's absent-row clause is spent once per conversation rather than once per reply. The allowance is keyed to a KNOWN session id — the ref that holds the listed row is null both for a row that is absent and for a page whose session id has not landed yet, and an allowance spent in the second case would be spent on nothing — and it is not spent by a read that did not land, because the list read swallows its failures and leaves the rows as they were. A brand-new conversation, absent from the list because nothing has listed it yet, still gets its read. The titleless clause f237a fixed and the turn-count clause are untouched."
+  - id: the-page-exists-is-named-and-refuses-properly
+    action: "A /spec-dialog/conversations client route on the mock shell, asking for the ceiling rather than the default, listing the caller's conversations as full-width rows — subject, project, turns, last active, outcome, open or closed — each a link that hands its session id to the surface, each with the delete control and the confirmation the panel row carries. It says how many of how many it shows. A refused read renders the refusal. places.ts names the route and layout-shell's surface list gains the component; the rail's active mark treats the surface's subtree as the surface."
+  - id: the-panel-links-to-it
+    action: "The conversations panel grows one link to the page, below its rows."
+
+tests:
+  - "List_ALimitWithinTheCeiling_ReadsThatMany"
+  - "List_ALimitAboveTheCeiling_IsClampedToIt"
+  - "List_ALimitOfZeroOrLess_IsClampedToOne"
+  - "List_NoLimit_ReadsTheDefault"
+  - "List_MoreConversationsThanTheLimit_StillAnswersTheOwnersTotal"
+  - "List_AnotherPrincipalsConversations_AreCountedForNeitherRowsNorTotal"
+  - "ConversationsPage_TheCallersConversations_AreListedWithSubjectProjectTurnsAndOutcome"
+  - "ConversationsPage_ARow_LinksToTheSurfaceCarryingItsSessionId"
+  - "ConversationsPage_ARow_DeletesAfterTheSameConfirmation"
+  - "ConversationsPage_MoreThanShown_SaysHowManyOfHowMany"
+  - "ConversationsPage_NoConversations_SaysSo"
+  - "ConversationsPage_ARefusedRead_SaysWhichPermission"
+  - "SpecDialog_AnAddressCarryingASessionId_OpensThatConversation"
+  - "SpecDialog_AnAddressCarryingAnOpenConversation_GoesToItsDialogRatherThanResuming"
+  - "SpecDialog_AnAddressConsumedOnce_DoesNotReopenOnTheNextRender"
+  - "SpecDialog_AConversationWithNoRowInTheList_ReadsTheListOnceAndThenStops"
+  - "SpecDialog_ANewConversationNothingHasListedYet_StillReadsTheList"
+  - "SpecDialog_AListReadThatFailed_DoesNotSpendTheAllowance"
+  - "ConversationsPage_ItsRead_AsksForTheCeiling"
+  - "ConversationsPage_DeletingTheConversationOpenInTheSurface_LeavesNoStoredIdNamingIt"
+  - "SpecDialog_ARowBehindItsTurnCount_KeepsTriggeringReads"
+  - "Layout_RedesignedSurfaces_CarryTheMockShell (the new page joins its list)"
+  - "Places_TheConversationsPage_IsNamed"
+  - "AppRail_TheConversationsPage_StillMarksWorkItOutActive"
+  - "DialogConversations_ThePanel_LinksToTheConversationsPage"
+
+done:
+  - "a conversation within the most recent two hundred can be found and opened without scrolling the panel"
+  - "an address opens a conversation, resuming a closed one exactly as the panel's row does"
+  - "a conversation the panel does not draw can still be deleted"
+  - "the page says how many of how many, from a counted total and never from the row count"
+  - "a caller without the dialog permission reads a refusal, not an empty page"
+  - "a conversation opened from the page costs at most one extra list read, not one per reply, and a conversation nothing has listed yet still gets its read"
+  - "the header names the page and the rail still marks the surface it belongs to"
+  - "pnpm build green with the Suspense boundary in place, dashboard tests green, full suite green"
+
+facts:
+  - claim: "One route serves the caller's conversations, takes no id, answers for the signed-in principal and needs the dialog-write permission."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:21-22, :62-67"
+  - claim: "It answers a bare array, so nothing on the wire says how many there are."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:67"
+  - claim: "The list caps at fifty, filters by owner in the query, parses each transcript and reads two further JSON documents per row."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs:28, :31-34, :36-44"
+  - claim: "The repository takes the cap by id and sorts by last activity in memory, because SQLite throws on an ORDER BY over a DateTimeOffset — so a conversation resumed today can fall outside the cap."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:32-38, :46-59"
+  - claim: "The tree's convention for a caller-named limit is an optional int clamped between one and a ceiling, against a default of 50 and a maximum of 200 held as constants on the composer."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:74, src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:24, :27, src/backend/AgentSmith.Server/Extensions/RunStepQueryEndpoints.cs:81"
+  - claim: "The dashboard reads the list through one helper that takes only an abort signal."
+    evidence: "src/dashboard/src/lib/specDialogApi.ts:38-43"
+  - claim: "Backend tests call the list service and the route handler positionally and read the Cap constant, so both signatures are pinned by the test project."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/DialogConversationListTests.cs:74, :81, :96, :273"
+  - claim: "Opening a conversation is a hook callback, not an address, and the two branches are told apart by whether the CALLER supplied the dialog id: with one it switches to that dialog, without one it queues a '/spec resume' on a freshly minted id."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:489-499"
+  - claim: "Nothing maps a session id to the dialog id it is open on except the conversation list itself; the per-dialog route is keyed by dialog id."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:23, src/backend/AgentSmith.Server/Models/SpecDialogSessionSummary.cs:9-12"
+  - claim: "The surface's conversation mock passes no arguments through and its thirty-five mock sites answer a bare array, so a response-shape change fails at runtime rather than at typecheck."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:76, :85"
+  - claim: "The ref the predicate reads is null both for an absent row and for a page whose session id has not landed yet, and the list read swallows its own failures."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:317-321, :292-296"
+  - claim: "Deleting the conversation the surface currently holds is coupled in the hook to minting a fresh dialog id, which a page calling the API helper alone would not do."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:511-527"
+  - claim: "Components under components/dialog are scanned by stylesheet-vocabulary tests that ban raw utilities and require the surface's own link class."
+    evidence: "src/dashboard/src/components/dialog/__tests__/dialog-surfaces.test.ts:27-37"
+  - claim: "That queued command is deliberately withheld until the page has joined the new id's hub group, so a link cannot perform it."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:453-454, :470"
+  - claim: "The surface takes its dialog id from browser storage and from nowhere else, so no URL carries one today."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:175, src/dashboard/src/lib/specDialogSession.ts:16-18"
+  - claim: "This repository has recorded that a search-param hook fails the build for every statically rendered route."
+    evidence: "src/dashboard/src/lib/places.ts:9-12"
+  - claim: "The dashboard builds standalone rather than as a static export, and the spec-dialog route is a server component delegating to a client surface."
+    evidence: "src/dashboard/next.config.ts:15, src/dashboard/src/app/spec-dialog/page.tsx:5-7"
+  - claim: "The delete control exists on the panel row alone; no other component in the dashboard renders one."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:144-153"
+  - claim: "Its confirmation is a shared warning the surface asks before removing."
+    evidence: "src/dashboard/src/components/dialog/conversationDelete.ts:24-31, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:82-85"
+  - claim: "The predicate answers 'behind' whenever no row is found for the conversation open here, and a true answer issues the expensive read on every reply."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:317-321, :327-330, :351-355"
+  - claim: "A path the PLACES table does not name leaves the header with nothing to render."
+    evidence: "src/dashboard/src/lib/places.ts:64-71, src/dashboard/src/components/shell/AppHeader.tsx:18-24"
+  - claim: "The layout-shell test checks a hand-maintained list of six component files for the mock shell, so a new surface has to be added to it by hand."
+    evidence: "src/dashboard/src/__tests__/layout-shell.test.ts:17-26, :34-38"
+  - claim: "The rail marks an entry active by exact path equality, so a subtree route leaves its surface unmarked."
+    evidence: "src/dashboard/src/components/shell/AppRail.tsx:101-102"
+  - claim: "The rail offers Work it out to every caller with no capability gate."
+    evidence: "src/dashboard/src/components/shell/AppRail.tsx:205-210"
+  - claim: "A page refuses by rendering RefusalSurface off refusalIn, as the pull-requests page does; the dialog surface does the same through FailedSurface."
+    evidence: "src/dashboard/src/app/pull-requests/page.tsx:77, :107, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:105"
+  - claim: "An open conversation carries the dialog id it lives on and a closed one carries none, which is what tells the two apart."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogSessionSummary.cs:9-12"

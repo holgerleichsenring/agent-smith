@@ -6,8 +6,8 @@
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
 import type {
   FiledWork,
+  SpecDialogConversationPage,
   SpecDialogImage,
-  SpecDialogSessionSummary,
   SpecDialogView,
 } from "@/types/spec-dialog";
 
@@ -35,11 +35,19 @@ export async function fetchFiledWork(
   );
 }
 
-/** The caller's conversations, open and closed, most recently active first. */
+/**
+ * The caller's conversations, open and closed, most recently active first, with how many they
+ * hold in all. 2026-09-21-f237b: the limit is the caller's — the panel reads the server's own
+ * default, the conversations page asks for the ceiling — and the server clamps it either way.
+ */
 export async function fetchSpecDialogConversations(
+  limit?: number,
   signal?: AbortSignal,
-): Promise<SpecDialogSessionSummary[]> {
-  return getJson<SpecDialogSessionSummary[]>("/api/spec-dialog/conversations", signal);
+): Promise<SpecDialogConversationPage> {
+  const path = limit === undefined
+    ? "/api/spec-dialog/conversations"
+    : `/api/spec-dialog/conversations?limit=${encodeURIComponent(String(limit))}`;
+  return getJson<SpecDialogConversationPage>(path, signal);
 }
 
 /**

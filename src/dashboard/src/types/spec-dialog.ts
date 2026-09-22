@@ -75,11 +75,26 @@ export interface SpecDialogSessionSummary {
   project: string;
   turns: number;
   lastActivityAt: string;
-  /** The first line the operator wrote; null before they wrote one. */
+  /** The first line the operator wrote; null before they wrote one, and null for good when the
+   *  conversation was opened with nothing but a pasted block. */
   title: string | null;
+  /** 2026-09-21-f237a: what the conversation is ABOUT, minted once by 2026-09-20-4b0af. Null
+   *  until that mint has run and for every conversation older than it. The row prefers it; a
+   *  deletion prefers the title, because a person confirms the words they wrote. */
+  subject: string | null;
   outcome: SpecDialogConversationOutcome | null;
   /** The dialog id an open conversation lives on; null once it is closed. */
   openDialogId: string | null;
+}
+
+/**
+ * 2026-09-21-f237b: one page of the caller's conversations, and how many they hold in all.
+ * The count is carried rather than inferred from the row count, which would be wrong for exactly
+ * the caller who holds the limit exactly.
+ */
+export interface SpecDialogConversationPage {
+  conversations: SpecDialogSessionSummary[];
+  total: number;
 }
 
 /** What the surface needs for one dialog id, re-read after every message. The caller's

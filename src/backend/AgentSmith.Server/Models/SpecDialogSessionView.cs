@@ -20,11 +20,11 @@ namespace AgentSmith.Server.Models;
 /// </param>
 /// <param name="Subject">
 /// 2026-09-20-4b0af: what the conversation is about, minted once from its opening exchange.
-/// Served HERE rather than on the conversation list: this is the read the page issues after
-/// every message, so the heading corrects itself on the very next read, while the list is read
-/// only while a predicate says the page is behind — and a field that can legitimately stay null
-/// forever would turn that predicate into a poll that never stops. Null until one is minted, and
-/// for every conversation older than the mint.
+/// Served here because this is the read the page issues after every message, so the heading
+/// corrects itself on the very next read. 2026-09-21-f237a serves it on the conversation list
+/// too — as a second way for the list-read predicate to be SATISFIED rather than a second thing
+/// it requires, which is why a field that may stay null forever does not make that read a poll.
+/// Null until one is minted, and for every conversation older than the mint.
 /// </param>
 /// <param name="ProposalTurn">
 /// The index in <paramref name="Transcript"/> of the turn the proposal card belongs on — the
