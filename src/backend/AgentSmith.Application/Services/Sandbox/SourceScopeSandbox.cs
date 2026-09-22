@@ -20,7 +20,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 public sealed class SourceScopeSandbox(
     ResolvedProject project,
     RepoConnection repo,
-    string? revision,
+    string? revision, string? conversationId,
     SourceScopeOpener opener,
     ISourceScopeObserverAccessor observers,
     ILogger logger,
@@ -85,7 +85,7 @@ public sealed class SourceScopeSandbox(
             await ReportAsync(SourceScopeProgress.Opening, ct);
             try
             {
-                (var opened, ResolvedSha) = await opener.OpenAsync(project, repo, revision, ct);
+                (var opened, ResolvedSha) = await opener.OpenAsync(project, repo, revision, ct, conversationId);
                 _inner = opened;
             }
             catch

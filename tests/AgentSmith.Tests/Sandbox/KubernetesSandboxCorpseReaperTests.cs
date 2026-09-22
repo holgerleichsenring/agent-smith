@@ -34,12 +34,21 @@ public sealed class KubernetesSandboxCorpseReaperTests
     private static ISet<string> Live(params string[] runIds) =>
         new HashSet<string>(runIds, StringComparer.Ordinal);
 
+    // 2026-09-22-2d11a: the corpse selection is the shared judgement over the pod's
+    // labels; a corpse is a verdict of Orphan.
+    private static IReadOnlyList<(string PodName, string RunId)> SelectCorpses(
+        IEnumerable<V1Pod> pods, ISet<string> live, TimeSpan minAge, DateTimeOffset now) =>
+        [.. SandboxReapJudge
+            .Judge(SandboxPodCandidates.From(pods, now), live, HeldConversations.None, minAge)
+            .Where(v => v.Outcome == SandboxReapOutcome.Orphan)
+            .Select(v => (v.SandboxId, v.RunId))];
+
     [Fact]
     public void CorpsePod_NoLiveRun_DeletedByRunIdLabel()
     {
         var pods = new[] { Pod("agentsmith-sandbox-dead", "run-dead", TimeSpan.FromMinutes(30)) };
 
-        var corpses = KubernetesSandboxCorpseReaper.SelectCorpses(pods, Live("run-alive"), MinAge, Now);
+        var corpses = SelectCorpses(pods, Live("run-alive"), MinAge, Now);
 
         corpses.Should().ContainSingle()
             .Which.Should().Be(("agentsmith-sandbox-dead", "run-dead"));
@@ -50,7 +59,7 @@ public sealed class KubernetesSandboxCorpseReaperTests
     {
         var pods = new[] { Pod("agentsmith-sandbox-live", "run-alive", TimeSpan.FromMinutes(30)) };
 
-        KubernetesSandboxCorpseReaper.SelectCorpses(pods, Live("run-alive"), MinAge, Now)
+        SelectCorpses(pods, Live("run-alive"), MinAge, Now)
             .Should().BeEmpty();
     }
 
@@ -60,7 +69,7 @@ public sealed class KubernetesSandboxCorpseReaperTests
         // A pod created seconds ago whose run id has not yet reached the live set.
         var pods = new[] { Pod("agentsmith-sandbox-young", "run-new", TimeSpan.FromSeconds(5)) };
 
-        KubernetesSandboxCorpseReaper.SelectCorpses(pods, Live(), MinAge, Now)
+        SelectCorpses(pods, Live(), MinAge, Now)
             .Should().BeEmpty();
     }
 
@@ -70,7 +79,7 @@ public sealed class KubernetesSandboxCorpseReaperTests
         // A pre-p0355 sandbox pod with no owner signal, old enough to be an orphan.
         var pods = new[] { Pod("agentsmith-sandbox-legacy", runId: null, TimeSpan.FromHours(2)) };
 
-        KubernetesSandboxCorpseReaper.SelectCorpses(pods, Live("run-alive"), MinAge, Now)
+        SelectCorpses(pods, Live("run-alive"), MinAge, Now)
             .Should().ContainSingle().Which.PodName.Should().Be("agentsmith-sandbox-legacy");
     }
 
@@ -85,7 +94,7 @@ public sealed class KubernetesSandboxCorpseReaperTests
             Pod("corpse-2", "run-gone-2", TimeSpan.FromHours(1)),
         };
 
-        var corpses = KubernetesSandboxCorpseReaper.SelectCorpses(pods, Live("run-alive"), MinAge, Now);
+        var corpses = SelectCorpses(pods, Live("run-alive"), MinAge, Now);
 
         corpses.Select(c => c.PodName).Should().BeEquivalentTo("corpse-1", "corpse-2");
     }

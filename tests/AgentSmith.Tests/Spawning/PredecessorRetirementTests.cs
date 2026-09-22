@@ -93,7 +93,8 @@ public sealed class PredecessorRetirementTests
 
             _sut = new SpawnPipelineRunsUseCase(
                 claimService.Object, CapacityTestDoubles.StubCalculator(), budget.Object,
-                queue.Object, CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
+                queue.Object, CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.NoHolds(),
+                CapacityTestDoubles.AlwaysAdmit(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),

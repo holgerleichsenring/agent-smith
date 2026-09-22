@@ -134,7 +134,6 @@
 133	AgentSmith.Cli/Commands/ConfigCommand.cs
 132	AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs
 131	AgentSmith.Server/Services/LlmIntentParser.cs
-128	AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs
 129	AgentSmith.Infrastructure/Services/SensitiveToolHistoryScrubChatClient.cs
 128	AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs
 128	AgentSmith.Contracts/Runs/RunStoryContracts.cs

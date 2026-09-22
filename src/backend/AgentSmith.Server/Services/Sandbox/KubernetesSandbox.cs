@@ -18,7 +18,7 @@ public sealed class KubernetesSandbox(
     int stepTimeoutCapSeconds,
     string toolchainImage,
     ResolvedSandboxSecrets injectedSecrets,
-    ILogger logger) : ISandbox, ISandboxToolchainImage, ISandboxSecretInjection
+    ILogger logger) : ISandbox, ISandboxToolchainImage, ISandboxSecretInjection, ISandboxForceRemoval
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 
@@ -54,6 +54,16 @@ public sealed class KubernetesSandbox(
         {
             logger.LogWarning(ex, "Sandbox shutdown signal failed for pod {Pod}", podName);
         }
+        await ForceRemoveAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// 2026-09-22-2d11a: the same teardown without the shutdown step and its flat
+    /// ten-second wait — what releasing a held sandbox in front of a capacity probe does.
+    /// </summary>
+    public async Task ForceRemoveAsync(CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
         // p0355: the pod delete must run on EVERY terminal path, even if the channel
         // teardown throws — a leaked channel is cheap, a leaked pod holds the quota.
         try { await channel.DisposeAsync(); }

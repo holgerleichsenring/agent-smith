@@ -167,7 +167,7 @@ public sealed class SourceScopeToolOperandTests
         return new SourceScopeSandbox(
             new ResolvedProject { Name = "p" },
             new RepoConnection { Name = "repo-a", Type = RepoType.GitHub, Url = "https://stub.test/repo-a" },
-            revision: null,
+            revision: null, conversationId: null,
             new SourceScopeOpener(new SourceScopeMaterialiser(), factory.Object, specBuilder, runContext.Object),
             new AsyncLocalSourceScopeObserverAccessor(), NullLogger<SourceScopeSandbox>.Instance);
     }

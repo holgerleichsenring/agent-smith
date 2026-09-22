@@ -85,12 +85,13 @@ public sealed class SandboxOrphanReaperOwnershipTests
             Sandbox("dead", Owner, "run-gone", PastTheAgeRail)
         };
 
-        var verdicts = SandboxOrphanReaper.Judge(
-            containers, new HashSet<string> { "run-alive" }, SandboxOrphanReaper.MinContainerAge, Now);
+        var verdicts = SandboxReapJudge.Judge(
+            SandboxContainerCandidates.From(containers, Now), new HashSet<string> { "run-alive" },
+            HeldConversations.None, SandboxOrphanReaper.MinContainerAge);
 
-        verdicts.Single(v => v.ContainerId == "live").Outcome.Should().Be(SandboxReapOutcome.RunIsLive);
-        verdicts.Single(v => v.ContainerId == "young").Outcome.Should().Be(SandboxReapOutcome.TooYoung);
-        verdicts.Single(v => v.ContainerId == "dead").Outcome.Should().Be(SandboxReapOutcome.Orphan);
+        verdicts.Single(v => v.SandboxId == "live").Outcome.Should().Be(SandboxReapOutcome.RunIsLive);
+        verdicts.Single(v => v.SandboxId == "young").Outcome.Should().Be(SandboxReapOutcome.TooYoung);
+        verdicts.Single(v => v.SandboxId == "dead").Outcome.Should().Be(SandboxReapOutcome.Orphan);
     }
 
     private static SandboxOrphanReaper NewReaper(FakeDockerDaemon daemon) =>
@@ -98,6 +99,7 @@ public sealed class SandboxOrphanReaperOwnershipTests
             new DockerSandboxQuery(Owner),
             new LiveRunSetReader(
                 InMemoryRedis.Connection(), new NoOpActiveRunLease(), NullLogger<LiveRunSetReader>.Instance),
+            SandboxHoldRailDoubles.Reader(),
             new DockerSandboxRemover(daemon.Client, NullLogger<DockerSandboxRemover>.Instance),
             NullLogger<SandboxOrphanReaper>.Instance);
 

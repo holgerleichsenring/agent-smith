@@ -20,7 +20,7 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
         var security = spec.SecurityContext ?? new SandboxSecurityContext();
         return new V1Pod
         {
-            Metadata = BuildMetadata(podName, jobId, spec.RunId, owner),
+            Metadata = BuildMetadata(podName, jobId, spec, owner),
             Spec = new V1PodSpec
             {
                 RestartPolicy = "Never",
@@ -34,10 +34,10 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
     }
 
     private V1ObjectMeta BuildMetadata(
-        string podName, string jobId, string? runId, V1OwnerReference? owner) => new()
+        string podName, string jobId, SandboxSpec spec, V1OwnerReference? owner) => new()
     {
         Name = podName,
-        Labels = labels.Build(jobId, runId),
+        Labels = labels.Build(jobId, spec.RunId, spec.ConversationId),
         OwnerReferences = owner is null ? null : [owner]
     };
 

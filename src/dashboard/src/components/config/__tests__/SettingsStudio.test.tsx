@@ -29,6 +29,7 @@ const FIXTURES: Record<string, unknown> = {
     stepTimeoutSeconds: 900,
     runCommandTimeoutSeconds: 300,
     maxConcurrentSandboxes: 4,
+    holdSeconds: null,
   },
   limits: {
     maxToolCallsPerSkill: 30,
@@ -204,8 +205,8 @@ describe("SettingsStudio", () => {
     );
   });
 
-  // One field live and the rest not is a split, so the form says which is which — a
-  // uniform "nothing applies until a restart" would now be a lie about one row.
+  // Some fields live and the rest not is a split, so the form says which is which — a
+  // uniform "nothing applies until a restart" would now be a lie about two rows.
   it("SandboxSettings_SaysWhichOfItsSettingsNeedARestart", async () => {
     render(<SettingsStudio settingKey="sandbox" />);
     await screen.findByTestId("setting-sandbox-maxconcurrent");
@@ -213,9 +214,31 @@ describe("SettingsStudio", () => {
     const restartHelp = screen.getAllByText(/applies after a server restart/);
     // The agent registry, the agent version and the two timeouts.
     expect(restartHelp).toHaveLength(4);
+    // 2026-09-22-2d11a: the concurrent-sandbox bound and the sandbox hold window —
+    // both resolved through the configuration loader at the moment they are used.
     expect(
-      screen.getByText(/applies to the next capacity decision, no restart/),
-    ).toBeInTheDocument();
+      screen.getAllByText(/applies to the next capacity decision, no restart/),
+    ).toHaveLength(2);
+  });
+
+  // 2026-09-22-2d11a: the hold window is an operator setting, and an empty field stays
+  // empty — the absent marker that keeps the environment-variable fallback reachable.
+  it("SandboxSettings_TheHoldWindow_IsEditedAndSent", async () => {
+    render(<SettingsStudio settingKey="sandbox" />);
+    const field = await screen.findByTestId("setting-sandbox-hold");
+    expect((field as HTMLInputElement).value).toBe("");
+
+    fireEvent.change(field, { target: { value: "600" } });
+    fireEvent.click(screen.getByTestId("settings-save"));
+
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith(
+      "sandbox",
+      expect.objectContaining({ holdSeconds: 600, maxConcurrentSandboxes: 4 }),
+    );
+    expect(screen.getByTestId("setting-sandbox-hold-note")).toHaveTextContent(
+      /SANDBOX_HOLD_SECONDS/,
+    );
   });
 
   it("RegistriesForm_AddsAndEditsAFeed", async () => {

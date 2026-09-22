@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.PipelineHarness.Presets;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
 using Docker.DotNet.Models;
@@ -136,8 +137,24 @@ public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
             docker,
             new DockerSandboxQuery(Owner),
             liveRuns,
+            // 2026-09-22-2d11a: no container here carries a conversation label, so the
+            // held rail is unreachable and these cases judge exactly what they always did.
+            new HeldConversationReader(
+                new SandboxHoldWindowResolver(
+                    UnconfiguredCatalog(), new AgentSmith.Contracts.Models.Configuration.ServerContext("agentsmith.yml"),
+                    NullLogger<SandboxHoldWindowResolver>.Instance),
+                new NoConversationLivenessReader(), TimeProvider.System,
+                NullLogger<HeldConversationReader>.Instance),
             new DockerSandboxRemover(docker, NullLogger<DockerSandboxRemover>.Instance),
             NullLogger<SandboxOrphanReaper>.Instance);
+    }
+
+    private static AgentSmith.Contracts.Services.IConfigurationLoader UnconfiguredCatalog()
+    {
+        var loader = new Moq.Mock<AgentSmith.Contracts.Services.IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(Moq.It.IsAny<string>()))
+            .Returns(new AgentSmith.Contracts.Models.Configuration.AgentSmithConfig());
+        return loader.Object;
     }
 
     private static async Task<string> SpawnLabelledIdleContainerAsync(
