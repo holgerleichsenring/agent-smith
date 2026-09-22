@@ -1,0 +1,123 @@
+phase: 2026-09-22-3f7c
+decisions:
+  - id: a-test-says-what-it-waits-for-never-how-long
+    chose: >
+      One vocabulary for the whole suite — TestWaits — with a single ceiling behind every
+      wait in it. A test awaits the signal the code under test raises, or polls the state
+      until it holds; neither carries a number of its own.
+    alternative: >
+      Keep the per-test deadlines and raise the ones that failed, which is what the last
+      four attempts did: one second to thirty in the concurrency gate, thirty to a hundred
+      and twenty in the fanout guard, two seconds to sixty in the skill runtime.
+    why: >
+      Every one of those numbers was a latency claim nobody meant to make, and each raise
+      bought time on one runner and none on the next. Removing the number removes the claim.
+      What is left is a hang detector: a wait that reaches the ceiling is a deadlock, a lost
+      signal or a loop that stopped, and those are worth a red build. The ceiling is never
+      tuned per assertion, so "make it bigger" is no longer an available move.
+  - id: the-ceiling-is-five-minutes-and-it-is-not-a-budget
+    chose: >
+      TestWaits.Hang is five minutes, one constant, documented as the point past which a
+      test is hung rather than slow.
+    alternative: >
+      No ceiling at all — await the signal and let the job time out; or a ceiling tuned to
+      the measured runner (the repository's own measurements: 35-39 second starvation
+      stretches, a 48-second one on a green tree, a 78-second single-file copy).
+    why: >
+      No ceiling at all reports a deadlock as a job timeout with no failing test named, and
+      on a shared runner it burns the whole job's budget. A ceiling near the measured
+      maximum is the same bet this phase exists to stop making — the next measurement is
+      always larger. Five minutes is far enough above every stretch ever measured here that
+      reaching it cannot mean "busy", and a green run never pays it, because a poll exits
+      the moment its state holds and a signal wait exits the moment it fires. The cost is
+      paid only by a test that is already broken, and it is paid once.
+  - id: a-negative-window-counts-passes-instead-of-milliseconds
+    chose: >
+      "And then nothing was re-read" is proven over a counted number of drain passes — a
+      tracer run published and then seen in the broadcaster's active set proves one pass —
+      instead of over a stretch of clock.
+    alternative: >
+      Leave the fixed delays alone, since a slow machine cannot turn them red.
+    why: >
+      It cannot turn them red; it turns them EMPTY. Fifteen hundred milliseconds was seven
+      of the drain's 200ms polls where it was written and part of one on the runner that
+      failed this class, so the same line asserted something different on every machine and
+      said nothing at all on the worst. Counting makes the claim the same everywhere, and
+      it is faster than sleeping: these windows used to cost five and a half seconds of
+      doing nothing across the drain classes.
+  - id: the-watcher-is-waited-on-by-its-own-probes
+    chose: >
+      The liveness watcher's "never cancels" tests wait for a counted number of heartbeat
+      probes, taken from the Moq surface the watcher itself calls.
+    alternative: >
+      Keep the poll-interval arithmetic (ticks x interval + slack) that stood there.
+    why: >
+      That arithmetic is real-time and the watcher's work is not: on a host that gives the
+      loop no scheduling the window expired over a watcher that had barely run, and the
+      assertion passed because nothing had happened yet. A probe count is the same number
+      of decisions on every machine.
+  - id: the-relaunch-waits-for-the-discovery-it-exists-to-test
+    chose: >
+      WaitingRunHarness.RelaunchAsync hands back only once the drain has rediscovered the
+      run, and reports a bool the test asserts.
+    alternative: >
+      Raise the six hundred milliseconds it slept.
+    why: >
+      Discovery is the moment the test exists for — where a fresh position would be minted
+      and the whole history replayed — and the run leaves the active set again at the next
+      park, so a relaunch the drain never saw takes the rest of the leg with it. The failure
+      then surfaced a minute later at the trail wait, pointing at the thing that had not
+      gone wrong. It also names the defect now: "the drain rediscovers the run", not "the
+      resumed leg's events must reach the trail".
+  - id: the-shapes-are-enforced-as-a-ratchet-not-as-a-ban
+    chose: >
+      WallClockRuleTests scans the two gated test assemblies for the shapes — a delay, a
+      sleep, a wait given a deadline, a cancel-after, a constructed timeout, an assertion
+      whose subject is a measured duration — and holds them against a baseline of nine
+      files where the clock is genuinely the subject. Unlisted file with a shape: fail.
+      Listed file that gained one: fail. Listed file that lost one: fail until delisted.
+    alternative: >
+      A flat ban with per-site suppressions; or nothing, and trust review.
+    why: >
+      Some tests really are about time — a stub child that must finish after its siblings,
+      a zero-second limit that must be elapsed past, a timestamp that must move — and every
+      one of them is a LOWER bound, which a slower host satisfies more easily rather than
+      less. A ban would have to be lied to. The ratchet keeps those nine visible with a
+      reason each and makes a tenth an explicit decision. Trusting review is what produced
+      the six different numbers this phase deleted.
+  - id: a-configured-timespan-is-arithmetic-and-not-a-stopwatch
+    chose: >
+      The duration rule matches a MEASURED subject (Duration, Elapsed, Waited...), not any
+      assertion against a TimeSpan.
+    alternative: >
+      Flag every `BeLessThan(TimeSpan...)` / `BeGreaterThan(TimeSpan...)`.
+    why: >
+      The broader form flagged a question's own answer window held against seven days and a
+      backoff the code had just computed from a Retry-After header. Neither reads a clock,
+      and no machine changes their answer. A rule that cries wolf gets a suppression, and a
+      suppression is where the next real one hides.
+  - id: the-harness-is-out-of-scope-and-the-rule-says-so
+    chose: >
+      The rule judges AgentSmith.Tests and AgentSmith.Sandbox.Agent.Tests. The
+      PipelineHarness is excluded in ArchitectureSources.GatedTestRoots, in a comment naming
+      this phase.
+    alternative: >
+      Judge all three.
+    why: >
+      The harness is deliberately end-to-end, its docker tier self-gates on a daemon, and
+      none of the failures came from it — the phase spec puts it out of scope. It does hold
+      the repository's one genuine upper-bound timing assertion (a fifteen-second watcher
+      detection budget), and that one already sits behind a category the pull request never
+      runs. Scoping in code rather than in prose means the next reader finds the boundary
+      where the rule is.
+  - id: the-other-two-assemblies-get-the-thread-pool-floor-too
+    chose: >
+      AgentSmith.Sandbox.Agent.Tests compiles TestWaits.cs and TestHostThreadPool.cs as
+      linked source.
+    alternative: >
+      A project reference onto AgentSmith.Tests, or a second copy of both files.
+    why: >
+      The floor that 2026-08-30-f590 measured (tests taking 66ms locally taking 37 seconds
+      on a two-core runner) was only ever raised in one of the three test assemblies. A
+      project reference to borrow two files drags a whole suite's dependencies in; a copy
+      drifts. Linked source is two lines and one truth.

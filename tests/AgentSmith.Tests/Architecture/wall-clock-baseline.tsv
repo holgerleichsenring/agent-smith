@@ -1,0 +1,19 @@
+# 2026-09-22-3f7c: the places in the GATED test assemblies where the clock is the SUBJECT,
+# not the scaffolding — a stub that must take measurably longer than its siblings, a limit
+# that must be elapsed past, a timestamp that must move. Every one of them is a LOWER bound
+# or a stub's own behaviour, so a slower host satisfies it more easily rather than less.
+#
+# Everywhere else a test says WHAT it waits for and never HOW LONG: TestWaits carries the
+# suite's one hang ceiling, and no assertion may carry a deadline of its own. A new entry
+# here is a claim that the clock is the subject — make that claim in review, not in passing.
+#
+# waits	path (relative to tests/)	why the clock is the subject
+1	AgentSmith.Tests/Application/Services/Loop/SubAgentRunnerTests.cs	a stub child that finishes after its siblings, so the merge order cannot be the completion order
+2	AgentSmith.Tests/Infrastructure/ThrottleTimeLedgerTests.cs	a stub limiter whose wait IS the quantity the ledger reports upward
+1	AgentSmith.Tests/Loop/LimitEnforcerTests.cs	elapsing past a zero-second limit, which is the limit being enforced
+3	AgentSmith.Tests/Loop/SkillCallCostTrackingTests.cs	a call that must measurably last, and two calls that must order by start time
+2	AgentSmith.Tests/Loop/SkillCallRuntimeLimitTests.cs	a call that outlives a zero-second wall-clock limit
+1	AgentSmith.Tests/Services/Dialogue/RedisDialogueTransportTests.cs	the operator cancel the transport must map to a null answer
+2	AgentSmith.Tests/Services/Health/SubsystemHealthTests.cs	a change timestamp that must move, and one that must not
+1	AgentSmith.Tests/Services/Lifecycle/ActiveRunReaperTests.cs	the poll cadence of a wait already budgeted on STALL rather than on total time
+3	AgentSmith.Tests/Workers/AgentCliWorkerProcessRunnerTests.cs	an operator cancel against a long child, and a duration held against that child's own sleep
