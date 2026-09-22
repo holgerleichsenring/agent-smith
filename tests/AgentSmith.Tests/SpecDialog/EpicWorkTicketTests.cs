@@ -197,7 +197,7 @@ public sealed class EpicWorkTicketTests
 
         provider.Created[0].Body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
             .And.Contain(SpecSetKey.Root, "the run publishes the set to the ticket branch under it")
-            .And.Contain("job-1", "a change to the set is made in the conversation that approved it");
+            .And.Contain("job-1", "the pointer records the conversation the set was approved in");
     }
 
     /// <summary>
