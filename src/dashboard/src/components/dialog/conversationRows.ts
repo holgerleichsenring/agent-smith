@@ -1,35 +1,12 @@
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 
-// 2026-09-17-c7aed: the conversation list reads like a history — grouped by the calendar day
-// of the last thing said, newest first, the way the list already arrives.
-
-export interface ConversationDay {
-  label: string;
-  conversations: SpecDialogSessionSummary[];
-}
-
-/** Groups conversations under Today, Yesterday, Last week and Earlier, keeping their order. */
-export function groupByDay(
-  conversations: SpecDialogSessionSummary[],
-  now: Date = new Date(),
-): ConversationDay[] {
-  const days: ConversationDay[] = [];
-  for (const conversation of conversations) {
-    const label = dayLabel(new Date(conversation.lastActivityAt), now);
-    const day = days.find((held) => held.label === label);
-    if (day) day.conversations.push(conversation);
-    else days.push({ label, conversations: [conversation] });
-  }
-  return days;
-}
-
-function dayLabel(at: Date, now: Date): string {
-  const days = calendarDaysBetween(at, now);
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days <= 7) return "Last week";
-  return "Earlier";
-}
+// 2026-09-17-c7aed: the conversation list reads like a history, newest first, the way the list
+// already arrives.
+// 2026-09-21-f237c: and it is ONE list. The day headings — Today, Yesterday, Last week, Earlier —
+// cost a line each and carried only what a per-row timestamp carries, and they were uneven by
+// construction: a working day put everything under Today and left three of them unused, a Monday
+// put everything under Last week. They are gone, and what they were dating moved onto the row.
+// The module is named for what it does now: the strings a row is made of.
 
 // Calendar days in the viewer's own time zone, so a conversation at 23:50 is yesterday at 00:10.
 function calendarDaysBetween(at: Date, now: Date): number {
@@ -47,8 +24,8 @@ export function outcomeLabel({ outcome }: SpecDialogSessionSummary): string | nu
   return outcome.kind ? `${outcome.kind} ${verb} · ${tickets}` : `${tickets} ${verb}`;
 }
 
-/** The time of day for a conversation from today; nothing for an older one, whose group says when. */
-export function timeOfDay(lastActivityAt: string, now: Date = new Date()): string | null {
+/** The time of day a conversation from today was last active; nothing for an older one. */
+function timeOfDay(lastActivityAt: string, now: Date = new Date()): string | null {
   const at = new Date(lastActivityAt);
   if (calendarDaysBetween(at, now) !== 0) return null;
   return at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -57,7 +34,8 @@ export function timeOfDay(lastActivityAt: string, now: Date = new Date()): strin
 /**
  * 2026-09-21-f237b: when a conversation was last active, said relatively, for a row that has no
  * day heading over it to date it — which is every row on the conversations page, and, after
- * 2026-09-21-f237c, every row in the panel too.
+ * 2026-09-21-f237c, every row in the panel too. Today's rows keep the clock time, because on the
+ * day you are working "14:20" is what tells two of them apart.
  */
 export function lastActive(at: string, now: Date = new Date()): string {
   const days = calendarDaysBetween(new Date(at), now);

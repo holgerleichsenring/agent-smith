@@ -703,7 +703,11 @@ describe("SpecDialogSurface", () => {
   });
 
   // 2026-09-17-c7aed: the list reads as a history, by the calendar day of the last thing said.
-  it("SpecDialog_TheConversations_GroupByDayAndMarkTheCurrentOne", async () => {
+  // 2026-09-21-f237c: ONE list under one heading, whatever days the rows fall on. The four day
+  // headings cost a line each and carried only what a per-row timestamp carries, and they were
+  // uneven by construction. This case keeps the aria-current assertions the grouping case held —
+  // the negative half is the only one of its kind in the tree.
+  it("SpecDialog_ConversationsFromAnyNumberOfDays_AreOneListUnderOneHeading", async () => {
     const now = new Date();
     const daysAgo = (days: number) =>
       new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 12).toISOString();
@@ -716,19 +720,133 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
 
     await screen.findByTestId("dialog-conversation-s-4");
-    const days = screen.getAllByTestId("dialog-conversation-day");
-    expect(days.map((day) => [
-      day.querySelector(":scope > h3")?.textContent,
-      // 2026-09-18-7a05: a row holds two controls now, and this case is about the open one.
-      [...day.querySelectorAll<HTMLElement>(".d-conv")].map((row) => row.dataset.testid),
-    ])).toEqual([
-      ["Today", ["dialog-conversation-s-1"]],
-      ["Yesterday", ["dialog-conversation-s-2"]],
-      ["Last week", ["dialog-conversation-s-3"]],
-      ["Earlier", ["dialog-conversation-s-4"]],
+    expect(screen.queryAllByTestId("dialog-conversation-day")).toEqual([]);
+    const rows = [...screen.getByTestId("dialog-conversations")
+      .querySelectorAll<HTMLElement>(".d-conv")];
+    expect(rows.map((row) => row.dataset.testid)).toEqual([
+      "dialog-conversation-s-1", "dialog-conversation-s-2",
+      "dialog-conversation-s-3", "dialog-conversation-s-4",
     ]);
+  });
+
+  it("SpecDialog_TheConversations_MarkTheCurrentOne", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      conversation({ sessionId: "s-1" }),
+      conversation({ sessionId: "s-2" }),
+    ]));
+    await renderSurface();
+
+    await screen.findByTestId("dialog-conversation-s-2");
     expect(screen.getByTestId("dialog-conversation-s-1")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("dialog-conversation-s-2")).not.toHaveAttribute("aria-current");
+  });
+
+  // Every row says when it was last active, not only today's — that is what the day headings
+  // were carrying for the older ones.
+  it("SpecDialog_ARow_SaysWhenItWasLastActive", async () => {
+    const now = new Date();
+    const daysAgo = (days: number) =>
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 12).toISOString();
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      conversation({ sessionId: "s-2", lastActivityAt: daysAgo(1) }),
+      conversation({ sessionId: "s-3", lastActivityAt: daysAgo(3) }),
+      conversation({ sessionId: "s-4", lastActivityAt: daysAgo(40) }),
+    ]));
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-conversation-s-2")).toHaveTextContent("yesterday");
+    expect(screen.getByTestId("dialog-conversation-s-3")).toHaveTextContent("3 days ago");
+    expect(screen.getByTestId("dialog-conversation-s-4")).toHaveTextContent("1mo ago");
+  });
+
+  // On the day you are working, the clock is what tells two conversations apart.
+  it("SpecDialog_ARowFromToday_KeepsItsClockTime", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      conversation({ sessionId: "s-1", lastActivityAt: new Date().toISOString() }),
+    ]));
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-conversation-s-1")).toHaveTextContent(/\d{1,2}:\d{2}/);
+  });
+
+  // Twenty is how many a person scans in a panel. The rest are a link away, since f237b.
+  it("SpecDialog_MoreThanTwentyConversations_DrawsTwenty", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(listing(
+      Array.from({ length: 30 }, (_unused, index) =>
+        conversation({ sessionId: `s-${index}` }))));
+    await renderSurface();
+
+    await screen.findByTestId("dialog-conversation-s-0");
+    expect(screen.getByTestId("dialog-conversations")
+      .querySelectorAll(".d-conv")).toHaveLength(20);
+    expect(screen.queryByTestId("dialog-conversation-s-25")).not.toBeInTheDocument();
+  });
+
+  // But never without the one being read: today every row is drawn, so the aria-current mark is
+  // always on a row, and f237b made a twenty-first conversation very reachable.
+  it("SpecDialog_AnOpenConversationBelowTheTwentieth_IsDrawnAsWell", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      ...Array.from({ length: 25 }, (_unused, index) =>
+        conversation({ sessionId: `s-other-${index}` })),
+      conversation({ sessionId: "s-1", title: "the one being read" }),
+    ]));
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-conversation-s-1"))
+      .toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("dialog-conversations")
+      .querySelectorAll(".d-conv")).toHaveLength(21);
+  });
+
+  // The cap is taken on the way to the screen and never on the array behind it: the predicate
+  // and the pane heading both read that array, and a slice would make this conversation
+  // unfindable in both.
+  it("SpecDialog_AnOpenConversationBelowTheTwentieth_StillHeadsThePane", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      ...Array.from({ length: 25 }, (_unused, index) =>
+        conversation({ sessionId: `s-other-${index}` })),
+      conversation({ sessionId: "s-1", title: "the one being read" }),
+    ]));
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-heading"))
+      .toHaveTextContent("the one being read");
+  });
+
+  it("SpecDialog_AnOpenConversationBelowTheTwentieth_TriggersNoFurtherListRead", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      ...Array.from({ length: 25 }, (_unused, index) =>
+        conversation({ sessionId: `s-other-${index}`, turns: 2 })),
+      conversation({ sessionId: "s-1", title: "the one being read", turns: 2 }),
+    ]));
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+    const read = fetchSpecDialog.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(fetchSpecDialog.mock.calls.length).toBeGreaterThan(read));
+    expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
+  });
+
+  // A subject is minted short, but nothing guarantees it — and a row that grew to four lines for
+  // one verbose subject would make a ragged column.
+  it("SpecDialog_ALongSubject_IsClampedRatherThanTruncatedAtOneLine", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      conversation({ sessionId: "s-1", subject: "a subject long enough to need a second line" }),
+    ]));
+    await renderSurface();
+
+    const name = (await screen.findByTestId("dialog-conversation-s-1"))
+      .querySelector("span");
+    expect(name?.className).toContain("line-clamp-2");
+    expect(name?.className).not.toContain("truncate");
   });
 
   it("SpecDialog_AConversationWithAnOutcome_ShowsIt_OneWithoutShowsNone", async () => {
