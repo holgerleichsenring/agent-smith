@@ -237,20 +237,22 @@ public sealed class SourceScopeMaterialiserTests
     }
 
     /// <summary>
-    /// The scope's vocabulary is the proof that a shallow clone is enough: a log, a blame, a
-    /// diff and a merge base are all Run steps, and a scope refuses every kind but the four
-    /// reads — so nothing that addresses one can ask the clone for history.
+    /// The scope's vocabulary is the proof that a shallow clone is enough. A log, a blame, a
+    /// diff and a merge base are all Run steps, and since 2026-09-22-46ef a Run step is served
+    /// only when it NAMES an allowed program: the four the server sends are clone, checkout,
+    /// fetch and rev-parse, and no tool on the design surface authors one. A step naming no
+    /// program is refused outright, which is what this asserts.
     /// </summary>
     [Fact]
     public void SourceScope_TheFourReads_AreUnchangedAgainstANarrowClone()
     {
         var served = Enum.GetValues<StepKind>()
-            .Where(kind => SourceScopeRefusal.UnlessRead(Step(kind)) is null)
+            .Where(kind => SourceScopeRefusal.Unless(Step(kind), SourceScopeWritePolicy.Nothing) is null)
             .ToList();
 
         served.Should().BeEquivalentTo(
             [StepKind.ReadFile, StepKind.ListFiles, StepKind.Grep, StepKind.DirectoryTree],
-            "a scope serves four reads and refuses everything else, StepKind.Run included");
+            "a scope serves four reads, and a Run step naming no allowed program is refused");
     }
 
     private static Step Step(StepKind kind) =>
