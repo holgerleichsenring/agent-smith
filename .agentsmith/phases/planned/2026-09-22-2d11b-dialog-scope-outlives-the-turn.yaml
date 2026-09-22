@@ -1,0 +1,203 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-2d11b
+
+requires:
+  - 2026-09-22-2d11a
+
+goal: "A design conversation's sandbox survives the turn that spawned it and a later turn wraps it in a fresh scope, so only the first message pays a container spawn and a clone."
+
+applies_to: "backend (what a spec-dialog turn takes and releases, the opener's split into spawn and prepare, and the materialiser rung that meets a tree already there)"
+
+scope:
+  in: >
+    A design conversation spawns a container per repository, clones into it, reads four kinds of
+    thing and destroys it — on every message. Measured on a live three-repository conversation:
+    twenty-seven seconds of spawn and thirty-one of teardown around seventy seconds of model work,
+    with the teardown sitting between the finished answer and the delivered reply.
+    WHAT IS HELD IS THE SANDBOX, NOT THE SCOPE. A scope object caches its inner sandbox on first
+    read and returns it before anything else, and its disposal disposes the gate that guards
+    materialisation — so a reused scope object can neither be refreshed nor re-materialised, and
+    it would report the previous turn's resolved sha as this turn's. The register therefore holds
+    the INNER sandbox, and every turn builds a FRESH scope around it. That is what makes the
+    refresh reachable, keeps the resolved sha and the materialised flag honest for the provenance
+    a filed ticket carries, and lets a reused turn draw the same opening-and-ready line on the
+    dashboard that a fresh one draws.
+    SO THE OPENER SPLITS. Spawning a sandbox and preparing a tree in it are one method today; they
+    become two, because a held sandbox needs the second without the first, and a new construction
+    path lets a scope be built around a sandbox that already exists.
+    A TAKE IS VERIFIED BY THE HEARTBEAT, NOT BY A STEP. Pushing a step at a dead container is a
+    Redis list push that nobody reads, followed by a poll that runs to the step's timeout plus
+    thirty seconds — at least ninety seconds before it can say "dead". The agent already writes a
+    heartbeat key every two seconds with a ten-second expiry and deletes it on a clean exit, and a
+    watcher already reads exactly that. The register asks the heartbeat, and answers with a live
+    sandbox or with nothing; nothing means the turn spawns as it does today. The probe is
+    injectable, because the fast harness's stub sandbox has neither a heartbeat nor a Redis.
+    A TREE THAT IS ALREADY THERE IS REFRESHED, NOT CLONED, AND ONLY WHEN NO REVISION IS PINNED. The
+    materialiser clones first and unconditionally, and git refuses to clone into a non-empty
+    directory with a message the classifier reads as an unreachable host. The new rung comes
+    first: it establishes that this work path holds this repository, fetches the remote's own HEAD
+    at depth one, hard-resets to what came back, and re-resolves the sha. It is skipped for a
+    scope that names a revision — a template is pinned and must not be walked off its pin — and
+    the ref it uses is the remote's HEAD rather than a configured default branch, because the
+    scope's clone names no branch and the configured default may name one the clone never had.
+    A HOLD ENDS WHEN ITS CONVERSATION DOES: closed, forked away from, or deleted. The release
+    detaches the teardown from whoever asked for it, because a fork closes the old session before
+    opening its successor and a delete runs inside the turn gate — and a disposal costs a flat ten
+    seconds per sandbox, serially.
+  out: >
+    ONE CONTAINER FOR SEVERAL REPOSITORIES. A conversation over three repositories still holds
+    three sandboxes; it holds them once instead of building them every message. Named in prose as
+    the phase that gives a turn one container with a directory per repository.
+    A WARM POOL. With the hold in place a spawn happens once per conversation, so a pool would be
+    optimising a conversation's first message. Named in prose as the phase that pre-warms it.
+    A SCOPE-CHANGE OR PROJECT-CHANGE RELEASE. There is no such path to hook: a session's project
+    and repository list are written exactly once, when it is opened, and both the command and the
+    dashboard answer a change by opening a NEW conversation. Named in prose as the phase that lets
+    a conversation change its scope in place, which is when this release gains a reason.
+    A HELD SANDBOX THAT FOLLOWS A CHANGED CONFIGURATION. The sandbox spec — image, resources,
+    credentials — is built once at spawn, and the scope captures its repository then. A changed
+    repository URL, a rotated credential or an edited per-project sandbox setting reaches a held
+    sandbox only when the hold lapses. It is a cache, so this is staleness rather than error, and
+    an operator who has just changed a setting can end a conversation to see it.
+    A BOUND ON HOW MANY SANDBOXES CONVERSATIONS MAY SPAWN. A scope's opener consults no capacity
+    probe at all, today and after this phase; holding makes the pile persist for the window rather
+    than for a turn. Named in 2026-09-22-2d11a as its own phase.
+    WRITING THROUGH A HELD SCOPE. The scope refuses a shell and its writable-prefix set is always
+    empty, and the three served programs take no operand that can reach the tree — so the refresh
+    is against the remote, not a repair. Git is in the allowance, so the day a tool hands the model
+    a git operand, a held tree becomes writable and this phase's reset becomes a containment step
+    rather than an optimisation.
+    B41D'S THIRD PREREQUISITE. "A sandbox must remove only the volumes it created" is moot here
+    rather than answered: the container is held, so its disposal — which removes both volumes by
+    the names it holds — never runs. Said so that a reader does not take silence for an oversight.
+
+decisions:
+  - key: |
+      THE REGISTER HOLDS THE INNER SANDBOX BECAUSE THE SCOPE OBJECT CANNOT BE REUSED, AND THAT IS
+      A FACT ABOUT THE CODE RATHER THAN A PREFERENCE. The scope returns its cached inner sandbox
+      before it reports progress and before it materialises, and its disposal disposes the
+      semaphore that guards materialisation. Reusing the object would therefore skip the refresh,
+      skip the dashboard's opening line, report a stale sha into a filed ticket's provenance, and
+      throw on any attempt to re-materialise. A fresh wrapper around a held sandbox fixes all four
+      at once.
+  - key: |
+      THE HEARTBEAT IS THE PROBE, AND THE ALTERNATIVE IS A NINETY-SECOND TRAP. A step pushed at a
+      dead container waits out the step timeout plus a thirty-second grace before it can be
+      called dead; the default step timeout is ten minutes and the cheapest git step is one. The
+      heartbeat key is written every two seconds, expires in ten and is deleted on a clean exit —
+      so it answers in one read and distinguishes a crash from an orderly shutdown.
+  - key: |
+      THE VERIFICATION IS NOT ABOUT THE AGENT'S OWN IDLE EXIT, AND AN EARLIER DRAFT SAID IT WAS.
+      The agent self-exits after thirty idle cycles of sixty seconds — thirty minutes, ten times
+      the default hold window — so it cannot fire inside a hold. What actually takes a held
+      sandbox away is the reaper after the window lapses, an eviction under capacity pressure, a
+      daemon or cluster restart, or a crash. The probe exists for those.
+  - key: |
+      THE REFRESH USES THE REMOTE'S OWN HEAD, BECAUSE THE CLONE NAMES NO BRANCH. The scope clones
+      one branch at one commit with no branch argument, so the tree sits on whatever the remote
+      calls HEAD; the configured default branch is nullable and is read elsewhere with a fallback
+      to "main". Resetting to a configured name could move the tree to a branch the clone never
+      had. Fetching HEAD at depth one and resetting hard to what came back is the only form that
+      is correct for a scope that named nothing — and it is skipped entirely for one that named a
+      revision.
+  - key: |
+      IT IS A HARD RESET AND NOT A PULL. A pull merges, and a merge can conflict and leave a tree
+      a read tool would report as source. The tree is disposable; the honest act is to make it
+      identical to the ref and never to reconcile.
+  - key: |
+      ONLY A MATERIALISED SCOPE IS REGISTERED. A scope that served no read never spawned and its
+      job id is a placeholder that matches no container, so registering it would give the reaper's
+      rail and the eviction something they can neither judge nor free.
+  - key: |
+      THE FIRST MESSAGE IS UNCHANGED EXCEPT THAT IT REGISTERS A HOLD, AND A LATER ONE PAYS A
+      REFRESH RATHER THAN NOTHING. Three container round trips — an identity probe, a fetch and a
+      reset, plus the sha — against a spawn and a clone. The claim is no spawn and no clone, not
+      "free".
+  - key: |
+      NO LOCK, AND THE REASON IS PER PROCESS. The turn gate is a concurrent dictionary keyed by
+      session in one process, so two turns of one conversation cannot overlap on one replica; two
+      replicas would hold two sandboxes for one conversation, which costs a spawn and breaks
+      nothing, because each reaper keeps to its own store's containers.
+
+steps:
+  - id: the-opener-splits-into-spawn-and-prepare
+    action: "SourceScopeOpener's single open becomes a spawn and a prepare, and a scope can be constructed around a sandbox that already exists."
+  - id: the-turn-takes-and-releases-the-inner-sandbox
+    action: "The turn asks the register for a held sandbox per conversation, repository and revision, wraps whatever it gets in a fresh scope, and releases the inner sandbox at the end instead of disposing it; only materialised scopes are registered."
+  - id: a-take-asks-the-heartbeat
+    action: "The register verifies a held sandbox through the agent's heartbeat key before handing it out, drops one that is gone, and takes an injectable probe so the harness's stub can answer."
+  - id: a-tree-already-there-is-refreshed
+    action: "The materialiser gains a rung before the clone: a work path holding this repository is fetched at the remote's HEAD at depth one, hard-reset to it and re-resolved; a scope naming a revision skips the rung; the refusals the ladder tells apart stay distinct."
+  - id: a-hold-ends-with-its-conversation
+    action: "Closing, forking or deleting a conversation releases its holds, and the release hands the teardown off rather than making its caller wait out a shutdown grace per sandbox."
+
+tests:
+  - "Dialog_ASecondTurnOfOneConversation_SpawnsNoContainerAndClonesNothing"
+  - "Dialog_ASecondTurn_WrapsTheHeldSandboxInAFreshScope"
+  - "Dialog_ASecondTurnOnARefreshedTree_ReportsTheShaItLandedOnNotThePreviousOne"
+  - "Dialog_ASecondTurn_StillPushesOpeningAndReadyToTheDashboard"
+  - "Dialog_AFiledTicketsProvenance_NamesTheRevisionTheTurnActuallyRead"
+  - "Dialog_AHeldSandboxWithNoHeartbeat_IsDroppedAndTheTurnSpawnsAfresh"
+  - "Dialog_AScopeThatNeverMaterialised_IsNotRegistered"
+  - "Dialog_TwoConversationsOverOneRepo_HoldTwoSandboxesAndSeeSeparateTrees"
+  - "Dialog_OneTurnAddressingOneRepoAtTwoRevisions_HoldsTwoSandboxes"
+  - "Dialog_ClosingOrDeletingAConversation_ReleasesEveryHoldWithoutWaitingOutAGrace"
+  - "Materialiser_AWorkPathAlreadyHoldingTheRepo_IsRefreshedAndNotCloned"
+  - "Materialiser_AScopeNamingARevision_SkipsTheRefreshAndKeepsItsPin"
+  - "Materialiser_ARefreshThatCannotReachTheHost_IsRefusedAsUnreachableNotAsAMissingRevision"
+  - "Materialiser_AnEmptyWorkPath_ClonesExactlyAsItDoesToday"
+
+done:
+  - "the second and every later message of a conversation spawns no container and clones nothing"
+  - "a reused turn reports the sha it actually read and draws the same reading line as a fresh one"
+  - "a conversation whose held sandbox died, was reaped or was evicted answers normally and slowly"
+  - "no conversation can read another's tree, and a pinned template stays on its pin"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The turn disposes every scope it opened in a finally, and the reply is sent only after that returns."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:82-90, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:89,106"
+  - claim: "A scope returns its cached inner sandbox before it reports progress or materialises, and its disposal disposes the materialisation gate — so the object can be neither refreshed nor re-materialised."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:75-78,85,113-119"
+  - claim: "A filed outcome's template provenance reports the scope's resolved sha and its materialised flag."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTemplateScopes.cs:50-78"
+  - claim: "Spawning and preparing are one method on the opener today."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:24-40"
+  - claim: "A step pushed at a dead container is a Redis list push that succeeds regardless, followed by a poll that runs to the step timeout plus thirty seconds; the default step timeout is ten minutes."
+    evidence: "src/backend/AgentSmith.Sandbox.Wire/SandboxRedisChannel.cs:35-40,48-65, src/backend/AgentSmith.Sandbox.Wire/Step.cs:36"
+  - claim: "The agent writes a heartbeat key every two seconds with a ten-second expiry and deletes it on a clean exit, and a watcher already reads exactly that key."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/HeartbeatLoop.cs:18-19,59, src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs:68"
+  - claim: "The agent's own idle exit is thirty cycles of sixty seconds and is suspended while its run is active — thirty minutes, an order of magnitude beyond the default hold window."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/JobLoop.cs:12,24,26,46-64"
+  - claim: "The scope's clone asks for one branch at one commit and names no branch, so the tree sits on the remote's HEAD."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:41-50"
+  - claim: "Every fetch the factory builds requires a revision operand, and there is no reset step at all."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:59-80"
+  - claim: "A repository's configured default branch is nullable and is read with a fallback to main, so it may name a branch the clone never had."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:65"
+  - claim: "The materialiser clones first and unconditionally, and classifies a failed clone as unauthorised or unreachable by text markers."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeMaterialiser.cs:46-49,102-108"
+  - claim: "An unmaterialised scope's job id is a placeholder that matches no container."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:39"
+  - claim: "Disposal waits a flat ten seconds per sandbox, serially, and a fork closes the old session before opening its successor while a delete runs inside the turn gate."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:24,49-51, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:28, src/backend/AgentSmith.Server/Extensions/SpecDialogDeletionEndpoints.cs:59-70"
+  - claim: "A session's project and repository list are written in exactly one place, when the session is opened."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:30-37"
+  - claim: "The turn gate is a concurrent dictionary keyed by session id in one process, with no backplane."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:18-21,25,29"
+  - claim: "Nothing inside the pipeline disposes the seeded sandbox map: the master's template scopes return empty on this surface, and the coordinator disposes only what it created."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/MasterTemplateScopes.cs:43, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:279-297"
+  - claim: "The scope's write policy is always empty because the factory never passes a prefix, and the served programs' operands are shaped so none can reach the tree."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandboxFactory.cs:25, src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeProgramAllowance.cs:25"
+  - claim: "An edit request re-enters the turn loop and runs a whole second turn, seconds after the first disposed its own sandboxes."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:84-118"
+  - claim: "The harness already drives the real composition through the turn runner with a stub factory that records what was spawned and which steps ran."
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/SpecDialogTemplateTests.cs:34-50"
+  - claim: "Measured on a live three-repository conversation: three spawns of about nine seconds, and 31.5 seconds of teardown between the finished answer and the delivered reply."
+    evidence: "deploy-server-1 log, 2026-09-22 13:42:13 to 13:44:24, session d1ecd3fa"
+
+assumptions:
+  - claim: "A work path can be identified as holding a given repository without trusting the register's key."
+    check: "Establish which single git command answers it inside the container, and whether the program allowance already admits it."
+  - claim: "The heartbeat key is readable from the server with the job id the register holds."
+    check: "Read how the watcher builds the key and whether the register holds the same job id."
