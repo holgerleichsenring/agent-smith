@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Polling;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -46,6 +47,39 @@ public sealed class TrackerDiscoveryQueryBuilderTests
 
         query.Branches.Should().ContainSingle().Which.Statuses.Should().BeEmpty();
         query.Branches[0].Criterion!.Value.Should().Be("gh-tag");
+    }
+
+    /// <summary>
+    /// 2026-09-22-766b: the server-side label guard is built from the union of every routed
+    /// project's pipeline_from_label keys, and a ticket that HARD-BINDS never routes through that
+    /// map — so without this the guard would filter the binding tickets out of discovery and they
+    /// would never be polled at all. The guard must therefore name exactly what binds, which is
+    /// two keys: the approval stamp every filing writes, and the phase word a person types.
+    /// </summary>
+    [Fact]
+    public void Build_ALabelGuard_LetsBothPhaseExecutionBindingsThrough()
+    {
+        var tracker = Tracker("jira-main", TrackerType.Jira);
+        var project = JiraProject("alpha", tracker, "alpha-tag", ["To Do"]);
+        project.JiraTrigger!.PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "fix-bug" };
+
+        var query = Builder.Build(Config(tracker, project), tracker);
+
+        query.TriggerLabels.Should().BeEquivalentTo(
+            ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel]);
+    }
+
+    [Fact]
+    public void Build_NoLabelGuard_AddsNoBindingKeyOfItsOwn()
+    {
+        var tracker = Tracker("jira-main", TrackerType.Jira);
+
+        var query = Builder.Build(
+            Config(tracker, JiraProject("alpha", tracker, "alpha-tag", ["To Do"])), tracker);
+
+        query.TriggerLabels.Should().BeEmpty(
+            "a project with no pipeline_from_label filters nothing, and a guard naming only the "
+            + "framework's keys would hide every ordinary ticket from the poll");
     }
 
     [Fact]

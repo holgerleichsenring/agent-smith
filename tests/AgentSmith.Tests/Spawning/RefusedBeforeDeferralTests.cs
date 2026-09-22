@@ -167,7 +167,6 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
         NeverReserve(),
         Queue(),
         CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
-        CapacityTestDoubles.NoPredecessors(),
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
         _store,

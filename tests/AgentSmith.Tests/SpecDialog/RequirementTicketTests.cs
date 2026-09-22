@@ -165,15 +165,16 @@ public sealed class RequirementTicketTests
 
     /// <summary>
     /// 2026-09-17-0e79a: the filed ticket carries the stamp that holds it to "the approved set
-    /// must have reached the run" — the bare phase label cannot say that, because a hand-written
-    /// phase ticket carries it too and its spec legitimately lives in its description.
+    /// must have reached the run" — and since 2026-09-22-766b it is the only framework label it
+    /// carries. A hand-written ticket carries none of them and its spec legitimately lives in its
+    /// description.
     /// </summary>
     [Fact]
     public void FiledPhase_Labels_CarryTheApprovedSetStamp()
     {
         FiledTicketLabels.CarriesApprovedSet(
-            [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp]).Should().BeTrue();
-        FiledTicketLabels.CarriesApprovedSet([PhaseTicketRenderer.PhaseLabel]).Should().BeFalse(
+            [FiledTicketLabels.ApprovedSetStamp, "bug"]).Should().BeTrue();
+        FiledTicketLabels.CarriesApprovedSet(["phase"]).Should().BeFalse(
             "a hand-written phase ticket is not held to a set nobody approved");
     }
 

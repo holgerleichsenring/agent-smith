@@ -271,7 +271,7 @@ public sealed partial class SpecDialogOutcomeTests
 
         var created = bed.Tickets.Created.Should().ContainSingle().Subject;
         created.Title.Should().Be("p9999: Add a widget endpoint to the sample service");
-        created.Labels.Should().Contain(PhaseTicketRenderer.PhaseLabel);
+        created.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
         // 2026-09-17-0e79a: the spec is the approved RECORD, stored under the created ticket's
         // spec key; the body carries no fence for anyone with tracker access to edit.
         created.Body.Should().NotContain("```");
@@ -319,8 +319,7 @@ public sealed partial class SpecDialogOutcomeTests
         work.Title.Should().Be("p9000: Widget platform end to end");
         // 2026-09-17-0e79d: it is what a run picks up, and the set it works is stored under its
         // own spec key. 2026-09-22-b3d7: no ticket the framework files carries the record label.
-        work.Labels.Should().Equal(
-            PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp);
+        work.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
         bed.Tickets.Created.SelectMany(t => t.Labels).Should()
             .NotContain(PhaseTicketRenderer.EpicLabel);
         bed.Tickets.Links.Should().BeEmpty("nothing is filed under the work ticket to link to it");
@@ -331,10 +330,9 @@ public sealed partial class SpecDialogOutcomeTests
             .And.Contain("`p9000a` Widget storage layer")
             .And.Contain("`p9000b` Widget API on top of the storage layer (requires: p9000a)");
         work.Body.Should().NotContain("```", "a requirement body opens no fence");
-        // 2026-09-17-0e79d: no stamps — a parent stamp would cut the run's branch from another
-        // ticket's rung, and a predecessor stamp would hold a run that has no sibling run.
+        // 2026-09-17-0e79d: no position stamp — a parent stamp would cut the run's branch from
+        // another ticket's rung instead of from its own base.
         FiledTicketLabels.ParentId(work.Labels).Should().BeNull();
-        FiledTicketLabels.PredecessorIds(work.Labels).Should().BeEmpty();
         var tracker = bed.Harness.Services.GetRequiredService<AgentSmithConfig>()
             .Projects[Project].Tracker;
         var record = await bed.Harness.Services.GetRequiredService<ISpecApprovalStore>()
