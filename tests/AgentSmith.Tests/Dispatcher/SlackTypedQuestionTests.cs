@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Adapters;
 using FluentAssertions;
 
@@ -99,6 +101,50 @@ public sealed class SlackTypedQuestionTests
         json.Should().Contain("Approve");
         json.Should().Contain("Reject");
         json.Should().Contain("optional comment");
+    }
+
+    /// <summary>
+    /// 2026-09-22-355b: this surface never sends a button's VALUE — it splits the action id at
+    /// its LAST colon — so the label has to travel in the action id, and it has to come back
+    /// out of the extractor whole. A colon in a label would split it in the wrong place, the
+    /// question id would stop matching, and the click would vanish in silence.
+    /// </summary>
+    [Fact]
+    public void SlackApproval_AShapeButton_CarriesItsLabelBackAsTheAnswer()
+    {
+        const string label = "Cut into several phases";
+        var question = CreateQuestion(
+            QuestionType.Approval, questionId: "0123456789abcdef0123456789abcdef",
+            choices: [label]);
+
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
+        var actions = JsonNode.Parse(JsonSerializer.Serialize(blocks))!
+            .AsArray().Single(block => block!["type"]!.GetValue<string>() == "actions")!;
+        var elements = actions["elements"]!.AsArray();
+
+        // The shapes ride BESIDE the approve/reject pair, in one action block.
+        elements.Select(e => e!["action_id"]!.GetValue<string>()).Should().Equal(
+            "0123456789abcdef0123456789abcdef:approve",
+            "0123456789abcdef0123456789abcdef:reject",
+            $"0123456789abcdef0123456789abcdef:{label}");
+        var clicked = JsonNode.Parse(
+            $$"""
+            {"channel":{"id":"C1"},"actions":[{"action_id":"{{elements[2]!["action_id"]!.GetValue<string>()}}"}]}
+            """)!;
+
+        var (_, questionId, answer) = SlackPayloadExtractor.ExtractInteractionFields(clicked);
+
+        questionId.Should().Be("0123456789abcdef0123456789abcdef");
+        answer.Should().Be(label, "the picked shape is the edit note the master re-proposes with");
+    }
+
+    [Fact]
+    public void SlackApproval_WithShapes_SaysAPickBuysATurn()
+    {
+        var json = JsonSerializer.Serialize(new SlackTypedQuestionBlockBuilder()
+            .Build(CreateQuestion(QuestionType.Approval, choices: ["Cut into several phases"])));
+
+        json.Should().Contain("starts a new turn and files nothing");
     }
 
     [Fact]

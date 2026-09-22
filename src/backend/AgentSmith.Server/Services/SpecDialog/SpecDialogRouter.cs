@@ -109,10 +109,11 @@ public sealed class SpecDialogRouter(
             // inside the turn gate; the pending-question branch above routes
             // the approval answer.
             var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, mayStartRuns, ct);
-            if (flowResult is not OutcomeFlowEditRequested) return;
-            // p0315c edit: the note arrived as a thread message of its own, so the turn runs
-            // again on a re-read state — or not at all, if the session closed meanwhile.
-            if (await edits.RefreshedAsync(current, result.Outcome, ct) is not { } refreshed) return;
+            if (flowResult is not OutcomeFlowEditRequested edit) return;
+            // p0315c edit: the turn re-runs on a re-read state. 2026-09-22-355b: the note travels
+            // as a VALUE — a shape clicked on a chat surface never passed the place that appends.
+            if (await edits.RefreshedAsync(current, result.Outcome, edit.Note, ct)
+                is not { } refreshed) return;
             current = refreshed;
         }
     }

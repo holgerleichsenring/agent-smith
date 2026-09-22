@@ -2436,6 +2436,79 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
   });
 
+  // 2026-09-22-355b: the server names the other SHAPES a proposal of this kind could take and
+  // sends them as the approval's choices. They ride BESIDE the pair — the card used to return
+  // the choices INSTEAD of it, which on an approval would have left no way to approve at all.
+  it("DialogCard_AnApprovalWithShapes_RendersThemBesideApproveAndReject", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => questions.emit(question({
+      text: "",
+      choices: [{ label: "Cut into several phases", description: "too big for one phase" }],
+    })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
+    expect(within(surface).getByTestId("dialog-answer-reject")).toBeInTheDocument();
+    const shape = within(surface).getByTestId("dialog-answer-Cut into several phases");
+    expect(shape).toHaveTextContent("Cut into several phases");
+    // The picked shape goes back as its own label, which the server reads as an edit note.
+    fireEvent.click(shape);
+    await waitFor(() =>
+      expect(postSpecDialogMessage.mock.calls.at(-1)![1]).toBe("Cut into several phases"));
+    // A button beside "Approve & file" that quietly spends a master loop is a surprise.
+    expect(surface).toHaveTextContent("Picking a shape files nothing — it starts a new turn");
+  });
+
+  it("DialogCard_AnApprovalWithNoShapes_IsUnchanged", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => questions.emit(question({ text: "File these two tickets?", choices: [] })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getAllByRole("button")).toHaveLength(2);
+    expect(within(surface).getByTestId("dialog-answer-approve")).toBeInTheDocument();
+    expect(within(surface).getByTestId("dialog-answer-reject")).toBeInTheDocument();
+    expect(surface).not.toHaveTextContent("Picking a shape");
+  });
+
+  // The wire has carried each choice's description all along and the card dropped it. A shape
+  // is a redirection the operator has to be able to judge, so it says why it is offered.
+  it("DialogCard_AShape_ShowsItsExplanation", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => questions.emit(question({
+      text: "",
+      choices: [
+        { label: "Cut into several phases", description: "too big for one phase" },
+        { label: "Make it a bug ticket", description: "smaller than a phase" },
+      ],
+    })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getAllByTestId("dialog-shape-why").map((why) => why.textContent))
+      .toEqual(["too big for one phase", "smaller than a phase"]);
+  });
+
+  // A CHOICE question is a different question: it has no approve/reject pair to ride beside,
+  // and its own branch is untouched by this phase.
+  it("DialogCard_AChoiceQuestion_IsUnchanged", async () => {
+    await renderSurface();
+
+    act(() => questions.emit(question({
+      kind: "choice", text: "Which reader?",
+      choices: [{ label: "the reader" }, { label: "the writer" }],
+    })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getAllByRole("button").map((b) => b.textContent))
+      .toEqual(["the reader", "the writer"]);
+    expect(within(surface).queryByTestId("dialog-answer-approve")).toBeNull();
+  });
+
   // 2026-09-17-042ed: the review of the proposal is read where the approval is given, with the
   // evidence line the framework minted for the look it rests on.
   it("SpecDialog_TheApprovalSurface_ListsEachFindingWithItsEvidence", async () => {
