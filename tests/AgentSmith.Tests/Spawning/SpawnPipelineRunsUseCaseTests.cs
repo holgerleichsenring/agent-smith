@@ -334,7 +334,6 @@ public sealed class SpawnPipelineRunsUseCaseTests
                 claimService.Object, calculator.Object, budget.Object,
                 _queue,
                 CapacityTestDoubles.NoCorpses(), quotaProbe ?? CapacityTestDoubles.AlwaysAdmit(),
-                CapacityTestDoubles.NoPredecessors(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 nudge ?? CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),

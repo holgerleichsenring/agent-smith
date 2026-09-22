@@ -6,8 +6,9 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// p0315c: composes a phase ticket from a schema-valid PhaseDraft. The body leads with a
-/// human-first markdown summary (goal / why / scope, read from the draft's own yaml); the ticket
-/// carries the `phase` label.
+/// human-first markdown summary (goal / why / scope, read from the draft's own yaml).
+/// 2026-09-22-766b: the ticket carries ONE framework label, the approved-set stamp, and it is
+/// that stamp which binds it to phase execution.
 /// <para>
 /// 2026-09-17-0e79a: a filed phase carries NO fenced spec. The approved set is stored under the
 /// ticket's spec key and carried to the run, and a fence in the body would be a second truth —
@@ -17,8 +18,6 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class PhaseTicketRenderer
 {
-    public const string PhaseLabel = "phase";
-
     /// <summary>
     /// 2026-09-13-a3f1: a RECORD, not work. It was filed with the phase label, which hard-binds
     /// routing, so a run started on the summary of a cut and died at the spec gate. Framework-owned
@@ -33,6 +32,12 @@ public sealed class PhaseTicketRenderer
     /// refused by the incoming path on this label alone — so dropping the constant, renaming its
     /// value or removing the reader would make every one of them an ordinary ticket overnight,
     /// routable by tag, by area path or by repository, and then run.
+    /// </para>
+    /// <para>
+    /// 2026-09-22-766b: SO THIS READER IS PERMANENT. It has no writer and will get none back, and
+    /// it is not waiting on a later phase to tidy it away — it refuses two populations that are
+    /// already on a live board and that nothing deletes: the epic PARENT SUMMARIES and the SLICE
+    /// RECORDS. Both carry this label and nothing else, so the reader must outlive every writer.
     /// </para>
     /// </summary>
     public const string EpicLabel = "phase-epic";

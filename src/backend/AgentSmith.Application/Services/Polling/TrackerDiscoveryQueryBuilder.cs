@@ -50,12 +50,15 @@ public sealed class TrackerDiscoveryQueryBuilder(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // p0315d: the `phase` label routes hard-bound in ProjectResolver, never via
-        // pipeline_from_label — when the server-side label guard is active it must
-        // not filter phase tickets out of discovery.
+        // p0315d: a ticket the framework filed routes hard-bound in ProjectResolver, never via
+        // pipeline_from_label — when the server-side label guard is active it must not filter
+        // those tickets out of discovery, or a filed ticket would never be polled at all.
+        // 2026-09-22-766b: the guard follows the bind. It is the APPROVAL STAMP that hard-binds
+        // now, so that is the key added here — the guard must name exactly what routes, and a
+        // bare phase word no longer does.
         if (triggerLabels.Count > 0
-            && !triggerLabels.Contains(PhaseTicketRenderer.PhaseLabel, StringComparer.OrdinalIgnoreCase))
-            triggerLabels.Add(PhaseTicketRenderer.PhaseLabel);
+            && !triggerLabels.Contains(FiledTicketLabels.ApprovedSetStamp, StringComparer.OrdinalIgnoreCase))
+            triggerLabels.Add(FiledTicketLabels.ApprovedSetStamp);
 
         if (branches.Count > MaxBranches)
         {

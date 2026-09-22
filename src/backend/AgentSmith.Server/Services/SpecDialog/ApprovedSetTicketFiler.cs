@@ -22,9 +22,15 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// two apart — the labels are identical.
 /// </para>
 /// <para>
-/// 2026-09-17-0e79a: the ticket carries <see cref="FiledTicketLabels.ApprovedSetStamp"/> beside
-/// the phase label. It is what the loud miss keys on and what stops the source precedence reading
-/// a spec out of a description anyone with tracker access can edit.
+/// 2026-09-17-0e79a: the ticket carries <see cref="FiledTicketLabels.ApprovedSetStamp"/>. It is
+/// what the loud miss keys on and what stops the source precedence reading a spec out of a
+/// description anyone with tracker access can edit.
+/// <para>
+/// 2026-09-22-766b: and it is the ONLY label a filing writes. The separate phase word that used
+/// to travel beside it asserted the same fact a second time — a filed ticket is phase execution
+/// BECAUSE somebody approved a specification for it — so the stamp now carries the routing bind
+/// as well and the word is gone from both ends.
+/// </para>
 /// </para>
 /// <para>
 /// 2026-09-17-042eg: it is started LAST, after the set is stored. A ticket moved into a trigger
@@ -50,7 +56,7 @@ public sealed class ApprovedSetTicketFiler(
         ArgumentNullException.ThrowIfNull(render);
         ArgumentNullException.ThrowIfNull(filed);
         // 2026-09-18-d518: the note explains the labels this ticket is actually filed with.
-        string[] labels = [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp];
+        string[] labels = [FiledTicketLabels.ApprovedSetStamp];
         var content = render(TicketLabelNote.For(labels));
         var created = await provider.CreateAsync(
             content.Title, content.Body, labels, kinds.For(project, role), ct);

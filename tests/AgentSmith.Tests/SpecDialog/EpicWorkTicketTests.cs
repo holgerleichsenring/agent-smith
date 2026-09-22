@@ -41,11 +41,47 @@ public sealed class EpicWorkTicketTests
 
         provider.Created.Should().ContainSingle("a cut is one piece of work, whatever the slice count");
         provider.Created[0].Labels.Should().Equal(
-            [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp],
-            "the work ticket is what a run picks up");
+            [FiledTicketLabels.ApprovedSetStamp],
+            "the work ticket is what a run picks up, and the stamp is what routes it there");
         provider.Comments.Should().BeEmpty("there are no records to list on it");
         report.Filed.Should().ContainSingle();
         report.Notes.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// 2026-09-22-766b: the word is gone from the filing. It was written by this framework and
+    /// read by this framework and by nobody else, and the stamp beside it already said the same
+    /// thing — that somebody approved a specification for this ticket, which is exactly what
+    /// "this ticket is phase execution" means.
+    /// </summary>
+    [Fact]
+    public async Task Filing_AFiledTicket_CarriesNoPhaseWord()
+    {
+        var provider = new RecordingProvider();
+
+        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
+        await FileRawAsync(provider, new PhaseOutcome(Slice("p9000c")));
+
+        provider.Created.Should().HaveCount(2).And.OnlyContain(
+            c => !c.Labels.Contains("phase", StringComparer.OrdinalIgnoreCase),
+            "a cut's work ticket and a lone phase are filed with the same label set");
+    }
+
+    /// <summary>
+    /// And the stamp is still there — it is the one key a filing writes, and dropping it would
+    /// take both jobs with it: the routing bind and the guard against a lost hand-off being
+    /// re-derived from a description anyone can edit.
+    /// </summary>
+    [Fact]
+    public async Task Filing_AFiledTicket_StillCarriesTheApprovalStamp()
+    {
+        var provider = new RecordingProvider();
+
+        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
+        await FileRawAsync(provider, new PhaseOutcome(Slice("p9000c")));
+
+        provider.Created.Should().HaveCount(2).And.OnlyContain(
+            c => c.Labels.Contains(FiledTicketLabels.ApprovedSetStamp, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -150,7 +186,7 @@ public sealed class EpicWorkTicketTests
     /// <summary>
     /// A parent stamp would make the run resolve the parent's rung as its base and publish it.
     /// One run needs one branch cut from its own base, which is what the ladder does when it
-    /// falls through; and with no predecessor stamps the gate has nothing to hold.
+    /// falls through.
     /// </summary>
     [Fact]
     public async Task EpicApproval_WorkTicket_CarriesNoParentStamp()
@@ -160,7 +196,6 @@ public sealed class EpicWorkTicketTests
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b", requires: ["p9000a"])));
 
         FiledTicketLabels.ParentId(provider.Created[0].Labels).Should().BeNull();
-        FiledTicketLabels.PredecessorIds(provider.Created[0].Labels).Should().BeEmpty();
     }
 
     /// <summary>
@@ -353,7 +388,7 @@ public sealed class EpicWorkTicketTests
         report.Error.Should().BeNull();
         provider.Created.Should().ContainSingle()
             .Which.Labels.Should().Equal(
-                [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp],
+                [FiledTicketLabels.ApprovedSetStamp],
                 "a single approved phase is stamped exactly as an epic's work ticket is");
         provider.Comments.Should().BeEmpty("a filing posts no comment of its own");
         var record = await store.GetAsync("sample-tracker", SpecSetKey.For("azuredevops", "1").Value, default);
