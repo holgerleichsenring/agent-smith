@@ -10,12 +10,15 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0393a: the fixed precedence between the possible spec sources — the branch artifact wins,
 /// then a spec embedded in the ticket DESCRIPTION, then derivation.
 /// <para>
-/// 2026-09-17-0e79a: an APPROVED record joins above the description and below the branch — with
-/// the one exception that a record approved AFTER the branch's own approval beats it
-/// (<see cref="ApprovedSetSource"/>). It outranks the description because a ticket the framework
-/// files stops carrying a fence, while a hand-written phase ticket has no approved record and
-/// keeps the description path. The decision also carries the revision CAUSE, because the two
-/// readers of that cause are downstream of this choice.
+/// 2026-09-22-6ad7: THE BRANCH IS THE ONLY SET A RUN READS. A branch that ANSWERED is the set,
+/// and the approval record is not consulted, compared or merged over it. A branch with NOTHING
+/// AT THE PATH is a hand-off that has not happened: the record supplies the set once and the run
+/// publishes it (<see cref="ApprovedSetHandoff"/>). A branch that answered BADLY — present and
+/// unreadable — is an operator's edit gone wrong, and it reaches the filed-ticket gate rather
+/// than a copy. The record outranks the description either way, because a ticket the framework
+/// files stops carrying a fence, while a hand-written phase ticket has no record and keeps the
+/// description path. The decision also carries the revision CAUSE, because the two readers of
+/// that cause are downstream of this choice.
 /// </para>
 /// <para>
 /// A ticket COMMENT is deliberately NOT a source. After the first run the ticket carries the
@@ -27,7 +30,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecSourceResolver(
     IPhaseSpecFromTicket specFromTicket,
-    ApprovedSetSource approved,
+    ApprovedSetHandoff handoff,
     FiledTicketSpecGate filedGate,
     ILogger<SpecSourceResolver> logger)
 {
@@ -38,35 +41,40 @@ public sealed class SpecSourceResolver(
     /// <param name="Error">Set when a present spec is MALFORMED or a required one is MISSING,
     /// which fails loudly.</param>
     /// <param name="Cause">The cause the next revision names.</param>
-    /// <param name="Note">2026-09-17-0e79b: what the source DISCARDED to reach this set, reported
-    /// to the ticket rather than only logged.</param>
+    /// <param name="Handback">2026-09-22-6ad7: set when the run PARKS instead of working — the
+    /// approved specification is not readable on the branch and there is none to guess from.</param>
     public sealed record Decision(
         SpecSource Source, SpecSet? Set, bool NeedsModel, string? Error = null, string? Cause = null,
-        string? Note = null);
+        SpecHandback? Handback = null);
 
     public Decision Decide(
-        SpecSetReadResult? branchArtifact, Ticket ticket, SpecSetPointer? pointer,
-        PipelineContext pipeline, string key, SpecApprovalRecord? approval = null)
+        SpecSetOnBranch branch, Ticket ticket, SpecSetPointer? pointer,
+        PipelineContext pipeline, string key, SpecApprovalRecord? record = null)
     {
         ArgumentNullException.ThrowIfNull(ticket);
-        var cause = SpecRevisionCause.For(branchArtifact, pointer, ticket, pipeline);
-        if (approved.Decide(approval, branchArtifact, key) is { } fromApproval) return fromApproval;
-
-        if (branchArtifact is not null)
+        ArgumentNullException.ThrowIfNull(branch);
+        var cause = SpecRevisionCause.For(branch.Read, pointer, ticket, pipeline);
+        if (branch.Read is { } artifact)
         {
-            var amend = NeedsAmendment(cause, branchArtifact.Set);
+            var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set);
             logger.LogInformation(
                 "Spec set {Key} came off the ticket branch ({Phases} phase(s)); {Mode}",
-                key, branchArtifact.Set.Phases.Count,
+                key, artifact.Set.Phases.Count,
                 amend ? "amending it with the new input" : "using it unchanged");
-            return new Decision(SpecSource.BranchArtifact, branchArtifact.Set, amend, Cause: cause);
+            return new Decision(SpecSource.BranchArtifact, artifact.Set, amend, Cause: cause);
         }
+
+        // ONLY when the path holds nothing. A branch this run could not read may carry an edit,
+        // and standing a copy in front of it is how that edit disappears.
+        if (branch.State == SpecSetBranchState.NothingAtThePath
+            && handoff.Decide(record, key) is { } handedOver)
+            return handedOver with { Cause = handedOver.Cause ?? cause };
 
         // BEFORE the description, not after it: a ticket the framework filed from an approved set
         // has no spec of its own, so a fenced block in its description is a paste, and reading it
         // would hand the run the one editable truth this phase exists to remove.
-        if (filedGate.MissingSet(ticket) is { } missing)
-            return new Decision(SpecSource.Approved, null, false, missing, cause);
+        if (filedGate.MissingSet(ticket, new SpecSetKey(key), record, branch.State) is { } missing)
+            return new Decision(SpecSource.Approved, null, false, Cause: cause, Handback: missing);
 
         var extraction = specFromTicket.Extract(ticket.Description);
         if (extraction is PhaseSpecExtracted extracted) return FromDescription(extracted, ticket, key, cause);
@@ -95,26 +103,5 @@ public sealed class SpecSourceResolver(
                 SpecSource.TicketDescription),
             NeedsModel: false,
             Cause: cause);
-    }
-
-    // A comment or an edited ticket is input the model has not seen, whatever the branch
-    // carries — amend the SAME set rather than produce a fresh reading of the prose. A
-    // reviewer's edit is already the correction and needs no model at all. A bare re-trigger
-    // re-cuts a set nothing has run yet (the previous run ended before the cut was worked, and a
-    // fallback cut is not meant to be permanent) but continues a set in flight: an executed head
-    // is work on the branch, and the inputs that re-cut its tail are read as their own causes.
-    //
-    // 2026-09-17-0e79b: an APPROVED set is never re-cut, for ANY of those causes. It is the only
-    // place that can set NeedsModel over a set the run already holds — the other routes into an
-    // approved set all READ their set rather than generate it.
-    private static bool NeedsAmendment(string cause, SpecSet set)
-    {
-        if (set.Approval is not null) return false;
-        return cause switch
-        {
-            SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit => true,
-            SpecRevisionCause.Retrigger => set.Executed.Count == 0,
-            _ => false,
-        };
     }
 }

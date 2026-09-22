@@ -113,7 +113,9 @@ public sealed class DeriveSpecTicketEditTests
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         var draftReader = new PhaseDraftReader();
         var reader = new SpecSetReader(
-            factory.Object, gitOps, draftReader, new SpecSetIndex(), new SandboxTargets(),
+            factory.Object, gitOps,
+            new SpecSetPhaseFileReader(draftReader, NullLogger<SpecSetPhaseFileReader>.Instance),
+            new SpecSetIndex(), new SandboxTargets(),
             NullLogger<SpecSetReader>.Instance);
         var pointers = new InMemorySpecSetPointerStore();
         pointers.SaveAsync(string.Empty, new SpecSetPointer(Key, "primary", PointerSha, 1), default)
@@ -126,7 +128,7 @@ public sealed class DeriveSpecTicketEditTests
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new PhaseSpecFromTicket(validator, draftReader),
-                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),

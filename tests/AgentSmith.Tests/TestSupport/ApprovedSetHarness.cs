@@ -78,14 +78,16 @@ internal sealed class ApprovedSetHarness
         return new DeriveSpecHandler(
             Deriver,
             new SpecSetReader(
-                factory.Object, gitOps, draftReader, new SpecSetIndex(), new SandboxTargets(),
+                factory.Object, gitOps,
+                new SpecSetPhaseFileReader(draftReader, NullLogger<SpecSetPhaseFileReader>.Instance),
+                new SpecSetIndex(), new SandboxTargets(),
                 NullLogger<SpecSetReader>.Instance),
             Publisher(),
             Pointers,
             new ApprovedSpecSetResolver(Approvals, NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new PhaseSpecFromTicket(validator, draftReader),
-                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),

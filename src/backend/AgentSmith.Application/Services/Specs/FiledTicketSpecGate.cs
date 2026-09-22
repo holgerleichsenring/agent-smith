@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -7,8 +8,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// 2026-09-17-0e79a: a missing set is LOUD. A ticket the framework filed from an approved set
 /// carries <see cref="FiledTicketLabels.ApprovedSetStamp"/> and no fenced spec, so if it reaches
-/// DeriveSpec with no branch artifact, no carried record and no record in a store this process
-/// has, the hand-off broke. Deriving then would silently replace a ratified spec with a guess.
+/// DeriveSpec with no readable set on its branch and no record to hand one over, the hand-off
+/// broke. Deriving then would silently replace a ratified spec with a guess.
+/// <para>
+/// 2026-09-22-6ad7: the finding is a HAND-BACK rather than a failed step. A failed step finalizes
+/// the ticket into the failure status, which moves a ticket out of the open set because a file is
+/// not on a branch yet; the park leaves it where a person can put the specs there and trigger it
+/// again.
+/// </para>
 /// <para>
 /// The gate keys on the STAMP and not on the bare phase label, and the source precedence
 /// consults it BEFORE the ticket description. A hand-written phase ticket carries the label too
@@ -34,8 +41,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
 {
-    /// <summary>What is missing, or null when this ticket may derive its own spec.</summary>
-    public string? MissingSet(Ticket ticket)
+    /// <summary>The park, or null when this ticket may derive its own spec.</summary>
+    public SpecHandback? MissingSet(
+        Ticket ticket, SpecSetKey key, SpecApprovalRecord? record, SpecSetBranchState state)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var labels = ticket.Labels ?? [];
@@ -47,11 +55,8 @@ public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
                 ticket.Id.Value, parent);
             return null;
         }
-        return $"ticket {ticket.Id.Value} carries '{FiledTicketLabels.ApprovedSetStamp}', so it was "
-            + "filed from an approved specification — but this run found no set on the ticket "
-            + "branch, no approved record on its initial context and none in a store this process "
-            + "can read. The approval never reached the run; deriving one here, or reading a spec "
-            + "out of a description anyone can edit, would replace a ratified specification with a "
-            + "guess";
+        return new SpecHandback(
+            SpecHandbackCase.SpecificationMissingFromBranch,
+            MissingSpecReason.For(ticket, key, record, state));
     }
 }

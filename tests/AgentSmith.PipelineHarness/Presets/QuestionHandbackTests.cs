@@ -153,9 +153,9 @@ public sealed class QuestionHandbackTests
 
     private sealed class SeededSpecSetReader(SpecSet set, string sha) : ISpecSetReader
     {
-        public Task<SpecSetReadResult?> ReadAsync(
+        public Task<SpecSetOnBranch> ReadAsync(
             PipelineContext pipeline, RepoConnection carryingRepo, SpecSetKey key,
             CancellationToken cancellationToken) =>
-            Task.FromResult<SpecSetReadResult?>(new SpecSetReadResult(set, sha));
+            Task.FromResult(SpecSetOnBranch.Answered(new SpecSetReadResult(set, sha)));
     }
 }
