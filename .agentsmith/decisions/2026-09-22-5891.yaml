@@ -1,0 +1,105 @@
+phase: 2026-09-22-5891
+decisions:
+  - id: the-ceiling-is-the-bound-the-money-check-is-not
+    chose: >
+      The bound on a design turn's fan-out is the child's iteration ceiling times the turn's
+      fan-out count. SubAgentContext carries an optional ChildIterationCeiling, SubAgentRunner
+      prefers it over AgentConfig.MaxSubAgentLoopIterations, and a design turn hands over
+      LoopLimitsConfig.MaxDialogSubAgentLoopIterations (default 20, operator-settable). It sits
+      in LoopLimitsConfig rather than beside its sibling in AgentConfig because AgentConfig
+      stands at the 120-line limit the ratchet enforces, and the two numbers a design turn is
+      bounded by then read as one block beside the run-wide fan-out limits.
+    alternative: >
+      The first draft's count limit plus a check of the turn's money cap at reservation time,
+      with the ceiling deferred to a later phase.
+    why: >
+      At the count's own default the whole wave is ONE reservation, so a money check is
+      consulted once, when almost nothing has been spent, and then four children run up to a
+      hundred iterations each with no governor hooks, reporting spend only when each finishes
+      (SubAgentRunner.cs:83-91, 149-153). The runner already read the ceiling off what it was
+      handed and the context record's last parameter was already optional, so carrying a
+      dialog ceiling was smaller than the phase it was deferred to. The money check is what it
+      honestly is: a refusal of a LATER wave.
+  - id: the-coding-only-guard-excludes-a-design-turn-by-name
+    chose: >
+      The block that appends ensure_repo_sandbox and update_progress is guarded on
+      `!isScanMaster && !isSpecDialog`.
+    alternative: >
+      Leaving the guard at `!isScanMaster` once the design branch stopped returning above it.
+    why: >
+      Folding the design branch into the shared selector puts it BELOW that block. The
+      escalation valve spawns a WRITABLE sandbox into the running turn's map
+      (EnsureRepoSandboxToolHost.cs:16-24), which would end the read-only guarantee the whole
+      design surface rests on, and the surface's own comment already claimed a design turn
+      never gets the ledger. Two tests hold the guard from both sides — the design turn has
+      neither tool, a coding turn still has both.
+  - id: the-design-turn-constructs-the-budget-it-gates-on
+    chose: >
+      A design turn reads LoopLimitsConfig.MaxSubAgentsPerDialogTurn (default 4), gates on it,
+      constructs `new SubAgentBudget(that)` and hands that same instance to BOTH
+      SpawnAgentToolHost and SubAgentContext. Every other master keeps the injected budget.
+    alternative: >
+      Gating on the dialog count and passing the injected run-wide budget on.
+    why: >
+      SubAgentBudget freezes its capacity at construction (SubAgentBudget.cs:24-28) and the
+      injected one is registered scoped from MaxSubAgentsPerRun
+      (LoopRuntimeExtensions.cs:55-59) — so a gate that merely READ a different number would
+      still have granted the run-wide twenty. Reading the dialog count at the gate also means
+      a turn fans out with the run-wide fan-out switched off, which a test pins: a design turn
+      is a run of its own, not a share of a coding run's allowance.
+  - id: the-child-surface-drops-ask-human-and-remember
+    chose: >
+      SpecDialogChildTools.Of takes the composed design surface and drops the two tools by
+      name; the master hands the result to the children as ChildTools. Its own file — a pure
+      function over values with no static field, so the no-static-state rule needs no entry —
+      because AgenticToolSurface also stands at the 120-line limit.
+    alternative: >
+      Dropping ask_human only (the first draft), or letting both fail at runtime.
+    why: >
+      A session holds exactly one pending question keyed by the session and a second replaces
+      the first (SpecDialogPendingQuestions.cs:40-44, 65-70), so two children asking would
+      strand each other — and the parent is blocked inside the spawn call for the whole wave,
+      so dropping it by name is sufficient. The memory write reaches the read-only scope
+      through a file writer whose refusal is THROWN rather than answered
+      (SandboxFileReader.cs:36-43), and a child that insists dies on consecutive tool errors
+      — a refusal the model cannot read is not a refusal. The parent keeps both.
+  - id: the-wrap-is-applied-where-the-design-surface-is-consumed
+    chose: >
+      ComposeMasterTools returns an unwrapped list and the handler wraps it once, at the
+      request it builds, when the turn is a design turn.
+    alternative: >
+      Keeping 2026-09-17-042ee's wrap on the branch's return of the composed list.
+    why: >
+      The design branch now leaves through TWO exits — the fan-out gate and the composed list
+      — so a wrap on one of them returns a zero-count design turn unwrapped, and the
+      operator's page loses every tool and model line for the whole turn while a test
+      asserting an ABSENCE still passes. One site, both exits, and a coding master's functions
+      are still handed over unwrapped (both pinned). The children's tools stay unwrapped: a
+      child's model calls are reported ambiently by the publishing chat client anyway
+      (EventPublishingChatClient.cs:98-100), so the wrap decides only whether the tool lines
+      appear, and a wave's reads would bury the turn's own steps in a feed that keeps fifty.
+  - id: the-stub-runner-keeps-the-context-it-is-handed
+    chose: >
+      MasterHandlerFixture's StubSubAgentRunner records every SubAgentContext and every spec
+      wave, and returns a Succeeded result per spec; Build takes an ISubAgentRunner and a
+      LoopLimitsConfig so a test can hand over the real runner or its own limits.
+    alternative: >
+      Asserting the child surface from a second, hand-rolled composition.
+    why: >
+      It discarded the context, and the master grants a child's tool list, its budget and its
+      ceiling through that one record — four of this phase's tests were unwritable without it.
+      A second composition would be a copy of the thing under test.
+  - id: nothing-new-is-needed-for-a-childs-sandboxes
+    chose: >
+      The child context is built exactly as a coding master's is — the turn's sandbox map, the
+      run's cost tracker, the parent's own hosts over that map.
+    alternative: >
+      Declaring a design-specific sandbox path for children.
+    why: >
+      The map is seeded at turn start and published under the key the builder reads
+      (SpecDialogTurnSeeds.cs:27-35,51), the filesystem host is built once over it and is safe
+      for concurrent children (FilesystemToolHost.cs:34-51), and the context's sandbox field is
+      read nowhere in the backend — a child's request is composed from the tool list and the
+      agent config alone. The map cannot grow during the turn, which is the same fact the
+      escalation-valve exclusion protects. A test runs two children through the real runner
+      concurrently and pins that both complete.

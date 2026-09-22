@@ -518,6 +518,12 @@ limits:
   # SubAgentBudget + SubAgentRunner. spawn_agents is opt-in per pipeline.
   max_concurrent_sub_agents: 4
   max_sub_agents_per_run: 20
+  # 2026-09-22-5891: a design turn is a run of its own, so it fans out under its own
+  # count rather than the run-wide one above. 0 takes spawn_agents off the design surface.
+  max_sub_agents_per_dialog_turn: 4
+  # The ceiling a dialog child's own loop runs under — a child gets no governor hooks, so
+  # this times the count above is what bounds one turn's fan-out.
+  max_dialog_sub_agent_loop_iterations: 20
 
 # p0151d: per-pipeline cost cap. When cumulative USD or tokens cross the cap,
 # remaining LLM-driven skill calls short-circuit with a `cost-cap-exhausted`

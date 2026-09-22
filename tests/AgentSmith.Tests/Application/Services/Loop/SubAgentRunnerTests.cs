@@ -174,6 +174,35 @@ public sealed class SubAgentRunnerTests
         stub.SeenRequests[0].AgentConfig.Model.Should().Be("test-model");
     }
 
+    // 2026-09-22-5891: the context may carry a ceiling of its own (a design turn hands one),
+    // and a context that carries none is the run it always was.
+    [Fact]
+    public async Task SubAgentRunner_NoCeilingOnTheContext_UsesTheAgentConfigsAsToday()
+    {
+        var stub = new StubLoopRunner();
+        var sut = BuildRunner(stub);
+        var ctx = BuildContext();
+        ctx.AgentConfig.MaxSubAgentLoopIterations = 55;
+        ctx.ChildIterationCeiling.Should().BeNull("no master declared one");
+
+        await sut.RunAsync(new[] { Spec("RepoScout") }, ctx, CancellationToken.None);
+
+        stub.SeenRequests[0].MaxIterations.Should().Be(55);
+    }
+
+    [Fact]
+    public async Task SubAgentRunner_CeilingOnTheContext_IsPreferredOverTheAgentConfigs()
+    {
+        var stub = new StubLoopRunner();
+        var sut = BuildRunner(stub);
+        var ctx = BuildContext() with { ChildIterationCeiling = 6 };
+        ctx.AgentConfig.MaxSubAgentLoopIterations = 55;
+
+        await sut.RunAsync(new[] { Spec("RepoScout") }, ctx, CancellationToken.None);
+
+        stub.SeenRequests[0].MaxIterations.Should().Be(6);
+    }
+
     private static SubAgentRunner BuildRunner(
         IAgenticLoopRunner loopRunner,
         int maxConcurrent = 4,
