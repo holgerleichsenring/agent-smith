@@ -4,6 +4,7 @@ import type {
   ConfigCapabilities,
   ConfigEntityKind,
   ConfigFinding,
+  InheritedSandboxProjection,
   StudioAgent,
   StudioConnection,
   StudioEntity,
@@ -34,6 +35,7 @@ export function EntityForm({
   onChange,
   catalog,
   capabilities,
+  inheritedSandbox = null,
   isNew,
   findings = [],
 }: {
@@ -42,6 +44,8 @@ export function EntityForm({
   onChange: (next: StudioEntity) => void;
   catalog: ConfigCatalog;
   capabilities: ConfigCapabilities | null;
+  /** 2026-09-22-6968: the project form's sandbox tab shows what each control inherits. */
+  inheritedSandbox?: InheritedSandboxProjection | null;
   isNew: boolean;
   /** p0392: what the server says about this unsaved draft, from its own rules. */
   findings?: ConfigFinding[];
@@ -153,6 +157,7 @@ export function EntityForm({
           onChange={onChange}
           catalog={catalog}
           capabilities={capabilities}
+          inheritedSandbox={inheritedSandbox}
           findings={findings}
           idField={idField}
         />

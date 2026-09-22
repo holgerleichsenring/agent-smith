@@ -135,6 +135,9 @@ public sealed class ResumedCostCapTests
         public ResolvedValue<int> ResolveRunCommandTimeout(ResolvedProject project) =>
             throw new NotSupportedException();
 
+        public ResolvedValue<string> ResolveToolchainImage(ResolvedProject project) =>
+            throw new NotSupportedException();
+
         public ResolvedConfig Materialize() => throw new NotSupportedException();
     }
 }

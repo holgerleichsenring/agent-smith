@@ -90,6 +90,18 @@ vi.mock("@/lib/configApi", () => {
     mcpServersApi: client([]),
     secretsApi: client([{ id: "KEY" }, { id: "PAT" }]),
     fetchChanges: vi.fn().mockResolvedValue([]),
+    // 2026-09-22-6968: the catalog load reads the inherited-sandbox projection beside
+    // its seven lists; a wholesale module mock has to declare it.
+    fetchInheritedSandbox: vi.fn().mockResolvedValue({
+      processWide: {
+        toolchainImage: { value: null, source: "run-resolved" },
+        stepTimeoutSeconds: { value: 900, source: "global-default" },
+        runCommandTimeoutSeconds: { value: 300, source: "global-default" },
+        agentRegistry: { value: "ghcr.io/example", source: "global-default" },
+        agentVersion: { value: "0.50.0", source: "global-default" },
+      },
+      projects: {},
+    }),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn(),
     fetchCapabilities: vi.fn().mockResolvedValue({

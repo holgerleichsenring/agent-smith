@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -77,6 +78,11 @@ public static class ServerCompositionBuilder
         // overwrite us — that was the bug in p0198-followup v1.
         services.AddSingleton<AgentSmithConfig>(sp =>
             sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
+
+        // 2026-09-22-6968: the single resolution pass run against an EMPTY per-project
+        // sandbox block — what a project would inherit if it said nothing. A dashboard
+        // read only, which is why it composes here and not in the core chain.
+        services.AddSingleton<IInheritedSandboxProjection, InheritedSandboxProjection>();
 
         return services;
     }

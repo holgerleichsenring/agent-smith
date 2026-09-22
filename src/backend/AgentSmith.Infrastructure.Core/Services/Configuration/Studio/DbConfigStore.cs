@@ -68,7 +68,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     {
         ConfigReferentialValidator.ValidateProject(entity, _catalog);
         ConfigStudioCapabilities.ValidateProjectResolution(entity);
-        Save(ConfigDocTypes.Project, entity.Id, RawConfigPatch.Project(entity, Existing(_document!.Projects, entity.Id)), by);
+        Save(ConfigDocTypes.Project, entity.Id, RawProjectPatch.Apply(entity, Existing(_document!.Projects, entity.Id)), by);
     });
 
     public void UpsertMcpServer(McpServerEntity entity, ChangeAttribution by) => Mutate(() =>

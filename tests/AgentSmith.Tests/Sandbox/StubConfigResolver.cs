@@ -28,6 +28,9 @@ internal sealed class StubConfigResolver : IConfigResolver
     public ResolvedValue<int> ResolveRunCommandTimeout(ResolvedProject project) =>
         ResolvedValue<int>.Global(300);
 
+    public ResolvedValue<string> ResolveToolchainImage(ResolvedProject project) =>
+        ResolvedValue<string>.PerRun();
+
     public ResolvedValue<CostCapValues> ResolveCostCap(string? pipelineName) =>
         ResolvedValue<CostCapValues>.Global(new CostCapValues());
 

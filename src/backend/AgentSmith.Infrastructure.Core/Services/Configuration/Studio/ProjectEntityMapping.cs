@@ -24,8 +24,25 @@ internal static class ProjectEntityMapping
             pipelines,
             ToResolution(project),
             project.DefaultPipeline,
-            ToTemplates(project));
+            ToTemplates(project),
+            ToSandbox(project));
     }
+
+    /// <summary>
+    /// 2026-09-22-6968: the five scalar sandbox overrides exactly as stored. NULL when the
+    /// project declares no sandbox block at all — absence, not a copy of the process-wide
+    /// defaults, because the form has to tell "this project says nothing" from "this project
+    /// pins the same number the global one happens to hold".
+    /// </summary>
+    public static ProjectSandbox? ToSandbox(RawProjectEntry project) =>
+        project.Sandbox is not { } sandbox
+            ? null
+            : new ProjectSandbox(
+                sandbox.ToolchainImage,
+                sandbox.StepTimeoutSeconds,
+                sandbox.RunCommandTimeoutSeconds,
+                sandbox.AgentRegistry,
+                sandbox.AgentVersion);
 
     /// <summary>
     /// Always a list, never null, on the way OUT: the studio is being told what the stored

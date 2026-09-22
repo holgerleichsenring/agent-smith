@@ -123,12 +123,7 @@ public static class ConfigSnapshotMapper
     private static ConfigCostCapValue? ToCostCap(CostCapValues? c) =>
         c is null ? null : new(c.Usd, c.Tokens);
 
-    private static string Source(ResolutionSource s) => s switch
-    {
-        ResolutionSource.ProjectOverride => "override",
-        ResolutionSource.RunResolved => "run-resolved",
-        _ => "global-default",
-    };
+    private static string Source(ResolutionSource s) => ResolutionSourceName.Of(s);
 
     // The resolver stores the SAME AgentConfig instance the catalog holds
     // (ResolvedProjectBuilder.ResolveAgent), so reference equality recovers the

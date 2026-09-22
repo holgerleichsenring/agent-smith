@@ -141,6 +141,33 @@ export async function fetchConfig(signal?: AbortSignal): Promise<ConfigSnapshot>
   return getJson<ConfigSnapshot>(`/api/config`, signal);
 }
 
+/** 2026-09-22-6968: what ONE project's five scalar sandbox controls would inherit if the
+ *  project declared nothing. Not the same question as `resolved` above: that one answers
+ *  what a run of this project gets, which for a project that HAS an override is the
+ *  override — a placeholder built from it would show the operator their own value back.
+ *  A run-resolved value (the toolchain image) carries a null `value` on purpose. */
+export interface InheritedSandbox {
+  toolchainImage: ResolvedValue<string>;
+  stepTimeoutSeconds: ResolvedValue<number>;
+  runCommandTimeoutSeconds: ResolvedValue<number>;
+  agentRegistry: ResolvedValue<string>;
+  agentVersion: ResolvedValue<string>;
+}
+
+/** Keyed by the name of a project the RUNNING configuration holds, so a project being
+ *  created — or renamed before its save — has no row; `processWide` is what it will
+ *  inherit the moment it exists. */
+export interface InheritedSandboxProjection {
+  processWide: InheritedSandbox;
+  projects: Record<string, InheritedSandbox>;
+}
+
+export async function fetchInheritedSandbox(
+  signal?: AbortSignal,
+): Promise<InheritedSandboxProjection> {
+  return getJson<InheritedSandboxProjection>(`/api/config/inherited-sandbox`, signal);
+}
+
 // ---------------------------------------------------------------------------
 // p0345: Config Studio — the DB-backed EDITABLE catalog. Distinct from the
 // read-only resolved snapshot above: this is the CRUD surface the studio forms
@@ -457,6 +484,20 @@ export interface TemplateReference {
   revision?: string | null;
 }
 
+/** 2026-09-22-6968: the five SCALAR per-project sandbox overrides. Each field is
+ *  null-means-inherit, and the BLOCK is absent-means-leave-alone: a client that does not
+ *  know it sends none and the stored block survives untouched, while a form that shows the
+ *  block sends all five — so a field missing from a SENT block is a deliberate clear.
+ *  The structured three (resources, the per-language image map, the pod's secrets) are not
+ *  here and are never written through this block. */
+export interface ProjectSandbox {
+  toolchainImage?: string;
+  stepTimeoutSeconds?: number;
+  runCommandTimeoutSeconds?: number;
+  agentRegistry?: string;
+  agentVersion?: string;
+}
+
 /** The relational heart: agent + tracker are single FKs, repos a FK set.
  *  p0345c truth-fix: the field once mislabeled `trigger` IS the pipeline —
  *  renamed on the wire; `resolution` is a strategy choice, not freetext. */
@@ -474,6 +515,9 @@ export interface StudioProject {
    *  new project's blank draft omits it — the server writes the field only when it is
    *  present, so a client that does not know it cannot wipe a stored declaration. */
   templates?: TemplateReference[] | null;
+  /** 2026-09-22-6968: ABSENT means "nothing to say about the sandbox", which is what keeps
+   *  a client that never renders this tab from wiping a stored block. */
+  sandbox?: ProjectSandbox | null;
 }
 
 export interface StudioMcpServer {
