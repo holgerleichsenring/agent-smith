@@ -39,6 +39,12 @@ def _environment():
     """A git environment that ignores the operator's global and system config."""
     environment = dict(os.environ)
     environment.pop("CLAUDE_PROJECT_DIR", None)
+    # 2026-09-22-6ff3: and the gate's own skip flag, for the same reason. The gate exports
+    # PHASE_GATE_SELFTEST=1 when it runs these tests, so a gate they drive skips the hook-test
+    # step rather than running the tests that invoked it. Inherited from here it would make
+    # EVERY gate the suite spawns skip that step, and the four tests whose subject is the step
+    # would fail whenever the gate ran them — green by hand, red where it counts.
+    environment.pop("PHASE_GATE_SELFTEST", None)
     environment["GIT_CONFIG_GLOBAL"] = os.devnull
     environment["GIT_CONFIG_SYSTEM"] = os.devnull
     return environment
@@ -591,6 +597,19 @@ def Gate_RedHookTests_BlockTheCommit():
         assert "the hook tests are red" in completed.stderr, completed.stderr
         assert [(line[1], line[5]) for line in _ledger(ledger)] == [
             ("blocked", "hook tests: test_probe.py")], _ledger(ledger)
+
+
+def Gate_ASpawnedGate_InheritsNoSelftestFlag():
+    """The gate sets PHASE_GATE_SELFTEST when it runs these tests, so every gate the suite
+    spawns would skip its own hook-test step if the helper passed the flag on. The four tests
+    above would then be green by hand and red whenever the gate ran them, which is how they
+    shipped. Pinned here rather than in each of them, because the next spawned gate is the one
+    that would forget."""
+    os.environ["PHASE_GATE_SELFTEST"] = "1"
+    try:
+        assert "PHASE_GATE_SELFTEST" not in _environment(), _environment()
+    finally:
+        os.environ.pop("PHASE_GATE_SELFTEST", None)
 
 
 def _cases():

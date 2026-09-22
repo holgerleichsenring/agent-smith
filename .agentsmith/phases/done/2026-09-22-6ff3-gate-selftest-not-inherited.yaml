@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-6ff3
+
+goal: "The gate's own hook tests stop failing when the gate runs them, so phase commits are possible again: the skip flag the gate exports is not inherited by the gates those tests drive."
+
+applies_to: "the phase gate's hook tests (.claude/hooks)"
+
+scope:
+  in: >
+    Every phase commit in this repository is blocked right now. The gate runs its own hook tests
+    first, exporting PHASE_GATE_SELFTEST=1 so that a gate driven BY those tests skips the step
+    rather than re-running the tests that invoked it. The tests spawn gates of their own through
+    one helper that copies the ambient environment — so the flag is inherited, every gate the
+    tests drive skips the step, and the four tests whose whole subject is that step fail. Run by
+    hand the same file is green, which is why it shipped: the commit that added those four tests
+    was gated by the hook copy that predated them.
+    The helper already strips CLAUDE_PROJECT_DIR from the environment it hands to a spawned gate,
+    for exactly this reason — a value the surrounding session set must not decide what the gate
+    under test does. The flag joins it.
+  out: >
+    THE GATE SCRIPT. It is right: it must set the flag, or a test-driven gate would run the tests
+    that are running it, forever. What is wrong is that the tests let their own environment carry
+    it into a child that is supposed to be pristine.
+    THE PROBE'S OWN SPAWN. The failing-hook-test probe re-runs the gate deliberately with the
+    ambient environment, and that inheritance is the behaviour one of the four tests asserts —
+    that a gate driven by the tests does NOT run them again. It keeps it.
+    THE STEP'S ORDER, ITS LEDGER REDIRECTION AND EVERY OTHER CHECK. Untouched.
+
+decisions:
+  - key: |
+      THE FLAG IS STRIPPED WHERE CLAUDE_PROJECT_DIR ALREADY IS, NOT PER TEST. Four tests fail
+      today, but the defect belongs to every gate the suite spawns: each one is meant to be a
+      fresh gate over a throwaway tree, and any of them silently skipping a step because of a
+      variable the outer session happened to set is the same bug with a different symptom. One
+      strip in the shared helper, beside the strip that is there for the same reason, rather than
+      four opt-outs that the fifth test will forget.
+  - key: |
+      THIS IS WHY THE PROOF-OF-ITSELF STEP EXISTS, AND IT MISSED ITSELF ONCE. The step is meant to
+      prove a changed hook with the hook it ships. It cannot prove the commit that first ADDS a
+      test of the step, because at that moment the running gate is still the old copy, and the new
+      test only runs afterwards. There is no fix for that ordering inside a single commit; the
+      answer is that the tests must be runnable in the environment the gate provides, which is
+      what this phase restores.
+
+steps:
+  - id: the-spawned-gate-starts-clean
+    action: "_environment() in .claude/hooks/test_commit_message.py drops PHASE_GATE_SELFTEST beside the CLAUDE_PROJECT_DIR it already drops, with the reason named at the line."
+  - id: the-inheritance-is-pinned
+    action: "A test that the suite's gate helper hands a spawned gate no PHASE_GATE_SELFTEST even when the caller's own environment carries one — so the next change to the helper cannot re-introduce the inheritance silently."
+
+tests:
+  - "Gate_TheHookTests_AreRunByTheGate"
+  - "Gate_TheHookTestsRunByTheGate_WriteNoLedgerLine"
+  - "Gate_TheHookTestsRunByTheGate_AreNotRunAgainByTheGateTheyDrive"
+  - "Gate_RedHookTests_BlockTheCommit"
+  - "Gate_ASpawnedGate_InheritsNoSelftestFlag"
+
+done:
+  - "the hook tests pass with PHASE_GATE_SELFTEST set in the environment, as the gate sets it"
+  - "the hook tests still pass without it"
+  - "a phase commit reaches the gate's later steps instead of being blocked at step zero"
+  - "the gate script is unchanged"
+
+facts:
+  - claim: "The gate runs the hook tests with PHASE_GATE_SELFTEST=1 so that a gate they drive skips this step."
+    evidence: ".claude/hooks/phase-gate.sh:192-205"
+  - claim: "The suite spawns every gate through helpers that build their environment from one function."
+    evidence: ".claude/hooks/test_commit_message.py:73-79, :536-548"
+  - claim: "That function copies the ambient environment and already strips CLAUDE_PROJECT_DIR from it."
+    evidence: ".claude/hooks/test_commit_message.py:39-44"
+  - claim: "It does not strip the selftest flag: the name appears nowhere in the test file."
+    evidence: ".claude/hooks/test_commit_message.py"
+  - claim: "Four tests assert the step runs, writes no ledger line here, runs the probe once, and blocks on a red probe — all of which require the gate they spawn NOT to skip the step."
+    evidence: ".claude/hooks/test_commit_message.py:551-593"
+  - claim: "The probe re-runs the gate with the ambient environment on purpose, which is what the run-once assertion measures."
+    evidence: ".claude/hooks/test_commit_message.py:518-520"
+  - claim: "The four tests arrived with 2026-09-21-9ae2, whose own commit was therefore gated by the hook copy that predated them."
+    evidence: "git log -S Gate_TheHookTests_AreRunByTheGate -- .claude/hooks/test_commit_message.py -> 2b898b56"
