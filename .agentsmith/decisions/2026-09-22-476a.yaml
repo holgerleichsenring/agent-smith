@@ -1,0 +1,45 @@
+phase: 2026-09-22-476a
+decisions:
+  - id: the-fix-is-the-precedent
+    chose: >
+      The six fire-and-forget dispatch sites in the server's endpoints open
+      IServiceScopeFactory.CreateAsyncScope and close it with await using.
+    alternative: >
+      Registering the sandbox coordinator differently, or teaching the dispatch sites to resolve
+      and dispose it by hand.
+    why: >
+      PipelineQueueConsumer already opens an async scope for this exact failure and carries a
+      comment saying so. The defect is in how a scope is CLOSED, not in what it holds, so the fix
+      is the two words the precedent already uses; nothing is introduced for the six to share.
+  - id: the-rule-is-scoped-to-background-tasks
+    chose: >
+      An architecture rule reads AgentSmith.Server and fails on a synchronous CreateScope inside a
+      Task.Run lambda, with three teeth tests — a synthetic violator, a synthetic passing case, and
+      an in-line sweeper scope that must NOT be flagged.
+    alternative: >
+      A rule over every CreateScope in the server project.
+    why: >
+      What makes the defect reachable is that a dispatch runs a PIPELINE on a detached task; two
+      dozen request-scoped and sweeper scopes resolve no coordinator and would be flagged for DI
+      hygiene rather than for damage. The narrow rule was proven against the pre-fix tree: it finds
+      exactly the six sites that were wrong.
+  - id: it-is-a-defect-even-though-no-reply-was-lost
+    chose: >
+      Treating the FAIL line as worth a phase of its own.
+    alternative: >
+      Leaving it, since the throw lands after the reply is already written and the orphan reaper
+      removes what the abandoned disposal leaves behind.
+    why: >
+      The throw aborts the rest of the scope's disposal, and a FAIL on every single message trains
+      the operator's eye to skip the one that matters. The reply's safety is what made it survive
+      this long unseen.
+  - id: the-comment-shrank-rather-than-the-baseline-growing
+    chose: >
+      The explaining comment at the dashboard dispatch site was cut to two lines when it pushed
+      SpecDialogEndpoints.cs to 124 lines.
+    alternative: >
+      A baseline entry in the file-length ratchet.
+    why: >
+      The ratchet's own message says to split responsibilities rather than add an entry, and this
+      change adds no responsibility to the file — only prose. The prose that had to go is in the
+      spec and in this file, where length is not rationed.

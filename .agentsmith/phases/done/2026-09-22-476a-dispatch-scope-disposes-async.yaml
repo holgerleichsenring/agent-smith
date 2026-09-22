@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-476a
+
+goal: "A fire-and-forget dispatch disposes its service scope asynchronously, so a design turn stops ending in an InvalidOperationException that abandons the rest of the scope's disposal."
+
+applies_to: "backend (the six background dispatch sites in the server's endpoints)"
+
+scope:
+  in: >
+    Every chat and dialog message the server accepts is dispatched on a background task in a
+    fresh service scope, and that scope is closed with a SYNCHRONOUS using. The pipeline the
+    dispatch reaches resolves IPipelineSandboxCoordinator, which is registered transient and
+    implements IAsyncDisposable and nothing else. A transient async-only disposable resolved
+    from a scope is tracked by that scope, so the sync Dispose throws
+    "type only implements IAsyncDisposable" — after the reply is written, which is why the
+    turn looks healthy and the operator still sees a FAIL line on every message. The throw
+    also aborts the disposal of everything else the scope holds.
+    The precedent is already in the tree and carries its own note: the queue consumer opens an
+    ASYNC scope for exactly this reason. The six background dispatch sites adopt it.
+    A rule test keeps them there: a service scope opened inside a background task in the server
+    must be an async scope, because a background task is what reaches a pipeline.
+  out: >
+    THE REGISTRATION. The coordinator stays transient and async-only; the defect is in how a
+    scope is closed, not in what it holds.
+    THE SCOPES THAT ARE NOT BACKGROUND DISPATCHES. A scope opened and awaited inside a request
+    or a sweeper resolves no coordinator today; widening the rule to every CreateScope in the
+    server would flag two dozen sites that the defect cannot reach.
+    THE LATENCY THE OPERATOR ACTUALLY FEELS. Named in prose as the phases that take the
+    sandbox lifecycle off a design turn's critical path; this one removes an exception, not a
+    second of wall clock.
+
+decisions:
+  - key: |
+      THE FIX IS THE PRECEDENT, NOT A NEW MECHANISM. PipelineQueueConsumer already opens
+      CreateAsyncScope with a comment naming this exact failure. The six dispatch sites are
+      changed to the same two words; nothing is introduced for them to share.
+  - key: |
+      THE RULE IS SCOPED TO BACKGROUND TASKS, NOT TO THE PROJECT. What makes the defect
+      reachable is that a dispatch runs a pipeline on a detached task. A rule over every
+      CreateScope in the server would be a rule about DI hygiene, and this repository's own
+      bar is that a rule test names the damage it prevents.
+  - key: |
+      IT IS NOT A SILENT FAILURE AND IT IS STILL A DEFECT. The reply is already delivered when
+      the throw happens, so no conversation was lost. What is lost is the rest of the scope's
+      disposal and the operator's ability to read the log: a FAIL on every single message
+      trains the eye to ignore the one that matters.
+
+steps:
+  - id: the-six-sites-close-asynchronously
+    action: "The six background dispatch sites in the server's endpoints open CreateAsyncScope and close it with await using."
+  - id: a-rule-keeps-them-there
+    action: "An architecture rule test reads the server's sources and fails on a synchronous CreateScope inside a background task lambda."
+
+tests:
+  - "EveryBackgroundTaskInTheServer_OpensAnAsyncScope"
+  - "Rule_HasTeeth_ASynchronousScopeOnABackgroundTask_IsFlagged"
+  - "Rule_HasTeeth_AnAsyncScopeOnABackgroundTask_IsNotFlagged"
+  - "Rule_IsScopedToBackgroundTasks_ASynchronousScopeAwaitedInLine_IsNotFlagged"
+
+done:
+  - "a design turn's dispatch leaves no FAIL line behind"
+  - "the rule fails when a seventh dispatch site opens a synchronous scope"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The dashboard dialog dispatch opens a synchronous scope on a background task."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:77-84"
+  - claim: "The coordinator is registered transient, and a transient disposable resolved from a scope is disposed by that scope."
+    evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:45"
+  - claim: "The coordinator implements IAsyncDisposable and nothing else."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IPipelineSandboxCoordinator.cs:16"
+  - claim: "The executor already disposes the coordinator itself; the scope's own tracking is the second disposal that throws."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:61"
+  - claim: "The queue consumer opens an async scope for this exact reason, and says so."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineQueueConsumer.cs:70-73"
+  - claim: "All six background dispatch sites route a message or an interaction that can reach a spec-dialog turn or a run."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SlackEventEndpointHandler.cs:64, src/backend/AgentSmith.Server/Extensions/TeamsEndpoints.cs:103,132, src/backend/AgentSmith.Server/Extensions/SlackEndpoints.cs:49,76"
+  - claim: "The failure is observed once per dialog turn in a running installation."
+    evidence: "deploy-server-1 log, 2026-09-22 13:40:23.425, session d1ecd3fa"
