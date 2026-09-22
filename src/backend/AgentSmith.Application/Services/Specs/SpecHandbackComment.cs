@@ -21,6 +21,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// answers. Its heading carries <see cref="QuestionMarker"/>, so the next run's
 /// conversation section keeps the question in view while it is still unanswered.
 /// </para>
+/// <para>
+/// 2026-09-22-6ad7: the MISSING-SPECIFICATION case gets an arm of its own, because the default
+/// arm renders every unnamed case as the contradiction — which of a filed ticket's own approval
+/// would be a contradiction that does not exist. It carries no anchor and no spec link: nothing
+/// was derived, and the answer is a push to the branch rather than a reply.
+/// </para>
 /// </summary>
 public static class SpecHandbackComment
 {
@@ -47,6 +53,7 @@ public static class SpecHandbackComment
             SpecHandbackCase.NotImplementable => Verdict(handback) + spec + waiting,
             SpecHandbackCase.Refused => Refused(handback) + waiting,
             SpecHandbackCase.Question => Question(handback) + spec + waiting,
+            SpecHandbackCase.SpecificationMissingFromBranch => Missing(handback) + waiting,
             _ => Contradiction(handback) + spec + waiting,
         };
     }
@@ -59,6 +66,12 @@ public static class SpecHandbackComment
         + handback.Reason
         + "\n\nThis is a verdict, not a question: a comment will not restart the work. "
         + "Change the ticket and use Retry on the run when it should be attempted again.";
+
+    private static string Missing(SpecHandback handback) =>
+        "## Agent Smith — the approved specification is not on the ticket branch\n\n"
+        + handback.Reason
+        + "\n\nNothing was derived and nothing ran. Put the specification on the ticket branch "
+        + "and move the ticket back to a trigger status; the next run works it from there.";
 
     private static string Contradiction(SpecHandback handback) =>
         $"## Agent Smith — {ContradictionMarker}\n\n"

@@ -99,6 +99,18 @@ public sealed class DeriveSpecHandlerTests
         published.Set.Accounting.IsComplete.Should().BeTrue();
     }
 
+    // 2026-09-22-6ad7: the reader answers "nothing at the path", never null — a default-valued
+    // mock would hand the handler a null branch answer and the split would read as a crash.
+    private static ISpecSetReader EmptyBranch()
+    {
+        var reader = new Mock<ISpecSetReader>();
+        reader.Setup(r => r.ReadAsync(
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<SpecSetKey>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpecSetOnBranch.Nothing);
+        return reader.Object;
+    }
+
     private static DeriveSpecHandler Handler(
         RecordingEventPublisher events, CapturingPublisher publisher, SpecDerivation? derivation)
     {
@@ -113,14 +125,14 @@ public sealed class DeriveSpecHandlerTests
         var draftReader = new PhaseDraftReader();
         return new DeriveSpecHandler(
             deriver.Object,
-            Mock.Of<ISpecSetReader>(),
+            EmptyBranch(),
             publisher,
             new InMemorySpecSetPointerStore(),
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new PhaseSpecFromTicket(validator, draftReader),
-                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),

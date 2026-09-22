@@ -29,10 +29,14 @@ public interface ISpecSetDeriver
 /// fetch — a re-trigger or a PR-comment trigger lands on the same
 /// <c>agent-smith/&lt;ticketId&gt;</c> branch, so whatever a reviewer committed on the
 /// spec path is already in the working tree and is INPUT to the next revision.
+/// <para>
+/// 2026-09-22-6ad7: it answers WHY it found nothing, because the caller's two answers to that
+/// differ — an unwritten branch is handed the set once, a broken one is handed back.
+/// </para>
 /// </summary>
 public interface ISpecSetReader
 {
-    Task<SpecSetReadResult?> ReadAsync(
+    Task<SpecSetOnBranch> ReadAsync(
         PipelineContext pipeline, RepoConnection carryingRepo, SpecSetKey key,
         CancellationToken cancellationToken);
 }

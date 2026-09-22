@@ -30,6 +30,10 @@ public sealed class SpecHandbackTests
     private static readonly SpecHandback Contradiction =
         new(SpecHandbackCase.RequirementsContradictRepository, "no such client here");
 
+    private static readonly SpecHandback MissingSpec = new(
+        SpecHandbackCase.SpecificationMissingFromBranch,
+        "the approved specification never reached `.agentsmith/specs/azdo-1/`");
+
     private static TicketComment OurContradiction() => new(
         "agent-smith", DateTimeOffset.UtcNow.AddHours(-2),
         SpecHandbackComment.Build(Contradiction, null, TicketMention.NobodyToNotify));
@@ -208,6 +212,52 @@ public sealed class SpecHandbackTests
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    /// <summary>
+    /// 2026-09-22-6ad7: the specification a person approved is not on the branch. The ticket is
+    /// PARKED where a clarification parks — not closed, and not moved to the failure status a
+    /// failed step would have finalized it into.
+    /// </summary>
+    [Fact]
+    public async Task SpecHandback_ASpecificationMissingFromTheBranch_ParksTheTicketRatherThanClosingIt()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var pipeline = PipelineWith(MissingSpec);
+
+        var result = await Handler(tickets).ExecuteAsync(Context(pipeline, Parkable()), default);
+
+        result.IsSuccess.Should().BeTrue();
+        pipeline.Get<bool>(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeTrue();
+        tickets.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), "needs-info", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    /// <summary>
+    /// The builder's DEFAULT arm renders every unnamed case as the contradiction, which of a
+    /// filed ticket's own approval would be a contradiction that does not exist.
+    /// </summary>
+    [Fact]
+    public void SpecHandbackComment_ASpecificationMissingFromTheBranch_IsNotRenderedAsAContradiction()
+    {
+        var body = SpecHandbackComment.Build(MissingSpec, null, TicketMention.NobodyToNotify);
+
+        body.Should().NotContain(SpecHandbackComment.ContradictionMarker);
+        body.Should().Contain("the approved specification is not on the ticket branch")
+            .And.Contain(MissingSpec.Reason);
+    }
+
+    /// <summary>
+    /// 2026-09-22-6ad7 assumption: a park for a missing specification is never read as a repeat,
+    /// so a ticket that parks twice for it is not failed as a loop. Only the contradiction case
+    /// can end its own loop.
+    /// </summary>
+    [Fact]
+    public void IsRepeat_ASpecificationMissingFromTheBranch_IsNeverARepeat() =>
+        Repeat().IsRepeat(
+            Pointer(SpecHandbackCase.SpecificationMissingFromBranch),
+            SpecHandbackCase.SpecificationMissingFromBranch, PipelineWithThread([]))
+        .Should().BeFalse();
 
     [Fact]
     public async Task SpecHandback_NothingHandedBack_IsANoOp()

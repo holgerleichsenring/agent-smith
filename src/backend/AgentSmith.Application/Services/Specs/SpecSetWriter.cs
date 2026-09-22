@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecSetWriter(
     ISandboxFileReaderFactory readerFactory,
     SandboxGitOperations gitOps,
-    SpecSetIndex index,
+    SpecSetFiles files,
     SandboxTargets sandboxTargets,
     ILogger<SpecSetWriter> logger) : ISpecSetWriter
 {
@@ -50,9 +50,9 @@ public sealed class SpecSetWriter(
         PipelineContext pipeline, CancellationToken ct)
     {
         var key = new SpecSetKey(set.Key);
-        var files = readerFactory.Create(sandbox);
-        await WriteFilesAsync(files, key, set, pipeline, ct);
-        await DeleteStaleFilesAsync(sandbox, files, key, set, ct);
+        var reader = readerFactory.Create(sandbox);
+        await WriteFilesAsync(reader, key, set, pipeline, ct);
+        await DeleteStaleFilesAsync(sandbox, reader, key, set, ct);
         await gitOps.ForceStageAsync(sandbox, key.Directory, ct);
         if (!await gitOps.HasStagedChangesAsync(sandbox, ct))
         {
@@ -69,29 +69,24 @@ public sealed class SpecSetWriter(
         return SpecSetWriteResult.Ok(sha);
     }
 
+    // 2026-09-22-b6ad: rendered by SpecSetFiles, which is also what FILING writes to the branch
+    // with — so the first publish after a filing finds the directory it would have written itself.
     private async Task WriteFilesAsync(
-        ISandboxFileReader files, SpecSetKey key, SpecSet set, PipelineContext pipeline, CancellationToken ct)
+        ISandboxFileReader reader, SpecSetKey key, SpecSet set, PipelineContext pipeline, CancellationToken ct)
     {
-        await files.WriteAsync($"{key.Directory}/{SpecSetIndex.FileName}", index.Serialize(set), ct);
-        foreach (var phase in set.Phases)
-        {
-            await files.WriteAsync(key.YamlPath(phase.FileStem), phase.Draft.Yaml.TrimEnd() + "\n", ct);
-            await files.WriteAsync(key.MarkdownPath(phase.FileStem), phase.Markdown, ct);
-        }
         var segments = pipeline.TryGet<IReadOnlyList<TicketSegment>>(ContextKeys.TicketSegments, out var s)
             ? s! : [];
-        await files.WriteAsync(
-            key.AccountingPath,
-            SpecAccountingBuilder.Render(set.Accounting, segments, set.Key), ct);
+        foreach (var file in files.Render(key, set, segments))
+            await reader.WriteAsync(file.Path, file.Content, ct);
     }
 
     // p0399: a revision FULLY REPLACES the set on disk — spec files absent from the
     // current cut are removed in the same commit, so the directory never carries two
     // truths. The index and the accounting are part of every cut and survive.
     private async Task DeleteStaleFilesAsync(
-        ISandbox sandbox, ISandboxFileReader files, SpecSetKey key, SpecSet set, CancellationToken ct)
+        ISandbox sandbox, ISandboxFileReader reader, SpecSetKey key, SpecSet set, CancellationToken ct)
     {
-        var listed = await files.ListAsync(key.Directory, maxDepth: 1, ct);
+        var listed = await reader.ListAsync(key.Directory, maxDepth: 1, ct);
         var stale = SpecSetStaleFiles.Select(listed, key, set);
         if (stale.Count == 0) return;
         logger.LogInformation(

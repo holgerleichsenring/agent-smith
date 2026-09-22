@@ -75,4 +75,13 @@ public enum SpecHandbackCase
     /// run takes if nobody does — and an unanswered re-trigger proceeds on that one.
     /// </summary>
     Question = 4,
+
+    /// <summary>
+    /// 2026-09-22-6ad7: the ticket was filed from an approved specification and that
+    /// specification is not readable on its branch — nothing to work, and nothing to guess
+    /// from. Not a verdict about the work and not a question about the ticket: the fix is to
+    /// put the specs on the branch. Parks where a person can answer, and a re-trigger once
+    /// they are there is the answer.
+    /// </summary>
+    SpecificationMissingFromBranch = 5,
 }

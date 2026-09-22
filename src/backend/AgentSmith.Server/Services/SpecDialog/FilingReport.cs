@@ -52,8 +52,13 @@ public sealed record FilingReport(IReadOnlyList<FiledTicket> Filed, string? Erro
     /// <para>
     /// 2026-09-22-b3d7: NO WRITER LEFT. Its only one was the slice-record filer — a record that
     /// was not created, a parent link that did not land — and a filing is now one ticket, which
-    /// either exists or is the filing's error. It stays read-only, because a filing stored before
-    /// this phase carries notes the pane still shows.
+    /// either exists or is the filing's error.
+    /// </para>
+    /// <para>
+    /// 2026-09-22-b6ad: ONE AGAIN. The ticket branch is written as the ticket is filed, and by the
+    /// time that write runs the ticket exists and carries the approved set — so a write that fails
+    /// is a note. An error would tell the operator to retry, and the retry files a second ticket
+    /// with a second stored record: two runs and two pull requests per repository.
     /// </para>
     /// </summary>
     public IReadOnlyList<string> Notes { get; init; } = [];

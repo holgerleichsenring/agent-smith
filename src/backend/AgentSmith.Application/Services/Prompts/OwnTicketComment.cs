@@ -45,13 +45,23 @@ public static class OwnTicketComment
     public static bool AwaitsAnswer(TicketComment comment) => Carries(comment, AwaitingAnswer);
 
     /// <summary>True when someone other than us commented after our last comment carrying <paramref name="marker"/>.</summary>
-    public static bool IsAnswered(IReadOnlyList<TicketComment>? comments, string marker)
+    public static bool IsAnswered(IReadOnlyList<TicketComment>? comments, string marker) =>
+        ForeignAfter(comments, marker).Any();
+
+    /// <summary>
+    /// 2026-09-22-8b25: the comments <see cref="IsAnswered"/> counts — everything by somebody
+    /// other than us that follows our last comment carrying <paramref name="marker"/>, oldest
+    /// first. Extracted because a second rule asks what those comments SAY, and two readings of
+    /// one thread can disagree about which comments are even in scope.
+    /// </summary>
+    public static IEnumerable<TicketComment> ForeignAfter(
+        IReadOnlyList<TicketComment>? comments, string marker)
     {
-        if (comments is null || comments.Count == 0) return false;
+        if (comments is null || comments.Count == 0) return [];
         var ordered = comments.OrderBy(c => c.CreatedAt).ToList();
         var asked = ordered.LastOrDefault(c => IsOurs(c) && Carries(c, [marker]));
         var after = asked is null ? ordered : ordered.Where(c => c.CreatedAt > asked.CreatedAt);
-        return after.Any(c => !IsOurs(c));
+        return after.Where(c => !IsOurs(c));
     }
 
     private static bool Carries(TicketComment comment, string[] markers) =>

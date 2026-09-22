@@ -170,7 +170,7 @@ public sealed class EpicWorkTicketTests
 
     /// <summary>
     /// The gate reads a fetched TICKET, so the stamp the filer writes has to be the one it looks
-    /// for: a work ticket with no set reaching DeriveSpec must fail loudly.
+    /// for: a work ticket with no set reaching DeriveSpec must park rather than derive a guess.
     /// </summary>
     [Fact]
     public async Task EpicApproval_WorkTicketWithNoSet_IsTheLoudMiss()
@@ -179,8 +179,12 @@ public sealed class EpicWorkTicketTests
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
         var gate = new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance);
 
-        gate.MissingSet(Fetched(provider.Created[0].Labels)).Should()
-            .NotBeNull().And.Subject.ToString().Should().Contain(FiledTicketLabels.ApprovedSetStamp);
+        var handback = gate.MissingSet(
+            Fetched(provider.Created[0].Labels), new SpecSetKey("recording-1"), null,
+            SpecSetBranchState.NothingAtThePath);
+
+        handback!.Case.Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
+        handback.Reason.Should().Contain(FiledTicketLabels.ApprovedSetStamp);
     }
 
     private static Ticket Fetched(IReadOnlyList<string> labels) =>
@@ -473,8 +477,12 @@ public sealed class EpicWorkTicketTests
         public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
             Task.FromResult(ConnectionProbeResult.Reachable(0));
 
+        // 2026-09-22-b6ad: filing reads its own new ticket back, so the set it writes to the
+        // branch is fingerprinted from what the TRACKER stored rather than from the body we sent.
         public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            Task.FromResult(new Ticket(
+                ticketId, _created[int.Parse(ticketId.Value) - 1].Title,
+                _created[int.Parse(ticketId.Value) - 1].Body, null, "open", ProviderType, []));
 
         public Task<CreatedTicket> CreateAsync(
             string title, string description, IReadOnlyList<string> labels, string? kind,

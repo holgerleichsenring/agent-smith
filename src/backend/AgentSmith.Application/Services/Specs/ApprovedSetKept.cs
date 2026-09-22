@@ -50,6 +50,16 @@ public static class ApprovedSetKept
     /// pull request there would send an operator to something that does not exist.</summary>
     public const string WhereToChangeItWithNoPullRequest = OnTheBranch + ". " + TheEditRule;
 
+    /// <summary>2026-09-22-8b25: the ONE deliberate door for somebody who cannot reach the branch,
+    /// named where a person learns their input was not acted on. The phrase sits INSIDE a sentence
+    /// and never on a line of its own, so quoting this notice back cannot fire a demand:
+    /// <see cref="SpecRecutDemand"/> reads it only as a whole line at the START of a comment.</summary>
+    public const string TheDoor =
+        "If you cannot reach the branch at all, there is one deliberate exception: write a comment "
+        + "whose FIRST line says nothing but `" + SpecSetComment.RecutDemand + "`, and the next "
+        + "run cuts the unstarted phases again from the ticket. Any other first line is an "
+        + "ordinary comment and changes nothing.";
+
     private const string OnTheBranch = "The specs are on the ticket branch under `.agentsmith/specs/`";
 
     private const string TheEditRule =
@@ -90,7 +100,7 @@ public static class ApprovedSetKept
                 + $"conversation {Conversation(set!)}, and this run works it unchanged.").AppendLine();
         if (discarded is not null)
             sb.AppendLine($"One change was discarded — {discarded}.").AppendLine();
-        return sb.Append(WhereToChangeIt).ToString();
+        return sb.AppendLine(WhereToChangeIt).AppendLine().Append(TheDoor).ToString();
     }
 
     private static string? Arrived(SpecSet? set, string cause, bool alsoCommented)

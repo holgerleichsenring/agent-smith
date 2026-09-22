@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-22-8b25
+
+decisions:
+  - category: Architecture
+    chose: "A demand records a NEW APPROVAL on the set it re-cuts — the spec's conclusion, reached by a mechanism the spec did not know about"
+    over: "Publishing the re-cut set unapproved, or keeping the spec's stated reasoning"
+    reason: |
+      Decision 1 of the spec argued this from the precedence: a stored approval beat a null one,
+      so an unapproved re-cut would be overwritten by the record on the next run. That mechanism
+      no longer exists. 2026-09-22-6ad7 deleted ApprovedSetSource and ApprovedSetMerge, and the
+      record now supplies a set only as a hand-off for a branch holding NOTHING at the path
+      (ApprovedSetHandoff) — so a branch that answered is never compared against it and that
+      failure mode cannot occur.
+      The conclusion survives on a different one. The run reads its set off the branch;
+      SpecSetIndex.Serialize writes set.Approval into set.yaml and ApprovalOf reads it back; and
+      SpecAmendmentRule decides keep-vs-re-cut from the approval the BRANCH SET carries. A re-cut
+      published with no approval therefore reads back as unapproved, and the next ordinary comment
+      re-cuts it again — the immunity silently lost after exactly one demand. The publish path was
+      read end to end before relying on it and is pinned by
+      RecutOnDemand_ThePublishedSet_StaysApprovedToTheDemander, which asserts the serialized index.
+
+  - category: Architecture
+    chose: "The executed head is left as it is: it is ENFORCED, not requested of the model"
+    over: "Adding a guard in this phase on the assumption that the notice claims a guarantee nothing verifies"
+    reason: |
+      Checked rather than assumed. SpecSetDeriver hands previous?.ExecutedHead to
+      SpecDerivationParser.Parse, which seeds its result list with that head VERBATIM and starts
+      reading the model's phases at index executedHead.Count — the model's entries for those
+      positions are discarded whatever the reply says. A reply shorter than the head degrades to
+      the head alone, never to a rewrite. So SpecRecutNotice's "X already ran and stayed as it
+      was" is a statement about code, not a request, and it is already pinned by
+      Recut_UnexecutedTail_IsRepartitionedWhileTheExecutedHeadKeepsItsIds. Adding a second guard
+      would be a duplicate rule that can disagree with the first. What this phase pins instead is
+      the WIRING on the new path — that a demand really does put that head in front of the parser.
+
+  - category: Implementation
+    chose: "The demand is read by a new predicate in SpecRecutDemand, over a shared thread-arithmetic helper extracted from OwnTicketComment"
+    over: "Calling OwnTicketComment.IsAnswered with the demand phrase, or duplicating the anchor walk"
+    reason: |
+      IsAnswered uses its marker only to find OUR anchor comment and never inspects the foreign
+      comment's body. Called with a phrase our comments never carry it finds no anchor, treats the
+      whole thread as "after", and reads every ordinary comment ever written as a demand — which
+      an existing test already pins as its documented behaviour. The predicate therefore anchors
+      on the cut phrase exactly as today AND requires the foreign comment to carry the demand
+      phrase. The anchor-and-ours walk is extracted to OwnTicketComment.ForeignAfter and shared,
+      so the two rules cannot disagree about which comments are even in scope.
+
+  - category: Architecture
+    chose: "The phrase must be a WHOLE LINE at the START of the comment"
+    over: "Matching it anywhere in the body, the way the ours-list matches its heading"
+    reason: |
+      Whether a comment is ours is decided by a heading fragment matched anywhere, and that list
+      carries the heading in TWO dash encodings ("Agent Smith —" and "Agent Smith &#8212;") —
+      direct evidence, in the codebase, that trackers re-encode what they are given. A phrase
+      matched anywhere would therefore be classified as ours and dropped on one tracker and fire
+      an unwanted re-cut on the other, with punctuation deciding. Opening a comment with the
+      phrase on a line of its own is something a person does on purpose and a quote-back cannot do
+      by accident. Leading blank lines and casing are tolerated (tracker rendering); anything else
+      on that first line is an ordinary comment.
+
+  - category: TradeOff
+    chose: "The notice and the cut comment NAME the phrase, inside a sentence and never on a line of their own"
+    over: "Reproducing it as a standalone line (spec step 8), or omitting the words entirely (spec decision 3)"
+    reason: |
+      The spec contradicts itself here: decision 3 says the notice must name the door WITHOUT
+      reproducing the words, while step 8 and a test name say it quotes the phrase. Decision 3 is
+      the corrective one and carries the reasoning, so its constraint is honoured — but a door
+      nobody can name is not a door, and decision 5 explicitly wants the phrase visible. The
+      whole-line-at-start rule is what reconciles them: a phrase rendered inside a sentence, in a
+      body that begins with our own marker and heading, cannot match however it is quoted back.
+      Pinned in both directions — the notice and the cut comment each CONTAIN the phrase and each,
+      fed back as a foreign comment, are NOT demands. The spec's test name
+      KeptNotice_AnIgnoredInput_QuotesThePhraseThatWouldNotBeIgnored was renamed to
+      KeptNotice_AnIgnoredInput_NamesTheDoorAndCannotItselfDemandARecut to say what was built.
+
+  - category: Implementation
+    chose: "The cut comment's approved-set preamble stops claiming that NO run re-cuts an approved set"
+    over: "Leaving the wording alone as out of scope"
+    reason: |
+      The preamble is posted to the ticket on every run and said "a comment here will NOT change
+      the specification: no run re-cuts a set somebody approved". One now does, so this phase
+      would have started publishing a falsehood to the tracker. The correction is minimal and
+      keeps the sentence the existing test asserts: an ORDINARY comment still will not change it,
+      no passing remark re-cuts an approved set, and the door is named from the same constant the
+      notice uses. This is not the phase re-opening what a plain comment does — that behaviour is
+      unchanged; only the sentence describing it is now true.
+
+  - category: Implementation
+    chose: "The demand's approval carries an EMPTY conversation"
+    over: "Inventing a sentinel such as 'the ticket thread'"
+    reason: |
+      SpecApproval.Conversation names a design-conversation session that can be re-opened. A
+      demand has none. Every reader already renders a missing conversation as "(unnamed)"
+      (ApprovedSetKept, SpecMarkdown), so an empty value reads correctly everywhere, while a
+      sentinel would be spliced into "approved in design conversation <sentinel>" and produce a
+      broken sentence naming a session nobody can open. Who demanded it is carried by Principal
+      and why by the revision cause, which is where decision 7 of the spec wants it.
+
+  - category: Implementation
+    chose: "The approval is attached in SpecRevisionHeader.Finalize, carried there on SpecSourceResolver.Decision"
+    over: "Attaching it in DeriveSpecHandler after derivation"
+    reason: |
+      Finalize is already the one place that writes OUR header onto the set about to be published
+      — numbering, cause and fingerprint — and the approval is the same kind of fact. The handler
+      is at its file-length ratchet (143 lines, currently 142) and may only shrink, so the change
+      there is one extra argument on an existing call and no new line. The cause check and the
+      attribution live together in SpecRecutDemand.ApprovalFor, which also kept SpecSourceResolver
+      inside the 120-line limit it is not baselined against.
+
+  - category: Scope
+    chose: "A demand is decided BEFORE the edit and comment causes and is ignored while resuming"
+    over: "Sitting it beside them, or letting it fire on a resume"
+    reason: |
+      Spec step 7. A person who demands a re-cut and fixes the ticket text in the same breath must
+      get the re-cut, not a notice telling them their edit was kept out — the edit outranks a
+      comment today and would otherwise hide the one input that was meant to act. A resume
+      continues what the run was doing, exactly as the edit and comment causes already yield to
+      it.

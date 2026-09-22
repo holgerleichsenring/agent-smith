@@ -8,6 +8,13 @@ namespace AgentSmith.Application.Services.Specs;
 /// unstarted tail, the revision it postdates, and which phases stayed because they
 /// already ran. The author learns it from the ticket, without opening the branch. Any
 /// other revision renders nothing.
+/// <para>
+/// 2026-09-22-8b25: a DEMAND renders one too — it is the only input that re-cuts a set somebody
+/// approved, so it is the revision whose reader most needs to be told which phases survived it.
+/// The "already ran and stayed as it was" half is not a promise the model is asked to keep:
+/// <see cref="SpecDerivationParser"/> re-uses the executed head verbatim and starts the model's
+/// phases after it, so a re-cut cannot reach one whatever the reply says.
+/// </para>
 /// </summary>
 public static class SpecRecutNotice
 {
@@ -18,6 +25,8 @@ public static class SpecRecutNotice
         {
             SpecRevisionCause.TicketEdit => ("The ticket text changed since", "from the current text"),
             SpecRevisionCause.Comment => ("The ticket was commented on after", "with the comment in view"),
+            SpecRevisionCause.RecutDemand =>
+                ("A re-cut was demanded on the ticket after", "from the ticket as it now reads"),
             _ => (null, null),
         };
         if (since is null) return string.Empty;
