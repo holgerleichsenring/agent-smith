@@ -286,9 +286,24 @@ export function useSpecDialog(): SpecDialogState {
   const loadConversations = useCallback(async () => {
     const issued = (listReads.current += 1);
     try {
-      const next = await fetchSpecDialogConversations();
+      const page = await fetchSpecDialogConversations();
       if (issued !== listReads.current) return;
-      setConversations(next);
+      setConversations(page.conversations);
+      // 2026-09-21-f237b: a read that LANDED, was CAPPED, and still did not list the conversation
+      // open here spends its allowance — see listIsBehind. A read that threw or was superseded
+      // above never reaches this line, so it leaves the allowance for the next one to spend.
+      //
+      // Capped is the whole condition, and the counted total is what tells it. A page that served
+      // everything the owner has is authoritative: a row missing from it is a conversation the
+      // server does not hold YET — the read that races a conversation's own creation — and the
+      // next read will list it, so nothing may be spent on that. A page that served fewer than
+      // the owner holds may simply not reach far enough back, which is the case this allowance
+      // exists for and the only one in which reading again would say the same thing.
+      const known = sessionHere.current;
+      const capped = page.conversations.length < page.total;
+      if (known !== null && capped && !page.conversations.some((row) => row.sessionId === known)) {
+        unlisted.current.add(known);
+      }
     } catch (thrown) {
       // The list is beside the conversation, not the conversation: a failed read of it must not
       // put the page-wide failure over a dialog that is working.
@@ -306,19 +321,24 @@ export function useSpecDialog(): SpecDialogState {
   // read — every listed transcript parsed, two further JSON documents per row, up to fifty rows —
   // and the price is still real, so the read is issued only while it would say something new.
   // The filing's own read goes with it: the filing notice is a framework message like any other.
-  const sessionHere = view?.session?.sessionId ?? null;
+  const here = view?.session?.sessionId ?? null;
   useEffect(() => {
     void loadConversations();
-  }, [sessionHere, loadConversations]);
+  }, [here, loadConversations]);
 
   // What the list last said about the conversation open HERE. Held in a ref because the hub
   // subscription asks it: putting the list in that effect's dependencies would tear the
   // subscription down and rebuild it every time the list changed.
   const listedHere = useRef<SpecDialogSessionSummary | null>(null);
+  // 2026-09-21-f237b: and WHICH conversation that is, told apart from "the page has not learned
+  // its session id yet". listedHere is null for both, and only one of them is worth a read.
+  const sessionHere = useRef<string | null>(null);
+  // The conversations an absent-row read has already been spent on. See listIsBehind.
+  const unlisted = useRef(new Set<string>());
   useEffect(() => {
-    listedHere.current =
-      conversations.find((held) => held.sessionId === sessionHere) ?? null;
-  }, [conversations, sessionHere]);
+    sessionHere.current = here;
+    listedHere.current = conversations.find((held) => held.sessionId === here) ?? null;
+  }, [conversations, here]);
 
   /** Whether a list read would tell this page anything it does not already know: the conversation
    *  open here is not listed at all, is listed under NO NAME AT ALL, or is listed with fewer turns
@@ -338,8 +358,20 @@ export function useSpecDialog(): SpecDialogState {
    *  ahead of its server, and a strict comparison would silently switch the clause off. */
   const listIsBehind = useCallback(() => {
     const row = listedHere.current;
-    return row === null
-      || (row.title == null && row.subject == null)
+    // 2026-09-21-f237b: an ABSENT row is worth exactly one CAPPED read per conversation, not one
+    // per reply. Until this phase a missing row answered "behind" for ever, which was harmless
+    // while the only way to open a conversation was to click a row that was by definition listed.
+    // The conversations page can open one the panel's read does not contain — the cap is taken by
+    // id while the order is by activity, so a conversation resumed after a long silence falls
+    // outside it — and that conversation would otherwise poll the expensive read on every reply
+    // for as long as it stayed open. The allowance is keyed to a KNOWN session id, because the
+    // ref is also null in the moment before the page has learned which conversation it holds,
+    // and an allowance spent there would be spent on nothing.
+    if (row === null) {
+      const known = sessionHere.current;
+      return known !== null && !unlisted.current.has(known);
+    }
+    return (row.title == null && row.subject == null)
       || row.turns < turnsRead.current;
   }, []);
 

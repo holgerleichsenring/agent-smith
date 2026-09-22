@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { SpecDialogProject, SpecDialogSessionSummary } from "@/types/spec-dialog";
 import { groupByDay, outcomeLabel, timeOfDay } from "./conversationDays";
 
@@ -99,6 +100,10 @@ export function DialogConversations({
             ))}
           </div>
         )}
+        {/* 2026-09-21-f237b: the panel is not the only way to a conversation any more. */}
+        <Link href="/spec-dialog/conversations" className="d-link" data-testid="dialog-see-all">
+          All conversations
+        </Link>
       </div>
     </section>
   );
