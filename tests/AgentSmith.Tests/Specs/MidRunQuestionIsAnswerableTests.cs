@@ -97,6 +97,9 @@ public sealed class MidRunQuestionIsAnswerableTests
                 writer, identity ?? new DialogueJobIdentity(new Mock<IProgressReporter>().Object),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
+            new Application.Services.Lifecycle.UnmovedTicketReport(
+                new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
+                NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
             NullLogger<MasterOpenQuestionsHandler>.Instance);
 
     private static MasterOpenQuestionsContext Context(bool asked)
@@ -133,10 +136,10 @@ public sealed class MidRunQuestionIsAnswerableTests
     {
         // p0454 gave the poster the whole ticket: the assignee it must mention was in hand
         // one frame above where it was needed.
-        public Task PostAsync(
+        public Task<Contracts.Models.TicketFinalizeResult> PostAsync(
             PipelineContext pipeline, TrackerConnection ticketConfig, Ticket ticket,
             IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken ct)
-            => Task.CompletedTask;
+            => Task.FromResult(Contracts.Models.TicketFinalizeResult.Moved());
     }
 
     private sealed class FixedParkStatus : IClarificationParkStatusResolver

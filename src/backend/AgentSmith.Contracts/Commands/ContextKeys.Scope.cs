@@ -52,6 +52,14 @@ public static partial class ContextKeys
     /// told nothing and cuts exactly as it did before.</summary>
     public const string WorkShape = "WorkShape";
 
+    /// <summary>2026-09-22-7c41a: the <see cref="Models.Configuration.ComplexityTier"/> the
+    /// scope call estimated, kept beside the cap it sized. The cap itself cannot cross a
+    /// park (the checkpoint excludes it, and the scope step that raised it is a completed
+    /// command the resume never re-runs), so the resume recomputes it from this — the
+    /// configuration as it stands now, raised to this tier. Absent on a run whose tier was
+    /// Unknown: that run keeps the configured cap, exactly as before.</summary>
+    public const string ComplexityTier = "ComplexityTier";
+
     /// <summary>p0331: the run's LIVE IPipelineSandboxCoordinator, published by the
     /// coordinator itself on EnsureSandboxesAsync. The instance is transient and OWNED by
     /// PipelineExecutor (`await using`) — the context only BORROWS the reference so the

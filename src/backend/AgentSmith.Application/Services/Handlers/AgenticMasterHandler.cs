@@ -746,6 +746,12 @@ public sealed class AgenticMasterHandler(
                     pipelineName, progress.GetLedger(), verification,
                     costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1, verdictOwed.Demanded))
             {
+                // 2026-09-22-7c41a: when MONEY is what ended the re-engagement, say which cap
+                // and what was spent — a resumed run carries the segment before it, so this
+                // stop can arrive far earlier than the run's own record would suggest.
+                if (costTracker.IsBudgetExhausted)
+                    logger.LogWarning("Master '{Skill}' will not re-engage — {Stop}",
+                        context.MasterSkillName, CostCapStop.Describe(costTracker));
                 LogVerdictlessStop(
                     context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count, verdictOwed.Demanded);
                 break;
@@ -789,11 +795,14 @@ public sealed class AgenticMasterHandler(
                 blockedClaim = MasterVerificationParser.TryParseBlockedClaim(reengaged.Response.Text);
                 toolCallsInPass = ReengageProgressPolicy.CountToolCalls(reengaged.Response);
             }
-            catch (MasterBudgetExhaustedException)
+            catch (MasterBudgetExhaustedException budgetEx)
             {
+                // 2026-09-22-7c41a: the fence's own sentence, which names the cap and the
+                // spend. This arm only LOGS and breaks, so without it the run's loudest
+                // money stop left nothing but "hit the cost budget".
                 logger.LogWarning(
-                    "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved)",
-                    context.MasterSkillName);
+                    "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved): {Reason}",
+                    context.MasterSkillName, budgetEx.Message);
                 break;
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)

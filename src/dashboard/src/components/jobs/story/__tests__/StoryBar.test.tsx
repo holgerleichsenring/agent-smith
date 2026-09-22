@@ -50,7 +50,7 @@ describe("StoryBar", () => {
   });
 
   it("StoryBar_PausedRun_ActiveBeatGetsWaitLookAndQuestionMarker", () => {
-    render(<StoryBar beats={beats} subs={subs} selected="building" paused />);
+    render(<StoryBar beats={beats} subs={subs} selected="building" phase="needsYou" />);
     const building = screen.getByTestId("story-beat-building");
     expect(building.className).toContain("s-wait");
     expect(building.querySelector(".marker")).toHaveTextContent("?");

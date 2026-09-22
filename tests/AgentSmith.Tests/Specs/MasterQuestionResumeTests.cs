@@ -137,6 +137,9 @@ public sealed class MasterQuestionResumeTests
                 writer, new DialogueJobIdentity(new Mock<IProgressReporter>().Object),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             intake ?? new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
+            new Application.Services.Lifecycle.UnmovedTicketReport(
+                new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
+                NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
             NullLogger<MasterOpenQuestionsHandler>.Instance);
 
     private sealed class RecordingWriter : IDialogueCheckpointWriter
@@ -155,12 +158,12 @@ public sealed class MasterQuestionResumeTests
     {
         public int Posted { get; private set; }
 
-        public Task PostAsync(
+        public Task<Contracts.Models.TicketFinalizeResult> PostAsync(
             PipelineContext pipeline, TrackerConnection ticketConfig, Ticket ticket,
             IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken ct)
         {
             Posted++;
-            return Task.CompletedTask;
+            return Task.FromResult(Contracts.Models.TicketFinalizeResult.Moved());
         }
     }
 

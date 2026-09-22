@@ -47,6 +47,27 @@ public sealed class WorkerCallLedger
         if (!string.IsNullOrWhiteSpace(accounting.Model)) _models.Add(accounting.Model);
     }
 
+    /// <summary>
+    /// 2026-09-22-7c41a: folds a PRIOR segment's transport volume into this ledger without
+    /// recording a call. Seeding through <see cref="Add"/> would raise
+    /// <see cref="CallCount"/> from zero and so invent a WorkerSpend row in result.md for a
+    /// resumed segment that called no worker at all — a figure the segment never produced.
+    /// The models are carried so a segment that DOES call one names both.
+    /// </summary>
+    public void Seed(
+        long inputTokens, long outputTokens, long cacheReadTokens, long cacheCreationTokens,
+        decimal reportedCostUsd, string models)
+    {
+        InputTokens += inputTokens;
+        OutputTokens += outputTokens;
+        CacheReadTokens += cacheReadTokens;
+        CacheCreationTokens += cacheCreationTokens;
+        ReportedCostUsd += reportedCostUsd;
+        foreach (var model in (models ?? string.Empty).Split(
+            '+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            _models.Add(model);
+    }
+
     /// <summary>Raw token volume — real context read on any transport, so the token arm
     /// of the budget fence counts it. See <see cref="ReportedCostUsd"/> for the arm that
     /// deliberately does not bind.</summary>

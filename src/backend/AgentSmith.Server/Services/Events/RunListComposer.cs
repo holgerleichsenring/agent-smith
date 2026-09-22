@@ -53,11 +53,17 @@ internal static class RunListComposer
     internal static async Task<(RunSnapshot[] Active, RunSnapshot[] Recent)> BuildOverviewAsync(
         RunRepository runs, ICapacityQueue capacityQueue, CancellationToken cancellationToken,
         string? orchestratorMemoryRequest = null, IRunCheckpointStore? checkpoints = null,
-        ICapacityBudget? capacityBudget = null)
+        ICapacityBudget? capacityBudget = null, IActiveRunLease? activeRunLease = null,
+        TimeProvider? clock = null)
     {
         var active = await runs.GetActiveRunsAsync(cancellationToken);
         var recent = await runs.GetRecentRunsAsync(RecentLimit, cancellationToken);
         var positions = await capacityQueue.GetPositionsByRunIdAsync(cancellationToken);
+        // 2026-09-22-7c41c: the second carrier of "this parked run's relaunch is under way",
+        // for the span between the queue entry's removal and the run starting. Only the
+        // ACTIVE set can hold a parked run; a recent-finished row never does.
+        var relaunching = await RunQueuePlace.RelaunchingAsync(
+            activeRunLease, clock ?? TimeProvider.System, positions, active, cancellationToken);
         // p0327: waiting_for_input runs carry their pending question so the list AND the
         // detail (both read this overview) render the answer affordance.
         var pending = await PendingQuestionsByRunIdAsync(checkpoints, cancellationToken);
@@ -66,17 +72,12 @@ internal static class RunListComposer
         var footprints = await FootprintsByRunIdAsync(capacityBudget, active, recent, cancellationToken);
         return (
             [.. active.Select(r => RunSnapshotMapper.ToSnapshot(
-                r, PositionOf(r, positions), orchestratorMemoryRequest,
+                r, RunQueuePlace.Of(r, positions, relaunching), orchestratorMemoryRequest,
                 pending.GetValueOrDefault(r.Id), footprints.GetValueOrDefault(r.Id)))],
             [.. recent.Select(r => RunSnapshotMapper.ToSnapshot(
-                r, PositionOf(r, positions), orchestratorMemoryRequest,
+                r, RunQueuePlace.Of(r, positions), orchestratorMemoryRequest,
                 null, footprints.GetValueOrDefault(r.Id)))]);
     }
-
-    internal static int? PositionOf(Run run, IReadOnlyDictionary<string, int> positions) =>
-        run.Status == "queued" && positions.TryGetValue(run.Id, out var position)
-            ? position
-            : null;
 
     private static async Task<IReadOnlyDictionary<string, RunCapacitySnapshot>> FootprintsByRunIdAsync(
         ICapacityBudget? capacityBudget, List<Run> active, List<Run> recent, CancellationToken ct)

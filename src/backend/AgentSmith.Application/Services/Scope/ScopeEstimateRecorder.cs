@@ -52,6 +52,8 @@ public sealed class ScopeEstimateRecorder(
         if (tier == ComplexityTier.Unknown) return;
         var cap = ResolvedCap(pipeline).RaisedTo(config.PipelineCostCap.ForTier(tier));
         pipeline.Set("PipelineCostCap", cap);
+        // 2026-09-22-7c41a: the TIER travels with the cap it sized; the cap cannot cross a park.
+        pipeline.Set(ContextKeys.ComplexityTier, tier);
         PipelineCostTracker.GetOrCreate(pipeline).ApplyCostCap(cap);
         Record(pipeline,
             $"Complexity tier: {tier.ToString().ToLowerInvariant()} — "

@@ -24,14 +24,22 @@ export const BEAT_LABELS: Record<BeatKey, string> = {
   outcome: "Outcome",
 };
 
-// BeatState → the mock's s-* class. `paused` (waiting_for_input) upgrades the
-// active beat to the mock's s-wait look with the "?" marker.
-function beatClass(state: BeatState, paused: boolean): string {
+/**
+ * 2026-09-22-7c41c: THREE states, not a paused flag. "needs-you" and "relaunching" are both
+ * not-running, but only one of them is asking the operator a question — negating a single
+ * boolean would have described a run executing nothing as "in progress".
+ */
+export type StoryPhase = "running" | "needsYou" | "relaunching";
+
+// BeatState → the mock's s-* class. A run that is not executing (parked on a question, or
+// waiting for a slot to relaunch) upgrades its active beat to the mock's s-wait look; only
+// the question carries the "?" marker.
+function beatClass(state: BeatState, phase: StoryPhase): string {
   switch (state) {
     case "done":
       return "s-done";
     case "active":
-      return paused ? "s-wait" : "s-run";
+      return phase === "running" ? "s-run" : "s-wait";
     case "failed":
       return "s-fail";
     default:
@@ -39,10 +47,10 @@ function beatClass(state: BeatState, paused: boolean): string {
   }
 }
 
-function marker(state: BeatState, paused: boolean): string {
+function marker(state: BeatState, phase: StoryPhase): string {
   if (state === "done") return "✓";
   if (state === "failed") return "✗";
-  if (state === "active" && paused) return "?";
+  if (state === "active" && phase === "needsYou") return "?";
   return "";
 }
 
@@ -52,29 +60,29 @@ interface StoryBarProps {
   subs: Record<BeatKey, string>;
   /** The beat whose stage panel is showing (aria-current). */
   selected: BeatKey;
-  /** True while the run is parked on an operator question (s-wait look). */
-  paused?: boolean;
+  /** What the run is doing: executing, asking the operator, or waiting to relaunch. */
+  phase?: StoryPhase;
   onBeatClick?: (beat: BeatKey) => void;
 }
 
-export function StoryBar({ beats, subs, selected, paused = false, onBeatClick }: StoryBarProps) {
+export function StoryBar({ beats, subs, selected, phase = "running", onBeatClick }: StoryBarProps) {
   return (
     <nav className="storybar" aria-label="Run story" data-testid="story-bar">
       {BEAT_ORDER.map((key) => {
         const state = beats[key];
-        const isPaused = paused && state === "active";
+        const beatPhase: StoryPhase = state === "active" ? phase : "running";
         return (
           <button
             key={key}
             type="button"
-            className={cn("beat", beatClass(state, isPaused))}
+            className={cn("beat", beatClass(state, beatPhase))}
             data-beat={key}
             data-status={state}
             data-testid={`story-beat-${key}`}
             aria-current={selected === key ? "true" : "false"}
             onClick={() => onBeatClick?.(key)}
           >
-            <div className="marker">{marker(state, isPaused)}</div>
+            <div className="marker">{marker(state, beatPhase)}</div>
             <div>
               <div className="bt">{BEAT_LABELS[key]}</div>
               <div className="bs" data-testid={`story-beat-${key}-caption`}>

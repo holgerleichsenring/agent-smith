@@ -57,3 +57,37 @@ export function toNodeStatus(status: string | null | undefined): NodeStatus {
       return "wait";
   }
 }
+
+// 2026-09-22-7c41c: a parked run whose RELAUNCH is under way. The run status still reads
+// waiting_for_input — it is the resume launcher's own gate and must not be repainted — so
+// the positive fact comes from the capacity queue instead: the relaunch is enqueued under
+// the parked run's own id, and the server carries the place it holds (0 = under way, its
+// entry already taken by the launcher; 1-based = a real place in line). A parked run with
+// no place is unchanged and still says it needs an answer, which is the safe direction.
+export interface RelaunchReadable {
+  status?: string | null;
+  queuePosition?: number | null;
+}
+
+export function isRelaunching(snapshot: RelaunchReadable | null | undefined): boolean {
+  if (!snapshot) return false;
+  return (snapshot.status ?? "").toLowerCase() === "waiting_for_input"
+    && snapshot.queuePosition != null;
+}
+
+/** The run's place in line while its relaunch waits, or null when it holds none. */
+export function relaunchPlace(snapshot: RelaunchReadable | null | undefined): number | null {
+  if (!isRelaunching(snapshot)) return null;
+  const place = snapshot!.queuePosition ?? 0;
+  return place > 0 ? place : null;
+}
+
+/**
+ * The node status the SURFACE reads — the run's own status, except that a parked run whose
+ * relaunch is under way reads as queued. It belongs where every other run waiting for a slot
+ * sits: naming the destination bucket, never merely leaving the attention one (the overview's
+ * bucketing defaults to RUNNING, so an unnamed destination paints it as executing).
+ */
+export function toRunNodeStatus(snapshot: RelaunchReadable | null | undefined): NodeStatus {
+  return isRelaunching(snapshot) ? "queued" : toNodeStatus(snapshot?.status);
+}

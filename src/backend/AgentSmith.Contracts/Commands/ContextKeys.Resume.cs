@@ -45,6 +45,13 @@ public static partial class ContextKeys
     /// checkpointed ask, instead of publishing + waiting again.</summary>
     public const string ResumedDialogueAnswer = "ResumedDialogueAnswer";
 
+    /// <summary>2026-09-22-7c41a: the spend a run had already made when it parked, written
+    /// beside the checkpoint and read once where the cost tracker is created. Without it a
+    /// resumed run's accounting restarts at zero, so the cap is compared against one segment
+    /// and the run row records that segment rather than the run. A checkpoint written before
+    /// this key existed simply carries none, and resumes as it always did.</summary>
+    public const string PriorSpend = "PriorSpend";
+
     /// <summary>p0327: resolved project name, seeded by ExecutePipelineUseCase so
     /// the checkpoint event can stamp the run's project without a DB read (the
     /// producer may be a spawned orchestrator with no DB access).</summary>

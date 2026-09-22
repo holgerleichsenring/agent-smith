@@ -33,6 +33,7 @@ public sealed class MasterOpenQuestionsHandler(
     IClarificationParkStatusResolver parkStatus,
     MasterQuestionCheckpoint checkpoint,
     IMasterAnswerIntake answerIntake,
+    Lifecycle.UnmovedTicketReport unmovedTickets,
     ILogger<MasterOpenQuestionsHandler> logger)
     : ICommandHandler<MasterOpenQuestionsContext>
 {
@@ -54,7 +55,7 @@ public sealed class MasterOpenQuestionsHandler(
             return CommandResult.Fail(parkStatus.UnresolvedReason);
         }
 
-        await poster.PostAsync(
+        var finalize = await poster.PostAsync(
             context.Pipeline, context.TrackerConnection, context.Ticket, questions, status,
             cancellationToken);
 
@@ -63,12 +64,26 @@ public sealed class MasterOpenQuestionsHandler(
         // dashboard has no question to render and nowhere to send a reply, so the only way
         // back into the run is a manual status move on the board.
         await checkpoint.WriteAsync(context.Pipeline, questions, cancellationToken);
+        // 2026-09-22-7c41b: and only AFTER the checkpoint, which is what keeps the question
+        // answerable. A park the tracker refused left the ticket in a trigger status with a
+        // question on it, so the next poll would claim it and start a second run against a
+        // question nobody has answered yet. The fact, not another attempt, is what this run
+        // owes the next poll cycle — and a park that landed clears one.
+        await unmovedTickets.RecordParkAsync(
+            ProjectName(context.Pipeline), context.TrackerConnection.Name, context.Ticket.Id,
+            finalize, cancellationToken);
+        var parked = finalize.StatusMoved
+            ? $" (parked -> {status})"
+            : " — the tracker did not move the ticket, so it is held from the next poll";
         logger.LogInformation(
-            "Master mid-run question posted to ticket {Ticket} (parked -> {Status})",
-            context.Ticket.Id.Value, status);
+            "Master mid-run question posted to ticket {Ticket}{Parked}",
+            context.Ticket.Id.Value, parked);
         return CommandResult.Ok(
-            $"awaiting_user_input: {questions.Count} master question(s) posted (parked -> {status})");
+            $"awaiting_user_input: {questions.Count} master question(s) posted{parked}");
     }
+
+    private static string ProjectName(PipelineContext pipeline) =>
+        pipeline.TryGet<string>(ContextKeys.ProjectName, out var name) ? name! : string.Empty;
 
     // The master, then this step again so a second question parks the same way — the rest
     // of the block (commit, verify, record) is already ahead of the cursor.
