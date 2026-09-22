@@ -187,8 +187,12 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
             Task.FromResult(ConnectionProbeResult.Reachable(0));
 
+        // 2026-09-22-b6ad: filing reads its own new ticket back, so the set it writes to the
+        // branch is fingerprinted from what the TRACKER stored rather than from the body we sent.
         public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            Task.FromResult(new Ticket(
+                ticketId, _created[int.Parse(ticketId.Value) - 1].Title,
+                _created[int.Parse(ticketId.Value) - 1].Body, null, "open", ProviderType, []));
 
         public Task<CreatedTicket> CreateAsync(
             string title, string description, IReadOnlyList<string> labels, string? kind,

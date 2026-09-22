@@ -158,7 +158,14 @@ public sealed class EpicFilingOrderTests
         {
             Projects = new Dictionary<string, ResolvedProject>
             {
-                ["proj"] = new() { Name = "proj", Tracker = new TrackerConnection() },
+                // 2026-09-22-b6ad: a project HAS repositories — filing writes the approved set
+                // into the first one the approval names, and a project with none could not.
+                ["proj"] = new()
+                {
+                    Name = "proj",
+                    Tracker = new TrackerConnection(),
+                    Repos = [new RepoConnection { Name = "sample-api" }],
+                },
             },
         };
         var filer = new OutcomeTicketFiler(
@@ -200,8 +207,12 @@ public sealed class EpicFilingOrderTests
         public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
             Task.FromResult(ConnectionProbeResult.Reachable(0));
 
+        // 2026-09-22-b6ad: filing reads its own new ticket back, so the set it writes to the
+        // branch is fingerprinted from what the TRACKER stored rather than from the body we sent.
         public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            Task.FromResult(new Ticket(
+                ticketId, _created[int.Parse(ticketId.Value) - 1].Title,
+                _created[int.Parse(ticketId.Value) - 1].Body, null, "open", ProviderType, []));
 
         public Task<CreatedTicket> CreateAsync(
             string title, string description, IReadOnlyList<string> labels, string? kind,

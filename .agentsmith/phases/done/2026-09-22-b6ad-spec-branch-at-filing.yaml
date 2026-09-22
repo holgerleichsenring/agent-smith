@@ -1,0 +1,300 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-b6ad
+
+goal: "Filing an approved cut writes the specification onto the ticket branch as it files, so the spec exists before anything runs and the ticket points at it."
+
+applies_to: "backend (the design conversation's filing path and the source-provider contract)"
+
+scope:
+  in: >
+    When a design conversation files an approved cut today, the specification exists in ONE place
+    — a database record under the ticket's spec key. It reaches a repository only much later, when
+    a run has claimed the ticket, created a sandbox, cloned the repo, cut the branch and published
+    the set from the record. Between filing and that publish there is nothing to open, nothing to
+    review and nothing to edit: the approved specification is a row.
+    This phase inverts it. Filing writes the set to the ticket branch itself, in the same act that
+    files the ticket, and the record stays behind as the hand-off and the amendment entry.
+    The publish chain cannot do this. Its writer asks for the sandboxes of the carrying repo and
+    fails when there are none, takes its branch off the run's checked-out repository, and writes
+    through a file reader created for a sandbox; its publisher takes a PipelineContext. Filing has
+    no pipeline, no sandbox and no clone — it has a conversation, a resolved project and a tracker
+    provider. So the branch write is a PROVIDER operation: the source-provider contract gains the
+    one thing it is missing, a write that puts files on a branch without a checkout, and filing
+    calls it directly after the ticket is created and the approval recorded, before the ticket is
+    started.
+    What it writes is the set index and one yaml per phase, under the spec key's own directory,
+    with revision 1 whose cause names the approval. What it records is the spec-set pointer at the
+    sha it wrote — without it the first run reads its own operator's approval as a stranger's edit.
+  out: >
+    THE EPIC ARM. Only the single-phase filing is covered here. An epic files a work ticket that
+    stores its set the same way and carries the same stamp, so leaving it out is not tidiness: the
+    successor that makes the branch the only source a run reads would park every epic whose branch
+    is empty. Named as the phase that writes an epic's branch at filing, and it must land before
+    that successor.
+    THE BASE THE BRANCH IS CUT AT. This phase creates it at the default branch's head. Where a run
+    would have cut from a parent rung, a pre-created branch reroutes the checkout to its
+    existing-branch path, which merges the rung in and stops the run on a conflict. Latent while a
+    filed phase ticket carries no parent stamp, and live the moment the epic arm is covered —
+    named there.
+    THE RUN READING THE BRANCH AS ITS ONLY SOURCE. The precedence already prefers the branch
+    artifact and already yields to a record only when its approval is NEWER, so a branch written
+    with the record's own approval instant wins on the rules as they stand and nothing derives.
+    Retiring the carried record, or the store fallback behind it, is a later phase — named in
+    prose as the one that makes the branch the sole source of an approved set.
+    WHICH REPOSITORY THE BRANCH IS CUT IN. A sibling phase gives the conversation that choice —
+    spec-carrier-chosen-at-approval, cut from the same piece of work on the same day.
+    This phase TAKES it: it writes into the repository it is handed, and where nothing was chosen
+    it takes the first of the repositories the approval named, which is the rule the run already
+    applies. Nothing here decides it.
+    OPENING THE PULL REQUEST AT FILING. The opener needs the run's Repository on the pipeline
+    context, and a draft pull request whose branch carries specs and no work is a question of its
+    own. The run opens it, unchanged.
+    THE ACCOUNTING FILE AND THE STALE-FILE SWEEP. Derivation bookkeeping over a directory that may
+    hold an older cut. An approved set has empty accounting and a fresh directory, and the
+    accounting file is never read back by anything.
+    THE APPROVAL STORE. Unchanged, in shape and in content.
+
+decisions:
+  - key: |
+      THE CARRIER IS CHOSEN HERE, IN ONE SPELLING. A sibling phase existed to move this choice
+      forward on its own and was withdrawn as inert: the session scope is the project's whole
+      repository list and nothing narrows it, so its answer was always the value the run already
+      computed. What survives is the one case where pinning genuinely differs — a glob-configured
+      list is expanded in the discovery snapshot's order, unsorted, and the expander documents that
+      drift itself, so the first repository can move between approval and the first run. This phase
+      pins it because it needs a repository anyway, and two phases spelling one rule is how they
+      come to disagree.
+  - key: |
+      A NULL FINGERPRINT IS A FIXED POINT, AND THAT IS WHY THIS IS NOT OPTIONAL. An approved set
+      never runs the model, and the refresh fires only when the model ran, or there was no previous
+      set, or an edit was seen — and seeing an edit requires a fingerprint to compare against.
+      Writing the branch at filing makes "no previous set" false from the first run onward, so a
+      set that starts with none never gets one, the edit cause never fires, and the notice that
+      tells an operator their edit was kept goes silent for good. Nothing fails; it simply stops
+      happening.
+  - key: |
+      FINGERPRINT WHAT THE TRACKER STORED, NOT WHAT WE RENDERED. The comparison is taken over the
+      fetched ticket's text after markup is reduced, and a tracker that round-trips markup would
+      make a rendered-body fingerprint differ from the very next read — a spurious edit on the
+      first run of every such ticket. Filing reads its own new ticket back and fingerprints that.
+  - key: |
+      A WRITE THAT CANNOT ANSWER A SHA IS THE CONTRACT'S FAILURE CASE. Without a sha there is no
+      pointer, and an absent pointer is read as somebody else's edit — exactly what this phase
+      records a pointer to prevent. The provider with no remote must therefore make a commit, not
+      a file; the shape is already in that provider, chosen there for the same reason.
+  - key: |
+      PROVIDER API, NOT A SANDBOX. Every part of the publish chain is sandbox-shaped: the writer
+      resolves sandboxes for the carrying repo and fails without one, reads the branch off the
+      run's checked-out Repository, and writes files through a reader built for that sandbox.
+      Filing holds none of it. Standing up a container and a full clone at filing time, to commit
+      two kinds of small text file, is the whole run's machinery borrowed for a commit — and it
+      would make filing wait on a sandbox pool.
+  - key: |
+      THE CONTRACT CANNOT DO IT TODAY, AND THAT IS THE PHASE'S WORK. The source provider's only
+      checkout-free operations are READS — one file, one directory listing, both on the default
+      branch. Everything else it can write is a pull request. Creating a branch is a git push run
+      as a sandbox step. So this phase adds ONE method: put these repo-relative files on this
+      branch, creating the branch at the default branch's head when it does not exist, and answer
+      with the commit sha or the reason there is none.
+  - key: |
+      THE THREE REMOTE PROVIDERS ALREADY HOLD THE CREDENTIAL AND THE CLIENT. Each of them already
+      reads a file off the default branch through an authenticated client of its platform — an
+      Octokit client, an HttpClient carrying the private token, a DevOps git client. A write is
+      the same client and the same credential, so nothing new is configured and no token has to
+      travel anywhere it does not already travel. The LOCAL provider is the odd one: it has no
+      remote at all and reads straight off a directory, so its implementation of the method is a
+      write into that directory — the same trust in the bind-mount its checkout already places.
+  - key: |
+      THE BRANCH THAT ALREADY EXISTS IS COMMITTED ONTO, NEVER RE-CUT AND NEVER FORCED. The branch
+      name is composed from the ticket id, so at first filing it cannot exist. It CAN exist on a
+      second approval of the same ticket, or when a run already cut it. Both are the same
+      operation: a new commit on the branch's head. The run's own remote-branch push already
+      refuses an existing ref rather than overwriting it, and its checkout already takes an
+      existing branch as it stands — this write must not be the one place that clobbers.
+  - key: |
+      A WRITE THAT FAILS AFTER THE TICKET EXISTS IS A NOTE, NOT AN ERROR. The doctrine is already
+      written down beside the slice records: by the time this runs the ticket exists and carries
+      the approved set, so an error would tell the operator to retry, and the retry files a SECOND
+      ticket with a SECOND stored record — two runs and two pull requests. The note names the
+      ticket, says the branch carries no spec yet, and says the run will publish it from the
+      record, which is exactly what happens today.
+  - key: |
+      IT WRITES BETWEEN RECORDING AND STARTING. Filing already orders itself: create the ticket,
+      record the approved set under it, then report it started — a work ticket moved into a
+      trigger status before the record exists is claimed by the poller and derives its own spec.
+      The branch write belongs in the same gap and for the same reason. Before the ticket there is
+      no branch name; after the start there is a run racing the write.
+  - key: |
+      REVISION 1 IS MINTED HERE, BECAUSE AN EMPTY REVISION LIST IS A LIE AND A THROW. The stored
+      record deliberately carries NO revisions — numbering was the run's bookkeeping. But the
+      set's current revision is the last element of that list, so an empty one throws on read; and
+      an index written with no revisions reads back as revision 1 "initial derivation", which is
+      the one thing this set is not. Filing writes revision 1 whose cause names the approval and
+      the conversation it was given in — the cause string the approved arm of the precedence
+      already composes.
+  - key: |
+      THE POINTER IS RECORDED AT FILING TOO. A spec-path commit whose sha is not the one this
+      system recorded is read as a REVIEWER'S EDIT, and an absent pointer reads the same way. Left
+      unrecorded, the very first run would report the operator's own approval as a stranger's
+      correction. The server already keeps a database-backed pointer store and already writes to
+      it outside a run, so there is no new dependency — and the pointer's carrying-repo field is
+      also what makes the run resolve the same repository this write chose.
+  - key: |
+      THE RECORD IS NOT REPLACED. It stays the hand-off that rides a run's initial context, the
+      fallback when this write failed, and the entry a later approval amends. Two artifacts do not
+      disagree here because the branch is written from the record and carries the record's own
+      approval instant: the precedence compares those instants and the branch wins a tie, so the
+      run reads the branch and the record changes nothing. What stops happening is a first publish
+      that creates the set — and the writer already treats an unchanged set as no revision commit
+      and reports the last commit on the spec path instead.
+
+steps:
+  - id: the-filing-chooses-the-carrying-repository
+    action: "Filing records which repository carries the set, chosen as the first of the project's configured repositories among those the approval named, stored on the approval record after the tracker name so a positional constructor cannot silently bind it to the wrong field; a run prefers a recorded carrier below the pointer and above its own first-scoped fallback."
+  - id: the-filing-writes-every-file-a-publish-writes
+    action: "Filing renders the same four file kinds a publish renders — the index, a yaml and a markdown companion per phase, and the accounting — so the two writers produce identical directories and the first run's publish is the no-op it is claimed to be."
+  - id: the-filing-stamps-the-ticket-it-just-created
+    action: "Filing reads the ticket back through the provider that created it and stamps the set with that text's fingerprint, because an approved set never runs the model and a set whose fingerprint is null can never acquire one — which would silence the kept-edit notice for every ticket filed this way, permanently and without a failure."
+  - id: a-write-with-no-remote-still-answers-a-commit
+    action: "The provider with no remote creates a real commit on a real ref without disturbing the operator's working tree, following the precedent already in that provider, and answers the sha it created rather than a bare file write that can answer none."
+  - id: the-provider-can-write-a-branch
+    action: "The source-provider contract gains one write: put these repo-relative files on this branch, creating the branch at the default branch's head when it is absent, and answer with the commit sha or the reason. Implemented on all four providers — the three platform clients that already read a file, and the local directory."
+  - id: filing-renders-the-approved-set-as-files
+    action: "The approved record's set renders to the files the branch carries: the set index, and one schema-valid yaml per phase at its own stem. Revision 1 is minted with the approval's cause, the approval instant travels in the index, and the empty markdown companion of an approved phase is not written."
+  - id: filing-writes-the-branch-and-records-the-pointer
+    action: "Filing a phase writes those files to the ticket branch after the record is stored and before the ticket is started, then records the spec-set pointer at the sha it wrote, naming the repository it wrote into. The repository is an input; absent a choice it is the first the approval named."
+  - id: a-failed-write-is-a-note
+    action: "A write that throws or answers no sha adds a note to the filing report naming the ticket and saying the run will publish the set from the record. Filing still reports success, because the ticket and the record are complete."
+
+tests:
+  - "Filing_APhaseApprovedInTheDialog_WritesTheSetToTheTicketBranch"
+  - "Filing_TheBranchItWrites_CarriesTheIndexAndOneYamlPerPhase"
+  - "Filing_TheIndexItWrites_NamesRevisionOneWithTheApprovalAsItsCause"
+  - "Filing_TheIndexItWrites_CarriesTheApprovalInstantTheRecordCarries"
+  - "Filing_AfterTheWrite_ThePointerNamesTheShaAndTheRepositoryItWroteInto"
+  - "Filing_TheWriteHappens_AfterTheRecordAndBeforeTheTicketIsStarted"
+  - "Filing_ABranchWriteThatThrows_IsANoteAndNotAFilingError"
+  - "Filing_ABranchWriteThatThrows_StillReportsTheTicketAsFiled"
+  - "Filing_ARepositoryHandedToIt_IsTheOneTheBranchIsCutIn"
+  - "Filing_NoRepositoryChosen_UsesTheFirstTheApprovalNamed"
+  - "SourceProvider_WritingToABranchThatDoesNotExist_CreatesItAtTheDefaultBranchHead"
+  - "SourceProvider_WritingToABranchThatExists_CommitsOnItsHeadWithoutForcing"
+  - "SourceProvider_AWriteThatTheRemoteRefuses_AnswersTheReasonRatherThanThrowingPast"
+  - "SpecSetReader_TheSetFilingWrote_ReadsBackAsAnApprovedSetAtRevisionOne"
+
+done:
+  - "an approved cut is on the ticket branch the moment it is filed, before any run exists"
+  - "the branch it wrote is readable by the run's own reader, at revision 1, carrying the approval"
+  - "the pointer names that commit, so the first run does not call the approval a reviewer's edit"
+  - "a branch that already exists is committed onto, not re-cut and not force-pushed"
+  - "a write that fails leaves the filing successful and says on the report what the run will do instead"
+  - "no sandbox, clone or pipeline context is created to write the branch"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The spec-set writer asks for the sandboxes of the carrying repo and fails outright when there are none."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetWriter.cs:28-30"
+  - claim: "It takes the branch it commits on from the run's checked-out Repository on the pipeline context."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetWriter.cs:33-36"
+  - claim: "It writes its files through a file reader created for that sandbox and stages them with sandbox git operations."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetWriter.cs:52-56"
+  - claim: "The publisher's entry point takes a PipelineContext, a project, the carrying repo and the set."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:23-26"
+  - claim: "Filing takes a conversation state and a proposal — no pipeline and no sandbox anywhere in its signature."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:40-42"
+  - claim: "Filing a phase creates the ticket, records the approved set under it, then reports it started, in that order."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:104-112"
+  - claim: "A phase is started only AFTER its set is stored, because a work ticket in a trigger status is claimed by the poller and derives its own spec."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:26-28"
+  - claim: "The source-provider contract's only checkout-free operations are reads: one file and one directory listing, both on the default branch."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:56-76"
+  - claim: "Everything else the contract writes is a pull request — create, update body, mark ready, complete."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:35-42"
+  - claim: "Its second partial adds only reading and moving a pull request's base; no member of either partial creates a branch or commits a file."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.Targeting.cs:17-41"
+  - claim: "Creating a branch on the remote today is a sandbox git step that pushes a ref with no force and no lease, so an existing ref is refused rather than overwritten."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:64-75"
+  - claim: "That step's credential comes from a host-side token resolver keyed by the repo type and is handed to the sandbox as an environment variable."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:18-27"
+  - claim: "The GitHub provider already reads a file off the default branch through an authenticated Octokit client."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:262-280"
+  - claim: "The GitLab provider already reads one through an HttpClient carrying the private token."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:315-332"
+  - claim: "The Azure Repos provider already reads one through a DevOps git client and a branch version descriptor."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:315-334"
+  - claim: "The local provider has no remote to reach and reads and lists straight off a directory on disk."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:62-80"
+  - claim: "A run's branch name is composed from its ticket id when nothing handed it one."
+    evidence: "src/backend/AgentSmith.Application/Services/RunBranchResolver.cs:27-29"
+  - claim: "That composition is the prefix plus the ticket id."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:23-25"
+  - claim: "A branch that already exists is checked out as it stands; only a failed checkout falls through to creating one."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:51-54"
+  - claim: "The doctrine that a failure after the ticket exists is a NOTE, because a retry would file a second ticket with a second stored set, is already written down."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicSliceRecordFiler.cs:18-23"
+  - claim: "The filing report carries notes beside the filed tickets and an error field that is null on success."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:61"
+  - claim: "The approval record stores the repositories the approval named — the scope's when the session named some, the project's otherwise."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:97-100"
+  - claim: "A resolved project's repositories are RepoConnection records, which is what a provider is created from."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs:16"
+  - claim: "The run resolves its carrying repo from the pointer when it names one still in scope, and takes the first scoped repo otherwise."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCarryingRepoResolver.cs:17-22"
+  - claim: "The stored approved set is built with an empty revision list on purpose — numbering and cause were the run's bookkeeping."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:61-68"
+  - claim: "A set's current revision is the last element of that list, so an empty list throws when anything reads it."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:68-70"
+  - claim: "An index document listing no revisions reads back as revision 1 with the cause 'initial derivation'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetIndex.cs:92-97"
+  - claim: "The index serializes the approval instant, the conversation and the principal."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetIndex.cs:56-58"
+  - claim: "The cause an approved revision writes names the conversation the approval was given in."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetSource.cs:57-62"
+  - claim: "The reader builds the set from the index, including the approval it names."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetReader.cs:58-68"
+  - claim: "The reader needs the index and one yaml per listed phase; the markdown companion is optional and the accounting file is not read at all."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetReader.cs:38-41"
+  - claim: "A phase's files share the stem phase-id plus slug."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecPhase.cs:17-18"
+  - claim: "An approved record's phases are built with an EMPTY markdown companion."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:64"
+  - claim: "A phase draft carries the full schema-valid yaml text."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:9-12"
+  - claim: "An approved record that is not newer than the approval the branch was published from loses to the branch artifact."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetSource.cs:26-33"
+  - claim: "'Newer' is strictly a later approval instant, so equal instants leave the branch standing."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetSource.cs:64-65"
+  - claim: "An absent pointer, or one whose sha is not the branch's last spec-path commit, is read as a reviewer's edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:52-55"
+  - claim: "The pointer recorder takes the project, the carrying repo, the set and a sha, and keeps the hand-back counters as they are."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPointerRecorder.cs:22-32"
+  - claim: "The server registers a database-backed pointer store and a database-backed approval store side by side."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:123-126"
+  - claim: "A set that is unchanged makes no revision commit; the sha reported is the last commit on the spec path."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetWriter.cs:57-63"
+  - claim: "The spec directory is .agentsmith/specs/<provider>-<ticketId> and the yaml path is one stem inside it."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSetKey.cs:13-22"
+  - claim: "The draft pull request at the spec commit needs the run's Repository on the pipeline context and returns null without it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:30-32"
+  - claim: "A filed ticket that reaches derivation with no set from any route fails loudly rather than deriving one."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:42-55"
+  - claim: "Derivation reads the pointer, resolves the carrying repo from it, then reads the branch and decides the source."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:60-73"
+
+assumptions:
+  - claim: "The credential each provider already holds is scoped for a CONTENTS WRITE, not only for reads and pull requests."
+    check: "Establish which grant each platform requires to create a ref and a commit, and compare it against what the configured provider credential is documented to need today. The sandbox push uses a different credential entirely, so nothing about it settles this."
+  - claim: "Each platform can make ONE commit carrying every file, rather than one commit per file."
+    check: "Name the API call per provider and confirm it takes a set of file changes and a ref update together."
+  - claim: "Reading the ticket back immediately after creating it returns the text the tracker stored."
+    check: "Read what each provider's create returns and whether a separate read is needed to see the stored form."
+  - claim: "Each of the three platform clients the providers already hold can create a ref and commit file contents without a clone."
+    check: "Open the client surface each provider is already built on — the Octokit git-database and contents clients, the GitLab commits endpoint, the DevOps git client's push call — and write one commit to a scratch repository from a provider integration test before the contract method is declared. What the code proves today is only that each provider holds an authenticated client and reads through it."
+  - claim: "The local provider can satisfy the same method by writing into its base path."
+    check: "Read the whole of LocalSourceProvider: nothing above its listing member invokes git, so whether a local write is a bare file write on the bind-mounted tree or needs a git invocation of its own is decided when that file is opened, not here."
+  - claim: "At first filing the ticket branch cannot already exist, because the ticket id the branch name is composed from is minted by the tracker in the create call."
+    check: "Both paths are implemented either way — the write creates the branch when it is absent and commits on its head when it is present — so this only decides which path the common case takes."
+  - claim: "Writing the index and the phase yamls is enough for the run's reader, with no accounting file present."
+    check: "Run the reader over a directory holding only the index and the phase yamls; the reader opens the index, then one yaml per listed stem, and treats a missing markdown as empty. A stale-file sweep at the run's first publish must not then remove what filing wrote — confirm against SpecSetStaleFiles before relying on it."
+  - claim: "A repository the sibling phase has not yet given filing is safely defaulted to the first the approval named."
+    check: "Compare against the run's own resolver, which takes the first scoped repository when the pointer names none — after this phase the pointer names one, so the two must agree by construction rather than by coincidence."

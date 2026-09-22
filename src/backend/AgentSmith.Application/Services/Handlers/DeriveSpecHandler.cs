@@ -60,14 +60,16 @@ public sealed class DeriveSpecHandler(
         var key = SpecSetKeyFactory.For(context.Ticket, context.Pipeline);
         var project = ProjectOf(context.Pipeline);
         var pointer = await pointers.GetAsync(project, key.Value, cancellationToken);
-        var repo = SpecCarryingRepoResolver.Resolve(context.Repos, pointer);
+        // 2026-09-22-b6ad: the approval is resolved BEFORE the carrying repo, because filing may
+        // already have written the branch and recorded which repository it wrote it into.
+        var approval = await approvals.ResolveAsync(context.Pipeline, key, cancellationToken);
+        var repo = SpecCarryingRepoResolver.Resolve(context.Repos, pointer, approval?.CarryingRepo);
         if (repo is null)
             return CommandResult.Ok("Spec derivation skipped: the run has no repo in scope");
 
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        var approval = await approvals.ResolveAsync(context.Pipeline, key, cancellationToken);
         var previous = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
         var decision = sourceResolver.Decide(
             previous, context.Ticket, pointer, context.Pipeline, key.Value, approval);
