@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { PullRequestStatus, RunPullRequest, RunSnapshot } from "@/types/hub-events";
 import { hasPullRequest } from "@/lib/prStatus";
-import { toNodeStatus } from "./runStatus";
+import { isRelaunching, relaunchPlace, toRunNodeStatus } from "./runStatus";
 import { useSandboxActivity } from "@/hooks/useSandboxActivity";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +107,7 @@ export function RunSideRail({
   /** Step count for the "Full pipeline · N steps" label (0 = unknown). */
   traceSteps: number;
 }) {
-  const status = toNodeStatus(snapshot.status);
+  const status = toRunNodeStatus(snapshot);
   const footprint = snapshot.footprint ?? null;
   const compute = snapshot.liveCompute ?? null;
   const [podsOpen, setPodsOpen] = useState(false);
@@ -118,8 +118,14 @@ export function RunSideRail({
   // 2026-08-25-39ab: the rail renders the state the server sent. Sent nothing,
   // it says so — the label is the one place this surface reads the raw word.
   const rawStatus = snapshot.status ?? "";
-  const stateLabel =
-    STATE_LABEL[rawStatus.toLowerCase()] ?? (rawStatus ? rawStatus.replaceAll("_", " ") : "unknown");
+  // 2026-09-22-7c41c: a park whose relaunch is under way is no longer asking for anything —
+  // the answer is in and the run is waiting for a slot. It says so instead of "Needs you".
+  const place = relaunchPlace(snapshot);
+  const stateLabel = isRelaunching(snapshot)
+    ? place != null
+      ? `Resuming · place ${place}`
+      : "Resuming"
+    : STATE_LABEL[rawStatus.toLowerCase()] ?? (rawStatus ? rawStatus.replaceAll("_", " ") : "unknown");
 
   // p0348: COMPUTE shows the pods the run ACTUALLY spawned (RunSandbox rows), not
   // the p0336 admission reservation (which counts every configured repo + a

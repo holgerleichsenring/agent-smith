@@ -1,0 +1,128 @@
+phase: 2026-09-22-7c41c
+decisions:
+  - id: the-position-already-on-the-wire-carries-the-fact
+    chose: >
+      A parked run reports that its relaunch is under way through the queue position the
+      snapshot ALREADY has. One shared gate (RunQueuePlace.Of) admits a waiting run to the
+      position lookup, and the client reads that one field everywhere it used to read the
+      status alone.
+    alternative: >
+      A new boolean on RunSnapshot — the shape an earlier draft of the spec carried.
+    why: >
+      The relaunch is enqueued under the parked run's OWN reserved run id, so the existing
+      per-run lookup already answers for it; both read paths already fetch the positions and
+      the client already renders a place in line. A new field would have cost a contract
+      widening, a TypeScript mirror the generated-mirror check is blind to, and every call
+      site of a widened queue lookup — to say less than the number already says.
+  - id: assert-the-positive-fact-never-the-absence
+    chose: >
+      The surface changes only for a park that positively HAS a place in the queue or a lease
+      claimed for its relaunch. A park with neither is untouched and still says "needs you".
+    alternative: >
+      Derive the flag from the absence of an outstanding question — the pending-question
+      projection already returns nothing once the checkpoint is marked resumed.
+    why: >
+      "No question is outstanding" is four states wearing one face. A park can leave no
+      checkpoint at all; a checkpoint can be marked resumed for a relaunch that will never
+      happen (no project/ticket on the checkpoint, or a duplicate trigger whose queue entry
+      already occupies the ticket); an unreadable question reads as no question. In three of
+      the four the operator is still owed something, and an absence-derived flag would remove
+      the only surface that reports it. This polarity keeps them loud.
+  - id: the-assertion-is-the-union-of-two-carriers
+    chose: >
+      A place in the capacity queue OR a fresh lease on the run's (project, ticket) that names
+      no other run. The second is reported as position 0 — queue positions are 1-based, so the
+      two can never be confused.
+    alternative: >
+      The queue entry alone, deferring the launch-to-start window to a later phase.
+    why: >
+      The launcher claims the lease before it enqueues the job and before it removes the entry,
+      so the two overlap with no gap. With free capacity the entry is gone within one
+      fifteen-second pump tick while the launch, the pod start and the start projection take
+      longer — the operator would have seen needs-you, then queued, then needs-you again, a
+      flip they read as a SECOND question. That is worse than the single wrong stretch today.
+  - id: the-lease-is-read-by-ticket-and-must-not-name-another-run
+    chose: >
+      RunQueuePlace.RelaunchingAsync reads IActiveRunLease.GetByTicketAsync for each parked run
+      the queue does not already answer for, and counts the lease only when it is fresher than
+      ActiveRunReaper.LeaseFreshFor and its RunId is empty or equal to the parked run's id.
+    alternative: >
+      GetActiveRunIdsAsync — one read of "the run ids holding a fresh lease" — or attaching the
+      reserved run id to the lease inside ResumeRunLauncher so that read would see it.
+    why: >
+      A relaunch claims its lease by (project, ticket); the run id is attached only once the
+      run starts, so GetActiveRunIdsAsync cannot see the lease during exactly the window that
+      matters. Attaching it early WOULD make that read work, but it also hands the stale-lease
+      reaper a run to cancel: a pod start slower than the three-minute freshness window would
+      then cancel a legitimate relaunch. Reading by ticket needs no write at all, and the set
+      queried is bounded by the parked runs with no queue entry — normally none or one.
+      Freshness bounds the claim to the launch window; past it the run asks again, which is the
+      safe direction. The RunId guard excludes a duplicate trigger's own run on the same ticket.
+  - id: the-run-moves-to-the-queued-bucket-not-out-of-all-of-them
+    chose: >
+      One derived status (toRunNodeStatus) reads "queued" for a relaunching park, and the
+      overview's switch, the row's four reads and the rail all take it from there.
+    alternative: >
+      Drop the run from the needs-you arm of missionBuckets.
+    why: >
+      That switch's default arm is RUNNING. Removing a waiting run from the attention arm
+      without naming its destination paints a run executing nothing as executing — the defect
+      an earlier draft of this phase was refused for. It belongs where every other run waiting
+      for a slot sits.
+  - id: the-wait-reason-column-stays-empty-for-a-park
+    chose: >
+      The queued row's .qreason column renders nothing for a relaunching park.
+    alternative: >
+      Render snapshot.summary, as it does for a genuinely queued run.
+    why: >
+      That column is the QUEUE's reason, and QueuedTicketRepository writes the entry's reason
+      onto a run row only while that row already reads "queued". A parked run's summary is its
+      PARK's sentence ("Waiting for an operator answer — checkpointed; compute released"), so
+      rendering it would put a stale reason beside a live place in line: two answers waiting to
+      disagree. The place in line is the honest half and is kept.
+  - id: the-story-spine-gains-a-third-state
+    chose: >
+      StoryPhase = running | needsYou | relaunching, derived once in RunStory and passed to the
+      bar, the marker, the beat badge and the building caption.
+    alternative: >
+      Negate the existing `paused` boolean for a relaunching run.
+    why: >
+      One boolean drives four renderings. Negated, the spine would say "In progress" and
+      "Step X of Y" for a run executing nothing — reproducing the paint-it-as-running defect
+      inside the spine. Relaunching keeps the waiting look and loses the "?" marker, which
+      belongs to the open question.
+  - id: the-nudge-goes-in-the-sweeper-not-the-resumer
+    chose: >
+      DialogueResumeSweeper takes IRunListNudge and nudges after EnqueueResumeAsync returns
+      true, best-effort and logged at debug.
+    alternative: >
+      RunResumer, where the relaunch is actually written.
+    why: >
+      IRunListNudge's no-op default is registered only in the server composition, while
+      RunResumer is composed by AddAgentSmithCommands, which the CLI also calls — and the CLI
+      builds with ValidateOnBuild, so a nudge parameter on the resumer fails the CLI provider
+      build outright. The sweeper is the sole caller of EnqueueResumeAsync, is server-only, and
+      already has the DI. It is also more correct: a false return means the checkpoint was NOT
+      consumed and the operator still has a real question — exactly when no nudge is wanted.
+      Without any nudge the phase delivers nothing: a parked run is outside the set the
+      broadcaster drains, so nothing would tell an open surface to re-read.
+  - id: the-place-gate-became-its-own-type
+    chose: >
+      RunQueuePlace holds the waiting-status constant, the 0 sentinel, the shared position gate
+      and the lease read; RunListComposer and RunQueryEndpoints both call it.
+    alternative: >
+      Keep them as members of RunListComposer, where PositionOf already lived.
+    why: >
+      Both additions pushed RunListComposer past the 120-line ratchet, which asks for the
+      responsibilities to be split rather than baselined. "What place does this run carry on
+      the surface" is one responsibility and is what both read paths need; composing a list is
+      the other. DialogueResumeSweeper was brought back under the same limit by rewrapping its
+      existing comments, not by shortening the change.
+  - id: the-run-status-is-not-written-on-the-relaunch-path
+    chose: >
+      Run.Status stays "waiting_for_input" for the whole relaunch; only the surface changes.
+    alternative: >
+      Repaint the row as "queued" while it waits, which would need no client change at all.
+    why: >
+      That status IS ResumeRunLauncher's launch condition. A run repainted as queued is never
+      launched and is skipped in silence on every pump tick — the run would wait forever.
