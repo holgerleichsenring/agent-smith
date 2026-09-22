@@ -250,6 +250,92 @@ new DashboardOutcomeChannel(
         (await proposing.WaitAsync(TimeSpan.FromSeconds(10))).Should().BeTrue();
     }
 
+    // 2026-09-22-355b: a shape PICKED on a chat surface completes the pending question inside
+    // that surface's own adapter and is published straight onto the transport, so it never
+    // passes the answer admission that appends. Without carrying the note as a value the
+    // re-run reads a byte-identical transcript, spends a whole master loop plus a proposal
+    // review on it, and returns the same cut under "revising the proposal".
+    [Fact]
+    public async Task Router_AShapePickedByButton_ReRunsOverATranscriptEndingInThatShape()
+    {
+        const string shape = "Cut into several phases";
+        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        ConversationState? reRun = null;
+        var turns = 0;
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Returns((ConversationState state, CancellationToken _) =>
+            {
+                if (Interlocked.Increment(ref turns) == 1)
+                    return Task.FromResult(
+                        SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft)));
+                reRun = state;
+                return Task.FromResult(
+                    SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
+            });
+        // The button's answer arrives on the transport ALONE — the adapter completed the
+        // question itself, so nothing was ever appended on its way in.
+        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Contracts.Dialogue.DialogAnswer(
+                "q1", shape, null, DateTimeOffset.UtcNow, "U1"));
+
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
+
+        reRun.Should().NotBeNull("the picked shape is an edit note, so the turn runs again");
+        reRun!.Transcript[^1].Should().Match<TranscriptTurn>(
+            turn => turn.Role == TranscriptRole.User && turn.Text == shape,
+            "the master must read the chosen shape as the latest user turn");
+        reRun.Revising.Should().BeOfType<PhaseOutcome>("it knows what it is re-cutting");
+        var stored = await _sessions.GetOpenByThreadAsync(Platform, "th-shape", CancellationToken.None);
+        stored!.Transcript.Count(t => t.Text == shape).Should().Be(1);
+    }
+
+    // The other half of the same wire: a shape TYPED as a message was already appended by the
+    // answer admission, so carrying it must not put it in the transcript a second time.
+    [Fact]
+    public async Task Router_AShapeTypedAsAMessage_DoesNotAppendItTwice()
+    {
+        const string shape = "Make it a bug ticket";
+        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var turns = 0;
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Returns((ConversationState _, CancellationToken __) => Task.FromResult(
+                Interlocked.Increment(ref turns) == 1
+                    ? SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft))
+                    : SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome())));
+        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(answer.Task);
+        _dialogueTransport.Setup(t => t.PublishAnswerAsync(
+                It.IsAny<string>(), It.IsAny<AgentSmith.Contracts.Dialogue.DialogAnswer>(), It.IsAny<CancellationToken>()))
+            .Returns((string _, AgentSmith.Contracts.Dialogue.DialogAnswer published, CancellationToken _) =>
+            {
+                answer.TrySetResult(published);
+                return Task.CompletedTask;
+            });
+
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-typed", Platform, false, CancellationToken.None);
+        var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None))!.JobId;
+        var proposing = Task.Run(() => _router.TryRouteAsync(
+            "draft the phase", "U1", Channel, "th-typed", Platform, false, CancellationToken.None));
+        for (var waited = 0; !_pendingQuestions.TryPeek(sessionId, out _); waited++)
+        {
+            waited.Should().BeLessThan(1000, "the proposal reaches the approval gate");
+            await Task.Delay(10);
+        }
+
+        (await _router.TryRouteAsync(shape, "U1", Channel, "th-typed", Platform, false, CancellationToken.None))
+            .Should().BeTrue();
+        (await proposing.WaitAsync(TimeSpan.FromSeconds(10))).Should().BeTrue();
+
+        var stored = await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None);
+        stored!.Transcript.Count(t => t.Text == shape).Should().Be(1,
+            "the answer admission already appended it on its way in");
+    }
+
     // 2026-09-17-042el: a question is pending only while a turn holds the gate, so the answer
     // must not wait for the gate.
     [Fact]
