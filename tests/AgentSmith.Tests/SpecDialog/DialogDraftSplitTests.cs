@@ -221,12 +221,8 @@ public sealed class DialogDraftSplitTests : IDisposable
     private IEnumerable<string> DashboardTexts() =>
         _hub.Pushes.SelectMany(push => push.Args.OfType<SpecDialogChannelMessage>()).Select(m => m.Text);
 
-    private static async Task WaitForAsync(Func<bool> reached)
-    {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (!reached() && DateTimeOffset.UtcNow < deadline) await Task.Delay(10);
-        reached().Should().BeTrue();
-    }
+    private static Task WaitForAsync(Func<bool> reached) =>
+        TestWaits.UntilAsync(reached, "the dispatched turn produces what it was waited on for");
 
     private SpecDialogRouter Router(SpecDialogSessionRepository repository)
     {

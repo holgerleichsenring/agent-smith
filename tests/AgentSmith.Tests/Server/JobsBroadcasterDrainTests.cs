@@ -7,6 +7,7 @@ using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Services.Events;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestHelpers;
 using Microsoft.AspNetCore.SignalR;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -29,10 +30,6 @@ namespace AgentSmith.Tests.Server;
 public sealed class JobsBroadcasterDrainTests : IDisposable
 {
     private const string RunId = "2026-07-24T10-00-00-fb2d";
-
-    // Polling waits exit early when green; the generous deadline only matters on
-    // slow shared CI runners, where 10s proved too tight for broadcaster discovery.
-    private static readonly TimeSpan CiSafeWait = TimeSpan.FromSeconds(60);
 
     private readonly string _dbPath = Path.Combine(
         Path.GetTempPath(), $"p0378-drain-{Guid.NewGuid():N}.db");
@@ -65,7 +62,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         await processA.StartAsync(CancellationToken.None);
         await PublishStartAsync();
         await PublishGatesAsync(120);
-        (await WaitForRowAsync(CiSafeWait))
+        (await WaitForRowAsync())
             .Should().BeTrue("the early drain must create the run row");
         await processA.StopAsync(CancellationToken.None);
         await PublishGatesAsync(150); // more than one count:100 drain cycle
@@ -74,7 +71,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         // Act: process B cold-starts over the same Redis + DB.
         var processB = NewServerProcess();
         await processB.StartAsync(CancellationToken.None);
-        var persisted = await WaitForTerminalRowAsync(TimeSpan.FromSeconds(3));
+        var persisted = await WaitForTerminalRowAsync();
         await processB.StopAsync(CancellationToken.None);
 
         // Assert
@@ -96,7 +93,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         var process = NewServerProcess();
         await process.StartAsync(CancellationToken.None);
         await PublishStartAsync();
-        (await WaitForRowAsync(CiSafeWait))
+        (await WaitForRowAsync())
             .Should().BeTrue("the run must be discovered and tracked first");
         await PublishGatesAsync(250);
         await PublishFinishAsync();
@@ -106,8 +103,8 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         // the stream is the source of truth and a restart re-reads it. Waiting for the trail
         // row AFTER the stop asked the only producer to do work it had been told to abandon,
         // which passed on a fast machine and timed out on a loaded CI runner.
-        var persisted = await WaitForTerminalRowAsync(CiSafeWait);
-        var trailed = await WaitForTrailRowAsync(CiSafeWait);
+        var persisted = await WaitForTerminalRowAsync();
+        var trailed = await WaitForTrailRowAsync();
         await process.StopAsync(CancellationToken.None);
 
         // Assert
@@ -125,21 +122,23 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         var processA = NewServerProcess();
         await processA.StartAsync(CancellationToken.None);
         await PublishStartAsync();
-        (await WaitForRowAsync(CiSafeWait))
+        (await WaitForRowAsync())
             .Should().BeTrue("the run must be discovered and tracked first");
         await PublishGatesAsync(5);
         await PublishFinishAsync();
         var fullyPersisted = await WaitUntilAsync(
             ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null)
-                   && CountRunFinishedTrailRows(ctx) == 1,
-            CiSafeWait);
+                   && CountRunFinishedTrailRows(ctx) == 1);
         fullyPersisted.Should().BeTrue("the live drain persists the terminal event + trail row");
         await processA.StopAsync(CancellationToken.None);
 
         // Act: … then a restart rehydrates the terminal run from the stream.
         var processB = NewServerProcess();
         await processB.StartAsync(CancellationToken.None);
-        await Task.Delay(500); // several drain cycles for any wrong re-processing
+        // Several drain passes in which a wrong re-processing would show, counted from the
+        // drain's own discoveries. 2026-09-22-3f7c: half a second was several passes on the
+        // machine that wrote it and part of one on the runner that failed this class.
+        (await AwaitDrainPassesAsync(processB, 3)).Should().BeTrue();
         await processB.StopAsync(CancellationToken.None);
 
         // Assert: rehydrate must not re-persist the already-recorded terminal event.
@@ -197,11 +196,28 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
     private Task PublishFinishAsync() => _publisher.PublishAsync(new RunFinishedEvent(
         RunId, "success", null, "done", DateTimeOffset.UtcNow, 0.5m));
 
-    private Task<bool> WaitForRowAsync(TimeSpan timeout) =>
-        WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId), timeout);
+    private Task<bool> WaitForRowAsync() =>
+        WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId));
 
-    private Task<bool> WaitForTerminalRowAsync(TimeSpan timeout) =>
-        WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null), timeout);
+    private Task<bool> WaitForTerminalRowAsync() =>
+        WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null));
+
+    /// <summary>
+    /// One drain pass discovers whatever is in the active set, so a run published here and
+    /// then seen in <see cref="JobsBroadcaster.Active"/> proves a pass happened. A negative
+    /// claim is worth the number of passes it watched, and only counting says what that was.
+    /// </summary>
+    private async Task<bool> AwaitDrainPassesAsync(JobsBroadcaster drain, int passes)
+    {
+        for (var pass = 0; pass < passes; pass++)
+        {
+            var tracer = $"{RunId}-pass-{pass}";
+            await _publisher.PublishAsync(new RunStartedEvent(
+                tracer, "ticket", "fix-bug", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
+            if (!await TestWaits.ReachedAsync(() => drain.Active.ContainsKey(tracer))) return false;
+        }
+        return true;
+    }
 
     /// <summary>
     /// p0443: the run row and its trail row are two writes, so waiting for the first and
@@ -209,20 +225,15 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
     /// release build: persisted true, status success, trail rows 0 — the projector had
     /// landed the run and not yet the trail. Wait for what is actually asserted.
     /// </summary>
-    private Task<bool> WaitForTrailRowAsync(TimeSpan timeout) =>
-        WaitUntilAsync(ctx => CountRunFinishedTrailRows(ctx) == 1, timeout);
+    private Task<bool> WaitForTrailRowAsync() =>
+        WaitUntilAsync(ctx => CountRunFinishedTrailRows(ctx) == 1);
 
-    private async Task<bool> WaitUntilAsync(Func<AgentSmithDbContext, bool> condition, TimeSpan timeout)
-    {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
+    private Task<bool> WaitUntilAsync(Func<AgentSmithDbContext, bool> condition) =>
+        TestWaits.ReachedAsync(() =>
         {
-            using (var ctx = new AgentSmithDbContext(Options()))
-                if (condition(ctx)) return true;
-            await Task.Delay(50);
-        }
-        return false;
-    }
+            using var ctx = new AgentSmithDbContext(Options());
+            return condition(ctx);
+        });
 
     private static int CountRunFinishedTrailRows(AgentSmithDbContext ctx) =>
         ctx.Set<TrailRow>().Count(e => e.RunId == RunId && e.Type == nameof(EventType.RunFinished));

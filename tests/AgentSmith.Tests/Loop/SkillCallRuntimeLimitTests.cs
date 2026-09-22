@@ -2,23 +2,25 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Loop;
 
 public sealed class SkillCallRuntimeLimitTests
 {
-    private static readonly TimeSpan Budget = TimeSpan.FromSeconds(60);
-
     [Fact]
-    public async Task ExecuteAsync_ConcurrencyLimitReached_BlocksUntilSlotAvailable()
+    public async Task SkillCallRuntime_AConcurrencyLimit_ReleasesItsSlotWithoutADeadline()
     {
         // 2026-08-28-479f: the first call announces that it is INSIDE the gate, and the
         // test waits for that instead of sleeping. The claim is about the semaphore —
         // with the only slot held, the second call cannot have completed — and a sleep
-        // was standing in for a signal the call can give itself. Under three parallel
-        // test processes the 50 ms sleep took tens of seconds and the two-second waits
-        // behind it expired, failing four consecutive gate runs of unrelated phases.
+        // was standing in for a signal the call can give itself.
+        // 2026-09-22-3f7c: the signal was right and the number behind it was not. Two
+        // seconds became sixty, and sixty still failed three pull requests in two days on
+        // a runner where copying one file took seventy-eight seconds. Nothing here is a
+        // latency claim, so nothing here carries a latency number: the waits are the
+        // suite's one hang ceiling, which fires on a lost signal and on nothing else.
         var firstEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var slowGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var chat = ScriptedRuntimeChatClient.Async(
@@ -35,14 +37,13 @@ public sealed class SkillCallRuntimeLimitTests
         var first = runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
         var second = runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
 
-        // A ceiling that still fails a hang, high enough that a starved thread pool does not.
-        await firstEntered.Task.WaitAsync(Budget);
+        await firstEntered.Task.OrHang("the first call enters the gate");
         second.IsCompleted.Should().BeFalse(
             "the only slot is held by the first call, which is inside the gate");
         slowGate.SetResult();
 
-        await first.WaitAsync(Budget);
-        var secondResult = await second.WaitAsync(Budget);
+        await first.OrHang("the first call finishes and releases the slot");
+        var secondResult = await second.OrHang("the released slot reaches the second call");
         secondResult.Outcome.Should().Be(SkillCallOutcome.Ok);
     }
 

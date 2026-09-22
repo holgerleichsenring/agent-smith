@@ -42,7 +42,10 @@ public sealed class SubAgentRunnerTests
         var specs = Enumerable.Range(0, 6).Select(i => Spec($"Slot{i}Investigator")).ToArray();
 
         var runTask = sut.RunAsync(specs, BuildContext(), CancellationToken.None);
-        await Task.Delay(80);
+        // 2026-09-22-3f7c: wait for the cap to be REACHED and then assert it is not exceeded.
+        // Eighty milliseconds asserted over whatever the host had managed to start, which on a
+        // slow one is nothing — the cap held because nothing was running.
+        await AgentSmith.Tests.TestHelpers.TestWaits.UntilAsync(() => stub.PeakInFlight >= 2, "the runner fills both slots");
         stub.PeakInFlight.Should().BeLessThanOrEqualTo(2);
         stub.Release();
         await runTask;
