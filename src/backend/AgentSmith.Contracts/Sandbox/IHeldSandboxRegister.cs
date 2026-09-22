@@ -2,7 +2,8 @@ namespace AgentSmith.Contracts.Sandbox;
 
 /// <summary>
 /// 2026-09-22-2d11a: the holds THIS process may release, and the eviction a capacity
-/// door performs before it probes.
+/// door performs before it probes. 2026-09-22-2d11b: and what a design turn takes back,
+/// so only the first message of a conversation pays a spawn and a clone.
 /// <para>
 /// The register is deliberately process-local while the reapers' rail is not. Reaping
 /// a held sandbox wrongly is a correctness failure, so that rail is a shared label and
@@ -16,14 +17,17 @@ public interface IHeldSandboxRegister
     void Hold(HeldSandbox held);
 
     /// <summary>
-    /// A turn takes the hold back. A taken hold is NOT evictable: it is in use, and no
-    /// reaper rail could tell it from an idle one, because it still carries the run
-    /// label of the turn that spawned it and that run is over.
+    /// A turn takes the hold back, verified through the agent's heartbeat: a live sandbox,
+    /// or nothing. Nothing means the turn spawns as it always did — a held sandbox may have
+    /// been reaped once its window lapsed, evicted under capacity pressure, or lost with its
+    /// daemon, and one whose heartbeat has gone is dropped and force-removed here.
+    /// <para>
+    /// A taken hold LEAVES the register, so an eviction running beside a turn can neither
+    /// see it nor pull it out from under the read in flight; the turn puts it back with
+    /// <see cref="Hold"/> when it ends.
+    /// </para>
     /// </summary>
-    bool Take(string key);
-
-    /// <summary>The turn ended; the hold is evictable again, from now.</summary>
-    void Release(string key);
+    Task<IHoldableSandbox?> TakeAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
     /// Force-removes every hold this process may release, least-recently-used first,
@@ -33,4 +37,12 @@ public interface IHeldSandboxRegister
     /// stale figure and deny anyway.
     /// </summary>
     Task<int> EvictAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-09-22-2d11b: a hold ends when its conversation does — closed, forked away from
+    /// or deleted. The entries leave the register before the first await, so a message that
+    /// arrives mid-release can never take one back; the removals themselves are what the
+    /// caller may walk away from, and every caller does.
+    /// </summary>
+    Task ReleaseConversationAsync(string conversationId, CancellationToken cancellationToken);
 }

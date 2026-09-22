@@ -6,8 +6,9 @@ using AgentSmith.Sandbox.Wire;
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// 2026-09-13-9802: puts a freshly spawned read-only sandbox onto the revision it was
-/// asked for, and says precisely why when it cannot.
+/// 2026-09-13-9802: puts a read-only sandbox onto the revision it was asked for, and says
+/// precisely why when it cannot. The refusals it tells apart live in
+/// <see cref="SourceScopeFailures"/>.
 /// <para>
 /// It lives outside <see cref="SourceScopeSandbox"/> because that class owns a different
 /// job — the read-only guard and the lazy spawn — and because the git ladder here is
@@ -17,45 +18,45 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// <para>
 /// The ladder is: clone one branch at one commit (2026-09-22-b41d), then (when a revision
 /// is named) check it out; a checkout that fails asks the host for that one ref and tries
-/// again, and a fetch that lands nothing asks once more WITH depth and takes what came
-/// back. The refusals are told apart so an operator reads an action, not git.
+/// again, and a fetch that lands nothing asks once more WITH depth and takes what came back.
+/// </para>
+/// <para>
+/// 2026-09-22-2d11b: the work path is read FIRST, because a sandbox held from an earlier
+/// turn already carries this repository and git refuses to clone into a non-empty directory
+/// with a message the classifier would read as an unreachable host. A tree already there is
+/// brought to the remote's own HEAD — unless the scope names a REVISION, which is a pin the
+/// tree is already on and must not be walked off.
 /// </para>
 /// </summary>
-public sealed class SourceScopeMaterialiser
+public sealed class SourceScopeMaterialiser(SourceScopeRefresh refresh)
 {
-    /// <summary>
-    /// The host answering "no such repository" for a private one it will not admit to is
-    /// indistinguishable from a missing repository, and the action is the same either way:
-    /// look at the token. Auth is therefore matched BEFORE transport, because git wraps
-    /// both in "unable to access".
-    /// </summary>
-    private static readonly string[] AuthMarkers =
-    [
-        "authentication failed", "could not read username", "invalid username or password",
-        "403", "401", "permission denied", "access denied", "terminal prompts disabled",
-        "repository not found",
-    ];
-
-    /// <summary>Clones, lands on the revision when one is named, and reports the sha.</summary>
+    /// <summary>Clones or refreshes, lands on the revision when one is named, reports the sha.</summary>
     public async Task<string> PrepareAsync(
         ISandbox sandbox, RepoConnection repo, string? revision, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         ArgumentNullException.ThrowIfNull(repo);
 
-        var clone = await sandbox.RunStepAsync(
-            CheckoutStepFactory.BuildScopeCloneStep(repo), null, ct);
-        if (clone.ExitCode != 0)
-            throw Fail(CloneKind(clone), repo, revision, $"git clone failed: {Text(clone)}");
-
-        if (!string.IsNullOrWhiteSpace(revision))
-            await LandOnAsync(sandbox, repo, revision!, ct);
+        if (!await refresh.HoldsRepoAsync(sandbox, repo, ct))
+        {
+            var clone = await sandbox.RunStepAsync(
+                CheckoutStepFactory.BuildScopeCloneStep(repo), null, ct);
+            if (clone.ExitCode != 0)
+                throw SourceScopeFailures.Fail(SourceScopeFailures.KindOf(clone), repo, revision,
+                    $"git clone failed: {SourceScopeFailures.Text(clone)}");
+            if (!string.IsNullOrWhiteSpace(revision))
+                await LandOnAsync(sandbox, repo, revision!, ct);
+        }
+        else if (string.IsNullOrWhiteSpace(revision))
+        {
+            await refresh.ToRemoteHeadAsync(sandbox, repo, ct);
+        }
 
         var head = await sandbox.RunStepAsync(CheckoutStepFactory.BuildResolveHeadStep(), null, ct);
         return head.ExitCode == 0
             ? (head.OutputContent ?? string.Empty).Trim()
-            : throw Fail(SourceScopeFailureKind.NoSuchRevision, repo, revision,
-                $"the clone will not say what HEAD is: {Text(head)}");
+            : throw SourceScopeFailures.Fail(SourceScopeFailureKind.NoSuchRevision, repo, revision,
+                $"the clone will not say what HEAD is: {SourceScopeFailures.Text(head)}");
     }
 
     private static async Task LandOnAsync(
@@ -81,38 +82,15 @@ public sealed class SourceScopeMaterialiser
         var deepened = await sandbox.RunStepAsync(
             CheckoutStepFactory.BuildFetchRevisionAtDepthStep(repo, revision), null, ct);
         if (deepened.ExitCode != 0)
-            throw Fail(SourceScopeFailureKind.RevisionNotFetched, repo, revision,
+            throw SourceScopeFailures.Fail(SourceScopeFailureKind.RevisionNotFetched, repo, revision,
                 "the clone does not carry this revision and the host would not hand it over, "
                 + "with depth or without — a sha reachable from no branch and no tag looks "
-                + $"like this: {Text(deepened)}");
+                + $"like this: {SourceScopeFailures.Text(deepened)}");
 
         var landed = await sandbox.RunStepAsync(
             CheckoutStepFactory.BuildCheckoutStep("FETCH_HEAD"), null, ct);
         if (landed.ExitCode != 0)
-            throw Fail(SourceScopeFailureKind.NoSuchRevision, repo, revision,
-                $"the revision does not resolve, even after asking the host for it: {Text(landed)}");
+            throw SourceScopeFailures.Fail(SourceScopeFailureKind.NoSuchRevision, repo, revision,
+                $"the revision does not resolve, even after asking the host for it: {SourceScopeFailures.Text(landed)}");
     }
-
-    /// <summary>
-    /// Auth first, transport second, and transport again for anything unrecognised: git
-    /// wraps every remote problem in "unable to access", so the markers are what separate
-    /// them, and a clone that failed for a reason neither list knows is still a clone that
-    /// did not reach its remote. The raw git text rides along in the message either way.
-    /// </summary>
-    private static SourceScopeFailureKind CloneKind(StepResult result)
-    {
-        var text = Text(result).ToLowerInvariant();
-        return AuthMarkers.Any(marker => text.Contains(marker, StringComparison.Ordinal))
-            ? SourceScopeFailureKind.Unauthorised
-            : SourceScopeFailureKind.Unreachable;
-    }
-
-    private static string Text(StepResult result) =>
-        string.Join(" ", new[] { result.ErrorMessage, result.OutputContent }
-            .Where(part => !string.IsNullOrWhiteSpace(part)));
-
-    private static SourceScopeUnavailableException Fail(
-        SourceScopeFailureKind kind, RepoConnection repo, string? revision, string message) =>
-        new(kind, repo.Name, revision,
-            $"'{repo.Name}'{(revision is null ? string.Empty : $" at '{revision}'")}: {message}");
 }

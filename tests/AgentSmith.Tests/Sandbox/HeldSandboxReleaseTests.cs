@@ -11,8 +11,9 @@ namespace AgentSmith.Tests.Sandbox;
 /// force remove with no grace — an ordinary disposal pushes a shutdown step and then
 /// waits a flat ten seconds, serially, on a door an operator is waiting at.
 /// <para>
-/// Nothing holds anything until 2026-09-22-2d11b, so the register is driven directly
-/// here — and the empty-register case is asserted to change nothing.
+/// 2026-09-22-2d11b: a take LEAVES the register, so an eviction running beside a turn
+/// cannot pull a sandbox out from under the read in flight; the turn holds it again when
+/// it ends. The empty-register case is still asserted to change nothing.
 /// </para>
 /// </summary>
 public sealed class HeldSandboxReleaseTests
@@ -26,8 +27,8 @@ public sealed class HeldSandboxReleaseTests
         register.Hold(first);
         register.Hold(second);
         // 'scope-a' becomes the more recently used of the two.
-        register.Take(first.Key);
-        register.Release(first.Key);
+        (await register.TakeAsync(first.Key, CancellationToken.None)).Should().NotBeNull();
+        register.Hold(first);
 
         var released = await register.EvictAsync(CancellationToken.None);
 
@@ -44,7 +45,7 @@ public sealed class HeldSandboxReleaseTests
         var register = NewRegister();
         var taken = Held("scope-in-use");
         register.Hold(taken);
-        register.Take(taken.Key).Should().BeTrue();
+        (await register.TakeAsync(taken.Key, CancellationToken.None)).Should().NotBeNull();
 
         var released = await register.EvictAsync(CancellationToken.None);
 
@@ -52,7 +53,8 @@ public sealed class HeldSandboxReleaseTests
         Removal(taken).ForceRemovedAt.Should().BeNull(
             "a re-taken hold still carries the run label of the turn that spawned it, so no "
             + "reaper rail could tell it from an idle one — the register is what knows");
-        register.Take(taken.Key).Should().BeFalse("it is already taken");
+        (await register.TakeAsync(taken.Key, CancellationToken.None)).Should()
+            .BeNull("a turn already has it");
     }
 
     [Fact]
@@ -76,51 +78,27 @@ public sealed class HeldSandboxReleaseTests
 
         var released = await register.EvictAsync(CancellationToken.None);
 
-        released.Should().Be(0, "nothing holds anything yet, so every door probes the world it always did");
+        released.Should().Be(0, "a process holding nothing releases nothing, and every door probes the world it always did");
     }
 
     [Fact]
     public async Task Release_AHoldThatCannotBeRemoved_LeavesTheRegisterAndIsLeftToTheReapers()
     {
         var register = NewRegister();
-        var broken = new HeldSandbox("scope-a", "a1b2c3d4", new ThrowingRemoval());
+        var broken = new HeldSandbox(
+            "scope-a", "a1b2c3d4", new FakeHoldableSandbox { ThrowOnForceRemove = true });
         register.Hold(broken);
 
         (await register.EvictAsync(CancellationToken.None)).Should().Be(0);
 
-        register.Take(broken.Key).Should().BeFalse("the hold is out of the register either way");
+        (await register.TakeAsync(broken.Key, CancellationToken.None)).Should()
+            .BeNull("the hold is out of the register either way");
     }
 
     private static IHeldSandboxRegister NewRegister() =>
-        new HeldSandboxRegister(NullLogger<HeldSandboxRegister>.Instance);
+        new HeldSandboxRegister(new StubHeartbeat(alive: true), NullLogger<HeldSandboxRegister>.Instance);
 
-    private static HeldSandbox Held(string key) => new(key, "a1b2c3d4", new RecordingRemoval());
+    private static HeldSandbox Held(string key) => new(key, "a1b2c3d4", new FakeHoldableSandbox());
 
-    private static RecordingRemoval Removal(HeldSandbox held) => (RecordingRemoval)held.Sandbox;
-
-    private sealed class RecordingRemoval : ISandboxForceRemoval, IAsyncDisposable
-    {
-        private static int _order;
-
-        public int? ForceRemovedAt { get; private set; }
-        public bool Disposed { get; private set; }
-
-        public Task ForceRemoveAsync(CancellationToken cancellationToken)
-        {
-            ForceRemovedAt = Interlocked.Increment(ref _order);
-            return Task.CompletedTask;
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            Disposed = true;
-            return ValueTask.CompletedTask;
-        }
-    }
-
-    private sealed class ThrowingRemoval : ISandboxForceRemoval
-    {
-        public Task ForceRemoveAsync(CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("the daemon is not reachable");
-    }
+    private static FakeHoldableSandbox Removal(HeldSandbox held) => (FakeHoldableSandbox)held.Sandbox;
 }

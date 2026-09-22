@@ -49,7 +49,8 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         _adapter.SetupGet(a => a.Platform).Returns(Platform);
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
     }
 
     [Fact]

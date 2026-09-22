@@ -238,7 +238,8 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     {
         var repository = new SpecDialogSessionRepository(_context);
         var sessions = new SpecDialogSessionManager(
-            repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
         var state = await sessions.OpenAsync(
             Platform, "C1", Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);

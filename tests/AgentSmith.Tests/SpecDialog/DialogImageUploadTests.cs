@@ -61,7 +61,8 @@ public sealed class DialogImageUploadTests : IDisposable
         _repository = new SpecDialogSessionRepository(_context);
         _attachments = new SpecDialogAttachmentRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
         _ownership = new SpecDialogOwnership(_repository);
     }
 
@@ -196,7 +197,7 @@ public sealed class DialogImageUploadTests : IDisposable
             new SpecDialogConversationDeleter(_context, _repository, new DialogueAnswerRepository(
                 _context, new AgentSmith.Infrastructure.Persistence.Services.Translators.SqliteUniqueViolationTranslator()),
                 _attachments),
-            CancellationToken.None);
+            AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
         (await StoredAsync()).Select(row => row.Id).Should().Equal([elsewhere],
             "the conversation's images go with it in the transaction it already opens, and "

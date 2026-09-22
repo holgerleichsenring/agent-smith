@@ -300,9 +300,9 @@ public sealed class CodingMasterTemplateTests
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         var scope = new SourceScopeSandbox(
             ProjectWithTemplate(), ProjectWithTemplate().Templates[0].Repo, "v4.2.0",
-            conversationId: null,
+            hold: null,
             new SourceScopeOpener(
-                new SourceScopeMaterialiser(), spawns,
+                new SourceScopeMaterialiser(new SourceScopeRefresh()), spawns,
                 new SandboxSpecBuilder(
                     new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
                     Mock.Of<IAgentImageResolver>(

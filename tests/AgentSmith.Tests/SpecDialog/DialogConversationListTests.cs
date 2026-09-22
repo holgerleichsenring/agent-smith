@@ -42,7 +42,8 @@ public sealed class DialogConversationListTests : IDisposable
         _context.Database.Migrate();
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, _clock, NullLogger<SpecDialogSessionManager>.Instance);
+            _repository, AgentSmith.Tests.Sandbox.Holds.None(), _clock,
+            NullLogger<SpecDialogSessionManager>.Instance);
     }
 
     [Fact]

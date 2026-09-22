@@ -16,14 +16,13 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// sandboxes for the active scope, the dialogue job id (ask_human) and the
 /// reply slot into the run via PipelineRequest.Context; pumps the master's
 /// questions into the thread while the run is live; owns the sandboxes'
-/// lifetime (disposed when the turn ends — a sandbox that served no read
-/// disposes to nothing). Returns the reply as kept and as shown on the session's platform;
+/// lifetime (released when the turn ends — a sandbox that served no read
+/// holds nothing). Returns the reply as kept and as shown on the session's platform;
 /// the router persists the first and delivers the second.
 /// <para>
-/// 2026-09-13-ed5a: the project's declared TEMPLATES join that set. The scope's repos come
-/// from the session row; the templates come off the resolved project — the two columns
-/// SpecDialogSessionMapper rebuilds ActiveScope from carry no template, so a field there
-/// would be dropped before the first turn.
+/// 2026-09-13-ed5a: the project's declared TEMPLATES join that set. The scope's repos come from
+/// the session row; the templates come off the resolved project — the two columns
+/// SpecDialogSessionMapper rebuilds ActiveScope from carry no template.
 /// </para>
 /// </summary>
 public sealed class SpecDialogTurnRunner(
@@ -45,9 +44,11 @@ public sealed class SpecDialogTurnRunner(
     {
         var project = ResolveProject(state.Project);
         var scopeRepos = ResolveScopeRepos(project, state.Scope);
-        var templates = templateScopes.Open(project);
-        var sandboxes = SpecDialogTurnSeeds.Sandboxes(
-            scopeRepos, r => sourceSandboxFactory.Create(project, r), templates);
+        // 2026-09-22-2d11b: every scope names the CONVERSATION, so its inner sandbox outlives
+        // the turn and the next turn takes it back rather than spawning and cloning again.
+        var templates = templateScopes.Open(project, state.JobId);
+        var sandboxes = SpecDialogTurnSeeds.Sandboxes(scopeRepos,
+            r => sourceSandboxFactory.Create(project, r, conversationId: state.JobId), templates);
 
         var slot = new SpecDialogReplySlot();
         var seeds = SpecDialogTurnSeeds.Build(
@@ -112,8 +113,7 @@ public sealed class SpecDialogTurnRunner(
 
     private string ComposeFailureReply(ConversationState state, CommandResult result)
     {
-        logger.LogWarning(
-            "Spec-dialog turn for session {SessionId} produced no reply: {Message}",
+        logger.LogWarning("Spec-dialog turn for session {SessionId} produced no reply: {Message}",
             state.JobId, result.Message);
         return $"This design turn failed before an answer was produced: {result.Message ?? "unknown error"}";
     }

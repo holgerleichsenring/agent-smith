@@ -1,0 +1,138 @@
+phase: 2026-09-22-2d11b
+decisions:
+  - id: the-register-holds-the-inner-sandbox-and-the-scope-is-rebuilt-every-turn
+    chose: >
+      SourceScopeHold sits inside SourceScopeSandbox: on materialisation it takes the inner
+      sandbox back from IHeldSandboxRegister and prepares it, and on disposal it hands that
+      inner sandbox to the register instead of disposing it. Every turn builds a FRESH scope.
+    alternative: >
+      Holding the ISourceScopeSandbox itself, or taking and releasing in SpecDialogTurnRunner
+      around the map it builds.
+    why: >
+      The scope object cannot be reused: it returns its cached inner sandbox before it reports
+      progress and before it materialises, and its disposal disposes the semaphore that guards
+      materialisation. A reused object would skip the refresh, skip the dashboard's opening
+      line, report the previous turn's sha into a filed ticket's provenance and throw on any
+      second materialisation. Putting the take and the keep INSIDE the scope also kept the
+      turn runner at its file-length baseline, which may only shrink, and left the templates
+      — opened through ProjectTemplateScopes, not by the runner — held by the same mechanism
+      rather than by a second one.
+  - id: the-hold-key-is-conversation-repo-revision-not-the-job-id
+    chose: >
+      HeldSandbox.KeyFor(conversationId, repoName, revision) is the key a turn takes by;
+      2026-09-22-2d11a's doc said the key was the job id.
+    alternative: >
+      Keeping the job id as the key and asking the register for "whatever this conversation
+      holds for this repository".
+    why: >
+      A turn knows the conversation, the repository and the revision before it has anything to
+      read through; the job id belongs to the container it is trying not to spawn. The revision
+      is IN the key because one turn may address one repository twice — its own scope at the
+      clone's default and a template of it pinned to a tag — and those are two trees.
+  - id: a-take-removes-the-entry-and-release-is-gone
+    chose: >
+      IHeldSandboxRegister.TakeAsync removes the entry and returns the sandbox; the turn puts
+      it back with Hold when it ends. The bool Take / void Release pair of 2026-09-22-2d11a is
+      replaced, and the Taken flag with it.
+    alternative: >
+      Keeping Take/Release and marking an entry as in use.
+    why: >
+      An entry that is not in the register cannot be evicted out from under a read in flight —
+      the property Take/Release existed for — and a turn that dies between the take and the
+      keep leaves no stale "taken forever" entry behind. What the hold then needs on a failure
+      is one act rather than two: SourceScopeHold force-removes a held sandbox that would not
+      prepare, so nothing is orphaned either way.
+  - id: the-probe-is-the-heartbeat-and-a-probe-that-cannot-read-answers-no
+    chose: >
+      ISandboxHeartbeatProbe, implemented by RedisSandboxHeartbeatProbe over the key the agent
+      writes every two seconds and the liveness watcher already polls. Registered in the server
+      sandbox composition beside the reapers' rail; every other composition keeps
+      NoSandboxHeartbeatProbe, which answers no. A read that threw answers no as well.
+    alternative: >
+      Pushing a cheap git step at the held sandbox and treating a failure as death.
+    why: >
+      A step pushed at a dead container is a Redis list push that succeeds regardless, followed
+      by a poll that runs to the step timeout plus a thirty-second grace — at least ninety
+      seconds before anything may say "dead", against one Redis read. Answering no on a failed
+      read costs a spawn; answering yes costs that ninety-second trap. The probe is injectable
+      because the fast harness's stub sandbox has neither an agent nor a Redis.
+  - id: the-tree-is-asked-who-it-is-a-clone-of-before-anything-else
+    chose: >
+      SourceScopeRefresh.HoldsRepoAsync runs `git config --get remote.origin.url` in the work
+      path and compares it with the repository's clone url; only a match takes the refresh rung
+      (fetch --depth 1 origin HEAD, then reset --hard FETCH_HEAD), and only when the scope names
+      no revision. Anything else clones exactly as before.
+    alternative: >
+      Trusting the register's key — a hold for this conversation and this repository must be
+      that repository's tree — or listing the work path for a .git directory.
+    why: >
+      The register's key is this process's bookkeeping; the tree is the fact. Asking the tree
+      makes a mis-keyed or recycled container a clone rather than one conversation reading
+      another's repository, and it is the same single command that tells an empty work path
+      from a prepared one. The refusal ladder's own steps are run on the INNER sandbox, so the
+      read-only program allowance (which governs steps arriving through the scope's guard)
+      does not apply to it — the clone has always run this way.
+  - id: the-ref-is-the-remotes-own-head-and-the-act-is-a-hard-reset
+    chose: >
+      Fetch the remote's HEAD at depth one and hard-reset onto FETCH_HEAD.
+    alternative: >
+      Resetting to the repository's configured default branch, or pulling.
+    why: >
+      The scope's clone names no branch, so the tree sits on whatever the remote advertised as
+      HEAD, while the configured default branch is nullable and read elsewhere with a fallback
+      to "main" — it could name a branch the clone never had. A pull merges, and a merge can
+      conflict and leave a tree a read tool would report as source; the tree is disposable, so
+      the honest act is to make it identical and never to reconcile.
+  - id: a-refresh-failure-is-classified-where-the-clone-is
+    chose: >
+      A failed fetch is classified by SourceScopeFailures.KindOf — unauthorised before
+      unreachable, the clone's own markers — and a failed reset is reported as Unreachable.
+      The markers and the failure factory moved out of SourceScopeMaterialiser into
+      SourceScopeFailures, which is listed in NoStaticStateRuleTests.DataTableHolders.
+    alternative: >
+      A refusal kind of its own for a refresh, or leaving the markers in the materialiser and
+      writing a second copy for the refresh rung.
+    why: >
+      The fetch is the rung that talks to the remote, so its failures are the clone's failures
+      and an operator reads the same action. A second marker list would be a second answer to
+      one question the day a host reworded its refusal. A reset can only fail over what the
+      fetch delivered, which is a state the remote's tree could not be reached in; nothing in
+      the enum is truer, and a new kind would have to be rendered everywhere for a case that
+      means "this container's disk is broken".
+  - id: the-refresh-is-a-service-because-a-static-that-takes-a-collaborator-is-one
+    chose: >
+      SourceScopeRefresh is a sealed DI service injected into SourceScopeMaterialiser.
+    alternative: >
+      A static helper class, or the two methods inline in the materialiser.
+    why: >
+      NoStaticStateRuleTests refuses a static class that takes a collaborator — it takes an
+      ISandbox — and inline would have pushed the materialiser over the 120-line limit the same
+      rule set enforces. The seam is real: a test substitutes the rung without a sandbox.
+  - id: a-conversation-end-releases-and-the-caller-does-not-wait
+    chose: >
+      IHeldSandboxRegister.ReleaseConversationAsync removes that conversation's entries under
+      the lock and force-removes them afterwards; SpecDialogSessionManager (close, and the
+      close a fork performs first) and the conversation delete endpoint both drop the returned
+      task.
+    alternative: >
+      Awaiting the release at each call site, or hanging it on the deleter.
+    why: >
+      The entries leave the register before the first await, so a message arriving mid-release
+      can never take one back — which is the part that must be synchronous. The removals are
+      not: a fork closes the old session on the way to opening its successor and a delete runs
+      inside the turn gate, and neither should wait on a daemon. A force remove is used rather
+      than a disposal for 2026-09-22-2d11a's reason: a disposal pushes a shutdown step and then
+      waits a flat ten seconds, per sandbox, serially.
+  - id: a-design-turn-no-longer-disposes-the-template-checkout-it-opened
+    chose: >
+      SpecDialogTurn_Ends_DisposesTemplateSandboxes became
+      SpecDialogTurn_Ends_HoldsTemplateSandboxesForTheNextTurn, asserting the sandbox is not
+      disposed and that the register hands it back under its key.
+    alternative: >
+      Holding only the scope's own repositories and disposing templates as before.
+    why: >
+      A template is the most expensive clone a design turn makes and it is pinned, so it is
+      exactly what a second message should not pay for again. The old assertion's reason — a
+      foreign read-only checkout left running is a container nobody owns — is answered rather
+      than ignored: the conversation owns it, the reapers' third rail spares it only while the
+      hold window lasts, and any capacity door may evict it.

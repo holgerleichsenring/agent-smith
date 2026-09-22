@@ -8,9 +8,9 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// </summary>
 /// <param name="Id">Container id on Docker, pod name on Kubernetes.</param>
 /// <param name="ConversationId">
-/// The design conversation this sandbox belongs to, or empty. Empty is what every
-/// sandbox carries until 2026-09-22-2d11b holds one, and it is what makes the third
-/// rail unreachable in a deployment that holds nothing.
+/// The design conversation this sandbox belongs to, or empty. Every sandbox a RUN spawns
+/// carries empty, which is what makes the third rail unreachable in a deployment that holds
+/// nothing; since 2026-09-22-2d11b a design turn's scopes carry the session id.
 /// </param>
 public sealed record SandboxReapCandidate(
     string Id,

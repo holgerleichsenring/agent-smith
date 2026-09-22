@@ -18,7 +18,7 @@ public sealed class KubernetesSandbox(
     int stepTimeoutCapSeconds,
     string toolchainImage,
     ResolvedSandboxSecrets injectedSecrets,
-    ILogger logger) : ISandbox, ISandboxToolchainImage, ISandboxSecretInjection, ISandboxForceRemoval
+    ILogger logger) : IHoldableSandbox, ISandboxToolchainImage, ISandboxSecretInjection
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 

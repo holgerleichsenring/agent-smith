@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// corpse sweep is leader-elected, so the replica that judges a held pod is usually
 /// not the one holding it.
 /// <para>
-/// Nothing holds anything until 2026-09-22-2d11b, so the rail is driven here directly:
+/// The rail is driven here directly — a reaper judges labels and rows, never a register:
 /// a synthetic labelled container, a synthetic labelled pod, and synthetic rows.
 /// </para>
 /// </summary>

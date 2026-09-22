@@ -30,10 +30,16 @@ public sealed class SpecDialogTemplateScopes(
     /// so a turn that never opens one pays nothing and disposes to nothing. The dialog
     /// selects by no context because it has discovered none.
     /// </summary>
-    public IReadOnlyDictionary<string, ISourceScopeSandbox> Open(ResolvedProject project)
+    /// <param name="conversationId">
+    /// 2026-09-22-2d11b: the design conversation these templates are opened for. Its sandboxes
+    /// are held between turns, so a template pinned to a revision is cloned once per
+    /// conversation rather than once per message.
+    /// </param>
+    public IReadOnlyDictionary<string, ISourceScopeSandbox> Open(
+        ResolvedProject project, string? conversationId = null)
     {
         ArgumentNullException.ThrowIfNull(project);
-        var opened = scopes.ForProject(project);
+        var opened = scopes.ForProject(project, conversationId);
         if (opened.Count > 0)
             logger.LogInformation(
                 "The design analysis may read {Count} template(s): {Names}",
