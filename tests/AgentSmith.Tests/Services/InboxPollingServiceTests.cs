@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -32,14 +33,17 @@ public sealed class InboxPollingServiceTests : IDisposable
         var testFile = Path.Combine(options.InboxPath, "test.pdf");
         await File.WriteAllTextAsync(testFile, "content");
 
-        var runTask = sut.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        // 2026-09-22-3f7c: the poll runs on its own timer, so the test waits for the ENQUEUE
+        // rather than for a stretch of clock in which one was likely. Two seconds was two poll
+        // intervals on the machine that wrote it and rather fewer on a loaded runner.
+        await sut.StartAsync(cts.Token);
+        var enqueued = await TestWaits.ReachedAsync(() => _enqueuer.Files().Count > 0);
         await cts.CancelAsync();
 
         try { await sut.StopAsync(CancellationToken.None); } catch (OperationCanceledException) { }
 
-        _enqueuer.EnqueuedFiles.Should().NotBeEmpty();
-        _enqueuer.EnqueuedFiles[0].Should().Contain("test.pdf");
+        enqueued.Should().BeTrue("the poll must pick the new file up");
+        _enqueuer.Files()[0].Should().Contain("test.pdf");
     }
 
     [Fact]
@@ -55,13 +59,14 @@ public sealed class InboxPollingServiceTests : IDisposable
             _enqueuer, options, NullLogger<InboxPollingService>.Instance);
 
         using var cts = new CancellationTokenSource();
-        var runTask = sut.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        await sut.StartAsync(cts.Token);
+        var recovered = await TestWaits.ReachedAsync(
+            () => _enqueuer.Files().Any(f => f.Contains("orphan.pdf")));
         await cts.CancelAsync();
 
         try { await sut.StopAsync(CancellationToken.None); } catch (OperationCanceledException) { }
 
-        _enqueuer.EnqueuedFiles.Should().Contain(f => f.Contains("orphan.pdf"));
+        recovered.Should().BeTrue("a file left in processing is re-enqueued at start-up");
     }
 
     [Fact]
@@ -71,18 +76,23 @@ public sealed class InboxPollingServiceTests : IDisposable
         Directory.CreateDirectory(options.InboxPath);
 
         await File.WriteAllTextAsync(Path.Combine(options.InboxPath, "doc.pdf.meta.json"), "{}");
+        // A decoy in the same sweep, so "the sidecar was skipped" is proven by a poll that
+        // demonstrably ran rather than by a window in which one might not have.
+        await File.WriteAllTextAsync(Path.Combine(options.InboxPath, "decoy.pdf"), "content");
 
         var sut = new InboxPollingService(
             _enqueuer, options, NullLogger<InboxPollingService>.Instance);
 
         using var cts = new CancellationTokenSource();
-        var runTask = sut.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        await sut.StartAsync(cts.Token);
+        var swept = await TestWaits.ReachedAsync(
+            () => _enqueuer.Files().Any(f => f.Contains("decoy.pdf")));
         await cts.CancelAsync();
 
         try { await sut.StopAsync(CancellationToken.None); } catch (OperationCanceledException) { }
 
-        _enqueuer.EnqueuedFiles.Should().BeEmpty();
+        swept.Should().BeTrue("the decoy proves the sweep this assertion is about actually ran");
+        _enqueuer.Files().Should().NotContain(f => f.Contains("meta.json"));
     }
 
     private InboxPollingOptions CreateOptions() => new()
@@ -94,15 +104,20 @@ public sealed class InboxPollingServiceTests : IDisposable
         PollIntervalSeconds = 1,
     };
 
+    // The service enqueues from its own poll loop while the test reads, so the list is held
+    // under a lock and handed out as a snapshot — a poll must never race the producer it polls.
     private sealed class FakeJobEnqueuer : IInboxJobEnqueuer
     {
-        public List<string> EnqueuedFiles { get; } = [];
-        public List<string?> EnqueuedMetadata { get; } = [];
+        private readonly List<string> _files = [];
+
+        public IReadOnlyList<string> Files()
+        {
+            lock (_files) return [.. _files];
+        }
 
         public Task EnqueueAsync(string filePath, string? metadata, CancellationToken cancellationToken)
         {
-            EnqueuedFiles.Add(filePath);
-            EnqueuedMetadata.Add(metadata);
+            lock (_files) _files.Add(filePath);
             return Task.CompletedTask;
         }
     }

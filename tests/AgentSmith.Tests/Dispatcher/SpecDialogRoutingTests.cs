@@ -228,26 +228,23 @@ new DashboardOutcomeChannel(
             .Returns((string _, AgentSmith.Contracts.Dialogue.DialogAnswer published, CancellationToken _) =>
             {
                 answer.TrySetResult(published);
-                reRun.Task.Wait(TimeSpan.FromSeconds(10));
+                reRun.Task.Wait(TestWaits.Hang);
                 return Task.CompletedTask;
             });
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None);
         var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-note", CancellationToken.None))!.JobId;
         var proposing = Task.Run(() => _router.TryRouteAsync(
             "draft the phase", "U1", Channel, "th-note", Platform, false, CancellationToken.None));
-        for (var waited = 0; !_pendingQuestions.TryPeek(sessionId, out _); waited++)
-        {
-            waited.Should().BeLessThan(1000, "the proposal reaches the approval gate");
-            await Task.Delay(10);
-        }
+        await TestWaits.UntilAsync(
+            () => _pendingQuestions.TryPeek(sessionId, out _), "the proposal reaches the approval gate");
 
         (await _router.TryRouteAsync(note, "U1", Channel, "th-note", Platform, false, CancellationToken.None))
             .Should().BeTrue();
 
-        var reRunState = await reRun.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var reRunState = await reRun.Task.OrHang("the note re-runs the turn");
         noteRouted.SetResult();
         reRunState.Transcript.Last(turn => turn.Role == TranscriptRole.User).Text.Should().Be(note);
-        (await proposing.WaitAsync(TimeSpan.FromSeconds(10))).Should().BeTrue();
+        (await proposing.OrHang("the proposal route returns")).Should().BeTrue();
     }
 
     // 2026-09-17-042el: a question is pending only while a turn holds the gate, so the answer
