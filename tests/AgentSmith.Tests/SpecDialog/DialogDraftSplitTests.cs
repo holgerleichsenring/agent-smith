@@ -206,7 +206,7 @@ public sealed class DialogDraftSplitTests : IDisposable
         foreach (var (key, value) in SpecDialogTurnSeeds.Build(
                      state, [new RepoConnection { Name = "repo-a" }],
                      new Dictionary<string, ISandbox>(), new SpecDialogReplySlot(),
-                     DialogImageSet.None))
+                     DialogImageSet.None, Mock.Of<IFiledTicketWithdrawal>()))
             context.Set(key, value);
         return new SpecDialogPromptFactory().Build(context, 0, 0);
     }
@@ -221,12 +221,8 @@ public sealed class DialogDraftSplitTests : IDisposable
     private IEnumerable<string> DashboardTexts() =>
         _hub.Pushes.SelectMany(push => push.Args.OfType<SpecDialogChannelMessage>()).Select(m => m.Text);
 
-    private static async Task WaitForAsync(Func<bool> reached)
-    {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (!reached() && DateTimeOffset.UtcNow < deadline) await Task.Delay(10);
-        reached().Should().BeTrue();
-    }
+    private static Task WaitForAsync(Func<bool> reached) =>
+        TestWaits.UntilAsync(reached, "the dispatched turn produces what it was waited on for");
 
     private SpecDialogRouter Router(SpecDialogSessionRepository repository)
     {
@@ -244,8 +240,6 @@ public sealed class DialogDraftSplitTests : IDisposable
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
             new SpecDialogCommandHandler(_sessions,
-                new SpecDialogResumer(repository, gate, pending, TimeProvider.System,
-                    NullLogger<SpecDialogResumer>.Instance),
                 new SpecDialogScopeResolver(Mock.Of<IConfigurationLoader>()),
                 new SpecDialogReplyComposer(), _messenger),
             _turnRunner.Object, flow, gate,

@@ -162,7 +162,7 @@ public sealed class DialogConversationListTests : IDisposable
         var result = await SpecDialogViewEndpoints.ListAsync(
             null,
             new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", Owner)], "test")),
-            new SpecDialogOwnership(_repository, new SpecCommandParser()),
+            new SpecDialogOwnership(_repository),
             new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)), CancellationToken.None);
 
         result.Should().BeOfType<Ok<SpecDialogConversationPage>>()

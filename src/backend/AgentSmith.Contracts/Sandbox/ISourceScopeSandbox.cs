@@ -3,11 +3,20 @@ namespace AgentSmith.Contracts.Sandbox;
 /// <summary>
 /// p0315b: a lazy, READ-ONLY sandbox over one repo of a spec-dialog scope.
 /// Nothing is spawned until the first step arrives; the underlying container
-/// is created on demand (generic git-bearing image, no toolchain build), the
-/// repo is cloned once, and only content-read steps (ReadFile / ListFiles /
-/// Grep / DirectoryTree) are served — Run and WriteFile come back as failed
-/// step results. Disposal tears the materialised sandbox down; a sandbox
-/// that never served a step disposes to nothing.
+/// is created on demand (generic git-bearing image, no toolchain build) and
+/// the repo is cloned once. Disposal tears the materialised sandbox down; a
+/// sandbox that never served a step disposes to nothing.
+/// <para>
+/// 2026-09-22-46ef: what READ-ONLY means here is a rule about damage, not about
+/// step kinds. The four content reads (ReadFile / ListFiles / Grep /
+/// DirectoryTree) are served. A process step is served when its program is one
+/// the server itself builds — the clone, the file search, the HTTP transfer —
+/// and refused otherwise, so the shell a model-authored command travels in
+/// never runs and nothing can redirect into the tree. A write is served only
+/// when its canonical path lies under a prefix the scope declares, and no
+/// prefix is declared by default, so a source scope is writable nowhere.
+/// Refusals come back as failed step results, never as exceptions.
+/// </para>
 /// </summary>
 public interface ISourceScopeSandbox : ISandbox
 {

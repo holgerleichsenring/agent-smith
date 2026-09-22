@@ -1,0 +1,202 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-5891
+
+goal: "A design conversation can fan out into read-only sub-agents under a bound that actually binds, without gaining any of the tools a coding master gets on the way."
+
+applies_to: "backend (the master's tool surface for a design turn and the ceiling a child loop runs under)"
+
+scope:
+  in: >
+    Every master can fan out into sub-agents except the design partner, and not by decision: the
+    spec-dialog branch of the surface builder returns before the block that appends the spawn and
+    read-observations hosts. A design conversation is where fanning out pays most — several
+    repositories, several questions, one person waiting.
+    What a child would be handed needs nothing new. The sandbox map is seeded at turn start and
+    published under the key the builder reads; the sub-agent context declares a sandbox field that
+    is read nowhere in the backend; a child's request is built from the child tool list and the
+    agent config alone; and those tools are the parent's own hosts over the same map. Every step
+    kind but the four reads is refused at the scope, so a dialog child structurally cannot write
+    or run. A design turn is also a real run — a minted id, a start and finish event, a lease — so
+    the events, the cost rows and the mirrored decisions all attach to a row that exists.
+    The bound is where the first draft was wrong. It proposed a count limit plus a check of the
+    turn's money cap at reservation time, and defended the check as what ends a long fan-out. It
+    ends nothing: at the count limit's own default the whole wave is ONE reservation, so the check
+    is consulted once, when almost nothing has been spent, and then four children run up to a
+    hundred loop iterations each with no governor hooks and no ceiling of their own, reporting
+    their spend only when each has finished. The cap is per run, a turn is a run, and no
+    per-pipeline override for this pipeline ships.
+    The bound that works is the child's iteration ceiling, which the first draft deferred. The
+    context record's last parameter is already optional and the runner already reads the ceiling
+    off the config it is handed, so carrying a dialog-specific ceiling is smaller than the phase
+    it was deferred to. The turn's real bound is then the fan-out count times that ceiling, and
+    the money check is what it honestly is: a refusal of a LATER wave.
+    One more thing the first draft would have shipped: folding the dialog branch into the shared
+    selector places it below the guard that appends the escalation valve and the progress ledger,
+    so the design partner would have gained a tool that spawns a WRITABLE sandbox into the turn's
+    map. That guard has to exclude a design turn explicitly.
+  out: >
+    TEACHING THE MASTER WHEN TO FAN OUT. The design partner's body lives in the pinned skills
+    catalog, a separate repository, and mentions no spawning. A separate pull request and a pin
+    bump. The tool is not inert without it — it carries its own description and a capable model
+    reaches for what is on its surface — which is exactly why the ceiling must land first.
+    THE CATALOG'S OWN SPAWN BUDGET. The pinned references state a run-wide figure, and the design
+    partner's own text references that file NOWHERE — so today it has no spawning guidance at all,
+    not merely a contradictory number. The skills change must give it both a when and a how much.
+    GIVING A CHILD ITS OWN GOVERNOR HOOKS. Children get none today, for any master. Changing that
+    is a loop-wide question.
+    THE ADMISSION OF A SCOPE OPENING. A planned phase holds the RESERVING paths to a ledger term;
+    a source scope opens with no reservation at all, so that phase does not cover this and this
+    phase does not become it.
+    THE CONCURRENT OPENING BURST. Up to N scopes may now materialise at once where a single master
+    opened them one after another; the count is unchanged and there is no admission check on that
+    path either way. Named as the phase that admits a scope opening.
+
+notes: >
+  A child's model calls are reported ambiently by the publishing chat client on the turn's
+  activity accessor, which flows into child tasks. Not wrapping the child's TOOLS therefore does
+  not keep a wave quiet; it only keeps the tool lines out. This phase accepts the model-call
+  noise explicitly rather than pretending the wrap decides it.
+
+decisions:
+  - key: |
+      THE CEILING IS THE BOUND; THE MONEY CHECK IS NOT. A per-run cap consulted once before a
+      wave of one reservation cannot end anything. What bounds an interactive fan-out is how far
+      each child may go, and that is a number the runner already reads from the context it is
+      handed. Describing the money check as the brake was the first draft's error, and the honest
+      description is that it refuses a second wave.
+  - key: |
+      THE DIALOG MASTER MUST NOT DESCEND INTO THE CODING BRANCH. Below the guard that separates a
+      scan master from a coding one sit the sandbox escalation valve and the progress ledger. The
+      first is a tool that spawns a writable sandbox into the running turn's map: handing it to a
+      design conversation would end the read-only guarantee the whole surface is built on, while
+      the surface's own comment still claimed the exclusion. The guard excludes a design turn by
+      name.
+  - key: |
+      A CHILD NEEDS NOTHING NEW FOR SANDBOXES, AND THAT IS PROVEN BY WHAT IS NOT READ. The context
+      declares a sandbox field no code in the backend reads; a child's request is composed from
+      the tool list and the agent config. The child therefore sees exactly what the parent sees,
+      through the same host over the same map, and the map cannot grow during the turn.
+  - key: |
+      THE CHILD SURFACE DROPS THE HUMAN TOOL. A session holds exactly one pending question keyed
+      by the session, a second replaces the first, and an answer is only delivered to the question
+      still standing — so two children asking would strand each other. Removing it by name is
+      sufficient, because the parent is blocked inside the spawn call for the whole wave.
+  - key: |
+      THE TURN REPORTING WRAP STAYS ON THE DIALOG BRANCH ONLY, applied to the composed list, or
+      the spawn becomes the one call an operator cannot see. It must not leak onto a coding
+      master's functions.
+
+steps:
+  - id: the-dialog-surface-gains-the-spawn-pair
+    action: "A design turn's master surface is composed like every other master's up to the sub-agent block, so it gains the spawn and read-observations hosts."
+  - id: the-coding-only-guard-excludes-a-design-turn
+    action: "The guard that appends the sandbox escalation valve and the progress ledger excludes a design turn by name, so the design partner gains neither."
+  - id: a-child-loop-runs-under-a-dialog-ceiling
+    action: "The sub-agent context carries an optional per-child iteration ceiling that the runner prefers over the agent config's, and a design turn passes an operator-settable one."
+  - id: a-design-turn-bounds-its-fan-out-count
+    action: "A design turn gates on its own fan-out count limit AND constructs the budget from it, handing that budget to both the sub-agent context and the spawn host, because the injected budget's capacity is frozen at construction from the run-wide number and the gate alone changes nothing it grants."
+  - id: the-child-surface-drops-what-it-cannot-use
+    action: "A dialog child's list drops the memory-write tool beside the human one, because the scope refuses that write by THROWING rather than answering, and an insistent child dies on consecutive tool errors."
+  - id: a-test-can-see-what-a-child-was-handed
+    action: "The fixture's stub runner keeps the sub-agent context it is given, so a test can assert a child's tool list at all."
+  - id: the-child-surface-drops-the-human-tool
+    action: "A dialog child's tool list is the dialog surface without the human tool, so two concurrent children cannot strand each other's question."
+  - id: the-turn-reporting-wrap-covers-every-design-exit
+    action: "The turn-reporting wrap is applied once where the design surface is consumed rather than at one of its returns, so a design turn that spawns nothing is still reported and a coding master is still not wrapped."
+
+tests:
+  - "SpecDialogTurn_MasterSurface_CarriesSpawnAgentsAndReadObservations"
+  - "SpecDialogTurn_MasterSurface_HasNoEnsureRepoSandboxAndNoUpdateProgress"
+  - "CodingTurn_MasterSurface_StillCarriesBothOfThose"
+  - "SpecDialogTurn_ChildTools_CarryNoWriteNoRunAndNoAskHuman"
+  - "SpecDialogTurn_ChildLoop_IsBoundedByTheDialogCeiling"
+  - "SubAgentRunner_NoCeilingOnTheContext_UsesTheAgentConfigsAsToday"
+  - "SpecDialogTurn_AFanOutBeyondTheDialogCount_IsDeferredNotRun"
+  - "SpecDialogTurn_ADialogCountOfZero_OffersNoSpawnTool"
+  - "SpecDialogTurn_AZeroCountDesignTurn_IsStillReported"
+  - "SpecDialogTurn_ChildTools_CarryNoMemoryWrite"
+  - "SpecDialogTurn_AFanOutBeyondTheDialogCount_IsDeferredEvenWhenTheRunWideLimitIsHigher"
+  - "SpecDialogTurn_ARunWideLimitOfZero_StillHonoursTheDialogLimit"
+  - "SpecDialogTurn_TheSpawnCall_IsReportedAsTurnActivity"
+  - "CodingTurn_MasterFunctions_AreNotWrappedForTurnReporting"
+  - "SpecDialogTurn_TwoChildrenReadingConcurrently_BothComplete"
+
+done:
+  - "a design conversation can fan out into read-only children"
+  - "a dialog child cannot write, cannot run and cannot ask the operator"
+  - "a design turn's fan-out is bounded by its own count and its own child ceiling, both settable"
+  - "the design partner gains no tool that could spawn a writable sandbox"
+  - "a coding master's surface and reporting are unchanged"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The design branch returns its wrapped surface before the block that appends the sub-agent hosts."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:688-689"
+  - claim: "The guard that appends the sandbox escalation valve and the progress ledger excludes only a scan master, and its comment claims a design surface never gets the ledger."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:698-706"
+  - claim: "The escalation valve runs its own capacity probe, spawns through the run's live coordinator and grows the running master's filesystem host."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:16-24"
+  - claim: "The sub-agent context and the spawn pair are appended after a run-wide limit check."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:707-718"
+  - claim: "The context's sandbox field is declared and its record's last parameter is already optional."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentContext.cs:19-33"
+  - claim: "A child's request is built from the child tool list and the agent config, and the ceiling is read there."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:125-155"
+  - claim: "A child's spend reaches the shared tracker only once the child's whole loop has ended."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:83-91"
+  - claim: "Children are given no governor hooks."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:149-153"
+  - claim: "The default child iteration ceiling is a hundred."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs:72"
+  - claim: "The budget's capacity is frozen at construction, so a gate that reads a different number grants the old one."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentBudget.cs:24-28"
+  - claim: "That budget is registered scoped from the run-wide limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:55-59"
+  - claim: "A master with no declared ceiling is given twenty-five iterations rather than none, so a design turn's parent is already bounded."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ChatClientFactory.cs:37,175"
+  - claim: "The memory write reaches the scope through a file writer whose refusal is thrown rather than answered."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Sandbox/SandboxFileReader.cs:36-43"
+  - claim: "The turn's step feed keeps only the last fifty entries, which one wave of children overruns."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/RunningDialogTurn.cs:30"
+  - claim: "The run-wide fan-out limits default to twenty per run and four concurrent."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:32-46"
+  - claim: "The spawn host reserves from the budget, splits the request and reports the deferred surplus."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:66-106"
+  - claim: "The cost cap is resolved per pipeline name and published for every run."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:307"
+  - claim: "A design turn is given no governor hooks and no iteration ceiling of its own."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:346-351"
+  - claim: "The sandbox map is seeded at turn start and published under the key the builder reads."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:27-35,51"
+  - claim: "The filesystem host is built once over that map and is explicitly safe for concurrent children."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:34-51"
+  - claim: "The scope serves four read step kinds and refuses every other as a failed step result."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeRefusal.cs:12-18"
+  - claim: "Materialisation is serialised behind the scope's own gate."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:68-97"
+  - claim: "A scope is opened with no capacity probe."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:24-40"
+  - claim: "A session holds one pending question keyed by the session, and a second replaces the first."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogPendingQuestions.cs:40-44"
+  - claim: "An answer is consumed only while the question it answers still stands."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogPendingQuestions.cs:65-70"
+  - claim: "Both hosts that offer it name the human tool the same, so it can be dropped by name."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/HumanToolHost.cs:30"
+  - claim: "The turn-reporting wrap replaces every function in a list and passes anything else through."
+    evidence: "src/backend/AgentSmith.Application/Services/Turns/TurnActivityTools.cs:17-23"
+  - claim: "A model call is reported on the turn's activity accessor after every LLM call, independently of any tool wrap."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:98-100"
+  - claim: "A design turn runs through the pipeline use case as an ordinary run, with a run id set before any handler."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:272-273"
+  - claim: "The dialog surface carries a memory-write tool, which the scope refuses at runtime rather than the surface omitting it."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:78-90"
+
+assumptions:
+  - claim: "A test can observe a child's tool list, which no existing surface test does."
+    check: "Read the fixture's stub runner and establish what it keeps of the context it is handed."
+  - claim: "A dialog-specific count and ceiling can be read from configuration where the surface is composed."
+    check: "Read what configuration the surface builder already has in scope."
+  - claim: "Dropping the human tool from the child list leaves the parent's own human tool intact."
+    check: "Read how the child list is derived from the parent's."
+  - claim: "A design turn's own fan-out limit can be honoured when the run-wide limit is zero."
+    check: "Read the gate that gives up before the spawn pair is appended."

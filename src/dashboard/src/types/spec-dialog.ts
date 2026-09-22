@@ -251,10 +251,14 @@ export interface SpecDialogProposalPush {
 /**
  * 2026-09-17-042eg: what a filed ticket became. `Started` means a run will pick it up — the
  * poller's own envelope resolves it to the filing project and it sits in a trigger status.
- * `NotStarted` says why nothing will, and `Record` is a slice record, which is not work at all.
+ * `NotStarted` says why nothing will, and `Record` is a slice record, which is not work at all —
+ * nothing has been filed as one since 2026-09-22-b3d7, and filings stored before it still carry it.
+ * 2026-09-22-9519: `Withdrawn` is a ticket the conversation that filed it closed again, and the
+ * tracker confirmed the close. `null` is a state this build cannot name — a server newer than the
+ * page — which the panel says is unknown rather than picking one of the words above.
  */
 export interface SpecDialogFiledStart {
-  state: "Started" | "NotStarted" | "Record";
+  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | null;
   reason: string;
 }
 
@@ -365,7 +369,7 @@ export interface FiledWorkHandback {
   repeated: number;
 }
 
-/** One filed ticket with the runs that took it up. A slice record carries none. */
+/** One filed ticket with the runs that took it up. A stored slice record carries none. */
 export interface FiledWorkTicket {
   reference: string;
   key: string | null;

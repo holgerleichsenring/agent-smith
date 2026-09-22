@@ -23,7 +23,19 @@ public sealed class FiledWorkNudge(IHubContext<JobsHub> hub, FiledWorkWatchRegis
     public Task OfAsync(RunSnapshot snapshot, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        var connections = registry.Watching(snapshot.TicketId);
+        return OfTicketAsync(snapshot.TicketId, cancellationToken);
+    }
+
+    /// <summary>
+    /// 2026-09-22-9519: the same nudge addressed by the TICKET, which is the key the registry is
+    /// keyed on and the key the snapshot above is reduced to anyway. A withdrawal has a ticket and
+    /// no run — that is what its population MEANS, the tickets no run ever touched — so the
+    /// run-shaped entry point is a dead channel for it, and fabricating a snapshot to reach the
+    /// same line would be a run that does not exist travelling through an event bus.
+    /// </summary>
+    public Task OfTicketAsync(string? ticketId, CancellationToken cancellationToken)
+    {
+        var connections = registry.Watching(ticketId);
         return connections.Count == 0
             ? Task.CompletedTask
             : hub.Clients.Clients(connections).SendCoreAsync(Message, [], cancellationToken);

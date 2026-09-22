@@ -11,8 +11,9 @@ import type {
 
 // 2026-09-15-cb3e: the affordance a typed question needs. The controls come from the
 // question itself — a Choice question carries its choices, and the APPROVAL that files
-// tickets carries none at all: every adapter builds the approve/reject pair from the kind,
-// which is why the kind travels with the push.
+// tickets carries no approve/reject pair of its own: every adapter builds that from the kind,
+// which is why the kind travels with the push. (2026-09-22-355b: an approval DOES carry
+// choices now — the other shapes the proposal could take — and they ride beside that pair.)
 //
 // An answer goes back as an ordinary message through the same endpoint the composer uses,
 // so a click and a typed reply take one path — and anything else the operator types is the
@@ -44,12 +45,20 @@ function hasExpired(question: SpecDialogQuestionPush): boolean {
   return question.expiresAt !== null && Date.parse(question.expiresAt) <= Date.now();
 }
 
+// 2026-09-22-355b: an APPROVAL now carries choices too — the other shapes the proposal could
+// take, named by the server from the proposal's own kind. They ride BESIDE the approve/reject
+// pair rather than replacing it, because the pair, the recorded decision and the counted
+// summary above are all keyed off the approval kind. A shape goes back as its own label, which
+// the server reads as an edit note: the turn runs again in that shape and nothing is filed —
+// which the footer has to say, because a button that silently buys a turn is a surprise.
 interface Control {
   label: string;
   answer: string;
   primary: boolean;
   /** 2026-09-17-042el: the approval buttons are a decision, shown as one rather than echoed. */
   decision?: SpecDialogDecision;
+  /** 2026-09-22-355b: why this shape — the wire already carried it and the card dropped it. */
+  description?: string | null;
 }
 
 export function DialogQuestionCard({
@@ -64,6 +73,7 @@ export function DialogQuestionCard({
   const expired = hasExpired(question);
   const controls = expired ? [] : controlsFor(question);
   const decision = question.kind === "approval" && !expired;
+  const shapes = decision && question.choices.length > 0;
   const summary = decision && proposal ? summaryOf(proposal) : null;
   // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
   // confirmation that still carries its text keeps that text, and shows no second line.
@@ -101,17 +111,26 @@ export function DialogQuestionCard({
             className={control.primary ? "btn primary" : "btn"}
           >
             {control.label}
+            {control.description && (
+              <span data-testid="dialog-shape-why" className="ec-sub">
+                {control.description}
+              </span>
+            )}
           </button>
         ))}
         {/* 2026-09-17-042ek: an EXPIRED card promised a revision it cannot deliver — the
             confirmer has stopped waiting and the timeout cleared the stored proposal, so the
             next message buys a whole design turn instead. That was survivable while the server
             text was still on the card; with the text now empty it was the only sentence left. */}
+        {/* 2026-09-22-355b: picking a shape files nothing — it spends a whole turn, because
+            the master is asked again in that shape and the operator approves THAT. A button
+            beside "approve & file" that quietly buys minutes and money has to say so. */}
         <span className="ec-sub min-w-44 flex-1">
           {expired
             ? "The wait is over — anything you write below starts a new turn."
             : decision
-              ? "Anything you write below is a note, and the proposal is revised with it."
+              ? (shapes ? "Picking a shape files nothing — it starts a new turn. " : "")
+                + "Anything you write below is a note, and the proposal is revised with it."
               : "Anything else you write below is a note — the proposal is revised with it."}
         </span>
       </div>
@@ -120,12 +139,13 @@ export function DialogQuestionCard({
 }
 
 function controlsFor(question: SpecDialogQuestionPush): Control[] {
-  if (question.choices.length > 0) return question.choices.map(asControl);
   if (question.kind === "approval")
     return [
       { label: "Approve & file", answer: "approve", primary: true, decision: "approved" },
       { label: "Reject", answer: "reject", primary: false, decision: "rejected" },
+      ...question.choices.map(asShape),
     ];
+  if (question.choices.length > 0) return question.choices.map(asControl);
   if (question.kind === "confirmation")
     return [
       { label: "Yes", answer: "yes", primary: true },
@@ -139,15 +159,22 @@ function asControl(choice: SpecDialogChoice): Control {
   return { label: choice.label, answer: choice.label, primary: false };
 }
 
+/** A shape offered beside the pair: the label is the answer, and it says why it is offered. */
+function asShape(choice: SpecDialogChoice): Control {
+  const { label, description } = choice;
+  return { label, answer: label, primary: false, description };
+}
+
 /** What the proposal says would be filed, and nothing it does not say. */
 function summaryOf(proposal: SpecDialogProposalPush): string | null {
   if (proposal.bug) return "File this bug? One fix-bug ticket.";
   if (proposal.parent) {
     const slices = proposal.children.length;
-    // 2026-09-17-0e79d: the parent draft IS the work ticket and the slices are the records —
-    // the other way round from the shape this line was written for. It is the one line on the
-    // card that counts what the button files, so it has to count what is actually filed.
-    return `File this epic? One work ticket and ${slices} slice record${slices === 1 ? "" : "s"}.`;
+    // 2026-09-22-b3d7: the button files ONE ticket, whatever the slice count. The slices are
+    // what that ticket carries — its body lists them and the run works the set stored under it —
+    // so this line counts the one ticket and no records. It is the one line on the card that
+    // counts what the button files, so it has to count what is actually filed.
+    return `File this epic? One work ticket carrying ${slices} slice${slices === 1 ? "" : "s"}.`;
   }
   if (proposal.phase) return "File this phase? One ticket.";
   return null;

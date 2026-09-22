@@ -26,29 +26,55 @@ internal static class CheckoutStepFactory
             : new Dictionary<string, string> { ["GIT_TOKEN"] = token };
     }
 
-    public static Step BuildCloneStep(RepoConnection config)
-    {
-        var env = TokenEnv(config);
-
-        return new Step(
-            Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git",
-            Args: new[] { "-c", CredHelper, "clone", config.Url!, "." },
-            WorkingDirectory: Repository.SandboxWorkPath,
-            Env: env,
-            TimeoutSeconds: CloneTimeoutSeconds);
-    }
+    /// <summary>
+    /// The RUN's clone: the whole history, because a run diffs against a base, reads its own
+    /// log and can be handed a revision reachable from nothing.
+    /// </summary>
+    public static Step BuildCloneStep(RepoConnection config) => Clone(config, []);
 
     /// <summary>
-    /// 2026-09-13-9802: asks the host for one revision by name. The clone is full, so this
-    /// only runs when a checkout has already failed — a sha reachable from no branch and no
-    /// tag. It carries the credential the plain checkout does not, because it talks to the
-    /// remote.
+    /// 2026-09-22-b41d: the READ-ONLY source scope's clone — one branch at one commit. A
+    /// scope serves four reads (a file, a directory, a tree and a search) and refuses every
+    /// other step kind, so nothing that addresses one can ask for history; a design
+    /// conversation paid a whole history transfer per turn for what it never read.
+    /// </summary>
+    public static Step BuildScopeCloneStep(RepoConnection config) =>
+        Clone(config, ["--depth", "1", "--single-branch"]);
+
+    private static Step Clone(RepoConnection config, string[] narrowing) =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git",
+            Args: ["-c", CredHelper, "clone", .. narrowing, config.Url!, "."],
+            WorkingDirectory: Repository.SandboxWorkPath,
+            Env: TokenEnv(config),
+            TimeoutSeconds: CloneTimeoutSeconds);
+
+    /// <summary>
+    /// 2026-09-13-9802: asks the host for one revision by name, when a checkout has already
+    /// failed. Against the run's full clone that is a sha reachable from no branch and no
+    /// tag; against a scope's shallow clone (2026-09-22-b41d) it is the ordinary case, and
+    /// the depth rung that follows runs when this one lands nothing. It carries the
+    /// credential the plain checkout does not, because it talks to the remote.
     /// </summary>
     public static Step BuildFetchRevisionStep(RepoConnection config, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: new[] { "-c", CredHelper, "fetch", "origin", revision },
+            WorkingDirectory: Repository.SandboxWorkPath,
+            Env: TokenEnv(config),
+            TimeoutSeconds: CloneTimeoutSeconds);
+
+    /// <summary>
+    /// 2026-09-22-b41d: asks the host for one revision WITH depth, for the shallow clone a
+    /// read-only scope materialises with. A plain fetch into a shallow tree asks for that
+    /// revision's whole history, and a host may refuse an unadvertised object outright — so
+    /// this is the rung that runs when the fetch by name could not land the revision, and
+    /// the tree lands on FETCH_HEAD because a single-branch clone tracks no other remote ref.
+    /// </summary>
+    public static Step BuildFetchRevisionAtDepthStep(RepoConnection config, string revision) =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git",
+            Args: ["-c", CredHelper, "fetch", "--depth", "1", "origin", revision],
             WorkingDirectory: Repository.SandboxWorkPath,
             Env: TokenEnv(config),
             TimeoutSeconds: CloneTimeoutSeconds);

@@ -30,14 +30,14 @@ public sealed class TicketLabelNoteFilingTests
         var body = provider.Created.Single().Body;
         body.Should().Contain(TicketLabelNote.Heading);
         var lines = Note(body);
-        lines.Should().HaveCount(2, "one sentence per label the ticket actually carries")
+        lines.Should().HaveCount(1, "one sentence per label the ticket actually carries, and "
+            + "2026-09-22-766b leaves it carrying one")
             .And.OnlyContain(line => !line.StartsWith('-') && !line.StartsWith('*'),
                 "bare prose, because a bulleted line under a heading can be read as a criterion");
-        lines[0].Should().Contain(PhaseTicketRenderer.PhaseLabel)
+        lines[0].Should().Contain(FiledTicketLabels.ApprovedSetStamp)
             .And.Contain("binds this ticket to phase execution")
             .And.Contain("routed by this project's own rules, or dropped",
-                "the MECHANISM is true on every routing shape; an outcome is not");
-        lines[1].Should().Contain(FiledTicketLabels.ApprovedSetStamp)
+                "the MECHANISM is true on every routing shape; an outcome is not")
             .And.Contain("Removing it costs", "the stamp is the guard that fails open");
     }
 
@@ -57,8 +57,9 @@ public sealed class TicketLabelNoteFilingTests
         AgentSmith.Application.Services.Specs.TicketLabelNoteStripper.Strip(work)
             .Should().NotContain(TicketLabelNote.Heading,
                 "the pair the renderer writes is the pair the stripper takes");
-        provider.Created[1].Body.Should().NotContain(TicketLabelNote.BeginIdentifier,
-            "a slice record carries one record label and never reaches the stamp gate");
+        provider.Created.Should().ContainSingle(
+            "2026-09-22-b3d7: the work ticket is the only ticket a cut files, so it is the only "
+            + "body the note can reach");
     }
 
     [Fact]
@@ -93,7 +94,7 @@ public sealed class TicketLabelNoteFilingTests
         var store = ApprovedSetDoubles.Store();
         var filer = new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            ApprovedSetDoubles.EpicFiler(store), ApprovedSetDoubles.Recorder(store),
+            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
             NullLogger<OutcomeTicketFiler>.Instance);
 

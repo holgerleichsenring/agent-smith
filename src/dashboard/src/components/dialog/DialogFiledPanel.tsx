@@ -56,7 +56,7 @@ export function DialogFiledPanel({
           {filed.filed.map((ticket) => (
             <li key={ticket.reference} data-testid={`dialog-filed-${ticket.reference}`}>
               <Named ticket={ticket} />
-              {ticket.start && <Start start={ticket.start} reference={ticket.reference} />}
+              <Start work={work} ticket={ticket} />
               <Work work={work} reference={ticket.reference} />
             </li>
           ))}
@@ -91,15 +91,34 @@ function Work({ work, reference }: { work: FiledWork | null; reference: string }
   );
 }
 
-const STARTED_LABEL: Record<SpecDialogFiledStart["state"], string> = {
+// 2026-09-22-9519: THE READ ANSWERS FIRST. The push is what filing said at filing time and it is
+// never sent again, so a ticket the conversation withdrew afterwards would have gone on saying it
+// was started until someone reloaded the page. The read is refetched on the nudge the withdrawal
+// sends, and it carries the same start state — so it is the one that is rendered, with the push
+// behind it for the moment before the first read comes back.
+function startOf(
+  work: FiledWork | null,
+  ticket: SpecDialogFiledTicket,
+): SpecDialogFiledStart | null {
+  const row = work?.tickets.find((read) => read.reference === ticket.reference);
+  return row?.start ?? ticket.start ?? null;
+}
+
+// EXHAUSTIVE over the union on purpose: a state added to the server and not to this map fails the
+// build here, which is the only place that can notice it before an operator does.
+const STARTED_LABEL: Record<NonNullable<SpecDialogFiledStart["state"]>, string> = {
   Started: "started",
   NotStarted: "not started",
   Record: "record",
+  Withdrawn: "withdrawn",
 };
 
 // The state first, then why — a person scanning the list reads the verdicts, and only stops on
-// the one that did not start.
-function Start({ start, reference }: { start: SpecDialogFiledStart; reference: string }) {
+// the one that did not start. A filing written before start states carries none, and the line is
+// not rendered at all: a panel that guessed would make the claim the state exists to stop.
+function Start({ work, ticket }: { work: FiledWork | null; ticket: SpecDialogFiledTicket }) {
+  const start = startOf(work, ticket);
+  if (!start) return null;
   const tone =
     start.state === "Started"
       ? "text-primary-deep"
@@ -107,8 +126,10 @@ function Start({ start, reference }: { start: SpecDialogFiledStart; reference: s
         ? "text-ink"
         : "text-body";
   return (
-    <div data-testid={`dialog-filed-start-${reference}`} className="dsh-label text-body">
-      <span className={`font-semibold ${tone}`}>{STARTED_LABEL[start.state]}</span>
+    <div data-testid={`dialog-filed-start-${ticket.reference}`} className="dsh-label text-body">
+      <span className={`font-semibold ${tone}`}>
+        {start.state ? STARTED_LABEL[start.state] : "unknown"}
+      </span>
       {" — "}
       {start.reason}
     </div>

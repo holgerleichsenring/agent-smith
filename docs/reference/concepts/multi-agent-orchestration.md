@@ -90,6 +90,10 @@ The limits live in `agentsmith.yml`:
 limits:
   max_concurrent_sub_agents: 4
   max_sub_agents_per_run: 20
+  max_sub_agents_per_dialog_turn: 4
+  max_dialog_sub_agent_loop_iterations: 20
 ```
+
+A design turn (the spec-dialog pipeline) fans out too, read-only: it gates on `max_sub_agents_per_dialog_turn` and builds its own budget from that number, its children run under `limits.max_dialog_sub_agent_loop_iterations` rather than the far larger `agent.max_sub_agent_loop_iterations`, and their surface drops `ask_human` and `remember` — a design conversation holds one pending question, and the read-only source scope refuses a memory write. The design surface itself never gets `ensure_repo_sandbox` or `update_progress`.
 
 `spawn_agents` is opt-in per pipeline. In the dashboard each child shows up by its name with its own activity line and cost attribution under the parent run.

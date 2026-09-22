@@ -146,12 +146,12 @@ public sealed class SubAgentRunner(
             Activity: spec.Activity,
             SubAgentId: subAgentId,
             ParentSubAgentId: context.ParentSubAgentId,
-            // p0341c: give the child a REAL iteration budget instead of inheriting the 25
-            // default — a child carrying a bulk "replace-all-X across repo Y" chunk previously
-            // hit 25 and stopped, so the master could not fan out exactly the bulk steps that
-            // most need it. Sub-agents get no governor hooks (no budget-fence/reminder) —
-            // their cost rolls up to the shared tracker via SubAgentRunner.
-            MaxIterations: agentConfig.MaxSubAgentLoopIterations);
+            // p0341c: a child gets a REAL iteration budget instead of the 25 default — a bulk
+            // "replace-all-X across repo Y" chunk stopped mid-way at 25 — and no governor hooks
+            // (no budget-fence/reminder); its cost rolls up to the shared tracker.
+            // 2026-09-22-5891: a master that declared a ceiling for ITS children (a design turn
+            // does) is honoured over the config's, and with no hooks it is the child's only bound.
+            MaxIterations: context.ChildIterationCeiling ?? agentConfig.MaxSubAgentLoopIterations);
     }
 
     private static string BuildSystemPrompt(SubAgentSpec spec)

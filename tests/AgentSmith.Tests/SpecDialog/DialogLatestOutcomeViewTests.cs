@@ -315,8 +315,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
         var filer = new OutcomeTicketFiler(
             Loader().LoadConfig(string.Empty), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            TestSupport.ApprovedSetDoubles.EpicFiler(),
-            TestSupport.ApprovedSetDoubles.Recorder(),
+            new EpicChildOrderer(), TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),

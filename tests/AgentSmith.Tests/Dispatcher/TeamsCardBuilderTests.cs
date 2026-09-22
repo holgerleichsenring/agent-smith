@@ -57,6 +57,26 @@ public sealed class TeamsCardBuilderTests
         json.Should().Contain("comment");
     }
 
+    /// <summary>
+    /// 2026-09-22-355b: the offered shapes ride BESIDE the approve/reject pair, never instead
+    /// of it, and each submits its own label — which the confirmer reads as the edit note the
+    /// master re-proposes in.
+    /// </summary>
+    [Fact]
+    public void TeamsApproval_AShapeAction_CarriesItsLabelBackAsTheAnswer()
+    {
+        const string label = "Cut into several phases";
+        var question = CreateQuestion(QuestionType.Approval, choices: [label]);
+
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder())
+            .BuildQuestionCard(question);
+        var json = card.ToJsonString();
+
+        json.Should().Contain("\"answer\":\"approve\"").And.Contain("\"answer\":\"reject\"");
+        json.Should().Contain($"\"answer\":\"{label}\"");
+        json.Should().Contain($"\"title\":\"{label}\"");
+    }
+
     [Fact]
     public void FreeText_ContainsInputFieldAndSubmit()
     {

@@ -29,7 +29,8 @@ internal static class MasterHandlerFixture
 {
     internal static AgenticMasterHandler Build(
         IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null,
-        int maxSubAgents = 0, ISourceScopeSandboxFactory? templateScopes = null) =>
+        int maxSubAgents = 0, ISourceScopeSandboxFactory? templateScopes = null,
+        ISubAgentRunner? subAgents = null, LoopLimitsConfig? limits = null) =>
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
@@ -52,20 +53,7 @@ internal static class MasterHandlerFixture
                 AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
-            new StubSubAgentRunner(),
-            new SubAgentBudget(20),
-            new SubAgentNameValidator(),
-            new InMemoryChildAnswerStore(),
-            new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             new NoOpTicketDocumentMaterializer(),
-            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
-                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
-                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
-                new SandboxRepoCloner(
-                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
-                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
-                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
-                new SandboxTargets()),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default
             // factory throws, so a run that reaches it by accident says so instead of passing.
             new AgentSmith.Application.Services.Handlers.MasterTemplateScopes(
@@ -97,10 +85,33 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
             dialogueTransport: null,
-            new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
+            Composition(maxSubAgents, subAgents, limits),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>
+    /// The real <see cref="MasterToolComposition"/> the handler holds — the sub-agent
+    /// collaborators and the escalation factory live here since the composition moved out.
+    /// </summary>
+    private static MasterToolComposition Composition(
+        int maxSubAgents, ISubAgentRunner? subAgents, LoopLimitsConfig? limits) =>
+        new(new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
+            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
+                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
+                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
+                new SandboxRepoCloner(
+                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
+                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
+                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
+                new SandboxTargets()),
+            limits ?? new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
+            new SubAgentBudget(20),
+            subAgents ?? new StubSubAgentRunner(),
+            new SubAgentNameValidator(),
+            new NoOpDecisionLogger(),
+            new InMemoryChildAnswerStore(),
+            NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>
     private sealed class NoTemplateScopes : ISourceScopeSandboxFactory
@@ -198,11 +209,43 @@ internal static class MasterHandlerFixture
         public string? Resolve(string masterSkillName) => schema;
     }
 
-    private sealed class StubSubAgentRunner : ISubAgentRunner
+    /// <summary>
+    /// 2026-09-22-5891: keeps the context it is handed. Discarding it left a child's tool
+    /// list, its budget and its iteration ceiling unobservable — the master grants all three
+    /// through this one record, so a test that cannot see it cannot see what a child gets.
+    /// </summary>
+    internal sealed class StubSubAgentRunner : ISubAgentRunner
     {
+        private readonly List<SubAgentContext> _contexts = [];
+        private readonly List<IReadOnlyList<SubAgentSpec>> _waves = [];
+
+        /// <summary>The context handed to each spawn call, in call order.</summary>
+        public IReadOnlyList<SubAgentContext> SeenContexts
+        {
+            get { lock (_contexts) return [.. _contexts]; }
+        }
+
+        /// <summary>The specs of each spawn call — what the budget actually granted.</summary>
+        public IReadOnlyList<IReadOnlyList<SubAgentSpec>> SeenWaves
+        {
+            get { lock (_contexts) return [.. _waves]; }
+        }
+
         public Task<IReadOnlyList<SubAgentResult>> RunAsync(
             IReadOnlyList<SubAgentSpec> specs, SubAgentContext context, CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<SubAgentResult>>([]);
+        {
+            lock (_contexts)
+            {
+                _contexts.Add(context);
+                _waves.Add(specs);
+            }
+            return Task.FromResult<IReadOnlyList<SubAgentResult>>(
+                [.. specs.Select((spec, index) => new SubAgentResult(
+                    TaskIndex: index, Status: SubAgentStatus.Succeeded,
+                    SubAgentId: $"sa-{index}", Name: spec.Name,
+                    ObservationsCount: 1, FindingsCount: 0, FilesWrittenCount: 0,
+                    ToolCalls: 0, CostUsd: 0m, OccurredAt: DateTimeOffset.UtcNow))]);
+        }
     }
 
     internal sealed class NoOpDecisionLogger : IDecisionLogger

@@ -1,0 +1,67 @@
+phase: 2026-09-22-4d17
+decisions:
+  - id: delete-the-false-half-keep-the-provenance
+    chose: >
+      The specification pointer still names the design conversation an approved cut was
+      approved in and stops at the full stop. The trailing clause "which is where a change
+      to it is made" is deleted.
+    alternative: >
+      Delete the whole sentence, conversation id included.
+    why: >
+      The sentence did two things. Recording WHICH conversation approved the cut is
+      provenance, it is true, and it costs a reader nothing. Telling them a change is made
+      there is the defect: nothing re-opens an approved record from a conversation, and the
+      one method that would load one back has no caller at all. Removing a clause is the
+      whole change.
+  - id: no-replacement-destination-yet
+    chose: >
+      Nothing takes the deleted clause's place. The ticket says where the run READS the set
+      from and no longer says where an operator CHANGES it.
+    alternative: >
+      Point at the ticket branch, the way ApprovedSetKept.WhereToChangeIt does for a
+      hand-back.
+    why: >
+      The specification is written to a ticket branch by a RUN, so a ticket that has never
+      been started has neither branch nor specs directory. Both constants that state the
+      branch answer were written for a hand-back DURING a run and one of them names the pull
+      request that run linked — which does not exist at filing time. Sending an operator
+      there would repeat this phase's own defect with a different destination. A sibling
+      phase is also about to make a ticket comment a legitimate way to demand a re-cut,
+      which changes the true answer again; whatever sentence finally replaces this one must
+      be owned in ONE place.
+  - id: no-header-about-what-the-ticket-steers
+    chose: >
+      No sentence is added saying the ticket does not steer the run.
+    alternative: >
+      A header stating that an edit to the ticket reaches nothing.
+    why: >
+      It would be false. An edit does not change the approved SPECIFICATION, but the
+      ticket's text still reaches the repository-scoping classifier, which runs before the
+      derivation even for an approved set and can move the run's size estimate and cost cap
+      or refuse the run outright; the title reaches the coding master's prompt on every
+      phase; the description becomes the head of the pull request. The narrower true
+      sentence belongs to the phase that can state it without inheriting the same trap.
+  - id: the-claim-is-corrected-everywhere-it-is-repeated
+    chose: >
+      The renderer's own doc comment, the code comment beside the specification's markdown
+      description and the reason string of the test that asserts the conversation id
+      survives are corrected with the rendered sentence.
+    alternative: >
+      Change only the string a ticket carries.
+    why: >
+      The belief would stay in the repository for the next reader to act on, and a reason
+      string is what a failing test tells its reader the assertion is for. The markdown
+      comment now says in as many words that the conversation is provenance and not a
+      destination.
+  - id: the-renderer-note-was-dropped-to-keep-the-file-under-the-limit
+    chose: >
+      The renderer carries no added paragraph explaining what the conversation is not; its
+      summary simply stops claiming it. ApprovedSetKept.WhereToChangeIt already owns the
+      true answer and the markdown comment now states the negative.
+    alternative: >
+      Keep the explanatory paragraph in PhaseTicketRenderer's doc comment.
+    why: >
+      The file sits one line under the 120-line hard limit and the paragraph pushed it to
+      125, which FileLengthRatchetTests rejects — correctly, since the rule forbids a new
+      baseline entry. A phase whose whole change is a deletion should not have to grow a
+      file to make it.

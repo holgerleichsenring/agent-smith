@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -36,7 +37,8 @@ internal static class SpecDialogTurnSeeds
 
     internal static Dictionary<string, object> Build(
         ConversationState state, IReadOnlyList<RepoConnection> scopeRepos,
-        Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images)
+        Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images,
+        IFiledTicketWithdrawal withdrawal)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
@@ -48,6 +50,9 @@ internal static class SpecDialogTurnSeeds
             // that seeded nothing is indistinguishable from one whose images were dropped.
             [ContextKeys.SpecDialogImages] = images,
             [ContextKeys.DialogueJobId] = state.JobId,
+            // 2026-09-22-9519: the way back out of a filing, seeded beside the identity it acts
+            // under — the master builds the tool from the two together.
+            [ContextKeys.SpecDialogWithdrawal] = withdrawal,
             [ContextKeys.Sandboxes] = (IReadOnlyDictionary<string, ISandbox>)sandboxes,
             // A template is addressed by its own name, like every other entry: the master
             // reads the address list off this map, so an entry missing here is reachable

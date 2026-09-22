@@ -1,0 +1,160 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-766b
+
+goal: "A filed ticket routes to phase execution because it carries an approval, not because it carries an invented word, so one framework key does both jobs and the other is retired."
+
+applies_to: "backend (the incoming project resolver's hard bind, the filing labels, and the predecessor machinery)"
+
+scope:
+  in: >
+    The framework writes five phase labels of its own onto tickets on somebody else's board, and
+    two of them travel on every filing: one says THIS IS A PHASE and hard-binds the phase-execution
+    preset before any of the operator's own routing rules; the other says THIS WAS APPROVED and is
+    the only evidence a run has that an approval ever existed. Nobody outside this framework knows
+    either word.
+    The obvious move — stop writing the first one — was specified and refused, because the hard
+    bind it carries is load-bearing in a way that is invisible from the poller. A project resolved
+    by repository or by area path cannot be matched from a polled envelope, and the filing says so
+    at filing time. But the TRACKER'S OWN WEBHOOK carries a source repository and an area path, so
+    those projects do match there — and the hard bind is then the only thing that chooses a
+    pipeline for them, because no label map holds a word a filed ticket carries. Removing the
+    writer would leave the match standing and the pipeline gone: a run that never starts, with
+    nothing reporting it, on both non-Jira projects of the shipped example configuration.
+    The answer is not to keep the word. It is to bind on the fact. A filing already stamps the
+    approval, the stamp is routable, and "this ticket was approved" and "this ticket is phase
+    execution" are the same fact about the same ticket. Moving the hard bind onto the stamp
+    removes the phase label's writer AND its reader, loses no routing on either path, asks the
+    operator for nothing, and leaves one framework key where there were two.
+    Two of the remaining three go the same way or stay for a stated reason. The predecessor stamp
+    is retired whole: no production writer exists, and its verdict can only HOLD a spawn, never
+    refuse one. The record label's reader must outlive this phase permanently — it is the entire
+    identity of the records already on a board, refused before every other rule, and dropping it
+    would make each of them routable overnight. The parent stamp's readers cannot be split from
+    the gate exemption that keeps a legacy child deriving instead of failing, so the whole set
+    goes together in a phase of its own.
+  out: >
+    THE APPROVED-SET STAMP ITSELF. After this phase it is the one key a filing writes, and it is
+    doing two jobs. Retiring it needs the specification to reach a run by a carrier the stamp is
+    no longer needed to vouch for — which is the phase that writes the set to the ticket branch as
+    it files. Named as the phase after that one.
+    THE PARENT STAMP AND ITS READERS. The gate exemption is the only refusing reader; remove the
+    others and it keys on a stamp nothing writes or reads, remove it alone and every legacy child
+    fails loudly. Atomic, and its own phase.
+    THE RECORD LABEL'S WRITER. It belongs to the sibling phase that stops filing slice records.
+    That phase edits the same filing path this one touches, so whichever lands second rebases.
+    THE LIFECYCLE LABELS. The framework also writes seven status labels on all four trackers.
+    They are a different mechanism with a different purpose and are not in this objection.
+
+decisions:
+  - key: |
+      BIND ON THE FACT, NOT ON THE WORD. A filed ticket routes to phase execution because somebody
+      approved a specification for it. That is exactly what the approval stamp records, and it is
+      routable. Two keys asserting one fact is the redundancy; removing the word and keeping the
+      fact is the whole change.
+  - key: |
+      THE WEBHOOK IS WHY THE FIRST DRAFT WAS WRONG. A project resolved by repository or area path
+      is unmatchable from a poll and matchable from a webhook, and the filing report says only the
+      first half. Removing the hard bind without replacing it would have dropped those runs where
+      nothing looks — the opposite of the loud refusal this repository insists on, and the very
+      failure the approved stamp is kept for elsewhere in this same phase.
+  - key: |
+      IT ASKS THE OPERATOR FOR NOTHING. The alternative was an operator mapping a framework word in
+      their own label map to get their routing back — which is the objection restated as a chore.
+      Binding on a stamp the filing already writes changes no estate's configuration.
+  - key: |
+      THE PREDECESSOR STAMP CAN ONLY HOLD, SO RETIRING IT IS A SCHEDULING CHANGE, NOT A SAFETY ONE.
+      Nothing writes it; its verdict becomes a queued claim rather than a refusal; and it already
+      answers ready unconditionally when a tracker declares no trigger statuses or the chain runs
+      past its hop limit. What changes is that two legacy children of one withdrawn shape may now
+      run CONCURRENTLY and cut from the same parent rung. That is the honest cost.
+  - key: |
+      THE RECORD LABEL'S READER IS PERMANENT AND ITS DOCUMENTATION MUST SAY SO. It refuses before
+      every other rule and the records already filed carry nothing else. Its note must name the
+      population it protects — both the epic parent summaries filed before the meaning widened and
+      the slice records — and say the writer is gone rather than that the label is written.
+
+steps:
+  - id: the-hard-bind-moves-to-the-approval-stamp
+    action: "The incoming resolver binds the phase-execution preset on the approval stamp rather than on the phase word, before the operator's own rules as it does today."
+  - id: the-phase-word-stops-being-written-and-read
+    action: "The filing stops applying the phase word and the resolver stops reading it, so neither the poll path nor the webhook path loses a route."
+  - id: the-predecessor-stamp-is-retired-whole
+    action: "The predecessor prefix, its stamp factory, its reader, the gate that consults it, its registration and its call site are removed, and the spawn path stops asking it."
+  - id: the-record-labels-note-says-what-it-protects
+    action: "The record label's documentation states that its writer is gone and that its reader refuses both generations of ticket already on a board."
+  - id: the-documentation-drops-the-withdrawn-shape
+    action: "The page describing an epic as linked children carrying parent references and requires-edges to siblings is corrected, because that shape and its machinery no longer exist."
+
+tests:
+  - "Routing_AFiledTicketCarryingTheApprovalStamp_BindsToPhaseExecution"
+  - "Routing_ATicketCarryingOnlyThePhaseWord_IsRoutedByTheOperatorsOwnRules"
+  - "Routing_ARepoResolvedProjectOnTheWebhook_StillRoutesAFiledTicket"
+  - "Routing_AnAreaPathResolvedProjectOnTheWebhook_StillRoutesAFiledTicket"
+  - "Routing_ATagResolvedProjectOnThePoll_StillRoutesAFiledTicket"
+  - "Routing_ARecordLabelledTicket_IsStillRefusedBeforeEveryOtherRule"
+  - "Filing_AFiledTicket_CarriesNoPhaseWord"
+  - "Filing_AFiledTicket_StillCarriesTheApprovalStamp"
+  - "Spawn_ATicketCarryingAPredecessorStamp_IsNoLongerHeld"
+  - "Spawn_TwoLegacyChildrenOfOneParent_MayRunConcurrently"
+
+done:
+  - "a filed ticket routes to phase execution on every path it routed on before, including the webhook"
+  - "no filing writes the phase word and nothing reads it"
+  - "no estate has to change its configuration"
+  - "a record already on a board is still refused before every other rule"
+  - "the predecessor machinery is gone, and two legacy children of one parent may now run at once"
+  - "build green, full suite green"
+
+facts:
+  - claim: "A filing applies the phase word and the approval stamp together."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:101-113"
+  - claim: "The epic filer applies the same pair to its work ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicTicketFiler.cs:75-82"
+  - claim: "The record label is refused before every other resolution rule."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:34-42"
+  - claim: "The phase word hard-binds the phase-execution preset ahead of the operator's label map."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:62-69"
+  - claim: "A project that matches but resolves to no pipeline is dropped."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:71-79"
+  - claim: "The approval stamp is a plain label the framework writes and can be read back from an incoming envelope."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs:47-51"
+  - claim: "Lifecycle filtering does not strip the approval stamp, so it survives to the resolver."
+    evidence: "src/backend/AgentSmith.Contracts/Tickets/LifecycleLabels.cs:45-62"
+  - claim: "The filing report states that a project resolving by anything but a tag cannot be started from a polled envelope."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReasons.cs:68-75"
+  - claim: "The same file records that the tracker's own webhook resolves more than the poller can, and appends that to the not-routed sentence."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReasons.cs:21-22,56"
+  - claim: "A webhook envelope for an issue carries the source repository, and one for a work item carries the area path."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEnvelopeBuilders.cs:14-45"
+  - claim: "Every issue webhook handler runs the same project resolver."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueWebhookHandler.cs:47"
+  - claim: "The shipped example configures one project by repository, one by area path and one by tag, and its global label map holds no phase word."
+    evidence: "config/agentsmith.example.yml:379-384,408-413,436-437,461-462"
+  - claim: "No production code writes the predecessor stamp or the parent stamp."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs:60-79"
+  - claim: "The predecessor gate answers ready when a tracker declares no trigger statuses and when the chain runs past its hop limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/PredecessorGate.cs:44-76"
+  - claim: "A blocked verdict becomes a queued claim rather than a refusal."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:63-64"
+  - claim: "The gate is registered in the server composition."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DispatcherExtensions.cs:80-81"
+  - claim: "The parent stamp's only refusing reader is the filed-ticket spec gate's exemption; its other readers do not refuse."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:38-56"
+  - claim: "The record label's own note records that the value was kept rather than renamed, because renaming would make every parent already filed routable overnight."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:27-33"
+  - claim: "A documentation page describes an epic as linked children carrying parent references and requires-edges to siblings."
+    evidence: "docs/how-it-works/spec-dialogue.md:18"
+  - claim: "Two documentation lines describe the phase word as a label a PERSON types and as hard-wired, which stays true after this phase."
+    evidence: "docs/how-it-works/spec-dialogue.md:22"
+  - claim: "The framework also writes seven lifecycle status labels, on a different mechanism."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs:137"
+
+assumptions:
+  - claim: "The approval stamp reaches the resolver on every path the phase word reaches it on today."
+    check: "Read what each incoming envelope carries for labels on the poll and on each webhook, and confirm the stamp is among them."
+  - claim: "Binding on the stamp does not bind a ticket an operator stamped by hand in a way the phase word did not."
+    check: "Establish whether a hand-stamped ticket is a real case and what it should route to."
+  - claim: "Removing the predecessor gate leaves no caller behind, including a test double and its call sites."
+    check: "Find every reference to the gate, its verdict type and the test double that stands in for it."
+  - claim: "Every suite that pins the filing's label array can be updated without losing what it covers."
+    check: "Find every test that references the phase word constant and establish what each asserts."

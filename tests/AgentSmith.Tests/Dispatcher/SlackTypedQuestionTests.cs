@@ -1,7 +1,10 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Adapters;
 using FluentAssertions;
+using AgentSmith.Tests.TestHelpers;
 
 namespace AgentSmith.Tests.Dispatcher;
 
@@ -101,6 +104,50 @@ public sealed class SlackTypedQuestionTests
         json.Should().Contain("optional comment");
     }
 
+    /// <summary>
+    /// 2026-09-22-355b: this surface never sends a button's VALUE — it splits the action id at
+    /// its LAST colon — so the label has to travel in the action id, and it has to come back
+    /// out of the extractor whole. A colon in a label would split it in the wrong place, the
+    /// question id would stop matching, and the click would vanish in silence.
+    /// </summary>
+    [Fact]
+    public void SlackApproval_AShapeButton_CarriesItsLabelBackAsTheAnswer()
+    {
+        const string label = "Cut into several phases";
+        var question = CreateQuestion(
+            QuestionType.Approval, questionId: "0123456789abcdef0123456789abcdef",
+            choices: [label]);
+
+        var blocks = new SlackTypedQuestionBlockBuilder().Build(question);
+        var actions = JsonNode.Parse(JsonSerializer.Serialize(blocks))!
+            .AsArray().Single(block => block!["type"]!.GetValue<string>() == "actions")!;
+        var elements = actions["elements"]!.AsArray();
+
+        // The shapes ride BESIDE the approve/reject pair, in one action block.
+        elements.Select(e => e!["action_id"]!.GetValue<string>()).Should().Equal(
+            "0123456789abcdef0123456789abcdef:approve",
+            "0123456789abcdef0123456789abcdef:reject",
+            $"0123456789abcdef0123456789abcdef:{label}");
+        var clicked = JsonNode.Parse(
+            $$"""
+            {"channel":{"id":"C1"},"actions":[{"action_id":"{{elements[2]!["action_id"]!.GetValue<string>()}}"}]}
+            """)!;
+
+        var (_, questionId, answer) = SlackPayloadExtractor.ExtractInteractionFields(clicked);
+
+        questionId.Should().Be("0123456789abcdef0123456789abcdef");
+        answer.Should().Be(label, "the picked shape is the edit note the master re-proposes with");
+    }
+
+    [Fact]
+    public void SlackApproval_WithShapes_SaysAPickBuysATurn()
+    {
+        var json = JsonSerializer.Serialize(new SlackTypedQuestionBlockBuilder()
+            .Build(CreateQuestion(QuestionType.Approval, choices: ["Cut into several phases"])));
+
+        json.Should().Contain("starts a new turn and files nothing");
+    }
+
     [Fact]
     public void BuildTypedQuestionBlocks_FreeText_ContainsPromptToTypeAnswer()
     {
@@ -178,29 +225,27 @@ public sealed class SlackTypedQuestionTests
     {
         var handler = new MockHttpMessageHandler(SlackOkResponse());
         var adapter = CreateAdapter(handler);
+        // The question's OWN timeout is not what this test is about, so it is set past the
+        // point where waiting means a hang — five seconds made "an answer arrives first" a
+        // claim about how quickly the host could get round to delivering it.
         var question = CreateQuestion(
             QuestionType.Confirmation,
             questionId: "q-answer-test",
-            timeout: TimeSpan.FromSeconds(5));
+            timeout: TestWaits.Hang);
 
         // Start the question in background
         var questionTask = adapter.AskTypedQuestionAsync("C123", question, threadId: null, CancellationToken.None);
 
-        // The question registers its TCS only AFTER the async chat.postMessage
-        // completes, so a fixed delay races on loaded CI runners. Poll until the
-        // completion succeeds instead — TryComplete returns false until the
-        // question is registered, then sets the answer. The 200 x 5ms window
-        // (~1s) stays well under the question's 5s timeout.
+        // The question registers its TCS only AFTER the async chat.postMessage completes, so
+        // a fixed delay races on loaded runners. Poll until the completion succeeds instead —
+        // TryComplete returns false until the question is registered, then sets the answer.
+        // 2026-09-22-3f7c: the poll used to give up after a thousand milliseconds of its own,
+        // which is the same fixed delay wearing a loop.
         var answer = new DialogAnswer("q-answer-test", "yes", null, DateTimeOffset.UtcNow, "U456");
-        var completed = false;
-        for (var attempt = 0; attempt < 200 && !completed; attempt++)
-        {
-            completed = adapter.TryCompleteTypedQuestion("q-answer-test", answer);
-            if (!completed)
-                await Task.Delay(5);
-        }
+        var completed = await TestWaits.ReachedAsync(
+            () => adapter.TryCompleteTypedQuestion("q-answer-test", answer));
 
-        completed.Should().BeTrue("the question should register within the poll window");
+        completed.Should().BeTrue("the question registers itself and then takes its answer");
 
         var result = await questionTask;
         result.Should().NotBeNull();

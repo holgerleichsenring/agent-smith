@@ -42,7 +42,10 @@ public sealed class SubAgentRunnerTests
         var specs = Enumerable.Range(0, 6).Select(i => Spec($"Slot{i}Investigator")).ToArray();
 
         var runTask = sut.RunAsync(specs, BuildContext(), CancellationToken.None);
-        await Task.Delay(80);
+        // 2026-09-22-3f7c: wait for the cap to be REACHED and then assert it is not exceeded.
+        // Eighty milliseconds asserted over whatever the host had managed to start, which on a
+        // slow one is nothing — the cap held because nothing was running.
+        await AgentSmith.Tests.TestHelpers.TestWaits.UntilAsync(() => stub.PeakInFlight >= 2, "the runner fills both slots");
         stub.PeakInFlight.Should().BeLessThanOrEqualTo(2);
         stub.Release();
         await runTask;
@@ -172,6 +175,35 @@ public sealed class SubAgentRunnerTests
         stub.SeenRequests.Should().HaveCount(1);
         stub.SeenRequests[0].AgentConfig.Type.Should().Be("azure_openai");
         stub.SeenRequests[0].AgentConfig.Model.Should().Be("test-model");
+    }
+
+    // 2026-09-22-5891: the context may carry a ceiling of its own (a design turn hands one),
+    // and a context that carries none is the run it always was.
+    [Fact]
+    public async Task SubAgentRunner_NoCeilingOnTheContext_UsesTheAgentConfigsAsToday()
+    {
+        var stub = new StubLoopRunner();
+        var sut = BuildRunner(stub);
+        var ctx = BuildContext();
+        ctx.AgentConfig.MaxSubAgentLoopIterations = 55;
+        ctx.ChildIterationCeiling.Should().BeNull("no master declared one");
+
+        await sut.RunAsync(new[] { Spec("RepoScout") }, ctx, CancellationToken.None);
+
+        stub.SeenRequests[0].MaxIterations.Should().Be(55);
+    }
+
+    [Fact]
+    public async Task SubAgentRunner_CeilingOnTheContext_IsPreferredOverTheAgentConfigs()
+    {
+        var stub = new StubLoopRunner();
+        var sut = BuildRunner(stub);
+        var ctx = BuildContext() with { ChildIterationCeiling = 6 };
+        ctx.AgentConfig.MaxSubAgentLoopIterations = 55;
+
+        await sut.RunAsync(new[] { Spec("RepoScout") }, ctx, CancellationToken.None);
+
+        stub.SeenRequests[0].MaxIterations.Should().Be(6);
     }
 
     private static SubAgentRunner BuildRunner(

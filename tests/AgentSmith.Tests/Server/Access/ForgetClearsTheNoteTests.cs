@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Access;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Server.Security;
 using FluentAssertions;
+using AgentSmith.Tests.TestHelpers;
 
 namespace AgentSmith.Tests.Server.Access;
 
@@ -83,8 +84,8 @@ public sealed class ForgetClearsTheNoteTests
         var held = await h.Buffer.HoldAsync(default);
 
         var removal = h.Remover.RemoveAsync("ada", new ChangeAttribution("tester"), default);
-        await Task.Delay(50);
-        removal.IsCompleted.Should().BeFalse("the removal waits for the batch in flight");
+        (await TestWaits.StaysAsync(() => !removal.IsCompleted))
+            .Should().BeTrue("the removal waits for the batch in flight");
 
         await h.Observed.UpsertAsync([Caller("ada")], default);
         held.Dispose();

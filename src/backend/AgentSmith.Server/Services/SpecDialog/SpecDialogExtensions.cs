@@ -1,5 +1,9 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -41,11 +45,8 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddTransient<PhaseTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
-        // 2026-09-17-0e79d: the order is the approved SET's — one run works the slices in it, and
-        // the records are filed in the same order so the tracker reads as the run runs.
+        // 2026-09-17-0e79d: the order is the approved SET's — one run works the slices in it.
         services.AddTransient<EpicChildOrderer>();
-        services.AddScoped<EpicSliceRecordFiler>();
-        services.AddScoped<EpicTicketFiler>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
         // 2026-09-20-2ba8: the tag that lets it resolve at all goes on in the same step.
         services.AddScoped<FiledWorkTagger>();
@@ -53,7 +54,9 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
         // 2026-09-17-0e79a: filing a phase stores the approved set under the ticket's spec key.
+        // 2026-09-22-b3d7: one path does that for a lone phase and for an approved cut alike.
         services.AddScoped<ApprovedPhaseSetRecorder>();
+        services.AddScoped<ApprovedSetTicketFiler>();
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
@@ -93,6 +96,12 @@ internal static class SpecDialogExtensions
         services.AddScoped<FiledWorkReader>();
         services.AddSingleton<FiledWorkWatchRegistry>();
         services.AddScoped<FiledWorkWatch>();
+        // 2026-09-22-9519: the way back out of a filing. The NUDGE is optional — the hub it needs
+        // is added conditionally, and a server with the UI API off still runs conversations on chat.
+        services.AddTransient<IFiledTicketWithdrawal>(sp => new FiledTicketWithdrawal(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<AgentSmithConfig>(),
+            sp.GetRequiredService<ITicketProviderFactory>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
+            sp.GetService<Events.FiledWorkNudge>(), sp.GetRequiredService<ILogger<FiledTicketWithdrawal>>()));
         // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
         // what filing it actually created.
         services.AddTransient<SpecDialogProposalComposer>();

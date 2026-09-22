@@ -30,4 +30,9 @@ public sealed record SubAgentContext(
     // and ChatClientFactory.Create threw "No IChatClientBuilder registered for type=''",
     // killing every spawned child before its first LLM call.
     AgentConfig AgentConfig,
-    string? ParentSubAgentId = null);
+    string? ParentSubAgentId = null,
+    // 2026-09-22-5891: the child's own per-pass iteration ceiling, when the master that
+    // spawns it wants one other than the agent config's. A design turn hands its own,
+    // far smaller, number here — a child gets no governor hooks, so how far it may go IS
+    // the bound on a fan-out. Null keeps the agent config's sub-agent ceiling.
+    int? ChildIterationCeiling = null);

@@ -21,9 +21,7 @@ public sealed class EnqueuedReconcilerTests
         var harness = new Harness();
         harness.SetupEnqueuedTicket("42");
 
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-        await harness.BuildSut().RunAsync(cts.Token);
+        await harness.BuildSut().RunAsync(OnePass());
 
         harness.JobQueue.Verify(q => q.EnqueueAsync(
             It.Is<PipelineRequest>(r => r.ProjectName == "proj"),
@@ -40,9 +38,7 @@ public sealed class EnqueuedReconcilerTests
             "proj", It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new StaleLease("proj", new TicketId("42"), "run-1", null, DateTimeOffset.UtcNow));
 
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-        await harness.BuildSut().RunAsync(cts.Token);
+        await harness.BuildSut().RunAsync(OnePass());
 
         harness.JobQueue.Verify(q => q.EnqueueAsync(
             It.IsAny<PipelineRequest>(),
@@ -60,9 +56,7 @@ public sealed class EnqueuedReconcilerTests
         harness.Resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
             .Returns([new ProjectMatch("other", "fix-bug", "github")]);
 
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-        await harness.BuildSut().RunAsync(cts.Token);
+        await harness.BuildSut().RunAsync(OnePass());
 
         harness.JobQueue.Verify(q => q.EnqueueAsync(
             It.IsAny<PipelineRequest>(),
@@ -85,15 +79,26 @@ public sealed class EnqueuedReconcilerTests
             TestSupport.ApprovedSets.Record(key, TestSupport.ApprovedSets.Noon, tracker: string.Empty),
             default);
 
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-        await harness.BuildSut().RunAsync(cts.Token);
+        await harness.BuildSut().RunAsync(OnePass());
 
         harness.JobQueue.Verify(q => q.EnqueueAsync(
             It.Is<PipelineRequest>(r =>
                 r.Context != null
                 && r.Context.ContainsKey(AgentSmith.Contracts.Commands.ContextKeys.ApprovedSpecSet)),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    /// <summary>
+    /// 2026-09-22-3f7c: the reconciler reconciles ONCE before it ever waits, and only then
+    /// enters a ten-minute loop. A token that is already cancelled therefore buys exactly that
+    /// pass and an immediate return — where a hundred-millisecond timer was a bet that the
+    /// pass would finish first, and a bet the machine could lose.
+    /// </summary>
+    private static CancellationToken OnePass()
+    {
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+        return cts.Token;
     }
 
     private sealed class Harness

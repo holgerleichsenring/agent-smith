@@ -12,6 +12,13 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// routes back as the answer over the dialogue transport, and interprets the
 /// reply: explicit approval files, explicit rejection files nothing, any
 /// other text is an edit note for the master, silence times out.
+/// <para>
+/// 2026-09-22-355b: beside the approve/reject pair it offers the other SHAPES this
+/// proposal's kind could take (<see cref="OutcomeShapes"/>), so the third door is visible
+/// rather than known. The question stays an Approval — the pair, the recorded decision and
+/// the pane's counted summary are all keyed off that kind — and a picked shape rides back as
+/// ordinary text, which is already an edit note carrying that label.
+/// </para>
 /// </summary>
 public sealed class SpecDialogOutcomeConfirmer(
     IDialogueTransport dialogueTransport,
@@ -28,7 +35,8 @@ public sealed class SpecDialogOutcomeConfirmer(
         var question = new DialogQuestion(
             Guid.NewGuid().ToString("N"), QuestionType.Approval,
             composer.ComposeConfirmation(proposal).In(SpecDialogMarkup.For(state.Platform)),
-            Context: null, Choices: null, DefaultAnswer: "", ConfirmationTimeout);
+            Context: null, Choices: OutcomeShapes.For(proposal), DefaultAnswer: "",
+            ConfirmationTimeout);
 
         // The thread's next text message is the answer (router pending branch);
         // the buttons are the same question's second input surface.
@@ -86,6 +94,9 @@ public sealed class SpecDialogOutcomeConfirmer(
                 state.JobId);
             return new OutcomeConfirmationTimedOut();
         }
+        // 2026-09-22-355b: the order of matching IS the contract. An approval or rejection word
+        // first, then everything else — an offered shape's label included — as an edit note
+        // carrying that text, which is what sends the master round again in that shape.
         return SpecDialogAnswerWords.DecisionIn(answer.Answer) switch
         {
             SpecDialogDecision.Approved => new OutcomeConfirmed(),

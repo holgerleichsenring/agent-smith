@@ -48,7 +48,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
-        _ownership = new SpecDialogOwnership(_repository, new SpecCommandParser());
+        _ownership = new SpecDialogOwnership(_repository);
         _turns = new SpecDialogTurnGate(_clock);
         // The same gate: setting and taking a question is what stops and starts the turn's clock.
         _pending = new SpecDialogPendingQuestions(_turns);
@@ -109,8 +109,9 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
     [Fact]
     public async Task AskTypedQuestion_TheOutcomeGate_CarriesItsKindThoughItCarriesNoChoices()
     {
-        // The confirmation gate asks an Approval question with Choices: null — every other
-        // adapter builds the approve/reject pair from the TYPE.
+        // An Approval with no choices: every adapter builds the approve/reject pair from the
+        // TYPE, so the kind has to travel even when the list is empty. 2026-09-22-355b's
+        // shapes are carried by the same field and proved where they are derived.
         var question = new DialogQuestion(
             "q-1", QuestionType.Approval, "File these two tickets?",
             Context: null, Choices: null, DefaultAnswer: "", TimeSpan.FromMinutes(15));
