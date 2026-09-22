@@ -60,13 +60,13 @@ public sealed class ProjectResolver(
                     continue;
                 }
 
-                // p0315d: a ticket the framework FILED routes hard-bound to phase execution on
-                // every project it matches — BEFORE pipeline_from_label, which would otherwise
-                // drop it: no operator's label map holds a key a filing writes.
-                // 2026-09-22-766b: the bind reads the APPROVAL, not a word — "this was approved"
-                // and "this is phase execution" are one fact. It is load-bearing on the WEBHOOK,
-                // which resolves a repository and an area path a poll cannot.
-                var pipeline = FiledTicketLabels.CarriesApprovedSet(envelope)
+                // p0315d: a ticket that BINDS routes hard-bound to phase execution on every
+                // project it matches — BEFORE pipeline_from_label, which would otherwise drop it:
+                // no operator's label map holds the framework's own stamp.
+                // 2026-09-22-766b: a FILING binds on the APPROVAL rather than on a word it wrote
+                // for itself; a PERSON still binds by typing the phase word. Load-bearing on the
+                // WEBHOOK, which resolves a repository and an area path a poll cannot.
+                var pipeline = FiledTicketLabels.BindsPhaseExecution(envelope)
                     ? PipelinePresets.PhaseExecutionName
                     : pipelineResolver.Resolve(
                         trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);

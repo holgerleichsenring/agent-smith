@@ -6,12 +6,14 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// 2026-09-13-a3f1: what the framework's own filing labels mean to routing, read in one
 /// place rather than spelled out again at each decision.
 /// <para>
-/// 2026-09-22-766b: ONE KEY DOES BOTH JOBS. A filing writes <see cref="ApprovedSetStamp"/> and
-/// nothing else, and that one stamp both says THIS WAS APPROVED and binds the ticket to phase
-/// execution — because "somebody approved a specification for this ticket" and "this ticket is
-/// phase execution" are the same fact about the same ticket. The separate word that used to
-/// assert the second half had no writer outside this framework and no reader outside this class,
-/// so asserting one fact twice was the redundancy; the word is gone and the fact stays.
+/// 2026-09-22-766b: ONE KEY DOES BOTH JOBS ON A FILED TICKET. A filing writes
+/// <see cref="ApprovedSetStamp"/> and nothing else, and that one stamp both says THIS WAS
+/// APPROVED and binds the ticket to phase execution — because "somebody approved a specification
+/// for this ticket" and "this ticket is phase execution" are the same fact about the same ticket.
+/// The word that used to assert the second half travelled on every filing, and a word this
+/// framework writes onto somebody else's board and reads back itself is the redundancy; no
+/// filing writes it now. It is still READ, because a PERSON may type it — see
+/// <see cref="BindsPhaseExecution"/>.
 /// </para>
 /// <para>
 /// A RECORD is not work at all — it is refused before every other rule, because every other rule
@@ -49,8 +51,8 @@ public static class FiledTicketLabels
     /// its description. Only a ticket carrying this stamp is held to "the set must have reached
     /// the run".
     /// <para>
-    /// 2026-09-22-766b: and it is also what ROUTES the ticket — see
-    /// <see cref="CarriesApprovedSet(IncomingTicketEnvelope)"/>.
+    /// 2026-09-22-766b: and it is also what ROUTES a filed ticket — see
+    /// <see cref="BindsPhaseExecution"/>.
     /// </para>
     /// </summary>
     public const string ApprovedSetStamp = "phase-spec:approved";
@@ -71,12 +73,16 @@ public static class FiledTicketLabels
     }
 
     /// <summary>
-    /// 2026-09-22-766b: the same question asked of an incoming envelope, which is where routing
-    /// asks it. The stamp survives lifecycle filtering, and the tracker's own webhook carries it
-    /// exactly as the poll does, so binding on it loses no path.
+    /// 2026-09-22-766b: the one question routing asks — does this ticket bind to phase execution?
+    /// TWO LABELS ANSWER IT, for two different reasons. The APPROVED-SET STAMP is what every
+    /// FILING writes: it survives lifecycle filtering and the tracker's own webhook carries it
+    /// exactly as the poll does, so binding on it loses no path, and it is the only framework
+    /// word a board ever gains. The PHASE WORD is what a PERSON types: no filing writes it, it is
+    /// a documented trigger an operator chooses, and dropping it would remove a way of starting a
+    /// run that nobody asked to lose.
     /// </summary>
-    public static bool CarriesApprovedSet(IncomingTicketEnvelope envelope) =>
-        Carries(envelope, ApprovedSetStamp);
+    public static bool BindsPhaseExecution(IncomingTicketEnvelope envelope) =>
+        Carries(envelope, ApprovedSetStamp) || Carries(envelope, PhaseTicketRenderer.PhaseLabel);
 
     /// <summary>
     /// 2026-09-17-0e79d: NO PRODUCTION CALLER LEFT. The framework stamps no POSITION on anything

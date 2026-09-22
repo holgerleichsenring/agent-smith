@@ -3,17 +3,31 @@ phase: 2026-09-22-766b
 
 decisions:
   - category: Architecture
-    chose: "Routing hard-binds on the APPROVAL STAMP; the filing writes that stamp and nothing else"
+    chose: "A FILING routes on the APPROVAL STAMP, and writes that stamp and nothing else"
     over: "Stopping the writer and reading nothing, or asking every operator to map a framework word in their own pipeline_from_label"
     reason: |
       "Somebody approved a specification for this ticket" and "this ticket is phase execution"
       are the same fact about the same ticket. The stamp already records it, survives lifecycle
-      filtering and reaches the resolver on every path the word reached it on, so two keys were
-      two things to keep in step and one of them was nobody's outside this framework. Binding on
-      the stamp removes the word's writer AND its reader, loses no routing, and asks no estate to
-      change its configuration. The stamp is now the only label a filing writes, which is also
-      the label a tag-resolving project can resolve by without anything being added to the
-      ticket — what FiledWorkStartTests now stands on.
+      filtering and reaches the resolver on every path the word reached it on, so a filing
+      carrying both wrote a word onto somebody else's board only to read it back itself. Binding
+      a filing on the stamp loses no routing and asks no estate to change its configuration. The
+      stamp is now the only label a filing writes, which is also the label a tag-resolving
+      project can resolve by without anything being added to the ticket — what FiledWorkStartTests
+      now stands on.
+
+  - category: Architecture
+    chose: "The phase word still BINDS when a person types it; only the FILING stopped writing it"
+    over: "Retiring the word's reader along with its writer, which is what this phase first did"
+    reason: |
+      The objection this phase answers is about words the FRAMEWORK writes onto an operator's
+      board that nobody outside it knows and nobody types. A label a person types deliberately is
+      the opposite: a documented trigger they chose, promised by two documentation pages. Taking
+      the reader away as a side effect of removing the writer is a behaviour change nobody asked
+      for, and it would silently turn such a ticket into one the project's own label map either
+      claims for the wrong pipeline or drops. So ProjectResolver binds when the envelope carries
+      the stamp OR the word, still ahead of pipeline_from_label and still after the record
+      refusal, and FiledTicketLabels.BindsPhaseExecution is the one seam that answers it. The two
+      documentation lines stay true as written and needed no edit.
 
   - category: Architecture
     chose: "The bind MOVES rather than going, because the tracker's own webhook resolves what a poll cannot"
@@ -29,15 +43,16 @@ decisions:
       repo case and the area-path case beside the tag-on-the-poll case.
 
   - category: Implementation
-    chose: "The server-side discovery label guard names the approved-set stamp, where it named the phase word"
-    over: "Leaving the word in the guard, or guarding on both keys"
+    chose: "The server-side discovery label guard names BOTH binding keys, and nothing when no guard is asked for"
+    over: "Leaving it naming only the phase word, or swapping the word for the stamp"
     reason: |
-      The guard exists so a hard-bound ticket is not filtered out of discovery before anything
-      can route it, so it must name exactly what hard-binds. THE COST, STATED: a ticket carrying
-      only the word — one filed before the stamp existed, or one a person typed — is no longer
-      forced past a label guard. A guard is only built when the project declares a
-      pipeline_from_label, which is a strict filter that drops such a ticket anyway, so nothing
-      that would have run stops running.
+      The guard exists so a hard-binding ticket is not filtered out of discovery before anything
+      can route it, so it must name exactly what binds — which is two keys now, not one. Naming
+      only the stamp would hide a hand-typed phase ticket from every poll of a label-guarded
+      tracker; naming only the word would hide every ticket this framework files. The keys are
+      added ONLY to a guard the project's own pipeline_from_label already asked for: a guard
+      built out of framework keys alone would hide every ordinary ticket from the poll, which is
+      why both halves are pinned.
 
   - category: Implementation
     chose: "The filed ticket's label note is ONE sentence, and it states both of the stamp's jobs"
@@ -81,12 +96,24 @@ decisions:
       in a phase of its own.
 
   - category: Scope
-    chose: "Only the epic bullet of the spec-dialogue page is corrected; the two lines calling the phase word hard-wired are left alone"
-    over: "Correcting every documentation line the change touches"
+    chose: "Only the epic bullet of the spec-dialogue page is corrected; the two lines calling the phase word hard-wired are left because they are TRUE"
+    over: "Editing those two lines to say the word no longer binds"
     reason: |
       The epic-as-N-linked-children description names parent references and sibling requires:
-      edges that have no machinery left, so it is corrected here. The phase spec scopes the other
-      two lines out. OPEN AND VISIBLE: after this phase those two lines
-      (docs/how-it-works/spec-dialogue.md and docs/reference/pipelines/index.md) overstate — a
-      ticket a person labels with the word is routed by the project's own rules, or dropped, and
-      the word is hard-wired to nothing. They need a correction of their own.
+      edges that have no machinery left, so it is corrected here. The other two lines
+      (docs/how-it-works/spec-dialogue.md and docs/reference/pipelines/index.md) promise that a
+      person may trigger phase execution by putting the phase word on a ticket and that the word
+      needs no pipeline_from_label entry. This phase first made that false by retiring the
+      reader, and the fix was to restore the reader rather than to rewrite the promise: the
+      documentation describes the behaviour an operator chose, so the behaviour is what had to
+      hold. Nothing in the predecessor retirement was restored with it.
+
+  - category: TradeOff
+    chose: "Filing_AFiledTicket_StillCarriesTheApprovalStamp is superseded by Filing_AFiledTicket_CarriesOnlyTheApprovalStamp"
+    over: "Keeping the weaker spec-named test beside a strictly stronger one"
+    reason: |
+      The phase spec names the weaker claim. Exact equality on the label array proves it and adds
+      the claim that now matters more: nothing rides ALONG with the stamp. The word is read again,
+      so a filing that wrote it would both put a framework word on somebody else's board and hand
+      every filed ticket a second binding key — two tests asserting subsets of one array is the
+      redundancy this phase is about.

@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// p0315c: composes a phase ticket from a schema-valid PhaseDraft. The body leads with a
 /// human-first markdown summary (goal / why / scope, read from the draft's own yaml).
 /// 2026-09-22-766b: the ticket carries ONE framework label, the approved-set stamp, and it is
-/// that stamp which binds it to phase execution.
+/// that stamp which binds a FILED ticket to phase execution.
 /// <para>
 /// 2026-09-17-0e79a: a filed phase carries NO fenced spec. The approved set is stored under the
 /// ticket's spec key and carried to the run, and a fence in the body would be a second truth —
@@ -18,6 +18,15 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class PhaseTicketRenderer
 {
+    /// <summary>
+    /// 2026-09-22-766b: THE WORD A PERSON TYPES. No filing writes it — a filed ticket carries the
+    /// approved-set stamp alone, so no board gains a framework word nobody chose — and it is READ
+    /// all the same: it is a documented trigger an operator puts on a ticket deliberately, and
+    /// dropping it would take away a way of starting a run that nobody asked to lose. The
+    /// objection this phase answers is about words this framework WRITES; this is the opposite.
+    /// </summary>
+    public const string PhaseLabel = "phase";
+
     /// <summary>
     /// 2026-09-13-a3f1: a RECORD, not work. It was filed with the phase label, which hard-binds
     /// routing, so a run started on the summary of a cut and died at the spec gate. Framework-owned
