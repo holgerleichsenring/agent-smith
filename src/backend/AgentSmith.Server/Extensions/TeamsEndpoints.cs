@@ -104,7 +104,7 @@ internal static class TeamsEndpoints
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
+                await using var scope = scopeFactory.CreateAsyncScope();
                 await scope.ServiceProvider
                     .GetRequiredService<SlackMessageDispatcher>()
                     .DispatchAsync(text, fromId, conversationId, CancellationToken.None,
@@ -133,7 +133,7 @@ internal static class TeamsEndpoints
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
+                await using var scope = scopeFactory.CreateAsyncScope();
                 await scope.ServiceProvider
                     .GetRequiredService<TeamsInteractionHandler>()
                     .HandleAsync(conversationId, fromId, value, CancellationToken.None);
